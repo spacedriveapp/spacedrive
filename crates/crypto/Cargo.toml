@@ -1,7 +1,7 @@
 [package]
 name = "sd-crypto"
 version = "0.0.0"
-authors = ["Jake <brxken128@tutanota.com>"]
+authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
@@ -12,8 +12,10 @@ rust-version = "1.64.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 
-# password hashing
+# hashing
 argon2 = "0.4.1"
+balloon-hash = "0.3.0"
+blake3 = { version = "1.3.3", features = ["traits-preview"] }
 
 # aeads
 aes-gcm = "0.10.1"
@@ -27,16 +29,39 @@ zeroize = "1.5.7"
 thiserror = "1.0.37"
 
 # metadata de/serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde-big-array = "0.4.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+serde-big-array = { version = "0.4.1", optional = true }
 
-uuid = { version = "1.1.2", features = ["v4", "serde"] }
+uuid = { version = "1.1.2", features = ["v4"] }
 
 dashmap = "5.4.0"
 
-rspc = { workspace = true, optional = true }
-specta = { workspace = true }
+rspc = { workspace = true, features = ["uuid"], optional = true }
+specta = { workspace = true, optional = true }
+
+hex = "0.4.3"
+
+tokio = { version = "1.21.2", features = ["io-util", "rt-multi-thread"] }
+
+[dev-dependencies]
+criterion = "0.4.0"
 
 [features]
-rpsc = ["rspc"]
+rspc = ["dep:rspc", "dep:specta"]
+serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
+
+[[bench]]
+name = "aes-256-gcm"
+path = "benches/aes-256-gcm.rs"
+harness = false
+
+[[bench]]
+name = "xchacha20-poly1305"
+path = "benches/xchacha20-poly1305.rs"
+harness = false
+
+[[bench]]
+name = "argon2id"
+path = "benches/argon2id.rs"
+harness = false

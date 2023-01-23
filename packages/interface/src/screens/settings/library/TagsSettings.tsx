@@ -1,65 +1,48 @@
-import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { TagUpdateArgs } from '@sd/client';
-import { Button, Card, Dialog, Input, Switch } from '@sd/ui';
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'rooks';
-
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Card, Dialog, Switch, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
+import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { PopoverPicker } from '~/components/primitive/PopoverPicker';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Tooltip } from '~/components/tooltip/Tooltip';
 
 export default function TagsSettings() {
-	const [openCreateModal, setOpenCreateModal] = useState(false);
-	const [openDeleteModal, setOpenDeleteModal] = useState(false);
-	// creating new tag state
-	const [newColor, setNewColor] = useState('#A717D9');
-	const [newName, setNewName] = useState('');
+	const tags = useLibraryQuery(['tags.list']);
 
-	const { data: tags } = useLibraryQuery(['tags.list']);
-
-	const [selectedTag, setSelectedTag] = useState<null | Tag>(tags?.[0] ?? null);
-
-	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
-		onError: (e) => {
-			console.error('error', e);
-		},
-		onSuccess: (_) => {
-			setOpenCreateModal(false);
-		}
-	});
+	const [selectedTag, setSelectedTag] = useState<null | Tag>(tags.data?.[0] ?? null);
 
 	const updateTag = useLibraryMutation('tags.update');
 
-	const deleteTag = useLibraryMutation('tags.delete', {
-		onSuccess: () => {
-			setSelectedTag(null);
-		}
+	const updateForm = useZodForm({
+		schema: z.object({
+			id: z.number(),
+			name: z.string().nullable(),
+			color: z.string().nullable()
+		}),
+		defaultValues: selectedTag ?? undefined
 	});
 
-	const { register, handleSubmit, watch, reset, control } = useForm({
-		defaultValues: selectedTag as TagUpdateArgs
-	});
+	const submitTagUpdate = updateForm.handleSubmit((data) => updateTag.mutateAsync(data));
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), [submitTagUpdate]);
 
 	const setTag = useCallback(
 		(tag: Tag | null) => {
-			if (tag) reset(tag);
+			if (tag) updateForm.reset(tag);
 			setSelectedTag(tag);
 		},
-		[setSelectedTag, reset]
+		[setSelectedTag, updateForm]
 	);
 
-	const submitTagUpdate = handleSubmit((data) => updateTag.mutate(data));
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), []);
-
 	useEffect(() => {
-		const subscription = watch(() => autoUpdateTag());
+		const subscription = updateForm.watch(() => autoUpdateTag());
 		return () => subscription.unsubscribe();
-	});
+	}, [updateForm, autoUpdateTag]);
 
 	return (
 		<SettingsContainer>
@@ -68,45 +51,21 @@ export default function TagsSettings() {
 				description="Manage your tags."
 				rightArea={
 					<div className="flex-row space-x-2">
-						<Dialog
-							open={openCreateModal}
-							setOpen={setOpenCreateModal}
-							title="Create New Tag"
-							description="Choose a name and color."
-							ctaAction={() => {
-								createTag({
-									name: newName,
-									color: newColor
-								});
+						<Button
+							variant="accent"
+							size="sm"
+							onClick={() => {
+								dialogManager.create((dp) => <CreateTagDialog {...dp} />);
 							}}
-							loading={isLoading}
-							ctaLabel="Create"
-							trigger={
-								<Button variant="accent" size="sm">
-									Create Tag
-								</Button>
-							}
 						>
-							<div className="relative mt-3 ">
-								<PopoverPicker
-									className="!absolute left-[9px] -top-[3px]"
-									value={newColor}
-									onChange={setNewColor}
-								/>
-								<Input
-									value={newName}
-									onChange={(e) => setNewName(e.target.value)}
-									className="w-full pl-[40px]"
-									placeholder="Name"
-								/>
-							</div>
-						</Dialog>
+							Create Tag
+						</Button>
 					</div>
 				}
 			/>
 			<Card className="!px-2">
 				<div className="flex flex-wrap gap-2 m-1">
-					{tags?.map((tag) => (
+					{tags.data?.map((tag) => (
 						<div
 							onClick={() => setTag(tag.id === selectedTag?.id ? null : tag)}
 							key={tag.id}
@@ -122,51 +81,44 @@ export default function TagsSettings() {
 				</div>
 			</Card>
 			{selectedTag ? (
-				<form onSubmit={submitTagUpdate}>
+				<Form form={updateForm} onSubmit={submitTagUpdate}>
 					<div className="flex flex-row mb-10 space-x-3">
 						<div className="flex flex-col">
 							<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">
 								Color
 							</span>
 							<div className="relative">
-								<Controller
-									name="color"
-									control={control}
-									render={({ field: { onChange, value } }) => (
-										<PopoverPicker
-											className="!absolute left-[9px] -top-[3px]"
-											value={value || ''}
-											onChange={onChange}
-										/>
-									)}
+								<PopoverPicker
+									className="!absolute left-[9px] -top-[3px]"
+									{...updateForm.register('color')}
 								/>
-								<Input className="w-28 pl-[40px]" {...register('color')} />
+								<Input className="w-28 pl-[40px]" {...updateForm.register('color')} />
 							</div>
 						</div>
 						<div className="flex flex-col">
 							<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">
 								Name
 							</span>
-							<Input {...register('name')} />
+							<Input {...updateForm.register('name')} />
 						</div>
 						<div className="flex flex-grow" />
-						<Dialog
-							open={openDeleteModal}
-							setOpen={setOpenDeleteModal}
-							title="Delete Tag"
-							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
-							ctaAction={() => {
-								deleteTag.mutate(selectedTag.id);
-							}}
-							loading={deleteTag.isLoading}
-							ctaDanger
-							ctaLabel="Delete"
-							trigger={
-								<Button variant="gray" className="h-[38px] mt-[22px]">
-									<Trash className="w-4 h-4" />
-								</Button>
+						<Button
+							variant="gray"
+							className="h-[38px] mt-[22px]"
+							onClick={() =>
+								dialogManager.create((dp) => (
+									<DeleteTagDialog
+										{...dp}
+										tagId={selectedTag.id}
+										onSuccess={() => setSelectedTag(null)}
+									/>
+								))
 							}
-						/>
+						>
+							<Tooltip label="Delete Tag">
+								<Trash className="w-4 h-4" />
+							</Tooltip>
+						</Button>
 					</div>
 					<InputContainer
 						mini
@@ -175,10 +127,75 @@ export default function TagsSettings() {
 					>
 						<Switch checked />
 					</InputContainer>
-				</form>
+				</Form>
 			) : (
 				<div className="text-sm font-medium text-gray-400">No Tag Selected</div>
 			)}
 		</SettingsContainer>
+	);
+}
+
+function CreateTagDialog(props: UseDialogProps) {
+	const dialog = useDialog(props);
+
+	const form = useZodForm({
+		schema: z.object({
+			name: z.string(),
+			color: z.string()
+		}),
+		defaultValues: {
+			color: '#A717D9'
+		}
+	});
+
+	const createTag = useLibraryMutation('tags.create', {
+		onError: (e) => {
+			console.error('error', e);
+		}
+	});
+
+	return (
+		<Dialog
+			{...{ dialog, form }}
+			onSubmit={form.handleSubmit((data) => createTag.mutateAsync(data))}
+			title="Create New Tag"
+			description="Choose a name and color."
+			ctaLabel="Create"
+		>
+			<div className="relative mt-3 ">
+				<PopoverPicker className="!absolute left-[9px] -top-[3px]" {...form.register('color')} />
+				<Input
+					{...form.register('name', { required: true })}
+					className="w-full pl-[40px]"
+					placeholder="Name"
+				/>
+			</div>
+		</Dialog>
+	);
+}
+
+interface DeleteTagDialogProps extends UseDialogProps {
+	tagId: number;
+	onSuccess: () => void;
+}
+
+function DeleteTagDialog(props: DeleteTagDialogProps) {
+	const dialog = useDialog(props);
+
+	const form = useZodForm({ schema: z.object({}) });
+
+	const deleteTag = useLibraryMutation('tags.delete', {
+		onSuccess: props.onSuccess
+	});
+
+	return (
+		<Dialog
+			{...{ form, dialog }}
+			onSubmit={form.handleSubmit(() => deleteTag.mutateAsync(props.tagId))}
+			title="Delete Tag"
+			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
+			ctaDanger
+			ctaLabel="Delete"
+		/>
 	);
 }

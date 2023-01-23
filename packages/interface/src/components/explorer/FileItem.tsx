@@ -1,9 +1,9 @@
-import { ExplorerItem } from '@sd/client';
-import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-
-import { getExplorerStore } from '../../util/explorerStore';
+import { ExplorerItem, isVideoExt } from '@sd/client';
+import { cva, tw } from '@sd/ui';
+import { getExplorerStore } from '~/hooks/useExplorerStore';
+import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
 
@@ -27,94 +27,63 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const isVid = isVideo(data.extension || '');
+	const objectData = data ? (isObject(data) ? data : data.object) : null;
+	const isVid = isVideoExt(data.extension || '');
 
 	return (
-		<div
-			onContextMenu={(e) => {
-				const objectId = isObject(data) ? data.id : data.object?.id;
-				if (objectId != undefined) {
-					getExplorerStore().contextMenuObjectId = objectId;
+		<FileItemContextMenu item={data}>
+			<div
+				onContextMenu={(e) => {
 					if (index != undefined) {
 						getExplorerStore().selectedRowIndex = index;
-						getExplorerStore().contextMenuActiveObject = isObject(data) ? data : data.object;
 					}
-				}
-			}}
-			{...rest}
-			draggable
-			className={clsx('inline-block w-[100px] mb-3', rest.className)}
-		>
-			<div
-				style={{ width: getExplorerStore().gridItemSize, height: getExplorerStore().gridItemSize }}
-				className={clsx(
-					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
-					{
-						'bg-app-selected/30': selected
-					}
-				)}
+				}}
+				{...rest}
+				draggable
+				className={clsx('inline-block w-[100px] mb-3', rest.className)}
 			>
 				<div
+					style={{
+						width: getExplorerStore().gridItemSize,
+						height: getExplorerStore().gridItemSize
+					}}
 					className={clsx(
-						'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
+						'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
+						{
+							'bg-app-selected/30': selected
+						}
 					)}
 				>
-					<FileThumb
+					<div
 						className={clsx(
-							'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && '!border-black rounded border-x-0 border-y-[9px]'
+							'flex relative items-center justify-center h-full p-1 rounded border-transparent border-2 shrink-0'
 						)}
-						data={data}
-						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
-						size={getExplorerStore().gridItemSize}
-					/>
-					{data?.extension && isVid && (
-						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
-							{data.extension}
-						</div>
-					)}
+					>
+						<FileThumb
+							className={clsx(
+								'border-2 border-app-line rounded-sm shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+								isVid && '!border-black rounded border-x-0 border-y-[7px]'
+							)}
+							data={data}
+							kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+							size={getExplorerStore().gridItemSize}
+						/>
+						{data?.extension && isVid && (
+							<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
+								{data.extension}
+							</div>
+						)}
+					</div>
 				</div>
+				<NameArea>
+					<span className={nameContainerStyles({ selected })}>
+						{data?.name}
+						{data?.extension && `.${data.extension}`}
+					</span>
+				</NameArea>
 			</div>
-			<NameArea>
-				<span className={nameContainerStyles({ selected })}>
-					{data?.name}
-					{data?.extension && `.${data.extension}`}
-				</span>
-			</NameArea>
-		</div>
+		</FileItemContextMenu>
 	);
 }
 
 export default FileItem;
-
-function isVideo(extension: string) {
-	return [
-		'avi',
-		'asf',
-		'mpeg',
-		'mts',
-		'mpe',
-		'vob',
-		'qt',
-		'mov',
-		'asf',
-		'asx',
-		'mjpeg',
-		'ts',
-		'mxf',
-		'm2ts',
-		'f4v',
-		'wm',
-		'3gp',
-		'm4v',
-		'wmv',
-		'mp4',
-		'webm',
-		'flv',
-		'mpg',
-		'hevc',
-		'ogv',
-		'swf',
-		'wtv'
-	].includes(extension);
-}

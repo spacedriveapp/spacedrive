@@ -1,8 +1,18 @@
 {
-	"extends": "../config/interface.tsconfig.json",
+	"extends": "../config/base.tsconfig.json",
 	"compilerOptions": {
-		"target": "es2020",
-		"outDir": "./dist"
+		"rootDir": "src",
+		"declarationDir": "dist",
+		"paths": {
+			"~/*": ["./src/*"]
+		},
+		"types": ["vite-plugin-svgr/client", "vite/client"]
 	},
-	"include": ["src", "../ui/src/Dialog.tsx", "../ui/src/Loader.tsx"]
+	"include": ["src"],
+	"exclude": ["dist"],
+	"references": [
+		{
+			"path": "../ui"
+		}
+	]
 }

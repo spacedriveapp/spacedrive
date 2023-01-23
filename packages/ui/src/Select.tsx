@@ -1,5 +1,5 @@
-import * as SelectPrimitive from '@radix-ui/react-select';
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import * as SelectPrimitive from '@radix-ui/react-select';
 import clsx from 'clsx';
 import { CaretDown, Check } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
@@ -9,6 +9,7 @@ interface SelectProps {
 	size?: 'sm' | 'md' | 'lg';
 	className?: string;
 	onChange: (value: string) => void;
+	disabled?: boolean;
 }
 
 export function Select(props: PropsWithChildren<SelectProps>) {
@@ -17,6 +18,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 			defaultValue={props.value}
 			value={props.value}
 			onValueChange={props.onChange}
+			disabled={props.disabled}
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(

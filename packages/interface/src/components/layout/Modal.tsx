@@ -1,8 +1,8 @@
 import { Transition } from '@headlessui/react';
-import { ButtonLink } from '@sd/ui';
 import clsx from 'clsx';
 import { X } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
+import { ButtonLink } from '@sd/ui';
 
 export function Model(
 	props: PropsWithChildren<{

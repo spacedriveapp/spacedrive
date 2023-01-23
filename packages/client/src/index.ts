@@ -1,4 +1,5 @@
 declare global {
+	// eslint-disable-next-line
 	var isDev: boolean;
 }
 
@@ -9,3 +10,4 @@ export * from './hooks';
 export * from './stores';
 export * from './rspc';
 export * from './core';
+export * from './utils';

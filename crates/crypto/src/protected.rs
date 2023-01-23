@@ -28,7 +28,7 @@
 //! let value = protected_data.expose();
 //! ```
 //!
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
 
 #[derive(Clone)]
@@ -67,6 +67,17 @@ where
 	}
 }
 
+impl<T> Protected<T>
+where
+	T: Zeroize + Default,
+{
+	pub fn into_inner(mut self) -> T {
+		let mut out = Default::default();
+		swap(&mut self.data, &mut out);
+		out
+	}
+}
+
 impl<T> Drop for Protected<T>
 where
 	T: Zeroize,
@@ -82,5 +93,38 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str("[REDACTED]")
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T> serde::Deserialize<'de> for Protected<T>
+where
+	T: serde::Deserialize<'de> + Zeroize,
+{
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		Ok(Self::new(T::deserialize(deserializer)?))
+	}
+}
+
+#[cfg(feature = "rspc")]
+impl<T> specta::Type for Protected<T>
+where
+	T: specta::Type + Zeroize,
+{
+	const NAME: &'static str = T::NAME;
+
+	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+		T::inline(opts, generics)
+	}
+
+	fn reference(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+		T::reference(opts, generics)
+	}
+
+	fn definition(opts: specta::DefOpts) -> specta::DataType {
+		T::definition(opts)
 	}
 }

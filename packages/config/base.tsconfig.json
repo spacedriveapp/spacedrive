@@ -2,29 +2,25 @@
 	"$schema": "https://json.schemastore.org/tsconfig",
 	"display": "Default",
 	"compilerOptions": {
-		"lib": ["DOM", "DOM.Iterable", "ESNext"],
-		"declaration": false,
-		"noEmit": true,
+		// Actual type stuff
+		"strict": true,
+		"jsx": "react-jsx",
 		"esModuleInterop": true,
+		// Various configs
+		"skipLibCheck": true,
+		"preserveWatchOutput": true,
 		"forceConsistentCasingInFileNames": true,
-		"inlineSources": false,
-		"isolatedModules": false,
+		"allowSyntheticDefaultImports": true,
+		// Project references stuff
+		"composite": true,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		// Module stuff
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
 		"module": "ESNext",
 		"target": "ESNext",
-		"moduleResolution": "node",
-		"noUnusedLocals": false,
-		"noUnusedParameters": false,
-		"preserveWatchOutput": true,
-		"skipLibCheck": true,
-		"strict": true,
-		"allowSyntheticDefaultImports": true,
-		"resolveJsonModule": true,
-		"jsx": "react-jsx",
-		"paths": {
-			"@sd/interface": ["../../packages/interface"],
-			"@sd/ui": ["../../packages/ui"],
-			"@sd/client": ["../../packages/client"]
-		}
-	},
-	"exclude": ["node_modules"]
+		// Extra types
+		"types": ["vite-plugin-svgr/client", "vite/client"]
+	}
 }

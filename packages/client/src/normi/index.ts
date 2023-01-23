@@ -3,14 +3,13 @@ import { CustomHooks } from '@rspc/client';
 // @ts-expect-error: // TODO(@Oscar): Fix types
 import { __useMutation, __useQuery } from '@rspc/react/internal';
 import { useMemo } from 'react';
-
 import { NormiOptions, getNormiCache, loadDataFromCache } from './utils';
 
 export function normiCustomHooks(
 	{ contextSharing }: NormiOptions,
 	nextHooks?: () => CustomHooks
 ): () => CustomHooks {
-	let normiCache = getNormiCache(contextSharing ?? false);
+	const normiCache = getNormiCache(contextSharing ?? false);
 	const next = nextHooks?.();
 
 	// TODO: Handle manual modifications to the query cache

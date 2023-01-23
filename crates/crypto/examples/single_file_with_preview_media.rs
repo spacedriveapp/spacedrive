@@ -2,13 +2,9 @@ use std::fs::File;
 
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
-	header::{
-		file::{FileHeader, FileHeaderVersion},
-		keyslot::{Keyslot, KeyslotVersion},
-		preview_media::PreviewMediaVersion,
-	},
+	header::{file::FileHeader, keyslot::Keyslot, preview_media::PreviewMediaVersion},
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{generate_master_key, generate_salt},
+	primitives::{generate_master_key, generate_salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
 	Protected,
 };
 
@@ -25,31 +21,35 @@ fn encrypt() {
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
 
-	// This ideally should be done by the KMS
-	let salt = generate_salt();
+	// These should ideally be done by a key management system
+	let content_salt = generate_salt();
+	let hashed_password = HASHING_ALGORITHM
+		.hash(password, content_salt, None)
+		.unwrap();
 
 	// Create a keyslot to be added to the header
-	// The password is cloned as we also need to provide this for the preview media
-	let mut keyslots: Vec<Keyslot> = Vec::new();
-	keyslots.push(
-		Keyslot::new(
-			KeyslotVersion::V1,
-			ALGORITHM,
-			HASHING_ALGORITHM,
-			salt,
-			password.clone(),
-			&master_key,
-		)
-		.unwrap(),
-	);
+	let keyslots = vec![Keyslot::new(
+		LATEST_KEYSLOT,
+		ALGORITHM,
+		HASHING_ALGORITHM,
+		content_salt,
+		hashed_password,
+		master_key.clone(),
+	)
+	.unwrap()];
 
 	let pvm_media = b"a nice mountain".to_vec();
 
 	// Create the header for the encrypted file (and include our preview media)
-	let mut header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots);
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots);
 
 	header
-		.add_preview_media(PreviewMediaVersion::V1, ALGORITHM, &master_key, &pvm_media)
+		.add_preview_media(
+			PreviewMediaVersion::V1,
+			ALGORITHM,
+			master_key.clone(),
+			&pvm_media,
+		)
 		.unwrap();
 
 	// Write the header to the file
@@ -72,7 +72,7 @@ pub fn decrypt_preview_media() {
 	let mut reader = File::open("test.encrypted").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the preview media
 	let media = header.decrypt_preview_media(password).unwrap();

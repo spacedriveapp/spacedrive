@@ -1,50 +1,67 @@
-import { useLibraryQuery, useLibraryMutation  } from '@sd/client';
-import { Button, CategoryHeading } from '@sd/ui';
-
+import { useMemo, useRef } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, SelectOption } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
-import { Key } from './Key';
-import { useMemo } from 'react';
+import { DummyKey, Key } from './Key';
 
 export type KeyListProps = DefaultProps;
 
-const ListKeys = () => {
-	const keys = useLibraryQuery(['keys.list']);
-	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
+// ideal for going within a select box
+// can use mounted or unmounted keys, just provide different inputs
+export const SelectOptionKeyList = (props: { keys: string[] }) => (
+	<>
+		{props.keys.map((key) => (
+			<SelectOption key={key} value={key}>
+				Key {key.substring(0, 8).toUpperCase()}
+			</SelectOption>
+		))}
+	</>
+);
 
-	// use a separate route so we get the default key from the key manager, not the database
-	// sometimes the key won't be stored in the database
-	const default_key = useLibraryQuery(['keys.getDefault']);
+export const ListOfKeys = () => {
+	const keys = useLibraryQuery(['keys.list']);
+	const mountedUuids = useLibraryQuery(['keys.listMounted']);
+	const defaultKey = useLibraryQuery(['keys.getDefault']);
+
+	const mountingQueue = useRef(new Set<string>());
 
 	const [mountedKeys, unmountedKeys] = useMemo(
-		() => [keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? [], keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []],
-		[keys, mounted_uuids]
+		() => [
+			keys.data?.filter((key) => mountedUuids.data?.includes(key.uuid)) ?? [],
+			keys.data?.filter((key) => !mountedUuids.data?.includes(key.uuid)) ?? []
+		],
+		[keys, mountedUuids]
 	);
 
-	if(keys.data?.length === 0) {
-		return (
-			<CategoryHeading>No keys available.</CategoryHeading>
-		)
+	if (keys.data?.length === 0) {
+		return <DummyKey text="No keys available" />;
 	}
 
 	return (
 		<>
-		{[...mountedKeys, ...unmountedKeys]?.map((key, index) => {
-			return (
-				<Key index={index} data={{
-					id: key.uuid,
-					// could probably do with a better way to number these, maybe something that doesn't change
-					name: `Key ${index + 1}`,
-					mounted: mountedKeys.includes(key),
-					default: default_key.data === key.uuid,
-					// key stats need including here at some point
-				}} />
-			)
-		})}
+			{[...mountedKeys, ...unmountedKeys]?.map((key, index) => {
+				return (
+					<Key
+						index={index}
+						key={key.uuid}
+						data={{
+							id: key.uuid,
+							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
+							queue: mountingQueue.current,
+							mounted: mountedKeys.includes(key),
+							default: defaultKey.data === key.uuid,
+							memoryOnly: key.memory_only,
+							automount: key.automount
+							// key stats need including here at some point
+						}}
+					/>
+				);
+			})}
 		</>
-	)
+	);
 };
 
-export function KeyList(props: KeyListProps) {
+export const KeyList = (props: KeyListProps) => {
 	const unmountAll = useLibraryMutation(['keys.unmountAll']);
 
 	return (
@@ -53,14 +70,18 @@ export function KeyList(props: KeyListProps) {
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
-						<ListKeys></ListKeys>
+						<ListOfKeys />
 					</div>
 				</div>
 			</div>
 			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
-				<Button size="sm" variant="gray" onClick={() => {
-					unmountAll.mutate(null);
-				}}>
+				<Button
+					size="sm"
+					variant="gray"
+					onClick={() => {
+						unmountAll.mutate(null);
+					}}
+				>
 					Unmount All
 				</Button>
 				<div className="flex-grow" />
@@ -70,4 +91,4 @@ export function KeyList(props: KeyListProps) {
 			</div>
 		</div>
 	);
-}
+};

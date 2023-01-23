@@ -7,15 +7,14 @@
 		"build": "vite build",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
+		"lint": "eslint src",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",
 		"@icons-pack/react-simple-icons": "^5.8.0",
 		"@sd/assets": "workspace:*",
 		"@sd/docs": "workspace:*",
-		"@sd/interface": "workspace:*",
-		"@sd/ui": "workspace:*",
 		"@tryghost/content-api": "^1.11.4",
 		"@vitejs/plugin-react": "^2.1.0",
 		"clsx": "^1.2.1",
@@ -36,17 +35,18 @@
 		"ts-node": "^10.9.1",
 		"tsparticles": "^2.3.4",
 		"typescript": "^4.8.4",
-		"vite": "^3.1.4",
+		"vite": "^4.0.4",
 		"vite-plugin-ssr": "^0.4.39"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
+		"@sd/ui": "workspace:*",
 		"@tailwindcss/line-clamp": "^0.4.2",
 		"@tailwindcss/typography": "^0.5.7",
 		"@types/compression": "^1.7.2",
 		"@types/express": "^4.17.14",
 		"@types/marked": "^4.0.7",
-		"@types/node": "^18.8.2",
+		"@types/node": "^18.11.9",
 		"@types/prismjs": "^1.26.0",
 		"@types/react": "^18.0.21",
 		"@types/react-burger-menu": "^2.8.3",
@@ -56,9 +56,9 @@
 		"postcss": "^8.4.17",
 		"rollup-plugin-visualizer": "^5.8.2",
 		"sass": "^1.55.0",
-		"tailwind": "^4.0.0",
 		"vite-plugin-esmodule": "^1.4.4",
 		"vite-plugin-markdown": "^2.1.0",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-tsconfig-paths": "^3.5.2"
 	}
 }

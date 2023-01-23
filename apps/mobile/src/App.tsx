@@ -1,6 +1,13 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { loggerLink } from '@rspc/client';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MenuProvider } from 'react-native-popup-menu';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useDeviceContext } from 'twrnc';
 import {
 	LibraryContextProvider,
 	getDebugState,
@@ -9,14 +16,7 @@ import {
 	useCurrentLibrary,
 	useInvalidateQuery
 } from '@sd/client';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useDeviceContext } from 'twrnc';
-
-import { GlobalModals } from './containers/modals/GlobalModals';
+import { GlobalModals } from './containers/modal/GlobalModals';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
@@ -26,7 +26,8 @@ const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {
 		...DefaultTheme.colors,
-		background: tw.color('gray-650')
+		// Default screen background
+		background: tw.color('app')
 	}
 };
 
@@ -38,15 +39,17 @@ function AppContainer() {
 
 	const { library } = useCurrentLibrary();
 	return (
-		<SafeAreaProvider style={tw`flex-1 bg-gray-650`}>
+		<SafeAreaProvider style={tw`flex-1 bg-app`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
-				<BottomSheetModalProvider>
-					<StatusBar style="light" />
-					<NavigationContainer theme={NavigatorTheme}>
-						{!library ? <OnboardingNavigator /> : <RootNavigator />}
-					</NavigationContainer>
-					<GlobalModals />
-				</BottomSheetModalProvider>
+				<MenuProvider>
+					<BottomSheetModalProvider>
+						<StatusBar style="light" />
+						<NavigationContainer theme={NavigatorTheme}>
+							{!library ? <OnboardingNavigator /> : <RootNavigator />}
+						</NavigationContainer>
+						<GlobalModals />
+					</BottomSheetModalProvider>
+				</MenuProvider>
 			</GestureHandlerRootView>
 		</SafeAreaProvider>
 	);

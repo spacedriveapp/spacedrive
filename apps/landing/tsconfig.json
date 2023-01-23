@@ -1,13 +1,13 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
+	"extends": "../../packages/config/app.tsconfig.json",
 	"include": ["src"],
-	"compilerOptions": {
-		"target": "es2020"
-	},
 	"ts-node": {
 		"transpileOnly": true,
-		"compilerOptions": {
-			"module": "CommonJS"
+		"compilerOptions": {}
+	},
+	"references": [
+		{
+			"path": "../../packages/ui"
 		}
-	}
+	]
 }

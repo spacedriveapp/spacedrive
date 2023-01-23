@@ -1,5 +1,3 @@
-import { Button } from '@sd/ui';
-import { Loader } from '@sd/ui';
 import {
 	Cloud,
 	Desktop,
@@ -11,7 +9,8 @@ import {
 	Lock
 } from 'phosphor-react';
 import { useState } from 'react';
-
+import { Button } from '@sd/ui';
+import { Loader } from '@sd/ui';
 import FileItem from '../explorer/FileItem';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';

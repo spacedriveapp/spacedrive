@@ -1,5 +1,5 @@
-mod metadata;
+mod media_data;
 mod thumb;
 
-pub use metadata::*;
+pub use media_data::*;
 pub use thumb::*;

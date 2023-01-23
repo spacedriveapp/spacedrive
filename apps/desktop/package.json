@@ -1,19 +1,20 @@
 {
 	"name": "@sd/desktop",
 	"version": "1.0.0",
-	"main": "index.js",
+	"main": "index.ts",
 	"license": "GPL-3.0-only",
 	"private": true,
 	"scripts": {
 		"vite": "vite",
 		"dev": "tauri dev",
 		"tauri": "tauri",
-		"build": "tauri build",
-		"dmg": "open ../../target/release/bundle/dmg/"
+		"build": "node ./src-tauri/build.js",
+		"dmg": "open ../../target/release/bundle/dmg/",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@rspc/tauri": "^0.0.0-main-7c0a67c1",
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
+		"@rspc/tauri": "^0.0.0-main-7c0a67c1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
@@ -22,17 +23,17 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.1.1",
-		"@tauri-apps/tauricon": "github:tauri-apps/tauricon",
 		"@types/babel-core": "^6.25.7",
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",
-		"@types/tailwindcss": "^3.1.0",
 		"@vitejs/plugin-react": "^2.1.0",
 		"prettier": "^2.7.1",
 		"sass": "^1.55.0",
 		"typescript": "^4.8.4",
-		"vite": "^3.1.4",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite": "^4.0.4",
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-tsconfig-paths": "^4.0.3"
 	}
 }

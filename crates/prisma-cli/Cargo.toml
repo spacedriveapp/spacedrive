@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 prisma-client-rust-cli = { workspace = true }
+sd-sync-generator = { path = "../sync-generator" }

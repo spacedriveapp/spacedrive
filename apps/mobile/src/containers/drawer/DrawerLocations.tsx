@@ -1,19 +1,18 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import tw from '~/lib/tailwind';
-
 import FolderIcon from '../../components/icons/FolderIcon';
 import CollapsibleView from '../../components/layout/CollapsibleView';
-import ImportModal from '../modals/ImportModal';
+import ImportModal from '../modal/ImportModal';
 
-interface DrawerLocationItemProps {
+type DrawerLocationItemProps = {
 	folderName: string;
 	onPress: () => void;
-}
+};
 
 const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
@@ -30,9 +29,9 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	);
 };
 
-interface DrawerLocationsProp {
+type DrawerLocationsProp = {
 	stackName: string;
-}
+};
 
 const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
@@ -64,7 +63,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 				</View>
 				{/* Add Location */}
 				<Pressable onPress={() => importModalRef.current.present()}>
-					<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
+					<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
 						<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
 							Add Location
 						</Text>

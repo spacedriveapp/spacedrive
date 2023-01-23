@@ -1,3 +1,4 @@
+import AppLogo from '@sd/assets/images/logo.png';
 import {
 	Discord,
 	Github,
@@ -6,7 +7,6 @@ import {
 	Twitch,
 	Twitter
 } from '@icons-pack/react-simple-icons';
-import AppLogo from '@sd/assets/images/logo.png';
 import { PropsWithChildren } from 'react';
 
 function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>) {
@@ -30,7 +30,9 @@ export function Footer() {
 					<img src={AppLogo} className="w-10 h-10 mb-5" />
 
 					<h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
-					<p className="text-sm text-gray-350">&copy; Copyright 2022 Spacedrive Technology Inc.</p>
+					<p className="text-sm text-gray-350">
+						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
+					</p>
 					<div className="flex flex-row mt-6 mb-10 space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
 							<Twitter />

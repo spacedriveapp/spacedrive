@@ -39,11 +39,12 @@ async fn main() {
 	let app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))
 		.route("/health", get(|| async { "OK" }))
-		.route("/spacedrive/:id", {
+		.route("/spacedrive/*id", {
 			let node = node.clone();
 			get(|extract::Path(path): extract::Path<String>| async move {
-				let (status_code, content_type, body) =
-					node.handle_custom_uri(path.split('/').collect()).await;
+				let (status_code, content_type, body) = node
+					.handle_custom_uri(path.split('/').skip(1).collect())
+					.await;
 
 				(
 					StatusCode::from_u16(status_code).unwrap(),

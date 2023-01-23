@@ -3,8 +3,10 @@
 	"version": "0.0.0",
 	"license": "GPL-3.0-only",
 	"main": "src/index.ts",
+	"types": "src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
+		"./src/forms": "./src/forms/index.ts",
 		"./postcss": "./style/postcss.config.js",
 		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
@@ -12,9 +14,11 @@
 		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"build": "tsc",
 		"storybook": "start-storybook -p 6006",
-		"storybook:build": "build-storybook"
+		"storybook:build": "build-storybook",
+		"lint": "eslint src",
+		"typecheck": "tsc -b",
+		"build": "tsc"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",
@@ -22,12 +26,12 @@
 		"@radix-ui/react-context-menu": "^1.0.0",
 		"@radix-ui/react-dialog": "^1.0.0",
 		"@radix-ui/react-dropdown-menu": "^1.0.0",
-		"@radix-ui/react-select": "^1.0.0",
+		"@radix-ui/react-select": "^1.1.2",
 		"@radix-ui/react-switch": "^1.0.1",
-		"@radix-ui/react-tabs": "^1.0.0",
+		"@radix-ui/react-tabs": "^1.0.1",
 		"@sd/assets": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",
-		"class-variance-authority": "^0.2.3",
+		"class-variance-authority": "^0.4.0",
 		"clsx": "^1.2.1",
 		"phosphor-react": "^1.4.1",
 		"postcss": "^8.4.17",

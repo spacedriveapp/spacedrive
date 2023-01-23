@@ -59,7 +59,7 @@ export function normaliseValueForStorage(value: any, rootElem: boolean): any {
 	} else if (typeof value === 'object') {
 		if ('$id' in value && '$type' in value) {
 			if (rootElem) {
-				let v = Object.assign({}, value);
+				const v = Object.assign({}, value);
 				delete v.$id;
 				delete v.$type;
 
@@ -144,7 +144,7 @@ export function loadDataFromCache(value: any, normiCache: NormiCache): any {
 	} else if (typeof value === 'object') {
 		if ('$id' in value && '$type' in value) {
 			// if (rootElem) {
-			let v = Object.assign({}, value);
+			const v = Object.assign({}, value);
 			delete v.$id;
 			delete v.$type;
 

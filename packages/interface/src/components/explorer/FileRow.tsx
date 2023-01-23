@@ -1,7 +1,6 @@
-import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-
+import { ExplorerItem } from '@sd/client';
 import FileThumb from './FileThumb';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -90,6 +89,6 @@ const columns = ensureIsColumns([
 	{ column: 'Type', key: 'extension', width: 100 } as const
 ]);
 
-type ColumnKey = typeof columns[number]['key'];
+type ColumnKey = (typeof columns)[number]['key'];
 
 export default FileRow;

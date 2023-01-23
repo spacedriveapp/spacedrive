@@ -1,0 +1,17 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Contact: mailto:security@spacedrive.com
+Expires: 2025-01-01T00:00:00.000Z
+Encryption: https://spacedrive.com/pgp-key.txt
+Canonical: https://spacedrive.com/.well-known/security.txt
+Canonical: https://spacedrive.com/security.txt
+Hiring: https://www.spacedrive.com/careers
+
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYKAB0WIQQMj37tyfGEWmcewtHCcM3J8PbfygUCY5izJgAKCRDCcM3J8Pbf
+yvg0AP9shv4AEllL62Dx2F1mRw8Vw0PI8gfJ7fCBn0f4NqDgzQD+PfMnB/FQs4zE
+RlKej0Q4mCF62yrtgJLBjbZN+JVkFQk=
+=2UO8
+-----END PGP SIGNATURE-----

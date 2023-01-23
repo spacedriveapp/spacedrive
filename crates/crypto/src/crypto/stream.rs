@@ -1,21 +1,27 @@
 //! This module contains the crate's STREAM implementation, and wrappers that allow us to support multiple AEADs.
-use std::io::{Cursor, Read, Seek, Write};
+#![allow(clippy::use_self)] // I think: https://github.com/rust-lang/rust-clippy/issues/3909
 
+use std::io::{Cursor, Read, Write};
+
+use crate::{
+	primitives::{AEAD_TAG_SIZE, BLOCK_SIZE, KEY_LEN},
+	Error, Protected, Result,
+};
 use aead::{
 	stream::{DecryptorLE31, EncryptorLE31},
 	KeyInit, Payload,
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use zeroize::Zeroize;
-
-use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq, Type, Serialize, Deserialize)]
-#[allow(clippy::use_self)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
@@ -47,7 +53,7 @@ impl StreamEncryption {
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Protected<[u8; KEY_LEN]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -96,42 +102,26 @@ impl StreamEncryption {
 	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, encrypts, and writes to the writer.
 	///
-	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	///
 	/// It requires a reader, a writer, and any AAD to go with it.
 	///
 	/// The AAD will be authenticated with each block of data.
 	pub fn encrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
-		R: Read + Seek,
-		W: Write + Seek,
+		R: Read,
+		W: Write,
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
 		loop {
-			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
+			let read_count = reader.read(&mut read_buffer)?;
 			if read_count == BLOCK_SIZE {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer,
 				};
 
-				let encrypted_data = self.encrypt_next(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Encrypt
-				})?;
+				let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
 
-				// zeroize before writing, so any potential errors won't result in a potential data leak
-				// this specific zeroize technically isn't needed due to the boxed slice, but performance impact is
-				// negligible and it's good practice either way
-				read_buffer.zeroize();
-
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
-
-				if read_count != write_count - 16 {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				writer.write_all(&encrypted_data)?;
 			} else {
 				// we use `..read_count` in order to only use the read data, and not zeroes also
 				let payload = Payload {
@@ -139,27 +129,14 @@ impl StreamEncryption {
 					msg: &read_buffer[..read_count],
 				};
 
-				let encrypted_data = self.encrypt_last(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Encrypt
-				})?;
-
-				// zeroize before writing, so any potential errors won't result in a potential data leak
-				read_buffer.zeroize();
-
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
-
-				if read_count != write_count - 16 {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
+				writer.write_all(&encrypted_data)?;
 
 				break;
 			}
 		}
 
-		writer.flush().map_err(Error::Io)?;
+		writer.flush()?;
 
 		Ok(())
 	}
@@ -169,21 +146,18 @@ impl StreamEncryption {
 	/// It is just a thin wrapper around `encrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub fn encrypt_bytes(
-		key: Protected<[u8; 32]>,
+		key: Protected<[u8; KEY_LEN]>,
 		nonce: &[u8],
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Vec<u8>> {
-		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
-
 		let encryptor = Self::new(key, nonce, algorithm)?;
 
-		match encryptor.encrypt_streams(&mut reader, &mut writer, aad) {
-			Ok(_) => Ok(writer.into_inner()),
-			Err(e) => Err(e),
-		}
+		encryptor
+			.encrypt_streams(bytes, &mut writer, aad)
+			.map_or_else(Err, |_| Ok(writer.into_inner()))
 	}
 }
 
@@ -192,7 +166,7 @@ impl StreamDecryption {
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Protected<[u8; KEY_LEN]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -241,67 +215,41 @@ impl StreamDecryption {
 	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, decrypts, and writes to the writer.
 	///
-	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	///
 	/// It requires a reader, a writer, and any AAD that was used.
 	///
 	/// The AAD will be authenticated with each block of data - if the AAD doesn't match what was used during encryption, an error will be returned.
 	pub fn decrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
-		R: Read + Seek,
-		W: Write + Seek,
+		R: Read,
+		W: Write,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_SIZE + 16].into_boxed_slice();
+		let mut read_buffer = vec![0u8; BLOCK_SIZE + AEAD_TAG_SIZE].into_boxed_slice();
+
 		loop {
-			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
-			if read_count == (BLOCK_SIZE + 16) {
+			let read_count = reader.read(&mut read_buffer)?;
+			if read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer,
 				};
 
-				let mut decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
+				let decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
 
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				// Zeroize buffer on write error
-				let write_count = writer.write(&decrypted_data).map_err(|e| {
-					decrypted_data.zeroize();
-					Error::Io(e)
-				})?;
-
-				decrypted_data.zeroize();
-
-				if read_count - 16 != write_count {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				writer.write_all(&decrypted_data)?;
 			} else {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer[..read_count],
 				};
 
-				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
-
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				// Zeroize buffer on write error
-				let write_count = writer.write(&decrypted_data).map_err(|e| {
-					decrypted_data.zeroize();
-					Error::Io(e)
-				})?;
-
-				decrypted_data.zeroize();
-
-				if read_count - 16 != write_count {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				let decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
+				writer.write_all(&decrypted_data)?;
 
 				break;
 			}
 		}
 
-		writer.flush().map_err(Error::Io)?;
+		writer.flush()?;
 
 		Ok(())
 	}
@@ -311,20 +259,17 @@ impl StreamDecryption {
 	/// It is just a thin wrapper around `decrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub fn decrypt_bytes(
-		key: Protected<[u8; 32]>,
+		key: Protected<[u8; KEY_LEN]>,
 		nonce: &[u8],
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Protected<Vec<u8>>> {
-		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
-
 		let decryptor = Self::new(key, nonce, algorithm)?;
 
-		match decryptor.decrypt_streams(&mut reader, &mut writer, aad) {
-			Ok(_) => Ok(Protected::new(writer.into_inner())),
-			Err(e) => Err(e),
-		}
+		decryptor
+			.decrypt_streams(bytes, &mut writer, aad)
+			.map_or_else(Err, |_| Ok(Protected::new(writer.into_inner())))
 	}
 }

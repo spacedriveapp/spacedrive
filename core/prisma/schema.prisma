@@ -1,409 +1,430 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.db"
+    provider = "sqlite"
+    url      = "file:dev.db"
 }
 
 generator client {
-  provider = "cargo prisma"
-  output   = "../src/prisma.rs"
+    provider = "cargo prisma"
+    output   = "../src/prisma.rs"
 }
 
-model SyncEvent {
-  id        Int     @id @default(autoincrement())
-  node_id   Int
-  timestamp String
-  // individual record pub id OR compound many-to-many pub ids
-  record_id Bytes
-  // the type of operation, I.E: CREATE, UPDATE, DELETE as an enum
-  kind      Int
-  // the column name for atomic update operations
-  column    String?
-  // the new value for create/update operations, msgpack encoded
-  value     String
+generator sync {
+    provider = "cargo prisma-sync"
+    output   = "../src/prisma_sync.rs"
+}
 
-  node Node @relation(fields: [node_id], references: [id])
+model OwnedOperation {
+    id        Bytes  @id
+    timestamp BigInt
+    data      Bytes
+    model     String
 
-  @@map("sync_event")
+    node_id Int
+    node    Node @relation(fields: [node_id], references: [id])
+
+    @@map("owned_operation")
+}
+
+model SharedOperation {
+    id        Bytes  @id
+    timestamp BigInt
+    model     String
+
+    record_id Bytes
+    kind      String
+    data      Bytes
+
+    node_id Int
+    node    Node @relation(fields: [node_id], references: [id])
+
+    @@map("shared_operation")
 }
 
 model Statistics {
-  id                   Int      @id @default(autoincrement())
-  date_captured        DateTime @default(now())
-  total_object_count   Int      @default(0)
-  library_db_size      String   @default("0")
-  total_bytes_used     String   @default("0")
-  total_bytes_capacity String   @default("0")
-  total_unique_bytes   String   @default("0")
-  total_bytes_free     String   @default("0")
-  preview_media_bytes  String   @default("0")
+    id                   Int      @id @default(autoincrement())
+    date_captured        DateTime @default(now())
+    total_object_count   Int      @default(0)
+    library_db_size      String   @default("0")
+    total_bytes_used     String   @default("0")
+    total_bytes_capacity String   @default("0")
+    total_unique_bytes   String   @default("0")
+    total_bytes_free     String   @default("0")
+    preview_media_bytes  String   @default("0")
 
-  @@map("statistics")
+    @@map("statistics")
 }
 
+/// @local(id: pub_id)
 model Node {
-  id           Int      @id @default(autoincrement())
-  pub_id       Bytes    @unique
-  name         String
-  platform     Int      @default(0)
-  version      String?
-  last_seen    DateTime @default(now())
-  timezone     String?
-  date_created DateTime @default(now())
+    id           Int      @id @default(autoincrement())
+    pub_id       Bytes    @unique
+    name         String
+    platform     Int      @default(0)
+    version      String?
+    last_seen    DateTime @default(now())
+    timezone     String?
+    date_created DateTime @default(now())
 
-  sync_events SyncEvent[]
-  jobs        Job[]
+    jobs     Job[]
+    Location Location[]
 
-  Location Location[]
+    OwnedOperation  OwnedOperation[]
+    SharedOperation SharedOperation[]
 
-  @@map("node")
+    @@map("node")
 }
 
 model Volume {
-  id                    Int      @id @default(autoincrement())
-  node_id               Int
-  name                  String
-  mount_point           String
-  total_bytes_capacity  String   @default("0")
-  total_bytes_available String   @default("0")
-  disk_type             String?
-  filesystem            String?
-  is_system             Boolean  @default(false)
-  date_modified         DateTime @default(now())
+    id                    Int      @id @default(autoincrement())
+    node_id               Int
+    name                  String
+    mount_point           String
+    total_bytes_capacity  String   @default("0")
+    total_bytes_available String   @default("0")
+    disk_type             String?
+    filesystem            String?
+    is_system             Boolean  @default(false)
+    date_modified         DateTime @default(now())
 
-  @@unique([node_id, mount_point, name])
-  @@map("volume")
+    @@unique([node_id, mount_point, name])
+    @@map("volume")
 }
 
+/// @owned(id: pub_id)
 model Location {
-  id                 Int      @id @default(autoincrement())
-  pub_id             Bytes    @unique
-  node_id            Int
-  name               String?
-  local_path         String?
-  total_capacity     Int?
-  available_capacity Int?
-  filesystem         String?
-  disk_type          Int?
-  is_removable       Boolean?
-  is_online          Boolean  @default(true)
-  is_archived        Boolean  @default(false)
-  date_created       DateTime @default(now())
+    id                 Int      @id @default(autoincrement())
+    pub_id             Bytes    @unique
+    node_id            Int
+    name               String?
+    local_path         String?
+    total_capacity     Int?
+    available_capacity Int?
+    filesystem         String?
+    disk_type          Int?
+    is_removable       Boolean?
+    is_online          Boolean  @default(true)
+    is_archived        Boolean  @default(false)
+    date_created       DateTime @default(now())
 
-  node          Node                     @relation(fields: [node_id], references: [id])
-  file_paths    FilePath[]
-  indexer_rules IndexerRulesInLocation[]
+    node          Node                     @relation(fields: [node_id], references: [id])
+    file_paths    FilePath[]
+    indexer_rules IndexerRulesInLocation[]
 
-  @@map("location")
+    @@map("location")
 }
 
+/// @shared(id: cas_id)
 model Object {
-  id                 Int      @id @default(autoincrement())
-  // content addressable storage id - blake3 sampled checksum
-  cas_id             String   @unique
-  // full byte contents digested into blake3 checksum
-  integrity_checksum String?  @unique
-  // basic metadata
-  name               String?
-  extension          String?
-  kind               Int      @default(0)
-  size_in_bytes      String
-  key_id             Int?
-  // handy ways to mark an object
-  hidden             Boolean  @default(false)
-  favorite           Boolean  @default(false)
-  important          Boolean  @default(false)
-  // if we have generated preview media for this object
-  has_thumbnail      Boolean  @default(false)
-  has_thumbstrip     Boolean  @default(false)
-  has_video_preview  Boolean  @default(false)
-  // integration with ipfs
-  ipfs_id            String?
-  // plain text note
-  note               String?
-  // the original known creation date of this object
-  date_created       DateTime @default(now())
-  // the last time this object was modified
-  date_modified      DateTime @default(now())
-  // when this object was first indexed
-  date_indexed       DateTime @default(now())
+    id                 Int      @id @default(autoincrement())
+    // content addressable storage id - blake3 sampled checksum
+    cas_id             String   @unique
+    // full byte contents digested into blake3 checksum
+    integrity_checksum String?  @unique
+    // basic metadata
+    name               String?
+    extension          String?
+    kind               Int      @default(0)
+    size_in_bytes      String   @default("0")
+    key_id             Int?
+    // handy ways to mark an object
+    hidden             Boolean  @default(false)
+    favorite           Boolean  @default(false)
+    important          Boolean  @default(false)
+    // if we have generated preview media for this object
+    has_thumbnail      Boolean  @default(false)
+    has_thumbstrip     Boolean  @default(false)
+    has_video_preview  Boolean  @default(false)
+    // integration with ipfs
+    ipfs_id            String?
+    // plain text note
+    note               String?
+    // the original known creation date of this object
+    date_created       DateTime @default(now())
+    // the last time this object was modified
+    date_modified      DateTime @default(now())
+    // when this object was first indexed
+    date_indexed       DateTime @default(now())
 
-  tags       TagOnObject[]
-  labels     LabelOnObject[]
-  albums     ObjectInAlbum[]
-  spaces     ObjectInSpace[]
-  file_paths FilePath[]
-  comments   Comment[]
-  media_data MediaData?
+    tags       TagOnObject[]
+    labels     LabelOnObject[]
+    albums     ObjectInAlbum[]
+    spaces     ObjectInSpace[]
+    file_paths FilePath[]
+    comments   Comment[]
+    media_data MediaData?
 
-  key Key? @relation(fields: [key_id], references: [id])
+    key Key? @relation(fields: [key_id], references: [id])
 
-  @@map("object")
+    @@map("object")
 }
 
+/// @shared(id: [location, id])
 model FilePath {
-  id                Int
-  is_dir            Boolean @default(false)
-  // location that owns this path
-  location_id       Int
-  // a path generated from local file_path ids eg: "34/45/67/890"
-  materialized_path String
-  // the name and extension
-  name              String
-  extension         String?
-  // the unique Object for this file path
-  object_id         Int?
-  // the parent in the file tree
-  parent_id         Int?
-  key_id            Int? // replacement for encryption
-  // permissions       String?
-  // temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
+    id                Int
+    is_dir            Boolean  @default(false)
+    // location that owns this path
+    location_id       Int
+    location          Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    // a path generated from local file_path ids eg: "34/45/67/890"
+    materialized_path String
+    // the name and extension
+    name              String
+    extension         String?
+    // the unique Object for this file path
+    object_id         Int?
+    object            Object?  @relation(fields: [object_id], references: [id], onDelete: Restrict)
+    // the parent in the file tree
+    parent_id         Int?
+    key_id            Int? // replacement for encryption
+    // permissions       String?
+    // temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
 
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
-  date_indexed  DateTime @default(now())
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    date_indexed  DateTime @default(now())
 
-  object   Object?   @relation(fields: [object_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
+    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    // children FilePath[] @relation("directory_file_paths")
 
-  // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
-  // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  // children FilePath[] @relation("directory_file_paths")
+    key Key? @relation(fields: [key_id], references: [id])
 
-  key Key? @relation(fields: [key_id], references: [id])
-
-  @@id([location_id, id])
-  @@unique([location_id, materialized_path, name, extension])
-  @@index([location_id])
-  @@map("file_path")
+    @@id([location_id, id])
+    @@unique([location_id, materialized_path, name, extension])
+    @@index([location_id])
+    @@map("file_path")
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
 model FileConflict {
-  original_object_id   Int @unique
-  detactched_object_id Int @unique
+    original_object_id   Int @unique
+    detactched_object_id Int @unique
 
-  @@map("file_conflict")
+    @@map("file_conflict")
 }
 
 // keys allow us to know exactly which files can be decrypted with a given key
 // they can be "mounted" to a client, and then used to decrypt files automatically
+/// @shared(id: uuid)
 model Key {
-  id           Int       @id @default(autoincrement())
-  // uuid to identify the key
-  uuid         String    @unique
-  // the name that the user sets
-  name         String?
-  // is this key the default for encryption?
-  // was not tagged as unique as i'm not too sure if PCR will handle it
-  // can always be tagged as unique, the keys API will need updating to use `find_unique()`
-  default      Boolean @default(false)
-  // nullable if concealed for security
-  date_created DateTime? @default(now())
-  // encryption algorithm used to encrypt the key
-  algorithm    Bytes
-  // hashing algorithm used for hashing the master password
-  hashing_algorithm Bytes
-  // salt to hash the master password with
-  salt Bytes
-  // salt used for encrypting data with this key
-  content_salt Bytes
-  // the *encrypted* master key (48 bytes)
-  master_key Bytes
-  // the nonce used for encrypting the master key
-  master_key_nonce Bytes
-  // the nonce used for encrypting the key
-  key_nonce Bytes
-  // the *encrypted* key
-  key Bytes
+    id                Int       @id @default(autoincrement())
+    // uuid to identify the key
+    uuid              String    @unique
+    version           String
+    // the name that the user sets
+    name              String?
+    // is this key the default for encryption?
+    // was not tagged as unique as i'm not too sure if PCR will handle it
+    // can always be tagged as unique, the keys API will need updating to use `find_unique()`
+    default           Boolean   @default(false)
+    // nullable if concealed for security
+    date_created      DateTime? @default(now())
+    // encryption algorithm used to encrypt the key
+    algorithm         String
+    // hashing algorithm used for hashing the key with the content salt
+    hashing_algorithm String
+    // salt used for encrypting data with this key
+    content_salt      Bytes
+    // the *encrypted* master key (48 bytes)
+    master_key        Bytes
+    // the nonce used for encrypting the master key
+    master_key_nonce  Bytes
+    // the nonce used for encrypting the key
+    key_nonce         Bytes
+    // the *encrypted* key
+    key               Bytes
+    // the salt used for deriving the KEK (used for encrypting the master key) from the root key
+    salt              Bytes
 
-  automount Boolean @default(false)
+    automount Boolean @default(false)
 
-  objects    Object[]
-  file_paths FilePath[]
+    objects    Object[]
+    file_paths FilePath[]
 
-  @@map("key")
+    @@map("key")
 }
 
 model MediaData {
-  id                      Int     @id
-  pixel_width             Int?
-  pixel_height            Int?
-  longitude               Float?
-  latitude                Float?
-  fps                     Int?
-  capture_device_make     String? // eg: "Apple"
-  capture_device_model    String? // eg: "iPhone 12"
-  capture_device_software String? // eg: "12.1.1"
-  duration_seconds        Int?
-  codecs                  String? // eg: "h264,acc"
-  streams                 Int?
+    id                      Int     @id
+    pixel_width             Int?
+    pixel_height            Int?
+    longitude               Float?
+    latitude                Float?
+    fps                     Int?
+    capture_device_make     String? // eg: "Apple"
+    capture_device_model    String? // eg: "iPhone 12"
+    capture_device_software String? // eg: "12.1.1"
+    duration_seconds        Int?
+    codecs                  String? // eg: "h264,acc"
+    streams                 Int?
 
-  // change this relation to Object after testing
-  objects Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@map("media_data")
+    @@map("media_data")
 }
 
+/// @shared(id: pub_id)
 model Tag {
-  id              Int      @id @default(autoincrement())
-  pub_id          Bytes    @unique
-  name            String?
-  color           String?
-  total_objects   Int?     @default(0)
-  redundancy_goal Int?     @default(1)
-  date_created    DateTime @default(now())
-  date_modified   DateTime @default(now())
+    id              Int      @id @default(autoincrement())
+    pub_id          Bytes    @unique
+    name            String?
+    color           String?
+    total_objects   Int?     @default(0)
+    redundancy_goal Int?     @default(1)
+    date_created    DateTime @default(now())
+    date_modified   DateTime @default(now())
 
-  tag_objects TagOnObject[]
+    tag_objects TagOnObject[]
 
-  @@map("tag")
+    @@map("tag")
 }
 
 model TagOnObject {
-  date_created DateTime @default(now())
+    date_created DateTime @default(now())
 
-  tag_id Int
-  tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    tag_id Int
+    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  object_id Int
-  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object_id Int
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([tag_id, object_id])
-  @@map("tag_on_object")
+    @@id([tag_id, object_id])
+    @@map("tag_on_object")
 }
 
 model Label {
-  id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
-  name          String?
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+    id            Int      @id @default(autoincrement())
+    pub_id        Bytes    @unique
+    name          String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
 
-  label_objects LabelOnObject[]
+    label_objects LabelOnObject[]
 
-  @@map("label")
+    @@map("label")
 }
 
 model LabelOnObject {
-  date_created DateTime @default(now())
+    date_created DateTime @default(now())
 
-  label_id Int
-  label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    label_id Int
+    label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  object_id Int
-  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object_id Int
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([label_id, object_id])
-  @@map("label_on_object")
+    @@id([label_id, object_id])
+    @@map("label_on_object")
 }
 
 model Space {
-  id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
-  name          String?
-  description   String?
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+    id            Int      @id @default(autoincrement())
+    pub_id        Bytes    @unique
+    name          String?
+    description   String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
 
-  objects ObjectInSpace[]
+    objects ObjectInSpace[]
 
-  @@map("space")
+    @@map("space")
 }
 
 model ObjectInSpace {
-  date_created DateTime @default(now())
+    date_created DateTime @default(now())
 
-  space_id Int
-  space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    space_id Int
+    space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  object_id Int
-  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object_id Int
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([space_id, object_id])
-  @@map("object_in_space")
+    @@id([space_id, object_id])
+    @@map("object_in_space")
 }
 
 model Job {
-  id       Bytes  @id
-  name     String
-  node_id  Int
-  action   Int
-  status   Int    @default(0)
-  data     Bytes?
-  metadata Bytes?
+    id       Bytes  @id
+    name     String
+    node_id  Int
+    action   Int
+    status   Int    @default(0)
+    data     Bytes?
+    metadata Bytes?
 
-  task_count           Int      @default(1)
-  completed_task_count Int      @default(0)
-  date_created         DateTime @default(now())
-  date_modified        DateTime @default(now())
-  seconds_elapsed      Int      @default(0)
+    task_count           Int      @default(1)
+    completed_task_count Int      @default(0)
+    date_created         DateTime @default(now())
+    date_modified        DateTime @default(now())
+    seconds_elapsed      Int      @default(0)
 
-  nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@map("job")
+    @@map("job")
 }
 
+/// @shared(id: pub_id)
 model Album {
-  id        Int     @id @default(autoincrement())
-  pub_id    Bytes   @unique
-  name      String
-  is_hidden Boolean @default(false)
+    id        Int     @id @default(autoincrement())
+    pub_id    Bytes   @unique
+    name      String
+    is_hidden Boolean @default(false)
 
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
 
-  objects ObjectInAlbum[]
+    objects ObjectInAlbum[]
 
-  @@map("album")
+    @@map("album")
 }
 
 model ObjectInAlbum {
-  date_created DateTime @default(now())
+    date_created DateTime @default(now())
 
-  album_id Int
-  album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    album_id Int
+    album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  object_id Int
-  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object_id Int
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([album_id, object_id])
-  @@map("object_in_album")
+    @@id([album_id, object_id])
+    @@map("object_in_album")
 }
 
 model Comment {
-  id            Int      @id @default(autoincrement())
-  pub_id        Bytes    @unique
-  content       String
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
-  object_id     Int?
-  object        Object?  @relation(fields: [object_id], references: [id])
+    id            Int      @id @default(autoincrement())
+    pub_id        Bytes    @unique
+    content       String
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    object_id     Int?
+    object        Object?  @relation(fields: [object_id], references: [id])
 
-  @@map("comment")
+    @@map("comment")
 }
 
 model IndexerRule {
-  id            Int      @id @default(autoincrement())
-  kind          Int
-  name          String
-  parameters    Bytes
-  date_created  DateTime @default(now())
-  date_modified DateTime @default(now())
+    id            Int      @id @default(autoincrement())
+    kind          Int
+    name          String
+    parameters    Bytes
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
 
-  locations IndexerRulesInLocation[]
+    locations IndexerRulesInLocation[]
 
-  @@map("indexer_rule")
+    @@map("indexer_rule")
 }
 
 model IndexerRulesInLocation {
-  date_created DateTime @default(now())
+    date_created DateTime @default(now())
 
-  location_id Int
-  location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    location_id Int
+    location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  indexer_rule_id Int
-  indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    indexer_rule_id Int
+    indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([location_id, indexer_rule_id])
-  @@map("indexer_rule_in_location")
+    @@id([location_id, indexer_rule_id])
+    @@map("indexer_rule_in_location")
 }

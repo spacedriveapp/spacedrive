@@ -1,3 +1,4 @@
-# Privacy
+# Privacy Policy
 
-We value privacy a lot. Write some more about that :D
+_This page has yet to be written out in full. Please check back later!_
+

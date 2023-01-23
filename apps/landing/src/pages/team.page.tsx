@@ -1,10 +1,8 @@
+import { ReactComponent as ArrowRight } from '@sd/assets/svgs/arrow-right.svg';
 import { Helmet } from 'react-helmet';
-
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';
-
-import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
 
 const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
 const investorImages = resolveFilesGlob(import.meta.globEager('../assets/images/investors/*'));
@@ -82,16 +80,6 @@ const teamMembers: Array<TeamMemberProps> = [
 		socials: {
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
-		}
-	},
-	{
-		name: 'Haris Mehrzad',
-		role: 'Software Engineer',
-		image: teamImages['haris.jpg'],
-		socials: {
-			twitter: 'https://twitter.com/xPolarrr',
-			twitch: 'https://twitch.tv/polar_dev',
-			github: 'https://github.com/xPolar'
 		}
 	}
 ];

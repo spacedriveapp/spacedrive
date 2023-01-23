@@ -3,7 +3,6 @@ import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-typescript';
 import { PropsWithChildren, useEffect } from 'react';
-
 import '../atom-one.css';
 
 interface MarkdownPageProps {

@@ -8,4 +8,4 @@ Spaces are virtual folders that can be shared publicly on the internet, or priva
 
 Objects can be added to a Space manually, or by matching a defined ruleset, similar to Tags.
 
-Spacedrive comes with pre-defined Spaces, such as: photos, videos, screenshots, documents, etc.
+Spacedrive comes with pre-defined Spaces, such as: photos, videos, screenshots, documents.

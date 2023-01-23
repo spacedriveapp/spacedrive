@@ -2,12 +2,9 @@ use std::fs::File;
 
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	header::{
-		file::{FileHeader, FileHeaderVersion},
-		keyslot::{Keyslot, KeyslotVersion},
-	},
+	header::{file::FileHeader, keyslot::Keyslot},
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{generate_master_key, generate_salt},
+	primitives::{generate_master_key, generate_salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
 	Protected,
 };
 
@@ -24,25 +21,25 @@ pub fn encrypt() {
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
 
-	// This ideally should be done by the KMS
-	let salt = generate_salt();
+	// These should ideally be done by a key management system
+	let content_salt = generate_salt();
+	let hashed_password = HASHING_ALGORITHM
+		.hash(password, content_salt, None)
+		.unwrap();
 
 	// Create a keyslot to be added to the header
-	let mut keyslots: Vec<Keyslot> = Vec::new();
-	keyslots.push(
-		Keyslot::new(
-			KeyslotVersion::V1,
-			ALGORITHM,
-			HASHING_ALGORITHM,
-			salt,
-			password,
-			&master_key,
-		)
-		.unwrap(),
-	);
+	let keyslots = vec![Keyslot::new(
+		LATEST_KEYSLOT,
+		ALGORITHM,
+		HASHING_ALGORITHM,
+		content_salt,
+		hashed_password,
+		master_key.clone(),
+	)
+	.unwrap()];
 
 	// Create the header for the encrypted file
-	let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots);
+	let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots);
 
 	// Write the header to the file
 	header.write(&mut writer).unwrap();
@@ -65,7 +62,7 @@ pub fn decrypt() {
 	let mut writer = File::create("test.original").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, aad) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, aad) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the master key with the user's password
 	let master_key = header.decrypt_master_key(password).unwrap();

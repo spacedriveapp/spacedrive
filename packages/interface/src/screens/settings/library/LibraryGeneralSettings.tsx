@@ -1,12 +1,11 @@
+import { useForm } from 'react-hook-form';
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
-import { useForm } from 'react-hook-form';
-
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-import { useDebouncedForm } from '../../../hooks/useDebouncedForm';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { useDebouncedForm } from '~/hooks/useDebouncedForm';
 
 export default function LibraryGeneralSettings() {
 	const { library } = useCurrentLibrary();

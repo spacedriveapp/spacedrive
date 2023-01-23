@@ -1,17 +1,18 @@
 use crate::{
-	invalidate_query,
 	location::{
-		fetch_location,
+		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
-		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
+		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
+use std::path::PathBuf;
+
 use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tokio::{fs, io};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -76,7 +77,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				pub cursor: Option<String>,
 			}
 
-			t(|_, args: LocationExplorerArgs, library| async move {
+			t(|_, mut args: LocationExplorerArgs, library| async move {
 				let location = library
 					.db
 					.location()
@@ -86,6 +87,10 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.ok_or_else(|| {
 						rspc::Error::new(ErrorCode::NotFound, "Location not found".into())
 					})?;
+
+				if !args.path.ends_with('/') {
+					args.path += "/";
+				}
 
 				let directory = library
 					.db
@@ -112,25 +117,42 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.exec()
 					.await?;
 
+				// library
+				// 	.queue_job(Job::new(
+				// 		ThumbnailJobInit {
+				// 			location_id: location.id,
+				// 			// recursive: false, // TODO: do this
+				// 			root_path: PathBuf::from(&directory.materialized_path),
+				// 			background: true,
+				// 		},
+				// 		ThumbnailJob {},
+				// 	))
+				// 	.await;
+
+				let mut items = Vec::with_capacity(file_paths.len());
+				for mut file_path in file_paths {
+					if let Some(object) = &mut file_path.object.as_mut() {
+						// TODO: Use helper function to build this url as as the Rust file loading layer
+						let thumb_path = library
+							.config()
+							.data_directory()
+							.join(THUMBNAIL_CACHE_DIR_NAME)
+							.join(&object.cas_id)
+							.with_extension("webp");
+
+						object.has_thumbnail = (match fs::metadata(thumb_path).await {
+							Ok(_) => Ok(true),
+							Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+							Err(e) => Err(e),
+						})
+						.map_err(LocationError::IOError)?;
+					}
+					items.push(ExplorerItem::Path(Box::new(file_path)));
+				}
+
 				Ok(ExplorerData {
 					context: ExplorerContext::Location(location),
-					items: file_paths
-						.into_iter()
-						.map(|mut file_path| {
-							if let Some(object) = &mut file_path.object.as_mut() {
-								// TODO: Use helper function to build this url as as the Rust file loading layer
-								let thumb_path = library
-									.config()
-									.data_directory()
-									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(&object.cas_id)
-									.with_extension("webp");
-
-								object.has_thumbnail = thumb_path.try_exists().unwrap();
-							}
-							ExplorerItem::Path(Box::new(file_path))
-						})
-						.collect(),
+					items,
 				})
 			})
 		})
@@ -148,38 +170,35 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 		})
 		.library_mutation("delete", |t| {
 			t(|_, location_id: i32, library| async move {
+				delete_location(&library, location_id)
+					.await
+					.map_err(Into::into)
+			})
+		})
+		.library_mutation("relink", |t| {
+			t(|_, location_path: PathBuf, library| async move {
+				relink_location(&library, location_path)
+					.await
+					.map_err(Into::into)
+			})
+		})
+		.library_mutation("addLibrary", |t| {
+			t(|_, args: LocationCreateArgs, library| async move {
+				let location = args.add_library(&library).await?;
+				scan_location(&library, location).await?;
+				Ok(())
+			})
+		})
+		.library_mutation("fullRescan", |t| {
+			t(|_, location_id: i32, library| async move {
+				// remove existing paths
 				library
 					.db
 					.file_path()
 					.delete_many(vec![file_path::location_id::equals(location_id)])
 					.exec()
 					.await?;
-
-				library
-					.db
-					.indexer_rules_in_location()
-					.delete_many(vec![indexer_rules_in_location::location_id::equals(
-						location_id,
-					)])
-					.exec()
-					.await?;
-
-				library
-					.db
-					.location()
-					.delete(location::id::equals(location_id))
-					.exec()
-					.await?;
-
-				invalidate_query!(library, "locations.list");
-
-				info!("Location {} deleted", location_id);
-
-				Ok(())
-			})
-		})
-		.library_mutation("fullRescan", |t| {
-			t(|_, location_id: i32, library| async move {
+				// rescan location
 				scan_location(
 					&library,
 					fetch_location(&library, location_id)

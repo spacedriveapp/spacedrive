@@ -1,7 +1,16 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
+	"extends": "../../packages/config/base.tsconfig.json",
 	"compilerOptions": {
-		"target": "es2020"
+		"rootDir": "src",
+		"declarationDir": "dist",
+		"paths": {
+			"~/*": ["./src/*"]
+		}
 	},
-	"include": ["src"]
+	"include": ["src"],
+	"references": [
+		{
+			"path": "../../packages/interface"
+		}
+	]
 }

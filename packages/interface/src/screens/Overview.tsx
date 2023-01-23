@@ -1,14 +1,13 @@
-import { onLibraryChange, queryClient, useCurrentLibrary, useLibraryQuery } from '@sd/client';
-import { Statistics } from '@sd/client';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { proxy } from 'valtio';
-
-import useCounter from '../hooks/useCounter';
-import { usePlatform } from '../util/Platform';
+import { onLibraryChange, queryClient, useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { Statistics } from '@sd/client';
+import useCounter from '~/hooks/useCounter';
+import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;

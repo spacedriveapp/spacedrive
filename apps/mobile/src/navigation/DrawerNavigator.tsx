@@ -2,7 +2,7 @@ import { DrawerScreenProps, createDrawerNavigator } from '@react-navigation/draw
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
 import DrawerContent from '~/containers/drawer/DrawerContent';
-
+import tw from '~/lib/tailwind';
 import type { RootStackParamList } from '.';
 import type { TabParamList } from './TabNavigator';
 import TabNavigator from './TabNavigator';
@@ -16,7 +16,7 @@ export default function DrawerNavigator() {
 			screenOptions={{
 				headerShown: false,
 				drawerStyle: {
-					backgroundColor: 'rgb(10,10,12)',
+					backgroundColor: tw.color('app-darkBox'),
 					width: '75%'
 				},
 				overlayColor: 'transparent',

@@ -1,24 +1,25 @@
-import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
-
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
+import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
+export const generatePassword = (length: number) => {
+	return cryptoRandomString({ length, type: 'ascii-printable' });
+};
+
 export function KeyMounter() {
 	const ref = useRef<HTMLInputElement>(null);
-
-	// we need to call these at least once somewhere
-	// if we don't, if a user mounts a key before first viewing the key list, no key will show in the list
-	// either call it in here or in the keymanager itself
-	const keys = useLibraryQuery(['keys.list']);
-	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
-
 	const [showKey, setShowKey] = useState(false);
-	const [toggle, setToggle] = useState(true);
+	const [librarySync, setLibrarySync] = useState(true);
+	const [autoMount, setAutoMount] = useState(false);
+
+	const [sliderValue, setSliderValue] = useState([64]);
 
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -58,17 +59,56 @@ export function KeyMounter() {
 				</div>
 			</div>
 
+			<div className="flex flex-row space-x-2">
+				<div className="relative flex flex-grow mt-2">
+					<Slider
+						value={sliderValue}
+						max={128}
+						min={8}
+						step={4}
+						defaultValue={[64]}
+						onValueChange={(e) => {
+							setSliderValue(e);
+							setKey(generatePassword(e[0]));
+						}}
+						onClick={() => {
+							setKey(generatePassword(sliderValue[0]));
+						}}
+					/>
+				</div>
+				<span className="text-sm mt-2.5 font-medium">{sliderValue}</span>
+			</div>
+
 			<div className="flex flex-row items-center mt-3 mb-1">
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
 						size="sm"
-						checked={toggle}
-						onCheckedChange={setToggle}
+						checked={librarySync}
+						onCheckedChange={(e) => {
+							if (autoMount && !e) setAutoMount(false);
+							setLibrarySync(e);
+						}}
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
-				<Tooltip label="This key will be mounted on all devices running your Library">
+				<Tooltip label="This key will be registered with all devices running your Library">
+					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
+				</Tooltip>
+				<div className="flex-grow" />
+				<div className="space-x-2">
+					<Switch
+						className="bg-app-selected"
+						size="sm"
+						checked={autoMount}
+						onCheckedChange={(e) => {
+							if (!librarySync && e) setLibrarySync(true);
+							setAutoMount(e);
+						}}
+					/>
+				</div>
+				<span className="ml-3 text-xs font-medium">Automount</span>
+				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
 					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
 			</div>
@@ -87,32 +127,30 @@ export function KeyMounter() {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 					</Select>
 				</div>
 			</div>
-			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
-				Files encrypted with this key will be revealed and decrypted on the fly.
-			</p>
-			<Button className="w-full mt-2" variant="accent" onClick={() => {
-				let algorithm = encryptionAlgo as Algorithm;
-				let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
+			<Button
+				className="w-full mt-2"
+				variant="accent"
+				disabled={key === ''}
+				onClick={() => {
+					setKey('');
 
-				switch(hashingAlgo) {
-					case "Argon2id-s":
-						hashing_algorithm = { Argon2id: "Standard" as Params };
-						break;
-					case "Argon2id-h":
-						hashing_algorithm = { Argon2id: "Hardened" as Params };
-						break;
-					case "Argon2id-p":
-						hashing_algorithm = { Argon2id: "Paranoid" as Params };
-						break;
-				}
+					const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
 
-				createKey.mutate({algorithm, hashing_algorithm, key });
-				setKey("");
-			}
-			}>
+					createKey.mutate({
+						algorithm: encryptionAlgo as Algorithm,
+						hashing_algorithm,
+						key,
+						library_sync: librarySync,
+						automount: autoMount
+					});
+				}}
+			>
 				Mount Key
 			</Button>
 		</div>
