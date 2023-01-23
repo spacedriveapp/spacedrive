@@ -9,7 +9,7 @@ import { showAlertDialog } from '~/util/dialog';
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';
 
-export interface MasterPasswordChangeDialogProps extends UseDialogProps {}
+export type MasterPasswordChangeDialogProps = UseDialogProps;
 
 const schema = z.object({
 	masterPassword: z.string(),

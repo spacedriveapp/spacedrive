@@ -4,7 +4,7 @@ import { Input, useZodForm, z } from '@sd/ui/src/forms';
 
 const schema = z.object({ path: z.string() });
 
-interface Props extends UseDialogProps {}
+type Props = UseDialogProps;
 
 export default function AddLocationDialog(props: Props) {
 	const dialog = useDialog(props);

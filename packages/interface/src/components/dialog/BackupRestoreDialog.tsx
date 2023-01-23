@@ -14,7 +14,7 @@ const schema = z.object({
 	filePath: z.string()
 });
 
-export interface BackupRestorationDialogProps extends UseDialogProps {}
+export type BackupRestorationDialogProps = UseDialogProps;
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
