@@ -20,7 +20,7 @@ pub struct FileDeleterJobStep {
 	pub fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_deleter";
+pub const DELETE_JOB_NAME: &str = "file_deleter";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDeleterJob {
@@ -29,7 +29,7 @@ impl StatefulJob for FileDeleterJob {
 	type Step = FileDeleterJobStep;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		DELETE_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {

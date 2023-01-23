@@ -31,7 +31,7 @@ pub struct FileCopierJobStep {
 	pub source_fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_copier";
+pub const COPY_JOB_NAME: &str = "file_copier";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
@@ -40,7 +40,7 @@ impl StatefulJob for FileCopierJob {
 	type Step = FileCopierJobStep;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		COPY_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {

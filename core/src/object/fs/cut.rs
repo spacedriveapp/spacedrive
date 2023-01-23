@@ -27,7 +27,7 @@ pub struct FileCutterJobStep {
 	pub target_directory: PathBuf,
 }
 
-const JOB_NAME: &str = "file_cutter";
+pub const CUT_JOB_NAME: &str = "file_cutter";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJob {
@@ -36,7 +36,7 @@ impl StatefulJob for FileCutterJob {
 	type Step = FileCutterJobStep;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		CUT_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
