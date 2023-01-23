@@ -62,9 +62,16 @@ export default function EditLocation() {
 			<SettingsSubPage
 				title="Edit Location"
 				topRight={
-					<Button disabled={!isDirty} variant={isDirty ? 'accent' : 'outline'} size="sm">
-						Save Changes
-					</Button>
+					<div className="flex flex-row space-x-3">
+						{isDirty && (
+							<Button onClick={() => form.reset()} variant="outline" size="sm">
+								Reset
+							</Button>
+						)}
+						<Button disabled={!isDirty} variant={isDirty ? 'accent' : 'outline'} size="sm">
+							Save Changes
+						</Button>
+					</div>
 				}
 			>
 				{/* <div className="flex flex-col max-w-xl">

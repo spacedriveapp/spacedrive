@@ -164,10 +164,9 @@ export default function OverviewScreen() {
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
-					<div className="flex -mb-1 overflow-hidden">
+					<div className="flex h-20 -mb-1 overflow-hidden">
 						{Object.entries(overviewStats || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
-
 							return (
 								<StatItem
 									key={library?.uuid + ' ' + key}
@@ -179,37 +178,6 @@ export default function OverviewScreen() {
 						})}
 					</div>
 					<div className="flex-grow" />
-					<div className="flex items-center h-full space-x-2">
-						<div>
-							{/* <Dialog
-								title="Add Device"
-								description="Connect a new device to your library. Either enter another device's code or copy this one."
-								// ctaAction={() => {}}
-								ctaLabel="Connect"
-								trigger={
-									<Button size="sm" variant="gray">
-										<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />
-										<span className="hidden xl:inline-block">Add Device</span>
-									</Button>
-								}
-							>
-								<div className="flex flex-col mt-2 space-y-3">
-									<div className="flex flex-col">
-										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-											This Device
-										</span>
-										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
-									</div>
-									<div className="flex flex-col">
-										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-											Enter a device code
-										</span>
-										<Input value="" />
-									</div>
-								</div>
-							</Dialog>*/}
-						</div>
-					</div>
 				</div>
 				<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
 					<CategoryButton icon={Heart} category="Favorites" />
