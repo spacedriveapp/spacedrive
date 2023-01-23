@@ -13,9 +13,6 @@ const currentLibraryUuidStore = valtioPersist('sdActiveLibrary', {
 	id: null as string | null
 });
 
-// Cringe method to get rspc working on mobile.
-export const mobileSync = currentLibraryUuidStore;
-
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
 }>(undefined!);
