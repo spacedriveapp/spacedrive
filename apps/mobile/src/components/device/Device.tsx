@@ -18,6 +18,7 @@ const placeholderFileItems: ExplorerItem[] = [
 		location_id: 1,
 		materialized_path: '/Documents',
 		object_id: 5,
+		pending: false,
 		parent_id: 1,
 		object: {
 			extension: 'tsx',
