@@ -156,6 +156,9 @@ impl LocationCreateArgs {
 pub struct LocationUpdateArgs {
 	pub id: i32,
 	pub name: Option<String>,
+	pub generate_preview_media: Option<bool>,
+	pub sync_preview_media: Option<bool>,
+	pub hidden: Option<bool>,
 	pub indexer_rules_ids: Vec<i32>,
 }
 
@@ -167,13 +170,26 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
+		let mut params_to_update = vec![];
+
 		if self.name.is_some() && location.name != self.name {
+			params_to_update.push(location::name::set(self.name.clone()))
+		}
+		if let Some(gpm) = self.generate_preview_media {
+			params_to_update.push(location::generate_preview_media::set(gpm))
+		}
+		if let Some(spm) = self.sync_preview_media {
+			params_to_update.push(location::sync_preview_media::set(spm))
+		}
+
+		if let Some(hidden) = self.hidden {
+			params_to_update.push(location::hidden::set(hidden))
+		}
+
+		if params_to_update.len() > 0 {
 			ctx.db
 				.location()
-				.update(
-					location::id::equals(self.id),
-					vec![location::name::set(self.name.clone())],
-				)
+				.update(location::id::equals(self.id), params_to_update)
 				.exec()
 				.await?;
 

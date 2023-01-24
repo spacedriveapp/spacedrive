@@ -1,13 +1,10 @@
-import { useLibraryQuery } from '@sd/client';
-import { Button, RadioGroup, forms, tw } from '@sd/ui';
-import { Archive, ArrowsClockwise, Trash, TrashSimple } from 'phosphor-react';
-import { Controller } from 'react-hook-form';
+import { Archive, ArrowsClockwise, Trash } from 'phosphor-react';
 import { useParams } from 'react-router';
-import { Divider } from '~/components/explorer/inspector/Divider';
-import { Folder } from '~/components/icons/Folder';
-import { SettingsSubPage } from '~/components/settings/SettingsSubPage';
-
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, tw } from '@sd/ui';
 import { Form, Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import { Divider } from '~/components/explorer/inspector/Divider';
+import { SettingsSubPage } from '~/components/settings/SettingsSubPage';
 
 const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const Label = tw.label`mb-1 text-sm font-medium`;
@@ -24,7 +21,7 @@ const schema = z.object({
 	locationType: z.string(),
 	generatePreviewMedia: z.boolean(),
 	syncPreviewMedia: z.boolean(),
-	showInSidebar: z.boolean()
+	hidden: z.boolean()
 });
 
 export default function EditLocation() {
@@ -35,27 +32,42 @@ export default function EditLocation() {
 		defaultValues: {
 			generatePreviewMedia: true,
 			syncPreviewMedia: true,
-			showInSidebar: false
+			hidden: false
 		}
 	});
 
 	const isDirty = form.formState.isDirty;
+
+	const updateLocation = useLibraryMutation('locations.update', {
+		onError: (e) => console.log(e),
+		onMutate: (e) => console.log(e)
+	});
 
 	useLibraryQuery(['locations.getById', Number(id)], {
 		onSuccess: (data) => {
 			if (data && !isDirty)
 				form.reset({
 					displayName: data.name || undefined,
-					localPath: data.local_path || undefined
+					localPath: data.local_path || undefined,
 					// locationType: data.location_type,
-					// generatePreviewMedia: data.generate_preview_media,
-					// syncPreviewMedia: data.sync_preview_media,
-					// showInSidebar: data.show_in_sidebar
+					generatePreviewMedia: data.generate_preview_media,
+					syncPreviewMedia: data.sync_preview_media,
+					hidden: data.hidden
 				});
 		}
 	});
 
-	const handleSubmit = form.handleSubmit(async (data) => {});
+	const handleSubmit = form.handleSubmit(async (data) => {
+		console.log(data);
+		updateLocation.mutate({
+			id: Number(id),
+			name: data.displayName,
+			sync_preview_media: data.syncPreviewMedia,
+			generate_preview_media: data.generatePreviewMedia,
+			hidden: data.hidden,
+			indexer_rules_ids: []
+		});
+	});
 
 	return (
 		<Form form={form} onSubmit={handleSubmit}>
@@ -68,7 +80,12 @@ export default function EditLocation() {
 								Reset
 							</Button>
 						)}
-						<Button disabled={!isDirty} variant={isDirty ? 'accent' : 'outline'} size="sm">
+						<Button
+							type="submit"
+							disabled={!isDirty || form.formState.isSubmitting}
+							variant={isDirty ? 'accent' : 'outline'}
+							size="sm"
+						>
 							Save Changes
 						</Button>
 					</div>
@@ -109,7 +126,7 @@ export default function EditLocation() {
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="flex-grow">Show Location in sidebar</Label>
-						<Switch {...form.register('showInSidebar')} size="sm" />
+						<Switch {...form.register('hidden')} size="sm" />
 					</ToggleSection>
 				</div>
 

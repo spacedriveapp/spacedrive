@@ -20,7 +20,7 @@ export type Procedures = {
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_online: boolean, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
@@ -140,13 +140,13 @@ export interface LibraryConfig { version: string | null, name: string, descripti
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 
-export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string }
+export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_online: boolean, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
 
 export interface LocationCreateArgs { path: string, indexer_rules_ids: Array<number> }
 
 export interface LocationExplorerArgs { location_id: number, path: string, limit: number, cursor: string | null }
 
-export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
+export interface LocationUpdateArgs { id: number, name: string | null, generate_preview_media: boolean | null, sync_preview_media: boolean | null, hidden: boolean | null, indexer_rules_ids: Array<number> }
 
 export interface MasterPasswordChangeArgs { password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
