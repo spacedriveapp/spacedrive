@@ -29,7 +29,9 @@
 //! // Write the header to the file
 //! header.write(&mut writer).unwrap();
 //! ```
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::SeekFrom;
+
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
@@ -121,11 +123,11 @@ impl FileHeader {
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
-	pub fn write<W>(&self, writer: &mut W) -> Result<()>
+	pub async fn write<W>(&self, writer: &mut W) -> Result<()>
 	where
-		W: Write,
+		W: AsyncWriteExt + Unpin + Send,
 	{
-		writer.write_all(&self.to_bytes()?)?;
+		writer.write_all(&self.to_bytes()?).await?;
 		Ok(())
 	}
 
@@ -254,12 +256,12 @@ impl FileHeader {
 	/// On error, the cursor will not be rewound.
 	///
 	/// It returns both the header, and the AAD that should be used for decryption.
-	pub fn from_reader<R>(reader: &mut R) -> Result<(Self, Vec<u8>)>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<(Self, Vec<u8>)>
 	where
-		R: Read + Seek,
+		R: AsyncReadExt + AsyncSeekExt + Unpin + Send,
 	{
 		let mut magic_bytes = [0u8; MAGIC_BYTES.len()];
-		reader.read_exact(&mut magic_bytes)?;
+		reader.read_exact(&mut magic_bytes).await?;
 
 		if magic_bytes != MAGIC_BYTES {
 			return Err(Error::FileHeader);
@@ -267,36 +269,38 @@ impl FileHeader {
 
 		let mut version = [0u8; 2];
 
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version = FileHeaderVersion::from_bytes(version)?;
 
 		// Rewind so we can get the AAD
-		reader.rewind()?;
+		reader.rewind().await?;
 
 		// read the aad according to the size
 		let mut aad = vec![0u8; Self::size(version)];
-		reader.read_exact(&mut aad)?;
+		reader.read_exact(&mut aad).await?;
 
 		// seek back to the start (plus magic bytes and the two version bytes)
-		reader.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))?;
+		reader
+			.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))
+			.await?;
 
 		// read the header
 		let header = match version {
 			FileHeaderVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut nonce)?;
+				reader.read_exact(&mut nonce).await?;
 
 				// read and discard the padding
-				reader.read_exact(&mut vec![0u8; 25 - nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 25 - nonce.len()]).await?;
 
 				let mut keyslot_bytes = [0u8; (KEYSLOT_SIZE * 2)]; // length of 2x keyslots
 				let mut keyslots: Vec<Keyslot> = Vec::new();
 
-				reader.read_exact(&mut keyslot_bytes)?;
+				reader.read_exact(&mut keyslot_bytes).await?;
 
 				for _ in 0..2 {
 					Keyslot::from_reader(&mut keyslot_bytes.as_ref())
@@ -304,18 +308,21 @@ impl FileHeader {
 						.ok();
 				}
 
-				let metadata = Metadata::from_reader(reader).map_or_else(
-					|_| {
-						reader.seek(SeekFrom::Start(
+				let metadata = if let Ok(metadata) = Metadata::from_reader(reader).await {
+					reader
+						.seek(SeekFrom::Start(
 							Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-						))?;
-						Ok::<Option<Metadata>, Error>(None)
-					},
-					|metadata| Ok(Some(metadata)),
-				)?;
+						))
+						.await?;
+					Ok::<Option<Metadata>, Error>(Some(metadata))
+				} else {
+					Ok(None)
+				}?;
 
-				let preview_media = PreviewMedia::from_reader(reader).map_or_else(
-					|_| {
+				let preview_media =
+					if let Ok(preview_media) = PreviewMedia::from_reader(reader).await {
+						Ok::<Option<PreviewMedia>, Error>(Some(preview_media))
+					} else {
 						let seek_len = metadata.as_ref().map_or_else(
 							|| Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 							|metadata| {
@@ -324,12 +331,10 @@ impl FileHeader {
 							},
 						);
 
-						reader.seek(SeekFrom::Start(seek_len))?;
+						reader.seek(SeekFrom::Start(seek_len)).await?;
 
-						Ok::<Option<PreviewMedia>, Error>(None)
-					},
-					|preview_media| Ok(Some(preview_media)),
-				)?;
+						Ok(None)
+					}?;
 
 				Self {
 					version,

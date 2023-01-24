@@ -23,7 +23,7 @@ pub struct KeyAddArgs {
 }
 
 #[derive(Type, Deserialize)]
-pub struct SetMasterPasswordArgs {
+pub struct UnlockKeyManagerArgs {
 	password: String,
 	secret_key: Option<String>,
 }
@@ -64,14 +64,14 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.get_key(key_uuid)?;
+				let key = library.key_manager.get_key(key_uuid).await?;
 
 				Ok(String::from_utf8(key.into_inner()).map_err(Error::StringParse)?)
 			})
 		})
 		.library_mutation("mount", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				library.key_manager.mount(key_uuid)?;
+				library.key_manager.mount(key_uuid).await?;
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
@@ -148,14 +148,17 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_mutation("setMasterPassword", |t| {
-			t(|_, args: SetMasterPasswordArgs, library| async move {
+		.library_mutation("unlockKeyManager", |t| {
+			t(|_, args: UnlockKeyManagerArgs, library| async move {
 				// if this returns an error, the user MUST re-enter the correct password
-				library.key_manager.set_master_password(
-					Protected::new(args.password),
-					args.secret_key.map(Protected::new),
-					|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
-				)?;
+				library
+					.key_manager
+					.unlock(
+						Protected::new(args.password),
+						args.secret_key.map(Protected::new),
+						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
+					)
+					.await?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 
@@ -169,7 +172,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)?;
+						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)
+						.await?;
 
 					invalidate_query!(library, "keys.listMounted");
 				}
@@ -222,14 +226,17 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
 				// register the key with the keymanager
-				let uuid = library.key_manager.add_to_keystore(
-					Protected::new(args.key.as_bytes().to_vec()),
-					args.algorithm,
-					args.hashing_algorithm,
-					!args.library_sync,
-					args.automount,
-					None,
-				)?;
+				let uuid = library
+					.key_manager
+					.add_to_keystore(
+						Protected::new(args.key.as_bytes().to_vec()),
+						args.algorithm,
+						args.hashing_algorithm,
+						!args.library_sync,
+						args.automount,
+						None,
+					)
+					.await?;
 
 				if args.library_sync {
 					write_storedkey_to_db(&library.db, &library.key_manager.access_keystore(uuid)?)
@@ -248,7 +255,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 				}
 
-				library.key_manager.mount(uuid)?;
+				library.key_manager.mount(uuid).await?;
 
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
@@ -290,11 +297,10 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let secret_key = args.secret_key.map(Protected::new);
 
-				let updated_keys = library.key_manager.import_keystore_backup(
-					Protected::new(args.password),
-					secret_key,
-					&stored_keys,
-				)?;
+				let updated_keys = library
+					.key_manager
+					.import_keystore_backup(Protected::new(args.password), secret_key, &stored_keys)
+					.await?;
 
 				for key in &updated_keys {
 					write_storedkey_to_db(&library.db, key).await?;
@@ -310,12 +316,15 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
 				let secret_key = args.secret_key.map(Protected::new);
 
-				let verification_key = library.key_manager.change_master_password(
-					Protected::new(args.password),
-					args.algorithm,
-					args.hashing_algorithm,
-					secret_key,
-				)?;
+				let verification_key = library
+					.key_manager
+					.change_master_password(
+						Protected::new(args.password),
+						args.algorithm,
+						args.hashing_algorithm,
+						secret_key,
+					)
+					.await?;
 
 				// remove old nil-id keys if they were set
 				library
