@@ -42,6 +42,7 @@ use crate::primitives::{
 	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, OnboardingConfig,
 	KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
+use crate::protected::ProtectedVec;
 use crate::{
 	crypto::stream::Algorithm,
 	primitives::{ENCRYPTED_KEY_LEN, SALT_LEN},
@@ -600,7 +601,7 @@ impl KeyManager {
 	/// This function is used for getting the key value itself, from a given UUID.
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
-	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
+	pub async fn get_key(&self, uuid: Uuid) -> Result<ProtectedVec<u8>> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				let master_key = StreamDecryption::decrypt_bytes(
@@ -645,7 +646,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn add_to_keystore(
 		&self,
-		key: Protected<Vec<u8>>,
+		key: ProtectedVec<u8>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
@@ -704,7 +705,7 @@ impl KeyManager {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<Vec<u8>> {
+	fn convert_secret_key_string(secret_key: Protected<String>) -> ProtectedVec<u8> {
 		Protected::new(secret_key.expose().as_bytes().to_vec())
 	}
 

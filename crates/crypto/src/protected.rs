@@ -31,6 +31,8 @@
 use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
 
+pub type ProtectedVec<T> = Protected<Vec<T>>;
+
 #[derive(Clone)]
 pub struct Protected<T>
 where

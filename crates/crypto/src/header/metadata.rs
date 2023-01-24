@@ -27,7 +27,8 @@
 //! )
 //! .unwrap();
 //! ```
-use tokio::io::AsyncReadExt;
+#[cfg(feature = "serde")]
+use crate::protected::ProtectedVec;
 
 #[cfg(feature = "serde")]
 use crate::{
@@ -35,6 +36,8 @@ use crate::{
 	primitives::{generate_nonce, KEY_LEN},
 	Protected,
 };
+
+use tokio::io::AsyncReadExt;
 
 use crate::{crypto::stream::Algorithm, Error, Result};
 
@@ -137,7 +140,7 @@ impl FileHeader {
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub async fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
+	pub async fn decrypt_metadata<T>(&self, password: ProtectedVec<u8>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{

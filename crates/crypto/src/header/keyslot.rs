@@ -30,6 +30,7 @@ use crate::{
 		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
 		KEY_LEN, SALT_LEN,
 	},
+	protected::ProtectedVec,
 	Error, Protected, Result,
 };
 
@@ -104,10 +105,7 @@ impl Keyslot {
 	///
 	/// An error will be returned on failure.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(
-		&self,
-		password: Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>> {
+	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<ProtectedVec<u8>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password, self.content_salt, None)
@@ -133,7 +131,7 @@ impl Keyslot {
 	pub async fn decrypt_master_key_from_prehashed(
 		&self,
 		key: Protected<[u8; KEY_LEN]>,
-	) -> Result<Protected<Vec<u8>>> {
+	) -> Result<ProtectedVec<u8>> {
 		StreamDecryption::decrypt_bytes(
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
