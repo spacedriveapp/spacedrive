@@ -76,13 +76,20 @@ export const useLibraryMutation = libraryHooks.useMutation;
 
 export function useInvalidateQuery() {
 	const context = rspc.useContext();
-	rspc.useSubscription(['invalidateQuery'], {
-		onData: (invalidateOperation) => {
-			const key = [invalidateOperation.key];
-			if (invalidateOperation.arg !== null) {
-				key.concat(invalidateOperation.arg);
+	rspc.useSubscription(['invalidation.listen'], {
+		onData: (ops) => {
+			for (const op of ops) {
+				const key = [op.key];
+				if (op.arg !== null) {
+					key.concat(op.arg);
+				}
+
+				if (op.result !== null) {
+					context.queryClient.setQueryData(key, op.result);
+				} else {
+					context.queryClient.invalidateQueries(key);
+				}
 			}
-			context.queryClient.invalidateQueries(key);
 		}
 	});
 }

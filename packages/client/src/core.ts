@@ -77,7 +77,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
-        { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
+        { key: "invalidation.listen", input: never, result: Array<InvalidateOperationEvent> } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
 };
 
@@ -125,7 +125,7 @@ export interface IndexerRule { id: number, kind: number, name: string, parameter
 
 export interface IndexerRuleCreateArgs { kind: RuleKind, name: string, parameters: Array<number> }
 
-export interface InvalidateOperationEvent { key: string, arg: any }
+export interface InvalidateOperationEvent { key: string, arg: any, result: any | null }
 
 export interface JobReport { id: string, name: string, data: Array<number> | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 

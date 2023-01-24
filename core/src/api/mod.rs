@@ -1,7 +1,4 @@
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::sync::Arc;
 
 use rspc::{Config, Type};
 use serde::{Deserialize, Serialize};
@@ -13,7 +10,7 @@ use crate::{
 	node::{NodeConfig, NodeConfigManager},
 };
 
-use utils::{InvalidRequests, InvalidateOperationEvent};
+use utils::{mount_invalidate, InvalidRequests, InvalidateOperationEvent};
 
 pub type Router = rspc::Router<Ctx>;
 pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
@@ -23,7 +20,6 @@ pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 pub enum CoreEvent {
 	NewThumbnail { cas_id: String },
 	InvalidateOperation(InvalidateOperationEvent),
-	InvalidateOperationDebounced(InvalidateOperationEvent),
 }
 
 /// Is provided when executing the router from the request.
@@ -95,28 +91,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
-		// TODO: Scope the invalidate queries to a specific library (filtered server side)
-		.subscription("invalidateQuery", |t| {
-			t(|ctx, _: ()| {
-				let mut event_bus_rx = ctx.event_bus.subscribe();
-				let mut last = Instant::now();
-				async_stream::stream! {
-					while let Ok(event) = event_bus_rx.recv().await {
-						match event {
-							CoreEvent::InvalidateOperation(op) => yield op,
-							CoreEvent::InvalidateOperationDebounced(op) => {
-								let current = Instant::now();
-								if current.duration_since(last) > Duration::from_millis(1000 / 10) {
-									last = current;
-									yield op;
-								}
-							},
-							_ => {}
-						}
-					}
-				}
-			})
-		})
+		.merge("invalidation.", mount_invalidate())
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.

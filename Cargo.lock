@@ -5462,6 +5462,7 @@ dependencies = [
  "sd-file-ext",
  "sd-sync",
  "serde",
+ "serde-hashkey",
  "serde_json",
  "specta 0.0.4",
  "sysinfo",
@@ -5710,6 +5711,15 @@ name = "serde-big-array"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3323f09a748af288c3dc2474ea6803ee81f118321775bffa3ac8f7e65c5e90e7"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde-hashkey"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13a90d3c31ebd0b83e38600c8117083ec4c4e1a7a0cab364e79e19706ade04e"
 dependencies = [
  "serde",
 ]
