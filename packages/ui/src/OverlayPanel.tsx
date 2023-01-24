@@ -1,16 +1,13 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
+import { animated, config, useTransition } from 'react-spring';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
 	transformOrigin?: string;
 	disabled?: boolean;
 }
-
-const context = createContext<{ close: () => void } | undefined>(undefined);
-
-export const useOverlayPanelContext = () => useContext(context);
 
 export const OverlayPanel = ({
 	trigger,
@@ -54,9 +51,7 @@ export const OverlayPanel = ({
 							)}
 							// style={styles}
 						>
-							<context.Provider value={{ close: () => setOpen(false) }}>
-								{children}
-							</context.Provider>
+							{children}
 						</div>
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
