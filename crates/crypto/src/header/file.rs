@@ -108,7 +108,7 @@ impl FileHeader {
 			return Err(Error::NoKeyslots);
 		}
 
-		for v in self.keyslots.iter() {
+		for v in &self.keyslots {
 			if let Some(key) = v
 				.decrypt_master_key(password.clone())
 				.await
@@ -146,7 +146,7 @@ impl FileHeader {
 		}
 
 		for hashed_key in hashed_keys {
-			for v in self.keyslots.iter() {
+			for v in &self.keyslots {
 				if let Some(key) = v
 					.decrypt_master_key_from_prehashed(hashed_key.clone())
 					.await

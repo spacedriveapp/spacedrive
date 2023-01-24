@@ -70,14 +70,12 @@ impl FileHeader {
 			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])
 				.await?;
 
-		let pvm = PreviewMedia {
+		self.preview_media = Some(PreviewMedia {
 			version,
 			algorithm,
 			media_nonce,
 			media: encrypted_media,
-		};
-
-		self.preview_media = Some(pvm);
+		});
 
 		Ok(())
 	}
