@@ -114,7 +114,7 @@ impl FileHeader {
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		match self.metadata.as_ref() {
 			Some(metadata) => {
@@ -143,7 +143,7 @@ impl FileHeader {
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key(password)?;
+		let master_key = self.decrypt_master_key(password).await?;
 
 		match self.metadata.as_ref() {
 			Some(metadata) => {
