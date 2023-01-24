@@ -7,10 +7,13 @@ use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::{
+	api::utils::LibraryArgs,
 	invalidate_query,
 	library::LibraryContext,
 	prisma::{job, node},
 };
+
+use super::JobManager;
 
 /// TODO: Can I remove this?
 #[derive(Debug)]
@@ -96,9 +99,10 @@ impl JobReport {
 
 	pub async fn upsert(
 		&self,
+		job_manager: &JobManager,
 		library_ctx: &LibraryContext,
 	) -> Result<job::Data, prisma_client_rust::QueryError> {
-		library_ctx
+		let v = library_ctx
 			.db
 			.job()
 			.upsert(
@@ -130,13 +134,21 @@ impl JobReport {
 				],
 			)
 			.exec()
-			.await
-			.map(|v| {
-				invalidate_query!(library_ctx, "jobs.isRunning");
-				invalidate_query!(library_ctx, "jobs.getRunning");
-				invalidate_query!(library_ctx, "jobs.getHistory");
-				v
-			})
+			.await?;
+
+		let running_jobs = job_manager.get_running().await;
+		invalidate_query!(library_ctx, "jobs.getRunning": LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: running_jobs);
+
+		match job_manager.get_history(&library_ctx).await {
+			Ok(jobs) => {
+				invalidate_query!(library_ctx, "jobs.getHistory":  LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: jobs);
+			}
+			Err(e) => {
+				error!("Failed to get job history when invalidating it: {}", e);
+			}
+		}
+
+		Ok(v)
 	}
 }
 

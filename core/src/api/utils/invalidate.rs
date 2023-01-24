@@ -202,10 +202,13 @@ macro_rules! invalidate_query {
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
-			.map(|v|
-				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v, Some($result)),
-				))
+			.and_then(|arg|
+				serde_json::to_value($result)
+				.map(|result|
+					ctx.emit(crate::api::CoreEvent::InvalidateOperation(
+						crate::api::utils::InvalidateOperationEvent::dangerously_create($key, arg, Some(result)),
+					))
+				)
 			)
 			.map_err(|_| {
 				tracing::warn!("Failed to serialize invalidate query event!");

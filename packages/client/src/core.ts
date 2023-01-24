@@ -7,7 +7,6 @@ export type Procedures = {
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
-        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 

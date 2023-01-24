@@ -1,4 +1,5 @@
 use crate::{
+	api::utils::LibraryArgs,
 	invalidate_query,
 	job::{JobError, JobReport, WorkerContext},
 	library::LibraryContext,
@@ -23,7 +24,7 @@ use std::{
 
 use int_enum::IntEnum;
 use once_cell::sync::Lazy;
-use prisma_client_rust::or;
+use prisma_client_rust::{or, Direction, QueryError};
 use tokio::{
 	sync::{broadcast, oneshot, RwLock},
 	time::sleep,
@@ -89,25 +90,34 @@ const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::ne
 	])
 });
 
-/// TODO
+/// a job that is waiting to be run.
+/// The job is in a thread waiting for the start signal to be called.
 pub struct QueuedJob {
-	// /// name of the job. This comes from `StatefulJob::NAME`.
-	// name: &'static str,
 	/// the job report.
 	report: JobReport,
 	/// channel which is used to signal the job thread to start execution
 	start: oneshot::Sender<()>,
 }
 
-/// TODO
+pub enum JobExitReason {
+	/// The job was asked to stop execution but maintain state to be resumed in the future
+	Stop,
+	/// The job was cancelled by the user and will never be resumed
+	Cancelled,
+}
+
+/// state for a currently running job.
+/// This is held by the job manager so is eventually consistent with the actual state of the job stored by the thread.
 pub struct RunningJob {
 	/// the job report. NOTE: THIS IS EVENTUALLY CONSISTENT
 	/// Every `STEPS_BETWEEN_PERSIST` steps the job report here will be updated.
 	report: JobReport,
-	// TODO: Pause channel?
+	// /// channel which is used to signal the job thread to stop execution
+	// pause: oneshot::Sender<JobExitReason>, // TODO: Make this work
 }
 
-/// TODO
+/// a manager for the Spacedrive job system.
+/// It is in charge of starting, resuming and monitoring the progress of jobs defined within the core.
 pub struct JobManager {
 	/// jobs that are currently running
 	running: RwLock<HashMap<Uuid, RunningJob>>,
@@ -118,7 +128,6 @@ pub struct JobManager {
 }
 
 impl JobManager {
-	/// TODO
 	pub fn new() -> Arc<Self> {
 		// We ignore `_shutdown_rx` because it's a broadcast channel
 		let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
@@ -129,7 +138,6 @@ impl JobManager {
 		})
 	}
 
-	/// TODO
 	pub async fn ingest<T: StatefulJob>(
 		self: Arc<Self>,
 		ctx: LibraryContext,
@@ -155,7 +163,6 @@ impl JobManager {
 		.await;
 	}
 
-	/// TODO
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		self.running
 			.read()
@@ -165,14 +172,38 @@ impl JobManager {
 			.collect()
 	}
 
+	pub async fn get_history(&self, ctx: &LibraryContext) -> Result<Vec<JobReport>, QueryError> {
+		Ok(ctx
+			.db
+			.job()
+			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
+			.order_by(job::date_created::order(Direction::Desc))
+			.take(100) // TODO: What if we have more than 100 jobs in the history? -> We should Pagination here
+			.exec()
+			.await?
+			.into_iter()
+			.map(Into::into)
+			.collect::<Vec<JobReport>>())
+	}
+
 	/// TODO
 	pub async fn clear_all_jobs(
+		&self,
 		ctx: &LibraryContext,
 	) -> Result<(), prisma_client_rust::QueryError> {
 		// TODO: Delete running jobs??? -> Upsert in the job itself will recreate them
 
 		ctx.db.job().delete_many(vec![]).exec().await?;
-		invalidate_query!(ctx, "jobs.getHistory");
+
+		match self.get_history(&ctx).await {
+			Ok(jobs) => {
+				invalidate_query!(ctx, "jobs.getHistory":  LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: jobs);
+			}
+			Err(e) => {
+				error!("Failed to get job history when invalidating it: {}", e);
+			}
+		}
+
 		Ok(())
 	}
 
@@ -249,7 +280,7 @@ impl JobManager {
 		report.status = job_should_queue
 			.then(|| JobStatus::Running)
 			.unwrap_or(JobStatus::Queued);
-		report.upsert(&library_ctx).await.unwrap(); // TODO: Error handling
+		report.upsert(&self, &library_ctx).await.unwrap(); // TODO: Error handling
 
 		tokio::spawn(async move {
 			let mut shutdown_rx = self.shutdown_tx.subscribe();
@@ -268,7 +299,7 @@ impl JobManager {
 						// TODO: Persist job state to the database
 						// rmp_serde::to_vec_named(&self.state)?;
 
-						report.upsert(&library_ctx).await.unwrap(); // TODO: Error handling
+						report.upsert(&self, &library_ctx).await.unwrap(); // TODO: Error handling
 						self.running.write().await.remove(&report.id);
 						return;
 					}
@@ -276,7 +307,7 @@ impl JobManager {
 				};
 
 				report.status = JobStatus::Running;
-				report.upsert(&library_ctx).await.unwrap(); // TODO: Error handling
+				report.upsert(&self, &library_ctx).await.unwrap(); // TODO: Error handling
 			} else {
 				self.running.write().await.insert(
 					report.id,
@@ -320,7 +351,7 @@ impl JobManager {
 						// TODO: Persist job state to the database
 						// rmp_serde::to_vec_named(&self.state)?;
 
-						ctx.report.upsert(&ctx.library_ctx).await.unwrap(); // TODO: Error handling
+						ctx.report.upsert(&self, &ctx.library_ctx).await.unwrap(); // TODO: Error handling
 						self.running.write().await.remove(&ctx.report.id);
 						return;
 					}
@@ -329,7 +360,7 @@ impl JobManager {
 				if last_update == STEPS_BETWEEN_PERSIST {
 					last_update = 0;
 					// TODO: Write job state as well???
-					ctx.report.upsert(&ctx.library_ctx).await.unwrap(); // TODO: Error handling
+					ctx.report.upsert(&self, &ctx.library_ctx).await.unwrap(); // TODO: Error handling
 					self.running.write().await.insert(
 						ctx.report.id,
 						RunningJob {
@@ -337,7 +368,8 @@ impl JobManager {
 						},
 					);
 
-					invalidate_query!(ctx.library_ctx, "jobs.getRunning");
+					let running_jobs = self.get_running().await;
+					invalidate_query!(ctx.library_ctx, "jobs.getRunning": LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: running_jobs);
 				} else {
 					last_update += 1;
 				}
@@ -370,7 +402,7 @@ impl JobManager {
 			}
 
 			// persist the job report, remove current job from running and start next job
-			if let Err(err) = ctx.report.upsert(&ctx.library_ctx).await {
+			if let Err(err) = ctx.report.upsert(&self, &ctx.library_ctx).await {
 				error!("failed to upsert job report: {:#?}", err);
 			}
 
@@ -395,7 +427,8 @@ impl JobManager {
 					}
 				}
 			}
-			invalidate_query!(ctx.library_ctx, "jobs.getRunning");
+			let running_jobs = self.get_running().await;
+			invalidate_query!(ctx.library_ctx, "jobs.getRunning": LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: running_jobs);
 		});
 	}
 }

@@ -161,7 +161,8 @@ export function Sidebar() {
 }
 
 function IsRunningJob() {
-	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
+	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
+	const isRunningJob = runningJobs?.length !== 0 || false;
 
 	return isRunningJob ? (
 		<Loader className="w-[20px] h-[20px]" />

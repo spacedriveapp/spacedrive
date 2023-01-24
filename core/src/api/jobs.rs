@@ -1,15 +1,12 @@
 use crate::{
-	job::{JobManager, JobReport, JobStatus},
 	location::{fetch_location, LocationError},
 	object::{
 		identifier_job::full_identifier_job::FullFileIdentifierJobInit, preview::ThumbnailJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
-	prisma::{job, location},
+	prisma::location,
 };
 
-use int_enum::IntEnum;
-use prisma_client_rust::Direction;
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -21,27 +18,14 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getRunning", |t| {
 			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await) })
 		})
-		.library_query("isRunning", |t| {
-			t(|ctx, _: (), _| async move { Ok(!ctx.jobs.get_running().await.is_empty()) })
-		})
 		.library_query("getHistory", |t| {
-			t(|_, _: (), library| async move {
-				Ok(library
-					.db
-					.job()
-					.find_many(vec![job::status::not(JobStatus::Running.int_value())])
-					.order_by(job::date_created::order(Direction::Desc))
-					.take(100) // TODO: What if we have more than 100 jobs in the history? -> We should Pagination here
-					.exec()
-					.await?
-					.into_iter()
-					.map(Into::into)
-					.collect::<Vec<JobReport>>())
+			t(|ctx, _: (), library| async move {
+				ctx.jobs.get_history(&library).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("clearAll", |t| {
-			t(|_, _: (), library| async move {
-				JobManager::clear_all_jobs(&library).await?;
+			t(|ctx, _: (), library| async move {
+				ctx.jobs.clear_all_jobs(&library).await?;
 				Ok(())
 			})
 		})

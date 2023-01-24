@@ -20,6 +20,15 @@ pub(crate) struct LibraryArgs<T> {
 	pub arg: T,
 }
 
+impl Default for LibraryArgs<()> {
+	fn default() -> Self {
+		Self {
+			library_id: Uuid::nil(),
+			arg: (),
+		}
+	}
+}
+
 // WARNING: This is system is using internal API's which means it will break between rspc release. I would avoid copying it unless you understand the cost of maintaining it!
 pub trait LibraryRequest {
 	fn library_query<TUnbuiltResolver, TUnbuiltResult, TUnbuiltResultMarker, TBuiltResolver, TArg>(
