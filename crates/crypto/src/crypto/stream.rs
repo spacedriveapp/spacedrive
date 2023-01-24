@@ -5,6 +5,7 @@ use std::io::Cursor;
 
 use crate::{
 	primitives::{AEAD_TAG_SIZE, BLOCK_SIZE, KEY_LEN},
+	protected::ProtectedVec,
 	Error, Protected, Result,
 };
 use aead::{
@@ -276,7 +277,7 @@ impl StreamDecryption {
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
-	) -> Result<Protected<Vec<u8>>> {
+	) -> Result<ProtectedVec<u8>> {
 		let mut writer = Cursor::new(Vec::<u8>::new());
 		let decryptor = Self::new(key, nonce, algorithm)?;
 
