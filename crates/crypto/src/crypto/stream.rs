@@ -4,7 +4,7 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{AEAD_TAG_SIZE, BLOCK_SIZE, KEY_LEN},
+	primitives::{Key, AEAD_TAG_SIZE, BLOCK_SIZE},
 	protected::ProtectedVec,
 	Error, Protected, Result,
 };
@@ -55,7 +55,7 @@ impl StreamEncryption {
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<[u8; KEY_LEN]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Protected<Key>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -153,7 +153,7 @@ impl StreamEncryption {
 	/// It is just a thin wrapper around `encrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub async fn encrypt_bytes(
-		key: Protected<[u8; KEY_LEN]>,
+		key: Protected<Key>,
 		nonce: &[u8],
 		algorithm: Algorithm,
 		bytes: &[u8],
@@ -174,7 +174,7 @@ impl StreamDecryption {
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<[u8; KEY_LEN]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Protected<Key>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -272,7 +272,7 @@ impl StreamDecryption {
 	/// It is just a thin wrapper around `decrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub async fn decrypt_bytes(
-		key: Protected<[u8; KEY_LEN]>,
+		key: Protected<Key>,
 		nonce: &[u8],
 		algorithm: Algorithm,
 		bytes: &[u8],

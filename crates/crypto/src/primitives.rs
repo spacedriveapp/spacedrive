@@ -44,6 +44,10 @@ pub const MASTER_PASSWORD_CONTEXT: &str =
 	"spacedrive 2022-12-14 15:35:41 master password hash derivation"; // used for deriving keys from the master password hash
 pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation"; // used for deriving keys from user key/content salt hashes (for file encryption)
 
+pub type Key = [u8; KEY_LEN];
+pub type EncryptedKey = [u8; ENCRYPTED_KEY_LEN];
+pub type Salt = [u8; SALT_LEN];
+
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
@@ -70,7 +74,7 @@ pub fn generate_nonce(algorithm: Algorithm) -> Vec<u8> {
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_salt() -> [u8; SALT_LEN] {
+pub fn generate_salt() -> Salt {
 	let mut salt = [0u8; SALT_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
 	salt
@@ -82,7 +86,7 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_master_key() -> Protected<[u8; KEY_LEN]> {
+pub fn generate_master_key() -> Protected<Key> {
 	let mut master_key = [0u8; KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);
 	Protected::new(master_key)
@@ -90,11 +94,7 @@ pub fn generate_master_key() -> Protected<[u8; KEY_LEN]> {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn derive_key(
-	key: Protected<[u8; KEY_LEN]>,
-	salt: [u8; SALT_LEN],
-	context: &str,
-) -> Protected<[u8; KEY_LEN]> {
+pub fn derive_key(key: Protected<Key>, salt: Salt, context: &str) -> Protected<Key> {
 	let mut input = key.expose().to_vec();
 	input.extend_from_slice(&salt);
 
@@ -107,7 +107,7 @@ pub fn derive_key(
 
 /// This is used for converting a `Vec<u8>` to an array of bytes
 ///
-/// It's main usage is for converting an encrypted master key from a `Vec<u8>` to `[u8; ENCRYPTED_KEY_LEN]`
+/// It's main usage is for converting an encrypted master key from a `Vec<u8>` to `EncryptedKey`
 ///
 /// As the master key is encrypted at this point, it does not need to be `Protected<>`
 ///

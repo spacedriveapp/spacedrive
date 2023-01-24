@@ -31,9 +31,12 @@
 use crate::protected::ProtectedVec;
 
 #[cfg(feature = "serde")]
+use crate::primitives::Key;
+
+#[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, KEY_LEN},
+	primitives::generate_nonce,
 	Protected,
 };
 
@@ -75,7 +78,7 @@ impl FileHeader {
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: Protected<[u8; KEY_LEN]>,
+		master_key: Protected<Key>,
 		metadata: &T,
 	) -> Result<()>
 	where
@@ -110,7 +113,7 @@ impl FileHeader {
 	#[cfg(feature = "serde")]
 	pub async fn decrypt_metadata_from_prehashed<T>(
 		&self,
-		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
+		hashed_keys: Vec<Protected<Key>>,
 	) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,

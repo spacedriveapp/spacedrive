@@ -27,8 +27,8 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
-		KEY_LEN, SALT_LEN,
+		derive_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key, Salt,
+		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
 	protected::ProtectedVec,
 	Error, Protected, Result,
@@ -42,9 +42,9 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN], // the salt used for deriving a KEK from a (key/content salt) hash
-	pub content_salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
+	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
+	pub content_salt: Salt,
+	pub master_key: EncryptedKey, // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
 
@@ -69,9 +69,9 @@ impl Keyslot {
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		content_salt: [u8; SALT_LEN],
-		hashed_key: Protected<[u8; KEY_LEN]>,
-		master_key: Protected<[u8; KEY_LEN]>,
+		content_salt: Salt,
+		hashed_key: Protected<Key>,
+		master_key: Protected<Key>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
@@ -130,7 +130,7 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub async fn decrypt_master_key_from_prehashed(
 		&self,
-		key: Protected<[u8; KEY_LEN]>,
+		key: Protected<Key>,
 	) -> Result<ProtectedVec<u8>> {
 		StreamDecryption::decrypt_bytes(
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
