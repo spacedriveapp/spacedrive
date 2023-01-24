@@ -1,17 +1,16 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import * as ML from 'expo-media-library';
 import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import { useLibraryMutation } from '@sd/client';
 // import RFS from 'react-native-fs';
-import { Modal } from '~/components/layout/Modal';
+import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import tw from '~/lib/tailwind';
 
 // WIP component
-const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
+const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create', {
@@ -126,7 +125,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 
 	return (
 		<Modal ref={modalRef} snapPoints={['20%']}>
-			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-app-box`}>
+			<View style={tw`flex-1 px-6 pt-1 pb-2`}>
 				{/* <Button size="md" variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}

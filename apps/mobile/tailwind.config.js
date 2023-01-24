@@ -1,4 +1,4 @@
-// Extented colors are copied from packages/ui/style/colors.scss
+// Extended colors are copied from packages/ui/style/colors.scss
 
 module.exports = {
 	content: ['./screens/**/*.{js,ts,jsx}', './components/**/*.{js,ts,jsx}', 'App.tsx'],

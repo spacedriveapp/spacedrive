@@ -1,9 +1,9 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteTagDialog from '~/containers/dialog/DeleteTagDialog';
 import UpdateTagModal from '~/containers/modal/tag/UpdateTagModal';
@@ -11,7 +11,7 @@ import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
-	const updateTagModalRef = useRef<BottomSheetModal>();
+	const updateTagModalRef = useRef<ModalRef>();
 
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,

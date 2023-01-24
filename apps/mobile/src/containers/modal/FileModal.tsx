@@ -1,10 +1,9 @@
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import dayjs from 'dayjs';
 import { CaretLeft } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
 import { default as FileIcon, default as FileThumb } from '../../components/explorer/FileThumb';
-import { Modal } from '../../components/layout/Modal';
+import { Modal, ModalRef, ModalScrollView } from '../../components/layout/Modal';
 import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
 import { useFileModalStore } from '../../stores/modalStore';
@@ -26,13 +25,13 @@ function MetaItem({ title, value }: MetaItemProps) {
 export const FileModal = () => {
 	const { fileRef, data } = useFileModalStore();
 
-	const fileDetailsRef = useRef<BottomSheetModal>(null);
+	const fileDetailsRef = useRef<ModalRef>(null);
 
 	return (
 		<>
 			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
 				{data && (
-					<View style={tw`flex-1 p-4 bg-app`}>
+					<View style={tw`flex-1 p-4`}>
 						{/* File Icon / Name */}
 						<View style={tw`flex flex-row items-center`}>
 							<FileIcon data={data} size={1.6} />
@@ -69,7 +68,7 @@ export const FileModal = () => {
 				snapPoints={['70%']}
 			>
 				{data && (
-					<BottomSheetScrollView style={tw`flex-1 p-4 bg-app`}>
+					<ModalScrollView style={tw`flex-1 p-4`}>
 						{/* Back Button */}
 						<Pressable style={tw`w-full ml-4`} onPress={() => fileDetailsRef.current.close()}>
 							<CaretLeft color={tw.color('accent')} size={20} />
@@ -97,7 +96,7 @@ export const FileModal = () => {
 								value={dayjs(data.date_indexed).format('MMMM Do yyyy, h:mm:ss aaa')}
 							/>
 						</>
-					</BottomSheetScrollView>
+					</ModalScrollView>
 				)}
 			</Modal>
 		</>

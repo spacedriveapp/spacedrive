@@ -1,9 +1,9 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
 import tw from '~/lib/tailwind';
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import CreateTagModal from '../modal/tag/CreateTagModal';
@@ -37,7 +37,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 
 	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
-	const createTagModalRef = useRef<BottomSheetModal>();
+	const createTagModalRef = useRef<ModalRef>();
 
 	return (
 		<CollapsibleView
