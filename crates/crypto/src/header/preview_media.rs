@@ -20,7 +20,7 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::Read;
+use tokio::io::AsyncReadExt;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
@@ -171,34 +171,36 @@ impl PreviewMedia {
 	/// The cursor will be left at the end of the preview media item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read,
+		R: AsyncReadExt + Unpin + Send,
 	{
 		let mut version = [0u8; 2];
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version =
 			PreviewMediaVersion::from_bytes(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut media_nonce)?;
+				reader.read_exact(&mut media_nonce).await?;
 
-				reader.read_exact(&mut vec![0u8; 24 - media_nonce.len()])?;
+				reader
+					.read_exact(&mut vec![0u8; 24 - media_nonce.len()])
+					.await?;
 
 				let mut media_length = [0u8; 8];
-				reader.read_exact(&mut media_length)?;
+				reader.read_exact(&mut media_length).await?;
 
 				let media_length = u64::from_le_bytes(media_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut media = vec![0u8; media_length as usize];
-				reader.read_exact(&mut media)?;
+				reader.read_exact(&mut media).await?;
 
 				let preview_media = Self {
 					version,

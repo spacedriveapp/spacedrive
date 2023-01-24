@@ -27,7 +27,7 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::Read;
+use tokio::io::AsyncReadExt;
 
 #[cfg(feature = "serde")]
 use crate::{
@@ -195,33 +195,35 @@ impl Metadata {
 	/// The cursor will be left at the end of the metadata item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read,
+		R: AsyncReadExt + Unpin + Send,
 	{
 		let mut version = [0u8; 2];
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version = MetadataVersion::from_bytes(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut metadata_nonce)?;
+				reader.read_exact(&mut metadata_nonce).await?;
 
-				reader.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])?;
+				reader
+					.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])
+					.await?;
 
 				let mut metadata_length = [0u8; 8];
-				reader.read_exact(&mut metadata_length)?;
+				reader.read_exact(&mut metadata_length).await?;
 
 				let metadata_length = u64::from_le_bytes(metadata_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut metadata = vec![0u8; metadata_length as usize];
-				reader.read_exact(&mut metadata)?;
+				reader.read_exact(&mut metadata).await?;
 
 				let metadata = Self {
 					version,

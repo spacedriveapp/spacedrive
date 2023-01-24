@@ -425,7 +425,7 @@ impl KeyManager {
 		Ok(reencrypted_keys)
 	}
 
-	/// This requires both the master password and the secret key
+	/// This is used for unlocking the key manager, and requires both the master password and the secret key.
 	///
 	/// The master password and secret key are hashed together.
 	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
@@ -436,7 +436,7 @@ impl KeyManager {
 	///
 	/// Note: The invalidation function is ran after updating the queue both times, so it isn't required externally.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn set_master_password<F>(
+	pub async fn unlock<F>(
 		&self,
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
