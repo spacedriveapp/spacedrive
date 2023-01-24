@@ -1,8 +1,7 @@
 import { Archive, ArrowsClockwise, Trash } from 'phosphor-react';
 import { useParams } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, tw } from '@sd/ui';
-import { Form, Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import { Button, forms, tw } from '@sd/ui';
 import { Divider } from '~/components/explorer/inspector/Divider';
 import { SettingsSubPage } from '~/components/settings/SettingsSubPage';
 
@@ -10,6 +9,8 @@ const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const Label = tw.label`mb-1 text-sm font-medium`;
 const FlexCol = tw.label`flex flex-col flex-1`;
 const ToggleSection = tw.label`flex flex-row w-full`;
+
+const { Form, Input, Switch, useZodForm, z } = forms;
 
 export type EditLocationParams = {
 	id: string;
@@ -27,29 +28,12 @@ const schema = z.object({
 export default function EditLocation() {
 	const { id } = useParams<keyof EditLocationParams>() as EditLocationParams;
 
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			generatePreviewMedia: true,
-			syncPreviewMedia: true,
-			hidden: false
-		}
-	});
-
-	const isDirty = form.formState.isDirty;
-
-	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log(e),
-		onMutate: (e) => console.log(e)
-	});
-
 	useLibraryQuery(['locations.getById', Number(id)], {
 		onSuccess: (data) => {
 			if (data && !isDirty)
 				form.reset({
 					displayName: data.name || undefined,
 					localPath: data.local_path || undefined,
-					// locationType: data.location_type,
 					generatePreviewMedia: data.generate_preview_media,
 					syncPreviewMedia: data.sync_preview_media,
 					hidden: data.hidden
@@ -57,8 +41,17 @@ export default function EditLocation() {
 		}
 	});
 
-	const handleSubmit = form.handleSubmit(async (data) => {
-		console.log(data);
+	const form = useZodForm({
+		schema
+	});
+
+	const updateLocation = useLibraryMutation('locations.update', {
+		onError: (e) => console.log({ e }),
+		onMutate: (e) => console.log({ e })
+	});
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		console.log({ data });
 		updateLocation.mutate({
 			id: Number(id),
 			name: data.displayName,
@@ -69,8 +62,10 @@ export default function EditLocation() {
 		});
 	});
 
+	const isDirty = form.formState.isDirty;
+
 	return (
-		<Form form={form} onSubmit={handleSubmit}>
+		<Form form={form} onSubmit={onSubmit}>
 			<SettingsSubPage
 				title="Edit Location"
 				topRight={
@@ -164,7 +159,6 @@ export default function EditLocation() {
 						</InfoText>
 					</FlexCol>
 				</div>
-
 				<Divider />
 			</SettingsSubPage>
 		</Form>

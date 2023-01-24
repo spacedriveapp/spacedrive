@@ -1,11 +1,8 @@
 import Database from '@sd/assets/images/Database.png';
-import { getOnboardingStore, useOnboardingStore } from '@sd/client';
-import { Button } from '@sd/ui';
-import { forms } from '@sd/ui';
-import { BaseSyntheticEvent, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
+import { getOnboardingStore, useOnboardingStore } from '@sd/client';
+import { Button, forms } from '@sd/ui';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import {
 	OnboardingContainer,
