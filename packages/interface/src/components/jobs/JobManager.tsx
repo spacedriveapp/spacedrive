@@ -3,11 +3,9 @@ import dayjs from 'dayjs';
 import {
 	ArrowsClockwise,
 	Camera,
-	DotsThree,
 	Eye,
 	Fingerprint,
 	Folder,
-	IconProps,
 	LockSimple,
 	LockSimpleOpen,
 	Pause,
@@ -16,9 +14,8 @@ import {
 	TrashSimple,
 	X
 } from 'phosphor-react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/client';
-import { Button, CategoryHeading, tw } from '@sd/ui';
+import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, PopoverClose, tw } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -103,11 +100,13 @@ export function JobsManager() {
 						<Trash className="w-5 h-5" />
 					</Tooltip>
 				</Button>
-				<Button size="icon">
-					<Tooltip label="Close">
-						<X className="w-5 h-5" />
-					</Tooltip>
-				</Button>
+				<PopoverClose asChild>
+					<Button size="icon">
+						<Tooltip label="Close">
+							<X className="w-5 h-5" />
+						</Tooltip>
+					</Button>
+				</PopoverClose>
 			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
 				<div className="">
