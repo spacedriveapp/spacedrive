@@ -18,6 +18,7 @@ const ModalBackdrop = (props: BottomSheetBackdropProps) => (
 );
 
 interface ModalHandle extends BottomSheetHandleProps {
+	hideCloseButton: boolean;
 	modalRef: React.RefObject<BottomSheetModal>;
 }
 
@@ -27,12 +28,14 @@ const ModalHandle = (props: ModalHandle) => (
 		style={tw`bg-app rounded-t-2xl items-end`}
 		indicatorStyle={tw`bg-app-highlight/60`}
 	>
-		<Pressable
-			onPress={() => props.modalRef.current.close()}
-			style={tw`absolute top-3 right-3 w-7 h-7 items-center justify-center bg-app-button rounded-full mr-1`}
-		>
-			<X size={16} color="white" weight="bold" />
-		</Pressable>
+		{!props.hideCloseButton && (
+			<Pressable
+				onPress={() => props.modalRef.current.close()}
+				style={tw`absolute top-4 right-3 w-7 h-7 items-center justify-center bg-app-button rounded-full mr-1`}
+			>
+				<X size={16} color="white" weight="bold" />
+			</Pressable>
+		)}
 	</BottomSheetHandle>
 );
 
@@ -45,16 +48,16 @@ interface ModalProps extends BottomSheetModalProps {
 }
 
 export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
-	const { children, title, hideCloseButton, ...otherProps } = props;
+	const { children, title, hideCloseButton = false, ...otherProps } = props;
 
 	const modalRef = useForwardedRef(ref);
 
 	return (
 		<BottomSheetModal
 			ref={modalRef}
-			backdropComponent={ModalBackdrop}
-			handleComponent={(props) => ModalHandle({ modalRef, ...props })}
 			backgroundStyle={tw`bg-app`}
+			backdropComponent={ModalBackdrop}
+			handleComponent={(props) => ModalHandle({ modalRef, hideCloseButton, ...props })}
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-ink font-bold text-sm text-center`}>{title}</Text>}
