@@ -57,7 +57,7 @@ impl FileHeader {
 	///
 	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn add_preview_media(
+	pub async fn add_preview_media(
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
@@ -67,7 +67,8 @@ impl FileHeader {
 		let media_nonce = generate_nonce(algorithm);
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])
+				.await?;
 
 		let pvm = PreviewMedia {
 			version,
@@ -86,26 +87,27 @@ impl FileHeader {
 	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media_from_prehashed(
+	pub async fn decrypt_preview_media_from_prehashed(
 		&self,
 		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		self.preview_media.as_ref().map_or_else(
-			|| Err(Error::NoPreviewMedia),
-			|pvm| {
+		match self.preview_media.as_ref() {
+			Some(pvm) => {
 				let pvm = StreamDecryption::decrypt_bytes(
 					master_key,
 					&pvm.media_nonce,
 					pvm.algorithm,
 					&pvm.media,
 					&[],
-				)?;
+				)
+				.await?;
 
 				Ok(pvm)
-			},
-		)
+			}
+			None => Err(Error::NoPreviewMedia),
+		}
 	}
 
 	/// This function is what you'll want to use to get the preview media for a file
@@ -113,26 +115,27 @@ impl FileHeader {
 	/// All it requires is the user's password. Hashing is handled for you.
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media(
+	pub async fn decrypt_preview_media(
 		&self,
 		password: Protected<Vec<u8>>,
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key(password)?;
 
-		self.preview_media.as_ref().map_or_else(
-			|| Err(Error::NoPreviewMedia),
-			|pvm| {
+		match self.preview_media.as_ref() {
+			Some(pvm) => {
 				let pvm = StreamDecryption::decrypt_bytes(
 					master_key,
 					&pvm.media_nonce,
 					pvm.algorithm,
 					&pvm.media,
 					&[],
-				)?;
+				)
+				.await?;
 
 				Ok(pvm)
-			},
-		)
+			}
+			None => Err(Error::NoPreviewMedia),
+		}
 	}
 }
 

@@ -68,7 +68,7 @@ impl FileHeader {
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[cfg(feature = "serde")]
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn add_metadata<T>(
+	pub async fn add_metadata<T>(
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
@@ -86,7 +86,8 @@ impl FileHeader {
 			algorithm,
 			&serde_json::to_vec(metadata).map_err(|_| Error::Serialization)?,
 			&[],
-		)?;
+		)
+		.await?;
 
 		let metadata = Metadata {
 			version,
@@ -106,7 +107,7 @@ impl FileHeader {
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub fn decrypt_metadata_from_prehashed<T>(
+	pub async fn decrypt_metadata_from_prehashed<T>(
 		&self,
 		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<T>
@@ -115,20 +116,21 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		self.metadata.as_ref().map_or_else(
-			|| Err(Error::NoMetadata),
-			|metadata| {
+		match self.metadata.as_ref() {
+			Some(metadata) => {
 				let metadata = StreamDecryption::decrypt_bytes(
 					master_key,
 					&metadata.metadata_nonce,
 					metadata.algorithm,
 					&metadata.metadata,
 					&[],
-				)?;
+				)
+				.await?;
 
 				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			},
-		)
+			}
+			None => Err(Error::NoMetadata),
+		}
 	}
 
 	/// This function should be used to retrieve the metadata for a file
@@ -137,26 +139,27 @@ impl FileHeader {
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
+	pub async fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
 		let master_key = self.decrypt_master_key(password)?;
 
-		self.metadata.as_ref().map_or_else(
-			|| Err(Error::NoMetadata),
-			|metadata| {
+		match self.metadata.as_ref() {
+			Some(metadata) => {
 				let metadata = StreamDecryption::decrypt_bytes(
 					master_key,
 					&metadata.metadata_nonce,
 					metadata.algorithm,
 					&metadata.metadata,
 					&[],
-				)?;
+				)
+				.await?;
 
 				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			},
-		)
+			}
+			None => Err(Error::NoMetadata),
+		}
 	}
 }
 

@@ -535,9 +535,8 @@ impl KeyManager {
 			return Err(Error::KeyAlreadyQueued);
 		}
 
-		self.keystore
-			.get(&uuid)
-			.map_or(Err(Error::KeyNotFound), |stored_key| {
+		match self.keystore.get(&uuid) {
+			Some(stored_key) => {
 				match stored_key.version {
 					StoredKeyVersion::V1 => {
 						self.mounting_queue.insert(uuid);
@@ -593,16 +592,17 @@ impl KeyManager {
 				}
 
 				Ok(())
-			})
+			}
+			None => Err(Error::KeyNotFound),
+		}
 	}
 
 	/// This function is used for getting the key value itself, from a given UUID.
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
-		self.keystore
-			.get(&uuid)
-			.map_or(Err(Error::KeyNotFound), |stored_key| {
+		match self.keystore.get(&uuid) {
+			Some(stored_key) => {
 				let master_key = StreamDecryption::decrypt_bytes(
 					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
 					&stored_key.master_key_nonce,
@@ -626,7 +626,9 @@ impl KeyManager {
 				.await?;
 
 				Ok(key)
-			})
+			}
+			None => Err(Error::KeyNotFound),
+		}
 	}
 
 	/// This function is used to add a new key/password to the keystore.
