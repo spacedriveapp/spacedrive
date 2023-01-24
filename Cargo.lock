@@ -841,6 +841,7 @@ dependencies = [
  "hex",
  "indoc",
  "sd-crypto",
+ "tokio",
 ]
 
 [[package]]
