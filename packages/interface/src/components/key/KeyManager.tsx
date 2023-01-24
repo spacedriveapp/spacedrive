@@ -11,7 +11,7 @@ export type KeyManagerProps = DefaultProps;
 export function KeyManager(props: KeyManagerProps) {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			alert('Incorrect information provided.');
 		}
