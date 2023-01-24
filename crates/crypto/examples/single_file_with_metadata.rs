@@ -31,17 +31,19 @@ fn encrypt() {
 	let master_key = generate_master_key();
 
 	// These should ideally be done by a key management system
-	let salt = generate_salt();
-	let hashed_password = HASHING_ALGORITHM.hash(password, salt).unwrap();
+	let content_salt = generate_salt();
+	let hashed_password = HASHING_ALGORITHM
+		.hash(password, content_salt, None)
+		.unwrap();
 
 	// Create a keyslot to be added to the header
 	let keyslots = vec![Keyslot::new(
 		LATEST_KEYSLOT,
 		ALGORITHM,
 		HASHING_ALGORITHM,
-		salt,
+		content_salt,
 		hashed_password,
-		&master_key,
+		master_key.clone(),
 	)
 	.unwrap()];
 
@@ -52,7 +54,7 @@ fn encrypt() {
 		.add_metadata(
 			MetadataVersion::V1,
 			ALGORITHM,
-			&master_key,
+			master_key.clone(),
 			&embedded_metadata,
 		)
 		.unwrap();
@@ -77,7 +79,7 @@ pub fn decrypt_metadata() {
 	let mut reader = File::open("test.encrypted").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the metadata
 	let file_info: FileInformation = header.decrypt_metadata(password).unwrap();

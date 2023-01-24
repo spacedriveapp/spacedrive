@@ -20,10 +20,12 @@ pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
+pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
 
 pub(crate) mod prisma;
+pub(crate) mod prisma_sync;
 
 #[derive(Clone)]
 pub struct NodeContext {
@@ -72,6 +74,11 @@ impl Node {
 				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
 				.add_directive(
 					"sd_core=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"sd_core::location::manager=info"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)

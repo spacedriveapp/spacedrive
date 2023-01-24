@@ -4,7 +4,10 @@ use crate::{
 	library::LibraryContext,
 	location::indexer::indexer_job::IndexerJob,
 	object::{
-		fs::{decrypt::FileDecryptorJob, encrypt::FileEncryptorJob},
+		fs::{
+			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
+			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
+		},
 		identifier_job::full_identifier_job::FullFileIdentifierJob,
 		preview::ThumbnailJob,
 		validation::validator_job::ObjectValidatorJob,
@@ -58,6 +61,22 @@ const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::ne
 		(
 			<ObjectValidatorJob as StatefulJob>::NAME,
 			Box::new(ObjectValidatorJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileCutterJob as StatefulJob>::NAME,
+			Box::new(FileCutterJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileCopierJob as StatefulJob>::NAME,
+			Box::new(FileCopierJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileDeleterJob as StatefulJob>::NAME,
+			Box::new(FileDeleterJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileEraserJob as StatefulJob>::NAME,
+			Box::new(FileEraserJob {}) as Box<dyn JobRestorer>,
 		),
 		(
 			<FileEncryptorJob as StatefulJob>::NAME,

@@ -3,12 +3,11 @@ import documentPdf from '@sd/assets/images/Document_pdf.png';
 import executable from '@sd/assets/images/Executable.png';
 import file from '@sd/assets/images/File.png';
 import video from '@sd/assets/images/Video.png';
-import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense, lazy, useMemo } from 'react';
-
-import { useExplorerStore } from '../../hooks/useExplorerStore';
-import { usePlatform } from '../../util/Platform';
+import { ExplorerItem } from '@sd/client';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';
 
@@ -67,6 +66,7 @@ export default function FileThumb({ data, ...props }: Props) {
 	else if (props.kind === 'Video') icon = video;
 	else if (props.kind === 'Document' && data.extension === 'pdf') icon = documentPdf;
 	else if (props.kind === 'Executable') icon = executable;
+	else if (props.kind === 'Encrypted') icon = archive;
 
 	return <img src={icon} className={clsx('overflow-hidden h-full', props.iconClassNames)} />;
 }

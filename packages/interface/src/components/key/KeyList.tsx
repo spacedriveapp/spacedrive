@@ -1,7 +1,6 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, SelectOption } from '@sd/ui';
-import { useMemo } from 'react';
-
+import { useMemo, useRef } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, SelectOption } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { DummyKey, Key } from './Key';
 
@@ -9,20 +8,22 @@ export type KeyListProps = DefaultProps;
 
 // ideal for going within a select box
 // can use mounted or unmounted keys, just provide different inputs
-export const SelectOptionKeyList = (props: { keys: string[] }) => {
-	return (
-		<>
-			{props.keys.map((key) => {
-				return <SelectOption value={key}>Key {key.substring(0, 8).toUpperCase()}</SelectOption>;
-			})}
-		</>
-	);
-};
+export const SelectOptionKeyList = (props: { keys: string[] }) => (
+	<>
+		{props.keys.map((key) => (
+			<SelectOption key={key} value={key}>
+				Key {key.substring(0, 8).toUpperCase()}
+			</SelectOption>
+		))}
+	</>
+);
 
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
+
+	const mountingQueue = useRef(new Set<string>());
 
 	const [mountedKeys, unmountedKeys] = useMemo(
 		() => [
@@ -42,9 +43,11 @@ export const ListOfKeys = () => {
 				return (
 					<Key
 						index={index}
+						key={key.uuid}
 						data={{
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
+							queue: mountingQueue.current,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid,
 							memoryOnly: key.memory_only,

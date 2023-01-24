@@ -5,6 +5,7 @@ use crate::{
 	prisma::{file_path, object},
 };
 use chrono::{DateTime, FixedOffset};
+use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
@@ -90,36 +91,49 @@ async fn batch_update_file_paths(
 	objects: &[object::Data],
 	cas_id_lookup: &HashMap<String, Vec<i32>>,
 ) -> Result<Vec<file_path::Data>, QueryError> {
-	let mut file_path_updates = Vec::new();
+	let (sync, updates): (Vec<_>, Vec<_>) = objects
+		.iter()
+		.flat_map(|object| {
+			let file_path_ids = cas_id_lookup.get(&object.cas_id).unwrap();
+			let sync = &library.sync;
 
-	objects.iter().for_each(|object| {
-		let file_path_ids = cas_id_lookup.get(&object.cas_id).unwrap();
+			file_path_ids.iter().map(|file_path_id| {
+				info!(
+					"Linking: <file_path_id = '{}', object_id = '{}'>",
+					file_path_id, object.id
+				);
 
-		file_path_updates.extend(file_path_ids.iter().map(|file_path_id| {
-			info!(
-				"Linking: <file_path_id = '{}', object_id = '{}'>",
-				file_path_id, object.id
-			);
-			library.db.file_path().update(
-				file_path::location_id_id(location_id, *file_path_id),
-				vec![file_path::object_id::set(Some(object.id))],
-			)
-		}));
-	});
+				(
+					sync.owned_update(
+						"FilePath",
+						json!({
+							"id": file_path_id,
+							"location_id": location_id
+						}),
+						[("object", json!({ "cas_id": object.cas_id }))],
+					),
+					library.db.file_path().update(
+						file_path::location_id_id(location_id, *file_path_id),
+						vec![file_path::object::connect(object::id::equals(object.id))],
+					),
+				)
+			})
+		})
+		.unzip();
 
 	info!(
 		"Updating {} file paths for {} objects",
-		file_path_updates.len(),
+		updates.len(),
 		objects.len()
 	);
 
-	library.db._batch(file_path_updates).await
+	library.sync.write_ops(&library.db, sync, updates).await
 }
 
 async fn generate_provisional_objects(
 	location_path: impl AsRef<Path>,
 	file_paths: &[file_path::Data],
-) -> HashMap<i32, (String, String, Vec<object::SetParam>)> {
+) -> HashMap<i32, (String, Vec<object::SetParam>)> {
 	let mut provisional_objects = HashMap::with_capacity(file_paths.len());
 
 	// analyze each file_path
@@ -145,10 +159,10 @@ async fn generate_provisional_objects(
 					file_path_id,
 					object::create_unchecked(
 						cas_id,
-						size_str,
 						vec![
 							object::date_created::set(date_created),
 							object::kind::set(kind.int_value()),
+							object::size_in_bytes::set(size_str),
 						],
 					),
 				);
@@ -159,6 +173,7 @@ async fn generate_provisional_objects(
 			}
 		};
 	}
+
 	provisional_objects
 }
 
@@ -175,7 +190,7 @@ async fn identifier_job_step(
 
 	let unique_cas_ids = provisional_objects
 		.values()
-		.map(|(cas_id, _, _)| cas_id.clone())
+		.map(|(cas_id, _)| cas_id.clone())
 		.collect::<HashSet<_>>()
 		.into_iter()
 		.collect::<Vec<_>>();
@@ -184,7 +199,7 @@ async fn identifier_job_step(
 	let mut cas_id_lookup: HashMap<String, Vec<i32>> = HashMap::with_capacity(unique_cas_ids.len());
 
 	// populate cas_id_lookup with file_path_ids
-	for (file_path_id, (cas_id, _, _)) in provisional_objects.iter() {
+	for (file_path_id, (cas_id, _)) in provisional_objects.iter() {
 		cas_id_lookup
 			.entry(cas_id.clone())
 			.or_insert_with(Vec::new)
@@ -223,12 +238,12 @@ async fn identifier_job_step(
 	// extract objects that don't already exist in the database
 	let new_objects = provisional_objects
 		.into_iter()
-		.filter(|(_, (cas_id, _, _))| !existing_object_cas_ids.contains(cas_id))
+		.filter(|(_, (cas_id, _))| !existing_object_cas_ids.contains(cas_id))
 		.collect::<Vec<_>>();
 
 	let new_objects_cas_ids = new_objects
 		.iter()
-		.map(|(_, (cas_id, _, _))| cas_id.clone())
+		.map(|(_, (cas_id, _))| cas_id.clone())
 		.collect::<Vec<_>>();
 
 	info!(
@@ -243,12 +258,7 @@ async fn identifier_job_step(
 		let total_created_files = library
 			.db
 			.object()
-			.create_many(
-				new_objects
-					.into_iter()
-					.map(|(_, (cas_id, size, params))| (cas_id, size, params))
-					.collect(),
-			)
+			.create_many(new_objects.into_iter().map(|(_, p)| p).collect())
 			.skip_duplicates()
 			.exec()
 			.await

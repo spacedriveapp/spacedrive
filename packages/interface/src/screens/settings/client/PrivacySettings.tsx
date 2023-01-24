@@ -1,9 +1,8 @@
-import { Switch } from '@sd/ui';
 import { useState } from 'react';
-
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { Switch } from '@sd/ui';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 export default function PrivacySettings() {
 	const [uiAnimations, setUiAnimations] = useState(true);

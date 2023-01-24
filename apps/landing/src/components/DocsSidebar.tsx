@@ -1,7 +1,6 @@
-import { Input } from '@sd/ui';
 import clsx from 'clsx';
 import { MagnifyingGlass } from 'phosphor-react';
-
+import { Input } from '@sd/ui';
 import { DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
 

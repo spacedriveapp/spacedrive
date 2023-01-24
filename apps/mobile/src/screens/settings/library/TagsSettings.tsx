@@ -1,7 +1,7 @@
-import { Tag, useLibraryQuery } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteTagDialog from '~/containers/dialog/tag/DeleteTagDialog';
 import UpdateTagDialog from '~/containers/dialog/tag/UpdateTagDialog';
@@ -40,18 +40,19 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 
 	return (
 		<Swipeable
-			containerStyle={tw`bg-app-overlay border border-app-line rounded-lg`}
+			containerStyle={tw.style(
+				'bg-app-overlay border border-app-line rounded-lg px-4 py-3',
+				index !== 0 && 'mt-2'
+			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
-			<View style={tw.style('px-4 py-3', index !== 0 && 'mt-2')}>
-				<View style={tw`flex flex-row items-center justify-between`}>
-					<View style={tw`flex flex-row`}>
-						<View style={tw.style({ backgroundColor: tag.color }, 'w-4 h-4 rounded-full')} />
-						<Text style={tw`ml-3 text-ink`}>{tag.name}</Text>
-					</View>
-					<CaretRight color={tw.color('ink-dull')} size={18} />
+			<View style={tw`flex flex-row items-center justify-between`}>
+				<View style={tw`flex flex-row`}>
+					<View style={tw.style({ backgroundColor: tag.color }, 'w-4 h-4 rounded-full')} />
+					<Text style={tw`ml-3 text-ink`}>{tag.name}</Text>
 				</View>
+				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>
 		</Swipeable>
 	);

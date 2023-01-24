@@ -11,4 +11,6 @@ export * from './Switch';
 export * as Tabs from './Tabs';
 export * from './Typography';
 export * from './utils';
+export * from './CheckBox';
+export * as forms from './forms';
 export { cva, cx } from 'class-variance-authority';

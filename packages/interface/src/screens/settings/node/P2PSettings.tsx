@@ -1,8 +1,7 @@
 import { Input, Switch } from '@sd/ui';
-
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 export default function P2PSettings() {
 	return (

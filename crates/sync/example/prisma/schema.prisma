@@ -8,11 +8,27 @@ datasource db {
 
 generator client {
   provider = "cargo prisma"
-  output   = "../api/src/prisma.rs"
+  output   = "../src/prisma.rs"
 }
 
-model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
+generator sync {
+  provider = "cargo run -p prisma-cli --bin sync --"
+  output   = "../src/prisma_sync.rs"
+}
+
+/// @owned
+model FilePath {
+  id   Bytes  @id
+  path String
+
+  object    Object? @relation(fields: [object_id], references: [id])
+  object_id Bytes?
+}
+
+/// @shared
+model Object {
+  id   Bytes  @id
+  name String
+
+  paths FilePath[] @relation()
 }

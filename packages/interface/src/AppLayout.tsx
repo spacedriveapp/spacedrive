@@ -1,11 +1,10 @@
-import { useCurrentLibrary } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-
-import { Sidebar } from './components/layout/Sidebar';
-import { Toasts } from './components/primitive/Toasts';
-import { useOperatingSystem } from './hooks/useOperatingSystem';
+import { useCurrentLibrary } from '@sd/client';
+import { Sidebar } from '~/components/layout/Sidebar';
+import { Toasts } from '~/components/primitive/Toasts';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 export function AppLayout() {
 	const { libraries } = useCurrentLibrary();

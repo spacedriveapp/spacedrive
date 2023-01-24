@@ -5,23 +5,26 @@ members = [
   "crates/*",
   # "crates/p2p/tunnel",
   # "crates/p2p/tunnel/utils",
-  "crates/sync/example/api",
+  "apps/cli",
   "apps/desktop/src-tauri",
-  "apps/mobile/rust",
+  "apps/mobile/rust/*",
   "apps/server",
 ]
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.3", features = [
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.4", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.3", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.4", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
+  "sqlite",
+], default-features = false }
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.4", features = [
   "sqlite",
 ], default-features = false }
 
@@ -29,11 +32,12 @@ rspc = { version = "0.1.2" }
 normi = { version = "0.0.1" }
 specta = { version = "0.0.4" }
 
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }   # TODO: Move back to crates.io when new jsonrpc executor is released
-normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }  # TODO: When normi is released on crates.io
-specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" } # TODO: When normi is released on crates.io
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin is released
+normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
+specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" } # TODO: When normi is released on crates.io

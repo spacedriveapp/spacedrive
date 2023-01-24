@@ -1,150 +1,129 @@
-import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog, Input } from '@sd/ui';
 import { Eye, EyeSlash } from 'phosphor-react';
-import { ReactNode, useState } from 'react';
-import { SubmitHandler, useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { useLibraryMutation } from '@sd/client';
+import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
-import { usePlatform } from '../../util/Platform';
-import { GenericAlertDialogProps } from './AlertDialog';
+const { Input, useZodForm, z } = forms;
 
-type FormValues = {
-	masterPassword: string;
-	secretKey: string;
-};
+const schema = z.object({
+	masterPassword: z.string(),
+	secretKey: z.string(),
+	filePath: z.string()
+});
 
-export interface BackupRestorationDialogProps {
-	trigger: ReactNode;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
-}
+export type BackupRestorationDialogProps = UseDialogProps;
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
-	const { register, handleSubmit, reset } = useForm<FormValues>({
-		defaultValues: {
-			masterPassword: '',
-			secretKey: ''
+
+	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore', {
+		onSuccess: (total) => {
+			showAlertDialog({
+				title: 'Import Successful',
+				value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`
+			});
+		},
+		onError: () => {
+			showAlertDialog({
+				title: 'Import Error',
+				value: 'There was an error while restoring your backup.'
+			});
 		}
 	});
 
-	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		if (filePath !== '') {
-			restoreKeystoreMutation.mutate(
-				{
-					password: data.masterPassword,
-					secret_key: data.secretKey,
-					path: filePath
-				},
-				{
-					onSuccess: (total) => {
-						setShowBackupRestoreDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Import Successful',
-							description: '',
-							value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
-							inputBox: false
-						});
-					},
-					onError: () => {
-						setShowBackupRestoreDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Import Error',
-							description: '',
-							value: 'There was an error while restoring your backup.',
-							inputBox: false
-						});
-					}
-				}
-			);
-			reset();
-			setFilePath('');
+	const [show, setShow] = useState({
+		masterPassword: false,
+		secretKey: false
+	});
+
+	const dialog = useDialog(props);
+
+	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
+
+	const form = useZodForm({
+		schema
+	});
+
+	const onSubmit = form.handleSubmit((data) => {
+		const sk = data.secretKey || null;
+
+		if (data.filePath !== '') {
+			restoreKeystoreMutation.mutate({
+				password: data.masterPassword,
+				secret_key: sk,
+				path: data.filePath
+			});
+			form.reset();
 		}
-	};
-
-	const [showBackupRestoreDialog, setShowBackupRestoreDialog] = useState(false);
-	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
-
-	const [showMasterPassword, setShowMasterPassword] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
-	const [filePath, setFilePath] = useState('');
-
-	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
+	});
 
 	return (
-		<>
-			<form onSubmit={handleSubmit(onSubmit)}>
-				<Dialog
-					open={showBackupRestoreDialog}
-					setOpen={setShowBackupRestoreDialog}
-					title="Restore Keys"
-					description="Restore keys from a backup."
-					loading={restoreKeystoreMutation.isLoading}
-					ctaLabel="Restore"
-					trigger={props.trigger}
+		<Dialog
+			form={form}
+			onSubmit={onSubmit}
+			dialog={dialog}
+			title="Restore Keys"
+			description="Restore keys from a backup."
+			loading={restoreKeystoreMutation.isLoading}
+			ctaLabel="Restore"
+		>
+			<div className="relative flex flex-grow mt-3 mb-2">
+				<Input
+					className="flex-grow !py-0.5"
+					placeholder="Master Password"
+					type={show.masterPassword ? 'text' : 'password'}
+					{...form.register('masterPassword', { required: true })}
+				/>
+				<Button
+					onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
+					size="icon"
+					className="border-none absolute right-[5px] top-[5px]"
+					type="button"
 				>
-					<div className="relative flex flex-grow mt-3 mb-2">
-						<Input
-							className="flex-grow !py-0.5"
-							placeholder="Master Password"
-							required
-							type={showMasterPassword ? 'text' : 'password'}
-							{...register('masterPassword', { required: true })}
-						/>
-						<Button
-							onClick={() => setShowMasterPassword(!showMasterPassword)}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-							type="button"
-						>
-							<MPCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-					<div className="relative flex flex-grow mb-3">
-						<Input
-							className="flex-grow !py-0.5"
-							placeholder="Secret Key"
-							{...register('secretKey', { required: true })}
-							required
-							type={showSecretKey ? 'text' : 'password'}
-						/>
-						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-							type="button"
-						>
-							<SKCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-					<div className="relative flex flex-grow mb-2">
-						<Button
-							size="sm"
-							variant={filePath !== '' ? 'accent' : 'gray'}
-							type="button"
-							onClick={() => {
-								if (!platform.openFilePickerDialog) {
-									// TODO: Support opening locations on web
-									props.setAlertDialogData({
-										open: true,
-										title: 'Error',
-										description: '',
-										value: "System dialogs aren't supported on this platform.",
-										inputBox: false
-									});
-									return;
-								}
-								platform.openFilePickerDialog().then((result) => {
-									if (result) setFilePath(result as string);
-								});
-							}}
-						>
-							Select File
-						</Button>
-					</div>
-				</Dialog>
-			</form>
-		</>
+					<MPCurrentEyeIcon className="w-4 h-4" />
+				</Button>
+			</div>
+			<div className="relative flex flex-grow mb-3">
+				<Input
+					className="flex-grow !py-0.5"
+					placeholder="Secret Key"
+					type={show.secretKey ? 'text' : 'password'}
+					{...form.register('secretKey')}
+				/>
+				<Button
+					onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
+					size="icon"
+					className="border-none absolute right-[5px] top-[5px]"
+				>
+					<SKCurrentEyeIcon className="w-4 h-4" />
+				</Button>
+			</div>
+			<div className="relative flex flex-grow mb-2">
+				<Button
+					size="sm"
+					variant={form.watch('filePath') !== '' ? 'accent' : 'gray'}
+					type="button"
+					onClick={() => {
+						if (!platform.openFilePickerDialog) {
+							// TODO: Support opening locations on web
+							showAlertDialog({
+								title: 'Error',
+								value: "System dialogs aren't supported on this platform."
+							});
+							return;
+						}
+						platform.openFilePickerDialog().then((result) => {
+							if (result) form.setValue('filePath', result as string);
+						});
+					}}
+				>
+					Select File
+				</Button>
+			</div>
+		</Dialog>
 	);
 };

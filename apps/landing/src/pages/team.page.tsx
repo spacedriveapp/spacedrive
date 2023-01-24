@@ -1,6 +1,5 @@
 import { ReactComponent as ArrowRight } from '@sd/assets/svgs/arrow-right.svg';
 import { Helmet } from 'react-helmet';
-
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';
@@ -81,16 +80,6 @@ const teamMembers: Array<TeamMemberProps> = [
 		socials: {
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
-		}
-	},
-	{
-		name: 'Haris Mehrzad',
-		role: 'Software Engineer',
-		image: teamImages['haris.jpg'],
-		socials: {
-			twitter: 'https://twitter.com/xPolarrr',
-			twitch: 'https://twitch.tv/polar_dev',
-			github: 'https://github.com/xPolar'
 		}
 	}
 ];

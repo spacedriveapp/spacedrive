@@ -79,7 +79,6 @@ impl StatefulJob for FullFileIdentifierJob {
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location_id;
-
 		let location = ctx
 			.library_ctx
 			.db

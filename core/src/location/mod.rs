@@ -5,16 +5,18 @@ use crate::{
 		identifier_job::full_identifier_job::FullFileIdentifierJobInit, preview::ThumbnailJobInit,
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
+	prisma_sync,
 };
 
+use rspc::Type;
+use serde::Deserialize;
+use serde_json::json;
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
 };
 
 use prisma_client_rust::QueryError;
-use rspc::Type;
-use serde::Deserialize;
 use tokio::{fs, io};
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -309,6 +311,8 @@ async fn create_location(
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 ) -> Result<indexer_job_location::Data, LocationError> {
+	let db = &ctx.db;
+
 	let location_name = location_path
 		.as_ref()
 		.file_name()
@@ -317,26 +321,39 @@ async fn create_location(
 		.unwrap()
 		.to_string();
 
-	let mut location = ctx
-		.db
-		.location()
-		.create(
-			location_pub_id.as_bytes().to_vec(),
-			node::id::equals(ctx.node_local_id),
-			vec![
-				location::name::set(Some(location_name.clone())),
-				location::is_online::set(true),
-				location::local_path::set(Some(
-					location_path
-						.as_ref()
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-				)),
-			],
+	let local_path = location_path
+		.as_ref()
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	let location = ctx
+		.sync
+		.write_op(
+			db,
+			ctx.sync.owned_create(
+				prisma_sync::location::SyncId {
+					pub_id: location_pub_id.as_bytes().to_vec(),
+				},
+				[
+					("node", json!({ "pub_id": ctx.id.as_bytes() })),
+					("name", json!(location_name)),
+					("is_online", json!(true)),
+					("local_path", json!(&local_path)),
+				],
+			),
+			db.location()
+				.create(
+					location_pub_id.as_bytes().to_vec(),
+					node::id::equals(ctx.node_local_id),
+					vec![
+						location::name::set(Some(location_name.clone())),
+						location::is_online::set(true),
+						location::local_path::set(Some(local_path)),
+					],
+				)
+				.include(indexer_job_location::include()),
 		)
-		.include(indexer_job_location::include())
-		.exec()
 		.await?;
 
 	if !indexer_rules_ids.is_empty() {
@@ -344,7 +361,7 @@ async fn create_location(
 	}
 
 	// Updating our location variable to include information about the indexer rules
-	location = fetch_location(ctx, location.id)
+	let location = fetch_location(ctx, location.id)
 		.include(indexer_job_location::include())
 		.exec()
 		.await?

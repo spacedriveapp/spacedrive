@@ -1,8 +1,7 @@
+use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
-use prisma_client_rust::QueryError;
 use prisma_client_rust::{migrations::*, NewClientError};
 use sd_crypto::keys::keymanager::StoredKey;
-use std::sync::Arc;
 use thiserror::Error;
 
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
@@ -47,20 +46,22 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 /// This writes a `StoredKey` to prisma
 /// If the key is marked as memory-only, it is skipped
 pub async fn write_storedkey_to_db(
-	db: Arc<PrismaClient>,
+	db: &PrismaClient,
 	key: &StoredKey,
-) -> Result<(), QueryError> {
+) -> Result<(), LibraryManagerError> {
 	if !key.memory_only {
 		db.key()
 			.create(
 				key.uuid.to_string(),
-				key.algorithm.serialize().to_vec(),
-				key.hashing_algorithm.serialize().to_vec(),
+				serde_json::to_string(&key.version)?,
+				serde_json::to_string(&key.algorithm)?,
+				serde_json::to_string(&key.hashing_algorithm)?,
 				key.content_salt.to_vec(),
 				key.master_key.to_vec(),
 				key.master_key_nonce.to_vec(),
 				key.key_nonce.to_vec(),
 				key.key.to_vec(),
+				key.salt.to_vec(),
 				vec![],
 			)
 			.exec()

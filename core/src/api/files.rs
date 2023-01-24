@@ -1,7 +1,10 @@
 use crate::{
 	invalidate_query,
 	location::fetch_location,
-	object::fs::{decrypt::FileDecryptorJobInit, encrypt::FileEncryptorJobInit},
+	object::fs::{
+		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
+		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
+	},
 	prisma::object,
 };
 
@@ -120,6 +123,46 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
+				library.spawn_job(args).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("deleteFiles", |t| {
+			t(|_, args: FileDeleterJobInit, library| async move {
+				library.spawn_job(args).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("eraseFiles", |t| {
+			t(|_, args: FileEraserJobInit, library| async move {
+				library.spawn_job(args).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("duplicateFiles", |t| {
+			t(|_, args: FileCopierJobInit, library| async move {
+				library.spawn_job(args).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("copyFiles", |t| {
+			t(|_, args: FileCopierJobInit, library| async move {
+				library.spawn_job(args).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("cutFiles", |t| {
+			t(|_, args: FileCutterJobInit, library| async move {
 				library.spawn_job(args).await;
 				invalidate_query!(library, "locations.getExplorerData");
 

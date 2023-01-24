@@ -1,20 +1,16 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-
-import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
-const PasswordCharset =
-	'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
-
-const GeneratePassword = (length: number) => {
-	return cryptoRandomString({ length, characters: PasswordCharset });
+export const generatePassword = (length: number) => {
+	return cryptoRandomString({ length, type: 'ascii-printable' });
 };
 
 export function KeyMounter() {
@@ -64,7 +60,7 @@ export function KeyMounter() {
 			</div>
 
 			<div className="flex flex-row space-x-2">
-				<div className="relative flex flex-grow mt-2 mb-2">
+				<div className="relative flex flex-grow mt-2">
 					<Slider
 						value={sliderValue}
 						max={128}
@@ -73,10 +69,10 @@ export function KeyMounter() {
 						defaultValue={[64]}
 						onValueChange={(e) => {
 							setSliderValue(e);
-							setKey(GeneratePassword(e[0]));
+							setKey(generatePassword(e[0]));
 						}}
 						onClick={() => {
-							setKey(GeneratePassword(sliderValue[0]));
+							setKey(generatePassword(sliderValue[0]));
 						}}
 					/>
 				</div>
@@ -90,7 +86,7 @@ export function KeyMounter() {
 						size="sm"
 						checked={librarySync}
 						onCheckedChange={(e) => {
-							if (autoMount && e) setAutoMount(false);
+							if (autoMount && !e) setAutoMount(false);
 							setLibrarySync(e);
 						}}
 					/>
@@ -106,7 +102,7 @@ export function KeyMounter() {
 						size="sm"
 						checked={autoMount}
 						onCheckedChange={(e) => {
-							if (librarySync && e) setLibrarySync(false);
+							if (!librarySync && e) setLibrarySync(true);
 							setAutoMount(e);
 						}}
 					/>
@@ -131,12 +127,12 @@ export function KeyMounter() {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 					</Select>
 				</div>
 			</div>
-			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
-				Files encrypted with this key will be revealed and decrypted on the fly.
-			</p>
 			<Button
 				className="w-full mt-2"
 				variant="accent"
@@ -144,10 +140,10 @@ export function KeyMounter() {
 				onClick={() => {
 					setKey('');
 
-					const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+					const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
 
 					createKey.mutate({
-						algorithm,
+						algorithm: encryptionAlgo as Algorithm,
 						hashing_algorithm,
 						key,
 						library_sync: librarySync,

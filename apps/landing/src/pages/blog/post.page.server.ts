@@ -1,5 +1,4 @@
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
-
 import { getPost } from './blog';
 
 export async function onBeforeRender(pageContext: PageContextBuiltIn) {

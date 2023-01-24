@@ -1,10 +1,15 @@
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque, fs::File, io::Read, path::PathBuf};
+
+use tokio::task;
 
 use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA},
+	primitives::{
+		generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA,
+		LATEST_PREVIEW_MEDIA,
+	},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -14,16 +19,12 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
-	prisma::{file_path, location, object},
+	prisma::object,
 };
 
-pub struct FileEncryptorJob;
+use super::{context_menu_fs_info, FsInfo, ObjectType};
 
-#[derive(Serialize, Deserialize, Debug)]
-enum ObjectType {
-	File,
-	Directory,
-}
+pub struct FileEncryptorJob;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobState {}
@@ -31,7 +32,7 @@ pub struct FileEncryptorJobState {}
 #[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
-	pub object_id: i32,
+	pub path_id: i32,
 	pub key_uuid: uuid::Uuid,
 	pub algorithm: Algorithm,
 	pub metadata: bool,
@@ -45,14 +46,12 @@ impl JobInitData for FileEncryptorJobInit {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobStep {
-	obj_name: String,
-	obj_path: PathBuf,
-	obj_type: ObjectType,
+	pub fs_info: FsInfo,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
-	pub object_id: i32,
+	pub path_id: i32,
 	pub name: String,
 	pub hidden: bool,
 	pub favourite: bool,
@@ -64,8 +63,8 @@ pub struct Metadata {
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
-	type Data = FileEncryptorJobState;
 	type Init = FileEncryptorJobInit;
+	type Data = FileEncryptorJobState;
 	type Step = FileEncryptorJobStep;
 
 	const NAME: &'static str = "file_encryptor";
@@ -79,52 +78,15 @@ impl StatefulJob for FileEncryptorJob {
 		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		// enumerate files to encrypt
-		// populate the steps with them (local file paths)
-		let location = ctx
-			.library_ctx
-			.db
-			.location()
-			.find_unique(location::id::equals(state.init.location_id))
-			.exec()
-			.await?
-			.expect("critical error: can't find location");
-
-		let root_path = location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.expect("critical error: issue getting local path as pathbuf");
-
-		let item = ctx
-			.library_ctx
-			.db
-			.file_path()
-			.find_first(vec![file_path::object_id::equals(Some(
-				state.init.object_id,
-			))])
-			.exec()
-			.await?
-			.expect("critical error: can't find object");
-
-		let obj_name = item.materialized_path;
-
-		let mut obj_path = root_path.clone();
-		obj_path.push(obj_name.clone());
-
-		// i don't know if this covers symlinks
-		let obj_type = if item.is_dir {
-			ObjectType::Directory
-		} else {
-			ObjectType::File
-		};
+		let fs_info = context_menu_fs_info(
+			&ctx.library_ctx.db,
+			state.init.location_id,
+			state.init.path_id,
+		)
+		.await?;
 
 		state.steps = VecDeque::new();
-		state.steps.push_back(FileEncryptorJobStep {
-			obj_name,
-			obj_path,
-			obj_type,
-		});
+		state.steps.push_back(FileEncryptorJobStep { fs_info });
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -137,8 +99,9 @@ impl StatefulJob for FileEncryptorJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
+		let info = &step.fs_info;
 
-		match step.obj_type {
+		match info.obj_type {
 			ObjectType::File => {
 				// handle overwriting checks, and making sure there's enough available space
 
@@ -153,89 +116,143 @@ impl StatefulJob for FileEncryptorJob {
 					.key_manager
 					.access_keystore(state.init.key_uuid)?;
 
-				let output_path = if let Some(path) = state.init.output_path.clone() {
-					path
-				} else {
-					let mut path = step.obj_path.clone();
-					let extension = if let Some(ext) = path.extension() {
-						ext.to_str()
-							.expect("critical error: path is not valid utf-8")
-							.to_string() + ".sdenc"
-					} else {
-						"sdenc".to_string()
-					};
-					path.set_extension(extension);
-					path
-				};
+				let output_path = state.init.output_path.clone().map_or_else(
+					|| {
+						let mut path = info.obj_path.clone();
+						let extension = path.extension().map_or_else(
+							|| Ok("sdenc".to_string()),
+							|extension| {
+								Ok::<String, JobError>(
+									extension
+										.to_str()
+										.ok_or(JobError::MissingData {
+											value: String::from(
+												"path contents when converted to string",
+											),
+										})?
+										.to_string() + ".sdenc",
+								)
+							},
+						)?;
 
-				let mut reader = std::fs::File::open(step.obj_path.clone())?;
-				let mut writer = std::fs::File::create(output_path)?;
+						path.set_extension(extension);
+						Ok::<PathBuf, JobError>(path)
+					},
+					Ok,
+				)?;
+
+				let _guard = ctx
+					.library_ctx
+					.location_manager()
+					.temporary_ignore_events_for_path(
+						state.init.location_id,
+						ctx.library_ctx.clone(),
+						&output_path,
+					)
+					.await?;
+
+				let mut reader = task::block_in_place(|| File::open(&info.obj_path))?;
+				let mut writer = task::block_in_place(|| File::create(output_path))?;
 
 				let master_key = generate_master_key();
 
-				// i can't decide if the key's encryption should be inherited from the keymanager, or from the file's encryption type
-				// currently it's the file's encryption type
-				let keyslots = vec![Keyslot::new(
-					LATEST_KEYSLOT,
+				let mut header = FileHeader::new(
+					LATEST_FILE_HEADER,
 					state.init.algorithm,
-					user_key_details.hashing_algorithm,
-					user_key_details.content_salt,
-					user_key,
-					&master_key,
-				)?];
-
-				let mut header =
-					FileHeader::new(LATEST_FILE_HEADER, state.init.algorithm, keyslots);
+					vec![Keyslot::new(
+						LATEST_KEYSLOT,
+						state.init.algorithm,
+						user_key_details.hashing_algorithm,
+						user_key_details.content_salt,
+						user_key,
+						master_key.clone(),
+					)?],
+				);
 
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
-					let object = ctx
-						.library_ctx
-						.db
-						.object()
-						.find_unique(object::id::equals(state.init.object_id))
-						.exec()
-						.await?
-						.expect("critical error: can't get object info");
+					if let Some(obj_id) = info.obj_id {
+						let object = ctx
+							.library_ctx
+							.db
+							.object()
+							.find_unique(object::id::equals(obj_id))
+							.exec()
+							.await?
+							.ok_or_else(|| {
+								JobError::JobDataNotFound(String::from(
+									"can't find information about the object",
+								))
+							})?;
 
-					if state.init.metadata {
-						let metadata = Metadata {
-							object_id: state.init.object_id,
-							name: step.obj_name.clone(),
-							hidden: object.hidden,
-							favourite: object.favorite,
-							important: object.important,
-							note: object.note,
-							date_created: object.date_created,
-							date_modified: object.date_modified,
-						};
+						if state.init.metadata {
+							let metadata = Metadata {
+								path_id: state.init.path_id,
+								name: info.obj_name.clone(),
+								hidden: object.hidden,
+								favourite: object.favorite,
+								important: object.important,
+								note: object.note,
+								date_created: object.date_created,
+								date_modified: object.date_modified,
+							};
 
-						header.add_metadata(
-							LATEST_METADATA,
-							state.init.algorithm,
-							&master_key,
-							&metadata,
-						)?;
-					}
+							header.add_metadata(
+								LATEST_METADATA,
+								state.init.algorithm,
+								master_key.clone(),
+								&metadata,
+							)?;
+						}
 
-					if state.init.preview_media
-						&& (object.has_thumbnail
-							|| object.has_video_preview || object.has_thumbstrip)
-					{
-						// need to find the preview media, read it and return it as Some()
-						// not currently able to do this as thumnails don't generate
+						// if state.init.preview_media
+						// 	&& (object.has_thumbnail
+						// 		|| object.has_video_preview || object.has_thumbstrip)
+
+						// may not be the best - pvm isn't guaranteed to be webp
+						let pvm_path = ctx
+							.library_ctx
+							.config()
+							.data_directory()
+							.join("thumbnails")
+							.join(object.cas_id + ".webp");
+
+						if tokio::fs::metadata(&pvm_path).await.is_ok() {
+							let mut pvm_bytes = Vec::new();
+							task::block_in_place(|| {
+								let mut pvm_file = File::open(pvm_path)?;
+								pvm_file.read_to_end(&mut pvm_bytes)?;
+								Ok::<_, JobError>(())
+							})?;
+
+							header.add_preview_media(
+								LATEST_PREVIEW_MEDIA,
+								state.init.algorithm,
+								master_key.clone(),
+								&pvm_bytes,
+							)?;
+						}
+					} else {
+						// should use container encryption if it's a directory
+						warn!(
+							"skipping metadata/preview media inclusion, no associated object found"
+						)
 					}
 				}
 
-				header.write(&mut writer)?;
+				task::block_in_place(|| {
+					header.write(&mut writer)?;
 
-				let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
+					let encryptor =
+						StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
 
-				encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
+					encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
+					Ok::<_, JobError>(())
+				})?;
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",
-				step.obj_name
+				info.obj_name
 			),
 		}
 

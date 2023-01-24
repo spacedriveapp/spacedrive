@@ -1,5 +1,5 @@
-import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
 import { useState } from 'react';
+import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
 import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
 
@@ -43,7 +43,16 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			title="Create New Library"
 			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			ctaLabel="Create"
-			ctaAction={() => createLibrary(libName)}
+			ctaAction={() =>
+				createLibrary({
+					name: libName,
+					// TODO: Support password and secret on mobile
+					password: '',
+					secret_key: '',
+					algorithm: 'XChaCha20Poly1305',
+					hashing_algorithm: { name: 'Argon2id', params: 'Standard' }
+				})
+			}
 			loading={createLibLoading}
 			ctaDisabled={libName.length === 0}
 			trigger={children}

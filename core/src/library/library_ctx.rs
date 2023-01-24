@@ -4,6 +4,7 @@ use crate::{
 	location::LocationManager,
 	node::NodeConfigManager,
 	prisma::PrismaClient,
+	sync::SyncManager,
 	NodeContext,
 };
 
@@ -23,10 +24,13 @@ use super::LibraryConfig;
 pub struct LibraryContext {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
+	/// local_id holds the local ID of the current library.
+	pub local_id: i32,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
+	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	pub key_manager: Arc<KeyManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
