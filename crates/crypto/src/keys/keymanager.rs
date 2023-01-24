@@ -131,7 +131,7 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
+	pub async fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
 		let content_salt = generate_salt();
 		let secret_key = config.secret_key.map(Self::convert_secret_key_string);
 
@@ -156,13 +156,16 @@ impl KeyManager {
 		let root_key_nonce = generate_nonce(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-			&master_key_nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+			StreamEncryption::encrypt_bytes(
+				derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+				&master_key_nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		let encrypted_root_key = StreamEncryption::encrypt_bytes(
 			master_key,
@@ -170,7 +173,8 @@ impl KeyManager {
 			algorithm,
 			root_key.expose(),
 			&[],
-		)?;
+		)
+		.await?;
 
 		let verification_key = StoredKey {
 			uuid,
@@ -235,7 +239,7 @@ impl KeyManager {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn change_master_password(
+	pub async fn change_master_password(
 		&self,
 		master_password: Protected<String>,
 		algorithm: Algorithm,
@@ -263,13 +267,16 @@ impl KeyManager {
 		let salt = generate_salt();
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-			&master_key_nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+			StreamEncryption::encrypt_bytes(
+				derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+				&master_key_nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		let encrypted_root_key = StreamEncryption::encrypt_bytes(
 			master_key,
@@ -277,7 +284,8 @@ impl KeyManager {
 			algorithm,
 			root_key.expose(),
 			&[],
-		)?;
+		)
+		.await?;
 
 		let verification_key = StoredKey {
 			uuid,
@@ -303,7 +311,7 @@ impl KeyManager {
 	///
 	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn import_keystore_backup(
+	pub async fn import_keystore_backup(
 		&self,
 		master_password: Protected<String>,    // at the time of the backup
 		secret_key: Option<Protected<String>>, // at the time of the backup
@@ -347,7 +355,8 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					&old_verification_key.master_key,
 					&[],
-				)?;
+				)
+				.await?;
 
 				// get the root key from the backup
 				let old_root_key = StreamDecryption::decrypt_bytes(
@@ -356,7 +365,8 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					&old_verification_key.key,
 					&[],
-				)?;
+				)
+				.await?;
 
 				Protected::new(to_array(old_root_key.into_inner())?)
 			}
@@ -379,6 +389,7 @@ impl KeyManager {
 						&key.master_key,
 						&[],
 					)
+					.await
 					.map_or(Err(Error::IncorrectPassword), |v| {
 						Ok(Protected::new(to_array::<KEY_LEN>(v.into_inner())?))
 					})?;
@@ -389,13 +400,16 @@ impl KeyManager {
 					let salt = generate_salt();
 
 					// encrypt the master key with the current root key
-					let encrypted_master_key = to_array(StreamEncryption::encrypt_bytes(
-						derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
-						&master_key_nonce,
-						key.algorithm,
-						master_key.expose(),
-						&[],
-					)?)?;
+					let encrypted_master_key = to_array(
+						StreamEncryption::encrypt_bytes(
+							derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
+							&master_key_nonce,
+							key.algorithm,
+							master_key.expose(),
+							&[],
+						)
+						.await?,
+					)?;
 
 					let mut updated_key = key.clone();
 					updated_key.master_key_nonce = master_key_nonce;
@@ -422,7 +436,7 @@ impl KeyManager {
 	///
 	/// Note: The invalidation function is ran after updating the queue both times, so it isn't required externally.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn set_master_password<F>(
+	pub async fn set_master_password<F>(
 		&self,
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
@@ -473,6 +487,7 @@ impl KeyManager {
 					&verification_key.master_key,
 					&[],
 				)
+				.await
 				.map_err(|_| {
 					self.remove_from_queue(uuid).ok();
 					Error::IncorrectKeymanagerDetails
@@ -486,7 +501,8 @@ impl KeyManager {
 							verification_key.algorithm,
 							&verification_key.key,
 							&[],
-						)?
+						)
+						.await?
 						.expose()
 						.clone(),
 					)
@@ -512,7 +528,7 @@ impl KeyManager {
 	/// This is to ensure that only functions which require access to the mounted key receive it.
 	///
 	/// We could add a log to this, so that the user can view mounts
-	pub fn mount(&self, uuid: Uuid) -> Result<()> {
+	pub async fn mount(&self, uuid: Uuid) -> Result<()> {
 		if self.keymount.get(&uuid).is_some() {
 			return Err(Error::KeyAlreadyMounted);
 		} else if self.is_queued(uuid) {
@@ -533,6 +549,7 @@ impl KeyManager {
 							&stored_key.master_key,
 							&[],
 						)
+						.await
 						.map_or_else(
 							|_| {
 								self.remove_from_queue(uuid).ok();
@@ -548,6 +565,7 @@ impl KeyManager {
 							&stored_key.key,
 							&[],
 						)
+						.await
 						.map_err(|e| {
 							self.remove_from_queue(uuid).ok();
 							e
@@ -581,7 +599,7 @@ impl KeyManager {
 	/// This function is used for getting the key value itself, from a given UUID.
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
-	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
+	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
 		self.keystore
 			.get(&uuid)
 			.map_or(Err(Error::KeyNotFound), |stored_key| {
@@ -592,6 +610,7 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				)
+				.await
 				.map_or(Err(Error::IncorrectPassword), |k| {
 					Ok(Protected::new(to_array(k.into_inner())?))
 				})?;
@@ -603,7 +622,8 @@ impl KeyManager {
 					stored_key.algorithm,
 					&stored_key.key,
 					&[],
-				)?;
+				)
+				.await?;
 
 				Ok(key)
 			})
@@ -621,7 +641,7 @@ impl KeyManager {
 	///
 	/// You may optionally provide a content salt, if not one will be generated (used primarily for password-based decryption)
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn add_to_keystore(
+	pub async fn add_to_keystore(
 		&self,
 		key: Protected<Vec<u8>>,
 		algorithm: Algorithm,
@@ -643,17 +663,20 @@ impl KeyManager {
 		let salt = generate_salt();
 
 		// Encrypt the master key with a derived key (derived from the root key)
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
-			&master_key_nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+			StreamEncryption::encrypt_bytes(
+				derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
+				&master_key_nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
 		let encrypted_key =
-			StreamEncryption::encrypt_bytes(master_key, &key_nonce, algorithm, &key, &[])?;
+			StreamEncryption::encrypt_bytes(master_key, &key_nonce, algorithm, &key, &[]).await?;
 
 		// Insert it into the Keystore
 		self.keystore.insert(
