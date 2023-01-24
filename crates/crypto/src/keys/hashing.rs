@@ -11,10 +11,10 @@
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
 
-use crate::primitives::KEY_LEN;
+use crate::primitives::{Key, Salt, KEY_LEN};
 use crate::protected::ProtectedVec;
 use crate::Protected;
-use crate::{primitives::SALT_LEN, Error, Result};
+use crate::{Error, Result};
 use argon2::Argon2;
 use balloon_hash::Balloon;
 
@@ -54,9 +54,9 @@ impl HashingAlgorithm {
 	pub fn hash(
 		&self,
 		password: ProtectedVec<u8>,
-		salt: [u8; SALT_LEN],
+		salt: Salt,
 		secret: Option<ProtectedVec<u8>>,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
+	) -> Result<Protected<Key>> {
 		match self {
 			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
 			Self::BalloonBlake3(params) => {
@@ -108,10 +108,10 @@ impl PasswordHasher {
 	#[allow(clippy::needless_pass_by_value)]
 	fn argon2id(
 		password: ProtectedVec<u8>,
-		salt: [u8; SALT_LEN],
+		salt: Salt,
 		secret: Option<ProtectedVec<u8>>,
 		params: Params,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
+	) -> Result<Protected<Key>> {
 		let secret = secret.map_or(Protected::new(vec![]), |k| k);
 
 		let mut key = [0u8; KEY_LEN];
@@ -131,10 +131,10 @@ impl PasswordHasher {
 	#[allow(clippy::needless_pass_by_value)]
 	fn balloon_blake3(
 		password: ProtectedVec<u8>,
-		salt: [u8; SALT_LEN],
+		salt: Salt,
 		secret: Option<ProtectedVec<u8>>,
 		params: Params,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
+	) -> Result<Protected<Key>> {
 		let secret = secret.map_or(Protected::new(vec![]), |k| k);
 
 		let mut key = [0u8; KEY_LEN];

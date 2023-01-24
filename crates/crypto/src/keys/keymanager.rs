@@ -39,15 +39,11 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, OnboardingConfig,
-	KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key,
+	OnboardingConfig, Salt, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
 use crate::protected::ProtectedVec;
-use crate::{
-	crypto::stream::Algorithm,
-	primitives::{ENCRYPTED_KEY_LEN, SALT_LEN},
-	Protected,
-};
+use crate::{crypto::stream::Algorithm, primitives::ENCRYPTED_KEY_LEN, Protected};
 use crate::{Error, Result};
 
 use dashmap::{DashMap, DashSet};
@@ -67,13 +63,13 @@ pub struct StoredKey {
 	pub version: StoredKeyVersion,
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
-	pub content_salt: [u8; SALT_LEN],
+	pub content_salt: Salt,
 	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
-	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is for encrypting the `key`
+	pub master_key: EncryptedKey, // this is for encrypting the `key`
 	pub master_key_nonce: Vec<u8>, // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
-	pub salt: [u8; SALT_LEN],
+	pub salt: Salt,
 	pub memory_only: bool,
 	pub automount: bool,
 }
@@ -90,8 +86,8 @@ pub enum StoredKeyVersion {
 /// This contains the plaintext key, and the same key hashed with the content salt.
 #[derive(Clone)]
 pub struct MountedKey {
-	pub uuid: Uuid, // used for identification. shared with stored keys
-	pub hashed_key: Protected<[u8; KEY_LEN]>, // this is hashed with the content salt, for instant access
+	pub uuid: Uuid,                 // used for identification. shared with stored keys
+	pub hashed_key: Protected<Key>, // this is hashed with the content salt, for instant access
 }
 
 /// This is the key manager itself.
@@ -100,7 +96,7 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	root_key: Mutex<Option<Protected<[u8; KEY_LEN]>>>, // the root key for the vault
+	root_key: Mutex<Option<Protected<Key>>>, // the root key for the vault
 	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
@@ -651,7 +647,7 @@ impl KeyManager {
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
 		automount: bool,
-		content_salt: Option<[u8; SALT_LEN]>,
+		content_salt: Option<Salt>,
 	) -> Result<Uuid> {
 		let uuid = uuid::Uuid::new_v4();
 
@@ -741,7 +737,7 @@ impl KeyManager {
 	}
 
 	/// This should ONLY be used internally.
-	fn get_root_key(&self) -> Result<Protected<[u8; KEY_LEN]>> {
+	fn get_root_key(&self) -> Result<Protected<Key>> {
 		self.root_key.lock()?.clone().ok_or(Error::NoMasterPassword)
 	}
 
@@ -779,11 +775,11 @@ impl KeyManager {
 	///
 	/// This means we don't need to keep super specific track of which key goes to which file, and we can just throw all of them at it.
 	#[must_use]
-	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<[u8; KEY_LEN]>> {
+	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<Key>> {
 		self.keymount
 			.iter()
 			.map(|mounted_key| mounted_key.hashed_key.clone())
-			.collect::<Vec<Protected<[u8; KEY_LEN]>>>()
+			.collect::<Vec<Protected<Key>>>()
 	}
 
 	/// This function is for converting a memory-only key to a saved key which syncs to the library.
