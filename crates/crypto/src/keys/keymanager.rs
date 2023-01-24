@@ -443,7 +443,7 @@ impl KeyManager {
 		invalidate: F,
 	) -> Result<()>
 	where
-		F: Fn(),
+		F: Fn() + Send,
 	{
 		let uuid = Uuid::nil();
 

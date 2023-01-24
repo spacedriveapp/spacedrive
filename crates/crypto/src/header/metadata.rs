@@ -76,7 +76,7 @@ impl FileHeader {
 		metadata: &T,
 	) -> Result<()>
 	where
-		T: ?Sized + serde::Serialize,
+		T: ?Sized + serde::Serialize + Sync + Send,
 	{
 		let metadata_nonce = generate_nonce(algorithm);
 
@@ -89,14 +89,12 @@ impl FileHeader {
 		)
 		.await?;
 
-		let metadata = Metadata {
+		self.metadata = Some(Metadata {
 			version,
 			algorithm,
 			metadata_nonce,
 			metadata: encrypted_metadata,
-		};
-
-		self.metadata = Some(metadata);
+		});
 
 		Ok(())
 	}
