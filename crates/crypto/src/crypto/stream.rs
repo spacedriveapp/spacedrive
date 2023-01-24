@@ -118,8 +118,18 @@ impl StreamEncryption {
 		W: AsyncWriteExt + Unpin + Send,
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
+
 		loop {
-			let read_count = reader.read(&mut read_buffer).await?;
+			let mut read_count = 0;
+			loop {
+				let i = reader.read(&mut read_buffer[read_count..]).await?;
+				read_count += i;
+				if i == 0 || read_count == BLOCK_SIZE {
+					// if we're EOF or the buffer is filled
+					break;
+				}
+			}
+
 			if read_count == BLOCK_SIZE {
 				let payload = Payload {
 					aad,
@@ -239,7 +249,16 @@ impl StreamDecryption {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE + AEAD_TAG_SIZE].into_boxed_slice();
 
 		loop {
-			let read_count = reader.read(&mut read_buffer).await?;
+			let mut read_count = 0;
+			loop {
+				let i = reader.read(&mut read_buffer[read_count..]).await?;
+				read_count += i;
+				if i == 0 || read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
+					// if we're EOF or the buffer is filled
+					break;
+				}
+			}
+
 			if read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
 				let payload = Payload {
 					aad,
