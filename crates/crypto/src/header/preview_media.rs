@@ -91,7 +91,7 @@ impl FileHeader {
 		&self,
 		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<Protected<Vec<u8>>> {
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		match self.preview_media.as_ref() {
 			Some(pvm) => {
@@ -119,7 +119,7 @@ impl FileHeader {
 		&self,
 		password: Protected<Vec<u8>>,
 	) -> Result<Protected<Vec<u8>>> {
-		let master_key = self.decrypt_master_key(password)?;
+		let master_key = self.decrypt_master_key(password).await?;
 
 		match self.preview_media.as_ref() {
 			Some(pvm) => {

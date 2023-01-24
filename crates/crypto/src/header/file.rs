@@ -98,7 +98,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key(
+	pub async fn decrypt_master_key(
 		&self,
 		password: Protected<Vec<u8>>,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
@@ -106,27 +106,18 @@ impl FileHeader {
 			return Err(Error::NoKeyslots);
 		}
 
-		self.keyslots
-			.iter()
-			.find_map(|v| v.decrypt_master_key(password.clone()).ok())
-			.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
-			.ok_or(Error::IncorrectPassword)
-	}
-
-	/// This is a helper function to find which keyslot a key belongs to.
-	///
-	/// You receive an error if the password doesn't match or if there are no keyslots.
-	#[allow(clippy::needless_pass_by_value)]
-	pub fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
-		if self.keyslots.is_empty() {
-			return Err(Error::NoKeyslots);
+		for v in self.keyslots.iter() {
+			if let Some(key) = v
+				.decrypt_master_key(password.clone())
+				.await
+				.ok()
+				.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+			{
+				return Ok(key);
+			}
 		}
 
-		self.keyslots
-			.iter()
-			.enumerate()
-			.find_map(|(i, v)| v.decrypt_master_key(password.clone()).ok().map(|_| i))
-			.ok_or(Error::IncorrectPassword)
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
@@ -144,7 +135,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key_from_prehashed(
+	pub async fn decrypt_master_key_from_prehashed(
 		&self,
 		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
@@ -152,16 +143,38 @@ impl FileHeader {
 			return Err(Error::NoKeyslots);
 		}
 
-		hashed_keys
-			.iter()
-			.find_map(|v| {
-				self.keyslots.iter().find_map(|z| {
-					z.decrypt_master_key_from_prehashed(v.clone())
-						.ok()
-						.map(|x| Protected::new(to_array::<KEY_LEN>(x.into_inner()).unwrap()))
-				})
-			})
-			.ok_or(Error::IncorrectPassword)
+		for hashed_key in hashed_keys {
+			for v in self.keyslots.iter() {
+				if let Some(key) = v
+					.decrypt_master_key_from_prehashed(hashed_key.clone())
+					.await
+					.ok()
+					.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+				{
+					return Ok(key);
+				}
+			}
+		}
+
+		Err(Error::IncorrectPassword)
+	}
+
+	/// This is a helper function to find which keyslot a key belongs to.
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub async fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for (i, v) in self.keyslots.iter().enumerate() {
+			if let Some(i) = v.decrypt_master_key(password.clone()).await.ok().map(|_| i) {
+				return Ok(i);
+			}
+		}
+
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This function should be used for generating AAD before encryption
