@@ -45,7 +45,7 @@ hex = "0.4.3"
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
 
 [dev-dependencies]
-tokio = { version = "1.21.2", features = [
+tokio = { workspace = true, features = [
     "fs",
     "macros",
 ] } # features needed for examples
