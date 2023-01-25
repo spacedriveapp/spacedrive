@@ -5446,6 +5446,7 @@ dependencies = [
  "futures",
  "globset",
  "hostname",
+ "http",
  "image",
  "include_dir",
  "int-enum",

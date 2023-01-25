@@ -11,7 +11,7 @@ use sd_core::Node;
 use tauri::async_runtime::block_on;
 use tauri::{
 	api::path,
-	http::{ResponseBuilder, Uri},
+	http::ResponseBuilder,
 	Manager, RunEvent,
 };
 use tokio::task::block_in_place;
@@ -57,12 +57,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 				let path = path.split('/').collect::<Vec<_>>();
 
 				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
-				let (status_code, content_type, body) =
-					block_in_place(|| block_on(node.handle_custom_uri(path)));
-				ResponseBuilder::new()
-					.status(status_code)
-					.mimetype(content_type)
-					.body(body)
+				let resp =
+					block_in_place(|| block_on(node.handle_custom_uri(path))).unwrap();
+				let mut r = ResponseBuilder::new()
+					.version(resp.version())
+					.status(resp.status());
+
+				for (key, value) in resp.headers() {
+					r = r.header(key, value);
+				}
+
+				r.body(resp.into_body())
 			}
 		})
 		.setup(|app| {

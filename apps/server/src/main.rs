@@ -3,8 +3,9 @@ use std::{env, net::SocketAddr, path::Path};
 use axum::{
 	extract,
 	handler::Handler,
-	http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
 	routing::get,
+	body::Full,
+	response::Response,
 };
 use sd_core::Node;
 use tracing::info;
@@ -42,19 +43,20 @@ async fn main() {
 		.route("/spacedrive/*id", {
 			let node = node.clone();
 			get(|extract::Path(path): extract::Path<String>| async move {
-				let (status_code, content_type, body) = node
+				let resp = node
 					.handle_custom_uri(path.split('/').skip(1).collect())
-					.await;
+					.await
+					.unwrap();
 
-				(
-					StatusCode::from_u16(status_code).unwrap(),
-					{
-						let mut headers = HeaderMap::new();
-						headers.insert(CONTENT_TYPE, content_type.parse().unwrap());
-						headers
-					},
-					body,
-				)
+				let mut r = Response::builder()
+					.version(resp.version())
+					.status(resp.status());
+			
+				for (key, value) in resp.headers() {
+					r = r.header(key, value);
+				}
+			
+				r.body(Full::from(resp.into_body())).unwrap()
 			})
 		})
 		.route(

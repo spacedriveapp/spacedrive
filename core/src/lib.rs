@@ -13,6 +13,7 @@ use tokio::{
 };
 use tracing::{error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
+use http::{Response, StatusCode};
 
 pub mod api;
 pub(crate) mod job;
@@ -188,29 +189,16 @@ impl Node {
 	pub async fn handle_custom_uri(
 		&self,
 		path: Vec<&str>,
-	) -> (
-		u16,     /* Status Code */
-		&str,    /* Content-Type */
-		Vec<u8>, /* Body */
-	) {
+	) -> http::Result<Response<Vec<u8>>>  {
 		match path.first().copied() {
 			Some("thumbnail") => {
-				if path.len() != 2 {
-					return (
-						400,
-						"text/html",
-						b"Bad Request: Invalid number of parameters".to_vec(),
-					);
-				}
-
 				let file_cas_id = match path.get(1) {
 					Some(cas_id) => cas_id,
 					None => {
-						return (
-							400,
-							"text/html",
-							b"Bad Request: Invalid number of parameters".to_vec(),
-						);
+						return Response::builder()
+							.header("Content-Type", "text/html")
+							.status(StatusCode::BAD_REQUEST)
+							.body(b"Bad Request: Invalid number of parameters!".to_vec());
 					}
 				};
 
@@ -226,16 +214,21 @@ impl Node {
 						};
 
 						file.read_to_end(&mut buf).await.unwrap();
-						(200, "image/webp", buf)
+						Response::builder()
+							.header("Content-Type", "image/webp")
+							.status(StatusCode::OK)
+							.body(buf)
 					}
-					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
+					Err(_) => Response::builder()
+					.header("Content-Type", "text/html")
+					.status(StatusCode::NOT_FOUND)
+					.body(vec![])
 				}
 			}
-			_ => (
-				400,
-				"text/html",
-				b"Bad Request: Invalid operation!".to_vec(),
-			),
+			_ => Response::builder()
+					.header("Content-Type", "text/html")
+					.status(StatusCode::BAD_REQUEST)
+					.body(b"Bad Request: Invalid operation!".to_vec()),
 		}
 	}
 
