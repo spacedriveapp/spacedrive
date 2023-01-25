@@ -156,7 +156,7 @@ impl StatefulJob for FullFileIdentifierJob {
 
 		let (total_objects_created, total_objects_linked) = identifier_job_step(
 			&ctx.library_ctx,
-			state.init.location_id,
+			&data.location,
 			&data.location_path,
 			&file_paths,
 		)
