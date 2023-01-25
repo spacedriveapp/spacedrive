@@ -17,7 +17,13 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	getLibraryIdRaw,
+	useDebugState,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import { dialogManager } from '@sd/ui';
 import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -144,7 +150,7 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 					keybind="⌘V"
 					hidden={!store.cutCopyState.active}
 					onClick={(e) => {
-						if (store.cutCopyState.actionType == CutCopyType.Copy) {
+						if (store.cutCopyState.actionType == 'Copy') {
 							store.locationId &&
 								copyFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
@@ -209,6 +215,8 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
+	const debugState = useDebugState();
+	const platform = usePlatform();
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
@@ -258,7 +266,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: props.item.id,
-							actionType: CutCopyType.Cut,
+							actionType: 'Cut',
 							active: true
 						};
 					}}
@@ -272,7 +280,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: props.item.id,
-							actionType: CutCopyType.Copy,
+							actionType: 'Copy',
 							active: true
 						};
 					}}
@@ -306,6 +314,22 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 						});
 					}}
 				/>
+
+				{/* TODO: Remove this in future. It's just for testing the API and a placeholder for @jam on how to use the new UI. */}
+				{debugState.enabled && (
+					<CM.Item
+						label="Open"
+						keybind="⌘O"
+						onClick={(e) => {
+							window.location.href = platform.getFileUrl(
+								getLibraryIdRaw()!,
+								store.locationId!,
+								props.item.id
+							);
+						}}
+						icon={Copy}
+					/>
+				)}
 
 				<CM.Separator />
 

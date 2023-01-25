@@ -10,10 +10,7 @@ export enum ExplorerKind {
 	Space
 }
 
-export enum CutCopyType {
-	Cut,
-	Copy
-}
+export type CutCopyType = 'Cut' | 'Copy';
 
 const state = {
 	locationId: null as number | null,
@@ -30,7 +27,7 @@ const state = {
 	cutCopyState: {
 		sourceLocationId: 0,
 		sourcePathId: 0,
-		actionType: CutCopyType.Cut,
+		actionType: 'Cut',
 		active: false
 	}
 };
