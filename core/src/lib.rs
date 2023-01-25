@@ -13,7 +13,7 @@ use tokio::{
 };
 use tracing::{error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
-use http::{Response, StatusCode};
+use http::{Response, StatusCode, Request};
 
 pub mod api;
 pub(crate) mod job;
@@ -188,8 +188,9 @@ impl Node {
 	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
 	pub async fn handle_custom_uri(
 		&self,
-		path: Vec<&str>,
+		req: Request<Vec<u8>>,
 	) -> http::Result<Response<Vec<u8>>>  {
+		let path = req.uri().path().strip_prefix("/").unwrap_or(req.uri().path()).split('/').collect::<Vec<_>>();
 		match path.first().copied() {
 			Some("thumbnail") => {
 				let file_cas_id = match path.get(1) {

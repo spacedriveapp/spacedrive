@@ -14,6 +14,7 @@ use tauri::{
 	http::ResponseBuilder,
 	Manager, RunEvent,
 };
+use http::Request;
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::{debug, error};
@@ -47,18 +48,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			let node = node.clone();
 			move |_, req| {
 				let uri = req.uri();
-				let uri = uri.strip_prefix("spacedrive://").unwrap_or(uri); // Mac or Linux
-				let uri = uri.strip_prefix("https://spacedrive.localhost/").unwrap_or(uri); // Windows
+				let uri = uri.replace("spacedrive://", "https://spacedrive.localhost/"); // Convert Mac and Linux style URI to Windows style URI. Windows style is valid so it can be put into a `http::Request`.
 
 				// Encoded by `convertFileSrc` on the frontend
-				let path = percent_encoding::percent_decode(uri.as_bytes())
+				let uri = percent_encoding::percent_decode(uri.as_bytes())
 					.decode_utf8_lossy()
 					.to_string();
-				let path = path.split('/').collect::<Vec<_>>();
+
+				let mut r = Request::builder()
+					.method(req.method())
+					.uri(uri);
+				for (key, value) in req.headers() {
+					r = r.header(key, value);
+				}
+				let r = r.body(req.body().clone()).unwrap(); // TODO: This clone feels so unnecessary but Tauri pass `req` as a reference so we can get the owned value.
 
 				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
 				let resp =
-					block_in_place(|| block_on(node.handle_custom_uri(path))).unwrap();
+					block_in_place(|| block_on(node.handle_custom_uri(r))).unwrap();
 				let mut r = ResponseBuilder::new()
 					.version(resp.version())
 					.status(resp.status());

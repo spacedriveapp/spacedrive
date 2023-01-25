@@ -1,12 +1,13 @@
 use std::{env, net::SocketAddr, path::Path};
 
 use axum::{
-	extract,
 	handler::Handler,
 	routing::get,
-	body::Full,
+	body::{Full, Body},
 	response::Response,
+	http::Request,
 };
+use hyper::body::to_bytes;
 use sd_core::Node;
 use tracing::info;
 
@@ -42,9 +43,20 @@ async fn main() {
 		.route("/health", get(|| async { "OK" }))
 		.route("/spacedrive/*id", {
 			let node = node.clone();
-			get(|extract::Path(path): extract::Path<String>| async move {
+			get(|req: Request<Body>| async move {
+				let (parts, body) = req.into_parts();
+				let mut r = Request::builder()
+					.method(parts.method)
+					.uri(parts.uri.path().strip_prefix("/spacedrive").expect("Error decoding Spacedrive URL prefix. This should be impossible!"));
+				for (key, value) in parts.headers {
+					if let Some(key) = key {
+						r = r.header(key, value);
+					}
+				}
+				let r = r.body(to_bytes(body).await.unwrap().to_vec()).unwrap();
+
 				let resp = node
-					.handle_custom_uri(path.split('/').skip(1).collect())
+					.handle_custom_uri(r)
 					.await
 					.unwrap();
 

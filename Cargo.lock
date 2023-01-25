@@ -2470,9 +2470,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.14.20"
+version = "0.14.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02c929dc5c39e335a03c405292728118860721b10190d98c2a0f0efd5baafbac"
+checksum = "034711faac9d2166cb1baf1a2fb0b60b1f277f8492fd72176c17f3515e1abd3c"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -5830,6 +5830,8 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ctrlc",
+ "http",
+ "hyper",
  "rspc",
  "sd-core",
  "tokio",
@@ -6004,6 +6006,7 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
+ "http",
  "percent-encoding",
  "rspc",
  "sd-core",
