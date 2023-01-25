@@ -69,7 +69,6 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 
 	const url = getThumbnailUrlById(cas_id);
 
-	// TODO: Not styled yet
 	if (has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
