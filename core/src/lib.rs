@@ -7,15 +7,14 @@ use node::NodeConfigManager;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{
-	fs::{self, File},
-	io::AsyncReadExt,
+	fs,
 	sync::broadcast,
 };
 use tracing::{error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
-use http::{Response, StatusCode, Request};
 
 pub mod api;
+pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
@@ -182,54 +181,6 @@ impl Node {
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
-		}
-	}
-
-	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
-	pub async fn handle_custom_uri(
-		&self,
-		req: Request<Vec<u8>>,
-	) -> http::Result<Response<Vec<u8>>>  {
-		let path = req.uri().path().strip_prefix("/").unwrap_or(req.uri().path()).split('/').collect::<Vec<_>>();
-		match path.first().copied() {
-			Some("thumbnail") => {
-				let file_cas_id = match path.get(1) {
-					Some(cas_id) => cas_id,
-					None => {
-						return Response::builder()
-							.header("Content-Type", "text/html")
-							.status(StatusCode::BAD_REQUEST)
-							.body(b"Bad Request: Invalid number of parameters!".to_vec());
-					}
-				};
-
-				let filename = Path::new(&self.config.data_directory())
-					.join("thumbnails")
-					.join(file_cas_id)
-					.with_extension("webp");
-				match File::open(&filename).await {
-					Ok(mut file) => {
-						let mut buf = match fs::metadata(&filename).await {
-							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
-							Err(_) => Vec::new(),
-						};
-
-						file.read_to_end(&mut buf).await.unwrap();
-						Response::builder()
-							.header("Content-Type", "image/webp")
-							.status(StatusCode::OK)
-							.body(buf)
-					}
-					Err(_) => Response::builder()
-					.header("Content-Type", "text/html")
-					.status(StatusCode::NOT_FOUND)
-					.body(vec![])
-				}
-			}
-			_ => Response::builder()
-					.header("Content-Type", "text/html")
-					.status(StatusCode::BAD_REQUEST)
-					.body(b"Bad Request: Invalid operation!".to_vec()),
 		}
 	}
 

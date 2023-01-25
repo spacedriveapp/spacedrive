@@ -7,7 +7,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use sd_core::Node;
+use sd_core::{Node, custom_uri::handle_custom_uri};
 use tauri::async_runtime::block_on;
 use tauri::{
 	api::path,
@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
 				let resp =
-					block_in_place(|| block_on(node.handle_custom_uri(r))).unwrap();
+					block_in_place(|| block_on(handle_custom_uri(&node, r))).unwrap_or_else(|err| err.into_response().unwrap());
 				let mut r = ResponseBuilder::new()
 					.version(resp.version())
 					.status(resp.status());

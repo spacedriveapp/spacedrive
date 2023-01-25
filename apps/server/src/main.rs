@@ -8,7 +8,7 @@ use axum::{
 	http::Request,
 };
 use hyper::body::to_bytes;
-use sd_core::Node;
+use sd_core::{Node, custom_uri::handle_custom_uri};
 use tracing::info;
 
 mod utils;
@@ -55,10 +55,9 @@ async fn main() {
 				}
 				let r = r.body(to_bytes(body).await.unwrap().to_vec()).unwrap();
 
-				let resp = node
-					.handle_custom_uri(r)
+				let resp = handle_custom_uri(&node, r)
 					.await
-					.unwrap();
+					.unwrap_or_else(|err| err.into_response().unwrap());
 
 				let mut r = Response::builder()
 					.version(resp.version())
