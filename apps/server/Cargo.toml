@@ -7,6 +7,6 @@ edition = "2021"
 sd-core = { path = "../../core", features = ["ffmpeg"] }
 rspc = { workspace = true, features = ["axum"] }
 axum = "0.5.16"
-tokio = { version = "1.21.2", features = ["sync", "rt-multi-thread", "signal"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = "0.1.36"
 ctrlc = "3.2.3"
