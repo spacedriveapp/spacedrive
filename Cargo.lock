@@ -24,12 +24,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
-name = "adler32"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
-
-[[package]]
 name = "aead"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1463,16 +1457,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deflate"
-version = "0.7.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "707b6a7b384888a70c8d2e8650b3e60170dfc6a67bb4aa67b6dfca57af4bedb4"
-dependencies = [
- "adler32",
- "byteorder",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2583,12 +2567,12 @@ dependencies = [
 
 [[package]]
 name = "ico"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a4b3331534254a9b64095ae60d3dc2a8225a7a70229cd5888be127cdc1f6804"
+checksum = "031530fe562d8c8d71c0635013d6d155bbfe8ba0aa4b4d2d24ce8af6b71047bd"
 dependencies = [
  "byteorder",
- "png 0.11.0",
+ "png",
 ]
 
 [[package]]
@@ -2668,7 +2652,7 @@ dependencies = [
  "jpeg-decoder",
  "num-rational",
  "num-traits",
- "png 0.17.6",
+ "png",
  "scoped_threadpool",
  "tiff",
 ]
@@ -2717,15 +2701,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20b2b533137b9cad970793453d4f921c2e91312a6d88b1085c07bc15fc51bb3b"
 dependencies = [
  "cfb",
-]
-
-[[package]]
-name = "inflate"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f9f47468e9a76a6452271efadc88fe865a82be91fe75e6c0c57b87ccea59d4"
-dependencies = [
- "adler32",
 ]
 
 [[package]]
@@ -3725,17 +3700,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-iter"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d03e6c028c5dc5cac6e2dec0efda81fc887605bb3d884578bb6d6bf7514e252"
-dependencies = [
- "autocfg 1.1.0",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
 name = "num-rational"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4358,18 +4322,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9a81d2759aae1dae668f783c308bc5c8ebd191ff4184aaa1b37f65a6ae5a56f"
 dependencies = [
  "plotters-backend",
-]
-
-[[package]]
-name = "png"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0b0cabbbd20c2d7f06dbf015e06aad59b6ca3d9ed14848783e98af9aaf19925"
-dependencies = [
- "bitflags",
- "deflate",
- "inflate",
- "num-iter",
 ]
 
 [[package]]
@@ -5131,9 +5083,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.6.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4eb3267174b8c6c2f654116623910a0fef09c4753f8dd83db29c48a0df988b"
+checksum = "48aaa5748ba571fb95cd2c85c09f629215d3a6ece942baa100950af03a34f733"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -6126,7 +6078,6 @@ dependencies = [
  "tokio",
  "tracing",
  "window-shadows",
- "wry 0.23.4",
 ]
 
 [[package]]
@@ -6517,52 +6468,6 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "tao"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43336f5d1793543ba96e2a1e75f3a5c7dcd592743be06a0ab3a190f4fcb4b934"
-dependencies = [
- "bitflags",
- "cairo-rs",
- "cc",
- "cocoa",
- "core-foundation",
- "core-graphics",
- "crossbeam-channel",
- "dispatch",
- "gdk",
- "gdk-pixbuf",
- "gdk-sys",
- "gdkx11-sys",
- "gio",
- "glib",
- "glib-sys",
- "gtk",
- "image",
- "instant",
- "jni 0.19.0",
- "lazy_static",
- "libc",
- "log",
- "ndk",
- "ndk-context",
- "ndk-sys",
- "objc",
- "once_cell",
- "parking_lot 0.12.1",
- "paste",
- "png 0.17.6",
- "raw-window-handle",
- "scopeguard",
- "serde",
- "unicode-segmentation",
- "uuid 1.2.1",
- "windows 0.39.0",
- "windows-implement",
- "x11-dl",
-]
-
-[[package]]
-name = "tao"
 version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac8e6399427c8494f9849b58694754d7cc741293348a6836b6c8d2c5aa82d8e6"
@@ -6596,7 +6501,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "paste",
- "png 0.17.6",
+ "png",
  "raw-window-handle",
  "scopeguard",
  "serde",
@@ -6620,9 +6525,9 @@ dependencies = [
 
 [[package]]
 name = "tauri"
-version = "1.1.1"
+version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efbf22abd61d95ca9b2becd77f9db4c093892f73e8a07d21d8b0b2bf71a7bcea"
+checksum = "fe7e0f1d535e7cbbbab43c82be4fc992b84f9156c16c160955617e0260ebc449"
 dependencies = [
  "anyhow",
  "attohttpc",
@@ -6689,16 +6594,16 @@ dependencies = [
 
 [[package]]
 name = "tauri-codegen"
-version = "1.1.1"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "356fa253e40ae4d6ff02075011f2f2bb4066f5c9d8c1e16ca6912d7b75903ba6"
+checksum = "14388d484b6b1b5dc0f6a7d6cc6433b3b230bec85eaa576adcdf3f9fafa49251"
 dependencies = [
  "base64 0.13.1",
  "brotli",
  "ico",
  "json-patch",
  "plist",
- "png 0.17.6",
+ "png",
  "proc-macro2",
  "quote",
  "regex",
@@ -6715,9 +6620,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-macros"
-version = "1.1.1"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6051fd6940ddb22af452340d03c66a3e2f5d72e0788d4081d91e31528ccdc4d"
+checksum = "069319e5ecbe653a799b94b0690d9f9bf5d00f7b1d3989aa331c524d4e354075"
 dependencies = [
  "heck 0.4.0",
  "proc-macro2",
@@ -6729,14 +6634,13 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime"
-version = "0.11.1"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d49439a5ea47f474572b854972f42eda2e02a470be5ca9609cc83bb66945abe2"
+checksum = "c507d954d08ac8705d235bc70ec6975b9054fb95ff7823af72dbb04186596f3b"
 dependencies = [
  "gtk",
  "http",
  "http-range",
- "infer",
  "rand 0.8.5",
  "raw-window-handle",
  "serde",
@@ -6750,9 +6654,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime-wry"
-version = "0.11.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28dce920995fd49907aa9bea7249ed1771454f11f7611924c920a1f75fb614d4"
+checksum = "36b1c5764a41a13176a4599b5b7bd0881bea7d94dfe45e1e755f789b98317e30"
 dependencies = [
  "cocoa",
  "gtk",
@@ -6765,20 +6669,21 @@ dependencies = [
  "webkit2gtk",
  "webview2-com",
  "windows 0.39.0",
- "wry 0.21.1",
+ "wry",
 ]
 
 [[package]]
 name = "tauri-utils"
-version = "1.1.1"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e8fdae6f29cef959809a3c3afef510c5b715a446a597ab8b791497585363f39"
+checksum = "5abbc109a6eb45127956ffcc26ef0e875d160150ac16cfa45d26a6b2871686f1"
 dependencies = [
  "brotli",
  "ctor",
  "glob",
  "heck 0.4.0",
  "html5ever",
+ "infer",
  "json-patch",
  "kuchiki",
  "memchr",
@@ -8072,42 +7977,6 @@ dependencies = [
 
 [[package]]
 name = "wry"
-version = "0.21.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff5c1352b4266fdf92c63479d2f58ab4cd29dc4e78fbc1b62011ed1227926945"
-dependencies = [
- "base64 0.13.1",
- "block",
- "cocoa",
- "core-graphics",
- "crossbeam-channel",
- "gdk",
- "gio",
- "glib",
- "gtk",
- "html5ever",
- "http",
- "kuchiki",
- "libc",
- "log",
- "objc",
- "objc_id",
- "once_cell",
- "serde",
- "serde_json",
- "sha2 0.10.6",
- "tao 0.14.0",
- "thiserror",
- "url",
- "webkit2gtk",
- "webkit2gtk-sys",
- "webview2-com",
- "windows 0.39.0",
- "windows-implement",
-]
-
-[[package]]
-name = "wry"
 version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c1ad8e2424f554cc5bdebe8aa374ef5b433feff817aebabca0389961fc7ef98"
@@ -8134,7 +8003,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "soup2",
- "tao 0.15.8",
+ "tao",
  "thiserror",
  "url",
  "webkit2gtk",

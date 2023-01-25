@@ -10,7 +10,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-tauri = { version = "1.1.1", features = ["api-all", "macos-private-api", "linux-protocol-headers"] }
+tauri = { version = "1.2.4", features = ["api-all", "macos-private-api", "linux-protocol-headers"] }
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
 tokio = { version = "1.21.2", features = ["sync"] }
