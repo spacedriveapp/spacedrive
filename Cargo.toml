@@ -44,4 +44,4 @@ rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940
 normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" } # TODO: When normi is released on crates.io
 
-tokio = { git = "https://github.com/brxken128/tokio", rev = "d3936848ccb32ac7df41614acfabe5139a6a7d75" }
+tokio = { git = "https://github.com/spacedriveapp/tokio", rev = "d3936848ccb32ac7df41614acfabe5139a6a7d75" } # TODO: move back once tokio raise their internal read buffer size (ENG-351 for more)

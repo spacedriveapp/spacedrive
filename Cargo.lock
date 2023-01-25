@@ -6801,7 +6801,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tokio"
 version = "1.24.2"
-source = "git+https://github.com/brxken128/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
+source = "git+https://github.com/spacedriveapp/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
 dependencies = [
  "autocfg 1.1.0",
  "bytes",
@@ -6820,7 +6820,7 @@ dependencies = [
 [[package]]
 name = "tokio-macros"
 version = "1.8.2"
-source = "git+https://github.com/brxken128/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
+source = "git+https://github.com/spacedriveapp/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
 dependencies = [
  "proc-macro2",
  "quote",
