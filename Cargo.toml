@@ -7,7 +7,7 @@ members = [
   # "crates/p2p/tunnel/utils",
   "apps/cli",
   "apps/desktop/src-tauri",
-  "apps/mobile/rust",
+  "apps/mobile/rust/*",
   "apps/server",
 ]
 

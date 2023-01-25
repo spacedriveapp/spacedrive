@@ -1,10 +1,13 @@
-use super::{context_menu_fs_info, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+
+use std::{hash::Hash, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, hash::Hash, path::PathBuf};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
-use tracing::warn;
+use tracing::{trace, warn};
+
+use super::{context_menu_fs_info, osstr_to_string, FsInfo, ObjectType};
 
 pub struct FileEraserJob {}
 
@@ -26,16 +29,16 @@ pub struct FileEraserJobStep {
 	pub fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_eraser";
+pub const ERASE_JOB_NAME: &str = "file_eraser";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
-	type Data = FileEraserJobState;
 	type Init = FileEraserJobInit;
+	type Data = FileEraserJobState;
 	type Step = FileEraserJobStep;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		ERASE_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -51,8 +54,7 @@ impl StatefulJob for FileEraserJob {
 			root_type: fs_info.obj_type.clone(),
 		});
 
-		state.steps = VecDeque::new();
-		state.steps.push_back(FileEraserJobStep { fs_info });
+		state.steps = [FileEraserJobStep { fs_info }].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -64,7 +66,7 @@ impl StatefulJob for FileEraserJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = state.steps[0].clone();
+		let step = &state.steps[0];
 		let info = &step.fs_info;
 
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
@@ -75,7 +77,7 @@ impl StatefulJob for FileEraserJob {
 				let mut file = OpenOptions::new()
 					.read(true)
 					.write(true)
-					.open(info.obj_path.clone())
+					.open(&info.obj_path)
 					.await?;
 				let file_len = file.metadata().await?.len();
 
@@ -85,29 +87,29 @@ impl StatefulJob for FileEraserJob {
 				file.flush().await?;
 				drop(file);
 
-				tokio::fs::remove_file(info.obj_path.clone()).await?;
+				trace!("Erasing file: {:?}", info.obj_path);
+
+				tokio::fs::remove_file(&info.obj_path).await?;
 			}
 			ObjectType::Directory => {
 				let mut dir = tokio::fs::read_dir(&info.obj_path).await?;
 				while let Some(entry) = dir.next_entry().await? {
 					if entry.metadata().await?.is_dir() {
-						let obj_type = ObjectType::Directory;
 						state.steps.push_back(FileEraserJobStep {
 							fs_info: FsInfo {
 								obj_id: None,
 								obj_name: String::new(),
 								obj_path: entry.path(),
-								obj_type,
+								obj_type: ObjectType::Directory,
 							},
 						});
 					} else {
-						let obj_type = ObjectType::File;
 						state.steps.push_back(FileEraserJobStep {
 							fs_info: FsInfo {
 								obj_id: None,
-								obj_name: entry.file_name().to_str().unwrap().to_string(),
+								obj_name: osstr_to_string(Some(&entry.file_name()))?,
 								obj_path: entry.path(),
-								obj_type,
+								obj_type: ObjectType::File,
 							},
 						});
 					};
@@ -124,9 +126,9 @@ impl StatefulJob for FileEraserJob {
 	}
 
 	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		if let Some(info) = state.data.clone() {
+		if let Some(ref info) = state.data {
 			if info.root_type == ObjectType::Directory {
-				tokio::fs::remove_dir_all(info.root_path).await?;
+				tokio::fs::remove_dir_all(&info.root_path).await?;
 			}
 		} else {
 			warn!("missing job state, unable to fully finalise erase job");
