@@ -215,7 +215,6 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
-	const debugState = useDebugState();
 	const platform = usePlatform();
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
@@ -234,7 +233,19 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	return (
 		<div className="relative">
 			<CM.ContextMenu trigger={props.children}>
-				<CM.Item label="Open" keybind="⌘O" />
+				<CM.Item
+					label="Open"
+					keybind="⌘O"
+					onClick={(e) => {
+						// TODO: Replace this with a proper UI
+						window.location.href = platform.getFileUrl(
+							getLibraryIdRaw()!,
+							store.locationId!,
+							props.item.id
+						);
+					}}
+					icon={Copy}
+				/>
 				<CM.Item label="Open with..." />
 
 				<CM.Separator />
@@ -314,22 +325,6 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 						});
 					}}
 				/>
-
-				{/* TODO: Remove this in future. It's just for testing the API and a placeholder for @jam on how to use the new UI. */}
-				{debugState.enabled && (
-					<CM.Item
-						label="Open"
-						keybind="⌘O"
-						onClick={(e) => {
-							window.location.href = platform.getFileUrl(
-								getLibraryIdRaw()!,
-								store.locationId!,
-								props.item.id
-							);
-						}}
-						icon={Copy}
-					/>
-				)}
 
 				<CM.Separator />
 
