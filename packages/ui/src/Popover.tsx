@@ -12,8 +12,7 @@ export const Popover = ({ trigger, children, className, ...props }: Props) => {
 			<DP.Trigger asChild>{trigger}</DP.Trigger>
 			<DP.Portal>
 				<DP.Content
-					align="center"
-					sideOffset={4}
+					sideOffset={5}
 					collisionPadding={10}
 					className={clsx(
 						'rounded-lg text-sm text-ink select-none cursor-default bg-app-overlay border border-app-line shadow-2xl shadow-black/60',
