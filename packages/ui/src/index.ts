@@ -7,7 +7,6 @@ export * as Dropdown from './Dropdown';
 export * from './Input';
 export * from './Layout';
 export * from './Loader';
-export * from './OverlayPanel';
 export * from './Popover';
 export * from './Select';
 export * from './Switch';

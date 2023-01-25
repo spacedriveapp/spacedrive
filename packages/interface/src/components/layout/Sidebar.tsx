@@ -18,7 +18,6 @@ import {
 	CategoryHeading,
 	Dropdown,
 	Loader,
-	OverlayPanel,
 	Popover,
 	Select,
 	SelectOption,
@@ -177,7 +176,7 @@ function DebugPanel() {
 	const platform = usePlatform();
 
 	return (
-		<OverlayPanel
+		<Popover
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
@@ -246,7 +245,7 @@ function DebugPanel() {
 					</InputContainer>
 				)} */}
 			</div>
-		</OverlayPanel>
+		</Popover>
 	);
 }
 

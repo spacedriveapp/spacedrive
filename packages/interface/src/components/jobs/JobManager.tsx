@@ -15,7 +15,7 @@ import {
 	X
 } from 'phosphor-react';
 import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, tw } from '@sd/ui';
+import { Button, CategoryHeading, Popover, PopoverClose, tw } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
