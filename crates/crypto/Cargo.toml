@@ -42,15 +42,13 @@ specta = { workspace = true, optional = true }
 
 hex = "0.4.3"
 
+tokio = { version = "1.21.2", features = ["io-util", "rt-multi-thread"] }
+
+[dev-dependencies]
 tokio = { version = "1.21.2", features = [
-    "io-util",
-    "rt-multi-thread",
     "fs",
     "macros",
-] }
-
-# [dev-dependencies]
-# criterion = "0.4.0"
+] } # features needed for examples
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
