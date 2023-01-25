@@ -111,7 +111,7 @@ pub async fn seed_keymanager(
 		.unwrap();
 
 	// insert all keys from the DB into the keymanager's keystore
-	km.populate_keystore(stored_keys)?;
+	km.populate_keystore(stored_keys).await?;
 
 	// if any key had an associated default tag
 	default.map(|k| km.set_default(k));
@@ -329,7 +329,7 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let key_manager = Arc::new(KeyManager::new(vec![])?);
+		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 
 		seed_keymanager(&db, &key_manager).await?;
 		let (sync_manager, _) = SyncManager::new(db.clone(), id);

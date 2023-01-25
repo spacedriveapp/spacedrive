@@ -56,7 +56,9 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		// do not unlock the key manager until this route returns true
 		.library_query("hasMasterPassword", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.has_master_password()?) })
+			t(
+				|_, _: (), library| async move { Ok(library.key_manager.has_master_password().await?) },
+			)
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
@@ -88,7 +90,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
 				// This technically clears the root key, but it means the same thing to the frontend
-				library.key_manager.clear_root_key()?;
+				library.key_manager.clear_root_key().await?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 				Ok(())
@@ -139,7 +141,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						.await?;
 				}
 
-				library.key_manager.remove_key(key_uuid)?;
+				library.key_manager.remove_key(key_uuid).await?;
 
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
@@ -183,7 +185,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("setDefault", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				library.key_manager.set_default(key_uuid)?;
+				library.key_manager.set_default(key_uuid).await?;
 
 				library
 					.db
@@ -210,7 +212,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_query("getDefault", |t| {
-			t(|_, _: (), library| async move { library.key_manager.get_default().ok() })
+			t(|_, _: (), library| async move { library.key_manager.get_default().await.ok() })
 		})
 		.library_query("isKeyManagerUnlocking", |t| {
 			t(|_, _: (), library| async move { library.key_manager.is_queued(Uuid::nil()) })
@@ -268,7 +270,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut stored_keys = library.key_manager.dump_keystore();
 
 				// include the verification key at the time of backup
-				stored_keys.push(library.key_manager.get_verification_key()?);
+				stored_keys.push(library.key_manager.get_verification_key().await?);
 
 				// exclude all memory-only keys
 				stored_keys.retain(|k| !k.memory_only);

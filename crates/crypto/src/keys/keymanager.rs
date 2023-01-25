@@ -35,7 +35,7 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
@@ -107,7 +107,7 @@ pub struct KeyManager {
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
-	pub fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
+	pub async fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
 		let keymanager = Self {
 			root_key: Mutex::new(None),
 			verification_key: Mutex::new(None),
@@ -117,7 +117,7 @@ impl KeyManager {
 			mounting_queue: DashSet::new(),
 		};
 
-		keymanager.populate_keystore(stored_keys)?;
+		keymanager.populate_keystore(stored_keys).await?;
 
 		Ok(keymanager)
 	}
@@ -196,14 +196,14 @@ impl KeyManager {
 	/// It's suitable for when you created the key manager without populating it.
 	///
 	/// This also detects the nil-UUID master passphrase verification key
-	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
+	pub async fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
 			if self.keystore.contains_key(&key.uuid) {
 				continue;
 			}
 
 			if key.uuid.is_nil() {
-				*self.verification_key.lock()? = Some(key);
+				*self.verification_key.lock().await = Some(key);
 			} else {
 				self.keystore.insert(key.uuid, key);
 			}
@@ -213,11 +213,11 @@ impl KeyManager {
 	}
 
 	/// This function removes a key from the keystore, the keymount and it's unset as the default.
-	pub fn remove_key(&self, uuid: Uuid) -> Result<()> {
+	pub async fn remove_key(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
 			// if key is default, clear it
 			// do this manually to prevent deadlocks
-			let mut default = self.default.lock()?;
+			let mut default = self.default.lock().await;
 			if *default == Some(uuid) {
 				*default = None;
 			}
@@ -258,7 +258,7 @@ impl KeyManager {
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
 
-		let root_key = self.get_root_key()?;
+		let root_key = self.get_root_key().await?;
 		let root_key_nonce = generate_nonce(algorithm);
 
 		let salt = generate_salt();
@@ -299,7 +299,7 @@ impl KeyManager {
 			automount: false,
 		};
 
-		*self.verification_key.lock()? = Some(verification_key.clone());
+		*self.verification_key.lock().await = Some(verification_key.clone());
 
 		Ok(verification_key)
 	}
@@ -399,7 +399,7 @@ impl KeyManager {
 					// encrypt the master key with the current root key
 					let encrypted_master_key = to_array(
 						StreamEncryption::encrypt_bytes(
-							derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
+							derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 							&master_key_nonce,
 							key.algorithm,
 							master_key.expose(),
@@ -444,13 +444,13 @@ impl KeyManager {
 	{
 		let uuid = Uuid::nil();
 
-		if self.has_master_password()? {
+		if self.has_master_password().await? {
 			return Err(Error::KeyAlreadyMounted);
 		} else if self.is_queued(uuid) {
 			return Err(Error::KeyAlreadyQueued);
 		}
 
-		let verification_key = (*self.verification_key.lock()?)
+		let verification_key = (*self.verification_key.lock().await)
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
@@ -490,7 +490,7 @@ impl KeyManager {
 					Error::IncorrectKeymanagerDetails
 				})?;
 
-				*self.root_key.lock()? = Some(Protected::new(
+				*self.root_key.lock().await = Some(Protected::new(
 					to_array(
 						StreamDecryption::decrypt_bytes(
 							Protected::new(to_array(master_key.into_inner())?),
@@ -539,7 +539,11 @@ impl KeyManager {
 						self.mounting_queue.insert(uuid);
 
 						let master_key = StreamDecryption::decrypt_bytes(
-							derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
+							derive_key(
+								self.get_root_key().await?,
+								stored_key.salt,
+								ROOT_KEY_CONTEXT,
+							),
 							&stored_key.master_key_nonce,
 							stored_key.algorithm,
 							&stored_key.master_key,
@@ -601,7 +605,11 @@ impl KeyManager {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				let master_key = StreamDecryption::decrypt_bytes(
-					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
+					derive_key(
+						self.get_root_key().await?,
+						stored_key.salt,
+						ROOT_KEY_CONTEXT,
+					),
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -664,7 +672,7 @@ impl KeyManager {
 		// Encrypt the master key with a derived key (derived from the root key)
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
 			StreamEncryption::encrypt_bytes(
-				derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
+				derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 				&master_key_nonce,
 				algorithm,
 				master_key.expose(),
@@ -722,9 +730,9 @@ impl KeyManager {
 	}
 
 	/// This allows you to set the default key
-	pub fn set_default(&self, uuid: Uuid) -> Result<()> {
+	pub async fn set_default(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
-			*self.default.lock()? = Some(uuid);
+			*self.default.lock().await = Some(uuid);
 			Ok(())
 		} else {
 			Err(Error::KeyNotFound)
@@ -732,18 +740,23 @@ impl KeyManager {
 	}
 
 	/// This allows you to get the default key's ID
-	pub fn get_default(&self) -> Result<Uuid> {
-		self.default.lock()?.ok_or(Error::NoDefaultKeySet)
+	pub async fn get_default(&self) -> Result<Uuid> {
+		self.default.lock().await.ok_or(Error::NoDefaultKeySet)
 	}
 
 	/// This should ONLY be used internally.
-	fn get_root_key(&self) -> Result<Protected<Key>> {
-		self.root_key.lock()?.clone().ok_or(Error::NoMasterPassword)
+	async fn get_root_key(&self) -> Result<Protected<Key>> {
+		self.root_key
+			.lock()
+			.await
+			.clone()
+			.ok_or(Error::NoMasterPassword)
 	}
 
-	pub fn get_verification_key(&self) -> Result<StoredKey> {
+	pub async fn get_verification_key(&self) -> Result<StoredKey> {
 		self.verification_key
-			.lock()?
+			.lock()
+			.await
 			.clone()
 			.ok_or(Error::NoVerificationKey)
 	}
@@ -806,8 +819,8 @@ impl KeyManager {
 	}
 
 	/// This function is for removing a previously-added master password
-	pub fn clear_root_key(&self) -> Result<()> {
-		*self.root_key.lock()? = None;
+	pub async fn clear_root_key(&self) -> Result<()> {
+		*self.root_key.lock().await = None;
 
 		Ok(())
 	}
@@ -815,8 +828,8 @@ impl KeyManager {
 	/// This function is used for seeing if the key manager has a master password.
 	///
 	/// Technically this checks for the root key, but it makes no difference to the front end.
-	pub fn has_master_password(&self) -> Result<bool> {
-		Ok(self.root_key.lock()?.is_some())
+	pub async fn has_master_password(&self) -> Result<bool> {
+		Ok(self.root_key.lock().await.is_some())
 	}
 
 	/// This function is used for unmounting all keys at once.
