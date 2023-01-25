@@ -1,30 +1,63 @@
-import * as DP from '@radix-ui/react-popover';
+import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
-import { PropsWithChildren, ReactNode } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
-interface Props extends PropsWithChildren, DP.PopoverContentProps {
-	trigger: ReactNode;
+interface Props extends Radix.PopoverContentProps {
+	trigger: React.ReactNode;
+	transformOrigin?: string;
+	disabled?: boolean;
+	className?: string;
 }
 
-export const Popover = ({ trigger, children, className, ...props }: Props) => {
+export const Popover = ({
+	trigger,
+	children,
+	disabled,
+	transformOrigin,
+	className,
+	...props
+}: PropsWithChildren<Props>) => {
+	const [open, setOpen] = useState(false);
+
+	// const transitions = useTransition(open, {
+	// 	from: {
+	// 		opacity: 0,
+	// 		transform: `scale(0.5)`,
+	// 		transformOrigin: transformOrigin || 'top'
+	// 	},
+	// 	enter: { opacity: 1, transform: 'scale(1)' },
+	// 	leave: { opacity: -0.5, transform: 'scale(0.95)' },
+	// 	config: { mass: 0.4, tension: 170, friction: 10 }
+	// });
+
 	return (
-		<DP.Root>
-			<DP.Trigger asChild>{trigger}</DP.Trigger>
-			<DP.Portal>
-				<DP.Content
-					sideOffset={5}
-					collisionPadding={10}
-					className={clsx(
-						'rounded-lg text-sm text-ink select-none cursor-default bg-app-overlay border border-app-line shadow-2xl shadow-black/60',
-						className
-					)}
-					{...props}
-				>
-					{children}
-				</DP.Content>
-			</DP.Portal>
-		</DP.Root>
+		<Radix.Root open={open} onOpenChange={setOpen}>
+			<Radix.Trigger disabled={disabled} asChild>
+				{trigger}
+			</Radix.Trigger>
+			{open && (
+				<Radix.Portal forceMount>
+					<Radix.Content forceMount asChild>
+						<div
+							className={clsx(
+								'flex flex-col',
+								'min-w-[11rem] z-50 m-2 space-y-1',
+								'select-none cursor-default rounded-lg',
+								'text-left text-sm text-ink',
+								'bg-app-overlay ',
+								'border border-app-line',
+								'shadow-2xl shadow-black/60 ',
+								className
+							)}
+							// style={styles}
+						>
+							{children}
+						</div>
+					</Radix.Content>
+				</Radix.Portal>
+			)}
+		</Radix.Root>
 	);
 };
 
-export * from '@radix-ui/react-popover';
+export { Close as PopoverClose } from '@radix-ui/react-popover';
