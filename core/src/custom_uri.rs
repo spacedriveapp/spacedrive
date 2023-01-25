@@ -2,6 +2,8 @@ use crate::prisma::file_path;
 use crate::Node;
 use http::{Request, Response, StatusCode};
 use http_range::HttpRange;
+use mini_moka::sync::Cache;
+use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
 use std::{cmp::min, io, path::Path, path::PathBuf, str::FromStr};
 use thiserror::Error;
@@ -11,6 +13,14 @@ use tokio::{
 };
 use tracing::{error, warn};
 use uuid::Uuid;
+
+// This LRU cache allows us to avoid doing a DB lookup on every request.
+// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
+static FILE_METADATA_CACHE: Lazy<Cache<(Uuid, i32, i32), (PathBuf, Option<String>)>> =
+	Lazy::new(|| Cache::new(100));
+
+// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
+// TODO: Probs use this cache in rspc queries too!
 
 pub async fn handle_custom_uri(
 	node: &Node,
@@ -76,42 +86,59 @@ pub async fn handle_custom_uri(
 					)
 				})?;
 
-			let library = node
-				.library_manager
-				.get_ctx(library_id)
-				.await
-				.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
-			let file_path = library
-				.db
-				.file_path()
-				.find_first(vec![
-					file_path::id::equals(file_path_id),
-					file_path::location_id::equals(location_id),
-				])
-				.with(file_path::location::fetch())
-				.exec()
-				.await?
-				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
-			let location_materialized_path = file_path
-				.location
-				.expect("unreachable location not fetched")
-				.local_path
-				.ok_or_else(|| {
-					warn!(
-						"Location '{}' doesn't have local path set",
-						file_path.location_id
-					);
-					HandleCustomUriError::BadRequest("Location doesn't have `local_path` set!")
-				})?;
-			let file_path_materialized_path =
-				PathBuf::from(location_materialized_path).join(&file_path.materialized_path);
+			let lru_cache_key = (library_id, location_id, file_path_id);
+			let (file_path_materialized_path, extension) =
+				match FILE_METADATA_CACHE.get(&lru_cache_key) {
+					Some(entry) => entry,
+					None => {
+						let library = node
+							.library_manager
+							.get_ctx(library_id)
+							.await
+							.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
+						let file_path = library
+							.db
+							.file_path()
+							.find_first(vec![
+								file_path::id::equals(file_path_id),
+								file_path::location_id::equals(location_id),
+							])
+							.with(file_path::location::fetch())
+							.exec()
+							.await?
+							.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
+
+						let lru_entry = (
+							PathBuf::from(
+								file_path
+									.location
+									.expect("unreachable location not fetched")
+									.local_path
+									.ok_or_else(|| {
+										warn!(
+											"Location '{}' doesn't have local path set",
+											file_path.location_id
+										);
+										HandleCustomUriError::BadRequest(
+											"Location doesn't have `local_path` set!",
+										)
+									})?,
+							)
+							.join(&file_path.materialized_path),
+							file_path.extension,
+						);
+						FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
+						lru_entry
+					}
+				};
+
 			let mut file = File::open(file_path_materialized_path)
 				.await
 				.map_err(|_| HandleCustomUriError::NotFound("file"))?;
 			let metadata = file.metadata().await?;
 
 			// TODO: This should be determined from magic bytes when the file is indexer and stored it in the DB on the file path
-			let (mime_type, is_video) = match file_path.extension.as_deref() {
+			let (mime_type, is_video) = match extension.as_deref() {
 				Some("mp4") => ("video/mp4", true),
 				Some("webm") => ("video/webm", true),
 				Some("mkv") => ("video/x-matroska", true),
