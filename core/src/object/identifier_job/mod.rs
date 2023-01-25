@@ -2,12 +2,14 @@ use crate::{
 	job::JobError,
 	library::LibraryContext,
 	object::cas::generate_cas_id,
-	prisma::{file_path, object},
+	prisma::{file_path, location, object},
+	prisma_sync,
 };
 use chrono::{DateTime, FixedOffset};
 use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
+	ffi::OsStr,
 	path::{Path, PathBuf},
 };
 
@@ -56,18 +58,15 @@ pub async fn assemble_object_metadata(
 	let metadata = fs::metadata(&path).await?;
 
 	// derive Object kind
-	let object_kind = match path.extension() {
-		Some(ext) => match ext.to_str() {
-			Some(ext) => {
-				let mut file = fs::File::open(&path).await?;
+	let object_kind = match path.extension().and_then(OsStr::to_str) {
+		Some(ext) => {
+			let mut file = fs::File::open(&path).await?;
 
-				Extension::resolve_conflicting(&ext.to_lowercase(), &mut file, false)
-					.await
-					.map(Into::into)
-					.unwrap_or(ObjectKind::Unknown)
-			}
-			None => ObjectKind::Unknown,
-		},
+			Extension::resolve_conflicting(&ext.to_lowercase(), &mut file, false)
+				.await
+				.map(Into::into)
+				.unwrap_or(ObjectKind::Unknown)
+		}
 		None => ObjectKind::Unknown,
 	};
 
@@ -87,7 +86,7 @@ pub async fn assemble_object_metadata(
 
 async fn batch_update_file_paths(
 	library: &LibraryContext,
-	location_id: i32,
+	location: &location::Data,
 	objects: &[object::Data],
 	cas_id_lookup: &HashMap<String, Vec<i32>>,
 ) -> Result<Vec<file_path::Data>, QueryError> {
@@ -105,15 +104,16 @@ async fn batch_update_file_paths(
 
 				(
 					sync.owned_update(
-						"FilePath",
-						json!({
-							"id": file_path_id,
-							"location_id": location_id
-						}),
+						prisma_sync::file_path::SyncId {
+							id: *file_path_id,
+							location: prisma_sync::location::SyncId {
+								pub_id: location.pub_id.clone(),
+							},
+						},
 						[("object", json!({ "cas_id": object.cas_id }))],
 					),
 					library.db.file_path().update(
-						file_path::location_id_id(location_id, *file_path_id),
+						file_path::location_id_id(location.id, *file_path_id),
 						vec![file_path::object::connect(object::id::equals(object.id))],
 					),
 				)
@@ -179,7 +179,7 @@ async fn generate_provisional_objects(
 
 async fn identifier_job_step(
 	library: &LibraryContext,
-	location_id: i32,
+	location: &location::Data,
 	location_path: impl AsRef<Path>,
 	file_paths: &[file_path::Data],
 ) -> Result<(usize, usize), JobError> {
@@ -223,7 +223,7 @@ async fn identifier_job_step(
 
 	let existing_objects_linked = if !existing_objects.is_empty() {
 		// link file_path.object_id to existing objects
-		batch_update_file_paths(library, location_id, &existing_objects, &cas_id_lookup)
+		batch_update_file_paths(library, location, &existing_objects, &cas_id_lookup)
 			.await?
 			.len()
 	} else {
@@ -289,7 +289,7 @@ async fn identifier_job_step(
 		);
 
 		if !created_files.is_empty() {
-			batch_update_file_paths(library, location_id, &created_files, &cas_id_lookup).await?;
+			batch_update_file_paths(library, &location, &created_files, &cas_id_lookup).await?;
 		}
 	}
 
