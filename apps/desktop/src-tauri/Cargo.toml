@@ -11,6 +11,7 @@ build = "build.rs"
 
 [dependencies]
 tauri = { version = "1.1.1", features = ["api-all", "macos-private-api"] }
+wry = { version = "^0.23", features = ["linux-headers"] } # This is designed to add the `linux-headers` feature to Tauri by relying on how Cargo merges features.
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
 tokio = { version = "1.21.2", features = ["sync"] }
