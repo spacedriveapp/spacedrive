@@ -33,9 +33,12 @@ export type Procedures = {
         { key: "tags.list", input: LibraryArgs<null>, result: Array<Tag> } | 
         { key: "volumes.list", input: never, result: Array<Volume> },
     mutations: 
+        { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobInit>, result: null } | 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
+        { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -95,6 +98,10 @@ export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } 
 export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerItem> }
 
 export type ExplorerItem = { type: "Path" } & FilePathWithObject | { type: "Object" } & ObjectWithFilePaths
+
+export interface FileCopierJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string, target_file_name_suffix: string | null }
+
+export interface FileCutterJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string }
 
 export interface FileDecryptorJobInit { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
 

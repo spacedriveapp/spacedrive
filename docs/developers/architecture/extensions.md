@@ -4,4 +4,4 @@ index: 10
 
 # Extensions
 
-extended functionality of Spacedrive
+Extensions are planned but nothing is yet set in stone.

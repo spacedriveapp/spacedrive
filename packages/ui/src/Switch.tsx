@@ -4,7 +4,9 @@ import { forwardRef } from 'react';
 
 export interface SwitchProps
 	extends VariantProps<typeof switchStyles>,
-		SwitchPrimitive.SwitchProps {}
+		SwitchPrimitive.SwitchProps {
+	thumbClassName?: string;
+}
 
 const switchStyles = cva(
 	[
@@ -46,9 +48,9 @@ const thumbStyles = cva(
 );
 
 export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
-	({ size, className, ...props }, ref) => (
+	({ size, className, thumbClassName, ...props }, ref) => (
 		<SwitchPrimitive.Root {...props} ref={ref} className={switchStyles({ size, className })}>
-			<SwitchPrimitive.Thumb className={thumbStyles({ size, className })} />
+			<SwitchPrimitive.Thumb className={thumbStyles({ size, className: thumbClassName })} />
 		</SwitchPrimitive.Root>
 	)
 );
