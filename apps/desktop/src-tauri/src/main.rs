@@ -44,7 +44,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			let node = node.clone();
 			move |_, req| {
 				let uri = req.uri();
-				let uri = uri.replace("spacedrive://", "https://spacedrive.localhost/"); // Convert Mac and Linux style URI to Windows style URI. Windows style is valid so it can be put into a `http::Request`.
+				let uri = uri
+					.replace("spacedrive://", "http://spacedrive.localhost/") // Unix style
+					.replace("spacedrive://localhost/", "http://spacedrive.localhost/"); // Windows
 
 				// Encoded by `convertFileSrc` on the frontend
 				let uri = percent_encoding::percent_decode(uri.as_bytes())
