@@ -443,15 +443,17 @@ impl SyncManager {
 				.collect(),
 		}))
 	}
-
-	pub fn owned_create_many<const SIZE: usize>(
+	pub fn owned_create_many<
+		const SIZE: usize,
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = SharedSyncType>,
+	>(
 		&self,
-		model: &str,
-		data: impl IntoIterator<Item = (Value, [(&'static str, Value); SIZE])>,
+		data: impl IntoIterator<Item = (TSyncId, [(&'static str, Value); SIZE])>,
 		skip_duplicates: bool,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: model.to_string(),
+			model: TModel::MODEL.to_string(),
 			items: vec![OwnedOperationItem {
 				id: Value::Null,
 				data: OwnedOperationData::CreateMany {
@@ -459,7 +461,7 @@ impl SyncManager {
 						.into_iter()
 						.map(|(id, data)| {
 							(
-								id,
+								json!(id),
 								data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
 							)
 						})
@@ -469,19 +471,21 @@ impl SyncManager {
 			}],
 		}))
 	}
-
-	pub fn owned_update<const SIZE: usize>(
+	pub fn owned_update<
+		const SIZE: usize,
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = SharedSyncType>,
+	>(
 		&self,
-		model: &str,
-		id: Value,
+		id: TSyncId,
 		values: [(&'static str, Value); SIZE],
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: model.to_string(),
+			model: TModel::MODEL.to_string(),
 			items: [(id, values)]
 				.into_iter()
 				.map(|(id, data)| OwnedOperationItem {
-					id,
+					id: json!(id),
 					data: OwnedOperationData::Update(
 						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
 					),
@@ -490,24 +494,31 @@ impl SyncManager {
 		}))
 	}
 
-	pub fn shared_create(&self, model: &str, record_id: Value) -> CRDTOperation {
+	pub fn shared_create<
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = SharedSyncType>,
+	>(
+		&self,
+		id: TSyncId,
+	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
-			model: model.to_string(),
-			record_id,
+			model: TModel::MODEL.to_string(),
+			record_id: json!(id),
 			data: SharedOperationData::Create(SharedOperationCreateData::Atomic),
 		}))
 	}
-
-	pub fn shared_update(
+	pub fn shared_update<
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = SharedSyncType>,
+	>(
 		&self,
-		model: &str,
-		record_id: Value,
+		id: TSyncId,
 		field: &str,
 		value: Value,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
-			model: model.to_string(),
-			record_id,
+			model: TModel::MODEL.to_string(),
+			record_id: json!(id),
 			data: SharedOperationData::Update {
 				field: field.to_string(),
 				value,
