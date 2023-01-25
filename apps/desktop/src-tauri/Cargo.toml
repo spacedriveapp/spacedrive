@@ -17,6 +17,7 @@ tokio = { version = "1.21.2", features = ["sync"] }
 window-shadows = "0.2.0"
 tracing = "0.1.36"
 serde = "1.0.145"
+percent-encoding = "2.2.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs.workspace = true

@@ -2,6 +2,7 @@ import { loggerLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
 import { getDebugState, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
@@ -32,7 +33,7 @@ async function getOs(): Promise<OperatingSystem> {
 
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),

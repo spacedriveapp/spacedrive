@@ -46,10 +46,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.register_uri_scheme_protocol("spacedrive", {
 			let node = node.clone();
 			move |_, req| {
-				let url = req.uri().parse::<Uri>().unwrap();
-				let mut path = url.path().split('/').collect::<Vec<_>>();
-				path[0] = url.host().unwrap(); // The first forward slash causes an empty item and we replace it with the URL's host which you expect to be at the start
+				let uri = req.uri();
+				let uri = uri.strip_prefix("spacedrive://").unwrap_or(uri); // Mac or Linux
+				let uri = uri.strip_prefix("https://spacedrive.localhost/").unwrap_or(uri); // Windows
 
+				// Encoded by `convertFileSrc` on the frontend
+				let path = percent_encoding::percent_decode(uri.as_bytes())
+					.decode_utf8_lossy()
+					.to_string();
+				let path = path.split('/').collect::<Vec<_>>();
+
+				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
 				let (status_code, content_type, body) =
 					block_in_place(|| block_on(node.handle_custom_uri(path)));
 				ResponseBuilder::new()

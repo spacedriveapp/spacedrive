@@ -6003,6 +6003,7 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
+ "percent-encoding",
  "rspc",
  "sd-core",
  "serde",

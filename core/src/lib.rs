@@ -203,9 +203,20 @@ impl Node {
 					);
 				}
 
+				let file_cas_id = match path.get(1) {
+					Some(cas_id) => cas_id,
+					None => {
+						return (
+							400,
+							"text/html",
+							b"Bad Request: Invalid number of parameters".to_vec(),
+						);
+					}
+				};
+
 				let filename = Path::new(&self.config.data_directory())
 					.join("thumbnails")
-					.join(path[1] /* file_cas_id */)
+					.join(file_cas_id)
 					.with_extension("webp");
 				match File::open(&filename).await {
 					Ok(mut file) => {
