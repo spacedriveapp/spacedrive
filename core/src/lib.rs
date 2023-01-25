@@ -6,10 +6,7 @@ use node::NodeConfigManager;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
-use tokio::{
-	fs,
-	sync::broadcast,
-};
+use tokio::{fs, sync::broadcast};
 use tracing::{error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
 

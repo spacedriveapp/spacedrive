@@ -7,14 +7,10 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use sd_core::{Node, custom_uri::handle_custom_uri};
-use tauri::async_runtime::block_on;
-use tauri::{
-	api::path,
-	http::ResponseBuilder,
-	Manager, RunEvent,
-};
 use http::Request;
+use sd_core::{custom_uri::handle_custom_uri, Node};
+use tauri::async_runtime::block_on;
+use tauri::{api::path, http::ResponseBuilder, Manager, RunEvent};
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::{debug, error};
@@ -55,17 +51,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					.decode_utf8_lossy()
 					.to_string();
 
-				let mut r = Request::builder()
-					.method(req.method())
-					.uri(uri);
+				let mut r = Request::builder().method(req.method()).uri(uri);
 				for (key, value) in req.headers() {
 					r = r.header(key, value);
 				}
 				let r = r.body(req.body().clone()).unwrap(); // TODO: This clone feels so unnecessary but Tauri pass `req` as a reference so we can get the owned value.
 
 				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
-				let resp =
-					block_in_place(|| block_on(handle_custom_uri(&node, r))).unwrap_or_else(|err| err.into_response().unwrap());
+				let resp = block_in_place(|| block_on(handle_custom_uri(&node, r)))
+					.unwrap_or_else(|err| err.into_response().unwrap());
 				let mut r = ResponseBuilder::new()
 					.version(resp.version())
 					.status(resp.status());

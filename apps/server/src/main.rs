@@ -1,14 +1,14 @@
 use std::{env, net::SocketAddr, path::Path};
 
 use axum::{
+	body::{Body, Full},
 	handler::Handler,
-	routing::get,
-	body::{Full, Body},
-	response::Response,
 	http::Request,
+	response::Response,
+	routing::get,
 };
 use hyper::body::to_bytes;
-use sd_core::{Node, custom_uri::handle_custom_uri};
+use sd_core::{custom_uri::handle_custom_uri, Node};
 use tracing::info;
 
 mod utils;
@@ -45,9 +45,12 @@ async fn main() {
 			let node = node.clone();
 			get(|req: Request<Body>| async move {
 				let (parts, body) = req.into_parts();
-				let mut r = Request::builder()
-					.method(parts.method)
-					.uri(parts.uri.path().strip_prefix("/spacedrive").expect("Error decoding Spacedrive URL prefix. This should be impossible!"));
+				let mut r =
+					Request::builder().method(parts.method).uri(
+						parts.uri.path().strip_prefix("/spacedrive").expect(
+							"Error decoding Spacedrive URL prefix. This should be impossible!",
+						),
+					);
 				for (key, value) in parts.headers {
 					if let Some(key) = key {
 						r = r.header(key, value);
@@ -62,11 +65,11 @@ async fn main() {
 				let mut r = Response::builder()
 					.version(resp.version())
 					.status(resp.status());
-			
+
 				for (key, value) in resp.headers() {
 					r = r.header(key, value);
 				}
-			
+
 				r.body(Full::from(resp.into_body())).unwrap()
 			})
 		})
