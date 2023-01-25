@@ -8,5 +8,4 @@ A library is the database that Spacedrive stores all file structures and metadat
 
 To learn how data is synchronized check out the documentation on [Sync](/docs/developers/architecture/sync).
 
-Libraries can be encrypted with a passphrase set by the user. 
-
+Libraries can be encrypted with a passphrase set by the user.
