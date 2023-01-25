@@ -1,12 +1,14 @@
-use std::path::PathBuf;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
 	job::JobError,
 	prisma::{file_path, location, PrismaClient},
 };
 
+use std::{ffi::OsStr, path::PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+pub mod copy;
+pub mod cut;
 pub mod decrypt;
 pub mod delete;
 pub mod encrypt;
@@ -26,11 +28,20 @@ pub struct FsInfo {
 	pub obj_type: ObjectType,
 }
 
-pub async fn context_menu_fs_info(
+pub fn osstr_to_string(os_str: Option<&OsStr>) -> Result<String, JobError> {
+	let string = os_str
+		.ok_or(JobError::OsStr)?
+		.to_str()
+		.ok_or(JobError::OsStr)?
+		.to_string();
+
+	Ok(string)
+}
+
+pub async fn get_path_from_location_id(
 	db: &PrismaClient,
 	location_id: i32,
-	path_id: i32,
-) -> Result<FsInfo, JobError> {
+) -> Result<PathBuf, JobError> {
 	let location = db
 		.location()
 		.find_unique(location::id::equals(location_id))
@@ -39,6 +50,22 @@ pub async fn context_menu_fs_info(
 		.ok_or(JobError::MissingData {
 			value: String::from("location which matches location_id"),
 		})?;
+
+	location
+		.local_path
+		.as_ref()
+		.map(PathBuf::from)
+		.ok_or(JobError::MissingData {
+			value: String::from("path when cast as `PathBuf`"),
+		})
+}
+
+pub async fn context_menu_fs_info(
+	db: &PrismaClient,
+	location_id: i32,
+	path_id: i32,
+) -> Result<FsInfo, JobError> {
+	let location_path = get_path_from_location_id(db, location_id).await?;
 
 	let item = db
 		.file_path()
@@ -49,18 +76,7 @@ pub async fn context_menu_fs_info(
 			value: String::from("file_path that matches both location id and path id"),
 		})?;
 
-	let obj_path = [
-		location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.ok_or(JobError::MissingData {
-				value: String::from("path when cast as `PathBuf`"),
-			})?,
-		item.materialized_path.clone().into(),
-	]
-	.iter()
-	.collect();
+	let obj_path = location_path.join(&item.materialized_path);
 
 	// i don't know if this covers symlinks
 	let obj_type = if item.is_dir {
