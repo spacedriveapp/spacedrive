@@ -158,56 +158,71 @@ pub async fn handle_custom_uri(
 			match is_video {
 				true => {
 					let mut response = Response::builder();
-					let mut buf = Vec::new();
 					let mut status_code = 200;
 
 					// if the webview sent a range header, we need to send a 206 in return
 					// Actually only macOS and Windows are supported. Linux will ALWAYS return empty headers.
-					if let Some(range) = req.headers().get("range") {
-						let file_size = metadata.len();
-						let range = HttpRange::parse(
-							range.to_str().map_err(|_| {
-								HandleCustomUriError::BadRequest("Error passing range header!")
-							})?,
-							file_size,
-						)
-						.map_err(|_| HandleCustomUriError::BadRequest("Error passing range!"))?;
-						// let support only 1 range for now
-						let first_range = range.first();
-						if let Some(range) = first_range {
-							let mut real_length = range.length;
+					let buf = match req.headers().get("range") {
+						Some(range) => {
+							let mut buf = Vec::new();
+							let file_size = metadata.len();
+							let range = HttpRange::parse(
+								range.to_str().map_err(|_| {
+									HandleCustomUriError::BadRequest("Error passing range header!")
+								})?,
+								file_size,
+							)
+							.map_err(|_| {
+								HandleCustomUriError::BadRequest("Error passing range!")
+							})?;
+							// let support only 1 range for now
+							let first_range = range.first();
+							if let Some(range) = first_range {
+								let mut real_length = range.length;
 
-							// prevent max_length;
-							// specially on webview2
-							if range.length > file_size / 3 {
-								// max size sent (400ko / request)
-								// as it's local file system we can afford to read more often
-								real_length = min(file_size - range.start, 1024 * 400);
+								// prevent max_length;
+								// specially on webview2
+								if range.length > file_size / 3 {
+									// max size sent (400ko / request)
+									// as it's local file system we can afford to read more often
+									real_length = min(file_size - range.start, 1024 * 400);
+								}
+
+								// last byte we are reading, the length of the range include the last byte
+								// who should be skipped on the header
+								let last_byte = range.start + real_length - 1;
+								status_code = 206;
+
+								// Only macOS and Windows are supported, if you set headers in linux they are ignored
+								response = response
+									.header("Connection", "Keep-Alive")
+									.header("Accept-Ranges", "bytes")
+									.header("Content-Length", real_length)
+									.header(
+										"Content-Range",
+										format!(
+											"bytes {}-{}/{}",
+											range.start, last_byte, file_size
+										),
+									);
+
+								// FIXME: Add ETag support (caching on the webview)
+
+								file.seek(SeekFrom::Start(range.start)).await?;
+								file.take(real_length).read_to_end(&mut buf).await?;
+							} else {
+								file.read_to_end(&mut buf).await?;
 							}
 
-							// last byte we are reading, the length of the range include the last byte
-							// who should be skipped on the header
-							let last_byte = range.start + real_length - 1;
-							status_code = 206;
-
-							// Only macOS and Windows are supported, if you set headers in linux they are ignored
-							response = response
-								.header("Connection", "Keep-Alive")
-								.header("Accept-Ranges", "bytes")
-								.header("Content-Length", real_length)
-								.header(
-									"Content-Range",
-									format!("bytes {}-{}/{}", range.start, last_byte, file_size),
-								);
-
-							// FIXME: Add ETag support (caching on the webview)
-
-							file.seek(SeekFrom::Start(range.start)).await?;
-							file.take(real_length).read_to_end(&mut buf).await?;
-						} else {
-							file.read_to_end(&mut buf).await?;
+							buf
 						}
-					}
+						None => {
+							// Linux is mega cringe and doesn't support streaming so we just load the whole file into memory and return it
+							let mut buf = Vec::with_capacity(metadata.len() as usize);
+							file.read_to_end(&mut buf).await?;
+							buf
+						}
+					};
 
 					Ok(response
 						.header("Content-type", mime_type)
