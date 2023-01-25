@@ -1,15 +1,15 @@
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
 import { PropsWithChildren, useState } from 'react';
-import { animated, config, useTransition } from 'react-spring';
 
-interface Props extends DropdownMenu.MenuContentProps {
+interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
 	transformOrigin?: string;
 	disabled?: boolean;
+	className?: string;
 }
 
-export const OverlayPanel = ({
+export const Popover = ({
 	trigger,
 	children,
 	disabled,
@@ -31,13 +31,13 @@ export const OverlayPanel = ({
 	// });
 
 	return (
-		<DropdownMenu.Root open={open} onOpenChange={setOpen}>
-			<DropdownMenu.Trigger disabled={disabled} asChild>
+		<Radix.Root open={open} onOpenChange={setOpen}>
+			<Radix.Trigger disabled={disabled} asChild>
 				{trigger}
-			</DropdownMenu.Trigger>
+			</Radix.Trigger>
 			{open && (
-				<DropdownMenu.Portal forceMount>
-					<DropdownMenu.Content forceMount asChild>
+				<Radix.Portal forceMount>
+					<Radix.Content forceMount asChild>
 						<div
 							className={clsx(
 								'flex flex-col',
@@ -53,9 +53,11 @@ export const OverlayPanel = ({
 						>
 							{children}
 						</div>
-					</DropdownMenu.Content>
-				</DropdownMenu.Portal>
+					</Radix.Content>
+				</Radix.Portal>
 			)}
-		</DropdownMenu.Root>
+		</Radix.Root>
 	);
 };
+
+export { Close as PopoverClose } from '@radix-ui/react-popover';
