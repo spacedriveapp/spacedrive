@@ -45,8 +45,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			move |_, req| {
 				let uri = req.uri();
 				let uri = uri
-					.replace("spacedrive://", "http://spacedrive.localhost/") // Unix style
-					.replace("spacedrive://localhost/", "http://spacedrive.localhost/"); // Windows
+					.replace("spacedrive://localhost/", "http://spacedrive.localhost/") // Windows
+					.replace("spacedrive://", "http://spacedrive.localhost/"); // Unix style
 
 				// Encoded by `convertFileSrc` on the frontend
 				let uri = percent_encoding::percent_decode(uri.as_bytes())
