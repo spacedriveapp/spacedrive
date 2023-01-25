@@ -86,9 +86,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				)
 				.unwrap();
 			}
-			Err(_) => {
-				// TODO: handle error
-			}
+			Err(err) => error!(err),
 		});
 	});
 

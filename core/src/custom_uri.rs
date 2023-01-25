@@ -16,7 +16,8 @@ use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
-static FILE_METADATA_CACHE: Lazy<Cache<(Uuid, i32, i32), (PathBuf, Option<String>)>> =
+type MetadataCacheKey = (Uuid, i32, i32);
+static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, (PathBuf, Option<String>)>> =
 	Lazy::new(|| Cache::new(100));
 
 // TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
@@ -29,8 +30,8 @@ pub async fn handle_custom_uri(
 	let path = req
 		.uri()
 		.path()
-		.strip_prefix("/")
-		.unwrap_or(req.uri().path())
+		.strip_prefix('/')
+		.unwrap_or_else(|| req.uri().path())
 		.split('/')
 		.collect::<Vec<_>>();
 	match path.first().copied() {
@@ -60,8 +61,7 @@ pub async fn handle_custom_uri(
 		Some("file") => {
 			let library_id = path
 				.get(1)
-				.map(|id| Uuid::from_str(&id).ok())
-				.flatten()
+				.and_then(|id| Uuid::from_str(id).ok())
 				.ok_or_else(|| {
 					HandleCustomUriError::BadRequest(
 						"Invalid number of parameters. Missing library_id!",
@@ -69,8 +69,7 @@ pub async fn handle_custom_uri(
 				})?;
 			let location_id = path
 				.get(2)
-				.map(|id| id.parse::<i32>().ok())
-				.flatten()
+				.and_then(|id| id.parse::<i32>().ok())
 				.ok_or_else(|| {
 					HandleCustomUriError::BadRequest(
 						"Invalid number of parameters. Missing location_id!",
@@ -78,8 +77,7 @@ pub async fn handle_custom_uri(
 				})?;
 			let file_path_id = path
 				.get(3)
-				.map(|id| id.parse::<i32>().ok())
-				.flatten()
+				.and_then(|id| id.parse::<i32>().ok())
 				.ok_or_else(|| {
 					HandleCustomUriError::BadRequest(
 						"Invalid number of parameters. Missing file_path_id!",
@@ -168,16 +166,12 @@ pub async fn handle_custom_uri(
 					if let Some(range) = req.headers().get("range") {
 						let file_size = metadata.len();
 						let range = HttpRange::parse(
-							range.to_str().or_else(|_| {
-								Err(HandleCustomUriError::BadRequest(
-									"Error passing range header!",
-								))
+							range.to_str().map_err(|_| {
+								HandleCustomUriError::BadRequest("Error passing range header!")
 							})?,
 							file_size,
 						)
-						.or_else(|_| {
-							Err(HandleCustomUriError::BadRequest("Error passing range!"))
-						})?;
+						.map_err(|_| HandleCustomUriError::BadRequest("Error passing range!"))?;
 						// let support only 1 range for now
 						let first_range = range.first();
 						if let Some(range) = first_range {
