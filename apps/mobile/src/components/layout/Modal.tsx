@@ -31,7 +31,7 @@ const ModalHandle = (props: ModalHandle) => (
 		{!props.hideCloseButton && (
 			<Pressable
 				onPress={() => props.modalRef.current.close()}
-				style={tw`absolute top-4 right-3 w-7 h-7 items-center justify-center bg-app-button rounded-full mr-1`}
+				style={tw`absolute top-5 right-4 w-7 h-7 items-center justify-center bg-app-button rounded-full`}
 			>
 				<X size={16} color="white" weight="bold" />
 			</Pressable>
@@ -60,7 +60,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			handleComponent={(props) => ModalHandle({ modalRef, hideCloseButton, ...props })}
 			{...otherProps}
 		>
-			{title && <Text style={tw`text-ink font-bold text-sm text-center`}>{title}</Text>}
+			{title && <Text style={tw`text-ink font-medium text-base text-center`}>{title}</Text>}
 			{children}
 		</BottomSheetModal>
 	);

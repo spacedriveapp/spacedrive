@@ -1,9 +1,10 @@
 import { forwardRef, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { queryClient, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { Modal, ModalRef } from '~/components/layout/Modal';
+import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import tw from '~/lib/tailwind';
@@ -17,7 +18,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	// TODO: Use react-hook-form?
 
-	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
+	const { mutate: createTag } = useLibraryMutation('tags.create', {
 		onSuccess: () => {
 			// Reset form
 			setTagName('');
@@ -52,7 +53,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			enableContentPanningGesture={false}
 		>
 			<View style={tw`p-4`}>
-				<View style={tw`flex flex-row items-center`}>
+				<View style={tw`flex flex-row items-center mt-4`}>
 					<Pressable
 						onPress={() => setShowPicker((v) => !v)}
 						style={tw.style({ backgroundColor: tagColor }, 'w-6 h-6 rounded-full')}
@@ -92,7 +93,15 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						</View>
 					</FadeInAnimation>
 				)}
-				{/* Button */}
+				<Button
+					variant="accent"
+					size="md"
+					onPress={() => createTag({ color: tagColor, name: tagName })}
+					style={tw`mt-6`}
+					disabled={tagName.length === 0}
+				>
+					<Text style={tw`text-white font-medium text-sm`}>Create</Text>
+				</Button>
 			</View>
 		</Modal>
 	);
