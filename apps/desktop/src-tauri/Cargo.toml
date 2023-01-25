@@ -13,7 +13,7 @@ build = "build.rs"
 tauri = { version = "1.1.1", features = ["api-all", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
-tokio = { version = "1.21.2", features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.0"
 tracing = "0.1.36"
 serde = "1.0.145"
@@ -25,9 +25,7 @@ swift-rs.workspace = true
 tauri-build = { version = "1.1.1", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { workspace = true, features = [
-  "build",
-] }
+swift-rs = { workspace = true, features = ["build"] }
 
 [features]
 default = ["custom-protocol"]

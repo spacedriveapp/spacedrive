@@ -42,7 +42,7 @@ specta = { workspace = true, optional = true }
 
 hex = "0.4.3"
 
-tokio = { version = "1.21.2", features = ["io-util", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
 
 [dev-dependencies]
 tokio = { version = "1.21.2", features = [

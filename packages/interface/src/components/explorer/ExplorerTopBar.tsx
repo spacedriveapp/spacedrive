@@ -15,7 +15,7 @@ import {
 import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, OverlayPanel, cva } from '@sd/ui';
+import { Button, Input, Popover, cva } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { KeybindEvent } from '../../util/keybind';
@@ -265,7 +265,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 					<div className="flex mx-8 space-x-2">
 						<Tooltip label="Key Manager">
-							<OverlayPanel
+							<Popover
 								className="focus:outline-none"
 								trigger={
 									// <Tooltip label="Major Key Alert">
@@ -278,7 +278,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								<div className="block w-[350px]">
 									<KeyManager className={TOP_BAR_ICON_STYLE} />
 								</div>
-							</OverlayPanel>
+							</Popover>
 						</Tooltip>
 						<Tooltip label="Tag Assign Mode">
 							<TopBarButton
@@ -305,7 +305,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				</div>
 				<div className="flex mr-3 space-x-2">
 					<Tooltip label="File display options" position="left">
-						<OverlayPanel
+						<Popover
 							className="focus:outline-none"
 							trigger={
 								// <Tooltip label="Major Key Alert">
@@ -318,7 +318,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							<div className="block w-[250px] ">
 								<ExplorerOptionsPanel />
 							</div>
-						</OverlayPanel>
+						</Popover>
 					</Tooltip>
 
 					<Tooltip
