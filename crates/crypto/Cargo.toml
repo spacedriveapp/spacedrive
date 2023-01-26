@@ -44,7 +44,7 @@ rspc = { workspace = true, features = ["uuid"], optional = true }
 specta = { workspace = true, optional = true }
 
 # for asynchronous crypto
-tokio = { version = "1.21.2", features = ["io-util", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
 
 # linux OS keychain
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -17,8 +17,10 @@ use tauri::{
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::{debug, error};
+
 #[cfg(target_os = "macos")]
 mod macos;
+
 mod menu;
 
 #[tauri::command(async)]
