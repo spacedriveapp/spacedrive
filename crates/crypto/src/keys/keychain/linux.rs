@@ -57,4 +57,17 @@ impl<'a> Keyring for LinuxKeyring<'a> {
 
 		Ok(Protected::new(item.get(0).unwrap().get_secret().unwrap())) // can also get secret_type here
 	}
+
+	fn delete(&self, identifier: Identifier) -> Result<()> {
+		let collection = self.get_collection();
+		collection
+			.search_items(identifier.to_hashmap())
+			.unwrap()
+			.get(0)
+			.unwrap()
+			.delete()
+			.unwrap();
+
+		Ok(())
+	}
 }
