@@ -27,17 +27,12 @@
 //! )
 //! .unwrap();
 //! ```
-#[cfg(feature = "serde")]
-use crate::protected::ProtectedVec;
-
-#[cfg(feature = "serde")]
-use crate::primitives::Key;
 
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::generate_nonce,
-	Protected,
+	primitives::{generate_nonce, Key},
+	Protected, ProtectedVec,
 };
 
 use tokio::io::AsyncReadExt;
@@ -120,20 +115,19 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
-		match self.metadata.as_ref() {
-			Some(metadata) => {
-				let metadata = StreamDecryption::decrypt_bytes(
-					master_key,
-					&metadata.metadata_nonce,
-					metadata.algorithm,
-					&metadata.metadata,
-					&[],
-				)
-				.await?;
+		if let Some(metadata) = self.metadata.as_ref() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)
+			.await?;
 
-				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			}
-			None => Err(Error::NoMetadata),
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+		} else {
+			Err(Error::NoMetadata)
 		}
 	}
 
@@ -149,20 +143,19 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key(password).await?;
 
-		match self.metadata.as_ref() {
-			Some(metadata) => {
-				let metadata = StreamDecryption::decrypt_bytes(
-					master_key,
-					&metadata.metadata_nonce,
-					metadata.algorithm,
-					&metadata.metadata,
-					&[],
-				)
-				.await?;
+		if let Some(metadata) = self.metadata.as_ref() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)
+			.await?;
 
-				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			}
-			None => Err(Error::NoMetadata),
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+		} else {
+			Err(Error::NoMetadata)
 		}
 	}
 }

@@ -11,10 +11,10 @@
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
 
-use crate::primitives::{Key, Salt, KEY_LEN};
-use crate::protected::ProtectedVec;
-use crate::Protected;
-use crate::{Error, Result};
+use crate::{
+	primitives::{Key, Salt, KEY_LEN},
+	Error, Protected, ProtectedVec, Result,
+};
 use argon2::Argon2;
 use balloon_hash::Balloon;
 

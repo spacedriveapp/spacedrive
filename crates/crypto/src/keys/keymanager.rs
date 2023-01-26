@@ -37,14 +37,19 @@
 
 use tokio::sync::Mutex;
 
-use crate::crypto::stream::{StreamDecryption, StreamEncryption};
-use crate::primitives::{
-	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key,
-	OnboardingConfig, Salt, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+// use crate::primitives::{
+// 	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key,
+// 	OnboardingConfig, Salt, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+// };
+use crate::{
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	primitives::{
+		derive_key, generate_master_key, generate_nonce, generate_salt, to_array, EncryptedKey,
+		Key, OnboardingConfig, Salt, ENCRYPTED_KEY_LEN, KEY_LEN, LATEST_STORED_KEY,
+		MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	},
+	Error, Protected, ProtectedVec, Result,
 };
-use crate::protected::ProtectedVec;
-use crate::{crypto::stream::Algorithm, primitives::ENCRYPTED_KEY_LEN, Protected};
-use crate::{Error, Result};
 
 use dashmap::{DashMap, DashSet};
 use uuid::Uuid;
@@ -532,69 +537,68 @@ impl KeyManager {
 			return Err(Error::KeyAlreadyQueued);
 		}
 
-		match self.keystore.get(&uuid) {
-			Some(stored_key) => {
-				match stored_key.version {
-					StoredKeyVersion::V1 => {
-						self.mounting_queue.insert(uuid);
+		if let Some(stored_key) = self.keystore.get(&uuid) {
+			match stored_key.version {
+				StoredKeyVersion::V1 => {
+					self.mounting_queue.insert(uuid);
 
-						let master_key = StreamDecryption::decrypt_bytes(
-							derive_key(
-								self.get_root_key().await?,
-								stored_key.salt,
-								ROOT_KEY_CONTEXT,
-							),
-							&stored_key.master_key_nonce,
-							stored_key.algorithm,
-							&stored_key.master_key,
-							&[],
-						)
-						.await
-						.map_or_else(
-							|_| {
-								self.remove_from_queue(uuid).ok();
-								Err(Error::IncorrectPassword)
-							},
-							|v| Ok(Protected::new(to_array(v.into_inner())?)),
-						)?;
-						// Decrypt the StoredKey using the decrypted master key
-						let key = StreamDecryption::decrypt_bytes(
-							master_key,
-							&stored_key.key_nonce,
-							stored_key.algorithm,
-							&stored_key.key,
-							&[],
-						)
-						.await
+					let master_key = StreamDecryption::decrypt_bytes(
+						derive_key(
+							self.get_root_key().await?,
+							stored_key.salt,
+							ROOT_KEY_CONTEXT,
+						),
+						&stored_key.master_key_nonce,
+						stored_key.algorithm,
+						&stored_key.master_key,
+						&[],
+					)
+					.await
+					.map_or_else(
+						|_| {
+							self.remove_from_queue(uuid).ok();
+							Err(Error::IncorrectPassword)
+						},
+						|v| Ok(Protected::new(to_array(v.into_inner())?)),
+					)?;
+					// Decrypt the StoredKey using the decrypted master key
+					let key = StreamDecryption::decrypt_bytes(
+						master_key,
+						&stored_key.key_nonce,
+						stored_key.algorithm,
+						&stored_key.key,
+						&[],
+					)
+					.await
+					.map_err(|e| {
+						self.remove_from_queue(uuid).ok();
+						e
+					})?;
+
+					// Hash the key once with the parameters/algorithm the user selected during first mount
+					let hashed_key = stored_key
+						.hashing_algorithm
+						.hash(key, stored_key.content_salt, None)
 						.map_err(|e| {
 							self.remove_from_queue(uuid).ok();
 							e
 						})?;
 
-						// Hash the key once with the parameters/algorithm the user selected during first mount
-						let hashed_key = stored_key
-							.hashing_algorithm
-							.hash(key, stored_key.content_salt, None)
-							.map_err(|e| {
-								self.remove_from_queue(uuid).ok();
-								e
-							})?;
+					self.keymount.insert(
+						uuid,
+						MountedKey {
+							uuid: stored_key.uuid,
+							hashed_key,
+						},
+					);
 
-						self.keymount.insert(
-							uuid,
-							MountedKey {
-								uuid: stored_key.uuid,
-								hashed_key,
-							},
-						);
-
-						self.remove_from_queue(uuid)?;
-					}
+					self.remove_from_queue(uuid)?;
 				}
-
-				Ok(())
 			}
-			None => Err(Error::KeyNotFound),
+
+			Ok(())
+		} else {
+			Err(Error::KeyNotFound)
 		}
 	}
 
@@ -602,37 +606,36 @@ impl KeyManager {
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub async fn get_key(&self, uuid: Uuid) -> Result<ProtectedVec<u8>> {
-		match self.keystore.get(&uuid) {
-			Some(stored_key) => {
-				let master_key = StreamDecryption::decrypt_bytes(
-					derive_key(
-						self.get_root_key().await?,
-						stored_key.salt,
-						ROOT_KEY_CONTEXT,
-					),
-					&stored_key.master_key_nonce,
-					stored_key.algorithm,
-					&stored_key.master_key,
-					&[],
-				)
-				.await
-				.map_or(Err(Error::IncorrectPassword), |k| {
-					Ok(Protected::new(to_array(k.into_inner())?))
-				})?;
+		if let Some(stored_key) = self.keystore.get(&uuid) {
+			let master_key = StreamDecryption::decrypt_bytes(
+				derive_key(
+					self.get_root_key().await?,
+					stored_key.salt,
+					ROOT_KEY_CONTEXT,
+				),
+				&stored_key.master_key_nonce,
+				stored_key.algorithm,
+				&stored_key.master_key,
+				&[],
+			)
+			.await
+			.map_or(Err(Error::IncorrectPassword), |k| {
+				Ok(Protected::new(to_array(k.into_inner())?))
+			})?;
 
-				// Decrypt the StoredKey using the decrypted master key
-				let key = StreamDecryption::decrypt_bytes(
-					master_key,
-					&stored_key.key_nonce,
-					stored_key.algorithm,
-					&stored_key.key,
-					&[],
-				)
-				.await?;
+			// Decrypt the StoredKey using the decrypted master key
+			let key = StreamDecryption::decrypt_bytes(
+				master_key,
+				&stored_key.key_nonce,
+				stored_key.algorithm,
+				&stored_key.key,
+				&[],
+			)
+			.await?;
 
-				Ok(key)
-			}
-			None => Err(Error::KeyNotFound),
+			Ok(key)
+		} else {
+			Err(Error::KeyNotFound)
 		}
 	}
 

@@ -25,8 +25,7 @@ use tokio::io::AsyncReadExt;
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::{generate_nonce, Key},
-	protected::ProtectedVec,
-	Error, Protected, Result,
+	Error, Protected, ProtectedVec, Result,
 };
 
 use super::file::FileHeader;
@@ -92,20 +91,19 @@ impl FileHeader {
 	) -> Result<ProtectedVec<u8>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
-		match self.preview_media.as_ref() {
-			Some(pvm) => {
-				let pvm = StreamDecryption::decrypt_bytes(
-					master_key,
-					&pvm.media_nonce,
-					pvm.algorithm,
-					&pvm.media,
-					&[],
-				)
-				.await?;
+		if let Some(pvm) = self.preview_media.as_ref() {
+			let pvm = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)
+			.await?;
 
-				Ok(pvm)
-			}
-			None => Err(Error::NoPreviewMedia),
+			Ok(pvm)
+		} else {
+			Err(Error::NoPreviewMedia)
 		}
 	}
 
@@ -120,20 +118,19 @@ impl FileHeader {
 	) -> Result<ProtectedVec<u8>> {
 		let master_key = self.decrypt_master_key(password).await?;
 
-		match self.preview_media.as_ref() {
-			Some(pvm) => {
-				let pvm = StreamDecryption::decrypt_bytes(
-					master_key,
-					&pvm.media_nonce,
-					pvm.algorithm,
-					&pvm.media,
-					&[],
-				)
-				.await?;
+		if let Some(pvm) = self.preview_media.as_ref() {
+			let pvm = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)
+			.await?;
 
-				Ok(pvm)
-			}
-			None => Err(Error::NoPreviewMedia),
+			Ok(pvm)
+		} else {
+			Err(Error::NoPreviewMedia)
 		}
 	}
 }
