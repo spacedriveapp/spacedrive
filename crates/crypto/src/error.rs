@@ -72,6 +72,11 @@ pub enum Error {
 	IncorrectKeymanagerDetails,
 	#[error("string parse error")]
 	StringParse(#[from] FromUtf8Error),
+
+	#[error("error with the linux keyring: {0}")]
+	LinuxKeyringError(#[from] secret_service::Error),
+	#[error("generic keyring error")]
+	KeyringError,
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

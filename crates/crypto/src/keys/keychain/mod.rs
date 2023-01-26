@@ -31,14 +31,14 @@ pub struct KeyringInterface {
 }
 
 impl KeyringInterface {
-	pub fn new() -> Self {
+	pub fn new() -> Result<Self> {
 		#[cfg(target_os = "linux")]
-		let keyring = Box::new(LinuxKeyring::new());
+		let keyring = Box::new(LinuxKeyring::new()?);
 
 		#[cfg(not(target_os = "linux"))]
 		panic!("OS is not compatible with the keyring API yet");
 
-		Self { keyring }
+		Ok(Self { keyring })
 	}
 
 	pub fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
@@ -57,7 +57,7 @@ impl KeyringInterface {
 // not really a test, just an easy way to run the code
 #[test]
 pub fn insert_and_retrieve() {
-	let k = KeyringInterface::new();
+	let k = KeyringInterface::new().unwrap();
 
 	let id = Identifier {
 		application: "Spacedrive",
@@ -71,5 +71,5 @@ pub fn insert_and_retrieve() {
 	)
 	.unwrap();
 
-	k.retrieve(id).unwrap().expose();
+	k.retrieve(id).unwrap();
 }

@@ -7,67 +7,64 @@ use secret_service::{Collection, EncryptionType, SecretService};
 
 use crate::{
 	keys::keychain::{Identifier, Keyring},
-	Protected, Result,
+	Error, Protected, Result,
 };
 
 pub struct LinuxKeyring<'a> {
-	// username: String,
 	pub service: SecretService<'a>,
 }
 
 impl<'a> LinuxKeyring<'a> {
-	pub fn new() -> Self {
-		Self {
-			service: SecretService::new(EncryptionType::Dh).unwrap(),
-		}
+	pub fn new() -> Result<Self> {
+		let k = Self {
+			service: SecretService::new(EncryptionType::Dh)?,
+		};
+
+		Ok(k)
 	}
 
-	fn get_collection(&self) -> Collection {
-		let collection = self.service.get_default_collection().unwrap();
+	fn get_collection(&self) -> Result<Collection> {
+		let collection = self.service.get_default_collection()?;
 
-		if collection.is_locked().unwrap() {
-			collection.unlock().unwrap();
-		}
+		collection.is_locked()?.then(|| {
+			collection.unlock()?;
+			Ok::<_, Error>(())
+		});
 
-		collection
+		Ok(collection)
 	}
 }
 
 impl<'a> Keyring for LinuxKeyring<'a> {
 	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
-		let collection = self.get_collection();
-
-		collection
-			.create_item(
-				&(identifier.application.to_string() + ":" + identifier.usage),
-				identifier.to_hashmap(),
-				value.expose().as_bytes(),
-				true,
-				"text/plain",
-			)
-			.unwrap();
+		self.get_collection()?.create_item(
+			&(identifier.application.to_string() + ":" + identifier.usage),
+			identifier.to_hashmap(),
+			value.expose().as_bytes(),
+			true,
+			"text/plain",
+		)?;
 
 		Ok(())
 	}
 
 	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>> {
-		let collection = self.get_collection();
+		let collection = self.get_collection()?;
+		let items = collection.search_items(identifier.to_hashmap())?;
 
-		let item = collection.search_items(identifier.to_hashmap()).unwrap();
-
-		Ok(Protected::new(item.get(0).unwrap().get_secret().unwrap())) // can also get secret_type here
+		items
+			.get(0)
+			.map_or(Err(Error::KeyringError), |k| Ok(k.get_secret()?))
+			.map(Protected::new)
 	}
 
 	fn delete(&self, identifier: Identifier) -> Result<()> {
-		let collection = self.get_collection();
-		collection
-			.search_items(identifier.to_hashmap())
-			.unwrap()
+		self.get_collection()?
+			.search_items(identifier.to_hashmap())?
 			.get(0)
-			.unwrap()
-			.delete()
-			.unwrap();
-
-		Ok(())
+			.map_or(Err(Error::KeyringError), |k| {
+				k.delete()?;
+				Ok(())
+			})
 	}
 }
