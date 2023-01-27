@@ -9,6 +9,7 @@ type Props = {
 	children: React.ReactNode;
 };
 
+// TODO: Move to a Modal component
 const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
 	const [libName, setLibName] = useState('');
 	const [isOpen, setIsOpen] = useState(false);

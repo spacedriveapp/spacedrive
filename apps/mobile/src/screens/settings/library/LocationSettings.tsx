@@ -3,7 +3,7 @@ import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
-import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
+import DeleteLocationModal from '~/containers/modal/confirm/DeleteLocationModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -25,13 +25,16 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<DeleteLocationDialog locationId={location.id}>
-					<View
-						style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm`}
-					>
-						<Trash size={18} color="white" />
-					</View>
-				</DeleteLocationDialog>
+				<DeleteLocationModal
+					locationId={location.id}
+					trigger={
+						<View
+							style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm`}
+						>
+							<Trash size={18} color="white" />
+						</View>
+					}
+				/>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
 					style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm mx-2`}

@@ -31,7 +31,6 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 			props.onSubmit?.();
 		},
 		onSettled: () => {
-			// Close dialog
 			modalRef.current.dismiss();
 		}
 	});
@@ -92,6 +91,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 						</View>
 					</FadeInAnimation>
 				)}
+				{/* TODO: Add loading to button */}
 				<Button
 					variant="accent"
 					size="md"

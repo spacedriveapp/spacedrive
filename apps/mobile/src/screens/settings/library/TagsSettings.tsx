@@ -5,7 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteTagDialog from '~/containers/dialog/DeleteTagDialog';
+import DeleteTagModal from '~/containers/modal/confirm/DeleteTagModal';
 import UpdateTagModal from '~/containers/modal/tag/UpdateTagModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
@@ -32,11 +32,14 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 				<AnimatedButton size="md" onPress={() => updateTagModalRef.current.present()}>
 					<Pen size={18} color="white" />
 				</AnimatedButton>
-				<DeleteTagDialog tagId={tag.id}>
-					<AnimatedButton size="md" style={tw`mx-2`}>
-						<Trash size={18} color="white" />
-					</AnimatedButton>
-				</DeleteTagDialog>
+				<DeleteTagModal
+					tagId={tag.id}
+					trigger={
+						<AnimatedButton size="md" style={tw`mx-2`}>
+							<Trash size={18} color="white" />
+						</AnimatedButton>
+					}
+				/>
 			</Animated.View>
 		);
 	};
