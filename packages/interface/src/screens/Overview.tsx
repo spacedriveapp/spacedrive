@@ -181,6 +181,10 @@ export default function OverviewScreen() {
 					<CategoryButton icon={Heart} category="Favorites" />
 					<Debug />
 				</div>
+				<Card className="text-ink-dull">
+					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
+					functional.
+				</Card>
 				<div className="flex flex-shrink-0 w-full h-4" />
 			</div>
 		</div>
@@ -195,7 +199,12 @@ function Debug() {
 	return null;
 }
 
-function CategoryButton({ category, icon: Icon }: { category: string; icon: any }) {
+interface CategoryButtonProps {
+	category: string;
+	icon: any;
+}
+
+function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
 		<Card className="!px-3 items-center">
 			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />

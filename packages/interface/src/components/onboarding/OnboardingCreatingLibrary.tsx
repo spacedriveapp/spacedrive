@@ -1,3 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { Eye, EyeSlash } from 'phosphor-react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
 	Algorithm,
 	resetOnboardingStore,
@@ -6,11 +10,6 @@ import {
 	useOnboardingStore
 } from '@sd/client';
 import { Button, Card, Loader, forms } from '@sd/ui';
-import { useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeSlash } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { PasswordMeter } from '../key/PasswordMeter';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
@@ -87,7 +86,7 @@ export default function OnboardingCreatingLibrary() {
 					<Card className="flex flex-col mt-2 bg-red-500/20 border-red-500/10">
 						<span className="text-sm font-medium text-red-500">{error}</span>
 					</Card>
-					<div className="flex justify-between w-full mt-7">
+					<div className="flex items-center justify-between w-full mt-7">
 						<Button
 							onClick={() => {
 								resetOnboardingStore();

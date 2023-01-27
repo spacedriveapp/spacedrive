@@ -16,10 +16,11 @@ export type Procedures = {
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
+        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_online: boolean, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: Array<IndexerRulesInLocation> } | null } | 
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
+        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: Array<{ date_created: string, location_id: number, indexer_rule_id: number, indexer_rule: IndexerRule }> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_online: boolean, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
@@ -125,6 +126,8 @@ export interface IdentifyUniqueFilesArgs { id: number, path: string }
 export interface IndexerRule { id: number, kind: number, name: string, parameters: Array<number>, date_created: string, date_modified: string }
 
 export interface IndexerRuleCreateArgs { kind: RuleKind, name: string, parameters: Array<number> }
+
+export interface IndexerRulesInLocation { date_created: string, location_id: number, indexer_rule_id: number }
 
 export interface InvalidateOperationEvent { key: string, arg: any }
 
