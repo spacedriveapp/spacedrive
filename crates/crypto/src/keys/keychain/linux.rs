@@ -38,7 +38,7 @@ impl<'a> LinuxKeyring<'a> {
 impl<'a> Keyring for LinuxKeyring<'a> {
 	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
 		self.get_collection()?.create_item(
-			&(identifier.application.to_string() + ":" + identifier.usage),
+			&identifier.generate_linux_label(),
 			identifier.to_hashmap(),
 			value.expose().as_bytes(),
 			true,

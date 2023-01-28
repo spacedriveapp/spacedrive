@@ -21,14 +21,19 @@ impl<'a> Identifier<'a> {
 	pub fn to_hashmap(self) -> HashMap<&'a str, &'a str> {
 		let mut map = HashMap::new();
 		map.insert("Application", self.application);
-		map.insert("Library", &self.library_uuid.to_uppercase());
+		map.insert("Library", self.library_uuid);
 		map.insert("Usage", self.usage);
 		map
 	}
 
+	#[cfg(target_os = "linux")]
+	pub fn generate_linux_label(&self) -> String {
+		format!("{} - {}", self.application, self.usage)
+	}
+
 	#[cfg(any(target_os = "macos", target_os = "ios"))]
 	pub fn to_apple_account(self) -> String {
-		format!("{} - {}", self.library_uuid.to_uppercase(), self.usage)
+		format!("{} - {}", self.library_uuid, self.usage)
 	}
 }
 
