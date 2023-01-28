@@ -1,8 +1,6 @@
-use std::{collections::VecDeque, fs::File, io::Read, path::PathBuf};
+use super::{context_menu_fs_info, FsInfo};
+use crate::{job::*, library::LibraryContext};
 
-use tokio::task;
-
-use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
@@ -11,16 +9,13 @@ use sd_crypto::{
 		LATEST_PREVIEW_MEDIA,
 	},
 };
+
+use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::{fs::File, io::Read, path::PathBuf};
+use tokio::task;
 use tracing::warn;
-
-use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	prisma::object,
-};
-
-use super::{context_menu_fs_info, FsInfo, ObjectType};
 
 pub struct FileEncryptorJob;
 
@@ -36,11 +31,6 @@ pub struct FileEncryptorJobInit {
 	pub metadata: bool,
 	pub preview_media: bool,
 	pub output_path: Option<PathBuf>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileEncryptorJobStep {
-	pub fs_info: FsInfo,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,22 +51,24 @@ const JOB_NAME: &str = "file_encryptor";
 impl StatefulJob for FileEncryptorJob {
 	type Init = FileEncryptorJobInit;
 	type Data = FileEncryptorJobState;
-	type Step = FileEncryptorJobStep;
+	type Step = FsInfo;
 
 	fn name(&self) -> &'static str {
 		JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let fs_info = context_menu_fs_info(
+		let step = context_menu_fs_info(
 			&ctx.library_ctx.db,
 			state.init.location_id,
 			state.init.path_id,
 		)
-		.await?;
+		.await
+		.map_err(|_| JobError::MissingData {
+			value: String::from("file_path that matches both location id and path id"),
+		})?;
 
-		state.steps = VecDeque::new();
-		state.steps.push_back(FileEncryptorJobStep { fs_info });
+		state.steps = [step].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -88,27 +80,21 @@ impl StatefulJob for FileEncryptorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-		let info = &step.fs_info;
+		let info = &state.steps[0];
 
-		match info.obj_type {
-			ObjectType::File => {
+		let LibraryContext { key_manager, .. } = &ctx.library_ctx;
+
+		match info.path_data.is_dir {
+			false => {
 				// handle overwriting checks, and making sure there's enough available space
 
-				let user_key = ctx
-					.library_ctx
-					.key_manager
-					.access_keymount(state.init.key_uuid)?
-					.hashed_key;
+				let user_key = key_manager.access_keymount(state.init.key_uuid)?.hashed_key;
 
-				let user_key_details = ctx
-					.library_ctx
-					.key_manager
-					.access_keystore(state.init.key_uuid)?;
+				let user_key_details = key_manager.access_keystore(state.init.key_uuid)?;
 
 				let output_path = state.init.output_path.clone().map_or_else(
 					|| {
-						let mut path = info.obj_path.clone();
+						let mut path = info.fs_path.clone();
 						let extension = path.extension().map_or_else(
 							|| Ok("sdenc".to_string()),
 							|extension| {
@@ -141,7 +127,7 @@ impl StatefulJob for FileEncryptorJob {
 					)
 					.await?;
 
-				let mut reader = task::block_in_place(|| File::open(&info.obj_path))?;
+				let mut reader = task::block_in_place(|| File::open(&info.fs_path))?;
 				let mut writer = task::block_in_place(|| File::create(output_path))?;
 
 				let master_key = generate_master_key();
@@ -161,24 +147,11 @@ impl StatefulJob for FileEncryptorJob {
 
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
-					if let Some(obj_id) = info.obj_id {
-						let object = ctx
-							.library_ctx
-							.db
-							.object()
-							.find_unique(object::id::equals(obj_id))
-							.exec()
-							.await?
-							.ok_or_else(|| {
-								JobError::JobDataNotFound(String::from(
-									"can't find information about the object",
-								))
-							})?;
-
+					if let Some(object) = info.path_data.object.clone() {
 						if state.init.metadata {
 							let metadata = Metadata {
 								path_id: state.init.path_id,
-								name: info.obj_name.clone(),
+								name: info.path_data.materialized_path.clone(),
 								hidden: object.hidden,
 								favourite: object.favorite,
 								important: object.important,
@@ -205,7 +178,8 @@ impl StatefulJob for FileEncryptorJob {
 							.config()
 							.data_directory()
 							.join("thumbnails")
-							.join(object.cas_id + ".webp");
+							.join(info.path_data.cas_id.as_ref().unwrap())
+							.with_extension("wepb");
 
 						if tokio::fs::metadata(&pvm_path).await.is_ok() {
 							let mut pvm_bytes = Vec::new();
@@ -242,7 +216,7 @@ impl StatefulJob for FileEncryptorJob {
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",
-				info.obj_name
+				info.path_data.materialized_path
 			),
 		}
 

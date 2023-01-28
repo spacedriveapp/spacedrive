@@ -7,14 +7,13 @@ use specta::Type;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, osstr_to_string, FsInfo, ObjectType};
+use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileEraserJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileEraserJobState {
-	pub root_path: PathBuf,
-	pub root_type: ObjectType,
+	pub fs_info: FsInfo,
 }
 
 #[derive(Serialize, Deserialize, Hash, Type)]
@@ -25,8 +24,22 @@ pub struct FileEraserJobInit {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FileEraserJobStep {
-	pub fs_info: FsInfo,
+pub enum FileEraserJobStep {
+	Directory { path: PathBuf },
+	File { path: PathBuf },
+}
+
+impl From<FsInfo> for FileEraserJobStep {
+	fn from(value: FsInfo) -> Self {
+		match value.path_data.is_dir {
+			true => Self::Directory {
+				path: value.fs_path,
+			},
+			false => Self::File {
+				path: value.fs_path,
+			},
+		}
+	}
 }
 
 pub const ERASE_JOB_NAME: &str = "file_eraser";
@@ -50,11 +63,10 @@ impl StatefulJob for FileEraserJob {
 		.await?;
 
 		state.data = Some(FileEraserJobState {
-			root_path: fs_info.obj_path.clone(),
-			root_type: fs_info.obj_type.clone(),
+			fs_info: fs_info.clone(),
 		});
 
-		state.steps = [FileEraserJobStep { fs_info }].into_iter().collect();
+		state.steps = [fs_info.into()].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -67,17 +79,16 @@ impl StatefulJob for FileEraserJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
-		let info = &step.fs_info;
 
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be erased (and where?)
 
-		match info.obj_type {
-			ObjectType::File => {
+		match step {
+			FileEraserJobStep::File { path } => {
 				let mut file = OpenOptions::new()
 					.read(true)
 					.write(true)
-					.open(&info.obj_path)
+					.open(&path)
 					.await?;
 				let file_len = file.metadata().await?.len();
 
@@ -87,32 +98,20 @@ impl StatefulJob for FileEraserJob {
 				file.flush().await?;
 				drop(file);
 
-				trace!("Erasing file: {:?}", info.obj_path);
+				trace!("Erasing file: {:?}", path);
 
-				tokio::fs::remove_file(&info.obj_path).await?;
+				tokio::fs::remove_file(&path).await?;
 			}
-			ObjectType::Directory => {
-				let mut dir = tokio::fs::read_dir(&info.obj_path).await?;
+			FileEraserJobStep::Directory { path } => {
+				let mut dir = tokio::fs::read_dir(&path).await?;
+
 				while let Some(entry) = dir.next_entry().await? {
-					if entry.metadata().await?.is_dir() {
-						state.steps.push_back(FileEraserJobStep {
-							fs_info: FsInfo {
-								obj_id: None,
-								obj_name: String::new(),
-								obj_path: entry.path(),
-								obj_type: ObjectType::Directory,
-							},
+					state
+						.steps
+						.push_back(match entry.metadata().await?.is_dir() {
+							true => FileEraserJobStep::Directory { path: entry.path() },
+							false => FileEraserJobStep::File { path: entry.path() },
 						});
-					} else {
-						state.steps.push_back(FileEraserJobStep {
-							fs_info: FsInfo {
-								obj_id: None,
-								obj_name: osstr_to_string(Some(&entry.file_name()))?,
-								obj_path: entry.path(),
-								obj_type: ObjectType::File,
-							},
-						});
-					};
 
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
@@ -127,8 +126,8 @@ impl StatefulJob for FileEraserJob {
 
 	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		if let Some(ref info) = state.data {
-			if info.root_type == ObjectType::Directory {
-				tokio::fs::remove_dir_all(&info.root_path).await?;
+			if info.fs_info.path_data.is_dir {
+				tokio::fs::remove_dir_all(&info.fs_info.fs_path).await?;
 			}
 		} else {
 			warn!("missing job state, unable to fully finalise erase job");

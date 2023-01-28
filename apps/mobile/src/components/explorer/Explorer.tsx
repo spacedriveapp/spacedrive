@@ -39,8 +39,8 @@ const Explorer = ({ data }: ExplorerProps) => {
 	const { fileRef, setData } = useFileModalStore();
 
 	function handlePress(item: ExplorerItem) {
-		if (isPath(item) && item.is_dir) {
-			navigation.navigate('Location', { id: item.location_id });
+		if (isPath(item) && item.item.is_dir) {
+			navigation.navigate('Location', { id: item.item.location_id });
 		} else {
 			setData(item);
 			fileRef.current.present();
@@ -70,7 +70,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
 					data={data.items}
-					keyExtractor={(item) => item.id.toString()}
+					keyExtractor={(item) => item.item.id.toString()}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
 							{layoutMode === 'grid' ? <FileItem data={item} /> : <FileRow data={item} />}

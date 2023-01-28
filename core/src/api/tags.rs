@@ -1,12 +1,13 @@
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
+
 use tracing::info;
 use uuid::Uuid;
 
 use crate::{
 	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
-	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	library::LibraryContext,
 	prisma::{object, tag, tag_on_object},
 };
 
@@ -23,8 +24,9 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, tag_id: i32, library| async move {
 				info!("Getting files for tag {}", tag_id);
 
-				let tag = library
-					.db
+				let LibraryContext { db, .. } = &library;
+
+				let tag = db
 					.tag()
 					.find_unique(tag::id::equals(tag_id))
 					.exec()
@@ -36,42 +38,47 @@ pub(crate) fn mount() -> RouterBuilder {
 						)
 					})?;
 
-				let objects: Vec<ExplorerItem> = library
-					.db
+				let objects = db
 					.object()
 					.find_many(vec![object::tags::some(vec![
 						tag_on_object::tag_id::equals(tag_id),
 					])])
 					.include(object_with_file_paths::include())
 					.exec()
-					.await?
-					.into_iter()
-					.map(|mut object| {
-						// sorry brendan
-						// grab the first path and tac on the name
-						let oldest_path = &object.file_paths[0];
-						object.name = Some(oldest_path.name.clone());
-						object.extension = oldest_path.extension.clone();
-						// a long term fix for this would be to have the indexer give the Object a name and extension, sacrificing its own and only store newly found Path names that differ from the Object name
+					.await?;
 
-						let thumb_path = library
-							.config()
-							.data_directory()
-							.join(THUMBNAIL_CACHE_DIR_NAME)
-							.join(&object.cas_id)
-							.with_extension("webp");
+				let mut items = Vec::with_capacity(objects.len());
 
-						object.has_thumbnail = thumb_path.try_exists().unwrap();
+				for mut object in objects {
+					// sorry brendan
+					// grab the first path and tac on the name
+					let oldest_path = &object.file_paths[0];
+					object.name = Some(oldest_path.name.clone());
+					object.extension = oldest_path.extension.clone();
+					// a long term fix for this would be to have the indexer give the Object a name and extension, sacrificing its own and only store newly found Path names that differ from the Object name
 
-						ExplorerItem::Object(Box::new(object))
-					})
-					.collect();
+					let cas_id = object
+						.file_paths
+						.iter()
+						.map(|fp| fp.cas_id.as_ref())
+						.find_map(|c| c);
 
-				info!("Got objects {}", objects.len());
+					let has_thumbnail = match cas_id {
+						None => false,
+						Some(cas_id) => library.thumbnail_exists(cas_id).await.unwrap(),
+					};
+
+					items.push(ExplorerItem::Object {
+						has_thumbnail,
+						item: Box::new(object),
+					});
+				}
+
+				info!("Got objects {}", items.len());
 
 				Ok(ExplorerData {
 					context: ExplorerContext::Tag(tag),
-					items: objects,
+					items,
 				})
 			})
 		})

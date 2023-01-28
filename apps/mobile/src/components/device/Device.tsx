@@ -6,86 +6,94 @@ import FileItem from '../explorer/FileItem';
 
 const placeholderFileItems: ExplorerItem[] = [
 	{
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: '',
-		id: 2,
-		name: 'Documents',
-		key_id: null,
 		type: 'Path',
-		is_dir: true,
-		location_id: 1,
-		materialized_path: '/Documents',
-		object_id: 5,
-		parent_id: 1,
-		object: {
-			extension: 'tsx',
-			cas_id: '3',
-			id: 3,
-			name: 'App.tsx',
-			key_id: null,
+		item: {
 			date_created: '2020-01-01T00:00:00.000Z',
 			date_indexed: '2020-01-01T00:00:00.000Z',
 			date_modified: '2020-01-01T00:00:00.000Z',
+			extension: '',
+			cas_id: '3',
+			integrity_checksum: '',
+			id: 2,
+			name: 'Documents',
+			key_id: null,
+			is_dir: true,
+			location_id: 1,
+			materialized_path: '/Documents',
+			object_id: 5,
+			parent_id: 1,
+			object: {
+				extension: 'tsx',
+				id: 3,
+				pub_id: [3],
+				name: 'App.tsx',
+				key_id: null,
+				date_created: '2020-01-01T00:00:00.000Z',
+				date_indexed: '2020-01-01T00:00:00.000Z',
+				date_modified: '2020-01-01T00:00:00.000Z',
+				favorite: false,
+				has_thumbnail: false,
+				has_thumbstrip: false,
+				has_video_preview: false,
+				hidden: false,
+				important: false,
+				ipfs_id: '',
+				kind: 2,
+				note: '',
+				size_in_bytes: '0'
+			}
+		},
+		has_thumbnail: false
+	},
+	{
+		type: 'Object',
+		has_thumbnail: false,
+		item: {
+			date_created: '2020-01-01T00:00:00.000Z',
+			date_indexed: '2020-01-01T00:00:00.000Z',
+			date_modified: '2020-01-01T00:00:00.000Z',
+			extension: '',
+			id: 1,
+			pub_id: [1],
+			name: 'Minecraft',
+			key_id: null,
 			favorite: false,
+			file_paths: [],
 			has_thumbnail: false,
 			has_thumbstrip: false,
 			has_video_preview: false,
 			hidden: false,
 			important: false,
-			integrity_checksum: '',
 			ipfs_id: '',
-			kind: 2,
+			kind: 4,
 			note: '',
 			size_in_bytes: '0'
 		}
 	},
 	{
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: '',
-		id: 1,
-		name: 'Minecraft',
-		key_id: null,
 		type: 'Object',
-		cas_id: '555',
-		favorite: false,
-		file_paths: [],
 		has_thumbnail: false,
-		has_thumbstrip: false,
-		has_video_preview: false,
-		hidden: false,
-		important: false,
-		integrity_checksum: '',
-		ipfs_id: '',
-		kind: 4,
-		note: '',
-		size_in_bytes: '0'
-	},
-	{
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: '',
-		id: 5,
-		name: 'Minecraft',
-		key_id: null,
-		type: 'Object',
-		cas_id: '555',
-		favorite: false,
-		file_paths: [],
-		has_thumbnail: false,
-		has_thumbstrip: false,
-		has_video_preview: false,
-		hidden: false,
-		important: false,
-		integrity_checksum: '',
-		ipfs_id: '',
-		kind: 5,
-		note: '',
-		size_in_bytes: '0'
+		item: {
+			date_created: '2020-01-01T00:00:00.000Z',
+			date_indexed: '2020-01-01T00:00:00.000Z',
+			date_modified: '2020-01-01T00:00:00.000Z',
+			extension: '',
+			id: 5,
+			pub_id: [5],
+			name: 'Minecraft',
+			key_id: null,
+			favorite: false,
+			file_paths: [],
+			has_thumbnail: false,
+			has_thumbstrip: false,
+			has_video_preview: false,
+			hidden: false,
+			important: false,
+			ipfs_id: '',
+			kind: 5,
+			note: '',
+			size_in_bytes: '0'
+		}
 	}
 ];
 
@@ -104,7 +112,7 @@ const DeviceIcon = {
 	server: <Cloud color="white" weight="fill" size={18} style={tw`mr-2`} />
 };
 
-const Device = ({ name, locations, size, type }: DeviceProps) => {
+const Device = ({ name, size, type }: DeviceProps) => {
 	return (
 		<View style={tw`my-2 bg-app-overlay border rounded-md border-app-line`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
@@ -123,7 +131,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 			<FlatList
 				data={placeholderFileItems}
 				renderItem={({ item }) => <FileItem data={item} />}
-				keyExtractor={(item) => item.id.toString()}
+				keyExtractor={(item) => item.item.id.toString()}
 				horizontal
 				contentContainerStyle={tw`mt-3 mb-5`}
 				showsHorizontalScrollIndicator={false}

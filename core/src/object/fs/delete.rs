@@ -1,4 +1,4 @@
-use super::{context_menu_fs_info, FsInfo, ObjectType};
+use super::{context_menu_fs_info, FsInfo};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -59,9 +59,9 @@ impl StatefulJob for FileDeleterJob {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
-		match info.obj_type {
-			ObjectType::File => tokio::fs::remove_file(info.obj_path.clone()).await,
-			ObjectType::Directory => tokio::fs::remove_dir_all(info.obj_path.clone()).await,
+		match info.path_data.is_dir {
+			false => tokio::fs::remove_file(info.fs_path.clone()).await,
+			true => tokio::fs::remove_dir_all(info.fs_path.clone()).await,
 		}?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(

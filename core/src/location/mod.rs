@@ -7,7 +7,7 @@ use crate::{
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
-	prisma_sync,
+	sync,
 };
 
 use rspc::Type;
@@ -340,7 +340,7 @@ async fn create_location(
 		.write_op(
 			db,
 			ctx.sync.owned_create(
-				prisma_sync::location::SyncId {
+				sync::location::SyncId {
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[

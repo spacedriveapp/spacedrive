@@ -1,3 +1,4 @@
+use crate::prisma::file_path;
 use crate::{
 	invalidate_query,
 	library::LibraryContext,
@@ -8,13 +9,13 @@ use crate::{
 		manager::{helpers::subtract_location_path, LocationId, LocationManagerError},
 	},
 	object::{
-		identifier_job::{assemble_object_metadata, ObjectCreationMetadata},
+		identifier_job::FileMetadata,
 		preview::{
 			can_generate_thumbnail_for_image, generate_image_thumbnail, THUMBNAIL_CACHE_DIR_NAME,
 		},
 		validation::hash::file_checksum,
 	},
-	prisma::{file_path, object},
+	prisma::object,
 };
 
 use std::{
@@ -23,13 +24,14 @@ use std::{
 	str::FromStr,
 };
 
-use chrono::{FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset, Local, Utc};
 use int_enum::IntEnum;
 use notify::{event::RemoveKind, Event};
 use prisma_client_rust::{raw, PrismaValue};
 use sd_file_ext::extensions::ImageExtension;
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
+use uuid::Uuid;
 
 use super::file_path_with_object;
 
@@ -128,59 +130,69 @@ async fn inner_create_file(
 		"Location: <root_path ='{location_local_path}'> creating file: {}",
 		event.paths[0].display()
 	);
-	if let Some(materialized_path) = subtract_location_path(location_local_path, &event.paths[0]) {
-		if let Some(parent_directory) =
-			get_parent_dir(location_id, &materialized_path, library_ctx).await?
-		{
-			let created_file = create_file_path(
-				library_ctx,
-				location_id,
-				materialized_path
-					.to_str()
-					.expect("Found non-UTF-8 path")
-					.to_string(),
-				materialized_path
-					.file_stem()
-					.unwrap_or_default()
-					.to_str()
-					.expect("Found non-UTF-8 path")
-					.to_string(),
-				materialized_path.extension().and_then(|ext| {
-					if ext.is_empty() {
-						None
-					} else {
-						Some(ext.to_str().expect("Found non-UTF-8 path").to_string())
-					}
-				}),
-				Some(parent_directory.id),
-				false,
-			)
-			.await?;
 
-			info!("Created path: {}", created_file.materialized_path);
+	let db = &library_ctx.db;
 
-			// generate provisional object
-			let ObjectCreationMetadata {
-				cas_id,
-				size_str,
-				kind,
-				date_created,
-			} = assemble_object_metadata(location_local_path, &created_file).await?;
+	let Some(materialized_path) = subtract_location_path(location_local_path, &event.paths[0]) else { return Ok(()) };
 
-			// upsert object because in can be from a file that previously existed and was moved
-			let object = library_ctx
-				.db
-				.object()
-				.upsert(
-					object::cas_id::equals(cas_id.clone()),
-					object::create_unchecked(
-						cas_id.clone(),
-						vec![
-							object::date_created::set(date_created),
-							object::kind::set(kind.int_value()),
-							object::size_in_bytes::set(size_str.clone()),
-						],
-					),
+	let Some(parent_directory) =
+		get_parent_dir(location_id, &materialized_path, library_ctx).await?
+    else {
+		warn!("Watcher found a path without parent");
+        return Ok(())
+    };
+
+	let created_file = create_file_path(
+		library_ctx,
+		location_id,
+		materialized_path
+			.to_str()
+			.expect("Found non-UTF-8 path")
+			.to_string(),
+		materialized_path
+			.file_stem()
+			.unwrap_or_default()
+			.to_str()
+			.expect("Found non-UTF-8 path")
+			.to_string(),
+		materialized_path.extension().and_then(|ext| {
+			if ext.is_empty() {
+				None
+			} else {
+				Some(ext.to_str().expect("Found non-UTF-8 path").to_string())
+			}
+		}),
+		Some(parent_directory.id),
+		false,
+	)
+	.await?;
+
+	info!("Created path: {}", created_file.materialized_path);
+
+	// generate provisional object
+	let FileMetadata {
+		cas_id,
+		kind,
+		fs_metadata,
+	} = FileMetadata::new(location_local_path, &created_file.materialized_path).await?;
+
+	let existing_object = db
+		.object()
+		.find_first(vec![object::file_paths::some(vec![
+			file_path::cas_id::equals(Some(cas_id.clone())),
+		])])
+		.exec()
+		.await?;
+
+	object::select!(object_id { id has_thumbnail });
+
+	let size_str = fs_metadata.len().to_string();
+
+	let object = match existing_object {
+		Some(object) => {
+			db.object()
+				.update(
+					object::id::equals(object.id),
 					vec![
 						object::size_in_bytes::set(size_str),
 						object::date_indexed::set(
@@ -188,31 +200,44 @@ async fn inner_create_file(
 						),
 					],
 				)
+				.select(object_id::select())
 				.exec()
-				.await?;
-
-			library_ctx
-				.db
-				.file_path()
-				.update(
-					file_path::location_id_id(location_id, created_file.id),
-					vec![file_path::object_id::set(Some(object.id))],
+				.await?
+		}
+		None => {
+			db.object()
+				.create(
+					Uuid::new_v4().as_bytes().to_vec(),
+					vec![
+						object::date_created::set(
+							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
+						),
+						object::kind::set(kind.int_value()),
+						object::size_in_bytes::set(size_str.clone()),
+					],
 				)
+				.select(object_id::select())
 				.exec()
-				.await?;
+				.await?
+		}
+	};
 
-			trace!("object: {:#?}", object);
-			if !object.has_thumbnail {
-				if let Some(ref extension) = created_file.extension {
-					generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
-				}
-			}
+	db.file_path()
+		.update(
+			file_path::location_id_id(location_id, created_file.id),
+			vec![file_path::object_id::set(Some(object.id))],
+		)
+		.exec()
+		.await?;
 
-			invalidate_query!(library_ctx, "locations.getExplorerData");
-		} else {
-			warn!("Watcher found a path without parent");
+	trace!("object: {:#?}", object);
+	if !object.has_thumbnail {
+		if let Some(ref extension) = created_file.extension {
+			generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
 		}
 	}
+
+	invalidate_query!(library_ctx, "locations.getExplorerData");
 
 	Ok(())
 }
@@ -226,7 +251,14 @@ pub(super) async fn file_creation_or_update(
 		if let Some(file_path) =
 			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
 		{
-			inner_update_file(location_local_path, file_path, event, library_ctx).await
+			inner_update_file(
+				&location,
+				location_local_path,
+				file_path,
+				event,
+				library_ctx,
+			)
+			.await
 		} else {
 			// We received None because it is a new file
 			inner_create_file(location.id, location_local_path, event, library_ctx).await
@@ -245,7 +277,14 @@ pub(super) async fn update_file(
 		if let Some(file_path) =
 			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
 		{
-			let ret = inner_update_file(location_local_path, file_path, event, library_ctx).await;
+			let ret = inner_update_file(
+				&location,
+				location_local_path,
+				file_path,
+				event,
+				library_ctx,
+			)
+			.await;
 			invalidate_query!(library_ctx, "locations.getExplorerData");
 			ret
 		} else {
@@ -259,6 +298,7 @@ pub(super) async fn update_file(
 }
 
 async fn inner_update_file(
+	location: &indexer_job_location::Data,
 	location_local_path: &str,
 	file_path: file_path_with_object::Data,
 	event: Event,
@@ -268,59 +308,48 @@ async fn inner_update_file(
 		"Location: <root_path ='{location_local_path}'> updating file: {}",
 		event.paths[0].display()
 	);
-	// We have to separate this object, as the `assemble_object_metadata` doesn't
-	// accept `file_path_with_object::Data`
-	let file_path_only = file_path::Data {
-		id: file_path.id,
-		is_dir: file_path.is_dir,
-		location_id: file_path.location_id,
-		location: None,
-		materialized_path: file_path.materialized_path,
-		name: file_path.name,
-		extension: file_path.extension,
-		object_id: file_path.object_id,
-		object: None,
-		parent_id: file_path.parent_id,
-		key_id: file_path.key_id,
-		date_created: file_path.date_created,
-		date_modified: file_path.date_modified,
-		date_indexed: file_path.date_indexed,
-		key: None,
-	};
-	let ObjectCreationMetadata {
-		cas_id,
-		size_str,
-		kind,
-		date_created,
-	} = assemble_object_metadata(location_local_path, &file_path_only).await?;
 
-	if let Some(ref object) = file_path.object {
-		if object.cas_id != cas_id {
+	let FileMetadata {
+		cas_id,
+		kind,
+		fs_metadata,
+	} = FileMetadata::new(location_local_path, &file_path.materialized_path).await?;
+
+	if let Some(old_cas_id) = &file_path.cas_id {
+		if old_cas_id != &cas_id {
 			// file content changed
 			library_ctx
 				.db
-				.object()
+				.file_path()
 				.update(
-					object::id::equals(object.id),
+					file_path::location_id_id(location.id, file_path.id),
 					vec![
-						object::cas_id::set(cas_id.clone()),
-						object::size_in_bytes::set(size_str),
-						object::kind::set(kind.int_value()),
-						object::date_modified::set(date_created),
-						object::integrity_checksum::set(if object.integrity_checksum.is_some() {
-							// If a checksum was already computed, we need to recompute it
-							Some(file_checksum(&event.paths[0]).await?)
-						} else {
-							None
-						}),
+						file_path::cas_id::set(Some(old_cas_id.clone())),
+						// file_path::size_in_bytes::set(fs_metadata.len().to_string()),
+						// file_path::kind::set(kind.int_value()),
+						file_path::date_modified::set(
+							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
+						),
+						file_path::integrity_checksum::set(
+							if file_path.integrity_checksum.is_some() {
+								// If a checksum was already computed, we need to recompute it
+								Some(file_checksum(&event.paths[0]).await?)
+							} else {
+								None
+							},
+						),
 					],
 				)
 				.exec()
 				.await?;
 
-			if object.has_thumbnail {
+			if file_path
+				.object
+				.map(|o| o.has_thumbnail)
+				.unwrap_or_default()
+			{
 				// if this file had a thumbnail previously, we update it to match the new content
-				if let Some(ref extension) = file_path_only.extension {
+				if let Some(extension) = &file_path.extension {
 					generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
 				}
 			}
