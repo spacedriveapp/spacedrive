@@ -53,7 +53,6 @@ secret-service = "2.0.2"
 # macos/ios OS keychain
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 security-framework = "2.8.1"
-users = "0.11.0"
 
 [dev-dependencies]
 criterion = "0.4.0"
