@@ -1,6 +1,9 @@
 use crate::{Protected, Result};
 
 #[cfg(target_os = "linux")]
+use std::collections::HashMap;
+
+#[cfg(target_os = "linux")]
 pub mod linux;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -16,21 +19,16 @@ pub struct Identifier<'a> {
 impl<'a> Identifier<'a> {
 	#[cfg(target_os = "linux")]
 	pub fn to_hashmap(self) -> HashMap<&'a str, &'a str> {
-		use std::collections::HashMap;
-
 		let mut map = HashMap::new();
 		map.insert("Application", self.application);
-		map.insert("Library", self.library_uuid);
+		map.insert("Library", &self.library_uuid.to_uppercase());
 		map.insert("Usage", self.usage);
 		map
 	}
 
 	#[cfg(any(target_os = "macos", target_os = "ios"))]
-	pub fn to_apple_service(self) -> String {
-		format!(
-			"{} {} ({})",
-			self.application, self.usage, self.library_uuid
-		)
+	pub fn to_apple_account(self) -> String {
+		format!("{} - {}", self.library_uuid.to_uppercase(), self.usage)
 	}
 }
 
@@ -51,7 +49,7 @@ impl KeyringInterface {
 		let keyring = Box::new(self::linux::LinuxKeyring::new()?);
 
 		#[cfg(any(target_os = "macos", target_os = "ios"))]
-		let keyring = Box::new(self::apple::AppleKeyring::new()?);
+		let keyring = Box::new(self::apple::AppleKeyring {});
 
 		Ok(Self { keyring })
 	}
