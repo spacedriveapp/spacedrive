@@ -52,7 +52,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 		schema,
 		defaultValues: {
 			encryptionAlgo: 'XChaCha20Poly1305',
-			hashingAlgo: 'Argon2id-s'
+			hashingAlgo: 'Argon2id-s',
+			masterPassword: '',
+			masterPassword2: ''
 		}
 	});
 
@@ -64,13 +66,11 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			});
 		} else {
 			const hashing_algorithm = getHashingAlgorithmSettings(data.hashingAlgo);
-			const sk = data.secretKey || null;
-
 			return changeMasterPassword.mutateAsync({
 				algorithm: data.encryptionAlgo as Algorithm,
 				hashing_algorithm,
 				password: data.masterPassword,
-				secret_key: sk
+				secret_key: data.secretKey || null
 			});
 		}
 	});

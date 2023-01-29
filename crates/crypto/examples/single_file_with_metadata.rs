@@ -7,7 +7,7 @@ use sd_crypto::{
 	primitives::{generate_master_key, generate_salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
 	Protected,
 };
-use std::fs::File;
+use tokio::fs::File;
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
@@ -16,7 +16,7 @@ pub struct FileInformation {
 	pub file_name: String,
 }
 
-fn encrypt() {
+async fn encrypt() {
 	let password = Protected::new(b"password".to_vec());
 
 	let embedded_metadata = FileInformation {
@@ -24,8 +24,8 @@ fn encrypt() {
 	};
 
 	// Open both the source and the output file
-	let mut reader = File::open("test").unwrap();
-	let mut writer = File::create("test.encrypted").unwrap();
+	let mut reader = File::open("test").await.unwrap();
+	let mut writer = File::create("test.encrypted").await.unwrap();
 
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
@@ -45,6 +45,7 @@ fn encrypt() {
 		hashed_password,
 		master_key.clone(),
 	)
+	.await
 	.unwrap()];
 
 	// Create the header for the encrypted file (and include our metadata)
@@ -57,10 +58,11 @@ fn encrypt() {
 			master_key.clone(),
 			&embedded_metadata,
 		)
+		.await
 		.unwrap();
 
 	// Write the header to the file
-	header.write(&mut writer).unwrap();
+	header.write(&mut writer).await.unwrap();
 
 	// Use the nonce created by the header to initialise a stream encryption object
 	let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm).unwrap();
@@ -69,26 +71,28 @@ fn encrypt() {
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
 		.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
+		.await
 		.unwrap();
 }
 
-pub fn decrypt_metadata() {
+async fn decrypt_metadata() {
 	let password = Protected::new(b"password".to_vec());
 
 	// Open the encrypted file
-	let mut reader = File::open("test.encrypted").unwrap();
+	let mut reader = File::open("test.encrypted").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).await.unwrap();
 
 	// Decrypt the metadata
-	let file_info: FileInformation = header.decrypt_metadata(password).unwrap();
+	let file_info: FileInformation = header.decrypt_metadata(password).await.unwrap();
 
 	println!("file name: {}", file_info.file_name);
 }
 
-fn main() {
-	encrypt();
+#[tokio::main]
+async fn main() {
+	encrypt().await;
 
-	decrypt_metadata();
+	decrypt_metadata().await;
 }

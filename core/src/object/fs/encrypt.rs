@@ -1,6 +1,6 @@
-use std::{collections::VecDeque, fs::File, io::Read, path::PathBuf};
+use std::{collections::VecDeque, path::PathBuf};
 
-use tokio::task;
+use tokio::{fs::File, io::AsyncReadExt};
 
 use chrono::FixedOffset;
 use sd_crypto::{
@@ -141,22 +141,25 @@ impl StatefulJob for FileEncryptorJob {
 					)
 					.await?;
 
-				let mut reader = task::block_in_place(|| File::open(&info.obj_path))?;
-				let mut writer = task::block_in_place(|| File::create(output_path))?;
+				let mut reader = File::open(&info.obj_path).await?;
+				let mut writer = File::create(output_path).await?;
 
 				let master_key = generate_master_key();
 
 				let mut header = FileHeader::new(
 					LATEST_FILE_HEADER,
 					state.init.algorithm,
-					vec![Keyslot::new(
-						LATEST_KEYSLOT,
-						state.init.algorithm,
-						user_key_details.hashing_algorithm,
-						user_key_details.content_salt,
-						user_key,
-						master_key.clone(),
-					)?],
+					vec![
+						Keyslot::new(
+							LATEST_KEYSLOT,
+							state.init.algorithm,
+							user_key_details.hashing_algorithm,
+							user_key_details.content_salt,
+							user_key,
+							master_key.clone(),
+						)
+						.await?,
+					],
 				);
 
 				if state.init.metadata || state.init.preview_media {
@@ -187,12 +190,14 @@ impl StatefulJob for FileEncryptorJob {
 								date_modified: object.date_modified,
 							};
 
-							header.add_metadata(
-								LATEST_METADATA,
-								state.init.algorithm,
-								master_key.clone(),
-								&metadata,
-							)?;
+							header
+								.add_metadata(
+									LATEST_METADATA,
+									state.init.algorithm,
+									master_key.clone(),
+									&metadata,
+								)
+								.await?;
 						}
 
 						// if state.init.preview_media
@@ -209,18 +214,17 @@ impl StatefulJob for FileEncryptorJob {
 
 						if tokio::fs::metadata(&pvm_path).await.is_ok() {
 							let mut pvm_bytes = Vec::new();
-							task::block_in_place(|| {
-								let mut pvm_file = File::open(pvm_path)?;
-								pvm_file.read_to_end(&mut pvm_bytes)?;
-								Ok::<_, JobError>(())
-							})?;
+							let mut pvm_file = File::open(pvm_path).await?;
+							pvm_file.read_to_end(&mut pvm_bytes).await?;
 
-							header.add_preview_media(
-								LATEST_PREVIEW_MEDIA,
-								state.init.algorithm,
-								master_key.clone(),
-								&pvm_bytes,
-							)?;
+							header
+								.add_preview_media(
+									LATEST_PREVIEW_MEDIA,
+									state.init.algorithm,
+									master_key.clone(),
+									&pvm_bytes,
+								)
+								.await?;
 						}
 					} else {
 						// should use container encryption if it's a directory
@@ -230,15 +234,13 @@ impl StatefulJob for FileEncryptorJob {
 					}
 				}
 
-				task::block_in_place(|| {
-					header.write(&mut writer)?;
+				header.write(&mut writer).await?;
 
-					let encryptor =
-						StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
+				let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
 
-					encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
-					Ok::<_, JobError>(())
-				})?;
+				encryptor
+					.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
+					.await?;
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",

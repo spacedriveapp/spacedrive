@@ -20,12 +20,12 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::Read;
+use tokio::io::AsyncReadExt;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, KEY_LEN},
-	Error, Protected, Result,
+	primitives::{generate_nonce, Key},
+	Error, Protected, ProtectedVec, Result,
 };
 
 use super::file::FileHeader;
@@ -57,26 +57,25 @@ impl FileHeader {
 	///
 	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn add_preview_media(
+	pub async fn add_preview_media(
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: Protected<[u8; KEY_LEN]>,
+		master_key: Protected<Key>,
 		media: &[u8],
 	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])
+				.await?;
 
-		let pvm = PreviewMedia {
+		self.preview_media = Some(PreviewMedia {
 			version,
 			algorithm,
 			media_nonce,
 			media: encrypted_media,
-		};
-
-		self.preview_media = Some(pvm);
+		});
 
 		Ok(())
 	}
@@ -86,26 +85,26 @@ impl FileHeader {
 	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media_from_prehashed(
+	pub async fn decrypt_preview_media_from_prehashed(
 		&self,
-		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
-	) -> Result<Protected<Vec<u8>>> {
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+		hashed_keys: Vec<Protected<Key>>,
+	) -> Result<ProtectedVec<u8>> {
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
-		self.preview_media.as_ref().map_or_else(
-			|| Err(Error::NoPreviewMedia),
-			|pvm| {
-				let pvm = StreamDecryption::decrypt_bytes(
-					master_key,
-					&pvm.media_nonce,
-					pvm.algorithm,
-					&pvm.media,
-					&[],
-				)?;
+		if let Some(pvm) = self.preview_media.as_ref() {
+			let pvm = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)
+			.await?;
 
-				Ok(pvm)
-			},
-		)
+			Ok(pvm)
+		} else {
+			Err(Error::NoPreviewMedia)
+		}
 	}
 
 	/// This function is what you'll want to use to get the preview media for a file
@@ -113,26 +112,26 @@ impl FileHeader {
 	/// All it requires is the user's password. Hashing is handled for you.
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media(
+	pub async fn decrypt_preview_media(
 		&self,
-		password: Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>> {
-		let master_key = self.decrypt_master_key(password)?;
+		password: ProtectedVec<u8>,
+	) -> Result<ProtectedVec<u8>> {
+		let master_key = self.decrypt_master_key(password).await?;
 
-		self.preview_media.as_ref().map_or_else(
-			|| Err(Error::NoPreviewMedia),
-			|pvm| {
-				let pvm = StreamDecryption::decrypt_bytes(
-					master_key,
-					&pvm.media_nonce,
-					pvm.algorithm,
-					&pvm.media,
-					&[],
-				)?;
+		if let Some(pvm) = self.preview_media.as_ref() {
+			let pvm = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)
+			.await?;
 
-				Ok(pvm)
-			},
-		)
+			Ok(pvm)
+		} else {
+			Err(Error::NoPreviewMedia)
+		}
 	}
 }
 
@@ -168,34 +167,36 @@ impl PreviewMedia {
 	/// The cursor will be left at the end of the preview media item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read,
+		R: AsyncReadExt + Unpin + Send,
 	{
 		let mut version = [0u8; 2];
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version =
 			PreviewMediaVersion::from_bytes(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut media_nonce)?;
+				reader.read_exact(&mut media_nonce).await?;
 
-				reader.read_exact(&mut vec![0u8; 24 - media_nonce.len()])?;
+				reader
+					.read_exact(&mut vec![0u8; 24 - media_nonce.len()])
+					.await?;
 
 				let mut media_length = [0u8; 8];
-				reader.read_exact(&mut media_length)?;
+				reader.read_exact(&mut media_length).await?;
 
 				let media_length = u64::from_le_bytes(media_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut media = vec![0u8; media_length as usize];
-				reader.read_exact(&mut media)?;
+				reader.read_exact(&mut media).await?;
 
 				let preview_media = Self {
 					version,

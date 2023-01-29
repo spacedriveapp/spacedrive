@@ -45,23 +45,26 @@ hex = "0.4.3"
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
 
 [dev-dependencies]
-criterion = "0.4.0"
+tokio = { workspace = true, features = [
+    "fs",
+    "macros",
+] } # features needed for examples
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
 
-[[bench]]
-name = "aes-256-gcm"
-path = "benches/aes-256-gcm.rs"
-harness = false
+# [[bench]]
+# name = "aes-256-gcm"
+# path = "benches/aes-256-gcm.rs"
+# harness = false
 
-[[bench]]
-name = "xchacha20-poly1305"
-path = "benches/xchacha20-poly1305.rs"
-harness = false
+# [[bench]]
+# name = "xchacha20-poly1305"
+# path = "benches/xchacha20-poly1305.rs"
+# harness = false
 
-[[bench]]
-name = "argon2id"
-path = "benches/argon2id.rs"
-harness = false
+# [[bench]]
+# name = "argon2id"
+# path = "benches/argon2id.rs"
+# harness = false
