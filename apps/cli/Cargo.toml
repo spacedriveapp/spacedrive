@@ -11,3 +11,4 @@ clap = { version = "4.0.32", features = ["derive"] }
 anyhow = "1.0.68"
 hex = "0.4.3"
 sd-crypto = { path = "../../crates/crypto" }
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }

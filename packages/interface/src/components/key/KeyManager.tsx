@@ -2,6 +2,7 @@ import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
+import { showAlertDialog } from '~/util/dialog';
 import { DefaultProps } from '../primitive/types';
 import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
@@ -11,9 +12,12 @@ export type KeyManagerProps = DefaultProps;
 export function KeyManager(props: KeyManagerProps) {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
-			alert('Incorrect information provided.');
+			showAlertDialog({
+				title: 'Unlock Error',
+				value: 'The information provided to the key manager was incorrect'
+			});
 		}
 	});
 	const unmountAll = useLibraryMutation('keys.unmountAll');

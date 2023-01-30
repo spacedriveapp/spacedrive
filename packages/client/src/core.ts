@@ -55,8 +55,8 @@ export type Procedures = {
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unlockKeyManager", input: LibraryArgs<UnlockKeyManagerArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 
@@ -177,8 +177,6 @@ export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChil
 
 export interface SetFavoriteArgs { id: number, favorite: boolean }
 
-export interface SetMasterPasswordArgs { password: string, secret_key: string | null }
-
 export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
@@ -194,6 +192,8 @@ export interface TagAssignArgs { object_id: number, tag_id: number, unassign: bo
 export interface TagCreateArgs { name: string, color: string }
 
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
+
+export interface UnlockKeyManagerArgs { password: string, secret_key: string | null }
 
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
