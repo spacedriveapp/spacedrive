@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use indoc::printdoc;
 use sd_crypto::header::file::FileHeader;
-use std::{fs::File, path::PathBuf};
+use std::path::PathBuf;
+use tokio::fs::File;
 
 #[derive(Parser)]
 struct Args {
@@ -10,17 +11,18 @@ struct Args {
 	path: PathBuf,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
 	let args = Args::parse();
 
-	let mut reader = File::open(args.path).context("unable to open file")?;
-	let (header, aad) = FileHeader::from_reader(&mut reader)?;
-	print_details(&header, &aad);
+	let mut reader = File::open(args.path).await.context("unable to open file")?;
+	let (header, aad) = FileHeader::from_reader(&mut reader).await?;
+	print_crypto_details(&header, &aad);
 
 	Ok(())
 }
 
-fn print_details(header: &FileHeader, aad: &[u8]) {
+fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 	printdoc! {"
         Header version: {version}
         Encryption algorithm: {algorithm}
