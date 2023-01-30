@@ -24,6 +24,7 @@ pub use aead::Payload;
 
 // Make this easier to use (e.g. `sd_crypto::Protected`)
 pub use protected::Protected;
+pub use protected::ProtectedVec;
 
 // Re-export zeroize so it can be used elsewhere
 pub use zeroize::Zeroize;
