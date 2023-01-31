@@ -38,7 +38,7 @@ impl<'a> Identifier<'a> {
 }
 
 pub trait Keyring {
-	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()>; // updates item if already present
+	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()>;
 	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>>;
 	fn delete(&self, identifier: Identifier) -> Result<()>;
 }
@@ -70,25 +70,4 @@ impl KeyringInterface {
 	pub fn delete(&self, identifier: Identifier) -> Result<()> {
 		self.keyring.delete(identifier)
 	}
-}
-
-// not really a test, just an easy way to run the code
-#[test]
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
-pub fn insert_and_retrieve() {
-	let k = KeyringInterface::new().unwrap();
-
-	let id = Identifier {
-		application: "Spacedrive",
-		library_uuid: "53605dfa-764a-4cca-b6aa-195906ba114b",
-		usage: "Secret key",
-	};
-
-	k.insert(
-		id,
-		Protected::new("7A544B-644A55-737754-596C4E-446A724-64A3F6".to_string()),
-	)
-	.unwrap();
-
-	dbg!(String::from_utf8(k.retrieve(id).unwrap().expose().to_vec()).unwrap());
 }

@@ -1,5 +1,8 @@
-#![cfg(any(target_os = "macos", target_os = "ios"))]
 //! This is Spacedrive's Apple OS keychain integration. It has no strict dependencies.
+//!
+//! This has been tested on MacOS, but should work just the same for iOS (according to the `security_framework` documentation)
+
+#![cfg(any(target_os = "macos", target_os = "ios"))]
 use super::{Identifier, Keyring};
 use crate::{Error, Protected, Result};
 use security_framework::passwords::{
