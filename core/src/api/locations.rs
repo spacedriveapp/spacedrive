@@ -136,12 +136,13 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				let mut items = Vec::with_capacity(file_paths.len());
 
 				for file_path in file_paths {
-					let has_thumbnail = match &file_path.cas_id {
-						None => false,
-						Some(cas_id) => library
+					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
+						library
 							.thumbnail_exists(cas_id)
 							.await
-							.map_err(LocationError::IOError)?,
+							.map_err(LocationError::IOError)?
+					} else {
+						false
 					};
 
 					items.push(ExplorerItem::Path {

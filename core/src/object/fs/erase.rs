@@ -11,11 +11,6 @@ use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileEraserJob {}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FileEraserJobState {
-	pub fs_info: FsInfo,
-}
-
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
 	pub location_id: i32,
@@ -31,13 +26,14 @@ pub enum FileEraserJobStep {
 
 impl From<FsInfo> for FileEraserJobStep {
 	fn from(value: FsInfo) -> Self {
-		match value.path_data.is_dir {
-			true => Self::Directory {
+		if value.path_data.is_dir {
+			Self::Directory {
 				path: value.fs_path,
-			},
-			false => Self::File {
+			}
+		} else {
+			Self::File {
 				path: value.fs_path,
-			},
+			}
 		}
 	}
 }
@@ -47,7 +43,7 @@ pub const ERASE_JOB_NAME: &str = "file_eraser";
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
 	type Init = FileEraserJobInit;
-	type Data = FileEraserJobState;
+	type Data = FsInfo;
 	type Step = FileEraserJobStep;
 
 	fn name(&self) -> &'static str {
@@ -62,9 +58,7 @@ impl StatefulJob for FileEraserJob {
 		)
 		.await?;
 
-		state.data = Some(FileEraserJobState {
-			fs_info: fs_info.clone(),
-		});
+		state.data = Some(fs_info.clone());
 
 		state.steps = [fs_info.into()].into_iter().collect();
 
@@ -106,12 +100,11 @@ impl StatefulJob for FileEraserJob {
 				let mut dir = tokio::fs::read_dir(&path).await?;
 
 				while let Some(entry) = dir.next_entry().await? {
-					state
-						.steps
-						.push_back(match entry.metadata().await?.is_dir() {
-							true => FileEraserJobStep::Directory { path: entry.path() },
-							false => FileEraserJobStep::File { path: entry.path() },
-						});
+					state.steps.push_back(if entry.metadata().await?.is_dir() {
+						FileEraserJobStep::Directory { path: entry.path() }
+					} else {
+						FileEraserJobStep::File { path: entry.path() }
+					});
 
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
@@ -126,8 +119,8 @@ impl StatefulJob for FileEraserJob {
 
 	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		if let Some(ref info) = state.data {
-			if info.fs_info.path_data.is_dir {
-				tokio::fs::remove_dir_all(&info.fs_info.fs_path).await?;
+			if info.path_data.is_dir {
+				tokio::fs::remove_dir_all(&info.fs_path).await?;
 			}
 		} else {
 			warn!("missing job state, unable to fully finalise erase job");

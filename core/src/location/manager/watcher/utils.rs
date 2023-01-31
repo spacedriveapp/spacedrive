@@ -1,4 +1,3 @@
-use crate::prisma::file_path;
 use crate::{
 	invalidate_query,
 	library::LibraryContext,
@@ -15,7 +14,7 @@ use crate::{
 		},
 		validation::hash::file_checksum,
 	},
-	prisma::object,
+	prisma::{file_path, object},
 };
 
 use std::{
@@ -188,38 +187,35 @@ async fn inner_create_file(
 
 	let size_str = fs_metadata.len().to_string();
 
-	let object = match existing_object {
-		Some(object) => {
-			db.object()
-				.update(
-					object::id::equals(object.id),
-					vec![
-						object::size_in_bytes::set(size_str),
-						object::date_indexed::set(
-							Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
-						),
-					],
-				)
-				.select(object_id::select())
-				.exec()
-				.await?
-		}
-		None => {
-			db.object()
-				.create(
-					Uuid::new_v4().as_bytes().to_vec(),
-					vec![
-						object::date_created::set(
-							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
-						),
-						object::kind::set(kind.int_value()),
-						object::size_in_bytes::set(size_str.clone()),
-					],
-				)
-				.select(object_id::select())
-				.exec()
-				.await?
-		}
+	let object = if let Some(object) = existing_object {
+		db.object()
+			.update(
+				object::id::equals(object.id),
+				vec![
+					object::size_in_bytes::set(size_str),
+					object::date_indexed::set(
+						Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
+					),
+				],
+			)
+			.select(object_id::select())
+			.exec()
+			.await?
+	} else {
+		db.object()
+			.create(
+				Uuid::new_v4().as_bytes().to_vec(),
+				vec![
+					object::date_created::set(
+						DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
+					),
+					object::kind::set(kind.int_value()),
+					object::size_in_bytes::set(size_str.clone()),
+				],
+			)
+			.select(object_id::select())
+			.exec()
+			.await?
 	};
 
 	db.file_path()
@@ -311,7 +307,7 @@ async fn inner_update_file(
 
 	let FileMetadata {
 		cas_id,
-		kind,
+		kind: _,
 		fs_metadata,
 	} = FileMetadata::new(location_local_path, &file_path.materialized_path).await?;
 

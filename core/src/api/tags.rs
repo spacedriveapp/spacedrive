@@ -55,7 +55,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					let oldest_path = &object.file_paths[0];
 					object.name = Some(oldest_path.name.clone());
 					object.extension = oldest_path.extension.clone();
-					// a long term fix for this would be to have the indexer give the Object a name and extension, sacrificing its own and only store newly found Path names that differ from the Object name
+					// a long term fix for this would be to have the indexer give the Object
+					// a name and extension, sacrificing its own and only store newly found Path
+					// names that differ from the Object name
 
 					let cas_id = object
 						.file_paths
@@ -63,9 +65,16 @@ pub(crate) fn mount() -> RouterBuilder {
 						.map(|fp| fp.cas_id.as_ref())
 						.find_map(|c| c);
 
-					let has_thumbnail = match cas_id {
-						None => false,
-						Some(cas_id) => library.thumbnail_exists(cas_id).await.unwrap(),
+					let has_thumbnail = if let Some(cas_id) = cas_id {
+						library.thumbnail_exists(cas_id).await.map_err(|e| {
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"Failed to check that thumbnail exists".to_string(),
+								e,
+							)
+						})?
+					} else {
+						false
 					};
 
 					items.push(ExplorerItem::Object {
