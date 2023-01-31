@@ -33,13 +33,14 @@ pub enum FileCopierJobStep {
 
 impl From<FsInfo> for FileCopierJobStep {
 	fn from(value: FsInfo) -> Self {
-		match value.path_data.is_dir {
-			true => Self::Directory {
+		if value.path_data.is_dir {
+			Self::Directory {
 				path: value.fs_path,
-			},
-			false => Self::File {
+			}
+		} else {
+			Self::File {
 				path: value.fs_path,
-			},
+			}
 		}
 	}
 }
@@ -79,15 +80,14 @@ impl StatefulJob for FileCopierJob {
 		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or_else(
 			|| Ok::<_, JobError>(file_name.clone()),
 			|suffix| {
-				Ok(match source_fs_info.path_data.is_dir {
-					true => format!("{file_name}{suffix}"),
-					false => {
-						osstr_to_string(source_fs_info.fs_path.file_stem())?
-							+ suffix + &source_fs_info.fs_path.extension().map_or_else(
-							|| Ok(String::new()),
-							|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
-						)?
-					}
+				Ok(if source_fs_info.path_data.is_dir {
+					format!("{file_name}{suffix}")
+				} else {
+					osstr_to_string(source_fs_info.fs_path.file_stem())?
+						+ suffix + &source_fs_info.fs_path.extension().map_or_else(
+						|| Ok(String::new()),
+						|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
+					)?
 				})
 			},
 		)?;

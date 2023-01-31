@@ -179,15 +179,13 @@ impl Extension {
             return None
         };
 
-		let Some(ext) = Extension::from_str(ext_str)else {
+		let Some(ext) = Extension::from_str(ext_str) else {
 			return None
 		};
 
-		let Ok(mut file) = fs::File::open(&path).await else {
+		let Ok(ref mut file) = File::open(&path).await else {
             return None
         };
-
-		let file = &mut file;
 
 		match ext {
 			// we don't need to check the magic bytes unless there is conflict
