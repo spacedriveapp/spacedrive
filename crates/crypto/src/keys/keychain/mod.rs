@@ -55,6 +55,7 @@ impl KeyringInterface {
 		#[cfg(any(target_os = "macos", target_os = "ios"))]
 		let keyring = Box::new(self::apple::AppleKeyring {});
 
+		#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
 		Ok(Self { keyring })
 	}
 
