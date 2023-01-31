@@ -2,7 +2,6 @@
 //!
 //! This does strictly require `DBus`, and either `gnome-keyring`, `kwallet` or another implementor of the Secret Service API.
 
-#![cfg(target_os = "linux")]
 use secret_service::{Collection, EncryptionType, SecretService};
 
 use crate::{

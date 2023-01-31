@@ -17,11 +17,13 @@ impl<'a> Identifier<'a> {
 	#[cfg(target_os = "linux")]
 	#[must_use]
 	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
-		let mut map = std::collections::HashMap::new();
-		map.insert("Application", self.application);
-		map.insert("Library", self.library_uuid);
-		map.insert("Usage", self.usage);
-		map
+		[
+			("Application", self.application),
+			("Library", self.library_uuid),
+			("Usage", self.usage),
+		]
+		.into_iter()
+		.collect()
 	}
 
 	#[cfg(target_os = "linux")]

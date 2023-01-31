@@ -637,7 +637,7 @@ impl KeyManager {
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
 
-		let content_salt = content_salt.map_or(generate_salt(), |v| v);
+		let content_salt = content_salt.map_or_else(generate_salt, |v| v);
 
 		// salt used for the kdf
 		let salt = generate_salt();
