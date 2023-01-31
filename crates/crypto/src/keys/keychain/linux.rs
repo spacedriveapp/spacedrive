@@ -1,6 +1,6 @@
 //! This is Spacedrive's Linux keychain implementation, which makes use of the Secret Service API.
 //!
-//! This does strictly require DBus, and either `gnome-keyring`, `kwallet` or another implementor of the Secret Service API.
+//! This does strictly require `DBus`, and either `gnome-keyring`, `kwallet` or another implementor of the Secret Service API.
 
 #![cfg(target_os = "linux")]
 use secret_service::{Collection, EncryptionType, SecretService};

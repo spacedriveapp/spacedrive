@@ -15,6 +15,7 @@ pub struct Identifier<'a> {
 
 impl<'a> Identifier<'a> {
 	#[cfg(target_os = "linux")]
+	#[must_use]
 	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
 		let mut map = std::collections::HashMap::new();
 		map.insert("Application", self.application);
@@ -24,11 +25,13 @@ impl<'a> Identifier<'a> {
 	}
 
 	#[cfg(target_os = "linux")]
+	#[must_use]
 	pub fn generate_linux_label(&self) -> String {
 		format!("{} - {}", self.application, self.usage)
 	}
 
 	#[cfg(any(target_os = "macos", target_os = "ios"))]
+	#[must_use]
 	pub fn to_apple_account(self) -> String {
 		format!("{} - {}", self.library_uuid, self.usage)
 	}
