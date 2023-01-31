@@ -17,9 +17,8 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
-import { dialogManager } from '@sd/ui';
+import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
@@ -29,7 +28,6 @@ import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { EraseFileDialog } from '../dialog/EraseFileDialog';
-import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -323,7 +321,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 								dialogManager.create((dp) => (
 									<EncryptFileDialog
 										{...dp}
-										location_id={useExplorerStore().locationId!}
+										location_id={getExplorerStore().locationId!}
 										path_id={props.item.id}
 									/>
 								));
@@ -350,7 +348,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 								dialogManager.create((dp) => (
 									<DecryptFileDialog
 										{...dp}
-										location_id={useExplorerStore().locationId!}
+										location_id={getExplorerStore().locationId!}
 										path_id={props.item.id}
 									/>
 								));

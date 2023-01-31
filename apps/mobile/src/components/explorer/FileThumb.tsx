@@ -1,8 +1,7 @@
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isObject, isPath } from '@sd/client';
 import { useExplorerStore } from '~/stores/explorerStore';
-import { isObject, isPath } from '~/types/helper';
 // import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
@@ -17,8 +16,9 @@ type FileThumbProps = {
 	kind?: string;
 };
 
+// NOTE: /dev/ is temporary directory, it will be removed in the future!
 export const getThumbnailUrlById = (casId: string) =>
-	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
+	`${DocumentDirectoryPath}/dev/thumbnails/${encodeURIComponent(casId)}.webp`;
 
 const FileThumbWrapper = ({ children, size = 1 }) => (
 	<View style={[tw`justify-center items-center`, { width: 80 * size, height: 80 * size }]}>

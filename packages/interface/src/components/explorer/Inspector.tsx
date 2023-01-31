@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Link, Lock, Snowflake } from 'phosphor-react';
 import { useEffect, useState } from 'react';
-import { ExplorerContext, ExplorerItem, useLibraryQuery } from '@sd/client';
+import { ExplorerContext, ExplorerItem, isObject, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
 import { ObjectKind } from '../../util/kind';
 import { DefaultProps } from '../primitive/types';
@@ -12,7 +12,6 @@ import FileThumb from './FileThumb';
 import { Divider } from './inspector/Divider';
 import FavoriteButton from './inspector/FavoriteButton';
 import Note from './inspector/Note';
-import { isObject } from './utils';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
 
@@ -37,8 +36,6 @@ interface Props extends DefaultProps<HTMLDivElement> {
 
 export const Inspector = (props: Props) => {
 	const { context, data, ...elementProps } = props;
-
-	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
 	const objectData = props.data ? (isObject(props.data) ? props.data : props.data.object) : null;
 	const isDir = props.data?.type === 'Path' ? props.data.is_dir : false;
@@ -164,7 +161,7 @@ export const Inspector = (props: Props) => {
 							</Tooltip>
 						</MetaContainer>
 
-						{!is_dir && objectData && (
+						{!isDir && objectData && (
 							<>
 								<Note data={objectData} />
 								<Divider />
