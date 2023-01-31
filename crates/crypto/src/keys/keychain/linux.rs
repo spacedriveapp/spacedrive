@@ -50,10 +50,9 @@ impl<'a> Keyring for LinuxKeyring<'a> {
 		let collection = self.get_collection()?;
 		let items = collection.search_items(identifier.to_hashmap())?;
 
-		items
-			.get(0)
-			.map_or(Err(Error::KeyringError), |k| Ok(k.get_secret()?))
-			.map(Protected::new)
+		items.get(0).map_or(Err(Error::KeyringError), |k| {
+			Ok(Protected::new(k.get_secret()?))
+		})
 	}
 
 	fn delete(&self, identifier: Identifier) -> Result<()> {
