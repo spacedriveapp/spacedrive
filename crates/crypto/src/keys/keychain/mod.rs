@@ -44,7 +44,7 @@ pub trait Keyring {
 }
 
 pub struct KeyringInterface {
-	keyring: Box<dyn Keyring>,
+	keyring: Box<dyn Keyring + Send>,
 }
 
 impl KeyringInterface {
