@@ -1,9 +1,6 @@
 use crate::{Protected, Result};
 
 #[cfg(target_os = "linux")]
-use std::collections::HashMap;
-
-#[cfg(target_os = "linux")]
 pub mod linux;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -18,8 +15,8 @@ pub struct Identifier<'a> {
 
 impl<'a> Identifier<'a> {
 	#[cfg(target_os = "linux")]
-	pub fn to_hashmap(self) -> HashMap<&'a str, &'a str> {
-		let mut map = HashMap::new();
+	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
+		let mut map = std::collections::HashMap::new();
 		map.insert("Application", self.application);
 		map.insert("Library", self.library_uuid);
 		map.insert("Usage", self.usage);
