@@ -83,6 +83,9 @@ pub enum Error {
 
 	#[error("generic keyring error")]
 	KeyringError,
+
+	#[error("keyring not available on this platform")]
+	KeyringNotSupported,
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

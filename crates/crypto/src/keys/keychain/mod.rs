@@ -48,8 +48,10 @@ pub struct KeyringInterface {
 }
 
 impl KeyringInterface {
-	#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
 	pub fn new() -> Result<Self> {
+		#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
+		return Err(crate::Error::KeyringNotSupported);
+
 		#[cfg(target_os = "linux")]
 		let keyring = Box::new(self::linux::LinuxKeyring::new()?);
 
