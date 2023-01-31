@@ -4,9 +4,9 @@ import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
+import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
+import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteTagModal from '~/containers/modal/confirm/DeleteTagModal';
-import UpdateTagModal from '~/containers/modal/tag/UpdateTagModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 

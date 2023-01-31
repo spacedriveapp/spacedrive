@@ -1,7 +1,7 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
+import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import Header from '~/components/header/Header';
 import tw from '~/lib/tailwind';
-import Header from '../../components/header/Header';
 import SpacesScreen from '../../screens/Spaces';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';

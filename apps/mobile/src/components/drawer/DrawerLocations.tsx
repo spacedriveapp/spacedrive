@@ -5,8 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import tw from '~/lib/tailwind';
-import FolderIcon from '../../components/icons/FolderIcon';
-import CollapsibleView from '../../components/layout/CollapsibleView';
+import FolderIcon from '../icons/FolderIcon';
+import CollapsibleView from '../layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';
 
 type DrawerLocationItemProps = {

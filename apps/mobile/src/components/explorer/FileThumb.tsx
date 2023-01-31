@@ -41,8 +41,8 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 			</FileThumbWrapper>
 		);
 
-	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
-	if (!cas_id) return undefined;
+	const casId = isObject(data) ? data.cas_id : data.object?.cas_id;
+	if (!casId) return undefined;
 
 	// Icon
 	let icon = undefined;
@@ -61,15 +61,15 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	}
 
 	// Thumbnail
-	const has_thumbnail = isObject(data)
+	const hasThumbnail = isObject(data)
 		? data.has_thumbnail
 		: isPath(data)
 		? data.object?.has_thumbnail
-		: !!explorerStore.newThumbnails[cas_id];
+		: !!explorerStore.newThumbnails[casId];
 
-	const url = getThumbnailUrlById(cas_id);
+	const url = getThumbnailUrlById(casId);
 
-	if (has_thumbnail && url) {
+	if (hasThumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
 				<Image source={{ uri: url }} resizeMode="contain" style={tw`w-full h-full`} />

@@ -40,6 +40,9 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	// Temporary until we decide on the user flow
 	const handlePhotosButton = useCallback(async () => {
+		Alert.alert('TODO');
+		return;
+
 		// Check if we have full access to the photos library
 		let permission = await ML.getPermissionsAsync();
 		// {"accessPrivileges": "none", "canAskAgain": true, "expires": "never", "granted": false, "status": "undetermined"}

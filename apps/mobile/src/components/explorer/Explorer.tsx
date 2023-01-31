@@ -4,12 +4,12 @@ import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { ExplorerData, ExplorerItem, isPath } from '@sd/client';
+import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
-import SortByMenu from '~/containers/menu/SortByMenu';
 import tw from '~/lib/tailwind';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
-import { useFileModalStore } from '~/stores/modalStore';
+import { useInspectorModalStore } from '~/stores/modalStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
@@ -28,14 +28,14 @@ const Explorer = ({ data }: ExplorerProps) => {
 		getExplorerStore().layoutMode = kind;
 	}
 
-	const { fileRef, setData } = useFileModalStore();
+	const { modalRef, setData } = useInspectorModalStore();
 
 	function handlePress(item: ExplorerItem) {
 		if (isPath(item) && item.is_dir) {
 			navigation.push('Location', { id: item.location_id, path: item.materialized_path });
 		} else {
 			setData(item);
-			fileRef.current.present();
+			modalRef.current.present();
 		}
 	}
 

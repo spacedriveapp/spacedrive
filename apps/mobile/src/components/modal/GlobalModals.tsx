@@ -1,4 +1,4 @@
-import { FileModal } from './FileModal';
+import { InspectorModal } from '../explorer/Inspector';
 
 /*
  * Global Modals
@@ -7,7 +7,7 @@ import { FileModal } from './FileModal';
 export function GlobalModals() {
 	return (
 		<>
-			<FileModal />
+			<InspectorModal />
 		</>
 	);
 }

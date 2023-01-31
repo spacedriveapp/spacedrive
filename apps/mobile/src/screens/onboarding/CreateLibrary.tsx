@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
+import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
 import { AnimatedButton } from '~/components/primitive/Button';
-import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 

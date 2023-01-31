@@ -16,7 +16,7 @@ import {
 	useCurrentLibrary,
 	useInvalidateQuery
 } from '@sd/client';
-import { GlobalModals } from './containers/modal/GlobalModals';
+import { GlobalModals } from './components/modal/GlobalModals';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';

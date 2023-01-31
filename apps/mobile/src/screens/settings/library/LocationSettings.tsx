@@ -3,7 +3,7 @@ import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
-import DeleteLocationModal from '~/containers/modal/confirm/DeleteLocationModal';
+import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 

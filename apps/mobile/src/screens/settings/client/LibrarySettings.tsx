@@ -3,8 +3,8 @@ import React from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteLibraryModal from '~/containers/modal/confirm/DeleteLibraryModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
