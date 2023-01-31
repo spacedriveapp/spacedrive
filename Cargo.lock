@@ -6648,8 +6648,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.24.2"
-source = "git+https://github.com/spacedriveapp/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
+version = "1.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8e00990ebabbe4c14c08aca901caed183ecd5c09562a12c824bb53d3c3fd3af"
 dependencies = [
  "autocfg 1.1.0",
  "bytes",
@@ -6668,7 +6669,8 @@ dependencies = [
 [[package]]
 name = "tokio-macros"
 version = "1.8.2"
-source = "git+https://github.com/spacedriveapp/tokio?rev=d3936848ccb32ac7df41614acfabe5139a6a7d75#d3936848ccb32ac7df41614acfabe5139a6a7d75"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d266c00fde287f55d3f1c3e96c500c362a2b8c695076ec180f27918820bc6df8"
 dependencies = [
  "proc-macro2",
  "quote",
