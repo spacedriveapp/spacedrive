@@ -44,11 +44,11 @@ use tokio::sync::Mutex;
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::{
-		derive_key, generate_master_key, generate_nonce, generate_salt, to_array, EncryptedKey,
-		Key, OnboardingConfig, Salt, ENCRYPTED_KEY_LEN, KEY_LEN, LATEST_STORED_KEY,
-		MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+		derive_key, generate_master_key, generate_nonce, generate_salt, generate_secret_key,
+		to_array, EncryptedKey, Key, OnboardingConfig, Salt, SecretKey, ENCRYPTED_KEY_LEN, KEY_LEN,
+		LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 	},
-	Error, Protected, ProtectedVec, Result,
+	Error, Protected, Result,
 };
 
 use dashmap::{DashMap, DashSet};
@@ -135,7 +135,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
 		let content_salt = generate_salt();
-		let secret_key = config.secret_key.map(Self::convert_secret_key_string);
+		let secret_key = generate_secret_key();
 
 		let algorithm = config.algorithm;
 		let hashing_algorithm = config.hashing_algorithm;
@@ -144,7 +144,7 @@ impl KeyManager {
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(config.password.expose().as_bytes().to_vec()),
 			content_salt,
-			secret_key,
+			Some(secret_key),
 		)?;
 
 		let salt = generate_salt();
@@ -246,15 +246,15 @@ impl KeyManager {
 		master_password: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		secret_key: Option<Protected<String>>,
+		secret_key: Protected<String>,
 	) -> Result<StoredKey> {
-		let secret_key = secret_key.map(Self::convert_secret_key_string);
+		let secret_key = Self::convert_secret_key_string(secret_key);
 		let content_salt = generate_salt();
 
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(master_password.expose().as_bytes().to_vec()),
 			content_salt,
-			secret_key,
+			Some(secret_key),
 		)?;
 
 		let uuid = uuid::Uuid::nil();
@@ -315,12 +315,12 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn import_keystore_backup(
 		&self,
-		master_password: Protected<String>,    // at the time of the backup
-		secret_key: Option<Protected<String>>, // at the time of the backup
-		stored_keys: &[StoredKey],             // from the backup
+		master_password: Protected<String>, // at the time of the backup
+		secret_key: Protected<String>,      // at the time of the backup
+		stored_keys: &[StoredKey],          // from the backup
 	) -> Result<Vec<StoredKey>> {
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
-		let secret_key = secret_key.map(Self::convert_secret_key_string);
+		let secret_key = Self::convert_secret_key_string(secret_key);
 
 		let mut old_verification_key = None;
 
@@ -343,7 +343,7 @@ impl KeyManager {
 				let hashed_password = old_verification_key.hashing_algorithm.hash(
 					Protected::new(master_password.expose().as_bytes().to_vec()),
 					old_verification_key.content_salt,
-					secret_key,
+					Some(secret_key),
 				)?;
 
 				// decrypt the root key's KEK
@@ -430,6 +430,9 @@ impl KeyManager {
 	/// This is used for unlocking the key manager, and requires both the master password and the secret key.
 	///
 	/// The master password and secret key are hashed together.
+	///
+	/// Only provide the secret key if it should not/can not be sourced from an OS keychain (e.g. web, OS keychains not enabled/available, etc).
+	///
 	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
 	///
 	/// Both values need to be correct, otherwise this function will return a generic error.
@@ -459,7 +462,14 @@ impl KeyManager {
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
-		let secret_key = secret_key.map(Self::convert_secret_key_string);
+		let secret_key = if let Some(secret_key) = secret_key {
+			Self::convert_secret_key_string(secret_key)
+		} else {
+			// TODO(brxken128): SOURCE FROM OS KEYCHAINS HERE, then else return "no valid key"
+			generate_secret_key()
+		};
+
+		// let secret_key = Self::convert_secret_key_string(secret_key);
 
 		self.mounting_queue.insert(uuid);
 		invalidate();
@@ -471,7 +481,7 @@ impl KeyManager {
 					.hash(
 						Protected::new(master_password.expose().as_bytes().to_vec()),
 						verification_key.content_salt,
-						secret_key,
+						Some(secret_key),
 					)
 					.map_err(|e| {
 						self.remove_from_queue(uuid).ok();
@@ -605,7 +615,7 @@ impl KeyManager {
 	/// This function is used for getting the key value itself, from a given UUID.
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
-	pub async fn get_key(&self, uuid: Uuid) -> Result<ProtectedVec<u8>> {
+	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<String>> {
 		if let Some(stored_key) = self.keystore.get(&uuid) {
 			let master_key = StreamDecryption::decrypt_bytes(
 				derive_key(
@@ -633,7 +643,7 @@ impl KeyManager {
 			)
 			.await?;
 
-			Ok(key)
+			Ok(Protected::new(String::from_utf8(key.expose().to_vec())?))
 		} else {
 			Err(Error::KeyNotFound)
 		}
@@ -653,7 +663,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn add_to_keystore(
 		&self,
-		key: ProtectedVec<u8>,
+		key: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
@@ -685,8 +695,14 @@ impl KeyManager {
 		)?;
 
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
-		let encrypted_key =
-			StreamEncryption::encrypt_bytes(master_key, &key_nonce, algorithm, &key, &[]).await?;
+		let encrypted_key = StreamEncryption::encrypt_bytes(
+			master_key,
+			&key_nonce,
+			algorithm,
+			key.expose().as_bytes(),
+			&[],
+		)
+		.await?;
 
 		// Insert it into the Keystore
 		self.keystore.insert(
@@ -712,8 +728,20 @@ impl KeyManager {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	fn convert_secret_key_string(secret_key: Protected<String>) -> ProtectedVec<u8> {
-		Protected::new(secret_key.expose().as_bytes().to_vec())
+	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<SecretKey> {
+		let mut secret_key_sanitized = secret_key.expose().clone();
+		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
+
+		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
+		// could maybe do this better (and make use of the subtle crate)
+
+		let secret_key = hex::decode(secret_key_sanitized)
+			.ok()
+			.map_or(Vec::new(), |v| v);
+
+		to_array(secret_key)
+			.ok()
+			.map_or(generate_secret_key(), Protected::new)
 	}
 
 	/// This function is for accessing the internal keymount.

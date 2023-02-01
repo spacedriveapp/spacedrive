@@ -17,28 +17,27 @@ use super::{utils::LibraryRequest, RouterBuilder};
 pub struct KeyAddArgs {
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
-	key: String,
+	key: Protected<String>,
 	library_sync: bool,
 	automount: bool,
 }
 
 #[derive(Type, Deserialize)]
 pub struct UnlockKeyManagerArgs {
-	password: String,
-	secret_key: Option<String>,
+	password: Protected<String>,
+	secret_key: Protected<String>,
 }
 
 #[derive(Type, Deserialize)]
 pub struct RestoreBackupArgs {
-	password: String,
-	secret_key: Option<String>,
+	password: Protected<String>,
+	secret_key: Protected<String>,
 	path: PathBuf,
 }
 
 #[derive(Type, Deserialize)]
 pub struct MasterPasswordChangeArgs {
-	password: String,
-	secret_key: Option<String>,
+	password: Protected<String>,
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
 }
@@ -66,9 +65,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.get_key(key_uuid).await?;
-
-				Ok(String::from_utf8(key.into_inner()).map_err(Error::StringParse)?)
+				Ok(library
+					.key_manager
+					.get_key(key_uuid)
+					.await?
+					.expose()
+					.clone())
 			})
 		})
 		.library_mutation("mount", |t| {
@@ -152,14 +154,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("unlockKeyManager", |t| {
 			t(|_, args: UnlockKeyManagerArgs, library| async move {
-				// if this returns an error, the user MUST re-enter the correct password
+				let secret_key = (!args.secret_key.expose().is_empty()).then_some(args.secret_key);
+
 				library
 					.key_manager
-					.unlock(
-						Protected::new(args.password),
-						args.secret_key.map(Protected::new),
-						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
-					)
+					.unlock(args.password, secret_key, || {
+						invalidate_query!(library, "keys.isKeyManagerUnlocking")
+					})
 					.await?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
@@ -231,7 +232,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let uuid = library
 					.key_manager
 					.add_to_keystore(
-						Protected::new(args.key.as_bytes().to_vec()),
+						args.key,
 						args.algorithm,
 						args.hashing_algorithm,
 						!args.library_sync,
@@ -297,11 +298,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				let stored_keys: Vec<StoredKey> =
 					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
 
-				let secret_key = args.secret_key.map(Protected::new);
-
 				let updated_keys = library
 					.key_manager
-					.import_keystore_backup(Protected::new(args.password), secret_key, &stored_keys)
+					.import_keystore_backup(args.password, args.secret_key, &stored_keys)
 					.await?;
 
 				for key in &updated_keys {
@@ -316,28 +315,28 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				let secret_key = args.secret_key.map(Protected::new);
+				// let secret_key = args.secret_key.map(Protected::new);
 
-				let verification_key = library
-					.key_manager
-					.change_master_password(
-						Protected::new(args.password),
-						args.algorithm,
-						args.hashing_algorithm,
-						secret_key,
-					)
-					.await?;
+				// let verification_key = library
+				// 	.key_manager
+				// 	.change_master_password(
+				// 		args.password,
+				// 		args.algorithm,
+				// 		args.hashing_algorithm,
+				// 		args.secret_key,
+				// 	)
+				// 	.await?;
 
 				// remove old nil-id keys if they were set
-				library
-					.db
-					.key()
-					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
-					.exec()
-					.await?;
+				// library
+				// 	.db
+				// 	.key()
+				// 	.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
+				// 	.exec()
+				// 	.await?;
 
-				// write the new verification key
-				write_storedkey_to_db(&library.db, &verification_key).await?;
+				// // write the new verification key
+				// write_storedkey_to_db(&library.db, &verification_key).await?;
 
 				Ok(())
 			})

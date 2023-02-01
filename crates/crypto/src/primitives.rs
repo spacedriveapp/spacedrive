@@ -18,6 +18,8 @@ use crate::{
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
 
+pub const SECRET_KEY_LEN: usize = 18;
+
 /// The size used for streaming encryption/decryption. This size seems to offer the best performance compared to alternatives.
 ///
 /// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag). Plus the size of the header.
@@ -47,13 +49,13 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 pub type Key = [u8; KEY_LEN];
 pub type EncryptedKey = [u8; ENCRYPTED_KEY_LEN];
 pub type Salt = [u8; SALT_LEN];
+pub type SecretKey = [u8; SECRET_KEY_LEN];
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct OnboardingConfig {
 	pub password: Protected<String>,
-	pub secret_key: Option<Protected<String>>,
 	pub algorithm: Algorithm,
 	pub hashing_algorithm: HashingAlgorithm,
 }
@@ -78,6 +80,16 @@ pub fn generate_salt() -> Salt {
 	let mut salt = [0u8; SALT_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
 	salt
+}
+
+/// This should be used for generating salts for hashing.
+///
+/// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
+#[must_use]
+pub fn generate_secret_key() -> Protected<SecretKey> {
+	let mut secret_key = [0u8; SECRET_KEY_LEN];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut secret_key);
+	Protected::new(secret_key)
 }
 
 /// This generates a master key, which should be used for encrypting the data

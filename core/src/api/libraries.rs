@@ -81,7 +81,6 @@ pub(crate) fn mount() -> RouterBuilder {
 			pub struct CreateLibraryArgs {
 				name: String,
 				password: Protected<String>,
-				secret_key: Option<Protected<String>>,
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
 			}
@@ -96,7 +95,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						},
 						OnboardingConfig {
 							password: args.password,
-							secret_key: args.secret_key,
 							algorithm: args.algorithm,
 							hashing_algorithm: args.hashing_algorithm,
 						},

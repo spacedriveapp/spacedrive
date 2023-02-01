@@ -12,7 +12,7 @@
 //! ```
 
 use crate::{
-	primitives::{Key, Salt, KEY_LEN},
+	primitives::{Key, Salt, SecretKey, KEY_LEN},
 	Error, Protected, ProtectedVec, Result,
 };
 use argon2::Argon2;
@@ -55,7 +55,7 @@ impl HashingAlgorithm {
 		&self,
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
+		secret: Option<Protected<SecretKey>>,
 	) -> Result<Protected<Key>> {
 		match self {
 			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
@@ -109,10 +109,10 @@ impl PasswordHasher {
 	fn argon2id(
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
+		secret: Option<Protected<SecretKey>>,
 		params: Params,
 	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| k);
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -132,10 +132,10 @@ impl PasswordHasher {
 	fn balloon_blake3(
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
+		secret: Option<Protected<SecretKey>>,
 		params: Params,
 	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| k);
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 

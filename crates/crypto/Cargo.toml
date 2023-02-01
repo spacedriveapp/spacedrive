@@ -46,6 +46,8 @@ specta = { workspace = true, optional = true }
 # for asynchronous crypto
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
 
+hex = "0.4.3"
+
 # linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = "2.0.2"

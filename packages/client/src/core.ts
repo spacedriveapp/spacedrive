@@ -89,7 +89,7 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface CreateLibraryArgs { name: string, password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -147,7 +147,7 @@ export interface LocationExplorerArgs { location_id: number, path: string, limit
 
 export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
 
-export interface MasterPasswordChangeArgs { password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
 
@@ -171,7 +171,7 @@ export interface ObjectValidatorArgs { id: number, path: string }
 
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-export interface RestoreBackupArgs { password: string, secret_key: string | null, path: string }
+export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
@@ -193,7 +193,7 @@ export interface TagCreateArgs { name: string, color: string }
 
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
 
-export interface UnlockKeyManagerArgs { password: string, secret_key: string | null }
+export interface UnlockKeyManagerArgs { password: string, secret_key: string }
 
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
