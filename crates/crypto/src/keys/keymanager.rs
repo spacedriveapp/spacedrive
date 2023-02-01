@@ -35,6 +35,8 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
+use std::sync::Arc;
+
 use tokio::sync::Mutex;
 
 // use crate::primitives::{
@@ -45,8 +47,9 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::{
 		derive_key, generate_master_key, generate_nonce, generate_salt, generate_secret_key,
-		to_array, EncryptedKey, Key, OnboardingConfig, Salt, SecretKey, ENCRYPTED_KEY_LEN, KEY_LEN,
-		LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+		to_array, EncryptedKey, Key, OnboardingConfig, Salt, SecretKey, APP_IDENTIFIER,
+		ENCRYPTED_KEY_LEN, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+		SECRET_KEY_IDENTIFIER,
 	},
 	Error, Protected, Result,
 };
@@ -57,7 +60,10 @@ use uuid::Uuid;
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
-use super::hashing::HashingAlgorithm;
+use super::{
+	hashing::HashingAlgorithm,
+	keyring::{Identifier, KeyringInterface},
+};
 
 /// This is a stored key, and can be freely written to Prisma/another database.
 #[derive(Clone, PartialEq, Eq)]
@@ -107,12 +113,17 @@ pub struct KeyManager {
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
 	mounting_queue: DashSet<Uuid>,
+	keyring: Option<Arc<Mutex<KeyringInterface>>>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
 	pub async fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
+		let keyring = KeyringInterface::new()
+			.map(|k| Arc::new(Mutex::new(k)))
+			.map_or(None, |x| Some(x));
+
 		let keymanager = Self {
 			root_key: Mutex::new(None),
 			verification_key: Mutex::new(None),
@@ -120,11 +131,50 @@ impl KeyManager {
 			keymount: DashMap::new(),
 			default: Mutex::new(None),
 			mounting_queue: DashSet::new(),
+			keyring,
 		};
 
 		keymanager.populate_keystore(stored_keys).await?;
 
 		Ok(keymanager)
+	}
+
+	fn format_secret_key(secret_key: Protected<SecretKey>) -> Protected<String> {
+		let hex_string: String = hex::encode_upper(secret_key.expose())
+			.chars()
+			.enumerate()
+			.map(|(i, c)| {
+				if (i + 1) % 6 == 0 && i != 35 {
+					c.to_string() + "-"
+				} else {
+					c.to_string()
+				}
+			})
+			.into_iter()
+			.collect();
+
+		Protected::new(hex_string)
+	}
+
+	// A returned error here should be treated as `false`
+	pub async fn keyring_contains(&self, library_uuid: Uuid, usage: String) -> Result<()> {
+		self.get_keyring()
+			.await?
+			.lock()
+			.await
+			.retrieve(Identifier {
+				application: APP_IDENTIFIER,
+				library_uuid: &library_uuid.to_string(),
+				usage: &usage,
+			})?;
+
+		Ok(())
+	}
+
+	async fn get_keyring(&self) -> Result<Arc<Mutex<KeyringInterface>>> {
+		self.keyring
+			.as_ref()
+			.map_or(Err(Error::KeyringNotSupported), |k| Ok(k.clone()))
 	}
 
 	/// This should be used to generate everything for the user during onboarding.
@@ -133,9 +183,11 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
+	pub async fn onboarding(config: OnboardingConfig, library_uuid: Uuid) -> Result<StoredKey> {
 		let content_salt = generate_salt();
 		let secret_key = generate_secret_key();
+
+		dbg!(Self::format_secret_key(secret_key.clone()).expose());
 
 		let algorithm = config.algorithm;
 		let hashing_algorithm = config.hashing_algorithm;
@@ -144,7 +196,7 @@ impl KeyManager {
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(config.password.expose().as_bytes().to_vec()),
 			content_salt,
-			Some(secret_key),
+			Some(secret_key.clone()),
 		)?;
 
 		let salt = generate_salt();
@@ -177,6 +229,20 @@ impl KeyManager {
 			&[],
 		)
 		.await?;
+
+		// attempt to insert into the OS keyring
+		// can ignore false here as we want to silently error
+		if let Ok(keyring) = KeyringInterface::new() {
+			let identifier = Identifier {
+				application: "Spacedrive",
+				library_uuid: &library_uuid.to_string(),
+				usage: SECRET_KEY_IDENTIFIER,
+			};
+
+			keyring
+				.insert(identifier, Self::format_secret_key(secret_key))
+				.ok();
+		}
 
 		let verification_key = StoredKey {
 			uuid,
@@ -445,6 +511,7 @@ impl KeyManager {
 		&self,
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
+		library_uuid: Uuid,
 		invalidate: F,
 	) -> Result<()>
 	where
@@ -452,7 +519,7 @@ impl KeyManager {
 	{
 		let uuid = Uuid::nil();
 
-		if self.has_master_password().await? {
+		if self.is_unlocked().await? {
 			return Err(Error::KeyAlreadyMounted);
 		} else if self.is_queued(uuid) {
 			return Err(Error::KeyAlreadyQueued);
@@ -465,11 +532,18 @@ impl KeyManager {
 		let secret_key = if let Some(secret_key) = secret_key {
 			Self::convert_secret_key_string(secret_key)
 		} else {
-			// TODO(brxken128): SOURCE FROM OS KEYCHAINS HERE, then else return "no valid key"
-			generate_secret_key()
+			self.get_keyring()
+				.await?
+				.lock()
+				.await
+				.retrieve(Identifier {
+					application: APP_IDENTIFIER,
+					library_uuid: &library_uuid.to_string(),
+					usage: SECRET_KEY_IDENTIFIER,
+				})
+				.map(|x| Protected::new(String::from_utf8(x.expose().to_vec()).unwrap()))
+				.map(Self::convert_secret_key_string)?
 		};
-
-		// let secret_key = Self::convert_secret_key_string(secret_key);
 
 		self.mounting_queue.insert(uuid);
 		invalidate();
@@ -856,10 +930,8 @@ impl KeyManager {
 		Ok(())
 	}
 
-	/// This function is used for seeing if the key manager has a master password.
-	///
-	/// Technically this checks for the root key, but it makes no difference to the front end.
-	pub async fn has_master_password(&self) -> Result<bool> {
+	/// This function is used for checking if the key manager is unlocked.
+	pub async fn is_unlocked(&self) -> Result<bool> {
 		Ok(self.root_key.lock().await.is_some())
 	}
 
