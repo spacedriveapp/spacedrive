@@ -10,7 +10,9 @@ type FileItemProps = {
 };
 
 const FileItem = ({ data }: FileItemProps) => {
-	const isVid = isVideoExt(data.extension || '');
+	const { item } = data;
+
+	const isVid = isVideoExt(item.extension || '');
 
 	const gridItemSize = Layout.window.width / getExplorerStore().gridNumColumns;
 
@@ -21,16 +23,19 @@ const FileItem = ({ data }: FileItemProps) => {
 				height: gridItemSize
 			})}
 		>
-			<FileThumb data={data} kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'} />
-			{data?.extension && isVid && (
+			<FileThumb
+				data={data}
+				kind={data.item.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+			/>
+			{item.extension && isVid && (
 				<View style={tw`absolute bottom-8 opacity-70 right-5 py-0.5 px-1 bg-black/70 rounded`}>
-					<Text style={tw`text-[9px] text-white uppercase font-semibold`}>{data.extension}</Text>
+					<Text style={tw`text-[9px] text-white uppercase font-semibold`}>{item.extension}</Text>
 				</View>
 			)}
 			<View style={tw`px-1.5 py-[1px] mt-1`}>
 				<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-white`}>
-					{data?.name}
-					{data?.extension && `.${data.extension}`}
+					{item?.name}
+					{item?.extension && `.${item.extension}`}
 				</Text>
 			</View>
 		</View>

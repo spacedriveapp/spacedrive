@@ -26,30 +26,26 @@ export default function FileThumb({ data, ...props }: Props) {
 	const platform = usePlatform();
 	const store = useExplorerStore();
 
+	const item = data.item;
+
 	const Icon = useMemo(() => {
-		const icon = icons[`../../../../assets/icons/${data.extension as any}.svg`];
+		const icon = icons[`../../../../assets/icons/${item.extension}.svg`];
 
 		const Icon = icon
 			? lazy(() => icon().then((v) => ({ default: (v as any).ReactComponent })))
 			: undefined;
 		return Icon;
-	}, [data.extension]);
+	}, [item.extension]);
 
-	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
+	if (isPath(data) && data.item.is_dir) return <Folder size={props.size * 0.7} />;
 
-	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
+	const cas_id = isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id;
 
 	if (!cas_id) return <div></div>;
 
-	const has_thumbnail = isObject(data)
-		? data.has_thumbnail
-		: isPath(data)
-		? data.object?.has_thumbnail
-		: !!store.newThumbnails[cas_id];
-
 	const url = platform.getThumbnailUrlById(cas_id);
 
-	if (has_thumbnail && url)
+	if (data.has_thumbnail && url)
 		return (
 			<img
 				style={props.style}
@@ -64,7 +60,7 @@ export default function FileThumb({ data, ...props }: Props) {
 	// Hacky (and temporary) way to integrate thumbnails
 	if (props.kind === 'Archive') icon = archive;
 	else if (props.kind === 'Video') icon = video;
-	else if (props.kind === 'Document' && data.extension === 'pdf') icon = documentPdf;
+	else if (props.kind === 'Document' && data.item.extension === 'pdf') icon = documentPdf;
 	else if (props.kind === 'Executable') icon = executable;
 	else if (props.kind === 'Encrypted') icon = archive;
 
