@@ -75,7 +75,8 @@ export const KeyMounterDropdown = ({
 
 export default function KeysSettings() {
 	const platform = usePlatform();
-	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey']);
 	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
@@ -99,7 +100,9 @@ export default function KeysSettings() {
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
-	if (!hasMasterPw?.data) {
+	const [enterSkManually, setEnterSkManually] = useState(keyringHasSk?.data);
+
+	if (!isUnlocked?.data) {
 		return (
 			<div className="p-2 mr-20 ml-20 mt-10">
 				<div className="relative flex flex-grow mb-2">
@@ -127,11 +130,13 @@ export default function KeysSettings() {
 						type={showSecretKey ? 'text' : 'password'}
 						className="flex-grow !py-0.5"
 						placeholder="Secret Key"
+						hidden={!enterSkManually}
 					/>
 					<Button
 						onClick={() => setShowSecretKey(!showSecretKey)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						hidden={!enterSkManually}
 					>
 						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -146,12 +151,23 @@ export default function KeysSettings() {
 							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
+							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
 					Unlock
 				</Button>
+				<div className="relative flex flex-grow">
+					<p
+						className="text-accent mt-2"
+						onClick={(e) => {
+							setEnterSkManually(true);
+						}}
+						hidden={enterSkManually}
+					>
+						or enter secret key manually
+					</p>
+				</div>
 			</div>
 		);
 	} else {

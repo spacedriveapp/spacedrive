@@ -10,7 +10,8 @@ import { KeyMounter } from './KeyMounter';
 export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
-	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
@@ -29,7 +30,9 @@ export function KeyManager(props: KeyManagerProps) {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
-	if (!hasMasterPw?.data) {
+	const [enterSkManually, setEnterSkManually] = useState(!keyringHasSk?.data);
+
+	if (!isUnlocked?.data) {
 		const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 		const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
@@ -60,11 +63,13 @@ export function KeyManager(props: KeyManagerProps) {
 						type={showSecretKey ? 'text' : 'password'}
 						className="flex-grow !py-0.5"
 						placeholder="Secret Key"
+						hidden={!enterSkManually}
 					/>
 					<Button
 						onClick={() => setShowSecretKey(!showSecretKey)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						hidden={!enterSkManually}
 					>
 						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -75,15 +80,25 @@ export function KeyManager(props: KeyManagerProps) {
 					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
 					onClick={() => {
 						if (masterPassword !== '') {
-							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
+							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
 					Unlock
 				</Button>
+				<div className="relative flex flex-grow">
+					<p
+						className="text-accent mt-2"
+						onClick={(e) => {
+							setEnterSkManually(true);
+						}}
+						hidden={enterSkManually}
+					>
+						or enter secret key manually
+					</p>
+				</div>
 			</div>
 		);
 	} else {
