@@ -73,11 +73,11 @@ impl StatefulJob for FileCutterJob {
 
 		let full_output = step
 			.target_directory
-			.join(source_info.obj_path.file_name().ok_or(JobError::OsStr)?);
+			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
-		trace!("Cutting {:?} to {:?}", source_info.obj_path, full_output);
+		trace!("Cutting {:?} to {:?}", source_info.fs_path, full_output);
 
-		tokio::fs::rename(&source_info.obj_path, &full_output).await?;
+		tokio::fs::rename(&source_info.fs_path, &full_output).await?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

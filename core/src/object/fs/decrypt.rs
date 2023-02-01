@@ -67,7 +67,7 @@ impl StatefulJob for FileDecryptorJob {
 		// handle overwriting checks, and making sure there's enough available space
 		let output_path = state.init.output_path.clone().map_or_else(
 			|| {
-				let mut path = info.obj_path.clone();
+				let mut path = info.fs_path.clone();
 				let extension = path.extension().map_or("decrypted", |ext| {
 					if ext == ".sdenc" {
 						""
@@ -81,7 +81,7 @@ impl StatefulJob for FileDecryptorJob {
 			|p| p,
 		);
 
-		let mut reader = File::open(info.obj_path.clone()).await?;
+		let mut reader = File::open(info.fs_path.clone()).await?;
 		let mut writer = File::create(output_path).await?;
 
 		let (header, aad) = FileHeader::from_reader(&mut reader).await?;

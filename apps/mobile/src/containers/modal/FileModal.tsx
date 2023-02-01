@@ -28,6 +28,8 @@ export const FileModal = () => {
 
 	const fileDetailsRef = useRef<BottomSheetModal>(null);
 
+	const item = data.item;
+
 	return (
 		<>
 			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
@@ -38,11 +40,11 @@ export const FileModal = () => {
 							<FileIcon data={data} size={1.6} />
 							{/* File Name, Details etc. */}
 							<View style={tw`ml-2`}>
-								<Text style={tw`text-base font-bold text-gray-200`}>{data?.name}</Text>
+								<Text style={tw`text-base font-bold text-gray-200`}>{item.name}</Text>
 								<View style={tw`flex flex-row mt-2`}>
 									<Text style={tw`text-xs text-gray-400`}>5 MB,</Text>
 									<Text style={tw`ml-1 text-xs text-gray-400`}>
-										{data?.extension.toUpperCase()},
+										{item.extension.toUpperCase()},
 									</Text>
 									<Text style={tw`ml-1 text-xs text-gray-400`}>15 Aug</Text>
 								</View>
@@ -77,24 +79,24 @@ export const FileModal = () => {
 						{/* File Icon / Name */}
 						<View style={tw`items-center`}>
 							<FileThumb data={data} size={1.8} />
-							<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{data.name}</Text>
+							<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{item.name}</Text>
 						</View>
 						{/* Details */}
 						<Divider style={tw`mt-6 mb-4`} />
 						<>
 							{/* Temp, we need cas id */}
-							{data?.id && <MetaItem title="Unique Content ID" value={'555555555'} />}
+							{item.id && <MetaItem title="Unique Content ID" value={'555555555'} />}
 							<Divider style={tw`my-4`} />
 							<MetaItem title="URI" value={`/Users/utku/Somewhere/vite.config.js`} />
 							<Divider style={tw`my-4`} />
 							<MetaItem
 								title="Date Created"
-								value={dayjs(data.date_created).format('MMMM Do yyyy, h:mm:ss aaa')}
+								value={dayjs(item.date_created).format('MMMM Do yyyy, h:mm:ss aaa')}
 							/>
 							<Divider style={tw`my-4`} />
 							<MetaItem
 								title="Date Indexed"
-								value={dayjs(data.date_indexed).format('MMMM Do yyyy, h:mm:ss aaa')}
+								value={dayjs(item.date_indexed).format('MMMM Do yyyy, h:mm:ss aaa')}
 							/>
 						</>
 					</BottomSheetScrollView>

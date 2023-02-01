@@ -6,15 +6,14 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::trace;
 
-use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo, ObjectType};
+use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
 
 pub struct FileCopierJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobState {
 	pub target_path: PathBuf, // target dir prefix too
-	pub source_path: PathBuf,
-	pub root_type: ObjectType,
+	pub source_fs_info: FsInfo,
 }
 
 #[derive(Serialize, Deserialize, Hash, Type)]
@@ -27,8 +26,23 @@ pub struct FileCopierJobInit {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FileCopierJobStep {
-	pub source_fs_info: FsInfo,
+pub enum FileCopierJobStep {
+	Directory { path: PathBuf },
+	File { path: PathBuf },
+}
+
+impl From<FsInfo> for FileCopierJobStep {
+	fn from(value: FsInfo) -> Self {
+		if value.path_data.is_dir {
+			Self::Directory {
+				path: value.fs_path,
+			}
+		} else {
+			Self::File {
+				path: value.fs_path,
+			}
+		}
+	}
 }
 
 pub const COPY_JOB_NAME: &str = "file_copier";
@@ -61,17 +75,20 @@ impl StatefulJob for FileCopierJob {
 		// if no suffix has been selected, just use the file name
 		// if a suffix is provided and it's a directory, use the directory name + suffix
 		// if a suffix is provided and it's a file, use the (file name + suffix).extension
-		let file_name = osstr_to_string(source_fs_info.obj_path.file_name())?;
+		let file_name = osstr_to_string(source_fs_info.fs_path.file_name())?;
 
 		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or_else(
 			|| Ok::<_, JobError>(file_name.clone()),
-			|s| match source_fs_info.obj_type {
-				ObjectType::Directory => Ok(format!("{file_name}{s}")),
-				ObjectType::File => Ok(osstr_to_string(source_fs_info.obj_path.file_stem())?
-					+ s + &source_fs_info.obj_path.extension().map_or_else(
-					|| Ok::<_, JobError>(String::new()),
-					|x| Ok(format!(".{}", x.to_str().ok_or(JobError::OsStr)?)),
-				)?),
+			|suffix| {
+				Ok(if source_fs_info.path_data.is_dir {
+					format!("{file_name}{suffix}")
+				} else {
+					osstr_to_string(source_fs_info.fs_path.file_stem())?
+						+ suffix + &source_fs_info.fs_path.extension().map_or_else(
+						|| Ok(String::new()),
+						|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
+					)?
+				})
 			},
 		)?;
 
@@ -79,11 +96,10 @@ impl StatefulJob for FileCopierJob {
 
 		state.data = Some(FileCopierJobState {
 			target_path: full_target_path,
-			source_path: source_fs_info.obj_path.clone(),
-			root_type: source_fs_info.obj_type.clone(),
+			source_fs_info: source_fs_info.clone(),
 		});
 
-		state.steps = [FileCopierJobStep { source_fs_info }].into_iter().collect();
+		state.steps = [source_fs_info.into()].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -96,68 +112,57 @@ impl StatefulJob for FileCopierJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
-		let info = &step.source_fs_info;
 
 		let job_state = state.data.as_ref().ok_or(JobError::MissingData {
 			value: String::from("job state"),
 		})?;
 
-		match info.obj_type {
-			ObjectType::File => {
-				let mut path = job_state.target_path.clone();
+		match step {
+			FileCopierJobStep::File { path } => {
+				let mut target_path = job_state.target_path.clone();
 
-				if job_state.root_type == ObjectType::Directory {
+				if job_state.source_fs_info.path_data.is_dir {
 					// if root type is a dir, we need to preserve structure by making paths relative
-					path.push(
-						info.obj_path
-							.strip_prefix(&job_state.source_path)
+					target_path.push(
+						path.strip_prefix(&job_state.source_fs_info.fs_path)
 							.map_err(|_| JobError::Path)?,
 					);
 				}
 
-				trace!("Copying from {:?} to {:?}", info.obj_path, path);
+				trace!("Copying from {:?} to {:?}", path, target_path);
 
-				tokio::fs::copy(&info.obj_path, &path).await?;
+				tokio::fs::copy(&path, &target_path).await?;
 			}
-			ObjectType::Directory => {
+			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir
 				// fixes copying dirs with no child directories
-				if job_state.root_type == ObjectType::Directory
-					&& job_state.source_path == info.obj_path
+				if job_state.source_fs_info.path_data.is_dir
+					&& &job_state.source_fs_info.fs_path == path
 				{
 					tokio::fs::create_dir_all(&job_state.target_path).await?;
 				}
 
-				let mut dir = tokio::fs::read_dir(&info.obj_path).await?;
+				let mut dir = tokio::fs::read_dir(&path).await?;
+
 				while let Some(entry) = dir.next_entry().await? {
 					if entry.metadata().await?.is_dir() {
-						state.steps.push_back(FileCopierJobStep {
-							source_fs_info: FsInfo {
-								obj_id: None,
-								obj_name: String::new(),
-								obj_path: entry.path(),
-								obj_type: ObjectType::Directory,
-							},
-						});
+						state
+							.steps
+							.push_back(FileCopierJobStep::Directory { path: entry.path() });
 
 						tokio::fs::create_dir_all(
 							job_state.target_path.join(
 								entry
 									.path()
-									.strip_prefix(&job_state.source_path)
+									.strip_prefix(&job_state.source_fs_info.fs_path)
 									.map_err(|_| JobError::Path)?,
 							),
 						)
 						.await?;
 					} else {
-						state.steps.push_back(FileCopierJobStep {
-							source_fs_info: FsInfo {
-								obj_id: None,
-								obj_name: osstr_to_string(Some(&entry.file_name()))?,
-								obj_path: entry.path(),
-								obj_type: ObjectType::File,
-							},
-						});
+						state
+							.steps
+							.push_back(FileCopierJobStep::File { path: entry.path() });
 					};
 
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
