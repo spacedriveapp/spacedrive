@@ -35,6 +35,9 @@ pub const KEY_LEN: usize = 32;
 
 pub const PASSPHRASE_LEN: usize = 7;
 
+pub const APP_IDENTIFIER: &str = "Spacedrive";
+pub const SECRET_KEY_IDENTIFIER: &str = "Secret key";
+
 pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::V1;
 pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
 pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
