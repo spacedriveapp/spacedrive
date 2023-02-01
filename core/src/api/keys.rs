@@ -54,10 +54,11 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
 		})
 		// do not unlock the key manager until this route returns true
-		.library_query("hasMasterPassword", |t| {
-			t(
-				|_, _: (), library| async move { Ok(library.key_manager.has_master_password().await?) },
-			)
+		.library_query("isUnlocked", |t| {
+			t(|_, _: (), library| async move {
+				invalidate_query!(library, "keys.keyringHasSecretKey");
+				Ok(library.key_manager.is_unlocked().await?)
+			})
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
@@ -81,6 +82,17 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_query("keyringHasSecretKey", |t| {
+			t(|_, _: (), library| async move {
+				// Ok::<_, Error>(
+				Ok(library
+					.key_manager
+					.keyring_contains(library.id, "Secret key".to_string())
+					.await
+					.is_ok())
+				// );
+			})
+		})
 		.library_mutation("unmount", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
 				library.key_manager.unmount(key_uuid)?;
@@ -94,7 +106,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				// This technically clears the root key, but it means the same thing to the frontend
 				library.key_manager.clear_root_key().await?;
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+				invalidate_query!(library, "keys.isUnlocked");
 				Ok(())
 			})
 		})
@@ -158,12 +170,12 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.unlock(args.password, secret_key, || {
+					.unlock(args.password, secret_key, library.id, || {
 						invalidate_query!(library, "keys.isKeyManagerUnlocking")
 					})
 					.await?;
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+				invalidate_query!(library, "keys.isUnlocked");
 
 				let automount = library
 					.db
