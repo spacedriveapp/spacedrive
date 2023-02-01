@@ -1,4 +1,4 @@
-//! This is Spacedrive's Apple OS keychain integration. It has no strict dependencies.
+//! This is Spacedrive's Apple OS keyring integration. It has no strict dependencies.
 //!
 //! This has been tested on MacOS, but should work just the same for iOS (according to the `security_framework` documentation)
 
