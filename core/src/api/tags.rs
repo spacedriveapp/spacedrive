@@ -63,7 +63,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 						object.has_thumbnail = thumb_path.try_exists().unwrap();
 
-						ExplorerItem::Object(Box::new(object))
+						ExplorerItem::Object(object)
 					})
 					.collect();
 

@@ -46,7 +46,7 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct OnboardingConfig {
 	pub password: Protected<String>,
 	pub secret_key: Option<Protected<String>>,

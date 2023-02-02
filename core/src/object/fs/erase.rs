@@ -21,6 +21,8 @@ pub struct FileEraserJobState {
 pub struct FileEraserJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
+	// TODO: `usize` is classed as a BigInt type and is not support by rspc currently hence we skip it.
+	#[serde(skip)]
 	pub passes: usize,
 }
 

@@ -2,7 +2,6 @@ use std::{env, net::SocketAddr, path::Path};
 
 use axum::{
 	body::{Body, Full},
-	handler::Handler,
 	http::Request,
 	response::Response,
 	routing::get,
@@ -73,11 +72,11 @@ async fn main() {
 				r.body(Full::from(resp.into_body())).unwrap()
 			})
 		})
-		.route(
-			"/rspc/:id",
+		.nest(
+			"/rspc",
 			router.endpoint(move || node.get_request_context()).axum(),
 		)
-		.fallback((|| async { "404 Not Found: We're past the event horizon..." }).into_service());
+		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);

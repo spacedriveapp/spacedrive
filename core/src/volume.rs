@@ -10,8 +10,8 @@ use thiserror::Error;
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,
-	pub total_capacity: u64,
-	pub available_capacity: u64,
+	pub total_capacity: String, // TODO: Change back to `u64` when rspc supports bigints
+	pub available_capacity: String, // TODO: Change back to `u64` when rspc supports bigints
 	pub is_removable: bool,
 	pub disk_type: Option<String>,
 	pub file_system: Option<String>,
@@ -122,8 +122,8 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				name,
 				is_root_filesystem: mount_point == "/",
 				mount_point,
-				total_capacity,
-				available_capacity,
+				total_capacity: total_capacity.to_string(),
+				available_capacity: available_capacity.to_string(),
 				is_removable,
 				disk_type: Some(disk_type),
 				file_system: Some(file_system),

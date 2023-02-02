@@ -10,7 +10,7 @@ use crate::{
 
 use std::path::PathBuf;
 
-use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
+use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
 
@@ -27,8 +27,8 @@ pub enum ExplorerContext {
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(Box<file_path_with_object::Data>),
-	Object(Box<object_with_file_paths::Data>),
+	Path(file_path_with_object::Data),
+	Object(object_with_file_paths::Data),
 }
 
 #[derive(Serialize, Deserialize, Type, Debug)]
@@ -40,12 +40,7 @@ pub struct ExplorerData {
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
 
-// TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
-pub(crate) fn mount() -> rspc::RouterBuilder<
-	Ctx,
-	(),
-	impl MiddlewareBuilderLike<Ctx, LayerContext = Ctx> + Send + 'static,
-> {
+pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 	<RouterBuilder>::new()
 		.library_query("list", |t| {
 			t(|_, _: (), library| async move {
@@ -147,7 +142,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 						})
 						.map_err(LocationError::IOError)?;
 					}
-					items.push(ExplorerItem::Path(Box::new(file_path)));
+					items.push(ExplorerItem::Path(file_path));
 				}
 
 				Ok(ExplorerData {
