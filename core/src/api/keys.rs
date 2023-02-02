@@ -327,28 +327,26 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				// let secret_key = args.secret_key.map(Protected::new);
-
-				// let verification_key = library
-				// 	.key_manager
-				// 	.change_master_password(
-				// 		args.password,
-				// 		args.algorithm,
-				// 		args.hashing_algorithm,
-				// 		args.secret_key,
-				// 	)
-				// 	.await?;
+				let verification_key = library
+					.key_manager
+					.change_master_password(
+						args.password,
+						args.algorithm,
+						args.hashing_algorithm,
+						library.id,
+					)
+					.await?;
 
 				// remove old nil-id keys if they were set
-				// library
-				// 	.db
-				// 	.key()
-				// 	.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
-				// 	.exec()
-				// 	.await?;
+				library
+					.db
+					.key()
+					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
+					.exec()
+					.await?;
 
-				// // write the new verification key
-				// write_storedkey_to_db(&library.db, &verification_key).await?;
+				// write the new verification key
+				write_storedkey_to_db(&library.db, &verification_key).await?;
 
 				Ok(())
 			})

@@ -171,6 +171,24 @@ impl KeyManager {
 		Ok(())
 	}
 
+	async fn keyring_insert(
+		&self,
+		library_uuid: Uuid,
+		usage: String,
+		value: Protected<String>,
+	) -> Result<()> {
+		self.get_keyring().await?.lock().await.insert(
+			Identifier {
+				application: APP_IDENTIFIER,
+				library_uuid: &library_uuid.to_string(),
+				usage: &usage,
+			},
+			value,
+		)?;
+
+		Ok(())
+	}
+
 	async fn get_keyring(&self) -> Result<Arc<Mutex<KeyringInterface>>> {
 		self.keyring
 			.as_ref()
@@ -234,7 +252,7 @@ impl KeyManager {
 		// can ignore false here as we want to silently error
 		if let Ok(keyring) = KeyringInterface::new() {
 			let identifier = Identifier {
-				application: "Spacedrive",
+				application: APP_IDENTIFIER,
 				library_uuid: &library_uuid.to_string(),
 				usage: SECRET_KEY_IDENTIFIER,
 			};
@@ -312,15 +330,17 @@ impl KeyManager {
 		master_password: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		secret_key: Protected<String>,
+		library_uuid: Uuid,
 	) -> Result<StoredKey> {
-		let secret_key = Self::convert_secret_key_string(secret_key);
+		let secret_key = generate_secret_key();
 		let content_salt = generate_salt();
+
+		dbg!(Self::format_secret_key(secret_key.clone()).expose());
 
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(master_password.expose().as_bytes().to_vec()),
 			content_salt,
-			Some(secret_key),
+			Some(secret_key.clone()),
 		)?;
 
 		let uuid = uuid::Uuid::nil();
@@ -354,6 +374,15 @@ impl KeyManager {
 			&[],
 		)
 		.await?;
+
+		// will update if it's already present
+		self.keyring_insert(
+			library_uuid,
+			SECRET_KEY_IDENTIFIER.to_string(),
+			Self::format_secret_key(secret_key),
+		)
+		.await
+		.ok();
 
 		let verification_key = StoredKey {
 			uuid,
