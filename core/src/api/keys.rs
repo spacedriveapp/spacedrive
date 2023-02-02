@@ -1,3 +1,4 @@
+use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 use std::{path::PathBuf, str::FromStr};
 use tokio::fs::File;
 
@@ -91,6 +92,16 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await
 					.is_ok())
 				// );
+			})
+		})
+		.library_query("getSecretKey", |t| {
+			t(|_, _: (), library| async move {
+				Ok(library
+					.key_manager
+					.keyring_retrieve(library.id, SECRET_KEY_IDENTIFIER.to_string())
+					.await?
+					.expose()
+					.clone())
 			})
 		})
 		.library_mutation("unmount", |t| {

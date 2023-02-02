@@ -171,7 +171,7 @@ impl KeyManager {
 		Ok(())
 	}
 
-	async fn keyring_retrieve(
+	pub async fn keyring_retrieve(
 		&self,
 		library_uuid: Uuid,
 		usage: String,
