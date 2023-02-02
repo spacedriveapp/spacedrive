@@ -14,7 +14,7 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 };
 
 const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
-	const { value, unit } = byteSize(bytes);
+	const { value, unit } = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 
 	const count = useCounter({ name: title, end: Number(value) });
 
