@@ -137,7 +137,6 @@ impl StreamEncryption {
 				};
 
 				let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
-
 				writer.write_all(&encrypted_data).await?;
 			} else {
 				// we use `..read_count` in order to only use the read data, and not zeroes also
@@ -148,7 +147,6 @@ impl StreamEncryption {
 
 				let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
 				writer.write_all(&encrypted_data).await?;
-
 				break;
 			}
 		}
@@ -266,7 +264,6 @@ impl StreamDecryption {
 				};
 
 				let decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
-
 				writer.write_all(&decrypted_data).await?;
 			} else {
 				let payload = Payload {
@@ -276,7 +273,6 @@ impl StreamDecryption {
 
 				let decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
 				writer.write_all(&decrypted_data).await?;
-
 				break;
 			}
 		}

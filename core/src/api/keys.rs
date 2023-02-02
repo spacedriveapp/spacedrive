@@ -87,7 +87,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				// Ok::<_, Error>(
 				Ok(library
 					.key_manager
-					.keyring_contains(library.id, "Secret key".to_string())
+					.keyring_contains_valid_secret_key(library.id)
 					.await
 					.is_ok())
 				// );

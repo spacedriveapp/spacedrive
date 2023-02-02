@@ -171,6 +171,48 @@ impl KeyManager {
 		Ok(())
 	}
 
+	async fn keyring_retrieve(
+		&self,
+		library_uuid: Uuid,
+		usage: String,
+	) -> Result<Protected<String>> {
+		let value = self
+			.get_keyring()
+			.await?
+			.lock()
+			.await
+			.retrieve(Identifier {
+				application: APP_IDENTIFIER,
+				library_uuid: &library_uuid.to_string(),
+				usage: &usage,
+			})?;
+
+		Ok(Protected::new(String::from_utf8(value.expose().to_vec())?))
+	}
+
+	/// This checks to see if the keyring is active, and if the keyring has a valid secret key.
+	///
+	/// For a secret key to be considered valid, it must be 18 bytes encoded in hex.
+	///
+	/// We can use this to detect if a secret key is technically present in the keyring, but not valid/has been tampered with.
+	pub async fn keyring_contains_valid_secret_key(&self, library_uuid: Uuid) -> Result<()> {
+		let secret_key = self
+			.keyring_retrieve(library_uuid, SECRET_KEY_IDENTIFIER.to_string())
+			.await?;
+
+		let mut secret_key_sanitized = secret_key.expose().clone();
+		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
+
+		if hex::decode(secret_key_sanitized)
+			.map_err(|_| Error::IncorrectPassword)?
+			.len() != 18
+		{
+			return Err(Error::IncorrectPassword);
+		}
+
+		Ok(())
+	}
+
 	async fn keyring_insert(
 		&self,
 		library_uuid: Uuid,
@@ -539,7 +581,7 @@ impl KeyManager {
 	pub async fn unlock<F>(
 		&self,
 		master_password: Protected<String>,
-		secret_key: Option<Protected<String>>,
+		provided_secret_key: Option<Protected<String>>,
 		library_uuid: Uuid,
 		invalidate: F,
 	) -> Result<()>
@@ -558,7 +600,7 @@ impl KeyManager {
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
-		let secret_key = if let Some(secret_key) = secret_key {
+		let secret_key = if let Some(secret_key) = provided_secret_key.clone() {
 			Self::convert_secret_key_string(secret_key)
 		} else {
 			self.get_keyring()
@@ -629,6 +671,17 @@ impl KeyManager {
 
 				self.remove_from_queue(uuid)?;
 			}
+		}
+
+		if let Some(secret_key) = provided_secret_key {
+			// converting twice ensures it's formatted correctly
+			self.keyring_insert(
+				library_uuid,
+				SECRET_KEY_IDENTIFIER.to_string(),
+				Self::format_secret_key(Self::convert_secret_key_string(secret_key)),
+			)
+			.await
+			.ok();
 		}
 
 		invalidate();
