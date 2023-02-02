@@ -3,6 +3,7 @@ import { HTMLAttributes } from 'react';
 import { ExplorerItem, isVideoExt } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
+import { ObjectKind } from '~/util/kind';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
@@ -27,11 +28,12 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isVid = isVideoExt(data.extension || '');
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = isVideoExt(data.item.extension || '');
+	const item = data.item;
 
 	return (
-		<FileItemContextMenu item={data}>
+		<FileItemContextMenu data={data}>
 			<div
 				onContextMenu={(e) => {
 					if (index != undefined) {
@@ -65,20 +67,20 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 								isVid && 'rounded border-x-0 border-y-[7px] !border-black'
 							)}
 							data={data}
-							kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+							kind={ObjectKind[objectData?.kind || 0]}
 							size={getExplorerStore().gridItemSize}
 						/>
-						{data?.extension && isVid && (
+						{item.extension && isVid && (
 							<div className="absolute bottom-4 right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
-								{data.extension}
+								{item.extension}
 							</div>
 						)}
 					</div>
 				</div>
 				<NameArea>
 					<span className={nameContainerStyles({ selected })}>
-						{data?.name}
-						{data?.extension && `.${data.extension}`}
+						{item.name}
+						{item.extension && `.${item.extension}`}
 					</span>
 				</NameArea>
 			</div>

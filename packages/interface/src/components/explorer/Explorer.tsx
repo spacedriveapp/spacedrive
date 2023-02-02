@@ -68,7 +68,7 @@ export default function Explorer(props: Props) {
 											};
 										});
 									}}
-									key={props.data?.items[expStore.selectedRowIndex]?.id}
+									key={props.data?.items[expStore.selectedRowIndex]?.item.id}
 									data={props.data?.items[expStore.selectedRowIndex]}
 								/>
 							</div>

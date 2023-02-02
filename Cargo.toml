@@ -34,7 +34,7 @@ specta = { version = "0.0.4" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
 
-tokio = { version = "1.24.2" }
+tokio = { version = "1.25.0" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
@@ -43,5 +43,3 @@ openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin is released
 normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" } # TODO: When normi is released on crates.io
-
-tokio = { git = "https://github.com/spacedriveapp/tokio", rev = "d3936848ccb32ac7df41614acfabe5139a6a7d75" } # TODO: move back once tokio raise their internal read buffer size (ENG-351 for more)

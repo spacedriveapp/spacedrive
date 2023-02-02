@@ -35,13 +35,11 @@ interface Props extends DefaultProps<HTMLDivElement> {
 	data?: ExplorerItem;
 }
 
-export const Inspector = (props: Props) => {
-	const { context, data, ...elementProps } = props;
+export const Inspector = ({ data, context, ...elementProps }: Props) => {
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const filePathData = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
 
-	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
-
-	const objectData = props.data ? (isObject(props.data) ? props.data : props.data.object) : null;
-	const isDir = props.data?.type === 'Path' ? props.data.is_dir : false;
+	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -50,7 +48,7 @@ export const Inspector = (props: Props) => {
 			setReadyToFetch(true);
 		}, 350);
 		return () => clearTimeout(timeout);
-	}, [props.data?.id]);
+	}, [data?.item.id]);
 
 	// this is causing LAG
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
@@ -61,12 +59,14 @@ export const Inspector = (props: Props) => {
 		enabled: readyToFetch && objectData?.id !== undefined
 	});
 
+	const item = data?.item;
+
 	return (
 		<div
 			{...elementProps}
 			className="custom-scroll inspector-scroll z-10 -mt-[50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
 		>
-			{!!props.data && (
+			{data && (
 				<>
 					<div
 						className={clsx(
@@ -79,13 +79,13 @@ export const Inspector = (props: Props) => {
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
 							className="flex flex-shrink flex-grow-0 bg-green-500"
-							data={props.data}
+							data={data}
 						/>
 					</div>
 					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border pt-0.5 pb-0.5">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
-							{props.data?.name}
-							{props.data?.extension && `.${props.data.extension}`}
+							{item?.name}
+							{item?.extension && `.${item.extension}`}
 						</h3>
 						{objectData && (
 							<div className="mx-3 mt-1 mb-0.5 flex flex-row space-x-0.5">
@@ -106,10 +106,10 @@ export const Inspector = (props: Props) => {
 							</div>
 						)}
 
-						{props.context?.type == 'Location' && props.data?.type === 'Path' && (
+						{context?.type == 'Location' && data?.type === 'Path' && (
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
-								<MetaValue>{`${props.context.local_path}/${props.data.materialized_path}`}</MetaValue>
+								<MetaValue>{`${context.local_path}/${data.item.materialized_path}`}</MetaValue>
 							</MetaContainer>
 						)}
 						<Divider />
@@ -117,7 +117,7 @@ export const Inspector = (props: Props) => {
 							<MetaContainer>
 								<div className="flex flex-wrap gap-1">
 									<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-									{props.data.extension && <InfoPill>{props.data.extension}</InfoPill>}
+									{item && <InfoPill>{item.extension}</InfoPill>}
 									{tags?.data?.map((tag) => (
 										<InfoPill
 											className="!text-white"
@@ -148,40 +148,40 @@ export const Inspector = (props: Props) => {
 						</MetaContainer>
 						<Divider />
 						<MetaContainer>
-							<Tooltip label={dayjs(props.data?.date_created).format('h:mm:ss a')}>
+							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Created</span>
-									<MetaValue>{dayjs(props.data?.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>{dayjs(item?.date_created).format('MMM Do YYYY')}</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
-							<Tooltip label={dayjs(props.data?.date_created).format('h:mm:ss a')}>
+							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
 									<span className="mr-1.5">Indexed</span>
-									<MetaValue>{dayjs(props.data?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>{dayjs(item?.date_indexed).format('MMM Do YYYY')}</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 						</MetaContainer>
 
-						{!is_dir && objectData && (
+						{!isDir && objectData && (
 							<>
 								<Note data={objectData} />
 								<Divider />
 								<MetaContainer>
-									<Tooltip label={objectData?.cas_id || ''}>
+									<Tooltip label={filePathData?.cas_id || ''}>
 										<MetaTextLine>
 											<InspectorIcon component={Snowflake} />
 											<span className="mr-1.5">Content ID</span>
-											<MetaValue>{objectData?.cas_id || ''}</MetaValue>
+											<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
 										</MetaTextLine>
 									</Tooltip>
-									{objectData?.integrity_checksum && (
-										<Tooltip label={objectData?.integrity_checksum || ''}>
+									{filePathData?.integrity_checksum && (
+										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
 												<span className="mr-1.5">Checksum</span>
-												<MetaValue>{objectData.integrity_checksum}</MetaValue>
+												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}

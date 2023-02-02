@@ -2,7 +2,7 @@ use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
-	prisma_sync,
+	sync,
 };
 
 use std::{
@@ -269,9 +269,9 @@ impl StatefulJob for IndexerJob {
 
 				(
 					(
-						prisma_sync::file_path::SyncId {
+						sync::file_path::SyncId {
 							id: entry.file_id,
-							location: prisma_sync::location::SyncId {
+							location: sync::location::SyncId {
 								pub_id: state.init.location.pub_id.clone(),
 							},
 						},
