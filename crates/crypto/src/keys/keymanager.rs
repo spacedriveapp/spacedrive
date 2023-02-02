@@ -131,7 +131,7 @@ impl KeyManager {
 	pub async fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
 		let keyring = KeyringInterface::new()
 			.map(|k| Arc::new(Mutex::new(k)))
-			.map_or(None, |x| Some(x));
+			.ok();
 
 		let keymanager = Self {
 			root_key: Mutex::new(None),
@@ -148,6 +148,7 @@ impl KeyManager {
 		Ok(keymanager)
 	}
 
+	#[allow(clippy::needless_pass_by_value)]
 	fn format_secret_key(secret_key: Protected<SecretKey>) -> Protected<String> {
 		let hex_string: String = hex::encode_upper(secret_key.expose())
 			.chars()
@@ -167,15 +168,11 @@ impl KeyManager {
 
 	// A returned error here should be treated as `false`
 	pub async fn keyring_contains(&self, library_uuid: Uuid, usage: String) -> Result<()> {
-		self.get_keyring()
-			.await?
-			.lock()
-			.await
-			.retrieve(Identifier {
-				application: APP_IDENTIFIER,
-				library_uuid: &library_uuid.to_string(),
-				usage: &usage,
-			})?;
+		self.get_keyring()?.lock().await.retrieve(Identifier {
+			application: APP_IDENTIFIER,
+			library_uuid: &library_uuid.to_string(),
+			usage: &usage,
+		})?;
 
 		Ok(())
 	}
@@ -185,18 +182,13 @@ impl KeyManager {
 		library_uuid: Uuid,
 		usage: String,
 	) -> Result<Protected<String>> {
-		let value = self
-			.get_keyring()
-			.await?
-			.lock()
-			.await
-			.retrieve(Identifier {
-				application: APP_IDENTIFIER,
-				library_uuid: &library_uuid.to_string(),
-				usage: &usage,
-			})?;
+		let value = self.get_keyring()?.lock().await.retrieve(Identifier {
+			application: APP_IDENTIFIER,
+			library_uuid: &library_uuid.to_string(),
+			usage: &usage,
+		})?;
 
-		Ok(Protected::new(String::from_utf8(value.expose().to_vec())?))
+		Ok(Protected::new(String::from_utf8(value.expose().clone())?))
 	}
 
 	/// This checks to see if the keyring is active, and if the keyring has a valid secret key.
@@ -228,7 +220,7 @@ impl KeyManager {
 		usage: String,
 		value: Protected<String>,
 	) -> Result<()> {
-		self.get_keyring().await?.lock().await.insert(
+		self.get_keyring()?.lock().await.insert(
 			Identifier {
 				application: APP_IDENTIFIER,
 				library_uuid: &library_uuid.to_string(),
@@ -240,7 +232,7 @@ impl KeyManager {
 		Ok(())
 	}
 
-	async fn get_keyring(&self) -> Result<Arc<Mutex<KeyringInterface>>> {
+	fn get_keyring(&self) -> Result<Arc<Mutex<KeyringInterface>>> {
 		self.keyring
 			.as_ref()
 			.map_or(Err(Error::KeyringNotSupported), |k| Ok(k.clone()))
@@ -609,8 +601,7 @@ impl KeyManager {
 		let secret_key = if let Some(secret_key) = provided_secret_key.clone() {
 			Self::convert_secret_key_string(secret_key)
 		} else {
-			self.get_keyring()
-				.await?
+			self.get_keyring()?
 				.lock()
 				.await
 				.retrieve(Identifier {
@@ -618,7 +609,7 @@ impl KeyManager {
 					library_uuid: &library_uuid.to_string(),
 					usage: SECRET_KEY_IDENTIFIER,
 				})
-				.map(|x| Protected::new(String::from_utf8(x.expose().to_vec()).unwrap()))
+				.map(|x| Protected::new(String::from_utf8(x.expose().clone()).unwrap()))
 				.map(Self::convert_secret_key_string)?
 		};
 
@@ -805,7 +796,7 @@ impl KeyManager {
 			)
 			.await?;
 
-			Ok(Protected::new(String::from_utf8(key.expose().to_vec())?))
+			Ok(Protected::new(String::from_utf8(key.expose().clone())?))
 		} else {
 			Err(Error::KeyNotFound)
 		}
@@ -904,7 +895,7 @@ impl KeyManager {
 
 		to_array(secret_key)
 			.ok()
-			.map_or(generate_secret_key(), Protected::new)
+			.map_or_else(generate_secret_key, Protected::new)
 	}
 
 	/// This function is for accessing the internal keymount.
