@@ -1,8 +1,8 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useMemo, useState } from 'react';
+import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
 import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
@@ -11,6 +11,7 @@ import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
 import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '~/components/key/KeyList';
 import { KeyMounter } from '~/components/key/KeyMounter';
+import { DefaultProps } from '~/components/primitive/types';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
@@ -74,11 +75,25 @@ export const KeyMounterDropdown = ({
 	);
 };
 
+export const SecretKeyView = (props: DefaultProps) => {
+	const keyringSk = useLibraryQuery(['keys.getSecretKey']);
+
+	if (keyringSk.data !== undefined) {
+		return (
+			<div className="flex flex-row">
+				<QRCode size={128} value={keyringSk.data} />
+				<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+			</div>
+		);
+	} else {
+		return <></>;
+	}
+};
+
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
-	const keyringSk = useLibraryQuery(['keys.getSecretKey']);
+	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true }); // asume true by default, as it will often be the case. need to fix this with an rspc subscription+such
 	const unlockKeyManagaer = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
@@ -96,7 +111,8 @@ export default function KeysSettings() {
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
-	const [secretKey, setSecretKey] = useState('');
+	const [secretKey, setSecretKey] = useState(''); // for the unlock form
+	const [viewSecretKey, setViewSecretKey] = useState(false); // for the settings page
 
 	const keys = useLibraryQuery(['keys.list']);
 
@@ -213,9 +229,14 @@ export default function KeysSettings() {
 					{keyringHasSk?.data && (
 						<>
 							<SettingsSubHeader title="Secret key" />
-							<div className="grid space-y-2">
-								<p className="font-medium">{keyringSk?.data}</p>
-							</div>
+							{!viewSecretKey && (
+								<div className="flex flex-row">
+									<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+										View Secret Key
+									</Button>
+								</div>
+							)}
+							{viewSecretKey && <SecretKeyView />}
 						</>
 					)}
 

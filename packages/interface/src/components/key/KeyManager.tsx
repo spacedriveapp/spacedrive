@@ -1,5 +1,5 @@
 import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
-import { memo, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
 import { showAlertDialog } from '~/util/dialog';
