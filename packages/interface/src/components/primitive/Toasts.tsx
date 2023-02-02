@@ -15,19 +15,19 @@ export function Toasts() {
 							onOpenChange={() => removeToast(toast)}
 							duration={toast.duration || 3000}
 							className={clsx(
-								'w-80 m-4 shadow-lg rounded-lg',
+								'm-4 w-80 rounded-lg shadow-lg',
 								'bg-app-box/20 backdrop-blur',
 								'radix-state-open:animate-toast-slide-in-bottom md:radix-state-open:animate-toast-slide-in-right',
 								'radix-state-closed:animate-toast-hide',
 								'radix-swipe-end:animate-toast-swipe-out',
 								'translate-x-radix-toast-swipe-move-x',
 								'radix-swipe-cancel:translate-x-0 radix-swipe-cancel:duration-200 radix-swipe-cancel:ease-[ease]',
-								'focus:outline-none focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75 border-white/10 border-2 shadow-2xl'
+								'focus-visible:ring-accent border-2 border-white/10 shadow-2xl focus:outline-none focus-visible:ring focus-visible:ring-opacity-75'
 							)}
 						>
 							<div className="flex">
-								<div className="flex items-center flex-1 w-0 py-4 pl-5">
-									<div className="w-full radix">
+								<div className="flex w-0 flex-1 items-center py-4 pl-5">
+									<div className="radix w-full">
 										<ToastPrimitive.Title className="text-sm font-medium text-black">
 											{toast.title}
 										</ToastPrimitive.Title>
@@ -39,12 +39,12 @@ export function Toasts() {
 									</div>
 								</div>
 								<div className="flex">
-									<div className="flex flex-col px-3 py-2 space-y-1">
-										<div className="flex flex-1 h-0">
+									<div className="flex flex-col space-y-1 px-3 py-2">
+										<div className="flex h-0 flex-1">
 											{toast.actionButton && (
 												<ToastPrimitive.Action
 													altText="view now"
-													className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium border border-transparent rounded-lg text-accent hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75"
+													className="text-accent focus-visible:ring-accent flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-opacity-75"
 													onClick={(e) => {
 														e.preventDefault();
 														toast.actionButton?.onClick();
@@ -55,8 +55,8 @@ export function Toasts() {
 												</ToastPrimitive.Action>
 											)}
 										</div>
-										<div className="flex flex-1 h-0">
-											<ToastPrimitive.Close className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium border border-transparent rounded-lg text-ink-faint hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75">
+										<div className="flex h-0 flex-1">
+											<ToastPrimitive.Close className="text-ink-faint focus-visible:ring-accent flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-opacity-75">
 												Dismiss
 											</ToastPrimitive.Close>
 										</div>

@@ -57,7 +57,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 						}}
 					>
 						<div
-							className="block w-[15px] h-[15px] mr-0.5 border rounded-full"
+							className="mr-0.5 block h-[15px] w-[15px] rounded-full border"
 							style={{
 								backgroundColor: active ? tag.color || '#efefef' : 'transparent' || '#efefef',
 								borderColor: tag.color || '#efefef'

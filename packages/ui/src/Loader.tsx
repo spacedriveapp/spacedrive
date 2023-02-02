@@ -8,7 +8,7 @@ export function Loader(props: { className?: string }) {
 			strokeOpacity={4}
 			strokeWidth={5}
 			speed={1}
-			className={clsx('w-7 h-7', props.className)}
+			className={clsx('h-7 w-7', props.className)}
 		/>
 	);
 }

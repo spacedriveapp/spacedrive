@@ -13,16 +13,16 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 	}
 
 	return (
-		<div className="container flex flex-col max-w-4xl gap-20 p-4 pt-32 m-auto mb-20 prose lg:prose-xs dark:prose-invert">
+		<div className="prose lg:prose-xs dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
 			<Helmet>
 				<title>Spacedrive Blog</title>
 				<meta name="description" content="Get the latest from Spacedrive." />
 			</Helmet>
 			<section>
-				<h1 className="m-0 fade-in-heading">Blog</h1>
+				<h1 className="fade-in-heading m-0">Blog</h1>
 				<p className="fade-in-heading animation-delay-1">Get the latest from Spacedrive.</p>
 			</section>
-			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1 fade-in will-change-transform animation-delay-2">
+			<section className="fade-in animation-delay-2 grid grid-cols-1 gap-4 will-change-transform sm:grid-cols-1 lg:grid-cols-1">
 				{posts.map((post) => {
 					return (
 						<div
@@ -30,24 +30,24 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 							onClick={() => {
 								window.location.href = `/blog/${post.slug}`;
 							}}
-							className="relative z-0 flex flex-col gap-2 mb-8 overflow-hidden transition-colors border border-gray-500 cursor-pointer rounded-xl"
+							className="relative z-0 mb-8 flex cursor-pointer flex-col gap-2 overflow-hidden rounded-xl border border-gray-500 transition-colors"
 						>
 							{post.feature_image && (
 								<img
 									src={post.feature_image}
 									alt=""
-									className="inset-0 object-cover w-full m-0 md:h-96 -z-10 rounded-t-xl"
+									className="inset-0 -z-10 m-0 w-full rounded-t-xl object-cover md:h-96"
 								/>
 							)}
 							<div className="p-8">
-								<h2 className="m-0 text2xl md:text-4xl">{post.title}</h2>
+								<h2 className="text2xl m-0 md:text-4xl">{post.title}</h2>
 								<small className="m-0">{post.reading_time} minute read.</small>
-								<p className="my-2 line-clamp-3">{post.excerpt}</p>
+								<p className="line-clamp-3 my-2">{post.excerpt}</p>
 								<p className="m-0 text-white">
 									by {post.primary_author?.name} &middot;{' '}
 									{new Date(post.published_at ?? '').toLocaleDateString()}
 								</p>
-								<div className="flex flex-wrap gap-2 mt-4">
+								<div className="mt-4 flex flex-wrap gap-2">
 									{post.tags?.map((tag: Tag) => (
 										<BlogTag key={tag.id} tag={tag} />
 									))}

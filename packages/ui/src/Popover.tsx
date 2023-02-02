@@ -41,11 +41,11 @@ export const Popover = ({
 						<div
 							className={clsx(
 								'flex flex-col',
-								'min-w-[11rem] z-50 m-2 space-y-1',
-								'select-none cursor-default rounded-lg',
-								'text-left text-sm text-ink',
+								'z-50 m-2 min-w-[11rem] space-y-1',
+								'cursor-default select-none rounded-lg',
+								'text-ink text-left text-sm',
 								'bg-app-overlay ',
-								'border border-app-line',
+								'border-app-line border',
 								'shadow-2xl shadow-black/60 ',
 								className
 							)}

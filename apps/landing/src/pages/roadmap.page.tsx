@@ -123,25 +123,25 @@ function Page() {
 				<title>Roadmap - Spacedrive</title>
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
-			<div className="container flex flex-col max-w-4xl gap-20 p-4 pt-32 m-auto mb-20 prose lg:prose-xs dark:prose-invert">
+			<div className="prose lg:prose-xs dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
 				<section className="flex flex-col items-center">
-					<img className="w-24 pointer-events-none" />
-					<h1 className="mb-0 text-5xl leading-snug text-center fade-in-heading">
+					<img className="pointer-events-none w-24" />
+					<h1 className="fade-in-heading mb-0 text-center text-5xl leading-snug">
 						What's next for Spacedrive?
 					</h1>
-					<p className="text-center text-gray-400 animation-delay-2 fade-in-heading">
+					<p className="animation-delay-2 fade-in-heading text-center text-gray-400">
 						Here is a list of the features we are working on, and the progress we have made so far.
 					</p>
 				</section>
-				<section className="grid grid-cols-[auto_1fr] grid-flow-row auto-cols-auto gap-x-4">
+				<section className="grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
 					{items.map((item, i) => (
 						<>
 							{/* Using span so i can use the group-last-of-type selector */}
-							<span className="max-w-[10rem] flex items-start first:items-start justify-end gap-4 group">
+							<span className="group flex max-w-[10rem] items-start justify-end gap-4 first:items-start">
 								<div className="flex flex-col items-end">
 									<h3
 										className={
-											`m-0 hidden lg:block text-right ` +
+											`m-0 hidden text-right lg:block ` +
 											(i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
 										}
 									>
@@ -149,17 +149,17 @@ function Page() {
 									</h3>
 									{item?.subtext && <span className="text-sm text-gray-300">{item?.subtext}</span>}
 								</div>
-								<div className="flex w-2 h-full group-first:rounded-t-full group-last-of-type:rounded-b-full lg:items-center group-first:mt-2">
+								<div className="flex h-full w-2 group-first:mt-2 group-first:rounded-t-full group-last-of-type:rounded-b-full lg:items-center">
 									<div
 										className={
-											'w-full h-full flex ' +
+											'flex h-full w-full ' +
 											(item.completed ? 'bg-primary-500 z-10' : 'bg-gray-550')
 										}
 									>
 										{item?.when !== undefined ? (
 											<div
 												className={clsx(
-													'absolute z-20 w-4 h-4 mt-5 -translate-y-1/2 border-2 border-gray-200 rounded-full group-first:mt-0 lg:mt-0 group-first:self-start -translate-x-1/4',
+													'absolute z-20 mt-5 h-4 w-4 -translate-y-1/2 -translate-x-1/4 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
 													items[i - 1]?.completed || i === 0 ? 'bg-primary-500 z-10' : 'bg-gray-550'
 												)}
 											>
@@ -171,11 +171,11 @@ function Page() {
 									</div>
 								</div>
 							</span>
-							<div className="flex flex-col items-start justify-center gap-4 group">
+							<div className="group flex flex-col items-start justify-center gap-4">
 								{item?.when && (
 									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
 								)}
-								<div className="flex flex-col w-full p-4 my-2 space-y-2 border border-gray-500 rounded-xl group-first-of-type:mt-0 group-last:mb-0">
+								<div className="my-2 flex w-full flex-col space-y-2 rounded-xl border border-gray-500 p-4 group-last:mb-0 group-first-of-type:mt-0">
 									<h3 className="m-0">{item.title}</h3>
 									<p>{item.description}</p>
 								</div>
@@ -183,7 +183,7 @@ function Page() {
 						</>
 					))}
 				</section>
-				<section className="p-8 space-y-2 bg-gray-850 rounded-xl">
+				<section className="bg-gray-850 space-y-2 rounded-xl p-8">
 					<h2 className="my-1">That's not all.</h2>
 					<p>
 						We're always open to ideas and feedback over{' '}

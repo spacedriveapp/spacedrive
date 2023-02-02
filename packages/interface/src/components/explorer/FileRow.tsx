@@ -22,7 +22,7 @@ function FileRow({ data, index, selected, ...props }: Props) {
 			{columns.map((col) => (
 				<div
 					key={col.key}
-					className="flex items-center px-4 py-2 pr-2 table-body-cell"
+					className="table-body-cell flex items-center px-4 py-2 pr-2"
 					style={{ width: col.width }}
 				>
 					<RenderCell data={data} colKey={col.key} />
@@ -40,7 +40,7 @@ const RenderCell: React.FC<{
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
-					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
+					<div className="mr-3 flex h-6 w-6 shrink-0 items-center justify-center">
 						<FileThumb data={data} size={0} />
 					</div>
 					{/* {colKey == 'name' &&
@@ -55,13 +55,13 @@ const RenderCell: React.FC<{
                   return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
               }
             })()} */}
-					<span className="text-xs truncate">{data[colKey]}</span>
+					<span className="truncate text-xs">{data[colKey]}</span>
 				</div>
 			);
 		// case 'size_in_bytes':
 		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
 		case 'extension':
-			return <span className="text-xs text-left">{data[colKey]}</span>;
+			return <span className="text-left text-xs">{data[colKey]}</span>;
 		// case 'meta_integrity_hash':
 		//   return <span className="truncate">{value}</span>;
 		// case 'tags':

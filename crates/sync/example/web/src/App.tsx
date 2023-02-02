@@ -13,8 +13,8 @@ export function App() {
 	const testCreate = rspc.useMutation('testCreate');
 
 	return (
-		<div className="w-screen h-screen flex flex-row divide-x divide-gray-300">
-			<div className="p-2 space-y-2 flex flex-col">
+		<div className="flex h-screen w-screen flex-row divide-x divide-gray-300">
+			<div className="flex flex-col space-y-2 p-2">
 				<div className="space-x-2">
 					<button className={ButtonStyles} onClick={() => createDb.mutate('pullOperations')}>
 						Add Database
@@ -29,7 +29,7 @@ export function App() {
 				<ul className="w-full">
 					{Object.entries(tests).map(([key, test]) => (
 						<li key={key}>
-							<button className="p-2 bg-green-300" onClick={() => test.run()}>
+							<button className="bg-green-300 p-2" onClick={() => test.run()}>
 								{test.name}
 							</button>
 						</li>
@@ -37,7 +37,7 @@ export function App() {
 				</ul>
 			</div>
 			<div className="flex-1">
-				<ul className="p-2 gap-2 flex flex-row flex-wrap">
+				<ul className="flex flex-row flex-wrap gap-2 p-2">
 					{dbs.data?.map((id) => (
 						<Suspense fallback={null} key={id}>
 							<DatabaseView id={id} />
@@ -45,11 +45,11 @@ export function App() {
 					))}
 				</ul>
 			</div>
-			<div className="w-96 p-2 flex flex-col items-stretch">
-				<h1 className="text-center font-bold text-2xl">All Operations</h1>
+			<div className="flex w-96 flex-col items-stretch p-2">
+				<h1 className="text-center text-2xl font-bold">All Operations</h1>
 				<ul className="space-y-2">
 					{operations.data?.map((op) => (
-						<li key={op.id} className="bg-indigo-200 rounded-md p-2">
+						<li key={op.id} className="rounded-md bg-indigo-200 p-2">
 							<p className="truncate">ID: {op.id}</p>
 							<p className="truncate">Timestamp: {op.timestamp.toString()}</p>
 							<p className="truncate">Node: {op.node}</p>
@@ -72,8 +72,8 @@ function DatabaseView(props: DatabaseViewProps) {
 	const pullOperations = rspc.useMutation('pullOperations');
 
 	return (
-		<div className="bg-indigo-300 rounded-md min-w-[32rem] flex-1 overflow-hidden">
-			<div className="flex flex-row justify-between items-center mx-2">
+		<div className="min-w-[32rem] flex-1 overflow-hidden rounded-md bg-indigo-300">
+			<div className="mx-2 flex flex-row items-center justify-between">
 				<h1 className="p-2 text-xl font-medium">{props.id}</h1>
 				<button className={ButtonStyles} onClick={() => pullOperations.mutate(props.id)}>
 					Pull Operations
@@ -136,7 +136,7 @@ function OperationList(props: { db: string }) {
 	return (
 		<div>
 			{messages.data && (
-				<table className="font-mono border-spacing-x-4 border-separate">
+				<table className="border-separate border-spacing-x-4 font-mono">
 					{messages.data
 						.sort((a, b) => Number(a.timestamp - b.timestamp))
 						.map((message) => (

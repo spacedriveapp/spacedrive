@@ -19,10 +19,10 @@ export function AppLayout() {
 		<div
 			className={clsx(
 				// App level styles
-				'flex h-screen overflow-hidden text-ink select-none cursor-default',
-				os === 'browser' && 'bg-app border-t border-app-line/50',
-				os === 'macOS' && 'rounded-[10px] has-blur-effects',
-				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
+				'text-ink flex h-screen cursor-default select-none overflow-hidden',
+				os === 'browser' && 'bg-app border-app-line/50 border-t',
+				os === 'macOS' && 'has-blur-effects rounded-[10px]',
+				os !== 'browser' && os !== 'windows' && 'border-app-frame border'
 			)}
 			onContextMenu={(e) => {
 				// TODO: allow this on some UI text at least / disable default browser context menu
@@ -32,7 +32,7 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full">
-				<Suspense fallback={<div className="w-screen h-screen bg-app" />}>
+				<Suspense fallback={<div className="bg-app h-screen w-screen" />}>
 					<Outlet />
 				</Suspense>
 			</div>

@@ -54,8 +54,8 @@ export const KeyMounterDropdown = ({
 									className={clsx(
 										'flex flex-col',
 										'z-50 m-2 space-y-1',
-										'select-none cursor-default rounded-lg',
-										'text-left text-sm text-ink',
+										'cursor-default select-none rounded-lg',
+										'text-ink text-left text-sm',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -101,8 +101,8 @@ export default function KeysSettings() {
 
 	if (!hasMasterPw?.data) {
 		return (
-			<div className="p-2 mr-20 ml-20 mt-10">
-				<div className="relative flex flex-grow mb-2">
+			<div className="mr-20 ml-20 mt-10 p-2">
+				<div className="relative mb-2 flex flex-grow">
 					<Input
 						value={masterPassword}
 						onChange={(e) => setMasterPassword(e.target.value)}
@@ -114,13 +114,13 @@ export default function KeysSettings() {
 					<Button
 						onClick={() => setShowMasterPassword(!showMasterPassword)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<MPCurrentEyeIcon className="w-4 h-4" />
+						<MPCurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 
-				<div className="relative flex flex-grow mb-2">
+				<div className="relative mb-2 flex flex-grow">
 					<Input
 						value={secretKey}
 						onChange={(e) => setSecretKey(e.target.value)}
@@ -131,9 +131,9 @@ export default function KeysSettings() {
 					<Button
 						onClick={() => setShowSecretKey(!showSecretKey)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
+						<SKCurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 
@@ -172,12 +172,12 @@ export default function KeysSettings() {
 									variant="outline"
 									className="text-ink-faint"
 								>
-									<Lock className="w-4 h-4 text-ink-faint" />
+									<Lock className="text-ink-faint h-4 w-4" />
 								</Button>
 								<KeyMounterDropdown
 									trigger={
 										<Button size="icon" variant="outline" className="text-ink-faint">
-											<Plus className="w-4 h-4 text-ink-faint" />
+											<Plus className="text-ink-faint h-4 w-4" />
 										</Button>
 									}
 								>

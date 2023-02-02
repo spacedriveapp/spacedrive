@@ -52,9 +52,9 @@ export function TeamMember(props: TeamMemberProps) {
 				alt={`Portrait of ${props.name}`}
 				width={size}
 				height={size}
-				className={clsx('inline-flex m-0 rounded-md', {
-					'w-32 h-32 !xs:w-36 !xs:h-36 !sm:w-40 !sm:h-40': !props.investmentRound,
-					'lg:w-28 lg:h-28': props.investmentRound
+				className={clsx('m-0 inline-flex rounded-md', {
+					'!xs:w-36 !xs:h-36 !sm:w-40 !sm:h-40 h-32 w-32': !props.investmentRound,
+					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
 			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
@@ -66,27 +66,27 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.role}
 			</p>
 			{props.investmentRound && (
-				<p className="mt-0 mb-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
+				<p className="text-gray-450 mt-0 mb-0 text-sm font-semibold">{props.investmentRound}</p>
 			)}
-			<div className="flex flex-row mt-auto space-x-2">
+			<div className="mt-auto flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<Twitter className="w-[20px] h-[20px]" />
+						<Twitter className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<Github className="w-[20px] h-[20px]" />
+						<Github className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<Twitch className="w-[20px] h-[20px]" />
+						<Twitch className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
-						<Dribbble className="w-[20px] h-[20px]" />
+						<Dribbble className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 			</div>

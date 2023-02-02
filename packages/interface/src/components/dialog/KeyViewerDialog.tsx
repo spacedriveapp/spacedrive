@@ -69,7 +69,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 				setContentSalt={setContentSalt}
 			/>
 
-			<div className="grid w-full gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -83,7 +83,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 					</Select>
 				</div>
 			</div>
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -108,9 +108,9 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 					</Select>
 				</div>
 			</div>
-			<div className="grid w-full gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
-					<span className="text-xs font-bold mb-2">Content Salt (hex)</span>
+					<span className="mb-2 text-xs font-bold">Content Salt (hex)</span>
 					<div className="relative flex flex-grow">
 						<Input value={contentSalt} disabled className="flex-grow !py-0.5" />
 						<Button
@@ -119,16 +119,16 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 								navigator.clipboard.writeText(contentSalt);
 							}}
 							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
+							className="absolute right-[5px] top-[5px] border-none"
 						>
-							<Clipboard className="w-4 h-4" />
+							<Clipboard className="h-4 w-4" />
 						</Button>
 					</div>
 				</div>
 			</div>
-			<div className="grid w-full gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
-					<span className="text-xs font-bold mb-2">Key Value</span>
+					<span className="mb-2 text-xs font-bold">Key Value</span>
 					<div className="relative flex flex-grow">
 						<Input value={keyValue} disabled className="flex-grow !py-0.5" />
 						<Button
@@ -137,9 +137,9 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 								navigator.clipboard.writeText(keyValue);
 							}}
 							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
+							className="absolute right-[5px] top-[5px] border-none"
 						>
-							<Clipboard className="w-4 h-4" />
+							<Clipboard className="h-4 w-4" />
 						</Button>
 					</div>
 				</div>

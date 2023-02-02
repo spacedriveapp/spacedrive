@@ -23,12 +23,12 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 		<div className="px-4 py-10 sm:px-10">
 			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
 			{props.description && (
-				<p className="mt-5 text-md sm:text-xl text-gray-450">{props.description}</p>
+				<p className="text-md text-gray-450 mt-5 sm:text-xl">{props.description}</p>
 			)}
 		</div>
 	);
 	return (
-		<div className={clsx('grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44', props.className)}>
+		<div className={clsx('my-10 grid grid-cols-1 lg:my-44 lg:grid-cols-2', props.className)}>
 			{props.orientation === 'right' ? (
 				<>
 					{info}
@@ -80,7 +80,7 @@ function Page() {
 	}, []);
 
 	return (
-		<div className="flex flex-col items-center w-full px-4">
+		<div className="flex w-full flex-col items-center px-4">
 			<Helmet>
 				<title>Spacedrive — A file manager from the future.</title>
 				<meta
@@ -107,18 +107,18 @@ function Page() {
 			{unsubscribedFromWaitlist && (
 				<div
 					className={
-						'-mt-8 flex flex-row items-center bg-opacity-20 border-2 my-2 px-2 rounded-md bg-green-800 border-green-900'
+						'my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800 bg-opacity-20 px-2'
 					}
 				>
-					<Info className="w-5 mr-1 fill-green-500" />
+					<Info className="mr-1 w-5 fill-green-500" />
 					<p className={'text-sm text-green-500'}>You have been unsubscribed from the waitlist</p>
 				</div>
 			)}
 
-			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center text-white fade-in-heading md:text-6xl">
+			<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-6xl">
 				A file explorer from the future.
 			</h1>
-			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
+			<p className="animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 z-30 mt-1 mb-8 max-w-4xl text-center lg:text-lg lg:leading-8">
 				Combine your drives and clouds into one database that you can organize and explore from any
 				device.
 				<br />
@@ -140,7 +140,7 @@ function Page() {
 						<br />
 						<br />
 						<a
-							className="transition text-primary-600 hover:text-primary-500"
+							className="text-primary-600 hover:text-primary-500 transition"
 							href="/docs/product/getting-started/introduction"
 						>
 							Find out more →

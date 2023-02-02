@@ -34,7 +34,7 @@ export default function LocationExplorer() {
 	]);
 
 	return (
-		<div className="relative flex flex-col w-full">
+		<div className="relative flex w-full flex-col">
 			<Explorer data={explorerData.data} />
 		</div>
 	);

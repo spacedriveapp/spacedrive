@@ -29,7 +29,7 @@ function Page({ post }: { post: PostOrPage }) {
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} />
 			</Helmet>
-			<div className="container max-w-4xl p-4 m-auto mb-20 prose pt-14 lg:prose-xs dark:prose-invert">
+			<div className="prose lg:prose-xs dark:prose-invert container m-auto mb-20 max-w-4xl p-4 pt-14">
 				{post && (
 					<>
 						<figure>
@@ -38,9 +38,9 @@ function Page({ post }: { post: PostOrPage }) {
 							></figcaption>
 							<img src={featured_image} alt="" className="mt-8 rounded-xl" />
 						</figure>
-						<section className="flex flex-wrap gap-4 px-8 -mx-8 rounded-xl">
+						<section className="-mx-8 flex flex-wrap gap-4 rounded-xl px-8">
 							<div className="flex-grow">
-								<h1 className="m-0 text-2xl leading-snug sm:leading-normal sm:text-4xl">
+								<h1 className="m-0 text-2xl leading-snug sm:text-4xl sm:leading-normal">
 									{post?.title}
 								</h1>
 								<p className="m-0 mt-2">

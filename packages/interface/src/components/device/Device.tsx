@@ -32,47 +32,47 @@ export function Device(props: DeviceProps) {
 	}
 
 	return (
-		<div className="w-full border rounded-md border-app-divider bg-app">
+		<div className="border-app-divider bg-app w-full rounded-md border">
 			<div className="flex flex-row items-center px-4 pt-2 pb-2">
 				<DotsSixVertical weight="bold" className="mr-3 opacity-30" />
 				{props.type === 'phone' && <DeviceMobileCamera weight="fill" size={20} className="mr-2" />}
 				{props.type === 'laptop' && <Laptop weight="fill" size={20} className="mr-2" />}
 				{props.type === 'desktop' && <Desktop weight="fill" size={20} className="mr-2" />}
 				{props.type === 'server' && <Cloud weight="fill" size={20} className="mr-2" />}
-				<h3 className="font-semibold text-md">{props.name || 'Unnamed Device'}</h3>
-				<div className="flex flex-row space-x-1.5 mt-0.5">
-					<span className="font-semibold flex flex-row h-[19px] -mt-0.5 ml-3 py-0.5 px-1.5 text-[10px] rounded text-type-faint">
-						<Lock weight="bold" className="w-3 h-3 mr-1 -ml-0.5 m-[1px]" />
+				<h3 className="text-md font-semibold">{props.name || 'Unnamed Device'}</h3>
+				<div className="mt-0.5 flex flex-row space-x-1.5">
+					<span className="text-type-faint -mt-0.5 ml-3 flex h-[19px] flex-row rounded py-0.5 px-1.5 text-[10px] font-semibold">
+						<Lock weight="bold" className="m-[1px] mr-1 -ml-0.5 h-3 w-3" />
 						P2P
 					</span>
 				</div>
-				<span className="font-semibold py-0.5 px-1.5 text-sm ml-2  ">{props.size}</span>
+				<span className="ml-2 py-0.5 px-1.5 text-sm font-semibold  ">{props.size}</span>
 				<div className="flex flex-grow" />
 				{props.runningJob && (
-					<div className="flex flex-row ml-5 bg-opacity-50 rounded-md ">
+					<div className="ml-5 flex flex-row rounded-md bg-opacity-50 ">
 						<Loader />
 						<div className="flex flex-col p-2">
-							<span className="mb-[2px] -mt-1 truncate text-tiny">{props.runningJob.task}...</span>
+							<span className="text-tiny mb-[2px] -mt-1 truncate">{props.runningJob.task}...</span>
 							<ProgressBar value={props.runningJob?.amount} total={100} />
 						</div>
 					</div>
 				)}
-				<div className="flex flex-row ml-3 space-x-1">
+				<div className="ml-3 flex flex-row space-x-1">
 					<Tooltip label="Encrypt">
 						<Button className="!p-1 ">
-							<Key weight="bold" className="w-5 h-5" />
+							<Key weight="bold" className="h-5 w-5" />
 						</Button>
 					</Tooltip>
 					<Tooltip label="Settings">
 						<Button className="!p-1 ">
-							<Gear weight="bold" className="w-5 h-5" />
+							<Gear weight="bold" className="h-5 w-5" />
 						</Button>
 					</Tooltip>
 				</div>
 			</div>
-			<div className="px-4 pb-3 mt-3">
+			<div className="mt-3 px-4 pb-3">
 				{props.locations.length === 0 && (
-					<div className="w-full my-5 text-center">No locations</div>
+					<div className="my-5 w-full text-center">No locations</div>
 				)}
 			</div>
 		</div>

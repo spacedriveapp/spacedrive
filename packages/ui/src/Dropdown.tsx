@@ -66,7 +66,7 @@ export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
 			{children}
 			<span className="flex-grow" />
 			<CaretDown
-				className="w-[12px] text-ink-dull transition-transform ui-open:rotate-180 ui-open:-translate-y-[1px] translate-y-[1px]"
+				className="text-ink-dull ui-open:rotate-180 ui-open:-translate-y-[1px] w-[12px] translate-y-[1px] transition-transform"
 				aria-hidden="true"
 			/>
 		</UI.Button>
@@ -98,7 +98,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute z-50 min-w-fit w-full border divide-y divide-menu-line rounded-md shadow-xl shadow-menu-shade/30 top-full focus:outline-none bg-menu border-menu-line text-menu-ink',
+							'divide-menu-line shadow-menu-shade/30 bg-menu border-menu-line text-menu-ink absolute top-full z-50 w-full min-w-fit divide-y rounded-md border shadow-xl focus:outline-none',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

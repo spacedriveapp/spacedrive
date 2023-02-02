@@ -25,7 +25,7 @@ export default function App({
 
 				<>
 					<NavBar />
-					<div className="dark dark:bg-black dark:text-white z-10 max-w-[100rem] m-auto">
+					<div className="dark z-10 m-auto max-w-[100rem] dark:bg-black dark:text-white">
 						{children}
 					</div>
 					<Footer />

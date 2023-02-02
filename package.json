@@ -40,6 +40,7 @@
 		"lint-staged": "^13.1.0",
 		"markdown-link-check": "^3.10.3",
 		"prettier": "^2.8.3",
+		"prettier-plugin-tailwindcss": "^0.2.2",
 		"rimraf": "^4.1.1",
 		"turbo": "^1.5.5",
 		"turbo-ignore": "^0.3.0",

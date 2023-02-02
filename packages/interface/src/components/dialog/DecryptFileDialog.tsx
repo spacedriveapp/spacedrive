@@ -94,7 +94,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 				className="mt-2"
 			>
 				<span className="text-xs font-bold">Key Type</span>
-				<div className="flex flex-row gap-2 mt-2">
+				<div className="mt-2 flex flex-row gap-2">
 					<RadioGroup.Option disabled={!hasMountedKeys} value="key">
 						{({ checked }) => (
 							<Button
@@ -119,9 +119,9 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 
 			{form.watch('type') === 'password' && (
 				<>
-					<div className="relative flex flex-grow mt-3 mb-2">
+					<div className="relative mt-3 mb-2 flex flex-grow">
 						<Input
-							className={`flex-grow w-max !py-0.5`}
+							className={`w-max flex-grow !py-0.5`}
 							placeholder="Password"
 							type={show.password ? 'text' : 'password'}
 							{...form.register('password', { required: true })}
@@ -129,14 +129,14 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 						<Button
 							onClick={() => setShow((old) => ({ ...old, password: !old.password }))}
 							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
+							className="absolute right-[5px] top-[5px] border-none"
 							type="button"
 						>
-							<PasswordCurrentEyeIcon className="w-4 h-4" />
+							<PasswordCurrentEyeIcon className="h-4 w-4" />
 						</Button>
 					</div>
 
-					<div className="relative flex flex-grow mt-3 mb-2">
+					<div className="relative mt-3 mb-2 flex flex-grow">
 						<div className="space-x-2">
 							<Switch
 								className="bg-app-selected"
@@ -144,22 +144,22 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 								{...form.register('saveToKeyManager')}
 							/>
 						</div>
-						<span className="ml-3 text-xs font-medium mt-0.5">Save to Key Manager</span>
+						<span className="ml-3 mt-0.5 text-xs font-medium">Save to Key Manager</span>
 						<Tooltip label="This key will be saved to the key manager">
-							<Info className="w-4 h-4 ml-1.5 text-ink-faint mt-0.5" />
+							<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
 						</Tooltip>
 					</div>
 				</>
 			)}
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Output file</span>
 
 					<Button
 						size="sm"
 						variant={form.watch('outputPath') !== '' ? 'accent' : 'gray'}
-						className="h-[23px] text-xs leading-3 mt-2"
+						className="mt-2 h-[23px] text-xs leading-3"
 						type="button"
 						onClick={() => {
 							// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead

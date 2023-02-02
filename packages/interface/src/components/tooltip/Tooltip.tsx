@@ -21,7 +21,7 @@ export const Tooltip = ({
 				</TooltipPrimitive.Trigger>
 				<TooltipPrimitive.Content
 					side={position}
-					className="text-xs max-w-[200px] z-50 text-center rounded px-2 py-1 mb-[2px] bg-gray-300 dark:!bg-gray-900 dark:text-gray-100"
+					className="z-50 mb-[2px] max-w-[200px] rounded bg-gray-300 px-2 py-1 text-center text-xs dark:!bg-gray-900 dark:text-gray-100"
 				>
 					<TooltipPrimitive.Arrow className="fill-gray-300 dark:!fill-gray-900" />
 					{label}

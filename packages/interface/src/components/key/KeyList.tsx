@@ -65,8 +65,8 @@ export const KeyList = (props: KeyListProps) => {
 	const unmountAll = useLibraryMutation(['keys.unmountAll']);
 
 	return (
-		<div className="flex flex-col h-full max-h-[360px]">
-			<div className="p-3 custom-scroll overlay-scroll">
+		<div className="flex h-full max-h-[360px] flex-col">
+			<div className="custom-scroll overlay-scroll p-3">
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
@@ -74,7 +74,7 @@ export const KeyList = (props: KeyListProps) => {
 					</div>
 				</div>
 			</div>
-			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
+			<div className="border-app-line flex w-full rounded-b-md border-t p-2">
 				<Button
 					size="sm"
 					variant="gray"

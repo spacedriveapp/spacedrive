@@ -101,7 +101,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 				{...searchField}
 			/>
 
-			<div className={clsx('space-x-1 absolute right-1 peer-focus:invisible pointer-events-none')}>
+			<div className={clsx('pointer-events-none absolute right-1 space-x-1 peer-focus:invisible')}>
 				{platform === 'browser' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (
@@ -188,7 +188,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'flex h-[46px] max-w z-20 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'max-w bg-app duration-250 z-20 flex h-[46px] flex-shrink-0 items-center overflow-hidden border-b border-transparent pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
@@ -211,8 +211,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
 
-				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
-					<div className="flex mx-8">
+				<div data-tauri-drag-region className="flex flex-grow flex-row justify-center">
+					<div className="mx-8 flex">
 						<Tooltip label="Grid view">
 							<TopBarButton
 								rounding="left"
@@ -263,7 +263,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 					<SearchBar ref={searchRef} />
 
-					<div className="flex mx-8 space-x-2">
+					<div className="mx-8 flex space-x-2">
 						<Tooltip label="Key Manager">
 							<Popover
 								className="focus:outline-none"
@@ -303,7 +303,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						</Tooltip>
 					</div>
 				</div>
-				<div className="flex mr-3 space-x-2">
+				<div className="mr-3 flex space-x-2">
 					<Tooltip label="File display options" position="left">
 						<Popover
 							className="focus:outline-none"

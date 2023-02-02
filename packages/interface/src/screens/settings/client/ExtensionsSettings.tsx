@@ -65,7 +65,7 @@ export default function ExtensionSettings() {
 				description="Install extensions to extend the functionality of this client."
 				rightArea={
 					<div className="relative mt-6">
-						<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
+						<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
 						<Input className="w-56 !p-0.5 !pl-9" placeholder="Search extensions" />
 					</div>
 				}

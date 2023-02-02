@@ -105,25 +105,25 @@ export function JobsManager() {
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll']);
 
 	return (
-		<div className="h-full pb-10 overflow-hidden">
+		<div className="h-full overflow-hidden pb-10">
 			<HeaderContainer>
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="flex-grow" />
 
 				<Button onClick={() => clearAllJobs.mutate(null)} size="icon">
 					<Tooltip label="Clear out finished jobs">
-						<Trash className="w-5 h-5" />
+						<Trash className="h-5 w-5" />
 					</Tooltip>
 				</Button>
 				<PopoverClose asChild>
 					<Button size="icon">
 						<Tooltip label="Close">
-							<X className="w-5 h-5" />
+							<X className="h-5 w-5" />
 						</Tooltip>
 					</Button>
 				</PopoverClose>
 			</HeaderContainer>
-			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
+			<div className="custom-scroll inspector-scroll mr-1 h-full overflow-x-hidden">
 				<div className="">
 					<div className="py-1">
 						{runningJobs.data?.map((job) => (
@@ -133,7 +133,7 @@ export function JobsManager() {
 							<Job key={job.id} job={job} />
 						))}
 						{jobs.data?.length === 0 && runningJobs.data?.length === 0 && (
-							<div className="flex items-center justify-center h-32 text-ink-dull">No jobs.</div>
+							<div className="text-ink-dull flex h-32 items-center justify-center">No jobs.</div>
 						)}
 					</div>
 				</div>
@@ -149,20 +149,20 @@ function Job({ job }: { job: JobReport }) {
 	};
 	const isRunning = job.status === 'Running';
 	return (
-		<div className="flex items-center px-2 py-2 pl-4 border-b border-app-line/50 bg-opacity-60">
+		<div className="border-app-line/50 flex items-center border-b bg-opacity-60 px-2 py-2 pl-4">
 			<Tooltip label={job.status}>
-				<niceData.icon className={clsx('w-5 h-5 mr-3')} />
+				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
 			</Tooltip>
 			<div className="flex flex-col truncate">
-				<span className="mt-0.5 font-semibold truncate">
+				<span className="mt-0.5 truncate font-semibold">
 					{isRunning ? job.message : niceData.name}
 				</span>
 				{isRunning && (
-					<div className="w-full my-1">
+					<div className="my-1 w-full">
 						<ProgressBar value={job.completed_task_count} total={job.task_count} />
 					</div>
 				)}
-				<div className="flex items-center truncate text-ink-faint">
+				<div className="text-ink-faint flex items-center truncate">
 					<span className="text-xs">
 						{isRunning ? 'Elapsed' : job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
 						{job.seconds_elapsed
@@ -179,11 +179,11 @@ function Job({ job }: { job: JobReport }) {
 				{/* <span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span> */}
 			</div>
 			<div className="flex-grow" />
-			<div className="flex flex-row space-x-2 ml-7">
+			<div className="ml-7 flex flex-row space-x-2">
 				{job.status === 'Running' && (
 					<Button size="icon">
 						<Tooltip label="Pause">
-							<Pause className="w-4 h-4" />
+							<Pause className="h-4 w-4" />
 						</Tooltip>
 					</Button>
 				)}
@@ -196,7 +196,7 @@ function Job({ job }: { job: JobReport }) {
 				)}
 				<Button size="icon">
 					<Tooltip label="Remove">
-						<X className="w-4 h-4" />
+						<X className="h-4 w-4" />
 					</Tooltip>
 				</Button>
 			</div>

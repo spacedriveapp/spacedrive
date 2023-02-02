@@ -1,1 +1,1 @@
-export const Divider = () => <div className="w-full my-1 h-[1px] bg-app-line/60" />;
+export const Divider = () => <div className="bg-app-line/60 my-1 h-[1px] w-full" />;

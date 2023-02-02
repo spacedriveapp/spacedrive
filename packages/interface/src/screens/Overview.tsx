@@ -83,7 +83,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default ',
+				'flex w-32 flex-shrink-0 transform cursor-default flex-col rounded-md px-4 py-3 duration-75 ',
 				!+bytes && 'hidden'
 			)}
 		>
@@ -128,15 +128,15 @@ export default function OverviewScreen() {
 	);
 
 	return (
-		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-background">
-			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
+		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
+			<div data-tauri-drag-region className="flex h-5 w-full flex-shrink-0" />
 			{/* PAGE */}
 
-			<div className="flex flex-col w-full h-screen px-4">
+			<div className="flex h-screen w-full flex-col px-4">
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
-					<div className="flex -mb-1 overflow-hidden">
+					<div className="-mb-1 flex overflow-hidden">
 						{Object.entries(overviewStats || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 
@@ -152,7 +152,7 @@ export default function OverviewScreen() {
 					</div>
 
 					<div className="flex-grow" />
-					<div className="flex items-center h-full space-x-2">
+					<div className="flex h-full items-center space-x-2">
 						<div>
 							{/* <Dialog
 								title="Add Device"
@@ -184,13 +184,13 @@ export default function OverviewScreen() {
 						</div>
 					</div>
 				</div>
-				<div className="flex flex-col pb-4 mt-4 space-y-4">
+				<div className="mt-4 flex flex-col space-y-4 pb-4">
 					{/* <Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" /> */}
 					{/* <Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
 					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
 					<Debug />
 				</div>
-				<div className="flex flex-shrink-0 w-full h-4" />
+				<div className="flex h-4 w-full flex-shrink-0" />
 			</div>
 		</div>
 	);

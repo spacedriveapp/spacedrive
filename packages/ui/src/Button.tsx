@@ -69,7 +69,7 @@ export const Button = forwardRef<
 >(({ className, ...props }, ref) => {
 	className = cx(styles(props), className);
 	return hasHref(props) ? (
-		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
+		<a {...props} ref={ref as any} className={cx(className, 'inline-block no-underline')} />
 	) : (
 		<button type="button" {...(props as ButtonProps)} ref={ref as any} className={className} />
 	);

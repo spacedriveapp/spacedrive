@@ -25,8 +25,8 @@ export const PasswordMeter = (props: { password: string }) => {
 	};
 
 	return (
-		<div className="mt-4 mb-5 relative flex flex-grow">
-			<div className="mt-2 w-4/5 h-[5px] rounded-[80px]">
+		<div className="relative mt-4 mb-5 flex flex-grow">
+			<div className="mt-2 h-[5px] w-4/5 rounded-[80px]">
 				<div
 					style={innerDiv}
 					className={clsx(
@@ -40,7 +40,7 @@ export const PasswordMeter = (props: { password: string }) => {
 			</div>
 			<span
 				className={clsx(
-					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
+					'absolute right-[5px] pr-1 pl-1 text-sm font-[750]',
 					zx.score === 0 && 'text-red-700',
 					zx.score === 1 && 'text-red-500',
 					zx.score === 2 && 'text-amber-400',

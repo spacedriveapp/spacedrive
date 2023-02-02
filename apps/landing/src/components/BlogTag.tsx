@@ -7,7 +7,7 @@ export interface BlogTagProps {
 export const BlogTag = (props: BlogTagProps) => {
 	return (
 		<span
-			className={`px-2 py-0.5 rounded-md text-gray-500 text-sm  bg-gray-550`}
+			className={`bg-gray-550 rounded-md px-2 py-0.5 text-sm  text-gray-500`}
 			style={{
 				backgroundColor: props.tag.accent_color + '' ?? '',
 				color: parseInt(props.tag.accent_color?.slice(1) ?? '', 16) > 0xffffff / 2 ? '#000' : '#fff'

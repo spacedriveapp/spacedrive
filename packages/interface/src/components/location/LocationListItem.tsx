@@ -22,24 +22,24 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	return (
 		<Card>
 			<Folder size={30} className="mr-3" />
-			<div className="grid grid-cols-1 min-w-[110px]">
+			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 text-sm truncate  select-text text-ink-dull">
-					<span className="py-[1px] px-1 bg-app-selected rounded mr-1">{location.node.name}</span>
+				<p className="text-ink-dull mt-0.5 select-text  truncate text-sm">
+					<span className="bg-app-selected mr-1 rounded py-[1px] px-1">{location.node.name}</span>
 					{location.local_path}
 				</p>
 			</div>
 			<div className="flex flex-grow" />
-			<div className="flex h-[45px] p-2 space-x-2">
+			<div className="flex h-[45px] space-x-2 p-2">
 				{/* This is a fake button, do not add disabled prop pls */}
-				<Button variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
+				<Button variant="gray" className="pointer-events-none flex !py-1.5 !px-2">
 					<div
 						className={clsx(
-							'w-2 h-2  rounded-full',
+							'h-2 w-2  rounded-full',
 							location.is_online ? 'bg-green-500' : 'bg-red-500'
 						)}
 					/>
-					<span className="ml-1.5 text-xs text-ink-dull">
+					<span className="text-ink-dull ml-1.5 text-xs">
 						{location.is_online ? 'Online' : 'Offline'}
 					</span>
 				</Button>
@@ -57,7 +57,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					}}
 				>
 					<Tooltip label="Delete Location">
-						<Trash className="w-4 h-4" />
+						<Trash className="h-4 w-4" />
 					</Tooltip>
 				</Button>
 				<Button
@@ -69,7 +69,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					}}
 				>
 					<Tooltip label="Rescan Location">
-						<Repeat className="w-4 h-4" />
+						<Repeat className="h-4 w-4" />
 					</Tooltip>
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">

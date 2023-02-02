@@ -21,6 +21,6 @@ module.exports = {
 	],
 	importOrderSortSpecifiers: true,
 	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
-	pluginSearchDirs: ['.'],
-	plugins: ['@trivago/prettier-plugin-sort-imports']
+	pluginSearchDirs: false,
+	plugins: ['@trivago/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss']
 };
