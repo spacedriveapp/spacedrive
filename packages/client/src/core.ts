@@ -50,8 +50,8 @@ export type Procedures = {
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: string } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unlockKeyManager", input: LibraryArgs<UnlockKeyManagerArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 

@@ -4,7 +4,6 @@ use crate::{
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
@@ -12,7 +11,6 @@ use std::path::PathBuf;
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -27,8 +25,14 @@ pub enum ExplorerContext {
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(file_path_with_object::Data),
-	Object(object_with_file_paths::Data),
+	Path {
+		has_thumbnail: bool,
+		item: file_path_with_object::Data,
+	},
+	Object {
+		has_thumbnail: bool,
+		item: object_with_file_paths::Data,
+	},
 }
 
 #[derive(Serialize, Deserialize, Type, Debug)]
@@ -125,24 +129,21 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 				// 	.await;
 
 				let mut items = Vec::with_capacity(file_paths.len());
-				for mut file_path in file_paths {
-					if let Some(object) = &mut file_path.object.as_mut() {
-						// TODO: Use helper function to build this url as as the Rust file loading layer
-						let thumb_path = library
-							.config()
-							.data_directory()
-							.join(THUMBNAIL_CACHE_DIR_NAME)
-							.join(&object.cas_id)
-							.with_extension("webp");
 
-						object.has_thumbnail = (match fs::metadata(thumb_path).await {
-							Ok(_) => Ok(true),
-							Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
-							Err(e) => Err(e),
-						})
-						.map_err(LocationError::IOError)?;
-					}
-					items.push(ExplorerItem::Path(file_path));
+				for file_path in file_paths {
+					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
+						library
+							.thumbnail_exists(cas_id)
+							.await
+							.map_err(LocationError::IOError)?
+					} else {
+						false
+					};
+
+					items.push(ExplorerItem::Path {
+						has_thumbnail,
+						item: file_path,
+					});
 				}
 
 				Ok(ExplorerData {

@@ -76,7 +76,7 @@ export const KeyMounterDropdown = ({
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',

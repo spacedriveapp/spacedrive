@@ -209,14 +209,14 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 }
 
 export interface FileItemContextMenuProps extends PropsWithChildren {
-	item: ExplorerItem;
+	data: ExplorerItem;
 }
 
-export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
+export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const platform = usePlatform();
-	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
 	const hasMasterPassword =
@@ -262,7 +262,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					onClick={(e) => {
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
-							source_path_id: props.item.id,
+							source_path_id: data.item.id,
 							target_location_id: store.locationId!,
 							target_path: params.path,
 							target_file_name_suffix: ' - Clone'
@@ -276,8 +276,8 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					onClick={(e) => {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
-							sourcePathId: props.item.id,
-							actionType: 'Cut',
+							sourcePathId: data.item.id,
+							actionType: CutCopyType.Cut,
 							active: true
 						};
 					}}
@@ -290,8 +290,8 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					onClick={(e) => {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
-							sourcePathId: props.item.id,
-							actionType: 'Copy',
+							sourcePathId: data.item.id,
+							actionType: CutCopyType.Copy,
 							active: true
 						};
 					}}
@@ -342,8 +342,8 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 								dialogManager.create((dp) => (
 									<EncryptFileDialog
 										{...dp}
-										location_id={useExplorerStore().locationId!}
-										path_id={props.item.id}
+										location_id={store.locationId!}
+										path_id={data.item.id}
 									/>
 								));
 							} else if (!hasMasterPassword) {
@@ -370,7 +370,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 									<DecryptFileDialog
 										{...dp}
 										location_id={useExplorerStore().locationId!}
-										path_id={props.item.id}
+										path_id={data.item.id}
 									/>
 								));
 							} else {
@@ -397,7 +397,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 								<EraseFileDialog
 									{...dp}
 									location_id={getExplorerStore().locationId!}
-									path_id={props.item.id}
+									path_id={data.item.id}
 								/>
 							));
 						}}
@@ -416,7 +416,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 							<DeleteFileDialog
 								{...dp}
 								location_id={getExplorerStore().locationId!}
-								path_id={props.item.id}
+								path_id={data.item.id}
 							/>
 						));
 					}}

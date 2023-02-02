@@ -33,6 +33,8 @@ specta = { version = "0.0.6" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
 
+tokio = { version = "1.25.0" }
+
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }

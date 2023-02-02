@@ -27,9 +27,10 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
-		KEY_LEN, SALT_LEN,
+		derive_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key, Salt,
+		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
+	protected::ProtectedVec,
 	Error, Protected, Result,
 };
 
@@ -41,9 +42,9 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN], // the salt used for deriving a KEK from a (key/content salt) hash
-	pub content_salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
+	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
+	pub content_salt: Salt,
+	pub master_key: EncryptedKey, // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
 
@@ -64,25 +65,28 @@ impl Keyslot {
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(
+	pub async fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		content_salt: [u8; SALT_LEN],
-		hashed_key: Protected<[u8; KEY_LEN]>,
-		master_key: Protected<[u8; KEY_LEN]>,
+		content_salt: Salt,
+		hashed_key: Protected<Key>,
+		master_key: Protected<Key>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
 		let salt = generate_salt();
 
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
-			&nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+			StreamEncryption::encrypt_bytes(
+				derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
+				&nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		Ok(Self {
 			version,
@@ -101,7 +105,7 @@ impl Keyslot {
 	///
 	/// An error will be returned on failure.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
+	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<ProtectedVec<u8>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password, self.content_salt, None)
@@ -114,6 +118,7 @@ impl Keyslot {
 			&self.master_key,
 			&[],
 		)
+		.await
 	}
 
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
@@ -123,10 +128,10 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key_from_prehashed(
+	pub async fn decrypt_master_key_from_prehashed(
 		&self,
-		key: Protected<[u8; KEY_LEN]>,
-	) -> Result<Protected<Vec<u8>>> {
+		key: Protected<Key>,
+	) -> Result<ProtectedVec<u8>> {
 		StreamDecryption::decrypt_bytes(
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
@@ -134,6 +139,7 @@ impl Keyslot {
 			&self.master_key,
 			&[],
 		)
+		.await
 	}
 
 	/// This function is used to serialize a keyslot into bytes

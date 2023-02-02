@@ -1,7 +1,6 @@
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
 import { ExplorerItem } from '@sd/client';
-import { useExplorerStore } from '~/stores/explorerStore';
 import { isObject, isPath } from '~/types/helper';
 // import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
@@ -27,28 +26,26 @@ const FileThumbWrapper = ({ children, size = 1 }) => (
 );
 
 export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
-	const explorerStore = useExplorerStore();
-
 	// const Icon = useMemo(() => {
 	// 	const Icon = icons[data.extension];
 	// 	return Icon;
 	// }, [data.extension]);
 
-	if (isPath(data) && data.is_dir)
+	if (isPath(data) && data.item.is_dir)
 		return (
 			<FileThumbWrapper size={size}>
 				<FolderIcon size={70 * size} />
 			</FileThumbWrapper>
 		);
 
-	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
+	const cas_id = isObject(data) ? data.item.file_paths[0].cas_id : data.item.cas_id;
 	if (!cas_id) return undefined;
 
 	// Icon
 	let icon = undefined;
 	if (kind === 'Archive') icon = require('@sd/assets/images/Archive.png');
 	else if (kind === 'Video') icon = require('@sd/assets/images/Video.png');
-	else if (kind === 'Document' && data.extension === 'pdf')
+	else if (kind === 'Document' && data.item.extension === 'pdf')
 		icon = require('@sd/assets/images/Document_pdf.png');
 	else if (kind === 'Executable') icon = require('@sd/assets/images/Executable.png');
 
@@ -60,17 +57,10 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 		);
 	}
 
-	// Thumbnail
-	const has_thumbnail = isObject(data)
-		? data.has_thumbnail
-		: isPath(data)
-		? data.object?.has_thumbnail
-		: !!explorerStore.newThumbnails[cas_id];
-
 	const url = getThumbnailUrlById(cas_id);
 
 	// TODO: Not styled yet
-	if (has_thumbnail && url) {
+	if (data.has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
 				<Image source={{ uri: url }} resizeMode="contain" style={tw`w-full h-full`} />
