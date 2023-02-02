@@ -61,7 +61,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	const { library } = useCurrentLibrary();
 	const { title, bytes = BigInt('0'), isLoading } = props;
 
-	const size = byteSize(bytes);
+	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 	const count = useCounter({
 		name: title,
 		end: +size.value,
