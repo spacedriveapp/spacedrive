@@ -51,6 +51,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 			// Disable panning gestures
 			enableHandlePanningGesture={false}
 			enableContentPanningGesture={false}
+			showCloseButton
 		>
 			<View style={tw`p-4`}>
 				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1`}>Name</Text>

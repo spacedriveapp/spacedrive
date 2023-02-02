@@ -1,6 +1,10 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { loggerLink } from '@rspc/client';
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import duration from 'dayjs/plugin/duration';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -21,6 +25,10 @@ import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
+
+dayjs.extend(advancedFormat);
+dayjs.extend(relativeTime);
+dayjs.extend(duration);
 
 const NavigatorTheme: Theme = {
 	...DefaultTheme,

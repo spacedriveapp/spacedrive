@@ -9,7 +9,7 @@ import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
-import { useInspectorModalStore } from '~/stores/modalStore';
+import { useActionsModalStore } from '~/stores/modalStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
@@ -28,7 +28,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 		getExplorerStore().layoutMode = kind;
 	}
 
-	const { modalRef, setData } = useInspectorModalStore();
+	const { modalRef, setData } = useActionsModalStore();
 
 	function handlePress(item: ExplorerItem) {
 		if (isPath(item) && item.is_dir) {

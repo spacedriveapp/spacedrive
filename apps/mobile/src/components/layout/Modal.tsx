@@ -19,7 +19,7 @@ const ModalBackdrop = (props: BottomSheetBackdropProps) => (
 );
 
 interface ModalHandle extends BottomSheetHandleProps {
-	hideCloseButton: boolean;
+	showCloseButton: boolean;
 	modalRef: React.RefObject<BottomSheetModal>;
 }
 
@@ -29,7 +29,7 @@ const ModalHandle = (props: ModalHandle) => (
 		style={tw`bg-app rounded-t-2xl items-end`}
 		indicatorStyle={tw`bg-app-highlight/60`}
 	>
-		{!props.hideCloseButton && (
+		{props.showCloseButton && (
 			<Pressable
 				onPress={() => props.modalRef.current.close()}
 				style={tw`absolute top-5 right-4 w-7 h-7 items-center justify-center bg-app-button rounded-full`}
@@ -45,11 +45,11 @@ export type ModalRef = BottomSheetModal;
 interface ModalProps extends BottomSheetModalProps {
 	children: React.ReactNode;
 	title?: string;
-	hideCloseButton?: boolean;
+	showCloseButton?: boolean;
 }
 
 export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
-	const { children, title, hideCloseButton = false, ...otherProps } = props;
+	const { children, title, showCloseButton = false, ...otherProps } = props;
 
 	const modalRef = useForwardedRef(ref);
 
@@ -58,7 +58,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			ref={modalRef}
 			backgroundStyle={tw`bg-app`}
 			backdropComponent={ModalBackdrop}
-			handleComponent={(props) => ModalHandle({ modalRef, hideCloseButton, ...props })}
+			handleComponent={(props) => ModalHandle({ modalRef, showCloseButton, ...props })}
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-ink font-medium text-base text-center`}>{title}</Text>}
@@ -107,7 +107,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 				ref={modalRef}
 				backgroundStyle={tw`bg-app`}
 				backdropComponent={ModalBackdrop}
-				handleComponent={(props) => ModalHandle({ modalRef, hideCloseButton: true, ...props })}
+				handleComponent={(props) => ModalHandle({ modalRef, showCloseButton: false, ...props })}
 				snapPoints={props.snapPoints ?? ['25%']}
 			>
 				{/* Title */}

@@ -3,14 +3,14 @@ import { proxy, ref, useSnapshot } from 'valtio';
 import { ExplorerItem } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 
-export const inspectorModalStore = proxy({
+export const actionsModalStore = proxy({
 	modalRef: ref(createRef<ModalRef>()),
 	data: null as ExplorerItem | null,
 	setData: (data: ExplorerItem) => {
-		inspectorModalStore.data = data;
+		actionsModalStore.data = data;
 	}
 });
 
-export function useInspectorModalStore() {
-	return useSnapshot(inspectorModalStore);
+export function useActionsModalStore() {
+	return useSnapshot(actionsModalStore);
 }

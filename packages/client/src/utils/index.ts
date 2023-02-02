@@ -2,6 +2,7 @@ import { ExplorerItem } from '../core';
 
 export * from './isVideoExt';
 export * from './kind';
+export * from './formatBytes';
 
 export function isPath(item: ExplorerItem): item is Extract<ExplorerItem, { type: 'Path' }> {
 	return item.type === 'Path';

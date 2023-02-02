@@ -51,6 +51,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			// Disable panning gestures
 			enableHandlePanningGesture={false}
 			enableContentPanningGesture={false}
+			showCloseButton
 		>
 			<View style={tw`p-4`}>
 				<View style={tw`flex flex-row items-center mt-4`}>

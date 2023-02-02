@@ -148,7 +148,7 @@
 			buildPhases = (
 				BC1F37E21575379C81F561DC /* [CP] Check Pods Manifest.lock */,
 				FD10A7F022414F080027D42C /* Start Packager */,
-				350DC403297BF2B8009CD6A1 /* Build sd-core-ios */,
+				350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
@@ -224,7 +224,7 @@
 			shellPath = /bin/sh;
 			shellScript = "export NODE_BINARY=node\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\n`node --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";
 		};
-		350DC403297BF2B8009CD6A1 /* Build sd-core-ios */ = {
+		350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -234,7 +234,7 @@
 			);
 			inputPaths = (
 			);
-			name = "Build sd-core-ios";
+			name = "Build Spacedrive Core";
 			outputFileListPaths = (
 			);
 			outputPaths = (

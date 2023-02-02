@@ -3,7 +3,14 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Link, Lock, Snowflake } from 'phosphor-react';
 import { useEffect, useState } from 'react';
-import { ExplorerContext, ExplorerItem, ObjectKind, isObject, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerContext,
+	ExplorerItem,
+	ObjectKind,
+	formatBytes,
+	isObject,
+	useLibraryQuery
+} from '@sd/client';
 import { Button, tw } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -190,15 +197,3 @@ export const Inspector = (props: Props) => {
 		</div>
 	);
 };
-
-function formatBytes(bytes: number, decimals = 2) {
-	if (bytes === 0) return '0 Bytes';
-
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
