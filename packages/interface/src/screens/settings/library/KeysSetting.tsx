@@ -1,7 +1,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
-import { PropsWithChildren, useMemo, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
 import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
@@ -80,7 +80,13 @@ export const SecretKeyView = (props: DefaultProps) => {
 
 	if (keyringSk.data !== undefined) {
 		return (
-			<div className="flex flex-row">
+			<div
+				className="flex flex-row"
+				onClick={() => {
+					console.log(keyringSk.data);
+					navigator.clipboard.writeText(keyringSk.data);
+				}}
+			>
 				<QRCode size={128} value={keyringSk.data} />
 				<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
 			</div>
