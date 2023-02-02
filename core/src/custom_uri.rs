@@ -292,7 +292,7 @@ impl HandleCustomUriError {
 				.header("Content-Type", "text/plain")
 				.status(StatusCode::NOT_FOUND)
 				.body(
-					format!("Resource '{}' not found", resource)
+					format!("Resource '{resource}' not found")
 						.as_bytes()
 						.to_vec(),
 				),
