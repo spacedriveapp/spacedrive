@@ -1,7 +1,8 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useMemo, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
@@ -76,7 +77,7 @@ export const KeyMounterDropdown = ({
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey']);
+	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
 	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
@@ -85,6 +86,7 @@ export default function KeysSettings() {
 			});
 		}
 	});
+
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
@@ -100,7 +102,7 @@ export default function KeysSettings() {
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
-	const [enterSkManually, setEnterSkManually] = useState(keyringHasSk?.data);
+	const [enterSkManually, setEnterSkManually] = useState(!keyringHasSk?.data);
 
 	if (!isUnlocked?.data) {
 		return (
@@ -122,25 +124,24 @@ export default function KeysSettings() {
 						<MPCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
-
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={secretKey}
-						onChange={(e) => setSecretKey(e.target.value)}
-						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Secret Key"
-						hidden={!enterSkManually}
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-						hidden={!enterSkManually}
-					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+				{enterSkManually && (
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Secret Key"
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
+				)}
 
 				<Button
 					className="w-full"
@@ -157,17 +158,18 @@ export default function KeysSettings() {
 				>
 					Unlock
 				</Button>
-				<div className="relative flex flex-grow">
-					<p
-						className="text-accent mt-2"
-						onClick={(e) => {
-							setEnterSkManually(true);
-						}}
-						hidden={enterSkManually}
-					>
-						or enter secret key manually
-					</p>
-				</div>
+				{!enterSkManually && (
+					<div className="relative flex flex-grow">
+						<p
+							className="text-accent mt-2"
+							onClick={(e) => {
+								setEnterSkManually(true);
+							}}
+						>
+							or enter secret key manually
+						</p>
+					</div>
+				)}
 			</div>
 		);
 	} else {
