@@ -93,6 +93,8 @@ pub async fn seed_keymanager(
 				uuid,
 				version: serde_json::from_str(&key.version)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
+				key_type: serde_json::from_str(&key.key_type)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
 				algorithm: serde_json::from_str(&key.algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
 				content_salt: to_array(key.content_salt)?,

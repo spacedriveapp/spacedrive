@@ -54,6 +54,7 @@ pub async fn write_storedkey_to_db(
 			.create(
 				key.uuid.to_string(),
 				serde_json::to_string(&key.version)?,
+				serde_json::to_string(&key.key_type)?,
 				serde_json::to_string(&key.algorithm)?,
 				serde_json::to_string(&key.hashing_algorithm)?,
 				key.content_salt.to_vec(),

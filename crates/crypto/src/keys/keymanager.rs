@@ -70,8 +70,9 @@ use super::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct StoredKey {
-	pub uuid: uuid::Uuid, // uuid for identification. shared with mounted keys
+	pub uuid: Uuid, // uuid for identification. shared with mounted keys
 	pub version: StoredKeyVersion,
+	pub key_type: StoredKeyType,
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
 	pub content_salt: Salt,
@@ -83,6 +84,14 @@ pub struct StoredKey {
 	pub salt: Salt,
 	pub memory_only: bool,
 	pub automount: bool,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub enum StoredKeyType {
+	User,
+	Root,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -260,7 +269,6 @@ impl KeyManager {
 		)?;
 
 		let salt = generate_salt();
-		let uuid = uuid::Uuid::nil();
 
 		// Generate items we'll need for encryption
 		let master_key = generate_master_key();
@@ -305,8 +313,9 @@ impl KeyManager {
 		}
 
 		let verification_key = StoredKey {
-			uuid,
+			uuid: Uuid::new_v4(),
 			version: LATEST_STORED_KEY,
+			key_type: StoredKeyType::Root,
 			algorithm,
 			hashing_algorithm,
 			content_salt, // salt used for hashing
@@ -333,7 +342,7 @@ impl KeyManager {
 				continue;
 			}
 
-			if key.uuid.is_nil() {
+			if key.key_type == StoredKeyType::Root {
 				*self.verification_key.lock().await = Some(key);
 			} else {
 				self.keystore.insert(key.uuid, key);
@@ -385,8 +394,6 @@ impl KeyManager {
 			Some(secret_key.clone()),
 		)?;
 
-		let uuid = uuid::Uuid::nil();
-
 		// Generate items we'll need for encryption
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
@@ -427,8 +434,9 @@ impl KeyManager {
 		.ok();
 
 		let verification_key = StoredKey {
-			uuid,
+			uuid: Uuid::new_v4(),
 			version: LATEST_STORED_KEY,
+			key_type: StoredKeyType::Root,
 			algorithm,
 			hashing_algorithm,
 			content_salt,
@@ -464,7 +472,7 @@ impl KeyManager {
 		let keys: Vec<StoredKey> = stored_keys
 			.iter()
 			.filter_map(|key| {
-				if key.uuid.is_nil() {
+				if key.key_type == StoredKeyType::Root {
 					old_verification_key = Some(key.clone());
 					None
 				} else {
@@ -588,17 +596,15 @@ impl KeyManager {
 	where
 		F: Fn() + Send,
 	{
-		let uuid = Uuid::nil();
-
-		if self.is_unlocked().await? {
-			return Err(Error::KeyAlreadyMounted);
-		} else if self.is_queued(uuid) {
-			return Err(Error::KeyAlreadyQueued);
-		}
-
 		let verification_key = (*self.verification_key.lock().await)
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
+
+		if self.is_unlocked().await? {
+			return Err(Error::KeyAlreadyMounted);
+		} else if self.is_queued(verification_key.uuid) {
+			return Err(Error::KeyAlreadyQueued);
+		}
 
 		let secret_key = if let Some(secret_key) = provided_secret_key.clone() {
 			Self::convert_secret_key_string(secret_key)
@@ -616,7 +622,7 @@ impl KeyManager {
 				.map(Self::convert_secret_key_string)?
 		};
 
-		self.mounting_queue.insert(uuid);
+		self.mounting_queue.insert(verification_key.uuid);
 		invalidate();
 
 		match verification_key.version {
@@ -629,7 +635,7 @@ impl KeyManager {
 						Some(secret_key),
 					)
 					.map_err(|e| {
-						self.remove_from_queue(uuid).ok();
+						self.remove_from_queue(verification_key.uuid).ok();
 						e
 					})?;
 
@@ -646,7 +652,7 @@ impl KeyManager {
 				)
 				.await
 				.map_err(|_| {
-					self.remove_from_queue(uuid).ok();
+					self.remove_from_queue(verification_key.uuid).ok();
 					Error::IncorrectKeymanagerDetails
 				})?;
 
@@ -664,12 +670,12 @@ impl KeyManager {
 						.clone(),
 					)
 					.map_err(|e| {
-						self.remove_from_queue(uuid).ok();
+						self.remove_from_queue(verification_key.uuid).ok();
 						e
 					})?,
 				));
 
-				self.remove_from_queue(uuid)?;
+				self.remove_from_queue(verification_key.uuid)?;
 			}
 		}
 
@@ -826,7 +832,7 @@ impl KeyManager {
 		automount: bool,
 		content_salt: Option<Salt>,
 	) -> Result<Uuid> {
-		let uuid = uuid::Uuid::new_v4();
+		let uuid = Uuid::new_v4();
 
 		// Generate items we'll need for encryption
 		let key_nonce = generate_nonce(algorithm);
@@ -866,6 +872,7 @@ impl KeyManager {
 			StoredKey {
 				uuid,
 				version: LATEST_STORED_KEY,
+				key_type: StoredKeyType::User,
 				algorithm,
 				hashing_algorithm,
 				content_salt,
@@ -1053,6 +1060,12 @@ impl KeyManager {
 
 	pub fn is_queued(&self, uuid: Uuid) -> bool {
 		self.mounting_queue.contains(&uuid)
+	}
+
+	pub async fn is_unlocking(&self) -> Result<bool> {
+		Ok(self
+			.mounting_queue
+			.contains(&self.get_verification_key().await?.uuid))
 	}
 
 	pub fn remove_from_queue(&self, uuid: Uuid) -> Result<()> {

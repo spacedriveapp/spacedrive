@@ -11,7 +11,7 @@ export type Procedures = {
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string } | 
-        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean | null } | 
         { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.keyringHasSecretKey", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
@@ -183,7 +183,9 @@ export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 
-export interface StoredKey { uuid: string, version: StoredKeyVersion, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, salt: Array<number>, memory_only: boolean, automount: boolean }
+export interface StoredKey { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, salt: Array<number>, memory_only: boolean, automount: boolean }
+
+export type StoredKeyType = "User" | "Root"
 
 export type StoredKeyVersion = "V1"
 

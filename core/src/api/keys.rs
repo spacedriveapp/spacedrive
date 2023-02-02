@@ -2,7 +2,7 @@ use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 use std::{path::PathBuf, str::FromStr};
 use tokio::fs::File;
 
-use sd_crypto::keys::keymanager::StoredKey;
+use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 use serde::Deserialize;
 use specta::Type;
@@ -239,7 +239,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, _: (), library| async move { library.key_manager.get_default().await.ok() })
 		})
 		.library_query("isKeyManagerUnlocking", |t| {
-			t(|_, _: (), library| async move { library.key_manager.is_queued(Uuid::nil()) })
+			t(|_, _: (), library| async move { library.key_manager.is_unlocking().await.ok() })
 		})
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
@@ -352,7 +352,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.key()
-					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
+					.delete_many(vec![key::key_type::equals(
+						serde_json::to_string(&StoredKeyType::Root).unwrap(),
+					)])
 					.exec()
 					.await?;
 
