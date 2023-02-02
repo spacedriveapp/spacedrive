@@ -2,16 +2,22 @@ use crate::{library::LibraryContext, prisma::volume::*};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,
-	pub total_capacity: String, // TODO: Change back to `u64` when rspc supports bigints
-	pub available_capacity: String, // TODO: Change back to `u64` when rspc supports bigints
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
+	pub total_capacity: u64,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
+	pub available_capacity: u64,
 	pub is_removable: bool,
 	pub disk_type: Option<String>,
 	pub file_system: Option<String>,
@@ -122,8 +128,8 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				name,
 				is_root_filesystem: mount_point == "/",
 				mount_point,
-				total_capacity: total_capacity.to_string(),
-				available_capacity: available_capacity.to_string(),
+				total_capacity: total_capacity,
+				available_capacity: available_capacity,
 				is_removable,
 				disk_type: Some(disk_type),
 				file_system: Some(file_system),

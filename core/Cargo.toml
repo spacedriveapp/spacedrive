@@ -71,6 +71,7 @@ uhlc = "0.5.1"
 http = "0.2.8"
 http-range = "0.1.5"
 mini-moka = "0.10.0"
+serde_with = "2.2.0"
 
 [dev-dependencies]
 tempfile = "^3.3.0"

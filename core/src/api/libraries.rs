@@ -38,12 +38,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut total_capacity: u64 = 0;
 				if volumes.is_ok() {
 					for volume in volumes? {
-						total_capacity += volume.total_capacity.parse::<u64>().expect(
-							"Volume total capacity is not a valid u64. This should be impossible!",
-						);
-						available_capacity += volume.available_capacity.parse::<u64>().expect(
-							"Volume total capacity is not a valid u64. This should be impossible!",
-						);
+						total_capacity += volume.total_capacity;
+						available_capacity += volume.available_capacity;
 					}
 				}
 

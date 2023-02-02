@@ -311,7 +311,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
 
-				Ok(updated_keys.len().to_string()) // We convert to string because `usize` is a bigint type and rspc doesn't support bigints.
+				Ok(TryInto::<u32>::try_into(updated_keys.len()).unwrap()) // We convert from `usize` (bigint type) to `u32` (number type) because rspc doesn't support bigints.
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {

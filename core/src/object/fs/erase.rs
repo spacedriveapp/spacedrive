@@ -3,6 +3,7 @@ use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, Wo
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::{trace, warn};
@@ -11,12 +12,13 @@ use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileEraserJob {}
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
-	// TODO: `usize` is classed as a BigInt type and is not support by rspc currently hence we skip it.
-	#[serde(skip)]
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub passes: usize,
 }
 

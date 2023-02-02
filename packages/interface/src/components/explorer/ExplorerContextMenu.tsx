@@ -26,7 +26,7 @@ import {
 } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import { dialogManager } from '@sd/ui';
-import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
 import { usePlatform } from '~/util/Platform';
@@ -241,7 +241,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						window.location.href = platform.getFileUrl(
 							getLibraryIdRaw()!,
 							store.locationId!,
-							props.item.id
+							data.item.id
 						);
 					}}
 					icon={Copy}
@@ -277,7 +277,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
-							actionType: CutCopyType.Cut,
+							actionType: 'Cut',
 							active: true
 						};
 					}}
@@ -291,7 +291,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
-							actionType: CutCopyType.Copy,
+							actionType: 'Copy',
 							active: true
 						};
 					}}

@@ -11,7 +11,7 @@ import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;
-	bytes: string;
+	bytes: bigint;
 	isLoading: boolean;
 }
 
@@ -59,9 +59,9 @@ onLibraryChange((newLibraryId) => {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
 	const { library } = useCurrentLibrary();
-	const { title, bytes = '0', isLoading } = props;
+	const { title, bytes = BigInt('0'), isLoading } = props;
 
-	const size = byteSize(+bytes);
+	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
 		end: +size.value,
@@ -84,7 +84,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 		<div
 			className={clsx(
 				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default ',
-				!+bytes && 'hidden'
+				!bytes && 'hidden'
 			)}
 		>
 			<span className="text-sm text-gray-400">{title}</span>
@@ -144,7 +144,7 @@ export default function OverviewScreen() {
 								<StatItem
 									key={library?.uuid + ' ' + key}
 									title={StatItemNames[key as keyof Statistics]!}
-									bytes={value}
+									bytes={BigInt(value)}
 									isLoading={platform.demoMode === true ? false : isStatisticsLoading}
 								/>
 							);
