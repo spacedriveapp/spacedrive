@@ -78,7 +78,8 @@ export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
-	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
+	const keyringSk = useLibraryQuery(['keys.getSecretKey']);
+	const unlockKeyManagaer = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',
@@ -146,13 +147,13 @@ export default function KeysSettings() {
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
+					disabled={unlockKeyManagaer.isLoading || isKeyManagerUnlocking.data}
 					onClick={() => {
 						if (masterPassword !== '') {
 							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: secretKey });
+							unlockKeyManagaer.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
@@ -204,9 +205,19 @@ export default function KeysSettings() {
 							</div>
 						}
 					/>
+
 					<div className="grid space-y-2">
 						<ListOfKeys />
 					</div>
+
+					{keyringHasSk?.data && (
+						<>
+							<SettingsSubHeader title="Secret key" />
+							<div className="grid space-y-2">
+								<p className="font-medium">{keyringSk?.data}</p>
+							</div>
+						</>
+					)}
 
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">

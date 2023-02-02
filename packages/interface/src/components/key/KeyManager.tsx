@@ -13,7 +13,7 @@ export function KeyManager(props: KeyManagerProps) {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
+	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',
@@ -77,12 +77,12 @@ export function KeyManager(props: KeyManagerProps) {
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
+					disabled={unlockKeyManager.isLoading || isKeyManagerUnlocking.data}
 					onClick={() => {
 						if (masterPassword !== '') {
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: secretKey });
+							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
