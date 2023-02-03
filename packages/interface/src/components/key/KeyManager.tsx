@@ -77,7 +77,11 @@ export function KeyManager(props: KeyManagerProps) {
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={unlockKeyManager.isLoading || isKeyManagerUnlocking.data}
+					disabled={
+						unlockKeyManager.isLoading || isKeyManagerUnlocking.data !== null
+							? isKeyManagerUnlocking.data!
+							: false
+					}
 					onClick={() => {
 						if (masterPassword !== '') {
 							setMasterPassword('');

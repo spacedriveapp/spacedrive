@@ -100,7 +100,7 @@ export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true }); // asume true by default, as it will often be the case. need to fix this with an rspc subscription+such
-	const unlockKeyManagaer = useLibraryMutation('keys.unlockKeyManager', {
+	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',
@@ -169,13 +169,16 @@ export default function KeysSettings() {
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={unlockKeyManagaer.isLoading || isKeyManagerUnlocking.data}
+					disabled={
+						unlockKeyManager.isLoading || isKeyManagerUnlocking.data !== null
+							? isKeyManagerUnlocking.data!
+							: false
+					}
 					onClick={() => {
 						if (masterPassword !== '') {
-							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							unlockKeyManagaer.mutate({ password: masterPassword, secret_key: secretKey });
+							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>

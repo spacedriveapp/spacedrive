@@ -79,8 +79,8 @@ impl Params {
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
 			Self::Standard => argon2::Params::new(131_072, 8, 4, None).unwrap(),
-			Self::Paranoid => argon2::Params::new(262_144, 8, 4, None).unwrap(),
-			Self::Hardened => argon2::Params::new(524_288, 8, 4, None).unwrap(),
+			Self::Hardened => argon2::Params::new(262_144, 8, 4, None).unwrap(),
+			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None).unwrap(),
 		}
 	}
 
@@ -95,9 +95,9 @@ impl Params {
 			// It's very hardware dependant but we should aim for at least 64MB of RAM usage on standard
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
-			Self::Standard => balloon_hash::Params::new(131_072, 1, 1).unwrap(),
-			Self::Paranoid => balloon_hash::Params::new(262_144, 1, 1).unwrap(),
-			Self::Hardened => balloon_hash::Params::new(524_288, 1, 1).unwrap(),
+			Self::Standard => balloon_hash::Params::new(131_072, 2, 1).unwrap(),
+			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1).unwrap(),
+			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1).unwrap(),
 		}
 	}
 }
