@@ -56,10 +56,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		// do not unlock the key manager until this route returns true
 		.library_query("isUnlocked", |t| {
-			t(|_, _: (), library| async move {
-				invalidate_query!(library, "keys.keyringHasSecretKey");
-				Ok(library.key_manager.is_unlocked().await?)
-			})
+			t(|_, _: (), library| async move { Ok(library.key_manager.is_unlocked().await?) })
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
@@ -85,13 +82,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("keyringHasSecretKey", |t| {
 			t(|_, _: (), library| async move {
-				// Ok::<_, Error>(
 				Ok(library
 					.key_manager
 					.keyring_contains_valid_secret_key(library.id)
 					.await
 					.is_ok())
-				// );
 			})
 		})
 		.library_query("getSecretKey", |t| {

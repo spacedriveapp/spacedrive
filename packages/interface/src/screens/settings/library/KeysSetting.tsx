@@ -99,7 +99,7 @@ export const SecretKeyView = (props: DefaultProps) => {
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true }); // asume true by default, as it will often be the case. need to fix this with an rspc subscription+such
+	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such
 	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
