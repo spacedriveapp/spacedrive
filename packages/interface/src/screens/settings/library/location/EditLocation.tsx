@@ -135,7 +135,7 @@ export default function EditLocation() {
 					</ToggleSection>
 				</div>
 				<Divider />
-				<div className="flex flex-col">
+				<div className="flex flex-col pointer-events-none opacity-30">
 					<Label className="flex-grow">Indexer rules</Label>
 					<InfoText className="mt-0 mb-1">
 						Indexer rules allow you to specify paths to ignore using RegEx.
