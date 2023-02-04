@@ -44,7 +44,7 @@ rspc = { workspace = true, features = ["uuid"], optional = true }
 specta = { workspace = true, optional = true }
 
 # for asynchronous crypto
-tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
 
 hex = "0.4.3"
 
