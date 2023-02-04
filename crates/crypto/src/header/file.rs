@@ -37,7 +37,7 @@ use crate::{
 	crypto::stream::Algorithm,
 	primitives::{generate_nonce, to_array, Key, KEY_LEN},
 	protected::ProtectedVec,
-	Error, Protected, Result,
+	Error, Result,
 };
 
 use super::{
@@ -101,7 +101,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<Protected<Key>> {
+	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -111,7 +111,7 @@ impl FileHeader {
 				.decrypt_master_key(password.clone())
 				.await
 				.ok()
-				.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+				.map(|v| Key::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
 			{
 				return Ok(key);
 			}
@@ -135,10 +135,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key_from_prehashed(
-		&self,
-		hashed_keys: Vec<Protected<Key>>,
-	) -> Result<Protected<Key>> {
+	pub async fn decrypt_master_key_from_prehashed(&self, hashed_keys: Vec<Key>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -149,7 +146,7 @@ impl FileHeader {
 					.decrypt_master_key_from_prehashed(hashed_key.clone())
 					.await
 					.ok()
-					.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+					.map(|v| Key::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
 				{
 					return Ok(key);
 				}

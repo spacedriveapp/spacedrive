@@ -55,8 +55,8 @@ impl HashingAlgorithm {
 		&self,
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<Protected<SecretKey>>,
-	) -> Result<Protected<Key>> {
+		secret: Option<SecretKey>,
+	) -> Result<Key> {
 		match self {
 			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
 			Self::BalloonBlake3(params) => {
@@ -109,10 +109,10 @@ impl PasswordHasher {
 	fn argon2id(
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<Protected<SecretKey>>,
+		secret: Option<SecretKey>,
 		params: Params,
-	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
+	) -> Result<Key> {
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.0.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -124,18 +124,18 @@ impl PasswordHasher {
 		.map_err(|_| Error::PasswordHash)?;
 
 		argon2
-			.hash_password_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
+			.hash_password_into(password.expose(), &salt.0, &mut key)
+			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
 	fn balloon_blake3(
 		password: ProtectedVec<u8>,
 		salt: Salt,
-		secret: Option<Protected<SecretKey>>,
+		secret: Option<SecretKey>,
 		params: Params,
-	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
+	) -> Result<Key> {
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.0.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 
@@ -146,7 +146,7 @@ impl PasswordHasher {
 		);
 
 		balloon
-			.hash_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
+			.hash_into(password.expose(), &salt.0, &mut key)
+			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 }

@@ -31,7 +31,7 @@ use crate::{
 		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
 	protected::ProtectedVec,
-	Error, Protected, Result,
+	Error, Result,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -70,8 +70,8 @@ impl Keyslot {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
-		hashed_key: Protected<Key>,
-		master_key: Protected<Key>,
+		hashed_key: Key,
+		master_key: Key,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
@@ -94,7 +94,7 @@ impl Keyslot {
 			hashing_algorithm,
 			salt,
 			content_salt,
-			master_key: encrypted_master_key,
+			master_key: EncryptedKey(encrypted_master_key),
 			nonce,
 		})
 	}
@@ -115,7 +115,7 @@ impl Keyslot {
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
-			&self.master_key,
+			&self.master_key.0,
 			&[],
 		)
 		.await
@@ -128,15 +128,12 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub async fn decrypt_master_key_from_prehashed(
-		&self,
-		key: Protected<Key>,
-	) -> Result<ProtectedVec<u8>> {
+	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<ProtectedVec<u8>> {
 		StreamDecryption::decrypt_bytes(
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
-			&self.master_key,
+			&self.master_key.0,
 			&[],
 		)
 		.await
@@ -150,9 +147,9 @@ impl Keyslot {
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
-				&self.salt,
-				&self.content_salt,
-				&self.master_key,
+				&self.salt.0,
+				&self.content_salt.0,
+				&self.master_key.0,
 				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]
@@ -204,9 +201,9 @@ impl Keyslot {
 					version,
 					algorithm,
 					hashing_algorithm,
-					salt,
-					content_salt,
-					master_key,
+					salt: Salt(salt),
+					content_salt: Salt(content_salt),
+					master_key: EncryptedKey(master_key),
 					nonce,
 				};
 

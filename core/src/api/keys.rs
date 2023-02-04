@@ -1,4 +1,4 @@
-use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
+use sd_crypto::primitives::{Password, SecretKeyString, SECRET_KEY_IDENTIFIER};
 use std::{path::PathBuf, str::FromStr};
 use tokio::fs::File;
 
@@ -176,9 +176,12 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.unlock(args.password, secret_key, library.id, || {
-						invalidate_query!(library, "keys.isKeyManagerUnlocking")
-					})
+					.unlock(
+						Password(args.password),
+						secret_key.map(SecretKeyString),
+						library.id,
+						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
+					)
 					.await?;
 
 				invalidate_query!(library, "keys.isUnlocked");
@@ -250,7 +253,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let uuid = library
 					.key_manager
 					.add_to_keystore(
-						args.key,
+						Password(args.key),
 						args.algorithm,
 						args.hashing_algorithm,
 						!args.library_sync,
@@ -318,7 +321,11 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let updated_keys = library
 					.key_manager
-					.import_keystore_backup(args.password, args.secret_key, &stored_keys)
+					.import_keystore_backup(
+						args.password,
+						SecretKeyString(args.secret_key),
+						&stored_keys,
+					)
 					.await?;
 
 				for key in &updated_keys {

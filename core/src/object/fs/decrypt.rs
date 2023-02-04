@@ -1,4 +1,6 @@
-use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
+use sd_crypto::{
+	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::Password, Protected,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -98,7 +100,7 @@ impl StatefulJob for FileDecryptorJob {
 					ctx.library_ctx
 						.key_manager
 						.add_to_keystore(
-							Protected::new(password),
+							Password::new(password),
 							header.algorithm,
 							header.keyslots[index].hashing_algorithm,
 							false,

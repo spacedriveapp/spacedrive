@@ -6,6 +6,7 @@ use secret_service::{Collection, EncryptionType, SecretService};
 
 use crate::{
 	keys::keyring::{Identifier, Keyring},
+	primitives::SecretKeyString,
 	Error, Protected, Result,
 };
 
@@ -33,7 +34,7 @@ impl<'a> LinuxKeyring<'a> {
 }
 
 impl<'a> Keyring for LinuxKeyring<'a> {
-	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
+	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
 		self.get_collection()?.create_item(
 			&identifier.generate_linux_label(),
 			identifier.to_hashmap(),

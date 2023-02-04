@@ -1,4 +1,4 @@
-use crate::{Protected, Result};
+use crate::{primitives::SecretKeyString, Protected, Result};
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -40,7 +40,7 @@ impl<'a> Identifier<'a> {
 }
 
 pub trait Keyring {
-	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()>;
+	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()>;
 	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>>;
 	fn delete(&self, identifier: Identifier) -> Result<()>;
 }
@@ -64,7 +64,7 @@ impl KeyringInterface {
 		Ok(Self { keyring })
 	}
 
-	pub fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
+	pub fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
 		self.keyring.insert(identifier, value)
 	}
 

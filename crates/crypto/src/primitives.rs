@@ -49,10 +49,109 @@ pub const MASTER_PASSWORD_CONTEXT: &str =
 	"spacedrive 2022-12-14 15:35:41 master password hash derivation"; // used for deriving keys from the master password hash
 pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation"; // used for deriving keys from user key/content salt hashes (for file encryption)
 
-pub type Key = [u8; KEY_LEN];
-pub type EncryptedKey = [u8; ENCRYPTED_KEY_LEN];
-pub type Salt = [u8; SALT_LEN];
-pub type SecretKey = [u8; SECRET_KEY_LEN];
+#[derive(Clone)]
+pub struct Key(pub Protected<[u8; KEY_LEN]>);
+
+impl Key {
+	pub fn new(v: [u8; KEY_LEN]) -> Self {
+		Self(Protected::new(v))
+	}
+
+	pub fn expose(&self) -> &[u8; KEY_LEN] {
+		self.0.expose()
+	}
+}
+
+#[derive(Clone)]
+pub struct SecretKey(pub Protected<[u8; SECRET_KEY_LEN]>);
+
+impl SecretKey {
+	pub fn new(v: [u8; SECRET_KEY_LEN]) -> Self {
+		Self(Protected::new(v))
+	}
+
+	pub fn expose(&self) -> &[u8; SECRET_KEY_LEN] {
+		self.0.expose()
+	}
+}
+
+impl Into<SecretKeyString> for SecretKey {
+	fn into(self) -> SecretKeyString {
+		let hex_string: String = hex::encode_upper(self.0.expose())
+			.chars()
+			.enumerate()
+			.map(|(i, c)| {
+				if (i + 1) % 6 == 0 && i != 35 {
+					c.to_string() + "-"
+				} else {
+					c.to_string()
+				}
+			})
+			.into_iter()
+			.collect();
+
+		SecretKeyString::new(hex_string)
+	}
+}
+
+impl From<SecretKeyString> for SecretKey {
+	fn from(v: SecretKeyString) -> Self {
+		let mut secret_key_sanitized = v.expose().clone();
+		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
+
+		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
+		// could maybe do this better (and make use of the subtle crate)
+
+		let secret_key = hex::decode(secret_key_sanitized)
+			.ok()
+			.map_or(Vec::new(), |v| v);
+
+		to_array(secret_key)
+			.ok()
+			.map_or_else(generate_secret_key, SecretKey::new)
+	}
+}
+
+#[derive(Clone)]
+pub struct Password(pub Protected<String>);
+
+impl Password {
+	pub fn new(v: String) -> Self {
+		Self(Protected::new(v))
+	}
+
+	pub fn expose(&self) -> &String {
+		self.0.expose()
+	}
+}
+
+#[derive(Clone)]
+pub struct SecretKeyString(pub Protected<String>);
+
+impl SecretKeyString {
+	pub fn new(v: String) -> Self {
+		Self(Protected::new(v))
+	}
+
+	pub fn expose(&self) -> &String {
+		self.0.expose()
+	}
+}
+
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub struct EncryptedKey(
+	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
+	pub  [u8; ENCRYPTED_KEY_LEN],
+);
+
+#[derive(Clone, PartialEq, Eq, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub struct Salt(pub [u8; SALT_LEN]);
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
@@ -82,17 +181,17 @@ pub fn generate_nonce(algorithm: Algorithm) -> Vec<u8> {
 pub fn generate_salt() -> Salt {
 	let mut salt = [0u8; SALT_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
-	salt
+	Salt(salt)
 }
 
 /// This should be used for generating salts for hashing.
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_secret_key() -> Protected<SecretKey> {
+pub fn generate_secret_key() -> SecretKey {
 	let mut secret_key = [0u8; SECRET_KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut secret_key);
-	Protected::new(secret_key)
+	SecretKey::new(secret_key)
 }
 
 /// This generates a master key, which should be used for encrypting the data
@@ -101,23 +200,23 @@ pub fn generate_secret_key() -> Protected<SecretKey> {
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_master_key() -> Protected<Key> {
+pub fn generate_master_key() -> Key {
 	let mut master_key = [0u8; KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);
-	Protected::new(master_key)
+	Key::new(master_key)
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn derive_key(key: Protected<Key>, salt: Salt, context: &str) -> Protected<Key> {
-	let mut input = key.expose().to_vec();
-	input.extend_from_slice(&salt);
+pub fn derive_key(key: Key, salt: Salt, context: &str) -> Key {
+	let mut input = key.0.expose().to_vec();
+	input.extend_from_slice(&salt.0);
 
 	let key = blake3::derive_key(context, &input);
 
 	input.zeroize();
 
-	Protected::new(key)
+	Key::new(key)
 }
 
 /// This is used for converting a `Vec<u8>` to an array of bytes
@@ -133,34 +232,3 @@ pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 		Error::VecArrSizeMismatch
 	})
 }
-
-// /// This generates a 7 word diceware passphrase, separated with `-`
-// #[must_use]
-// pub fn generate_passphrase() -> Protected<String> {
-// 	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
-// 		.lines()
-// 		.collect::<Vec<&str>>();
-
-// 	let words: Vec<String> = wordlist
-// 		.choose_multiple(
-// 			&mut rand_chacha::ChaCha20Rng::from_entropy(),
-// 			PASSPHRASE_LEN,
-// 		)
-// 		.map(ToString::to_string)
-// 		.collect();
-
-// 	let passphrase = words
-// 		.iter()
-// 		.enumerate()
-// 		.map(|(i, word)| {
-// 			if i < PASSPHRASE_LEN - 1 {
-// 				word.clone() + "-"
-// 			} else {
-// 				word.clone()
-// 			}
-// 		})
-// 		.into_iter()
-// 		.collect();
-
-// 	Protected::new(passphrase)
-// }
