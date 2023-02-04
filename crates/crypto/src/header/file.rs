@@ -35,7 +35,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{rng::generate_nonce, to_array, types::Key, KEY_LEN},
+	primitives::{rng::generate_nonce, types::Key},
 	protected::ProtectedVec,
 	Error, Result,
 };
@@ -111,9 +111,9 @@ impl FileHeader {
 				.decrypt_master_key(password.clone())
 				.await
 				.ok()
-				.map(|v| Key::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+				.map(|v| Ok(Key::try_from(v)?))
 			{
-				return Ok(key);
+				return key;
 			}
 		}
 
@@ -146,9 +146,9 @@ impl FileHeader {
 					.decrypt_master_key_from_prehashed(hashed_key.clone())
 					.await
 					.ok()
-					.map(|v| Key::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
+					.map(|v| Ok(Key::try_from(v)?))
 				{
-					return Ok(key);
+					return key;
 				}
 			}
 		}

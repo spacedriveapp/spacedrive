@@ -28,7 +28,6 @@ use crate::{
 	keys::hashing::HashingAlgorithm,
 	primitives::{
 		rng::{derive_key, generate_nonce, generate_salt},
-		to_array,
 		types::{EncryptedKey, Key, Salt},
 		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
@@ -79,7 +78,7 @@ impl Keyslot {
 
 		let salt = generate_salt();
 
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+		let encrypted_master_key = EncryptedKey::try_from(
 			StreamEncryption::encrypt_bytes(
 				derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
 				&nonce,
@@ -96,7 +95,7 @@ impl Keyslot {
 			hashing_algorithm,
 			salt,
 			content_salt,
-			master_key: EncryptedKey(encrypted_master_key),
+			master_key: encrypted_master_key,
 			nonce,
 		})
 	}

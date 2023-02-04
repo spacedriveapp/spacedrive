@@ -115,7 +115,9 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
+		let secret = secret.map_or(Protected::new(vec![]), |k| {
+			Protected::new(k.expose().to_vec())
+		});
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -138,7 +140,9 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
+		let secret = secret.map_or(Protected::new(vec![]), |k| {
+			Protected::new(k.expose().to_vec())
+		});
 
 		let mut key = [0u8; KEY_LEN];
 

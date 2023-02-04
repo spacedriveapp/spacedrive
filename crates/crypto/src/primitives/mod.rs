@@ -57,8 +57,8 @@ pub mod types;
 /// As the master key is encrypted at this point, it does not need to be `Protected<>`
 ///
 /// This function still `zeroize`s any data it can
-pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
-	bytes.try_into().map_err(|mut b: Vec<u8>| {
+pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
+	bytes.to_vec().try_into().map_err(|mut b: Vec<u8>| {
 		b.zeroize();
 		Error::VecArrSizeMismatch
 	})

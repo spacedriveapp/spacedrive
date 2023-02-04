@@ -49,10 +49,9 @@ use crate::{
 		rng::{
 			derive_key, generate_master_key, generate_nonce, generate_salt, generate_secret_key,
 		},
-		to_array,
 		types::{EncryptedKey, Key, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString},
-		APP_IDENTIFIER, ENCRYPTED_KEY_LEN, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT,
-		ROOT_KEY_CONTEXT, SECRET_KEY_IDENTIFIER,
+		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+		SECRET_KEY_IDENTIFIER,
 	},
 	Error, Protected, Result,
 };
@@ -251,7 +250,7 @@ impl KeyManager {
 		let root_key_nonce = generate_nonce(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+		let encrypted_master_key = EncryptedKey::try_from(
 			StreamEncryption::encrypt_bytes(
 				derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 				&master_key_nonce,
@@ -290,7 +289,7 @@ impl KeyManager {
 			algorithm,
 			hashing_algorithm,
 			content_salt, // salt used for hashing
-			master_key: EncryptedKey(encrypted_master_key),
+			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
@@ -375,7 +374,7 @@ impl KeyManager {
 		let salt = generate_salt();
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+		let encrypted_master_key = EncryptedKey::try_from(
 			StreamEncryption::encrypt_bytes(
 				derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 				&master_key_nonce,
@@ -411,7 +410,7 @@ impl KeyManager {
 			algorithm,
 			hashing_algorithm,
 			content_salt,
-			master_key: EncryptedKey(encrypted_master_key),
+			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
@@ -478,7 +477,7 @@ impl KeyManager {
 
 				// get the root key from the backup
 				let old_root_key = StreamDecryption::decrypt_bytes(
-					Key::new(to_array(master_key.into_inner())?),
+					Key::try_from(master_key)?,
 					&old_verification_key.key_nonce,
 					old_verification_key.algorithm,
 					&old_verification_key.key,
@@ -486,7 +485,7 @@ impl KeyManager {
 				)
 				.await?;
 
-				Key::new(to_array(old_root_key.into_inner())?)
+				Key::try_from(old_root_key)?
 			}
 		};
 
@@ -508,9 +507,7 @@ impl KeyManager {
 						&[],
 					)
 					.await
-					.map_or(Err(Error::IncorrectPassword), |v| {
-						Ok(Protected::new(to_array::<KEY_LEN>(v.into_inner())?))
-					})?;
+					.map_or(Err(Error::IncorrectPassword), |v| Ok(Key::try_from(v)?))?;
 
 					// generate a new nonce
 					let master_key_nonce = generate_nonce(key.algorithm);
@@ -518,7 +515,7 @@ impl KeyManager {
 					let salt = generate_salt();
 
 					// encrypt the master key with the current root key
-					let encrypted_master_key = to_array(
+					let encrypted_master_key = EncryptedKey::try_from(
 						StreamEncryption::encrypt_bytes(
 							derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 							&master_key_nonce,
@@ -531,7 +528,7 @@ impl KeyManager {
 
 					let mut updated_key = key.clone();
 					updated_key.master_key_nonce = master_key_nonce;
-					updated_key.master_key = EncryptedKey(encrypted_master_key);
+					updated_key.master_key = encrypted_master_key;
 					updated_key.salt = salt;
 
 					reencrypted_keys.push(updated_key.clone());
@@ -626,24 +623,22 @@ impl KeyManager {
 					Error::IncorrectKeymanagerDetails
 				})?;
 
-				*self.root_key.lock().await = Some(Key::new(
-					to_array(
+				*self.root_key.lock().await = Some(
+					Key::try_from(
 						StreamDecryption::decrypt_bytes(
-							Key::new(to_array(master_key.into_inner())?),
+							Key::try_from(master_key)?,
 							&verification_key.key_nonce,
 							verification_key.algorithm,
 							&verification_key.key,
 							&[],
 						)
-						.await?
-						.expose()
-						.clone(),
+						.await?,
 					)
 					.map_err(|e| {
 						self.remove_from_queue(verification_key.uuid).ok();
 						e
 					})?,
-				));
+				);
 
 				self.remove_from_queue(verification_key.uuid)?;
 			}
@@ -701,7 +696,7 @@ impl KeyManager {
 							self.remove_from_queue(uuid).ok();
 							Err(Error::IncorrectPassword)
 						},
-						|v| Ok(Key::new(to_array(v.into_inner())?)),
+						|v| Ok(Key::try_from(v)?),
 					)?;
 					// Decrypt the StoredKey using the decrypted master key
 					let key = StreamDecryption::decrypt_bytes(
@@ -761,9 +756,7 @@ impl KeyManager {
 				&[],
 			)
 			.await
-			.map_or(Err(Error::IncorrectPassword), |k| {
-				Ok(Key::new(to_array(k.into_inner())?))
-			})?;
+			.map_or(Err(Error::IncorrectPassword), |k| Ok(Key::try_from(k)?))?;
 
 			// Decrypt the StoredKey using the decrypted master key
 			let key = StreamDecryption::decrypt_bytes(
@@ -815,7 +808,7 @@ impl KeyManager {
 		let salt = generate_salt();
 
 		// Encrypt the master key with a derived key (derived from the root key)
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(
+		let encrypted_master_key = EncryptedKey::try_from(
 			StreamEncryption::encrypt_bytes(
 				derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 				&master_key_nonce,
@@ -846,7 +839,7 @@ impl KeyManager {
 				algorithm,
 				hashing_algorithm,
 				content_salt,
-				master_key: EncryptedKey(encrypted_master_key),
+				master_key: encrypted_master_key,
 				master_key_nonce,
 				key_nonce,
 				key: encrypted_key,

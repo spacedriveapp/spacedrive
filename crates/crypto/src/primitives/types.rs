@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
+use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 
 #[derive(Clone)]
 pub struct Key(pub Protected<[u8; KEY_LEN]>);
@@ -15,17 +15,19 @@ impl Key {
 	}
 }
 
-impl AsRef<[u8]> for Key {
-	fn as_ref(&self) -> &[u8] {
-		self.0.expose()
+impl TryFrom<Protected<Vec<u8>>> for Key {
+	type Error = Error;
+
+	fn try_from(value: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
+		Ok(Self::new(to_array(value.expose())?))
 	}
 }
 
 impl Deref for Key {
-	type Target = [u8; KEY_LEN];
+	type Target = Protected<[u8; KEY_LEN]>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.0.expose()
+		&self.0
 	}
 }
 
@@ -42,17 +44,11 @@ impl SecretKey {
 	}
 }
 
-impl AsRef<[u8]> for SecretKey {
-	fn as_ref(&self) -> &[u8] {
-		self.0.expose()
-	}
-}
-
 impl Deref for SecretKey {
-	type Target = [u8; SECRET_KEY_LEN];
+	type Target = Protected<[u8; SECRET_KEY_LEN]>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.0.expose()
+		&self.0
 	}
 }
 
@@ -87,7 +83,7 @@ impl From<SecretKeyString> for SecretKey {
 			.ok()
 			.map_or(Vec::new(), |v| v);
 
-		to_array(secret_key)
+		to_array(&secret_key)
 			.ok()
 			.map_or_else(generate_secret_key, SecretKey::new)
 	}
@@ -133,12 +129,6 @@ pub struct EncryptedKey(
 	pub  [u8; ENCRYPTED_KEY_LEN],
 );
 
-impl AsRef<[u8]> for EncryptedKey {
-	fn as_ref(&self) -> &[u8] {
-		self.0.as_ref()
-	}
-}
-
 impl Deref for EncryptedKey {
 	type Target = [u8; ENCRYPTED_KEY_LEN];
 
@@ -147,16 +137,18 @@ impl Deref for EncryptedKey {
 	}
 }
 
+impl TryFrom<Vec<u8>> for EncryptedKey {
+	type Error = Error;
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		Ok(EncryptedKey(to_array(&value)?))
+	}
+}
+
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct Salt(pub [u8; SALT_LEN]);
-
-impl AsRef<[u8]> for Salt {
-	fn as_ref(&self) -> &[u8] {
-		self.0.as_ref()
-	}
-}
 
 impl Deref for Salt {
 	type Target = [u8; SALT_LEN];
