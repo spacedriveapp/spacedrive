@@ -58,11 +58,11 @@ pub async fn write_storedkey_to_db(
 				serde_json::to_string(&key.algorithm)?,
 				serde_json::to_string(&key.hashing_algorithm)?,
 				key.content_salt.0.to_vec(),
-				key.master_key.0.to_vec(),
+				key.master_key.to_vec(),
 				key.master_key_nonce.to_vec(),
 				key.key_nonce.to_vec(),
 				key.key.to_vec(),
-				key.salt.0.to_vec(),
+				key.salt.to_vec(),
 				vec![],
 			)
 			.exec()

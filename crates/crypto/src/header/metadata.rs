@@ -31,7 +31,7 @@
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, Key},
+	primitives::{rng::generate_nonce, types::Key},
 	ProtectedVec,
 };
 
@@ -122,7 +122,7 @@ impl FileHeader {
 			)
 			.await?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+			serde_json::from_slice::<T>(metadata.expose()).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}
@@ -150,7 +150,7 @@ impl FileHeader {
 			)
 			.await?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+			serde_json::from_slice::<T>(metadata.expose()).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}

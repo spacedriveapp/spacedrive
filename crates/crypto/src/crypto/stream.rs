@@ -4,7 +4,7 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{Key, AEAD_TAG_SIZE, BLOCK_SIZE},
+	primitives::{types::Key, AEAD_TAG_SIZE, BLOCK_SIZE},
 	protected::ProtectedVec,
 	Error, Protected, Result,
 };

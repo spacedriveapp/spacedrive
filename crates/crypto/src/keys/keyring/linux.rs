@@ -6,7 +6,7 @@ use secret_service::{Collection, EncryptionType, SecretService};
 
 use crate::{
 	keys::keyring::{Identifier, Keyring},
-	primitives::SecretKeyString,
+	primitives::types::SecretKeyString,
 	Error, Protected, Result,
 };
 

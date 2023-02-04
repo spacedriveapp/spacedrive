@@ -46,8 +46,11 @@ use tokio::sync::Mutex;
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::{
-		derive_key, generate_master_key, generate_nonce, generate_salt, generate_secret_key,
-		to_array, EncryptedKey, Key, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString,
+		rng::{
+			derive_key, generate_master_key, generate_nonce, generate_salt, generate_secret_key,
+		},
+		to_array,
+		types::{EncryptedKey, Key, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString},
 		APP_IDENTIFIER, ENCRYPTED_KEY_LEN, KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT,
 		ROOT_KEY_CONTEXT, SECRET_KEY_IDENTIFIER,
 	},
@@ -468,7 +471,7 @@ impl KeyManager {
 					),
 					&old_verification_key.master_key_nonce,
 					old_verification_key.algorithm,
-					&old_verification_key.master_key.0,
+					&*old_verification_key.master_key,
 					&[],
 				)
 				.await?;
@@ -501,7 +504,7 @@ impl KeyManager {
 						derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						&key.master_key_nonce,
 						key.algorithm,
-						&key.master_key.0,
+						&*key.master_key,
 						&[],
 					)
 					.await
@@ -614,7 +617,7 @@ impl KeyManager {
 					),
 					&verification_key.master_key_nonce,
 					verification_key.algorithm,
-					&verification_key.master_key.0,
+					&*verification_key.master_key,
 					&[],
 				)
 				.await
@@ -689,7 +692,7 @@ impl KeyManager {
 						),
 						&stored_key.master_key_nonce,
 						stored_key.algorithm,
-						&stored_key.master_key.0,
+						&*stored_key.master_key,
 						&[],
 					)
 					.await
@@ -754,7 +757,7 @@ impl KeyManager {
 				),
 				&stored_key.master_key_nonce,
 				stored_key.algorithm,
-				&stored_key.master_key.0,
+				&*stored_key.master_key,
 				&[],
 			)
 			.await

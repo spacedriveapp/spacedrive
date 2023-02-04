@@ -35,7 +35,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{generate_nonce, to_array, Key, KEY_LEN},
+	primitives::{rng::generate_nonce, to_array, types::Key, KEY_LEN},
 	protected::ProtectedVec,
 	Error, Result,
 };

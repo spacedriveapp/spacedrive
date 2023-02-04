@@ -27,7 +27,9 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		derive_key, generate_nonce, generate_salt, to_array, EncryptedKey, Key, Salt,
+		rng::{derive_key, generate_nonce, generate_salt},
+		to_array,
+		types::{EncryptedKey, Key, Salt},
 		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
 	protected::ProtectedVec,
@@ -115,7 +117,7 @@ impl Keyslot {
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
-			&self.master_key.0,
+			&*self.master_key,
 			&[],
 		)
 		.await
@@ -133,7 +135,7 @@ impl Keyslot {
 			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
-			&self.master_key.0,
+			&*self.master_key,
 			&[],
 		)
 		.await
@@ -147,9 +149,9 @@ impl Keyslot {
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
-				&self.salt.0,
-				&self.content_salt.0,
-				&self.master_key.0,
+				&*self.salt,
+				&*self.content_salt,
+				&*self.master_key,
 				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]

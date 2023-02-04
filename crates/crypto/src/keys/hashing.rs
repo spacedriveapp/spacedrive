@@ -12,7 +12,10 @@
 //! ```
 
 use crate::{
-	primitives::{Key, Salt, SecretKey, KEY_LEN},
+	primitives::{
+		types::{Key, Salt, SecretKey},
+		KEY_LEN,
+	},
 	Error, Protected, ProtectedVec, Result,
 };
 use argon2::Argon2;
@@ -112,7 +115,7 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.0.to_vec()));
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -124,7 +127,7 @@ impl PasswordHasher {
 		.map_err(|_| Error::PasswordHash)?;
 
 		argon2
-			.hash_password_into(password.expose(), &salt.0, &mut key)
+			.hash_password_into(password.expose(), &*salt, &mut key)
 			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 
@@ -135,7 +138,7 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.0.to_vec()));
+		let secret = secret.map_or(Protected::new(vec![]), |k| Protected::new(k.to_vec()));
 
 		let mut key = [0u8; KEY_LEN];
 
@@ -146,7 +149,7 @@ impl PasswordHasher {
 		);
 
 		balloon
-			.hash_into(password.expose(), &salt.0, &mut key)
+			.hash_into(password.expose(), &*salt, &mut key)
 			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 }
