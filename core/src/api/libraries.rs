@@ -9,8 +9,8 @@ use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
 use sd_crypto::{
-	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, primitives::OnboardingConfig,
-	Protected,
+	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
+	primitives::types::OnboardingConfig, Protected,
 };
 use serde::Deserialize;
 use tokio::fs;

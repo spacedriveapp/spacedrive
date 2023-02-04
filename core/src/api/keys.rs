@@ -1,4 +1,5 @@
-use sd_crypto::primitives::{Password, SecretKeyString, SECRET_KEY_IDENTIFIER};
+use sd_crypto::primitives::types::{Password, SecretKeyString};
+use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 use std::{path::PathBuf, str::FromStr};
 use tokio::fs::File;
 

@@ -1,5 +1,6 @@
 use sd_crypto::{
-	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::Password, Protected,
+	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::types::Password,
+	Protected,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;

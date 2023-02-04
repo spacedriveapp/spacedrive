@@ -4,7 +4,10 @@ use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot, preview_media::PreviewMediaVersion},
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{generate_master_key, generate_salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	primitives::{
+		rng::{generate_master_key, generate_salt},
+		LATEST_FILE_HEADER, LATEST_KEYSLOT,
+	},
 	Protected,
 };
 

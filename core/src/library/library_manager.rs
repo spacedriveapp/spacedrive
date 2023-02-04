@@ -12,7 +12,10 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	primitives::{to_array, EncryptedKey, OnboardingConfig, Salt},
+	primitives::{
+		to_array,
+		types::{EncryptedKey, OnboardingConfig, Salt},
+	},
 };
 use std::{
 	env, fs, io,
