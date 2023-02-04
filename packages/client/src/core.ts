@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: Array<number>, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
@@ -56,8 +56,8 @@ export type Procedures = {
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unlockKeyManager", input: LibraryArgs<UnlockKeyManagerArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 
@@ -99,7 +99,7 @@ export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } 
 
 export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerItem> }
 
-export type ExplorerItem = { type: "Path" } & FilePathWithObject | { type: "Object" } & ObjectWithFilePaths
+export type ExplorerItem = { type: "Path", has_thumbnail: boolean, item: FilePathWithObject } | { type: "Object", has_thumbnail: boolean, item: ObjectWithFilePaths }
 
 export interface FileCopierJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string, target_file_name_suffix: string | null }
 
@@ -113,7 +113,7 @@ export interface FileEncryptorJobInit { location_id: number, path_id: number, ke
 
 export interface FileEraserJobInit { location_id: number, path_id: number, passes: number }
 
-export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string }
+export interface FilePath { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string }
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
@@ -169,7 +169,7 @@ export interface NormalisedUser { $type: string, $id: any, id: string, name: str
 
 export interface NormalizedVec<T> { $type: string, edges: Array<T> }
 
-export interface Object { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+export interface Object { id: number, pub_id: Array<number>, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
@@ -180,8 +180,6 @@ export interface RestoreBackupArgs { password: string, secret_key: string | null
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export interface SetFavoriteArgs { id: number, favorite: boolean }
-
-export interface SetMasterPasswordArgs { password: string, secret_key: string | null }
 
 export interface SetNoteArgs { id: number, note: string | null }
 
@@ -203,8 +201,10 @@ export interface TokenizeKeyArgs { secret_key: string }
 
 export interface TokenizeResponse { token: string }
 
+export interface UnlockKeyManagerArgs { password: string, secret_key: string | null }
+
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
-export interface FilePathWithObject { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
+export interface FilePathWithObject { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
 
-export interface ObjectWithFilePaths { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
+export interface ObjectWithFilePaths { id: number, pub_id: Array<number>, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }

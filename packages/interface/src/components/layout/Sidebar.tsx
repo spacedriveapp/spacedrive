@@ -27,7 +27,7 @@ import {
 	CategoryHeading,
 	Dropdown,
 	Loader,
-	OverlayPanel,
+	Popover,
 	Select,
 	SelectOption,
 	Switch,
@@ -145,14 +145,13 @@ export function Sidebar() {
 							<Gear className="w-5 h-5" />
 						</Tooltip>
 					</ButtonLink>
-					<OverlayPanel
-						transformOrigin="bottom left"
-						disabled={!library}
+					<Popover
 						trigger={
 							<Button
 								size="icon"
 								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
+								disabled={!library}
 							>
 								{library && (
 									<Tooltip label="Recent Jobs">
@@ -165,7 +164,7 @@ export function Sidebar() {
 						<div className="block w-[430px] h-96">
 							<JobsManager />
 						</div>
-					</OverlayPanel>
+					</Popover>
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</SidebarFooter>
@@ -190,7 +189,7 @@ function DebugPanel() {
 	const platform = usePlatform();
 
 	return (
-		<OverlayPanel
+		<Popover
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
@@ -259,7 +258,7 @@ function DebugPanel() {
 					</InputContainer>
 				)} */}
 			</div>
-		</OverlayPanel>
+		</Popover>
 	);
 }
 

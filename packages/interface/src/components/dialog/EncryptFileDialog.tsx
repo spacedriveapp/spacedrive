@@ -60,6 +60,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 	});
 
 	const form = useZodForm({
+		defaultValues: { encryptionAlgo: 'XChaCha20Poly1305', outputPath: '' },
 		schema
 	});
 
@@ -147,6 +148,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 						className="mt-2 text-gray-400/80"
 						onChange={() => {}}
 						value={form.watch('hashingAlgo')}
+						disabled
 					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
