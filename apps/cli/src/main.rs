@@ -47,8 +47,8 @@ fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 			version = k.version,
 			algorithm = k.algorithm,
 			hashing_algorithm = k.hashing_algorithm,
-			salt = hex::encode(k.salt),
-			master = hex::encode(&k.master_key),
+			salt = hex::encode(&*k.salt),
+			master = hex::encode(&*k.master_key),
 			nonce = hex::encode(k.nonce.clone())
 		};
 	});

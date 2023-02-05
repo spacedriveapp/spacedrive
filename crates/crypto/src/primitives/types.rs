@@ -85,7 +85,7 @@ impl From<SecretKeyString> for SecretKey {
 
 		to_array(&secret_key)
 			.ok()
-			.map_or_else(generate_secret_key, SecretKey::new)
+			.map_or_else(generate_secret_key, Self::new)
 	}
 }
 
@@ -141,7 +141,7 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 	type Error = Error;
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		Ok(EncryptedKey(to_array(&value)?))
+		Ok(Self(to_array(&value)?))
 	}
 }
 
@@ -155,6 +155,14 @@ impl Deref for Salt {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+impl TryFrom<Vec<u8>> for Salt {
+	type Error = Error;
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		Ok(Self(to_array(&value)?))
 	}
 }
 

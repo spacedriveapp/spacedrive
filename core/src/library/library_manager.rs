@@ -12,10 +12,7 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	primitives::{
-		to_array,
-		types::{EncryptedKey, OnboardingConfig, Salt},
-	},
+	primitives::types::{EncryptedKey, OnboardingConfig, Salt},
 };
 use std::{
 	env, fs, io,
@@ -100,14 +97,14 @@ pub async fn seed_keymanager(
 					.map_err(|_| sd_crypto::Error::Serialization)?,
 				algorithm: serde_json::from_str(&key.algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
-				content_salt: Salt(to_array(key.content_salt)?),
-				master_key: EncryptedKey(to_array(key.master_key)?),
+				content_salt: Salt::try_from(key.content_salt)?,
+				master_key: EncryptedKey::try_from(key.master_key)?,
 				master_key_nonce: key.master_key_nonce,
 				key_nonce: key.key_nonce,
 				key: key.key,
 				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
-				salt: Salt(to_array(key.salt)?),
+				salt: Salt::try_from(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
 			})
