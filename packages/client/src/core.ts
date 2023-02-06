@@ -95,6 +95,8 @@ export interface CreateLibraryArgs { name: string, password: string, algorithm: 
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
+export type EncryptedKey = Array<number>
+
 export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } & Tag
 
 export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerItem> }
@@ -159,6 +161,8 @@ export interface NodeConfig { version: string | null, id: string, name: string, 
 
 export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
 
+export type Nonce = { XChaCha20Poly1305: Array<number> } | { Aes256Gcm: Array<number> }
+
 export interface NormalisedCompositeId { $type: string, $id: any, org_id: string, user_id: string }
 
 export interface NormalisedOrganisation { $type: string, $id: any, id: string, name: string, users: NormalizedVec<NormalisedUser>, owner: NormalisedUser, non_normalised_data: Array<null> }
@@ -177,13 +181,15 @@ export interface RestoreBackupArgs { password: string, secret_key: string, path:
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
+export type Salt = Array<number>
+
 export interface SetFavoriteArgs { id: number, favorite: boolean }
 
 export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 
-export interface StoredKey { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, salt: Array<number>, memory_only: boolean, automount: boolean }
+export interface StoredKey { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Salt, master_key: EncryptedKey, master_key_nonce: Nonce, key_nonce: Nonce, key: Array<number>, salt: Salt, memory_only: boolean, automount: boolean }
 
 export type StoredKeyType = "User" | "Root"
 

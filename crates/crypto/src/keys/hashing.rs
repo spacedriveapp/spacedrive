@@ -16,7 +16,7 @@ use crate::{
 		types::{Key, Salt, SecretKey},
 		KEY_LEN,
 	},
-	Error, Protected, ProtectedVec, Result,
+	Error, Protected, Result,
 };
 use argon2::Argon2;
 use balloon_hash::Balloon;
@@ -56,7 +56,7 @@ impl HashingAlgorithm {
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn hash(
 		&self,
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
 	) -> Result<Key> {
@@ -110,7 +110,7 @@ struct PasswordHasher;
 impl PasswordHasher {
 	#[allow(clippy::needless_pass_by_value)]
 	fn argon2id(
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
 		params: Params,
@@ -135,7 +135,7 @@ impl PasswordHasher {
 
 	#[allow(clippy::needless_pass_by_value)]
 	fn balloon_blake3(
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
 		params: Params,

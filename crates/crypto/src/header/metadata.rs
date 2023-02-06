@@ -32,7 +32,7 @@
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
 	primitives::types::Key,
-	ProtectedVec,
+	Protected,
 };
 
 use tokio::io::AsyncReadExt;
@@ -106,7 +106,7 @@ impl FileHeader {
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub async fn decrypt_metadata<T>(&self, password: ProtectedVec<u8>) -> Result<T>
+	pub async fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{

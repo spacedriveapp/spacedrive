@@ -36,8 +36,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use crate::{
 	crypto::stream::Algorithm,
 	primitives::types::{Key, Nonce},
-	protected::ProtectedVec,
-	Error, Result,
+	Error, Protected, Result,
 };
 
 use super::{
@@ -106,7 +105,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<Key> {
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -165,7 +164,7 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn find_key_index(&self, password: ProtectedVec<u8>) -> Result<usize> {
+	pub async fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}

@@ -30,8 +30,7 @@ use crate::{
 		types::{EncryptedKey, Key, Nonce, Salt},
 		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
-	protected::ProtectedVec,
-	Error, Result,
+	Error, Protected, Result,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -105,7 +104,10 @@ impl Keyslot {
 	///
 	/// An error will be returned on failure.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<ProtectedVec<u8>> {
+	pub async fn decrypt_master_key(
+		&self,
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password, self.content_salt, None)
@@ -128,7 +130,7 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<ProtectedVec<u8>> {
+	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Protected<Vec<u8>>> {
 		StreamDecryption::decrypt_bytes(
 			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
 			self.nonce,

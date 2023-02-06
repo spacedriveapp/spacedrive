@@ -8,7 +8,6 @@ use crate::{
 		types::{Key, Nonce},
 		AEAD_TAG_SIZE, BLOCK_SIZE,
 	},
-	protected::ProtectedVec,
 	Error, Protected, Result,
 };
 use aead::{
@@ -295,7 +294,7 @@ impl StreamDecryption {
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
-	) -> Result<ProtectedVec<u8>> {
+	) -> Result<Protected<Vec<u8>>> {
 		let mut writer = Cursor::new(Vec::<u8>::new());
 		let decryptor = Self::new(key, nonce, algorithm)?;
 

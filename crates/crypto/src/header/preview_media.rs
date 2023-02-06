@@ -25,7 +25,7 @@ use tokio::io::AsyncReadExt;
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::types::{Key, Nonce},
-	Error, ProtectedVec, Result,
+	Error, Protected, Result,
 };
 
 use super::file::FileHeader;
@@ -86,8 +86,8 @@ impl FileHeader {
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
 	pub async fn decrypt_preview_media(
 		&self,
-		password: ProtectedVec<u8>,
-	) -> Result<ProtectedVec<u8>> {
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
@@ -114,7 +114,7 @@ impl FileHeader {
 	pub async fn decrypt_preview_media_from_prehashed(
 		&self,
 		hashed_keys: Vec<Key>,
-	) -> Result<ProtectedVec<u8>> {
+	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {

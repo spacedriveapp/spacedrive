@@ -101,7 +101,7 @@ pub async fn seed_keymanager(
 				master_key: EncryptedKey::try_from(key.master_key)?,
 				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
 				key_nonce: Nonce::try_from(key.key_nonce)?,
-				key: EncryptedKey::try_from(key.key)?,
+				key: key.key,
 				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
 				salt: Salt::try_from(key.salt)?,
