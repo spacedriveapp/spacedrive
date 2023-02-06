@@ -27,8 +27,7 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		rng::{derive_key, generate_nonce, generate_salt},
-		types::{EncryptedKey, Key, Salt},
+		types::{EncryptedKey, Key, Nonce, Salt},
 		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
 	protected::ProtectedVec,
@@ -46,7 +45,7 @@ pub struct Keyslot {
 	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: Salt,
 	pub master_key: EncryptedKey, // this is encrypted so we can store it
-	pub nonce: Vec<u8>,
+	pub nonce: Nonce,
 }
 
 pub const KEYSLOT_SIZE: usize = 112;
@@ -74,14 +73,14 @@ impl Keyslot {
 		hashed_key: Key,
 		master_key: Key,
 	) -> Result<Self> {
-		let nonce = generate_nonce(algorithm);
+		let nonce = Nonce::generate(algorithm)?;
 
-		let salt = generate_salt();
+		let salt = Salt::generate();
 
 		let encrypted_master_key = EncryptedKey::try_from(
 			StreamEncryption::encrypt_bytes(
-				derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
-				&nonce,
+				Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
+				nonce,
 				algorithm,
 				master_key.expose(),
 				&[],
@@ -113,10 +112,10 @@ impl Keyslot {
 			.map_err(|_| Error::PasswordHash)?;
 
 		StreamDecryption::decrypt_bytes(
-			derive_key(key, self.salt, FILE_KEY_CONTEXT),
-			&self.nonce,
+			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+			self.nonce,
 			self.algorithm,
-			&*self.master_key,
+			&self.master_key,
 			&[],
 		)
 		.await
@@ -131,10 +130,10 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<ProtectedVec<u8>> {
 		StreamDecryption::decrypt_bytes(
-			derive_key(key, self.salt, FILE_KEY_CONTEXT),
-			&self.nonce,
+			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+			self.nonce,
 			self.algorithm,
-			&*self.master_key,
+			&self.master_key,
 			&[],
 		)
 		.await
@@ -148,9 +147,9 @@ impl Keyslot {
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
-				&*self.salt,
-				&*self.content_salt,
-				&*self.master_key,
+				&self.salt,
+				&self.content_salt,
+				&self.master_key,
 				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]
@@ -195,6 +194,7 @@ impl Keyslot {
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut nonce)?;
+				let nonce = Nonce::try_from(nonce)?;
 
 				reader.read_exact(&mut vec![0u8; 26 - nonce.len()])?;
 

@@ -24,7 +24,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	primitives::{rng::generate_nonce, types::Key},
+	primitives::types::{Key, Nonce},
 	Error, ProtectedVec, Result,
 };
 
@@ -39,7 +39,7 @@ use super::file::FileHeader;
 pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
 	pub algorithm: Algorithm, // encryption algorithm
-	pub media_nonce: Vec<u8>,
+	pub media_nonce: Nonce,
 	pub media: Vec<u8>,
 }
 
@@ -64,11 +64,10 @@ impl FileHeader {
 		master_key: Key,
 		media: &[u8],
 	) -> Result<()> {
-		let media_nonce = generate_nonce(algorithm);
+		let media_nonce = Nonce::generate(algorithm)?;
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])
-				.await?;
+			StreamEncryption::encrypt_bytes(master_key, media_nonce, algorithm, media, &[]).await?;
 
 		self.preview_media = Some(PreviewMedia {
 			version,
@@ -94,7 +93,7 @@ impl FileHeader {
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(
 				master_key,
-				&pvm.media_nonce,
+				pvm.media_nonce,
 				pvm.algorithm,
 				&pvm.media,
 				&[],
@@ -121,7 +120,7 @@ impl FileHeader {
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(
 				master_key,
-				&pvm.media_nonce,
+				pvm.media_nonce,
 				pvm.algorithm,
 				&pvm.media,
 				&[],
@@ -184,6 +183,7 @@ impl PreviewMedia {
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut media_nonce).await?;
+				let media_nonce = Nonce::try_from(media_nonce)?;
 
 				reader
 					.read_exact(&mut vec![0u8; 24 - media_nonce.len()])

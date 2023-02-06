@@ -129,7 +129,7 @@ impl PasswordHasher {
 		.map_err(|_| Error::PasswordHash)?;
 
 		argon2
-			.hash_password_into(password.expose(), &*salt, &mut key)
+			.hash_password_into(password.expose(), &salt, &mut key)
 			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 
@@ -153,7 +153,7 @@ impl PasswordHasher {
 		);
 
 		balloon
-			.hash_into(password.expose(), &*salt, &mut key)
+			.hash_into(password.expose(), &salt, &mut key)
 			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 }

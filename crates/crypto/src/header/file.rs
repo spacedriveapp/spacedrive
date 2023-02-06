@@ -35,7 +35,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{rng::generate_nonce, types::Key},
+	primitives::types::{Key, Nonce},
 	protected::ProtectedVec,
 	Error, Result,
 };
@@ -61,7 +61,7 @@ pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
-	pub nonce: Vec<u8>,
+	pub nonce: Nonce,
 	pub keyslots: Vec<Keyslot>,
 	pub metadata: Option<Metadata>,
 	pub preview_media: Option<PreviewMedia>,
@@ -76,15 +76,21 @@ pub enum FileHeaderVersion {
 impl FileHeader {
 	/// This function is used for creating a file header.
 	#[must_use]
-	pub fn new(version: FileHeaderVersion, algorithm: Algorithm, keyslots: Vec<Keyslot>) -> Self {
-		Self {
+	pub fn new(
+		version: FileHeaderVersion,
+		algorithm: Algorithm,
+		keyslots: Vec<Keyslot>,
+	) -> Result<Self> {
+		let f = Self {
 			version,
 			algorithm,
-			nonce: generate_nonce(algorithm),
+			nonce: Nonce::generate(algorithm)?,
 			keyslots,
 			metadata: None,
 			preview_media: None,
-		}
+		};
+
+		Ok(f)
 	}
 
 	/// This includes the magic bytes at the start of the file, and remainder of the header itself (excluding keyslots, metadata, and preview media as these can all change)
@@ -182,9 +188,9 @@ impl FileHeader {
 		match self.version {
 			FileHeaderVersion::V1 => [
 				MAGIC_BYTES.as_ref(),
-				self.version.to_bytes().as_ref(),
-				self.algorithm.to_bytes().as_ref(),
-				self.nonce.as_ref(),
+				&self.version.to_bytes(),
+				&self.algorithm.to_bytes(),
+				&self.nonce,
 				&vec![0u8; 25 - self.nonce.len()],
 			]
 			.into_iter()
@@ -288,6 +294,7 @@ impl FileHeader {
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut nonce).await?;
+				let nonce = Nonce::try_from(nonce)?;
 
 				// read and discard the padding
 				reader.read_exact(&mut vec![0u8; 25 - nonce.len()]).await?;

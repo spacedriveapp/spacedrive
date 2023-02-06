@@ -31,13 +31,13 @@
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{rng::generate_nonce, types::Key},
+	primitives::types::Key,
 	ProtectedVec,
 };
 
 use tokio::io::AsyncReadExt;
 
-use crate::{crypto::stream::Algorithm, Error, Result};
+use crate::{crypto::stream::Algorithm, primitives::types::Nonce, Error, Result};
 
 use super::file::FileHeader;
 
@@ -50,7 +50,7 @@ use super::file::FileHeader;
 pub struct Metadata {
 	pub version: MetadataVersion,
 	pub algorithm: Algorithm, // encryption algorithm
-	pub metadata_nonce: Vec<u8>,
+	pub metadata_nonce: Nonce,
 	pub metadata: Vec<u8>,
 }
 
@@ -79,11 +79,11 @@ impl FileHeader {
 	where
 		T: ?Sized + serde::Serialize + Sync + Send,
 	{
-		let metadata_nonce = generate_nonce(algorithm);
+		let metadata_nonce = Nonce::generate(algorithm)?;
 
 		let encrypted_metadata = StreamEncryption::encrypt_bytes(
 			master_key,
-			&metadata_nonce,
+			metadata_nonce,
 			algorithm,
 			&serde_json::to_vec(metadata).map_err(|_| Error::Serialization)?,
 			&[],
@@ -115,7 +115,7 @@ impl FileHeader {
 		if let Some(metadata) = self.metadata.as_ref() {
 			let metadata = StreamDecryption::decrypt_bytes(
 				master_key,
-				&metadata.metadata_nonce,
+				metadata.metadata_nonce,
 				metadata.algorithm,
 				&metadata.metadata,
 				&[],
@@ -143,7 +143,7 @@ impl FileHeader {
 		if let Some(metadata) = self.metadata.as_ref() {
 			let metadata = StreamDecryption::decrypt_bytes(
 				master_key,
-				&metadata.metadata_nonce,
+				metadata.metadata_nonce,
 				metadata.algorithm,
 				&metadata.metadata,
 				&[],
@@ -205,6 +205,7 @@ impl Metadata {
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut metadata_nonce).await?;
+				let metadata_nonce = Nonce::try_from(metadata_nonce)?;
 
 				reader
 					.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])

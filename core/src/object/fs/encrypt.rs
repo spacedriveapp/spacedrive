@@ -6,10 +6,7 @@ use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{
-		rng::generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA,
-		LATEST_PREVIEW_MEDIA,
-	},
+	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -146,7 +143,7 @@ impl StatefulJob for FileEncryptorJob {
 					)
 					.await?,
 				],
-			);
+			)?;
 
 			if state.init.metadata || state.init.preview_media {
 				// if any are requested, we can make the query as it'll be used at least once

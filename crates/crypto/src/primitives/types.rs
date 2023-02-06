@@ -1,10 +1,13 @@
 use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
+use zeroize::Zeroize;
 
 use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 // pub struct Nonce<const I: usize>(pub [u8; I]);
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
 	Aes256Gcm([u8; 8]),
@@ -15,6 +18,13 @@ impl Nonce {
 		let mut nonce = vec![0u8; algorithm.nonce_len()];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
 		Ok(Nonce::try_from(nonce)?)
+	}
+
+	pub fn len(&self) -> usize {
+		match self {
+			Self::Aes256Gcm(_) => 8,
+			Self::XChaCha20Poly1305(_) => 20,
+		}
 	}
 }
 
@@ -30,12 +40,41 @@ impl TryFrom<Vec<u8>> for Nonce {
 	}
 }
 
+impl AsRef<[u8]> for Nonce {
+	fn as_ref(&self) -> &[u8] {
+		match self {
+			Self::Aes256Gcm(x) => x,
+			Self::XChaCha20Poly1305(x) => x,
+		}
+	}
+}
+
+impl Deref for Nonce {
+	type Target = [u8];
+	fn deref(&self) -> &Self::Target {
+		match self {
+			Self::Aes256Gcm(x) => x,
+			Self::XChaCha20Poly1305(x) => x,
+		}
+	}
+}
+
 #[derive(Clone)]
 pub struct Key(pub Protected<[u8; KEY_LEN]>);
 
 impl Key {
 	pub fn new(v: [u8; KEY_LEN]) -> Self {
 		Self(Protected::new(v))
+	}
+
+	pub fn derive(key: Self, salt: Salt, context: &str) -> Self {
+		let mut input = key.expose().to_vec();
+		input.extend_from_slice(&salt);
+		let key = blake3::derive_key(context, &input);
+
+		input.zeroize();
+
+		Key::new(key)
 	}
 
 	pub fn expose(&self) -> &[u8; KEY_LEN] {
@@ -125,7 +164,7 @@ impl From<SecretKeyString> for SecretKey {
 
 		to_array(&secret_key)
 			.ok()
-			.map_or_else(generate_secret_key, Self::new)
+			.map_or_else(SecretKey::generate, Self::new)
 	}
 }
 
@@ -158,9 +197,7 @@ impl SecretKeyString {
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
-use super::{
-	rng::generate_secret_key, to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
-};
+use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
@@ -170,7 +207,7 @@ pub struct EncryptedKey(
 );
 
 impl Deref for EncryptedKey {
-	type Target = [u8; ENCRYPTED_KEY_LEN];
+	type Target = [u8];
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -199,7 +236,7 @@ impl Salt {
 }
 
 impl Deref for Salt {
-	type Target = [u8; SALT_LEN];
+	type Target = [u8];
 
 	fn deref(&self) -> &Self::Target {
 		&self.0

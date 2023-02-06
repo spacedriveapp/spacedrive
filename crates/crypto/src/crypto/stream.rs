@@ -4,7 +4,10 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{types::Key, AEAD_TAG_SIZE, BLOCK_SIZE},
+	primitives::{
+		types::{Key, Nonce},
+		AEAD_TAG_SIZE, BLOCK_SIZE,
+	},
 	protected::ProtectedVec,
 	Error, Protected, Result,
 };
@@ -55,7 +58,7 @@ impl StreamEncryption {
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Key, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -65,14 +68,14 @@ impl StreamEncryption {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 
-				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
+				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 
-				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
+				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
@@ -162,7 +165,7 @@ impl StreamEncryption {
 	#[allow(unused_mut)]
 	pub async fn encrypt_bytes(
 		key: Key,
-		nonce: &[u8],
+		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
@@ -182,7 +185,7 @@ impl StreamDecryption {
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Key, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -192,14 +195,14 @@ impl StreamDecryption {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 
-				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
+				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 
-				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
+				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
@@ -288,7 +291,7 @@ impl StreamDecryption {
 	#[allow(unused_mut)]
 	pub async fn decrypt_bytes(
 		key: Key,
-		nonce: &[u8],
+		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
