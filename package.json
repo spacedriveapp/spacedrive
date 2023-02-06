@@ -23,6 +23,7 @@
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "turbo run typecheck",
 		"lint": "turbo run lint",
+		"lint:fix": "turbo run lint:fix",
 		"clean": "rimraf node_modules/ **/node_modules/ target/ **/.build/ **/.next/ **/dist/**"
 	},
 	"pnpm": {

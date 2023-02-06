@@ -16,6 +16,7 @@
 		"eslint-config-prettier": "^8.5.0",
 		"eslint-config-turbo": "^0.0.7",
 		"eslint-plugin-react": "^7.31.8",
-		"eslint-plugin-react-hooks": "^4.6.0"
+		"eslint-plugin-react-hooks": "^4.6.0",
+		"eslint-plugin-tailwindcss": "^3.8.3"
 	}
 }

@@ -12,6 +12,7 @@ module.exports = {
 		'plugin:react/recommended',
 		'plugin:react-hooks/recommended',
 		'plugin:@typescript-eslint/recommended',
+		'plugin:tailwindcss/recommended',
 		'prettier',
 		'turbo'
 	],
@@ -32,12 +33,18 @@ module.exports = {
 		'@typescript-eslint/no-empty-interface': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
 		'no-control-regex': 'off',
-		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs']
+		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs'],
+		'tailwindcss/no-custom-classname': 'off',
+		'tailwindcss/no-contradicting-classname': 'warn'
 	},
 	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules'],
 	settings: {
 		react: {
 			version: 'detect'
+		},
+		tailwindcss: {
+			callees: ['classnames', 'clsx', 'ctl', 'cva', 'tw'],
+			tags: ['tw']
 		}
 	}
 };

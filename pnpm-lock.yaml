@@ -399,6 +399,7 @@ importers:
       eslint-config-turbo: ^0.0.7
       eslint-plugin-react: ^7.31.8
       eslint-plugin-react-hooks: ^4.6.0
+      eslint-plugin-tailwindcss: ^3.8.3
     devDependencies:
       '@typescript-eslint/eslint-plugin': 5.48.2_2l6piu6guil2f63lj3qmhzbnn4
       '@typescript-eslint/parser': 5.48.2_eslint@8.32.0
@@ -407,6 +408,7 @@ importers:
       eslint-config-turbo: 0.0.7_eslint@8.32.0
       eslint-plugin-react: 7.32.1_eslint@8.32.0
       eslint-plugin-react-hooks: 4.6.0_eslint@8.32.0
+      eslint-plugin-tailwindcss: 3.8.3
 
   packages/interface:
     specifiers:
@@ -11698,6 +11700,16 @@ packages:
       resolve: 2.0.0-next.4
       semver: 6.3.0
       string.prototype.matchall: 4.0.8
+    dev: true
+
+  /eslint-plugin-tailwindcss/3.8.3:
+    resolution: {integrity: sha512-wfzfCmc9yONNW+TqfR+QWZ+syFPQ8zMOrIGx500lS4XITEm0HJYGyKh1sC1tQ9+Wmt58bnHzW3Yc31vy5RlJww==}
+    engines: {node: '>=12.13.0'}
+    peerDependencies:
+      tailwindcss: ^3.2.2
+    dependencies:
+      fast-glob: 3.2.12
+      postcss: 8.4.21
     dev: true
 
   /eslint-plugin-turbo/0.0.7_eslint@8.32.0:
