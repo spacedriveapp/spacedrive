@@ -13,7 +13,6 @@ use crate::{
 	Error, Result,
 };
 
-// pub mod rng;
 pub mod types;
 
 /// This is the default salt size, and the recommended size for argon2id.

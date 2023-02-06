@@ -102,15 +102,15 @@ impl FileHeader {
 
 	/// This function should be used to retrieve the metadata for a file
 	///
-	/// All it requires is pre-hashed keys returned from the key manager
+	/// All it requires is a password. Hashing is handled for you.
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub async fn decrypt_metadata_from_prehashed<T>(&self, hashed_keys: Vec<Key>) -> Result<T>
+	pub async fn decrypt_metadata<T>(&self, password: ProtectedVec<u8>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
+		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
 			let metadata = StreamDecryption::decrypt_bytes(
@@ -130,15 +130,15 @@ impl FileHeader {
 
 	/// This function should be used to retrieve the metadata for a file
 	///
-	/// All it requires is a password. Hashing is handled for you.
+	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub async fn decrypt_metadata<T>(&self, password: ProtectedVec<u8>) -> Result<T>
+	pub async fn decrypt_metadata_from_prehashed<T>(&self, hashed_keys: Vec<Key>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key(password).await?;
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
 			let metadata = StreamDecryption::decrypt_bytes(

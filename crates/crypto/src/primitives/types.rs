@@ -5,7 +5,6 @@ use zeroize::Zeroize;
 use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-// pub struct Nonce<const I: usize>(pub [u8; I]);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum Nonce {
@@ -17,13 +16,22 @@ impl Nonce {
 	pub fn generate(algorithm: Algorithm) -> crate::Result<Self> {
 		let mut nonce = vec![0u8; algorithm.nonce_len()];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
-		Ok(Nonce::try_from(nonce)?)
+		Self::try_from(nonce)
 	}
 
-	pub fn len(&self) -> usize {
+	#[must_use]
+	pub const fn len(&self) -> usize {
 		match self {
 			Self::Aes256Gcm(_) => 8,
 			Self::XChaCha20Poly1305(_) => 20,
+		}
+	}
+
+	#[must_use]
+	pub const fn is_empty(&self) -> bool {
+		match self {
+			Self::Aes256Gcm(x) => x.is_empty(),
+			Self::XChaCha20Poly1305(x) => x.is_empty(),
 		}
 	}
 }
@@ -33,8 +41,8 @@ impl TryFrom<Vec<u8>> for Nonce {
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
 		match value.len() {
-			8 => Ok(Nonce::Aes256Gcm(to_array(&value)?)),
-			20 => Ok(Nonce::XChaCha20Poly1305(to_array(&value)?)),
+			8 => Ok(Self::Aes256Gcm(to_array(&value)?)),
+			20 => Ok(Self::XChaCha20Poly1305(to_array(&value)?)),
 			_ => Err(Error::NonceLengthMismatch),
 		}
 	}
@@ -63,10 +71,13 @@ impl Deref for Nonce {
 pub struct Key(pub Protected<[u8; KEY_LEN]>);
 
 impl Key {
-	pub fn new(v: [u8; KEY_LEN]) -> Self {
+	#[must_use]
+	pub const fn new(v: [u8; KEY_LEN]) -> Self {
 		Self(Protected::new(v))
 	}
 
+	#[must_use]
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn derive(key: Self, salt: Salt, context: &str) -> Self {
 		let mut input = key.expose().to_vec();
 		input.extend_from_slice(&salt);
@@ -74,17 +85,19 @@ impl Key {
 
 		input.zeroize();
 
-		Key::new(key)
+		Self::new(key)
 	}
 
-	pub fn expose(&self) -> &[u8; KEY_LEN] {
+	#[must_use]
+	pub const fn expose(&self) -> &[u8; KEY_LEN] {
 		self.0.expose()
 	}
 
+	#[must_use]
 	pub fn generate() -> Self {
 		let mut key = [0u8; KEY_LEN];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut key);
-		Key::new(key)
+		Self::new(key)
 	}
 }
 
@@ -108,18 +121,21 @@ impl Deref for Key {
 pub struct SecretKey(pub Protected<[u8; SECRET_KEY_LEN]>);
 
 impl SecretKey {
-	pub fn new(v: [u8; SECRET_KEY_LEN]) -> Self {
+	#[must_use]
+	pub const fn new(v: [u8; SECRET_KEY_LEN]) -> Self {
 		Self(Protected::new(v))
 	}
 
-	pub fn expose(&self) -> &[u8; SECRET_KEY_LEN] {
+	#[must_use]
+	pub const fn expose(&self) -> &[u8; SECRET_KEY_LEN] {
 		self.0.expose()
 	}
 
+	#[must_use]
 	pub fn generate() -> Self {
 		let mut secret_key = [0u8; SECRET_KEY_LEN];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut secret_key);
-		SecretKey::new(secret_key)
+		Self::new(secret_key)
 	}
 }
 
@@ -131,9 +147,9 @@ impl Deref for SecretKey {
 	}
 }
 
-impl Into<SecretKeyString> for SecretKey {
-	fn into(self) -> SecretKeyString {
-		let hex_string: String = hex::encode_upper(self.0.expose())
+impl From<SecretKey> for SecretKeyString {
+	fn from(v: SecretKey) -> Self {
+		let hex_string: String = hex::encode_upper(v.0.expose())
 			.chars()
 			.enumerate()
 			.map(|(i, c)| {
@@ -146,7 +162,7 @@ impl Into<SecretKeyString> for SecretKey {
 			.into_iter()
 			.collect();
 
-		SecretKeyString::new(hex_string)
+		Self::new(hex_string)
 	}
 }
 
@@ -164,7 +180,7 @@ impl From<SecretKeyString> for SecretKey {
 
 		to_array(&secret_key)
 			.ok()
-			.map_or_else(SecretKey::generate, Self::new)
+			.map_or_else(Self::generate, Self::new)
 	}
 }
 
@@ -172,11 +188,13 @@ impl From<SecretKeyString> for SecretKey {
 pub struct Password(pub Protected<String>);
 
 impl Password {
-	pub fn new(v: String) -> Self {
+	#[must_use]
+	pub const fn new(v: String) -> Self {
 		Self(Protected::new(v))
 	}
 
-	pub fn expose(&self) -> &String {
+	#[must_use]
+	pub const fn expose(&self) -> &String {
 		self.0.expose()
 	}
 }
@@ -185,11 +203,13 @@ impl Password {
 pub struct SecretKeyString(pub Protected<String>);
 
 impl SecretKeyString {
-	pub fn new(v: String) -> Self {
+	#[must_use]
+	pub const fn new(v: String) -> Self {
 		Self(Protected::new(v))
 	}
 
-	pub fn expose(&self) -> &String {
+	#[must_use]
+	pub const fn expose(&self) -> &String {
 		self.0.expose()
 	}
 }
@@ -228,10 +248,11 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 pub struct Salt(pub [u8; SALT_LEN]);
 
 impl Salt {
+	#[must_use]
 	pub fn generate() -> Self {
 		let mut salt = [0u8; SALT_LEN];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
-		Salt(salt)
+		Self(salt)
 	}
 }
 

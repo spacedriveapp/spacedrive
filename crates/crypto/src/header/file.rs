@@ -75,7 +75,6 @@ pub enum FileHeaderVersion {
 
 impl FileHeader {
 	/// This function is used for creating a file header.
-	#[must_use]
 	pub fn new(
 		version: FileHeaderVersion,
 		algorithm: Algorithm,
@@ -117,22 +116,13 @@ impl FileHeader {
 				.decrypt_master_key(password.clone())
 				.await
 				.ok()
-				.map(|v| Ok(Key::try_from(v)?))
+				.map(Key::try_from)
 			{
 				return key;
 			}
 		}
 
 		Err(Error::IncorrectPassword)
-	}
-
-	/// This is a helper function to serialize and write a header to a file.
-	pub async fn write<W>(&self, writer: &mut W) -> Result<()>
-	where
-		W: AsyncWriteExt + Unpin + Send,
-	{
-		writer.write_all(&self.to_bytes()?).await?;
-		Ok(())
 	}
 
 	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
@@ -152,7 +142,7 @@ impl FileHeader {
 					.decrypt_master_key_from_prehashed(hashed_key.clone())
 					.await
 					.ok()
-					.map(|v| Ok(Key::try_from(v)?))
+					.map(Key::try_from)
 				{
 					return key;
 				}
@@ -160,6 +150,15 @@ impl FileHeader {
 		}
 
 		Err(Error::IncorrectPassword)
+	}
+
+	/// This is a helper function to serialize and write a header to a file.
+	pub async fn write<W>(&self, writer: &mut W) -> Result<()>
+	where
+		W: AsyncWriteExt + Unpin + Send,
+	{
+		writer.write_all(&self.to_bytes()?).await?;
+		Ok(())
 	}
 
 	/// This is a helper function to find which keyslot a key belongs to.

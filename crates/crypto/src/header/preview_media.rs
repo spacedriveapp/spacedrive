@@ -81,14 +81,14 @@ impl FileHeader {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is pre-hashed keys returned from the key manager
+	/// All it requires is the user's password. Hashing is handled for you.
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub async fn decrypt_preview_media_from_prehashed(
+	pub async fn decrypt_preview_media(
 		&self,
-		hashed_keys: Vec<Key>,
+		password: ProtectedVec<u8>,
 	) -> Result<ProtectedVec<u8>> {
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
+		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(
@@ -108,14 +108,14 @@ impl FileHeader {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is the user's password. Hashing is handled for you.
+	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub async fn decrypt_preview_media(
+	pub async fn decrypt_preview_media_from_prehashed(
 		&self,
-		password: ProtectedVec<u8>,
+		hashed_keys: Vec<Key>,
 	) -> Result<ProtectedVec<u8>> {
-		let master_key = self.decrypt_master_key(password).await?;
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(

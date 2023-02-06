@@ -227,7 +227,7 @@ impl KeyManager {
 		let content_salt = Salt::generate();
 		let secret_key = SecretKey::generate();
 
-		dbg!(SecretKeyString::from(secret_key.clone().into()).expose());
+		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
 		let algorithm = config.algorithm;
 		let hashing_algorithm = config.hashing_algorithm;
@@ -357,7 +357,7 @@ impl KeyManager {
 		let secret_key = SecretKey::generate();
 		let content_salt = Salt::generate();
 
-		dbg!(SecretKeyString::from(secret_key.clone().into()).expose());
+		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(master_password.expose().as_bytes().to_vec()),
@@ -414,7 +414,7 @@ impl KeyManager {
 			hashing_algorithm,
 			content_salt,
 			master_key: encrypted_master_key,
-			master_key_nonce: master_key_nonce,
+			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 			salt,
@@ -510,7 +510,7 @@ impl KeyManager {
 						&[],
 					)
 					.await
-					.map_or(Err(Error::IncorrectPassword), |v| Ok(Key::try_from(v)?))?;
+					.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 					// generate a new nonce
 					let master_key_nonce = Nonce::generate(key.algorithm)?;
@@ -652,7 +652,7 @@ impl KeyManager {
 			self.keyring_insert(
 				library_uuid,
 				SECRET_KEY_IDENTIFIER.to_string(),
-				SecretKeyString::from(SecretKey::from(secret_key).into()),
+				SecretKeyString::from(SecretKey::from(secret_key)),
 			)
 			.await
 			.ok();
@@ -699,7 +699,7 @@ impl KeyManager {
 							self.remove_from_queue(uuid).ok();
 							Err(Error::IncorrectPassword)
 						},
-						|v| Ok(Key::try_from(v)?),
+						Key::try_from,
 					)?;
 					// Decrypt the StoredKey using the decrypted master key
 					let key = StreamDecryption::decrypt_bytes(
@@ -759,7 +759,7 @@ impl KeyManager {
 				&[],
 			)
 			.await
-			.map_or(Err(Error::IncorrectPassword), |k| Ok(Key::try_from(k)?))?;
+			.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 			// Decrypt the StoredKey using the decrypted master key
 			let key = StreamDecryption::decrypt_bytes(
