@@ -351,7 +351,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.await?;
 
-				// remove old nil-id keys if they were set
+				invalidate_query!(library, "keys.getSecretKey");
+
+				// remove old root key if present
 				library
 					.db
 					.key()
