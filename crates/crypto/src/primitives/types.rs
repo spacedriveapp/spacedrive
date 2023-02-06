@@ -1,6 +1,34 @@
+use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 
 use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+
+#[derive(Clone, Copy)]
+// pub struct Nonce<const I: usize>(pub [u8; I]);
+pub enum Nonce {
+	XChaCha20Poly1305([u8; 20]),
+	Aes256Gcm([u8; 8]),
+}
+
+impl Nonce {
+	pub fn generate(algorithm: Algorithm) -> crate::Result<Self> {
+		let mut nonce = vec![0u8; algorithm.nonce_len()];
+		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
+		Ok(Nonce::try_from(nonce)?)
+	}
+}
+
+impl TryFrom<Vec<u8>> for Nonce {
+	type Error = Error;
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		match value.len() {
+			8 => Ok(Nonce::Aes256Gcm(to_array(&value)?)),
+			20 => Ok(Nonce::XChaCha20Poly1305(to_array(&value)?)),
+			_ => Err(Error::NonceLengthMismatch),
+		}
+	}
+}
 
 #[derive(Clone)]
 pub struct Key(pub Protected<[u8; KEY_LEN]>);
@@ -12,6 +40,12 @@ impl Key {
 
 	pub fn expose(&self) -> &[u8; KEY_LEN] {
 		self.0.expose()
+	}
+
+	pub fn generate() -> Self {
+		let mut key = [0u8; KEY_LEN];
+		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut key);
+		Key::new(key)
 	}
 }
 
@@ -41,6 +75,12 @@ impl SecretKey {
 
 	pub fn expose(&self) -> &[u8; SECRET_KEY_LEN] {
 		self.0.expose()
+	}
+
+	pub fn generate() -> Self {
+		let mut secret_key = [0u8; SECRET_KEY_LEN];
+		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut secret_key);
+		SecretKey::new(secret_key)
 	}
 }
 
@@ -149,6 +189,14 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct Salt(pub [u8; SALT_LEN]);
+
+impl Salt {
+	pub fn generate() -> Self {
+		let mut salt = [0u8; SALT_LEN];
+		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
+		Salt(salt)
+	}
+}
 
 impl Deref for Salt {
 	type Target = [u8; SALT_LEN];

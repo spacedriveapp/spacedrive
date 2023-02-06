@@ -13,6 +13,9 @@ use crate::{
 	Error, Result,
 };
 
+pub mod rng;
+pub mod types;
+
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
 
@@ -46,9 +49,6 @@ pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key deri
 pub const MASTER_PASSWORD_CONTEXT: &str =
 	"spacedrive 2022-12-14 15:35:41 master password hash derivation"; // used for deriving keys from the master password hash
 pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation"; // used for deriving keys from user key/content salt hashes (for file encryption)
-
-pub mod rng;
-pub mod types;
 
 /// This is used for converting a `Vec<u8>` to an array of bytes
 ///
