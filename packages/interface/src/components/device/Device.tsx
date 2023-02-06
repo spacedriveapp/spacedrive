@@ -33,7 +33,7 @@ export function Device(props: DeviceProps) {
 
 	return (
 		<div className="border-app-divider bg-app w-full rounded-md border">
-			<div className="flex flex-row items-center px-4 pt-2 pb-2">
+			<div className="flex flex-row items-center px-4 py-2">
 				<DotsSixVertical weight="bold" className="mr-3 opacity-30" />
 				{props.type === 'phone' && <DeviceMobileCamera weight="fill" size={20} className="mr-2" />}
 				{props.type === 'laptop' && <Laptop weight="fill" size={20} className="mr-2" />}
@@ -47,9 +47,9 @@ export function Device(props: DeviceProps) {
 					</span>
 				</div>
 				<span className="ml-2 py-0.5 px-1.5 text-sm font-semibold  ">{props.size}</span>
-				<div className="flex flex-grow" />
+				<div className="flex grow" />
 				{props.runningJob && (
-					<div className="ml-5 flex flex-row rounded-md bg-opacity-50 ">
+					<div className="bg-opacity/50 ml-5 flex flex-row rounded-md ">
 						<Loader />
 						<div className="flex flex-col p-2">
 							<span className="text-tiny mb-[2px] -mt-1 truncate">{props.runningJob.task}...</span>

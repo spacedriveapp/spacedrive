@@ -36,7 +36,7 @@ export interface TopBarButtonProps {
 // export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
 
 const topBarButtonStyle = cva(
-	'border-none text-ink hover:text-ink mr-[1px] flex py-0.5 px-0.5 text-md font-medium transition-colors duration-100 outline-none hover:bg-app-selected radix-state-open:bg-app-selected',
+	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none p-0.5 font-medium outline-none transition-colors duration-100',
 	{
 		variants: {
 			active: {
@@ -187,8 +187,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
+				// eslint-disable-next-line tailwindcss/no-contradicting-classname
 				className={clsx(
-					'max-w bg-app duration-250 z-20 flex h-[46px] flex-shrink-0 items-center overflow-hidden border-b border-transparent pl-3 transition-[background-color] transition-[border-color] ease-out',
+					'max-w bg-app duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
@@ -211,7 +212,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
 
-				<div data-tauri-drag-region className="flex flex-grow flex-row justify-center">
+				<div data-tauri-drag-region className="flex grow flex-row justify-center">
 					<div className="mx-8 flex">
 						<Tooltip label="Grid view">
 							<TopBarButton

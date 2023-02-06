@@ -3,10 +3,10 @@ import { FC } from 'react';
 import { TextInputProps as RNTextInputProps, TextInput } from 'react-native';
 import tw from '~/lib/tailwind';
 
-const input = cva(['text-sm rounded-md border shadow-sm'], {
+const input = cva(['rounded-md border text-sm shadow-sm'], {
 	variants: {
 		variant: {
-			default: 'bg-app border-app-line text-ink'
+			default: 'border-app-line bg-app text-ink'
 		},
 		size: {
 			default: ['py-2', 'px-3']

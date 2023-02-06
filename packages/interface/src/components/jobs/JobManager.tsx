@@ -108,7 +108,7 @@ export function JobsManager() {
 		<div className="h-full overflow-hidden pb-10">
 			<HeaderContainer>
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
-				<div className="flex-grow" />
+				<div className="grow" />
 
 				<Button onClick={() => clearAllJobs.mutate(null)} size="icon">
 					<Tooltip label="Clear out finished jobs">
@@ -149,7 +149,7 @@ function Job({ job }: { job: JobReport }) {
 	};
 	const isRunning = job.status === 'Running';
 	return (
-		<div className="border-app-line/50 flex items-center border-b bg-opacity-60 px-2 py-2 pl-4">
+		<div className="border-app-line/50 bg-opacity/60 flex items-center border-b p-2 pl-4">
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
 			</Tooltip>
@@ -178,7 +178,7 @@ function Job({ job }: { job: JobReport }) {
 				</div>
 				{/* <span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span> */}
 			</div>
-			<div className="flex-grow" />
+			<div className="grow" />
 			<div className="ml-7 flex flex-row space-x-2">
 				{job.status === 'Running' && (
 					<Button size="icon">

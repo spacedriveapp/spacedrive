@@ -17,7 +17,7 @@ const ModalBackdrop = (props: BottomSheetBackdropProps) => (
 const ModalHandle = (props: BottomSheetHandleProps) => (
 	<BottomSheetHandle
 		{...props}
-		style={tw`bg-app rounded-t-xl`}
+		style={tw`rounded-t-xl bg-app`}
 		indicatorStyle={tw`bg-app-highlight`}
 	/>
 );

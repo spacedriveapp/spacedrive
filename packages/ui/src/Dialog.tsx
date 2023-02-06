@@ -144,7 +144,7 @@ export function Dialog<S extends FieldValues>({
 					<DialogPrimitive.Portal forceMount>
 						<DialogPrimitive.Overlay asChild forceMount>
 							<animated.div
-								className="z-49 bg-app fixed top-0 bottom-0 left-0 right-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-opacity-50"
+								className="z-49 bg-app bg-opacity/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
 								style={{
 									opacity: styles.opacity
 								}}
@@ -153,7 +153,7 @@ export function Dialog<S extends FieldValues>({
 
 						<DialogPrimitive.Content asChild forceMount>
 							<animated.div
-								className="!pointer-events-none fixed top-0 bottom-0 left-0 right-0 z-50 grid place-items-center"
+								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center"
 								style={styles}
 							>
 								<Form
@@ -174,9 +174,9 @@ export function Dialog<S extends FieldValues>({
 										</DialogPrimitive.Description>
 										{props.children}
 									</div>
-									<div className="bg-app-selected border-app-line flex flex-row justify-end space-x-2 border-t px-3 py-3">
+									<div className="bg-app-selected border-app-line flex flex-row justify-end space-x-2 border-t p-3">
 										{form.formState.isSubmitting && <Loader />}
-										<div className="flex-grow" />
+										<div className="grow" />
 										<DialogPrimitive.Close asChild>
 											<Button disabled={props.loading} size="sm" variant="gray">
 												Close

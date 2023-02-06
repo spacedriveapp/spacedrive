@@ -119,9 +119,9 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 
 			{form.watch('type') === 'password' && (
 				<>
-					<div className="relative mt-3 mb-2 flex flex-grow">
+					<div className="relative mt-3 mb-2 flex grow">
 						<Input
-							className={`w-max flex-grow !py-0.5`}
+							className={`w-max grow !py-0.5`}
 							placeholder="Password"
 							type={show.password ? 'text' : 'password'}
 							{...form.register('password', { required: true })}
@@ -136,7 +136,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 						</Button>
 					</div>
 
-					<div className="relative mt-3 mb-2 flex flex-grow">
+					<div className="relative mt-3 mb-2 flex grow">
 						<div className="space-x-2">
 							<Switch
 								className="bg-app-selected"

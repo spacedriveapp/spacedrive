@@ -17,7 +17,7 @@ export default function DebugScreen() {
 	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
 		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col">
-			<div data-tauri-drag-region className="flex h-5 w-full flex-shrink-0" />
+			<div data-tauri-drag-region className="flex h-5 w-full shrink-0" />
 			<div className="flex flex-col space-y-5 p-5 pt-2 pb-7">
 				<h1 className="text-lg font-bold ">Developer Debugger</h1>
 				{/* <div className="flex flex-row pb-4 space-x-2">

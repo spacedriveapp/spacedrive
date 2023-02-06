@@ -89,7 +89,7 @@ export default function TagsSettings() {
 							</span>
 							<div className="relative">
 								<PopoverPicker
-									className="!absolute left-[9px] -top-[3px]"
+									className="!absolute left-[9px] top-[-3px]"
 									{...updateForm.register('color')}
 								/>
 								<Input className="w-28 pl-[40px]" {...updateForm.register('color')} />
@@ -101,7 +101,7 @@ export default function TagsSettings() {
 							</span>
 							<Input {...updateForm.register('name')} />
 						</div>
-						<div className="flex flex-grow" />
+						<div className="flex grow" />
 						<Button
 							variant="gray"
 							className="mt-[22px] h-[38px]"
@@ -163,7 +163,7 @@ function CreateTagDialog(props: UseDialogProps) {
 			ctaLabel="Create"
 		>
 			<div className="relative mt-3 ">
-				<PopoverPicker className="!absolute left-[9px] -top-[3px]" {...form.register('color')} />
+				<PopoverPicker className="!absolute left-[9px] top-[-3px]" {...form.register('color')} />
 				<Input
 					{...form.register('name', { required: true })}
 					className="w-full pl-[40px]"

@@ -21,7 +21,7 @@ const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	return (
 		<View style={tw`flex flex-col p-4`}>
 			<Text style={tw`text-sm text-gray-400`}>{title}</Text>
-			<View style={tw`flex-row items-baseline mt-1`}>
+			<View style={tw`mt-1 flex-row items-baseline`}>
 				<Text style={tw.style('text-2xl font-bold text-white tabular-nums')}>{count}</Text>
 				<Text style={tw`ml-1 text-sm text-gray-400`}>{unit}</Text>
 			</View>
@@ -63,7 +63,7 @@ const OverviewStats = () => {
 		</ScrollView>
 	) : (
 		<View>
-			<Text style={tw`text-red-600 text-center font-bold`}>No library found...</Text>
+			<Text style={tw`text-center font-bold text-red-600`}>No library found...</Text>
 		</View>
 	);
 };

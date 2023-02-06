@@ -117,7 +117,7 @@ export function Sidebar() {
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
-				<div className="flex-grow" />
+				<div className="grow" />
 			</SidebarContents>
 
 			<SidebarFooter>
@@ -250,7 +250,7 @@ function DebugPanel() {
 }
 
 const sidebarItemClass = cva(
-	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm outline-none ring-offset-sidebar focus:ring-2 focus:ring-accent focus:ring-offset-2',
+	'max-w ring-offset-sidebar focus:ring-accent mb-[2px] flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-offset-2',
 	{
 		variants: {
 			isActive: {
@@ -258,7 +258,7 @@ const sidebarItemClass = cva(
 				false: 'text-ink-dull'
 			},
 			isTransparent: {
-				true: 'bg-opacity-90',
+				true: 'bg-opacity/90',
 				false: ''
 			}
 		}
@@ -336,11 +336,11 @@ function LibraryScopedSection() {
 										pathname: `location/${location.id}`
 									}}
 								>
-									<div className="-mt-0.5 mr-1 flex-shrink-0 flex-grow-0">
+									<div className="-mt-0.5 mr-1 shrink-0 grow-0">
 										<Folder size={18} />
 									</div>
 
-									<span className="flex-shrink-0 flex-grow">{location.name}</span>
+									<span className="shrink-0 grow">{location.name}</span>
 								</SidebarLink>
 							</div>
 						);
@@ -412,7 +412,7 @@ function WindowControls() {
 	const showControls = window.location.search.includes('showControls');
 	if (platform === 'tauri' || showControls) {
 		return (
-			<div data-tauri-drag-region className="h-7 flex-shrink-0">
+			<div data-tauri-drag-region className="h-7 shrink-0">
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
 				{showControls && <MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />}
 			</div>

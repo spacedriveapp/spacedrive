@@ -10,8 +10,8 @@ export type TextareaProps = InputBaseProps & React.TextareaHTMLAttributes<HTMLTe
 
 const styles = cva(
 	[
-		'px-3 py-1 text-sm rounded-md border leading-7',
-		'outline-none shadow-sm focus:ring-2 transition-all'
+		'rounded-md border px-3 py-1 text-sm leading-7',
+		'shadow-sm outline-none transition-all focus:ring-2'
 	],
 	{
 		variants: {

@@ -10,7 +10,7 @@ import { tw } from './utils';
 export const Section = tw.div`px-1 py-1 space-y-[2px]`;
 
 const itemStyles = cva(
-	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[3px] disabled:opacity-50 font-medium',
+	'group mb-[3px] flex w-full shrink-0 grow items-center whitespace-nowrap rounded px-2 py-1 text-sm font-medium disabled:opacity-50',
 	{
 		variants: {
 			selected: {
@@ -25,7 +25,7 @@ const itemStyles = cva(
 	}
 );
 
-const itemIconStyles = cva('mr-2 w-4 h-4', {
+const itemIconStyles = cva('mr-2 h-4 w-4', {
 	variants: {}
 });
 
@@ -64,9 +64,9 @@ export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
 	return (
 		<UI.Button size="sm" {...props} className={clsx('flex text-left', className)}>
 			{children}
-			<span className="flex-grow" />
+			<span className="grow" />
 			<CaretDown
-				className="text-ink-dull ui-open:rotate-180 ui-open:-translate-y-[1px] w-[12px] translate-y-[1px] transition-transform"
+				className="text-ink-dull ui-open:rotate-180 ui-open:translate-y-[-1px] w-[12px] translate-y-[1px] transition-transform"
 				aria-hidden="true"
 			/>
 		</UI.Button>

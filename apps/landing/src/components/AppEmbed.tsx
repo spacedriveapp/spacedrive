@@ -79,7 +79,7 @@ const AppEmbed = () => {
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
 								'shadow-iframe inset-center bg-gray-850  z-30 h-full w-full rounded-lg',
-								iFrameAppReady ? 'fade-in-app-embed opacity-100' : '-ml-[10000px] opacity-0'
+								iFrameAppReady ? 'fade-in-app-embed opacity-100' : 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
 								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'

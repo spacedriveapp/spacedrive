@@ -12,7 +12,7 @@ type SettingsItemProps = {
 export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable onPress={props.onPress}>
-			<View style={tw`flex flex-row items-center justify-between px-3 bg-app-overlay`}>
+			<View style={tw`flex flex-row items-center justify-between bg-app-overlay px-3`}>
 				<View style={tw`flex flex-row items-center py-4`}>
 					{props.leftIcon && props.leftIcon({ size: 18, color: tw.color('ink'), style: tw`mr-2` })}
 					<Text style={tw`text-sm text-ink`}>{props.title}</Text>

@@ -11,7 +11,7 @@ import { isObject } from './utils';
 const NameArea = tw.div`flex justify-center`;
 
 const nameContainerStyles = cva(
-	'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium cursor-default',
+	'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-xs font-medium',
 	{
 		variants: {
 			selected: {

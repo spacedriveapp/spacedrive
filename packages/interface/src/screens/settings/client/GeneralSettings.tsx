@@ -55,7 +55,7 @@ export default function GeneralSettings() {
 							className="text-ink-faint text-sm font-medium"
 						>
 							<b className="mr-2 inline truncate">
-								<Database className="mr-1 -mt-[2px] inline h-4 w-4" /> Data Folder
+								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder
 							</b>
 							<span className="select-text">{node?.data_path}</span>
 						</div>

@@ -123,7 +123,7 @@ function Page() {
 				<title>Roadmap - Spacedrive</title>
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
-			<div className="prose lg:prose-xs dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
+			<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
 				<section className="flex flex-col items-center">
 					<img className="pointer-events-none w-24" />
 					<h1 className="fade-in-heading mb-0 text-center text-5xl leading-snug">

@@ -35,13 +35,13 @@ export function KeyManager(props: KeyManagerProps) {
 
 		return (
 			<div className="p-2">
-				<div className="relative mb-2 flex flex-grow">
+				<div className="relative mb-2 flex grow">
 					<Input
 						value={masterPassword}
 						onChange={(e) => setMasterPassword(e.target.value)}
 						autoFocus
 						type={showMasterPassword ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Master Password"
 					/>
 					<Button
@@ -53,12 +53,12 @@ export function KeyManager(props: KeyManagerProps) {
 					</Button>
 				</div>
 
-				<div className="relative mb-2 flex flex-grow">
+				<div className="relative mb-2 flex grow">
 					<Input
 						value={secretKey}
 						onChange={(e) => setSecretKey(e.target.value)}
 						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Secret Key"
 					/>
 					<Button
@@ -98,7 +98,7 @@ export function KeyManager(props: KeyManagerProps) {
 							<Tabs.Trigger className="text-sm font-medium" value="keys">
 								Keys
 							</Tabs.Trigger>
-							<div className="flex-grow" />
+							<div className="grow" />
 							<Button
 								size="icon"
 								onClick={() => {

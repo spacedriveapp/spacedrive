@@ -67,7 +67,7 @@ export const KeyDropdown = ({
 									// most of this is copied over from the `OverlayPanel`
 									className={clsx(
 										'flex flex-col',
-										'z-50 m-2 space-y-1 pl-4 pr-4 pt-2 pb-2',
+										'z-50 m-2 space-y-1 px-4 py-2',
 										'cursor-default select-none rounded-lg',
 										'text-ink text-left text-sm',
 										'bg-app-overlay/80 backdrop-blur',
@@ -237,7 +237,7 @@ export const KeyDropdownItem = (props: {
 
 export const DummyKey = (props: { text: string }) => {
 	return (
-		<div className="shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg px-2 py-1.5 pt-2 pb-2 text-sm shadow-lg">
+		<div className="shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg p-2 py-1.5 text-sm shadow-lg">
 			<div className="flex items-center">
 				<KeyIcon className="ml-1 mr-3 h-5 w-5 text-gray-400/80" />
 				<div className="flex flex-col ">

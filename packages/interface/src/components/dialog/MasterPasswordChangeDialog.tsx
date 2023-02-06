@@ -85,9 +85,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			ctaDanger={true}
 			ctaLabel="Change"
 		>
-			<div className="relative mt-3 mb-2 flex flex-grow">
+			<div className="relative mt-3 mb-2 flex grow">
 				<Input
-					className={`w-max flex-grow !py-0.5`}
+					className={`w-max grow !py-0.5`}
 					placeholder="New password"
 					type={show.masterPassword ? 'text' : 'password'}
 					{...form.register('masterPassword', { required: true })}
@@ -128,9 +128,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					<MP1CurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
-			<div className="relative mb-2 flex flex-grow">
+			<div className="relative mb-2 flex grow">
 				<Input
-					className={`!py-0.5} flex-grow`}
+					className={`!py-0.5} grow`}
 					placeholder="New password (again)"
 					type={show.masterPassword2 ? 'text' : 'password'}
 					{...form.register('masterPassword2', { required: true })}
@@ -145,9 +145,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				</Button>
 			</div>
 
-			<div className="relative mb-2 flex flex-grow">
+			<div className="relative mb-2 flex grow">
 				<Input
-					className={`!py-0.5} flex-grow`}
+					className={`!py-0.5} grow`}
 					placeholder="Key secret"
 					type={show.secretKey ? 'text' : 'password'}
 					{...form.register('secretKey', { required: false })}

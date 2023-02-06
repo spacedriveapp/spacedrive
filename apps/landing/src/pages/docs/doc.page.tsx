@@ -5,11 +5,11 @@ import { Helmet } from 'react-helmet';
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { SingleDocResponse, toTitleCase } from './api';
+import { SingleDocResponse } from './api';
 
 function BottomCard(props: PropsWithChildren) {
 	return (
-		<div className="hover:!text-primary hover:border-primary hover:shadow-primary/10 group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:-translate-y-[2px] hover:shadow-xl">
+		<div className="hover:border-primary hover:!text-primary hover:shadow-primary/10 group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:shadow-xl">
 			{props.children}
 		</div>
 	);

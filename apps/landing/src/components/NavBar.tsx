@@ -55,10 +55,10 @@ export default function NavBar() {
 				'fixed z-[55] h-16 w-full border-b px-2 transition ',
 				isAtTop
 					? 'border-transparent bg-transparent'
-					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
+					: 'bg-opacity/80 border-gray-550 bg-gray-700 backdrop-blur'
 			)}
 		>
-			<div className="relative m-auto mx-auto flex h-full max-w-[100rem] items-center p-5">
+			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<a href="/" className="absolute flex flex-row items-center">
 					<img src={AppLogo} className="z-30 mr-3 h-8 w-8" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
@@ -72,7 +72,7 @@ export default function NavBar() {
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
-							<span className="bg-primary absolute -top-1 -right-2 rounded-md bg-opacity-80 px-[5px] text-xs">
+							<span className="bg-opacity/80 bg-primary absolute -top-1 -right-2 rounded-md px-[5px] text-xs">
 								{` ${positions.length} `}
 							</span>
 						) : null}

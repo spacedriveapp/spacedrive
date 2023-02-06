@@ -66,7 +66,7 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.role}
 			</p>
 			{props.investmentRound && (
-				<p className="text-gray-450 mt-0 mb-0 text-sm font-semibold">{props.investmentRound}</p>
+				<p className="text-gray-450 my-0 text-sm font-semibold">{props.investmentRound}</p>
 			)}
 			<div className="mt-auto flex flex-row space-x-2">
 				{props.socials?.twitter && (

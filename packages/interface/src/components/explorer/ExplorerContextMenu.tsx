@@ -18,8 +18,7 @@ import {
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
 import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
-import { dialogManager } from '@sd/ui';
+import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
@@ -350,7 +349,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 								dialogManager.create((dp) => (
 									<DecryptFileDialog
 										{...dp}
-										location_id={useExplorerStore().locationId!}
+										location_id={getExplorerStore().locationId!}
 										path_id={data.item.id}
 									/>
 								));

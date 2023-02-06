@@ -83,7 +83,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex w-32 flex-shrink-0 transform cursor-default flex-col rounded-md px-4 py-3 duration-75 ',
+				'flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
 				!+bytes && 'hidden'
 			)}
 		>
@@ -129,7 +129,7 @@ export default function OverviewScreen() {
 
 	return (
 		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
-			<div data-tauri-drag-region className="flex h-5 w-full flex-shrink-0" />
+			<div data-tauri-drag-region className="flex h-5 w-full shrink-0" />
 			{/* PAGE */}
 
 			<div className="flex h-screen w-full flex-col px-4">
@@ -151,7 +151,7 @@ export default function OverviewScreen() {
 						})}
 					</div>
 
-					<div className="flex-grow" />
+					<div className="grow" />
 					<div className="flex h-full items-center space-x-2">
 						<div>
 							{/* <Dialog
@@ -190,7 +190,7 @@ export default function OverviewScreen() {
 					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
 					<Debug />
 				</div>
-				<div className="flex h-4 w-full flex-shrink-0" />
+				<div className="flex h-4 w-full shrink-0" />
 			</div>
 		</div>
 	);

@@ -23,8 +23,8 @@ export const AlertDialog = (props: AlertDialogProps) => {
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 		>
 			{props.inputBox && (
-				<div className="relative mt-3 flex flex-grow">
-					<Input value={props.value} disabled className="flex-grow !py-0.5" />
+				<div className="relative mt-3 flex grow">
+					<Input value={props.value} disabled className="grow !py-0.5" />
 					<Button
 						type="button"
 						onClick={() => {

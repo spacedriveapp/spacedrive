@@ -58,8 +58,8 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			</View>
 			{/* Add Tag */}
 			<CreateTagDialog>
-				<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
-					<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>Add Tag</Text>
+				<View style={tw`border-opacity/80 mt-1 rounded border border-dashed border-app-line`}>
+					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>
 			</CreateTagDialog>
 		</CollapsibleView>

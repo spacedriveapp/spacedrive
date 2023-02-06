@@ -77,9 +77,9 @@ export default function CreateLibraryDialog(props: Props) {
 			ctaLabel="Create"
 		>
 			<div className="relative flex flex-col">
-				<p className="mt-2 mb-2 text-sm font-bold">Library name</p>
+				<p className="my-2 text-sm font-bold">Library name</p>
 				<Input
-					className="w-full flex-grow"
+					className="w-full grow"
 					placeholder="My Cool Library"
 					{...form.register('name', { required: true })}
 				/>
@@ -92,10 +92,10 @@ export default function CreateLibraryDialog(props: Props) {
 				<p className="mt-2 mb-1 text-center text-[0.95rem] font-bold">Key Manager</p>
 				<div className="my-1 h-[2px] w-full bg-gray-500" />
 
-				<p className="mt-2 mb-2 text-sm font-bold">Master password</p>
-				<div className="relative mb-2 flex flex-grow">
+				<p className="my-2 text-sm font-bold">Master password</p>
+				<div className="relative mb-2 flex grow">
 					<Input
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Password"
 						type={showMasterPassword1 ? 'text' : 'password'}
 						{...form.register('password')}
@@ -134,10 +134,10 @@ export default function CreateLibraryDialog(props: Props) {
 				</div>
 			</div>
 			<div className="relative flex flex-col">
-				<p className="mt-2 mb-2 text-sm font-bold">Master password (again)</p>
-				<div className="relative mb-2 flex flex-grow">
+				<p className="my-2 text-sm font-bold">Master password (again)</p>
+				<div className="relative mb-2 flex grow">
 					<Input
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Password"
 						type={showMasterPassword2 ? 'text' : 'password'}
 						{...form.register('password_validate')}
@@ -152,10 +152,10 @@ export default function CreateLibraryDialog(props: Props) {
 				</div>
 			</div>
 			<div className="relative flex flex-col">
-				<p className="mt-2 mb-2 text-sm font-bold">Key secret (optional)</p>
-				<div className="relative mb-2 flex flex-grow">
+				<p className="my-2 text-sm font-bold">Key secret (optional)</p>
+				<div className="relative mb-2 flex grow">
 					<Input
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Secret"
 						type={showSecretKey ? 'text' : 'password'}
 						{...form.register('secret_key', { required: true })}

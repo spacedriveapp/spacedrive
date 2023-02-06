@@ -27,14 +27,14 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 			>
 				<DeleteLocationDialog locationId={location.id}>
 					<View
-						style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm`}
+						style={tw`items-center justify-center rounded-md border border-app-line bg-app-button py-1.5 px-3 shadow-sm`}
 					>
 						<Trash size={18} color="white" />
 					</View>
 				</DeleteLocationDialog>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
-					style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm mx-2`}
+					style={tw`mx-2 items-center justify-center rounded-md border border-app-line bg-app-button py-1.5 px-3 shadow-sm`}
 					onPress={() => fullRescan(location.id)}
 				>
 					<Repeat size={18} color="white" />
@@ -63,11 +63,11 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 						)}
 					/>
 				</View>
-				<View style={tw`flex-1 mx-4`}>
+				<View style={tw`mx-4 flex-1`}>
 					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
 						{location.name}
 					</Text>
-					<View style={tw`self-start bg-app-highlight py-[1px] px-1 rounded mt-0.5`}>
+					<View style={tw`mt-0.5 self-start rounded bg-app-highlight py-[1px] px-1`}>
 						<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
 							{location.node.name}
 						</Text>

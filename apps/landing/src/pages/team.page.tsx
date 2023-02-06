@@ -204,7 +204,7 @@ function Page() {
 			</Helmet>
 			<div className="team-page relative mx-auto">
 				<div
-					className="bloom subtle egg-bloom-one -top-60 -right-[400px]"
+					className="bloom subtle egg-bloom-one -top-60 right-[-400px]"
 					style={{ transform: 'scale(2)' }}
 				/>
 				<div className="relative z-10">

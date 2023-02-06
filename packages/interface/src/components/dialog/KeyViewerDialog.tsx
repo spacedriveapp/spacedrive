@@ -73,7 +73,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
-						className="mt-2 flex-grow"
+						className="mt-2 grow"
 						value={key}
 						onChange={(e) => {
 							setKey(e);
@@ -111,8 +111,8 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Content Salt (hex)</span>
-					<div className="relative flex flex-grow">
-						<Input value={contentSalt} disabled className="flex-grow !py-0.5" />
+					<div className="relative flex grow">
+						<Input value={contentSalt} disabled className="grow !py-0.5" />
 						<Button
 							type="button"
 							onClick={() => {
@@ -129,8 +129,8 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Key Value</span>
-					<div className="relative flex flex-grow">
-						<Input value={keyValue} disabled className="flex-grow !py-0.5" />
+					<div className="relative flex grow">
+						<Input value={keyValue} disabled className="grow !py-0.5" />
 						<Button
 							type="button"
 							onClick={() => {

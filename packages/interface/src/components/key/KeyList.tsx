@@ -84,7 +84,7 @@ export const KeyList = (props: KeyListProps) => {
 				>
 					Unmount All
 				</Button>
-				<div className="flex-grow" />
+				<div className="grow" />
 				<Button size="sm" variant="gray">
 					Close
 				</Button>

@@ -4,13 +4,13 @@ import { FC, useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
 import tw from '~/lib/tailwind';
 
-const button = cva(['border rounded-md items-center justify-center shadow-sm'], {
+const button = cva(['items-center justify-center rounded-md border shadow-sm'], {
 	variants: {
 		variant: {
-			danger: ['bg-red-600 border-red-800'],
-			gray: ['bg-app-button border-app-line'],
-			dark_gray: ['bg-app border-app-box'],
-			accent: ['bg-accent border-accent-deep shadow-md shadow-app-shade/10']
+			danger: ['border-red-800 bg-red-600'],
+			gray: ['border-app-line bg-app-button'],
+			dark_gray: ['border-app-box bg-app'],
+			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10']
 		},
 		size: {
 			default: ['py-1', 'px-3'],

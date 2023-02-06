@@ -27,7 +27,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 					props.className
 				)}
 			>
-				<span className="flex-grow truncate text-left text-xs">
+				<span className="grow truncate text-left text-xs">
 					<SelectPrimitive.Value />
 				</span>
 

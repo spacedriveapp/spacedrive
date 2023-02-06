@@ -71,9 +71,9 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 			loading={restoreKeystoreMutation.isLoading}
 			ctaLabel="Restore"
 		>
-			<div className="relative mt-3 mb-2 flex flex-grow">
+			<div className="relative mt-3 mb-2 flex grow">
 				<Input
-					className="flex-grow !py-0.5"
+					className="grow !py-0.5"
 					placeholder="Master Password"
 					type={show.masterPassword ? 'text' : 'password'}
 					{...form.register('masterPassword', { required: true })}
@@ -87,9 +87,9 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					<MPCurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
-			<div className="relative mb-3 flex flex-grow">
+			<div className="relative mb-3 flex grow">
 				<Input
-					className="flex-grow !py-0.5"
+					className="grow !py-0.5"
 					placeholder="Secret Key"
 					type={show.secretKey ? 'text' : 'password'}
 					{...form.register('secretKey')}
@@ -102,7 +102,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					<SKCurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
-			<div className="relative mb-2 flex flex-grow">
+			<div className="relative mb-2 flex grow">
 				<Button
 					size="sm"
 					variant={form.watch('filePath') !== '' ? 'accent' : 'gray'}

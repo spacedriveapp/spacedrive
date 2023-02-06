@@ -49,7 +49,7 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 				<span className="text-xs font-bold"># of passes</span>
 
 				<div className="flex flex-row space-x-2">
-					<div className="relative mt-2 flex flex-grow">
+					<div className="relative mt-2 flex grow">
 						<Slider
 							value={passes}
 							max={16}

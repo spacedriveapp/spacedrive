@@ -27,7 +27,7 @@ export const MetaValue = tw.p`text-xs break-all text-ink truncate`;
 const MetaTextLine = tw.div`flex items-center my-0.5 text-xs text-ink-dull`;
 
 const InspectorIcon = ({ component: Icon, ...props }: any) => (
-	<Icon weight="bold" {...props} className={clsx('mr-2 flex-shrink-0', props.className)} />
+	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
 interface Props extends DefaultProps<HTMLDivElement> {
@@ -64,7 +64,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll z-10 -mt-[50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
+			className="custom-scroll inspector-scroll z-10 mt-[-50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
 		>
 			{data && (
 				<>
@@ -78,11 +78,11 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							iconClassNames="my-3 max-h-[150px]"
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
-							className="flex flex-shrink flex-grow-0 bg-green-500"
+							className="flex shrink grow-0 bg-green-500"
 							data={data}
 						/>
 					</div>
-					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border pt-0.5 pb-0.5">
+					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
 							{item?.name}
 							{item?.extension && `.${item.extension}`}

@@ -11,7 +11,7 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 
 	return (
 		<View style={tw`flex-1 items-center justify-center`}>
-			<Text style={tw`font-bold text-xl text-ink`}>Tag {id}</Text>
+			<Text style={tw`text-xl font-bold text-ink`}>Tag {id}</Text>
 			<Explorer data={data} />
 		</View>
 	);

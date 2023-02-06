@@ -61,8 +61,8 @@ export const SubMenu = ({
 
 const itemStyles = cva(
 	[
-		'flex flex-row items-center justify-start flex-1',
-		'px-2 py-[3px] space-x-2',
+		'flex flex-1 flex-row items-center justify-start',
+		'space-x-2 px-2 py-[3px]',
 		'cursor-default rounded',
 		'focus:outline-none'
 	],

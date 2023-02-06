@@ -37,17 +37,17 @@ export function KeyMounter() {
 	}, []);
 
 	return (
-		<div className="mb-1 p-3 pt-3">
+		<div className="mb-1 p-3">
 			<KeyHeading>Mount key</KeyHeading>
 			<div className="flex space-x-2">
-				<div className="relative flex flex-grow">
+				<div className="relative flex grow">
 					<Input
 						ref={ref}
 						value={key}
 						onChange={(e) => setKey(e.target.value)}
 						autoFocus
 						type={showKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 					/>
 					<Button
 						onClick={() => setShowKey(!showKey)}
@@ -60,7 +60,7 @@ export function KeyMounter() {
 			</div>
 
 			<div className="flex flex-row space-x-2">
-				<div className="relative mt-2 flex flex-grow">
+				<div className="relative mt-2 flex grow">
 					<Slider
 						value={sliderValue}
 						max={128}
@@ -95,7 +95,7 @@ export function KeyMounter() {
 				<Tooltip label="This key will be registered with all devices running your Library">
 					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
 				</Tooltip>
-				<div className="flex-grow" />
+				<div className="grow" />
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"

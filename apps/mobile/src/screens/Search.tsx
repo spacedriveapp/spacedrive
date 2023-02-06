@@ -16,10 +16,10 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	return (
 		<View style={tw.style('flex-1', { marginTop: top + 10 })}>
 			{/* Header */}
-			<View style={tw`flex flex-row items-center mx-4`}>
+			<View style={tw`mx-4 flex flex-row items-center`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-app-overlay border border-app-line rounded h-10 mr-3`}>
-					<View style={tw`flex flex-row h-full items-center px-3`}>
+				<View style={tw`mr-3 h-10 flex-1 rounded border border-app-line bg-app-overlay`}>
+					<View style={tw`flex h-full flex-row items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
 								<ActivityIndicator size={'small'} color={'white'} />
@@ -32,7 +32,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('ink-dull')}
-							style={tw`flex-1 text-ink font-medium text-sm`}
+							style={tw`flex-1 text-sm font-medium text-ink`}
 							textContentType={'none'}
 							autoFocus
 							autoCapitalize="none"
@@ -46,7 +46,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 				</Pressable>
 			</View>
 			{/* Content */}
-			<View style={tw`flex-1 items-center mt-8`}>
+			<View style={tw`mt-8 flex-1 items-center`}>
 				<Button variant="accent" onPress={() => setLoading((v) => !v)}>
 					<Text>Toggle loading</Text>
 				</Button>

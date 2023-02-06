@@ -97,7 +97,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<Github className="-mt-[4px] -ml-1 mr-2 inline h-5 w-5" fill="white" />
+							<Github className="mt-[-4px] -ml-1 mr-2 inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>
@@ -107,7 +107,7 @@ export function HomeCTA() {
 							{(waitlistError || waitlistSubmitted) && (
 								<div
 									className={clsx({
-										'my-2 flex flex-row items-center rounded-md border-2 bg-opacity-20 px-2': true,
+										'bg-opacity/20 my-2 flex flex-row items-center rounded-md border-2 px-2': true,
 										'border-red-900 bg-red-800': waitlistError,
 										'border-green-900 bg-green-800': !waitlistError,
 										'-mt-2': waitlistSubmitted
@@ -165,7 +165,7 @@ export function HomeCTA() {
 				)}
 			</div>
 			<p
-				className={clsx('text-gray-450 animation-delay-3 fade-in z-30 px-6 text-center text-sm', {
+				className={clsx('animation-delay-3 fade-in text-gray-450 z-30 px-6 text-center text-sm', {
 					'mt-10': waitlistError,
 					'mt-3': !waitlistError
 				})}

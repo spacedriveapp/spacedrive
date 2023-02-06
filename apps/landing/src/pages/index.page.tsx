@@ -2,7 +2,7 @@ import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
+import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 // import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
@@ -77,6 +77,7 @@ function Page() {
 				alert('An error occurred while unsubscribing from waitlist');
 			}
 		})();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (
@@ -107,7 +108,7 @@ function Page() {
 			{unsubscribedFromWaitlist && (
 				<div
 					className={
-						'my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800 bg-opacity-20 px-2'
+						'bg-opacity/20 my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800 px-2'
 					}
 				>
 					<Info className="mr-1 w-5 fill-green-500" />

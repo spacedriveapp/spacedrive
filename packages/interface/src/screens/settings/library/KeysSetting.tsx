@@ -101,14 +101,14 @@ export default function KeysSettings() {
 
 	if (!hasMasterPw?.data) {
 		return (
-			<div className="mr-20 ml-20 mt-10 p-2">
-				<div className="relative mb-2 flex flex-grow">
+			<div className="mx-20 mt-10 p-2">
+				<div className="relative mb-2 flex grow">
 					<Input
 						value={masterPassword}
 						onChange={(e) => setMasterPassword(e.target.value)}
 						autoFocus
 						type={showMasterPassword ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Master Password"
 					/>
 					<Button
@@ -120,12 +120,12 @@ export default function KeysSettings() {
 					</Button>
 				</div>
 
-				<div className="relative mb-2 flex flex-grow">
+				<div className="relative mb-2 flex grow">
 					<Input
 						value={secretKey}
 						onChange={(e) => setSecretKey(e.target.value)}
 						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Secret Key"
 					/>
 					<Button

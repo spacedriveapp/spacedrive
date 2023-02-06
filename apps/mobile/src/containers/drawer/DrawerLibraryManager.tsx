@@ -32,7 +32,7 @@ const DrawerLibraryManager = () => {
 						dropdownClosed ? 'rounded' : 'rounded-t border-b-app-box'
 					)}
 				>
-					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
+					<Text style={tw`text-sm font-semibold text-ink`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
 							rotateZ: dropdownClosed ? '0deg' : '90deg'
@@ -44,9 +44,7 @@ const DrawerLibraryManager = () => {
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
-				<View
-					style={tw`py-2 px-2 bg-app-box border-l border-b border-r border-app-darkLine rounded-b`}
-				>
+				<View style={tw`rounded-b border-x border-b border-app-darkLine bg-app-box p-2`}>
 					{/* Libraries */}
 					{libraries?.map((library) => (
 						<Pressable key={library.uuid} onPress={() => switchLibrary(library.uuid)}>
@@ -67,27 +65,27 @@ const DrawerLibraryManager = () => {
 							</View>
 						</Pressable>
 					))}
-					<Divider style={tw`mt-2 mb-2`} />
+					<Divider style={tw`my-2`} />
 					{/* Menu */}
 					<Pressable
 						onPress={() => navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })}
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Gear size={16} color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Library Settings</Text>
+							<Text style={tw`text-sm font-semibold text-ink`}>Library Settings</Text>
 						</View>
 					</Pressable>
 					{/* Create Library */}
 					<CreateLibraryDialog>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Plus size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Add Library</Text>
+							<Text style={tw`text-sm font-semibold text-ink`}>Add Library</Text>
 						</View>
 					</CreateLibraryDialog>
 					<Pressable onPress={() => console.log('TODO: lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Lock size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Lock</Text>
+							<Text style={tw`text-sm font-semibold text-ink`}>Lock</Text>
 						</View>
 					</Pressable>
 				</View>

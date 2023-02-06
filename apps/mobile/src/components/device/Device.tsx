@@ -114,15 +114,15 @@ const DeviceIcon = {
 
 const Device = ({ name, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`my-2 bg-app-overlay border rounded-md border-app-line`}>
+		<View style={tw`my-2 rounded-md border border-app-line bg-app-overlay`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{DeviceIcon[type]}
 					<Text style={tw`text-base font-semibold text-ink`}>{name || 'Unnamed Device'}</Text>
 					{/* P2P Lock */}
-					<View style={tw`flex flex-row rounded items-center ml-2 bg-app-box py-[1px] px-[4px]`}>
+					<View style={tw`ml-2 flex flex-row items-center rounded bg-app-box py-[1px] px-[4px]`}>
 						<Lock weight="bold" size={12} color={tw.color('ink-dull')} />
-						<Text style={tw`text-ink-dull font-semibold ml-0.5 text-xs`}>P2P</Text>
+						<Text style={tw`ml-0.5 text-xs font-semibold text-ink-dull`}>P2P</Text>
 					</View>
 				</View>
 				{/* Size */}

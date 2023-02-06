@@ -18,7 +18,7 @@ function MetaItem({ title, value }: MetaItemProps) {
 	return (
 		<View>
 			<Text style={tw`text-sm font-bold text-white`}>{title}</Text>
-			<Text style={tw`text-sm text-gray-400 mt-1`}>{value}</Text>
+			<Text style={tw`mt-1 text-sm text-gray-400`}>{value}</Text>
 		</View>
 	);
 }
@@ -34,14 +34,14 @@ export const FileModal = () => {
 		<>
 			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
 				{data && (
-					<View style={tw`flex-1 p-4 bg-app`}>
+					<View style={tw`flex-1 bg-app p-4`}>
 						{/* File Icon / Name */}
 						<View style={tw`flex flex-row items-center`}>
 							<FileIcon data={data} size={1.6} />
 							{/* File Name, Details etc. */}
 							<View style={tw`ml-2`}>
 								<Text style={tw`text-base font-bold text-gray-200`}>{item.name}</Text>
-								<View style={tw`flex flex-row mt-2`}>
+								<View style={tw`mt-2 flex flex-row`}>
 									<Text style={tw`text-xs text-gray-400`}>5 MB,</Text>
 									<Text style={tw`ml-1 text-xs text-gray-400`}>
 										{item.extension.toUpperCase()},
@@ -71,15 +71,15 @@ export const FileModal = () => {
 				snapPoints={['70%']}
 			>
 				{data && (
-					<BottomSheetScrollView style={tw`flex-1 p-4 bg-app`}>
+					<BottomSheetScrollView style={tw`flex-1 bg-app p-4`}>
 						{/* Back Button */}
-						<Pressable style={tw`w-full ml-4`} onPress={() => fileDetailsRef.current.close()}>
+						<Pressable style={tw`ml-4 w-full`} onPress={() => fileDetailsRef.current.close()}>
 							<CaretLeft color={tw.color('accent')} size={20} />
 						</Pressable>
 						{/* File Icon / Name */}
 						<View style={tw`items-center`}>
 							<FileThumb data={data} size={1.8} />
-							<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{item.name}</Text>
+							<Text style={tw`mt-3 text-base font-bold text-gray-200`}>{item.name}</Text>
 						</View>
 						{/* Details */}
 						<Divider style={tw`mt-6 mb-4`} />

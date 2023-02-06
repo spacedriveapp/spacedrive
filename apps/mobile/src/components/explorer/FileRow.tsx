@@ -26,7 +26,7 @@ const FileRow = ({ data }: FileRowProps) => {
 				size={0.6}
 			/>
 			<View style={tw`ml-3`}>
-				<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-ink-dull`}>
+				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-ink-dull`}>
 					{item?.name}
 					{item?.extension && `.${item.extension}`}
 				</Text>

@@ -56,7 +56,7 @@ const Dialog = (props: DialogProps) => {
 			<Modal renderToHardwareTextureAndroid transparent visible={props.isVisible ?? visible}>
 				{/* Backdrop */}
 				<Pressable
-					style={tw`bg-app-box/40 absolute inset-0`}
+					style={tw`absolute inset-0 bg-app-box/40`}
 					onPress={handleCloseDialog}
 					disabled={props.disableBackdropClose || props.loading}
 				/>
@@ -74,14 +74,14 @@ const Dialog = (props: DialogProps) => {
 					>
 						{/* TODO: Blur may look cool here */}
 						<View
-							style={tw`min-w-[360px] max-w-[380px] rounded-md bg-app border border-app-line shadow shadow-app-shade overflow-hidden`}
+							style={tw`min-w-[360px] max-w-[380px] overflow-hidden rounded-md border border-app-line bg-app shadow shadow-app-shade`}
 						>
 							<View style={tw`p-5`}>
 								{/* Title */}
-								<Text style={tw`font-bold text-ink text-base`}>{props.title}</Text>
+								<Text style={tw`text-base font-bold text-ink`}>{props.title}</Text>
 								{/* Description */}
 								{props.description && (
-									<Text style={tw`text-sm text-ink-dull mt-2 leading-normal`}>
+									<Text style={tw`mt-2 text-sm leading-normal text-ink-dull`}>
 										{props.description}
 									</Text>
 								)}
@@ -90,17 +90,17 @@ const Dialog = (props: DialogProps) => {
 							</View>
 							{/* Actions */}
 							<View
-								style={tw`flex flex-row items-center px-3 py-3 bg-app-highlight border-t border-app-line`}
+								style={tw`flex flex-row items-center border-t border-app-line bg-app-highlight p-3`}
 							>
 								{props.loading && <PulseAnimation style={tw`h-7`} />}
-								<View style={tw`flex-grow`} />
+								<View style={tw`grow`} />
 								<Button
 									variant="dark_gray"
 									size="md"
 									disabled={props.loading} // Disables Close button if loading
 									onPress={handleCloseDialog}
 								>
-									<Text style={tw`text-ink text-sm`}>Close</Text>
+									<Text style={tw`text-sm text-ink`}>Close</Text>
 								</Button>
 								{props.ctaAction && (
 									<Button
@@ -110,7 +110,7 @@ const Dialog = (props: DialogProps) => {
 										onPress={props.ctaAction}
 										disabled={props.ctaDisabled || props.loading}
 									>
-										<Text style={tw`text-ink text-sm`}>{props.ctaLabel}</Text>
+										<Text style={tw`text-sm text-ink`}>{props.ctaLabel}</Text>
 									</Button>
 								)}
 							</View>

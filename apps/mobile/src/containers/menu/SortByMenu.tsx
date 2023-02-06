@@ -24,7 +24,7 @@ const SortByMenu = () => {
 		<Menu
 			trigger={
 				<View style={tw`flex flex-row items-center`}>
-					<Text style={tw`text-ink font-medium mr-0.5`}>{sortOptions[sortBy]}</Text>
+					<Text style={tw`mr-0.5 font-medium text-ink`}>{sortOptions[sortBy]}</Text>
 					{sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />}
 				</View>
 			}

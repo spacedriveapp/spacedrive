@@ -12,7 +12,7 @@ export function SettingsContainer({ children, title, description }: SettingsCont
 		<View style={tw``}>
 			{title && <Text style={tw`pb-2 pl-3 text-sm font-semibold text-ink-dull`}>{title}</Text>}
 			{children}
-			{description && <Text style={tw`text-ink-dull text-sm px-3 pt-2`}>{description}</Text>}
+			{description && <Text style={tw`px-3 pt-2 text-sm text-ink-dull`}>{description}</Text>}
 		</View>
 	);
 }

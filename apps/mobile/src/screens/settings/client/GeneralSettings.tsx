@@ -20,11 +20,11 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
 					<View style={tw`flex flex-row`}>
 						{/* Peers */}
-						<View style={tw`rounded bg-app-highlight self-start px-1.5 py-[2px] mr-2`}>
+						<View style={tw`mr-2 self-start rounded bg-app-highlight px-1.5 py-[2px]`}>
 							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
 						</View>
 						{/* Status */}
-						<View style={tw`px-1.5 py-[2px] rounded bg-accent`}>
+						<View style={tw`rounded bg-accent px-1.5 py-[2px]`}>
 							<Text style={tw`text-xs font-semibold text-ink`}>Running</Text>
 						</View>
 					</View>
@@ -32,9 +32,9 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				{/* Divider */}
 				<Divider style={tw`mt-2 mb-4`} />
 				{/* Node Name and Port */}
-				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1`}>Node Name</Text>
+				<Text style={tw`mb-1 ml-1 text-xs font-medium text-ink-dull`}>Node Name</Text>
 				<Input value={node.name} />
-				<Text style={tw`mt-2 mb-1 text-xs font-medium text-ink-dull ml-1`}>Node Port</Text>
+				<Text style={tw`mt-2 mb-1 ml-1 text-xs font-medium text-ink-dull`}>Node Port</Text>
 				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
 			</Card>
 		</View>

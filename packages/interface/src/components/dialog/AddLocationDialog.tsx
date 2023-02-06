@@ -32,7 +32,7 @@ export default function AddLocationDialog(props: Props) {
 			ctaLabel="Add"
 		>
 			<Input
-				className="mt-3 w-full flex-grow"
+				className="mt-3 w-full grow"
 				placeholder="/Users/jamie/Movies"
 				required
 				{...form.register('path')}

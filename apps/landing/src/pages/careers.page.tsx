@@ -95,7 +95,7 @@ function Page() {
 			</Helmet>
 			<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 				<div
-					className="bloom subtle egg-bloom-two -top-60 -right-[400px]"
+					className="bloom subtle egg-bloom-two -top-60 right-[-400px]"
 					style={{ transform: 'scale(2)' }}
 				/>
 				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
@@ -121,7 +121,7 @@ function Page() {
 						{values.map((value, index) => (
 							<div
 								key={value.title + index}
-								className="bg-gray-550 flex flex-col rounded-md border border-gray-500 bg-opacity-50 p-10"
+								className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
 							>
 								<value.icon className="m-0 w-8" />
 								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
@@ -139,7 +139,7 @@ function Page() {
 							<div
 								key={value.title + index}
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
-								className="bg-gray-550 flex flex-col rounded-md border bg-opacity-30 p-8"
+								className="bg-opacity30 bg-gray-550 flex flex-col rounded-md border p-8"
 							>
 								<value.icon className="m-0 w-8" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
@@ -161,7 +161,7 @@ function Page() {
 							positions.map((value, index) => (
 								<div
 									key={value.name + index}
-									className="bg-gray-550 flex flex-col rounded-md border border-gray-500 bg-opacity-50 p-10"
+									className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
 								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>

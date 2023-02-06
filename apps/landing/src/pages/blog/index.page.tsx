@@ -13,7 +13,7 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 	}
 
 	return (
-		<div className="prose lg:prose-xs dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
+		<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
 			<Helmet>
 				<title>Spacedrive Blog</title>
 				<meta name="description" content="Get the latest from Spacedrive." />

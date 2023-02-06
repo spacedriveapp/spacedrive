@@ -29,7 +29,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					{location.local_path}
 				</p>
 			</div>
-			<div className="flex flex-grow" />
+			<div className="flex grow" />
 			<div className="flex h-[45px] space-x-2 p-2">
 				{/* This is a fake button, do not add disabled prop pls */}
 				<Button variant="gray" className="pointer-events-none flex !py-1.5 !px-2">
