@@ -111,13 +111,8 @@ impl FileHeader {
 		}
 
 		for v in &self.keyslots {
-			if let Some(key) = v
-				.decrypt_master_key(password.clone())
-				.await
-				.ok()
-				.map(Key::try_from)
-			{
-				return key;
+			if let Ok(key) = v.decrypt_master_key(password.clone()).await {
+				return Ok(key);
 			}
 		}
 
@@ -137,13 +132,11 @@ impl FileHeader {
 
 		for hashed_key in hashed_keys {
 			for v in &self.keyslots {
-				if let Some(key) = v
+				if let Ok(key) = v
 					.decrypt_master_key_from_prehashed(hashed_key.clone())
 					.await
-					.ok()
-					.map(Key::try_from)
 				{
-					return key;
+					return Ok(key);
 				}
 			}
 		}

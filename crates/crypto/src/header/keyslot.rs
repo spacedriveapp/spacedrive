@@ -104,23 +104,22 @@ impl Keyslot {
 	///
 	/// An error will be returned on failure.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(
-		&self,
-		password: Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>> {
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		let key = self
 			.hashing_algorithm
 			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
-		StreamDecryption::decrypt_bytes(
-			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
-			self.nonce,
-			self.algorithm,
-			&self.master_key,
-			&[],
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
 		)
-		.await
 	}
 
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
@@ -130,15 +129,17 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Protected<Vec<u8>>> {
-		StreamDecryption::decrypt_bytes(
-			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
-			self.nonce,
-			self.algorithm,
-			&self.master_key,
-			&[],
+	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Key> {
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
 		)
-		.await
 	}
 
 	/// This function is used to serialize a keyslot into bytes
