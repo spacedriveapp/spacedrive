@@ -123,7 +123,7 @@ impl StatefulJob for FileDecryptorJob {
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
+		let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm)?;
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &aad)

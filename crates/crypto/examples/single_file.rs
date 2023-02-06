@@ -5,7 +5,7 @@ use sd_crypto::{
 	header::{file::FileHeader, keyslot::Keyslot},
 	keys::hashing::{HashingAlgorithm, Params},
 	primitives::{
-		rng::{generate_master_key, generate_salt},
+		types::{Key, Salt},
 		LATEST_FILE_HEADER, LATEST_KEYSLOT,
 	},
 	Protected,
@@ -22,10 +22,10 @@ async fn encrypt() {
 	let mut writer = File::create("test.encrypted").await.unwrap();
 
 	// This needs to be generated here, otherwise we won't have access to it for encryption
-	let master_key = generate_master_key();
+	let master_key = Key::generate();
 
 	// These should ideally be done by a key management system
-	let content_salt = generate_salt();
+	let content_salt = Salt::generate();
 	let hashed_password = HASHING_ALGORITHM
 		.hash(password, content_salt, None)
 		.unwrap();
@@ -43,13 +43,13 @@ async fn encrypt() {
 	.unwrap()];
 
 	// Create the header for the encrypted file
-	let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots);
+	let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots).unwrap();
 
 	// Write the header to the file
 	header.write(&mut writer).await.unwrap();
 
 	// Use the nonce created by the header to initialize a stream encryption object
-	let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm).unwrap();
+	let encryptor = StreamEncryption::new(master_key, header.nonce, header.algorithm).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
@@ -73,7 +73,7 @@ async fn decrypt() {
 	let master_key = header.decrypt_master_key(password).await.unwrap();
 
 	// Initialize a stream decryption object using data provided by the header
-	let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm).unwrap();
+	let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm).unwrap();
 
 	// Decrypt data the from the writer, and write it to the writer
 	decryptor

@@ -6,7 +6,9 @@ use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
+	primitives::{
+		types::Key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA,
+	},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -127,7 +129,7 @@ impl StatefulJob for FileEncryptorJob {
 			let mut reader = File::open(&info.fs_path).await?;
 			let mut writer = File::create(output_path).await?;
 
-			let master_key = generate_master_key();
+			let master_key = Key::generate();
 
 			let mut header = FileHeader::new(
 				LATEST_FILE_HEADER,
@@ -205,7 +207,7 @@ impl StatefulJob for FileEncryptorJob {
 
 			header.write(&mut writer).await?;
 
-			let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
+			let encryptor = StreamEncryption::new(master_key, header.nonce, header.algorithm)?;
 
 			encryptor
 				.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
