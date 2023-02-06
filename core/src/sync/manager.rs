@@ -1,8 +1,10 @@
 use crate::{
-	prisma::{file_path, location, node, object, owned_operation, shared_operation, PrismaClient},
-	prisma_sync,
+	prisma::{
+		file_path, location, node, object, owned_operation, shared_operation, tag, PrismaClient,
+	},
+	sync,
 };
-
+use prisma_client_rust::ModelTypes;
 use sd_sync::*;
 
 use futures::future::join_all;
@@ -196,15 +198,15 @@ impl SyncManager {
 	}
 
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
+		let db = &self.db;
+
 		match op.typ {
 			CRDTOperationType::Owned(owned_op) => match owned_op.model.as_str() {
-				"FilePath" => {
+				file_path::Types::MODEL => {
 					for item in owned_op.items {
-						let id: prisma_sync::file_path::SyncId =
-							serde_json::from_value(item.id).unwrap();
+						let id: sync::file_path::SyncId = serde_json::from_value(item.id).unwrap();
 
-						let location = self
-							.db
+						let location = db
 							.location()
 							.find_unique(location::pub_id::equals(id.location.pub_id))
 							.select(location::select!({ id }))
@@ -214,8 +216,7 @@ impl SyncManager {
 
 						match item.data {
 							OwnedOperationData::Create(mut data) => {
-								self.db
-									.file_path()
+								db.file_path()
 									.create(
 										id.id,
 										location::id::equals(location.id),
@@ -238,21 +239,21 @@ impl SyncManager {
 								values,
 								skip_duplicates,
 							} => {
-								let location_ids =
-									values
-										.iter()
-										.map(|(id, _)| {
-											serde_json::from_value::<prisma_sync::file_path::SyncId>(id.clone())
-											.unwrap()
-											.location
-                                            .pub_id
-										})
-										.collect::<HashSet<_>>();
+								let location_ids = values
+									.iter()
+									.map(|(id, _)| {
+										serde_json::from_value::<sync::file_path::SyncId>(
+											id.clone(),
+										)
+										.unwrap()
+										.location
+										.pub_id
+									})
+									.collect::<HashSet<_>>();
 
 								let location_id_mappings =
 									join_all(location_ids.iter().map(|id| async move {
-										self.db
-											.location()
+										db.location()
 											.find_unique(location::pub_id::equals(id.clone()))
 											.exec()
 											.await
@@ -264,11 +265,11 @@ impl SyncManager {
 									.flatten()
 									.collect::<HashMap<_, _>>();
 
-								let mut q = self.db.file_path().create_many(
+								let mut q = db.file_path().create_many(
 									values
 										.into_iter()
 										.map(|(id, mut data)| {
-											let id: prisma_sync::file_path::SyncId =
+											let id: sync::file_path::SyncId =
 												serde_json::from_value(id).unwrap();
 
 											file_path::create_unchecked(
@@ -318,14 +319,13 @@ impl SyncManager {
 						}
 					}
 				}
-				"Location" => {
+				location::Types::MODEL => {
 					for item in owned_op.items {
-						let id: prisma_sync::location::SyncId = from_value(item.id).unwrap();
+						let id: sync::location::SyncId = from_value(item.id).unwrap();
 
 						match item.data {
 							OwnedOperationData::Create(mut data) => {
-								self.db
-									.location()
+								db.location()
 									.create(
 										id.pub_id,
 										{
@@ -352,13 +352,12 @@ impl SyncManager {
 				_ => {}
 			},
 			CRDTOperationType::Shared(shared_op) => match shared_op.model.as_str() {
-				"Object" => {
-					let id: prisma_sync::object::SyncId = from_value(shared_op.record_id).unwrap();
+				object::Types::MODEL => {
+					let id: sync::object::SyncId = from_value(shared_op.record_id).unwrap();
 
 					match shared_op.data {
 						SharedOperationData::Create(_) => {
-							self.db
-								.object()
+							db.object()
 								.upsert(
 									object::pub_id::equals(id.pub_id.clone()),
 									(id.pub_id, vec![]),
@@ -369,8 +368,7 @@ impl SyncManager {
 								.ok();
 						}
 						SharedOperationData::Update { field, value } => {
-							self.db
-								.object()
+							db.object()
 								.update(
 									object::pub_id::equals(id.pub_id),
 									vec![object::SetParam::deserialize(&field, value).unwrap()],
@@ -379,6 +377,41 @@ impl SyncManager {
 								.await?;
 						}
 						_ => todo!(),
+					}
+				}
+				tag::Types::MODEL => {
+					let sync::tag::SyncId { pub_id } = from_value(shared_op.record_id).unwrap();
+
+					match shared_op.data {
+						SharedOperationData::Create(create_data) => match create_data {
+							SharedOperationCreateData::Unique(create_data) => {
+								db.tag()
+									.create(
+										pub_id,
+										create_data
+											.into_iter()
+											.flat_map(|(field, value)| {
+												tag::SetParam::deserialize(&field, value)
+											})
+											.collect(),
+									)
+									.exec()
+									.await?;
+							}
+							_ => unreachable!(),
+						},
+						SharedOperationData::Update { field, value } => {
+							db.tag()
+								.update(
+									tag::pub_id::equals(pub_id),
+									vec![tag::SetParam::deserialize(&field, value).unwrap()],
+								)
+								.exec()
+								.await?;
+						}
+						SharedOperationData::Delete => {
+							db.tag().delete(tag::pub_id::equals(pub_id)).exec().await?;
+						}
 					}
 				}
 				_ => todo!(),
@@ -425,7 +458,7 @@ impl SyncManager {
 	pub fn owned_create_many<
 		const SIZE: usize,
 		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = SharedSyncType>,
+		TModel: SyncType<Marker = OwnedSyncType>,
 	>(
 		&self,
 		data: impl IntoIterator<Item = (TSyncId, [(&'static str, Value); SIZE])>,
@@ -453,7 +486,7 @@ impl SyncManager {
 	pub fn owned_update<
 		const SIZE: usize,
 		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = SharedSyncType>,
+		TModel: SyncType<Marker = OwnedSyncType>,
 	>(
 		&self,
 		id: TSyncId,
@@ -484,6 +517,26 @@ impl SyncManager {
 			model: TModel::MODEL.to_string(),
 			record_id: json!(id),
 			data: SharedOperationData::Create(SharedOperationCreateData::Atomic),
+		}))
+	}
+	pub fn unique_shared_create<
+		const SIZE: usize,
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = SharedSyncType>,
+	>(
+		&self,
+		id: TSyncId,
+		values: [(&'static str, Value); SIZE],
+	) -> CRDTOperation {
+		self.new_op(CRDTOperationType::Shared(SharedOperation {
+			model: TModel::MODEL.to_string(),
+			record_id: json!(id),
+			data: SharedOperationData::Create(SharedOperationCreateData::Unique(
+				values
+					.into_iter()
+					.map(|(name, value)| (name.to_string(), value))
+					.collect(),
+			)),
 		}))
 	}
 	pub fn shared_update<

@@ -161,6 +161,8 @@ pub struct LocationUpdateArgs {
 
 impl LocationUpdateArgs {
 	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
+		let LibraryContext { sync, db, .. } = &ctx;
+
 		let location = fetch_location(ctx, self.id)
 			.include(location::include!({ indexer_rules }))
 			.exec()
@@ -168,16 +170,22 @@ impl LocationUpdateArgs {
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
 		if self.name.is_some() && location.name != self.name {
-			ctx.db
-				.location()
-				.update(
+			sync.write_op(
+				db,
+				sync.owned_update(
+					sync::location::SyncId {
+						pub_id: location.pub_id,
+					},
+					[("name", json!(self.name))],
+				),
+				db.location().update(
 					location::id::equals(self.id),
 					vec![location::name::set(self.name.clone())],
-				)
-				.exec()
-				.await?;
+				),
+			)
+			.await?;
 
-			if let Some(ref local_path) = location.local_path {
+			if let Some(local_path) = &location.local_path {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(local_path).await?
 				{
@@ -286,29 +294,38 @@ pub async fn relink_location(
 	ctx: &LibraryContext,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
+	let LibraryContext { db, id, sync, .. } = &ctx;
+
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
 		.ok_or_else(|| LocationError::MissingMetadataFile(location_path.as_ref().to_path_buf()))?;
 
-	metadata.relink(ctx.id, &location_path).await?;
+	metadata.relink(*id, &location_path).await?;
 
-	ctx.db
-		.location()
-		.update(
-			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
+	let pub_id = metadata.location_pub_id(ctx.id)?.as_ref().to_vec();
+	let path = location_path
+		.as_ref()
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	sync.write_op(
+		db,
+		sync.owned_update(
+			sync::location::SyncId {
+				pub_id: pub_id.clone(),
+			},
+			[("local_path", json!(path)), ("is_online", json!(true))],
+		),
+		db.location().update(
+			location::pub_id::equals(pub_id),
 			vec![
-				location::local_path::set(Some(
-					location_path
-						.as_ref()
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-				)),
+				location::local_path::set(Some(path)),
 				location::is_online::set(true),
 			],
-		)
-		.exec()
-		.await?;
+		),
+	)
+	.await?;
 
 	Ok(())
 }

@@ -1,4 +1,5 @@
 use crate::{
+	library::LibraryContext,
 	location::{
 		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
@@ -82,8 +83,9 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 			}
 
 			t(|_, mut args: LocationExplorerArgs, library| async move {
-				let location = library
-					.db
+				let LibraryContext { db, .. } = &library;
+
+				let location = db
 					.location()
 					.find_unique(location::id::equals(args.location_id))
 					.exec()
@@ -96,8 +98,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					args.path += "/";
 				}
 
-				let directory = library
-					.db
+				let directory = db
 					.file_path()
 					.find_first(vec![
 						file_path::location_id::equals(location.id),
@@ -110,8 +111,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 						rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
 					})?;
 
-				let file_paths = library
-					.db
+				let file_paths = db
 					.file_path()
 					.find_many(vec![
 						file_path::location_id::equals(location.id),
