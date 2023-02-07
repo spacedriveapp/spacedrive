@@ -10,12 +10,12 @@
 		"eslint-react.js"
 	],
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^5.48.2",
-		"@typescript-eslint/parser": "^5.48.2",
-		"eslint": "^8.24.0",
+		"@typescript-eslint/eslint-plugin": "^5.51.0",
+		"@typescript-eslint/parser": "^5.51.0",
+		"eslint": "^8.33.0",
 		"eslint-config-prettier": "^8.5.0",
 		"eslint-config-turbo": "^0.0.7",
-		"eslint-plugin-react": "^7.31.8",
+		"eslint-plugin-react": "^7.32.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"eslint-plugin-tailwindcss": "^3.8.3"
 	}
