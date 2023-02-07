@@ -31,11 +31,26 @@ async function getOs(): Promise<OperatingSystem> {
 	}
 }
 
+let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
+
+if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
+	customUriServerUrl += '/';
+}
+
+function getCustomUriURL(path: string): string {
+	if (customUriServerUrl) {
+		console.log(customUriServerUrl, path);
+		return customUriServerUrl + 'spacedrive/' + path;
+	} else {
+		return convertFileSrc(path, 'spacedrive');
+	}
+}
+
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
+	getThumbnailUrlById: (casId) => getCustomUriURL(`thumbnail/${casId}`),
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		convertFileSrc(`file/${libraryId}/${locationLocalId}/${filePathId}`, 'spacedrive'),
+		getCustomUriURL(`file/${libraryId}/${locationLocalId}/${filePathId}`),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),

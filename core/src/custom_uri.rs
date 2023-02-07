@@ -1,11 +1,20 @@
-use crate::prisma::file_path;
-use crate::Node;
-use http::{Request, Response, StatusCode};
+use std::{
+	cmp::min,
+	io,
+	path::{Path, PathBuf},
+	str::FromStr,
+	sync::Arc,
+};
+
+use crate::{prisma::file_path, Node};
 use http_range::HttpRange;
+use httpz::{
+	http::{Method, Response, StatusCode},
+	Endpoint, GenericEndpoint, HttpEndpoint, Request,
+};
 use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
-use std::{cmp::min, io, path::Path, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use tokio::{
 	fs::File,
@@ -23,10 +32,7 @@ static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, (PathBuf, Option<String
 // TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
 // TODO: Probs use this cache in rspc queries too!
 
-pub async fn handle_custom_uri(
-	node: &Node,
-	req: Request<Vec<u8>>,
-) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
+async fn handler(node: Arc<Node>, req: Request) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
 	let path = req
 		.uri()
 		.path()
@@ -34,6 +40,7 @@ pub async fn handle_custom_uri(
 		.unwrap_or_else(|| req.uri().path())
 		.split('/')
 		.collect::<Vec<_>>();
+
 	match path.first().copied() {
 		Some("thumbnail") => {
 			let file_cas_id = path
@@ -243,10 +250,22 @@ pub async fn handle_custom_uri(
 	}
 }
 
+pub fn create_custom_uri_endpoint(node: Arc<Node>) -> Endpoint<impl HttpEndpoint> {
+	GenericEndpoint::new("/*any", [Method::GET, Method::POST], move |req: Request| {
+		let node = node.clone();
+		async move {
+			match handler(node, req).await {
+				Ok(resp) => resp,
+				Err(err) => err.into_response().unwrap(),
+			}
+		}
+	})
+}
+
 #[derive(Error, Debug)]
 pub enum HandleCustomUriError {
 	#[error("error creating http request/response: {0}")]
-	Http(#[from] http::Error),
+	Http(#[from] httpz::http::Error),
 	#[error("io error: {0}")]
 	Io(#[from] io::Error),
 	#[error("query error: {0}")]
@@ -258,7 +277,7 @@ pub enum HandleCustomUriError {
 }
 
 impl HandleCustomUriError {
-	pub fn into_response(self) -> http::Result<Response<Vec<u8>>> {
+	pub fn into_response(self) -> httpz::http::Result<Response<Vec<u8>>> {
 		match self {
 			HandleCustomUriError::Http(err) => {
 				error!("Error creating http request/response: {}", err);

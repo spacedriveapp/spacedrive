@@ -4,15 +4,15 @@
 )]
 
 use std::error::Error;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use http::Request;
-use sd_core::{custom_uri::handle_custom_uri, Node};
-use tauri::async_runtime::block_on;
-use tauri::{api::path, http::ResponseBuilder, Manager, RunEvent};
-use tokio::task::block_in_place;
-use tokio::time::sleep;
+use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
+use tauri::plugin::TauriPlugin;
+use tauri::Runtime;
+use tauri::{api::path, async_runtime::block_on, Manager, RunEvent};
+use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
 
 #[cfg(target_os = "macos")]
@@ -27,6 +27,15 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	window.show().unwrap();
 }
 
+pub fn spacedrive_plugin_init<R: Runtime>(listen_addr: SocketAddr) -> TauriPlugin<R> {
+	tauri::plugin::Builder::new("spacedrive")
+		.js_init_script(format!(
+			r#"window.__SD_CUSTOM_URI_SERVER__ = "http://{}";"#,
+			listen_addr
+		))
+		.build()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	let data_dir = path::data_dir()
@@ -35,44 +44,48 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let (node, router) = Node::new(data_dir).await?;
 
-	let app = tauri::Builder::default()
-		.plugin(rspc::integrations::tauri::plugin(router, {
-			let node = node.clone();
-			move || node.get_request_context()
-		}))
-		.register_uri_scheme_protocol("spacedrive", {
-			let node = node.clone();
-			move |_, req| {
-				let uri = req.uri();
-				let uri = uri
-					.replace("spacedrive://localhost/", "http://spacedrive.localhost/") // Windows
-					.replace("spacedrive://", "http://spacedrive.localhost/"); // Unix style
+	let app = tauri::Builder::default().plugin(rspc::integrations::tauri::plugin(router, {
+		let node = node.clone();
+		move || node.get_request_context()
+	}));
 
-				// Encoded by `convertFileSrc` on the frontend
-				let uri = percent_encoding::percent_decode(uri.as_bytes())
-					.decode_utf8_lossy()
-					.to_string();
+	// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
+	// TODO: Secure this server against other apps on the users machine making requests to it using a HTTP header and random token or something
+	let endpoint = create_custom_uri_endpoint(node.clone());
+	#[cfg(target_os = "linux")]
+	let app = {
+		use axum::routing::get;
+		use std::net::TcpListener;
 
-				let mut r = Request::builder().method(req.method()).uri(uri);
-				for (key, value) in req.headers() {
-					r = r.header(key, value);
-				}
-				let r = r.body(req.body().clone()).unwrap(); // TODO: This clone feels so unnecessary but Tauri pass `req` as a reference so we can get the owned value.
+		let signal = server::utils::axum_shutdown_signal(node.clone());
 
-				// TODO: This blocking sucks but is required for now. https://github.com/tauri-apps/wry/issues/420
-				let resp = block_in_place(|| block_on(handle_custom_uri(&node, r)))
-					.unwrap_or_else(|err| err.into_response().unwrap());
-				let mut r = ResponseBuilder::new()
-					.version(resp.version())
-					.status(resp.status());
+		let axum_app = axum::Router::new()
+			.route("/", get(|| async { "Spacedrive Server!" }))
+			.nest("/spacedrive", endpoint.axum())
+			.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
-				for (key, value) in resp.headers() {
-					r = r.header(key, value);
-				}
+		let listener = TcpListener::bind("127.0.0.1:0").expect("Error creating localhost server!"); // Only allow current device to access it and randomise port
+		let listen_addr = listener
+			.local_addr()
+			.expect("Error getting localhost server listen addr!");
+		debug!("Localhost server listening on: http://{:?}", listen_addr);
 
-				r.body(resp.into_body())
-			}
-		})
+		tokio::spawn(async move {
+			axum::Server::from_tcp(listener)
+				.expect("error creating HTTP server!")
+				.serve(axum_app.into_make_service())
+				.with_graceful_shutdown(signal)
+				.await
+				.expect("Error with HTTP server!");
+		});
+
+		app.plugin(spacedrive_plugin_init(listen_addr))
+	};
+
+	#[cfg(not(target_os = "linux"))]
+	let app = app.register_uri_scheme_protocol("spacedrive", endpoint.tauri_uri_scheme("spacedrive"));
+
+	let app = app
 		.setup(|app| {
 			let app = app.handle();
 			app.windows().iter().for_each(|(_, window)| {
@@ -83,7 +96,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					async move {
 						sleep(Duration::from_secs(3)).await;
 						if !window.is_visible().unwrap_or(true) {
-							println!("Window did not emit `app_ready` event fast enough. Showing window...");
+							println!(
+							"Window did not emit `app_ready` event fast enough. Showing window..."
+						);
 							let _ = window.show();
 						}
 					}

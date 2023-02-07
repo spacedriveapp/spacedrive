@@ -12,6 +12,7 @@ build = "build.rs"
 [dependencies]
 tauri = { version = "1.2.4", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
+httpz = { workspace = true, features = ["axum", "tauri"] } # TODO: The `axmu` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.0"
@@ -19,6 +20,10 @@ tracing = "0.1.36"
 serde = "1.0.145"
 percent-encoding = "2.2.0"
 http = "0.2.8"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+axum = "0.6.4"
+server = { path = "../../server" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs.workspace = true

@@ -2550,6 +2550,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "httpz"
+version = "0.0.3"
+source = "git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6#a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6"
+dependencies = [
+ "axum",
+ "form_urlencoded",
+ "futures",
+ "http",
+ "hyper",
+ "percent-encoding",
+ "tauri",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5311,7 +5327,7 @@ source = "git+https://github.com/oscartbeaumont/rspc?rev=c03872c0ba29d2429e9c059
 dependencies = [
  "async-stream",
  "futures",
- "httpz",
+ "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz.git?rev=a5020adecb15b55d84a8330b4680eba82fa6b820)",
  "serde",
  "serde_json",
  "specta 0.0.6",
@@ -5558,8 +5574,8 @@ dependencies = [
  "futures",
  "globset",
  "hostname",
- "http",
  "http-range",
+ "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
  "image",
  "include_dir",
  "int-enum",
@@ -5992,6 +6008,7 @@ dependencies = [
  "axum",
  "ctrlc",
  "http",
+ "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
  "hyper",
  "rspc",
  "sd-core",
@@ -6171,11 +6188,14 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "http",
+ "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
  "percent-encoding",
  "rspc",
  "sd-core",
  "serde",
+ "server",
  "swift-rs",
  "tauri",
  "tauri-build",
