@@ -17,8 +17,10 @@ use tauri::{
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::{debug, error};
+
 #[cfg(target_os = "macos")]
 mod macos;
+
 mod menu;
 
 #[tauri::command(async)]
@@ -33,6 +35,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
+
+	#[cfg(debug_assertions)]
+	let data_dir = data_dir.join("dev");
 
 	let (node, router) = Node::new(data_dir).await?;
 
@@ -59,13 +64,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.setup(|app| {
 			let app = app.handle();
 			app.windows().iter().for_each(|(_, window)| {
-				window.hide().unwrap();
+				// window.hide().unwrap();
 
 				tokio::spawn({
 					let window = window.clone();
 					async move {
 						sleep(Duration::from_secs(3)).await;
-						if window.is_visible().unwrap_or(true) == false {
+						if !window.is_visible().unwrap_or(true) {
 							println!("Window did not emit `app_ready` event fast enough. Showing window...");
 							let _ = window.show();
 						}
@@ -80,8 +85,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					use macos::*;
 
 					let window = window.ns_window().unwrap();
-					set_titlebar_style(window, true, true);
-					blur_window_background(window);
+
+					unsafe { set_titlebar_style(&window, true, true) };
+					unsafe { blur_window_background(&window) };
 				}
 			});
 

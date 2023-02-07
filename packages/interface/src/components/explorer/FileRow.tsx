@@ -1,7 +1,6 @@
-import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-
+import { ExplorerItem } from '@sd/client';
 import FileThumb from './FileThumb';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -56,13 +55,13 @@ const RenderCell: React.FC<{
                   return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
               }
             })()} */}
-					<span className="text-xs truncate">{data[colKey]}</span>
+					<span className="text-xs truncate">{data.item[colKey]}</span>
 				</div>
 			);
 		// case 'size_in_bytes':
 		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
 		case 'extension':
-			return <span className="text-xs text-left">{data[colKey]}</span>;
+			return <span className="text-xs text-left">{data.item[colKey]}</span>;
 		// case 'meta_integrity_hash':
 		//   return <span className="truncate">{value}</span>;
 		// case 'tags':
@@ -90,6 +89,6 @@ const columns = ensureIsColumns([
 	{ column: 'Type', key: 'extension', width: 100 } as const
 ]);
 
-type ColumnKey = typeof columns[number]['key'];
+type ColumnKey = (typeof columns)[number]['key'];
 
 export default FileRow;

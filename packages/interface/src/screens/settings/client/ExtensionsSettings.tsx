@@ -1,8 +1,7 @@
-import { Button, Card, GridLayout, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
-
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { Button, Card, GridLayout, Input } from '@sd/ui';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 // extensions should cache their logos in the app data folder
 interface ExtensionItemData {

@@ -1,12 +1,17 @@
 {
 	"extends": "expo/tsconfig.base",
 	"compilerOptions": {
-		"baseUrl": "src",
 		"target": "ESNext",
 		"module": "ESNext",
+		"noEmit": true,
 		"paths": {
-			"~/*": ["*"]
+			"~/*": ["./src/*"]
 		},
 		"jsx": "react-native"
-	}
+	},
+	"references": [
+		{
+			"path": "../../packages/client"
+		}
+	]
 }

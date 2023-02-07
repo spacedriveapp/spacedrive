@@ -1,3 +1,4 @@
+import AppLogo from '@sd/assets/images/logo.png';
 import {
 	Discord,
 	Github,
@@ -6,7 +7,6 @@ import {
 	Twitch,
 	Twitter
 } from '@icons-pack/react-simple-icons';
-import AppLogo from '@sd/assets/images/logo.png';
 import { PropsWithChildren } from 'react';
 
 function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>) {
@@ -30,7 +30,9 @@ export function Footer() {
 					<img src={AppLogo} className="w-10 h-10 mb-5" />
 
 					<h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
-					<p className="text-sm text-gray-350">&copy; Copyright 2022 Spacedrive Technology Inc.</p>
+					<p className="text-sm text-gray-350">
+						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
+					</p>
 					<div className="flex flex-row mt-6 mb-10 space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
 							<Twitter />
@@ -59,7 +61,7 @@ export function Footer() {
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
 					<FooterLink link="/careers">Careers</FooterLink>
-					<FooterLink link="/changelog">Changelog</FooterLink>
+					<FooterLink link="/docs/changelog/beta/0.1.0">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2 pointer-events-none">
@@ -96,11 +98,11 @@ export function Footer() {
 					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
 						License
 					</FooterLink>
-					<div className="opacity-50 pointer-events-none">
-						<FooterLink link="#">Privacy</FooterLink>
+					<div>
+						<FooterLink link="/docs/company/legal/privacy">Privacy</FooterLink>
 					</div>
-					<div className="opacity-50 pointer-events-none">
-						<FooterLink link="#">Terms</FooterLink>
+					<div>
+						<FooterLink link="/docs/company/legal/terms">Terms</FooterLink>
 					</div>
 				</div>
 			</div>

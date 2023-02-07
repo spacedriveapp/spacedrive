@@ -1,7 +1,9 @@
 use api::{CoreEvent, Ctx, Router};
 use job::JobManager;
 use library::LibraryManager;
+use location::{LocationManager, LocationManagerError};
 use node::NodeConfigManager;
+
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{
@@ -18,15 +20,18 @@ pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
+pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
 
 pub(crate) mod prisma;
+pub(crate) mod prisma_sync;
 
 #[derive(Clone)]
 pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
 	pub jobs: Arc<JobManager>,
+	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
@@ -50,9 +55,9 @@ const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
-		#[cfg(debug_assertions)]
-		let data_dir = data_dir.join("dev");
-		let _ = fs::create_dir_all(&data_dir).await; // This error is ignore because it throwing on mobile despite the folder existing.
+
+		// This error is ignored because it's throwing on mobile despite the folder existing.
+		let _ = fs::create_dir_all(&data_dir).await;
 
 		// dbg!(get_object_kind_from_extension("png"));
 
@@ -66,12 +71,17 @@ impl Node {
 			EnvFilter::from_default_env()
 				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
 				.add_directive(
-					"sd-core=debug"
+					"sd_core=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
-					"sd-core-mobile=debug"
+					"sd_core::location::manager=info"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"sd_core_mobile=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
@@ -107,15 +117,38 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
 
 		let jobs = JobManager::new();
+		let location_manager = LocationManager::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
 				config: Arc::clone(&config),
 				jobs: Arc::clone(&jobs),
+				location_manager: Arc::clone(&location_manager),
 				event_bus_tx: event_bus.0.clone(),
 			},
 		)
 		.await?;
+
+		// Adding already existing locations for location management
+		for library_ctx in library_manager.get_all_libraries_ctx().await {
+			for location in library_ctx
+				.db
+				.location()
+				.find_many(vec![])
+				.exec()
+				.await
+				.unwrap_or_else(|e| {
+					error!(
+						"Failed to get locations from database for location manager: {:#?}",
+						e
+					);
+					vec![]
+				}) {
+				if let Err(e) = location_manager.add(location.id, library_ctx.clone()).await {
+					error!("Failed to add location to location manager: {:#?}", e);
+				}
+			}
+		}
 
 		// Trying to resume possible paused jobs
 		let inner_library_manager = Arc::clone(&library_manager);
@@ -136,6 +169,7 @@ impl Node {
 			event_bus,
 		};
 
+		info!("Spacedrive online.");
 		Ok((Arc::new(node), router))
 	}
 
@@ -208,4 +242,6 @@ pub enum NodeError {
 	FailedToInitializeConfig(#[from] node::NodeConfigError),
 	#[error("Failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
+	#[error("Location manager error: {0}")]
+	LocationManager(#[from] LocationManagerError),
 }

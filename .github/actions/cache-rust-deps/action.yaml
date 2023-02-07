@@ -1,4 +1,3 @@
-
 name: Cache Rust Dependencies
 description: Caches Rust dependencies
 runs:

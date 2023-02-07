@@ -1,5 +1,12 @@
 #![allow(dead_code)]
+
 use crate::extensions::{CodeExtension, Extension, VideoExtension};
+use std::{ffi::OsStr, io::SeekFrom, path::Path};
+
+use tokio::{
+	fs::{self, File},
+	io::{AsyncReadExt, AsyncSeekExt},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExtensionPossibility {
@@ -98,8 +105,9 @@ macro_rules! extension_category_enum {
 			$($(#[$variant_attr:meta])* $variant:ident $(= $( [$($magic_bytes:tt),*] $(+ $offset:literal)? )|+ )? ,)*
 		}
 	) => {
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, ::strum::Display, Clone, Copy, PartialEq, Eq)]
 		#[serde(rename_all = "snake_case")]
+		#[strum(serialize_all = "snake_case")]
 		$(#[$enum_attr])*
 
 		// construct enum
@@ -118,12 +126,6 @@ macro_rules! extension_category_enum {
 			type Err = serde_json::Error;
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
 				serde_json::from_value(serde_json::Value::String(s.to_string()))
-			}
-		}
-		// convert to string
-		impl std::fmt::Display for $enum_name {
-			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-				write!(f, "{}", serde_json::to_string(self).unwrap()) // SAFETY: This is safe
 			}
 		}
 	};
@@ -153,14 +155,12 @@ macro_rules! extension_category_enum {
 }
 pub(crate) use extension_category_enum;
 
-pub fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut std::fs::File) -> Option<T> {
-	use std::io::{Read, Seek, SeekFrom};
-
+pub async fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut File) -> Option<T> {
 	for magic in ext.magic_bytes_meta() {
 		let mut buf = vec![0; magic.length];
 
-		file.seek(SeekFrom::Start(magic.offset as u64)).ok()?;
-		file.read_exact(&mut buf).ok()?;
+		file.seek(SeekFrom::Start(magic.offset as u64)).await.ok()?;
+		file.read_exact(&mut buf).await.ok()?;
 
 		if ext.has_magic_bytes(&buf) {
 			return Some(ext);
@@ -171,15 +171,21 @@ pub fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut std::fs::File) -> Op
 }
 
 impl Extension {
-	pub fn resolve_conflicting(
-		ext_str: &str,
-		file: &mut std::fs::File,
+	pub async fn resolve_conflicting(
+		path: impl AsRef<Path>,
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
-		let ext = match Extension::from_str(ext_str) {
-			Some(e) => e,
-			None => return None,
+		let Some(ext_str) = path.as_ref().extension().and_then(OsStr::to_str) else {
+            return None
+        };
+
+		let Some(ext) = Extension::from_str(ext_str) else {
+			return None
 		};
+
+		let Ok(ref mut file) = File::open(&path).await else {
+            return None
+        };
 
 		match ext {
 			// we don't need to check the magic bytes unless there is conflict
@@ -187,11 +193,20 @@ impl Extension {
 			ExtensionPossibility::Known(e) => {
 				if always_check_magic_bytes {
 					match e {
-						Self::Image(x) => verify_magic_bytes(x, file).map(Self::Image),
-						Self::Audio(x) => verify_magic_bytes(x, file).map(Self::Audio),
-						Self::Video(x) => verify_magic_bytes(x, file).map(Self::Video),
-						Self::Executable(x) => verify_magic_bytes(x, file).map(Self::Executable),
-						_ => None,
+						Self::Image(x) => verify_magic_bytes(x, file).await.map(Self::Image),
+						Self::Audio(x) => verify_magic_bytes(x, file).await.map(Self::Audio),
+						Self::Video(x) => verify_magic_bytes(x, file).await.map(Self::Video),
+						Self::Archive(x) => verify_magic_bytes(x, file).await.map(Self::Archive),
+						Self::Executable(x) => {
+							verify_magic_bytes(x, file).await.map(Self::Executable)
+						}
+						Self::Font(x) => verify_magic_bytes(x, file).await.map(Self::Font),
+						Self::Encrypted(x) => {
+							verify_magic_bytes(x, file).await.map(Self::Encrypted)
+						}
+						Self::Mesh(x) => verify_magic_bytes(x, file).await.map(Self::Mesh),
+						Self::Database(x) => verify_magic_bytes(x, file).await.map(Self::Database),
+						_ => Some(e),
 					}
 				} else {
 					Some(e)
@@ -200,7 +215,9 @@ impl Extension {
 			ExtensionPossibility::Conflicts(ext) => match ext_str {
 				"ts" => {
 					let maybe_video_ext = if ext.iter().any(|e| matches!(e, Extension::Video(_))) {
-						verify_magic_bytes(VideoExtension::Ts, file).map(Extension::Video)
+						verify_magic_bytes(VideoExtension::Ts, file)
+							.await
+							.map(Extension::Video)
 					} else {
 						None
 					};

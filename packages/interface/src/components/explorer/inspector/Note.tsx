@@ -1,11 +1,10 @@
+import { useCallback, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { useLibraryMutation } from '@sd/client';
 import { Object as SDObject } from '@sd/client';
 import { TextArea } from '@sd/ui';
-import { useCallback, useState } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
-
+import { MetaContainer, MetaTitle } from '../Inspector';
 import { Divider } from './Divider';
-import { MetaItem } from './MetaItem';
 
 interface Props {
 	data: SDObject;
@@ -41,16 +40,14 @@ export default function Note(props: Props) {
 	return (
 		<>
 			<Divider />
-			<MetaItem
-				title="Note"
-				value={
-					<TextArea
-						className="mt-2 text-xs leading-snug !py-2"
-						value={note || ''}
-						onChange={handleNoteUpdate}
-					/>
-				}
-			/>
+			<MetaContainer>
+				<MetaTitle>Note</MetaTitle>
+				<TextArea
+					className="mt-2 mb-1 text-xs leading-snug !py-2"
+					value={note || ''}
+					onChange={handleNoteUpdate}
+				/>{' '}
+			</MetaContainer>
 		</>
 	);
 }

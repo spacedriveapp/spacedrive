@@ -22,14 +22,15 @@ type Button = {
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 const styles = cva(
-	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50',
+	[
+		'border rounded-md items-center transition-colors duration-100 cursor-default outline-none',
+		'disabled:opacity-70 disabled:pointer-events-none disabled:cursor-not-allowed',
+		'ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2'
+	],
 	{
 		variants: {
 			pressEffect: {
 				true: 'active:translate-y-[1px]'
-			},
-			disabled: {
-				true: 'opacity-70 pointer-events-none cursor-not-allowed'
 			},
 			size: {
 				icon: '!p-1',
@@ -38,7 +39,7 @@ const styles = cva(
 			},
 			variant: {
 				default: [
-					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
+					'bg-transparent active:bg-app-selected hover:bg-app-hover',
 					'border-transparent hover:border-app-line active:border-app-line'
 				],
 				outline: [
@@ -70,7 +71,7 @@ export const Button = forwardRef<
 	return hasHref(props) ? (
 		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
 	) : (
-		<button {...(props as ButtonProps)} ref={ref as any} className={className} />
+		<button type="button" {...(props as ButtonProps)} ref={ref as any} className={className} />
 	);
 });
 

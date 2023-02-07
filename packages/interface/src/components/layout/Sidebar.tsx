@@ -1,4 +1,8 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
+import clsx from 'clsx';
+import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
+import React, { PropsWithChildren } from 'react';
+import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
 	LocationCreateArgs,
 	getDebugState,
@@ -14,34 +18,23 @@ import {
 	CategoryHeading,
 	Dropdown,
 	Loader,
-	OverlayPanel,
+	Popover,
 	Select,
 	SelectOption,
 	Switch,
 	cva,
+	dialogManager,
 	tw
 } from '@sd/ui';
-import clsx from 'clsx';
-import {
-	CheckCircle,
-	CirclesFour,
-	Gear,
-	GearSix,
-	Lock,
-	Planet,
-	Plus,
-	ShareNetwork
-} from 'phosphor-react';
-import React, { PropsWithChildren, useState } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
-
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { usePlatform } from '../../util/Platform';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
+import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
+import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
 
@@ -54,16 +47,15 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
-	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
 	return (
-		<SidebarBody className={macOnly(os, 'bg-opacity-[0.80]')}>
+		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
 			<WindowControls />
 			<Dropdown.Root
 				className="mt-2 mx-2.5"
 				// we override the sidebar dropdown item's hover styles
 				// because the dark style clashes with the sidebar
-				itemsClassName="dark:bg-sidebar-box mt-1 dark:divide-menu-selected/30"
+				itemsClassName="dark:bg-sidebar-box dark:border-sidebar-line mt-1 dark:divide-menu-selected/30 shadow-none"
 				button={
 					<Dropdown.Button
 						variant="gray"
@@ -71,7 +63,7 @@ export function Sidebar() {
 							`w-full text-ink `,
 							// these classname overrides are messy
 							// but they work
-							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line`,
+							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line ring-offset-sidebar`,
 							(library === null || isLoadingLibraries) && '!text-ink-faint'
 						)}
 					>
@@ -93,11 +85,16 @@ export function Sidebar() {
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item icon={GearSix} to="settings/library">
-						Library Settings
+					<Dropdown.Item
+						icon={Plus}
+						onClick={() => {
+							dialogManager.create((dp) => <CreateLibraryDialog {...dp} />);
+						}}
+					>
+						New Library
 					</Dropdown.Item>
-					<Dropdown.Item icon={Plus} onClick={() => setIsCreateDialogOpen(true)}>
-						Add Library
+					<Dropdown.Item icon={Gear} to="settings/library">
+						Manage Library
 					</Dropdown.Item>
 					<Dropdown.Item icon={Lock} onClick={() => alert('TODO: Not implemented yet!')}>
 						Lock
@@ -110,10 +107,10 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					<SidebarLink to="photos">
+					{/* <SidebarLink to="photos">
 						<Icon component={ShareNetwork} />
 						Nodes
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="content">
 						<Icon component={CirclesFour} />
 						Spaces
@@ -129,33 +126,35 @@ export function Sidebar() {
 						to="/settings/general"
 						size="icon"
 						variant="outline"
-						className="text-ink-faint"
+						className="text-ink-faint ring-offset-sidebar"
 					>
-						<Gear className="w-5 h-5" />
+						<Tooltip label="Settings">
+							<Gear className="w-5 h-5" />
+						</Tooltip>
 					</ButtonLink>
-					<OverlayPanel
-						className="focus:outline-none"
-						transformOrigin="bottom left"
-						disabled={!library}
+					<Popover
 						trigger={
 							<Button
 								size="icon"
 								variant="outline"
-								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint"
+								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
+								disabled={!library}
 							>
-								{library && <IsRunningJob />}
+								{library && (
+									<Tooltip label="Recent Jobs">
+										<IsRunningJob />
+									</Tooltip>
+								)}
 							</Button>
 						}
 					>
 						<div className="block w-[430px] h-96">
 							<JobsManager />
 						</div>
-					</OverlayPanel>
+					</Popover>
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</SidebarFooter>
-			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
-			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
 		</SidebarBody>
 	);
 }
@@ -177,7 +176,7 @@ function DebugPanel() {
 	const platform = usePlatform();
 
 	return (
-		<OverlayPanel
+		<Popover
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
@@ -246,12 +245,12 @@ function DebugPanel() {
 					</InputContainer>
 				)} */}
 			</div>
-		</OverlayPanel>
+		</Popover>
 	);
 }
 
 const sidebarItemClass = cva(
-	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm',
+	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm outline-none ring-offset-sidebar focus:ring-2 focus:ring-accent focus:ring-offset-2',
 	{
 		variants: {
 			isActive: {
@@ -269,17 +268,13 @@ const sidebarItemClass = cva(
 export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	const os = useOperatingSystem();
 	return (
-		<NavLink {...props}>
-			{({ isActive }) => (
-				<span
-					className={clsx(
-						sidebarItemClass({ isActive, isTransparent: os === 'macOS' }),
-						props.className
-					)}
-				>
-					{props.children}
-				</span>
-			)}
+		<NavLink
+			{...props}
+			className={({ isActive }) =>
+				clsx(sidebarItemClass({ isActive, isTransparent: os === 'macOS' }), props.className)
+			}
+		>
+			{props.children}
 		</NavLink>
 	);
 };
@@ -315,9 +310,10 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 
 function LibraryScopedSection() {
 	const platform = usePlatform();
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
+
+	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const createLocation = useLibraryMutation('locations.create');
 
 	return (
 		<>
@@ -331,44 +327,43 @@ function LibraryScopedSection() {
 						</>
 					}
 				>
-					{locations?.map((location) => {
+					{locations.data?.map((location) => {
 						return (
 							<div key={location.id} className="flex flex-row items-center">
-								<NavLink
+								<SidebarLink
 									className="relative w-full group"
 									to={{
 										pathname: `location/${location.id}`
 									}}
 								>
-									{({ isActive }) => (
-										<span className={sidebarItemClass({ isActive })}>
-											<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-												<Folder size={18} />
-											</div>
+									<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
+										<Folder size={18} />
+									</div>
 
-											<span className="flex-grow flex-shrink-0">{location.name}</span>
-										</span>
-									)}
-								</NavLink>
+									<span className="flex-grow flex-shrink-0">{location.name}</span>
+								</SidebarLink>
 							</div>
 						);
 					})}
-					{(locations?.length || 0) < 4 && (
+					{(locations.data?.length || 0) < 4 && (
 						<button
 							onClick={() => {
-								if (!platform.openFilePickerDialog) {
-									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
-									return;
+								if (platform.platform === 'web') {
+									dialogManager.create((dp) => <AddLocationDialog {...dp} />);
+								} else {
+									if (!platform.openDirectoryPickerDialog) {
+										alert('Opening a dialogue is not supported on this platform!');
+										return;
+									}
+									platform.openDirectoryPickerDialog().then((result) => {
+										// TODO: Pass indexer rules ids to create location
+										if (result)
+											createLocation.mutate({
+												path: result as string,
+												indexer_rules_ids: []
+											} as LocationCreateArgs);
+									});
 								}
-								platform.openFilePickerDialog().then((result) => {
-									// TODO: Pass indexer rules ids to create location
-									if (result)
-										createLocation({
-											path: result as string,
-											indexer_rules_ids: []
-										} as LocationCreateArgs);
-								});
 							}}
 							className={clsx(
 								'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
@@ -381,13 +376,13 @@ function LibraryScopedSection() {
 					)}
 				</SidebarSection>
 			</div>
-			{!!tags?.length && (
+			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
 					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
 				>
 					<div className="mt-1 mb-2">
-						{tags?.slice(0, 6).map((tag, index) => (
+						{tags.data?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
 									className="w-[12px] h-[12px] rounded-full"

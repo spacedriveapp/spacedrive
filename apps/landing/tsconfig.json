@@ -1,10 +1,13 @@
 {
-	"extends": "@sd/config/interface.tsconfig.json",
+	"extends": "../../packages/config/app.tsconfig.json",
 	"include": ["src"],
 	"ts-node": {
 		"transpileOnly": true,
-		"compilerOptions": {
-			"module": "CommonJS"
+		"compilerOptions": {}
+	},
+	"references": [
+		{
+			"path": "../../packages/ui"
 		}
-	}
+	]
 }

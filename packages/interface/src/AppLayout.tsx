@@ -1,11 +1,10 @@
-import { useCurrentLibrary } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-
-import { Sidebar } from './components/layout/Sidebar';
-import { Toasts } from './components/primitive/Toasts';
-import { useOperatingSystem } from './hooks/useOperatingSystem';
+import { useCurrentLibrary } from '@sd/client';
+import { Sidebar } from '~/components/layout/Sidebar';
+import { Toasts } from '~/components/primitive/Toasts';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 export function AppLayout() {
 	const { libraries } = useCurrentLibrary();
@@ -21,6 +20,7 @@ export function AppLayout() {
 			className={clsx(
 				// App level styles
 				'flex h-screen overflow-hidden text-ink select-none cursor-default',
+				os === 'browser' && 'bg-app border-t border-app-line/50',
 				os === 'macOS' && 'rounded-[10px] has-blur-effects',
 				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
 			)}

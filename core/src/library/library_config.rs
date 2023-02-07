@@ -22,6 +22,9 @@ pub struct LibraryConfig {
 	pub name: String,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: String,
+	// /// is_encrypted is a flag that is set to true if the library is encrypted.
+	// #[serde(default)]
+	// pub is_encrypted: bool,
 }
 
 impl LibraryConfig {

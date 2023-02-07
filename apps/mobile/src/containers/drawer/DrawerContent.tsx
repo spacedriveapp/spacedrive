@@ -5,7 +5,6 @@ import { Image, Platform, Pressable, Text, View } from 'react-native';
 import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
-
 import Divider from '../../components/primitive/Divider';
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
@@ -25,7 +24,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 				<View>
 					<View style={tw`flex flex-row items-center`}>
 						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-[35px] h-[35px]`} />
-						<Text style={tw`text-base font-bold text-white ml-2`}>Spacedrive</Text>
+						<Text style={tw`text-base font-bold text-ink ml-2`}>Spacedrive</Text>
 					</View>
 					<Divider style={tw`my-4`} />
 					{/* Library Manager */}
@@ -37,7 +36,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 				</View>
 				{/* Settings */}
 				<Pressable onPress={() => navigation.navigate('Settings')}>
-					<Gear color="white" size={24} />
+					<Gear color={tw.color('ink')} size={24} />
 				</Pressable>
 			</View>
 		</DrawerContentScrollView>

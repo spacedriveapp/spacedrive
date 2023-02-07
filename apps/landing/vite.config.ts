@@ -8,7 +8,15 @@ import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
-	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
+	// prettier-ignore
+	// Prettier reeeally wants to one-line this -- I AM PUTTING MY FOOT DOWN AND SAYING NO!
+	plugins: [
+		react(),
+		ssr({ prerender: true }),
+		svg(),
+		md({ mode: [Mode.REACT] }),
+		visualizer()
+	],
 	resolve: {
 		alias: [
 			{

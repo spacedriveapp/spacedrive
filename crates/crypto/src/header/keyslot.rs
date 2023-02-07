@@ -21,12 +21,15 @@
 //!
 //! let keyslot = Keyslot::new(KeyslotVersion::V1, Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard), user_password, &master_key).unwrap();
 //! ```
-use std::io::{Read, Seek};
+use std::io::Read;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
-	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
+	primitives::{
+		types::{EncryptedKey, Key, Nonce, Salt},
+		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
+	},
 	Error, Protected, Result,
 };
 
@@ -38,10 +41,13 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
-	pub nonce: Vec<u8>,
+	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
+	pub content_salt: Salt,
+	pub master_key: EncryptedKey, // this is encrypted so we can store it
+	pub nonce: Nonce,
 }
+
+pub const KEYSLOT_SIZE: usize = 112;
 
 /// This defines the keyslot version
 ///
@@ -54,34 +60,39 @@ pub enum KeyslotVersion {
 impl Keyslot {
 	/// This should be used for creating a keyslot.
 	///
-	/// This handles generating the nonce/salt, and encrypting the master key.
+	/// This handles generating the nonce and encrypting the master key.
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
-	pub fn new(
+	#[allow(clippy::needless_pass_by_value)]
+	pub async fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		salt: [u8; SALT_LEN],
-		password: Protected<Vec<u8>>,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		content_salt: Salt,
+		hashed_key: Key,
+		master_key: Key,
 	) -> Result<Self> {
-		let nonce = generate_nonce(algorithm);
+		let nonce = Nonce::generate(algorithm)?;
 
-		let hashed_password = hashing_algorithm.hash(password, salt)?;
+		let salt = Salt::generate();
 
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_password,
-			&nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = EncryptedKey::try_from(
+			StreamEncryption::encrypt_bytes(
+				Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
+				nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		Ok(Self {
 			version,
 			algorithm,
 			hashing_algorithm,
 			salt,
+			content_salt,
 			master_key: encrypted_master_key,
 			nonce,
 		})
@@ -92,13 +103,23 @@ impl Keyslot {
 	/// This attempts to decrypt the master key for a single keyslot
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
+	#[allow(clippy::needless_pass_by_value)]
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		let key = self
 			.hashing_algorithm
-			.hash(password.clone(), self.salt)
+			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
+		)
 	}
 
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
@@ -108,28 +129,37 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key_from_prehashed(
-		&self,
-		key: Protected<[u8; 32]>,
-	) -> Result<Protected<Vec<u8>>> {
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Key> {
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
+		)
 	}
 
 	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			KeyslotVersion::V1 => {
-				let mut keyslot: Vec<u8> = Vec::new();
-				keyslot.extend_from_slice(&self.version.serialize()); // 2
-				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
-				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				keyslot.extend_from_slice(&self.salt); // 22
-				keyslot.extend_from_slice(&self.master_key); // 70
-				keyslot.extend_from_slice(&self.nonce); // 78 or 90
-				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
-				keyslot
-			}
+			KeyslotVersion::V1 => [
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				self.hashing_algorithm.to_bytes().as_ref(),
+				&self.salt,
+				&self.content_salt,
+				&self.master_key,
+				&self.nonce,
+				&vec![0u8; 26 - self.nonce.len()],
+			]
+			.into_iter()
+			.flatten()
+			.copied()
+			.collect(),
 		}
 	}
 
@@ -138,43 +168,46 @@ impl Keyslot {
 	/// It will leave the cursor at the end of the keyslot on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
+	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read + Seek,
+		R: Read,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
-		let version = KeyslotVersion::deserialize(version)?;
+		reader.read_exact(&mut version)?;
+		let version = KeyslotVersion::from_bytes(version)?;
 
 		match version {
 			KeyslotVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
+				reader.read_exact(&mut algorithm)?;
+				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
-				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
+				reader.read_exact(&mut hashing_algorithm)?;
+				let hashing_algorithm = HashingAlgorithm::from_bytes(hashing_algorithm)?;
 
 				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt).map_err(Error::Io)?;
+				reader.read_exact(&mut salt)?;
 
-				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
-				reader.read(&mut master_key).map_err(Error::Io)?;
+				let mut content_salt = [0u8; SALT_LEN];
+				reader.read_exact(&mut content_salt)?;
+
+				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
+				reader.read_exact(&mut master_key)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut nonce).map_err(Error::Io)?;
+				reader.read_exact(&mut nonce)?;
+				let nonce = Nonce::try_from(nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read_exact(&mut vec![0u8; 26 - nonce.len()])?;
 
 				let keyslot = Self {
 					version,
 					algorithm,
 					hashing_algorithm,
-					salt,
-					master_key,
+					salt: Salt(salt),
+					content_salt: Salt(content_salt),
+					master_key: EncryptedKey(master_key),
 					nonce,
 				};
 

@@ -1,10 +1,9 @@
-import { Menu, Transition } from '@headlessui/react';
 import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
+import { Menu, Transition } from '@headlessui/react';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
-
 import * as UI from '.';
 import { tw } from './utils';
 
@@ -40,21 +39,24 @@ type DropdownItemProps =
 			VariantProps<typeof itemStyles>;
 
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
-	let content = (
+	const content = (
 		<>
-			{Icon && <Icon className={itemIconStyles(props)} />}
+			{Icon && <Icon weight="bold" className={itemIconStyles(props)} />}
 			<span className="text-left">{children}</span>
 		</>
 	);
-
-	return to ? (
-		<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
-			{content}
-		</Link>
-	) : (
-		<button {...props} className={clsx(itemStyles(props), className)}>
-			{content}
-		</button>
+	return (
+		<Menu.Item>
+			{to ? (
+				<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
+					{content}
+				</Link>
+			) : (
+				<button {...props} className={clsx(itemStyles(props), className)}>
+					{content}
+				</button>
+			)}
+		</Menu.Item>
 	);
 };
 

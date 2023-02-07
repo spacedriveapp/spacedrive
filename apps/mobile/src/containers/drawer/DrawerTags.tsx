@@ -1,10 +1,10 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { ColorValue, Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import tw from '~/lib/tailwind';
-
 import CollapsibleView from '../../components/layout/CollapsibleView';
+import CreateTagDialog from '../dialog/tag/CreateTagDialog';
 
 type DrawerTagItemProps = {
 	tagName: string;
@@ -56,6 +56,12 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 					/>
 				))}
 			</View>
+			{/* Add Tag */}
+			<CreateTagDialog>
+				<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
+					<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>Add Tag</Text>
+				</View>
+			</CreateTagDialog>
 		</CollapsibleView>
 	);
 };

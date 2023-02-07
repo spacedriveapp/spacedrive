@@ -1,11 +1,10 @@
+import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
-import { Database } from 'phosphor-react';
-
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-import { usePlatform } from '../../../util/Platform';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { usePlatform } from '~/util/Platform';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -66,7 +65,7 @@ export default function GeneralSettings() {
 			<InputContainer
 				mini
 				title="Debug mode"
-				description="Enable extra debugging features within the app. Enabling this could have unintended consequences so be warned!"
+				description="Enable extra debugging features within the app."
 			>
 				<Switch
 					checked={debugState.enabled}
