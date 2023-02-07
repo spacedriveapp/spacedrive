@@ -216,6 +216,7 @@ model Key {
     // uuid to identify the key
     uuid              String    @unique
     version           String
+    key_type          String
     // the name that the user sets
     name              String?
     // is this key the default for encryption?

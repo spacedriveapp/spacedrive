@@ -1,4 +1,7 @@
-use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
+use sd_crypto::{
+	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::types::Password,
+	Protected,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -88,17 +91,17 @@ impl StatefulJob for FileDecryptorJob {
 
 		let master_key = if let Some(password) = state.init.password.clone() {
 			if let Some(save_to_library) = state.init.save_to_library {
-				let password = Protected::new(password.into_bytes());
-
 				// we can do this first, as `find_key_index` requires a successful decryption (just like `decrypt_master_key`)
+				let password_bytes = Protected::new(password.as_bytes().to_vec());
+
 				if save_to_library {
-					let index = header.find_key_index(password.clone()).await?;
+					let index = header.find_key_index(password_bytes.clone()).await?;
 
 					// inherit the encryption algorithm from the keyslot
 					ctx.library_ctx
 						.key_manager
 						.add_to_keystore(
-							password.clone(),
+							Password::new(password),
 							header.algorithm,
 							header.keyslots[index].hashing_algorithm,
 							false,
@@ -108,7 +111,7 @@ impl StatefulJob for FileDecryptorJob {
 						.await?;
 				}
 
-				header.decrypt_master_key(password).await?
+				header.decrypt_master_key(password_bytes).await?
 			} else {
 				return Err(JobError::JobDataNotFound(String::from(
 					"Password decryption selected, but save to library boolean was not included",
@@ -120,7 +123,7 @@ impl StatefulJob for FileDecryptorJob {
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
+		let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm)?;
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &aad)
