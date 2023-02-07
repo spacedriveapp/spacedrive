@@ -168,7 +168,7 @@ impl KeyManager {
 
 	/// This checks to see if the keyring is active, and if the keyring has a valid secret key.
 	///
-	/// For a secret key to be considered valid, it must be 18 bytes encoded in hex.
+	/// For a secret key to be considered valid, it must be 18 bytes encoded in hex. It can be separated with `-`.
 	///
 	/// We can use this to detect if a secret key is technically present in the keyring, but not valid/has been tampered with.
 	pub async fn keyring_contains_valid_secret_key(&self, library_uuid: Uuid) -> Result<()> {

@@ -11,7 +11,7 @@ export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true });
+	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
@@ -30,7 +30,7 @@ export function KeyManager(props: KeyManagerProps) {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
-	const [enterSkManually, setEnterSkManually] = useState(!keyringHasSk?.data);
+	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
 	if (!isUnlocked?.data) {
 		const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;

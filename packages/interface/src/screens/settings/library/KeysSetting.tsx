@@ -75,31 +75,10 @@ export const KeyMounterDropdown = ({
 	);
 };
 
-export const SecretKeyView = (props: DefaultProps) => {
-	const keyringSk = useLibraryQuery(['keys.getSecretKey']);
-
-	if (keyringSk.data !== undefined) {
-		return (
-			<div
-				className="flex flex-row"
-				onClick={() => {
-					console.log(keyringSk.data);
-					navigator.clipboard.writeText(keyringSk.data);
-				}}
-			>
-				<QRCode size={128} value={keyringSk.data} />
-				<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
-			</div>
-		);
-	} else {
-		return <></>;
-	}
-};
-
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-	const keyringHasSk = useLibraryQuery(['keys.keyringHasSecretKey'], { initialData: true }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such
+	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such
 	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
@@ -125,7 +104,7 @@ export default function KeysSettings() {
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
-	const [enterSkManually, setEnterSkManually] = useState(!keyringHasSk?.data);
+	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
 	if (!isUnlocked?.data) {
 		return (
@@ -235,7 +214,7 @@ export default function KeysSettings() {
 						<ListOfKeys />
 					</div>
 
-					{keyringHasSk?.data && (
+					{keyringSk?.data && (
 						<>
 							<SettingsSubHeader title="Secret key" />
 							{!viewSecretKey && (
@@ -245,7 +224,19 @@ export default function KeysSettings() {
 									</Button>
 								</div>
 							)}
-							{viewSecretKey && <SecretKeyView />}
+							{viewSecretKey && (
+								<div
+									className="flex flex-row"
+									onClick={() => {
+										keyringSk.data && navigator.clipboard.writeText(keyringSk.data);
+									}}
+								>
+									<>
+										<QRCode size={128} value={keyringSk.data} />
+										<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+									</>
+								</div>
+							)}
 						</>
 					)}
 

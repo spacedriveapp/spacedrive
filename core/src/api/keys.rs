@@ -81,23 +81,25 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_query("keyringHasSecretKey", |t| {
+		.library_query("getSecretKey", |t| {
 			t(|_, _: (), library| async move {
-				Ok(library
+				if library
 					.key_manager
 					.keyring_contains_valid_secret_key(library.id)
 					.await
-					.is_ok())
-			})
-		})
-		.library_query("getSecretKey", |t| {
-			t(|_, _: (), library| async move {
-				Ok(library
-					.key_manager
-					.keyring_retrieve(library.id, SECRET_KEY_IDENTIFIER.to_string())
-					.await?
-					.expose()
-					.clone())
+					.is_ok()
+				{
+					Ok(Some(
+						library
+							.key_manager
+							.keyring_retrieve(library.id, SECRET_KEY_IDENTIFIER.to_string())
+							.await?
+							.expose()
+							.clone(),
+					))
+				} else {
+					Ok(None)
+				}
 			})
 		})
 		.library_mutation("unmount", |t| {
