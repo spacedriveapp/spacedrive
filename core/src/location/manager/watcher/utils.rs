@@ -34,20 +34,6 @@ use uuid::Uuid;
 
 use super::file_path_with_object;
 
-pub(super) fn check_location_online(location: &indexer_job_location::Data) -> bool {
-	// if location is offline return early
-	// this prevents ....
-	if !location.is_online {
-		info!(
-			"Location is offline, skipping event: <id='{}'>",
-			location.id
-		);
-		false
-	} else {
-		true
-	}
-}
-
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if first path includes .DS_Store, ignore
 	if event.paths.iter().any(|p| {
