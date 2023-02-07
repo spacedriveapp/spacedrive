@@ -39,7 +39,6 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 function getCustomUriURL(path: string): string {
 	if (customUriServerUrl) {
-		console.log(customUriServerUrl, path);
 		return customUriServerUrl + 'spacedrive/' + path;
 	} else {
 		return convertFileSrc(path, 'spacedrive');
