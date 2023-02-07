@@ -7,7 +7,6 @@ import {
 	arraysEqual,
 	useLibraryMutation,
 	useLibraryQuery,
-	useLibrarySubscription,
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
