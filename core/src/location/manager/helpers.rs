@@ -24,16 +24,10 @@ pub(super) async fn check_online(location: &location::Data, library_ctx: &Librar
 		match fs::metadata(local_path).await {
 			Ok(_) => {
 				library_ctx.location_manager().add_online(pub_id).await;
-				// if !location.is_online {
-				// 	set_location_online(location.id, library_ctx, true).await;
-				// }
 				true
 			}
 			Err(e) if e.kind() == ErrorKind::NotFound => {
 				library_ctx.location_manager().remove_online(pub_id).await;
-				// if location.is_online {
-				// 	set_location_online(location.id, library_ctx, false).await;
-				// }
 				false
 			}
 			Err(e) => {
@@ -44,34 +38,9 @@ pub(super) async fn check_online(location: &location::Data, library_ctx: &Librar
 	} else {
 		// In this case, we don't have a `local_path`, but this location was marked as online
 		library_ctx.location_manager().remove_online(pub_id).await;
-		// if location.is_online {
-		// 	set_location_online(location.id, library_ctx, false).await;
-		// }
 		false
 	}
 }
-
-// pub(super) async fn set_location_online(
-// 	location_id: LocationId,
-// 	library_ctx: &LibraryContext,
-// 	online: bool,
-// ) {
-// 	if let Err(e) = library_ctx
-// 		.db
-// 		.location()
-// 		.update(
-// 			location::id::equals(location_id),
-// 			vec![location::is_online::set(online)],
-// 		)
-// 		.exec()
-// 		.await
-// 	{
-// 		error!(
-// 			"Failed to update location to online: (id: {}, error: {:#?})",
-// 			location_id, e
-// 		);
-// 	}
-// }
 
 pub(super) async fn location_check_sleep(
 	location_id: LocationId,
