@@ -30,8 +30,7 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 pub fn spacedrive_plugin_init<R: Runtime>(listen_addr: SocketAddr) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(
-			r#"window.__SD_CUSTOM_URI_SERVER__ = "http://{}";"#,
-			listen_addr
+			r#"window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}";"#
 		))
 		.build()
 }
