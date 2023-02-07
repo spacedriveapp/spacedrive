@@ -47,6 +47,7 @@ export const useCurrentLibrary = () => {
 		keepPreviousData: true,
 		initialData: () => {
 			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
+
 			if (cachedData) {
 				// If we fail to load cached data, it's fine
 				try {
@@ -55,13 +56,14 @@ export const useCurrentLibrary = () => {
 					console.error("Error loading cached 'sd-library-list' data", e);
 				}
 			}
+
 			return undefined;
 		},
 		onSuccess: (data) => {
 			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 
 			// Redirect to the onboarding flow if the user doesn't have any libraries
-			if (data?.length === 0) {
+			if (!data?.length) {
 				ctx.onNoLibrary();
 			}
 		}
