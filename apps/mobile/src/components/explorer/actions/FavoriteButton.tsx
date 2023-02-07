@@ -1,6 +1,8 @@
 import { Text, View } from 'react-native';
 
-type Props = {};
+type Props = {
+	//
+};
 
 const FavoriteButton = (props: Props) => {
 	return (

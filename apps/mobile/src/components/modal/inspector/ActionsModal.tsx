@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Button, Text, View } from 'react-native';
-import { ObjectKind, isObject, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, ObjectKind, isObject, isPath, useLibraryQuery } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import Divider from '~/components/primitive/Divider';
@@ -11,10 +11,13 @@ import FileInfoModal from './FileInfoModal';
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
+
 	const { modalRef, data } = useActionsModalStore();
 
-	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isDir = data?.type === 'Path' ? data.is_dir : false;
+	const item = data?.item;
+
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isDir = data && isPath(data) ? data.item.is_dir : false;
 
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id], {
 		enabled: Boolean(objectData)
@@ -31,8 +34,8 @@ export const ActionsModal = () => {
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text style={tw`text-base font-bold text-gray-200`} numberOfLines={1}>
-									{data?.name}
-									{data?.extension && `.${data.extension}`}
+									{item.name}
+									{item.extension && `.${item.extension}`}
 								</Text>
 								{/* Info pills w/ tags */}
 								<View style={tw`flex flex-row flex-wrap mt-2`}>
@@ -42,7 +45,7 @@ export const ActionsModal = () => {
 										text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
 									/>
 									{/* Extension */}
-									{data.extension && <InfoPill text={data.extension} containerStyle={tw`mr-1`} />}
+									{item.extension && <InfoPill text={item.extension} containerStyle={tw`mr-1`} />}
 									{/* TODO: What happens if I have too many? */}
 									{tagsQuery.data?.map((tag) => (
 										<InfoPill

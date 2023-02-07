@@ -32,7 +32,10 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 
 	const modalRef = useForwardedRef(ref);
 
-	const objectData = data ? (isObject(data) ? data : data.object) : null;
+	const item = data?.item;
+
+	// const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const filePathData = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
 
 	return (
 		<Modal
@@ -50,19 +53,19 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.8} />
-						<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{data.name}</Text>
+						<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{item.name}</Text>
 					</View>
 					{/* Details */}
 					<Divider style={tw`mt-6 mb-4`} />
 					<>
-						{data?.id && <MetaItem title="Unique Content ID" value={objectData.cas_id} />}
+						{filePathData && <MetaItem title="Content ID" value={filePathData.cas_id} />}
 						<Divider style={tw`my-4`} />
-						{isPath(data) && <MetaItem title="URI" value={`${data.materialized_path}`} />}
+						{filePathData && <MetaItem title="URI" value={`${filePathData.materialized_path}`} />}
 						<Divider style={tw`my-4`} />
 
-						<MetaItem title="Created" value={dayjs(data.date_created).format('MMM Do YYYY')} />
+						<MetaItem title="Created" value={dayjs(item.date_created).format('MMM Do YYYY')} />
 						<Divider style={tw`my-4`} />
-						<MetaItem title="Indexed" value={dayjs(data.date_indexed).format('MMM Do YYYY')} />
+						<MetaItem title="Indexed" value={dayjs(item.date_indexed).format('MMM Do YYYY')} />
 					</>
 				</ModalScrollView>
 			)}

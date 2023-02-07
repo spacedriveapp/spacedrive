@@ -53,9 +53,15 @@ function AppContainer() {
 					<BottomSheetModalProvider>
 						<StatusBar style="light" />
 						<NavigationContainer theme={NavigatorTheme}>
-							{!library ? <OnboardingNavigator /> : <RootNavigator />}
+							{!library ? (
+								<OnboardingNavigator />
+							) : (
+								<>
+									<RootNavigator />
+									<GlobalModals />
+								</>
+							)}
 						</NavigationContainer>
-						<GlobalModals />
 					</BottomSheetModalProvider>
 				</MenuProvider>
 			</GestureHandlerRootView>

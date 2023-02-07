@@ -1,9 +1,8 @@
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem, isObject, isVideoExt } from '@sd/client';
+import { ExplorerItem, ObjectKind, isObject, isVideoExt } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
-import { ObjectKind } from '~/util/kind';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 
