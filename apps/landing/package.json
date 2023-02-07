@@ -8,7 +8,6 @@
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
 		"lint": "eslint src",
-		"lint:fix": "eslint src --fix",
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {

@@ -1,4 +1,3 @@
-import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { Algorithm, useLibraryMutation } from '@sd/client';
@@ -14,7 +13,6 @@ export type MasterPasswordChangeDialogProps = UseDialogProps;
 const schema = z.object({
 	masterPassword: z.string(),
 	masterPassword2: z.string(),
-	secretKey: z.string().nullable(),
 	encryptionAlgo: z.string(),
 	hashingAlgo: z.string()
 });
@@ -38,15 +36,13 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const [show, setShow] = useState({
 		masterPassword: false,
-		masterPassword2: false,
-		secretKey: false
+		masterPassword2: false
 	});
 
 	const dialog = useDialog(props);
 
 	const MP1CurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = show.masterPassword2 ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
 
 	const form = useZodForm({
 		schema,
@@ -69,8 +65,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			return changeMasterPassword.mutateAsync({
 				algorithm: data.encryptionAlgo as Algorithm,
 				hashing_algorithm,
-				password: data.masterPassword,
-				secret_key: data.secretKey || null
+				password: data.masterPassword
 			});
 		}
 	});
@@ -81,7 +76,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			onSubmit={onSubmit}
 			dialog={dialog}
 			title="Change Master Password"
-			description="Select a new master password for your key manager. Leave the key secret blank to disable it."
+			description="Select a new master password for your key manager."
 			ctaDanger={true}
 			ctaLabel="Change"
 		>
@@ -142,44 +137,6 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					type="button"
 				>
 					<MP2CurrentEyeIcon className="h-4 w-4" />
-				</Button>
-			</div>
-
-			<div className="relative mb-2 flex grow">
-				<Input
-					className={`!py-0.5} grow`}
-					placeholder="Key secret"
-					type={show.secretKey ? 'text' : 'password'}
-					{...form.register('secretKey', { required: false })}
-				/>
-				<Button
-					onClick={() => {
-						form.setValue('secretKey', cryptoRandomString({ length: 24 }));
-						setShow((old) => ({ ...old, secretKey: true }));
-					}}
-					size="icon"
-					className="absolute right-[65px] top-[5px] border-none"
-					type="button"
-				>
-					<ArrowsClockwise className="h-4 w-4" />
-				</Button>
-				<Button
-					type="button"
-					onClick={() => {
-						navigator.clipboard.writeText(form.watch('secretKey') as string);
-					}}
-					size="icon"
-					className="absolute right-[35px] top-[5px] border-none"
-				>
-					<Clipboard className="h-4 w-4" />
-				</Button>
-				<Button
-					onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
-					size="icon"
-					className="absolute right-[5px] top-[5px] border-none"
-					type="button"
-				>
-					<SKCurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
 

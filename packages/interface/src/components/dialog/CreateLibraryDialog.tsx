@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { Algorithm, useBridgeMutation } from '@sd/client';
@@ -15,7 +14,6 @@ const schema = z.object({
 	name: z.string(),
 	password: z.string(),
 	password_validate: z.string(),
-	secret_key: z.string(),
 	algorithm: z.string(),
 	hashing_algorithm: z.string()
 });
@@ -36,10 +34,8 @@ export default function CreateLibraryDialog(props: Props) {
 
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
 	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	const queryClient = useQueryClient();
 	const createLibrary = useBridgeMutation('library.create', {
@@ -148,43 +144,6 @@ export default function CreateLibraryDialog(props: Props) {
 						className="absolute right-[5px] top-[5px] border-none"
 					>
 						<MP2CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
-			</div>
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">Key secret (optional)</p>
-				<div className="relative mb-2 flex grow">
-					<Input
-						className="grow !py-0.5"
-						placeholder="Secret"
-						type={showSecretKey ? 'text' : 'password'}
-						{...form.register('secret_key', { required: true })}
-					/>
-					<Button
-						onClick={() => {
-							form.setValue('secret_key', cryptoRandomString({ length: 24 }));
-							setShowSecretKey(true);
-						}}
-						size="icon"
-						className="absolute right-[65px] top-[5px] border-none"
-					>
-						<ArrowsClockwise className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => {
-							navigator.clipboard.writeText(form.watch('secret_key') as string);
-						}}
-						size="icon"
-						className="absolute right-[35px] top-[5px] border-none"
-					>
-						<Clipboard className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<SKCurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 			</div>

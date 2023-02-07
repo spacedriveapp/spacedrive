@@ -17,7 +17,6 @@
 		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook",
 		"lint": "eslint src",
-		"lint:fix": "eslint src --fix",
 		"typecheck": "tsc -b",
 		"build": "tsc"
 	},

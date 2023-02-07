@@ -10,9 +10,10 @@ import { KeyMounter } from './KeyMounter';
 export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
-	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
+	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',
@@ -29,7 +30,9 @@ export function KeyManager(props: KeyManagerProps) {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
-	if (!hasMasterPw?.data) {
+	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
+
+	if (!isUnlocked?.data) {
 		const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 		const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
@@ -53,37 +56,54 @@ export function KeyManager(props: KeyManagerProps) {
 					</Button>
 				</div>
 
-				<div className="relative mb-2 flex grow">
-					<Input
-						value={secretKey}
-						onChange={(e) => setSecretKey(e.target.value)}
-						type={showSecretKey ? 'text' : 'password'}
-						className="grow !py-0.5"
-						placeholder="Secret Key"
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<SKCurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+				{enterSkManually && (
+					<div className="relative mb-2 flex grow">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="grow !py-0.5"
+							placeholder="Secret Key"
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="absolute right-[5px] top-[5px] border-none"
+						>
+							<SKCurrentEyeIcon className="h-4 w-4" />
+						</Button>
+					</div>
+				)}
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
+					disabled={
+						unlockKeyManager.isLoading || isKeyManagerUnlocking.data !== null
+							? isKeyManagerUnlocking.data!
+							: false
+					}
 					onClick={() => {
 						if (masterPassword !== '') {
-							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
+							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
 					Unlock
 				</Button>
+				{!enterSkManually && (
+					<div className="relative flex grow">
+						<p
+							className="text-accent mt-2"
+							onClick={(e) => {
+								setEnterSkManually(true);
+							}}
+						>
+							or enter secret key manually
+						</p>
+					</div>
+				)}
 			</div>
 		);
 	} else {
