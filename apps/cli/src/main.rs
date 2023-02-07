@@ -47,9 +47,9 @@ fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 			version = k.version,
 			algorithm = k.algorithm,
 			hashing_algorithm = k.hashing_algorithm,
-			salt = hex::encode(k.salt),
-			master = hex::encode(k.master_key),
-			nonce = hex::encode(k.nonce.clone())
+			salt = hex::encode(&*k.salt),
+			master = hex::encode(&*k.master_key),
+			nonce = hex::encode(k.nonce)
 		};
 	});
 
@@ -64,7 +64,7 @@ fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 			version = m.version,
 			algorithm = m.algorithm,
 			size = m.metadata.len(),
-			nonce = hex::encode(m.metadata_nonce.clone())
+			nonce = hex::encode(m.metadata_nonce)
 		}
 	});
 
@@ -79,7 +79,7 @@ fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 			version = p.version,
 			algorithm = p.algorithm,
 			size = p.media.len(),
-			nonce = hex::encode(p.media_nonce.clone())
+			nonce = hex::encode(p.media_nonce)
 		};
 	});
 }
