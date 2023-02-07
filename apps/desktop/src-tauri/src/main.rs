@@ -36,6 +36,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
 
+	#[cfg(debug_assertions)]
+	let data_dir = data_dir.join("dev");
+
 	let (node, router) = Node::new(data_dir).await?;
 
 	let app = tauri::Builder::default()
