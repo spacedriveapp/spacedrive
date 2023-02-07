@@ -1,13 +1,20 @@
 use crate::library::LibraryContext;
 
 use std::{
+	collections::BTreeSet,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use futures::executor::block_on;
 use thiserror::Error;
-use tokio::{io, sync::oneshot};
+use tokio::{
+	io,
+	sync::{
+		broadcast::{self, Receiver},
+		oneshot, RwLock,
+	},
+};
 use tracing::error;
 
 #[cfg(feature = "location-watcher")]
@@ -93,8 +100,12 @@ pub enum LocationManagerError {
 	IOError(#[from] io::Error),
 }
 
+type OnlineLocations = BTreeSet<Vec<u8>>;
+
 #[derive(Debug)]
 pub struct LocationManager {
+	online_locations: RwLock<OnlineLocations>,
+	pub online_tx: broadcast::Sender<OnlineLocations>,
 	#[cfg(feature = "location-watcher")]
 	location_management_tx: mpsc::Sender<LocationManagementMessage>,
 	#[cfg(feature = "location-watcher")]
@@ -104,6 +115,8 @@ pub struct LocationManager {
 
 impl LocationManager {
 	pub fn new() -> Arc<Self> {
+		let online_tx = broadcast::channel(16).0;
+
 		#[cfg(feature = "location-watcher")]
 		{
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
@@ -120,6 +133,8 @@ impl LocationManager {
 			debug!("Location manager initialized");
 
 			Arc::new(Self {
+				online_locations: Default::default(),
+				online_tx,
 				location_management_tx,
 				watcher_management_tx,
 				stop_tx: Some(stop_tx),
@@ -129,7 +144,11 @@ impl LocationManager {
 		#[cfg(not(feature = "location-watcher"))]
 		{
 			tracing::warn!("Location watcher is disabled, locations will not be checked");
-			Arc::new(Self { stop_tx: None })
+			Arc::new(Self {
+				online_tx,
+				online_locations: Default::default(),
+				stop_tx: None,
+			})
 		}
 	}
 
@@ -465,6 +484,34 @@ impl LocationManager {
 		}
 
 		Ok(())
+	}
+
+	pub async fn is_online(&self, id: &Vec<u8>) -> bool {
+		let online_locations = self.online_locations.read().await;
+		online_locations.contains(id)
+	}
+
+	pub async fn get_online(&self) -> OnlineLocations {
+		self.online_locations.read().await.clone()
+	}
+
+	async fn broadcast_online(&self) {
+		self.online_tx.send(self.get_online().await).ok();
+	}
+
+	pub async fn add_online(&self, id: &[u8]) {
+		self.online_locations.write().await.insert(id.into());
+		self.broadcast_online().await;
+	}
+
+	pub async fn remove_online(&self, id: &Vec<u8>) {
+		let mut online_locations = self.online_locations.write().await;
+		online_locations.remove(id);
+		self.broadcast_online().await;
+	}
+
+	pub fn online_rx(&self) -> Receiver<OnlineLocations> {
+		self.online_tx.subscribe()
 	}
 }
 

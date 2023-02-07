@@ -20,7 +20,7 @@ export type Procedures = {
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
@@ -78,7 +78,8 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
+        { key: "locations.online", input: never, result: Array<Array<number>> }
 };
 
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
@@ -139,7 +140,7 @@ export interface LibraryConfig { version: string | null, name: string, descripti
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 
-export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string }
+export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string }
 
 export interface LocationCreateArgs { path: string, indexer_rules_ids: Array<number> }
 

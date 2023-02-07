@@ -44,7 +44,7 @@ const libraryHooks = hooks.createHooks<
 	// Normalized<StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>>,
 	StripLibraryArgsFromInput<LibraryProcedures<'queries'>>,
 	StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>,
-	never
+	StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>>
 >({
 	internal: {
 		customHooks: normiCustomHooks({ contextSharing: true }, () => {
@@ -71,6 +71,7 @@ export const rspc = hooks.createHooks<Procedures>();
 
 export const useBridgeQuery = nonLibraryHooks.useQuery;
 export const useBridgeMutation = nonLibraryHooks.useMutation;
+export const useBridgeSubscription = nonLibraryHooks.useSubscription;
 export const useLibraryQuery = libraryHooks.useQuery;
 export const useLibraryMutation = libraryHooks.useMutation;
 
