@@ -72,6 +72,20 @@ pub enum Error {
 	IncorrectKeymanagerDetails,
 	#[error("string parse error")]
 	StringParse(#[from] FromUtf8Error),
+
+	#[cfg(target_os = "linux")]
+	#[error("error with the linux keyring: {0}")]
+	LinuxKeyringError(#[from] secret_service::Error),
+
+	#[cfg(any(target_os = "macos", target_os = "ios"))]
+	#[error("error with the apple keyring: {0}")]
+	AppleKeyringError(#[from] security_framework::base::Error),
+
+	#[error("generic keyring error")]
+	KeyringError,
+
+	#[error("keyring not available on this platform")]
+	KeyringNotSupported,
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

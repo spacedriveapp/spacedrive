@@ -209,18 +209,17 @@ impl StatefulJob for ThumbnailJob {
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = if let Some(ref object) = step.file_path.object {
-			object.cas_id.clone()
-		} else {
+		let Some(cas_id) = &step.file_path.cas_id else {
 			warn!(
 				"skipping thumbnail generation for {}",
 				step.file_path.materialized_path
 			);
+
 			return Ok(());
 		};
 
 		// Define and write the WebP-encoded file to a given path
-		let output_path = data.thumbnail_dir.join(&cas_id).with_extension("webp");
+		let output_path = data.thumbnail_dir.join(cas_id).with_extension("webp");
 
 		// check if file exists at output path
 		if !output_path.try_exists().unwrap() {
@@ -277,7 +276,9 @@ impl StatefulJob for ThumbnailJob {
 			}
 
 			if !state.init.background {
-				ctx.library_ctx.emit(CoreEvent::NewThumbnail { cas_id });
+				ctx.library_ctx.emit(CoreEvent::NewThumbnail {
+					cas_id: cas_id.clone(),
+				});
 			};
 
 			// With this invalidate query, we update the user interface to show each new thumbnail

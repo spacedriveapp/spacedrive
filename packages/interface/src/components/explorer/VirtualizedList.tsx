@@ -182,7 +182,7 @@ const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) =
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = useCallback(() => {
-		if (isPath(item) && item.is_dir) setSearchParams({ path: item.materialized_path });
+		if (isPath(item) && item.item.is_dir) setSearchParams({ path: item.item.materialized_path });
 	}, [item, setSearchParams]);
 
 	const onClick = useCallback(() => {
