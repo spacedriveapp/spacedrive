@@ -43,8 +43,8 @@ module.exports = {
 			version: 'detect'
 		},
 		tailwindcss: {
-			callees: ['classnames', 'clsx', 'ctl', 'cva', 'tw'],
-			tags: ['tw']
+			callees: ['classnames', 'clsx', 'ctl', 'cva', 'tw', `twStyle`],
+			tags: ['tw', 'twStyle']
 		}
 	}
 };

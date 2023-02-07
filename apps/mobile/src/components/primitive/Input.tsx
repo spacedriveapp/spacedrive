@@ -1,7 +1,7 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { FC } from 'react';
 import { TextInputProps as RNTextInputProps, TextInput } from 'react-native';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 
 const input = cva(['rounded-md border text-sm shadow-sm'], {
 	variants: {
@@ -25,7 +25,7 @@ export const Input: FC<InputProps> = ({ variant, ...props }) => {
 	return (
 		<TextInput
 			placeholderTextColor={tw.color('ink-dull')}
-			style={tw.style(input({ variant }), style as string)}
+			style={twStyle(input({ variant }), style as string)}
 			{...otherProps}
 		/>
 	);

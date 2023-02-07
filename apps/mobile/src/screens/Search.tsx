@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '~/components/primitive/Button';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
@@ -14,11 +14,11 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	// TODO: Animations!
 
 	return (
-		<View style={tw.style('flex-1', { marginTop: top + 10 })}>
+		<View style={twStyle('flex-1', { marginTop: top + 10 })}>
 			{/* Header */}
 			<View style={tw`mx-4 flex flex-row items-center`}>
 				{/* Search Input */}
-				<View style={tw`mr-3 h-10 flex-1 rounded border border-app-line bg-app-overlay`}>
+				<View style={tw`border-app-line bg-app-overlay mr-3 h-10 flex-1 rounded border`}>
 					<View style={tw`flex h-full flex-row items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
@@ -32,7 +32,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('ink-dull')}
-							style={tw`flex-1 text-sm font-medium text-ink`}
+							style={tw`text-ink flex-1 text-sm font-medium`}
 							textContentType={'none'}
 							autoFocus
 							autoCapitalize="none"

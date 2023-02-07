@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 import { ExplorerItem, isVideoExt } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { getExplorerStore } from '~/stores/explorerStore';
-import tw from '../../lib/tailwind';
+import tw, { twStyle } from '../../lib/tailwind';
 import FileThumb from './FileThumb';
 
 type FileItemProps = {
@@ -18,7 +18,7 @@ const FileItem = ({ data }: FileItemProps) => {
 
 	return (
 		<View
-			style={tw.style('items-center', {
+			style={twStyle('items-center', {
 				width: gridItemSize,
 				height: gridItemSize
 			})}

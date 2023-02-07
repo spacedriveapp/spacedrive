@@ -2,7 +2,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import CreateTagDialog from '../dialog/tag/CreateTagDialog';
 
@@ -16,9 +16,9 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>
-			<View style={tw.style('flex mb-[4px] flex-row items-center py-2 px-1 rounded')}>
-				<View style={tw.style('w-3 h-3 rounded-full', { backgroundColor: tagColor })} />
-				<Text style={tw.style('text-gray-300 text-sm font-medium ml-2')} numberOfLines={1}>
+			<View style={twStyle('mb-[4px] flex flex-row items-center rounded py-2 px-1')}>
+				<View style={twStyle('h-3 w-3 rounded-full', { backgroundColor: tagColor })} />
+				<Text style={twStyle('ml-2 text-sm font-medium text-gray-300')} numberOfLines={1}>
 					{tagName}
 				</Text>
 			</View>

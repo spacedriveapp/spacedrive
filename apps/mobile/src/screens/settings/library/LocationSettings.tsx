@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {
@@ -36,14 +36,14 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 			>
 				<DeleteLocationDialog locationId={location.id}>
 					<View
-						style={tw`items-center justify-center rounded-md border border-app-line bg-app-button py-1.5 px-3 shadow-sm`}
+						style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
 					>
 						<Trash size={18} color="white" />
 					</View>
 				</DeleteLocationDialog>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
-					style={tw`mx-2 items-center justify-center rounded-md border border-app-line bg-app-button py-1.5 px-3 shadow-sm`}
+					style={tw`border-app-line bg-app-button mx-2 items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
 					onPress={() => fullRescan.mutate(location.id)}
 				>
 					<Repeat size={18} color="white" />
@@ -54,8 +54,8 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 
 	return (
 		<Swipeable
-			containerStyle={tw.style(
-				'bg-app-overlay border border-app-line rounded-lg px-4 py-3',
+			containerStyle={twStyle(
+				'border-app-line bg-app-overlay rounded-lg border px-4 py-3',
 				index !== 0 && 'mt-2'
 			)}
 			enableTrackpadTwoFingerGesture
@@ -66,8 +66,8 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 					<FolderIcon size={32} />
 					{/* Online/Offline Indicator */}
 					<View
-						style={tw.style(
-							'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
+						style={twStyle(
+							'absolute right-0 bottom-0.5 h-2 w-2 rounded-full',
 							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
@@ -75,15 +75,15 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 					/>
 				</View>
 				<View style={tw`mx-4 flex-1`}>
-					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
+					<Text numberOfLines={1} style={tw`text-ink text-sm font-semibold`}>
 						{location.name}
 					</Text>
-					<View style={tw`mt-0.5 self-start rounded bg-app-highlight py-[1px] px-1`}>
-						<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
+					<View style={tw`bg-app-highlight mt-0.5 self-start rounded py-[1px] px-1`}>
+						<Text numberOfLines={1} style={tw`text-ink-dull text-xs font-semibold`}>
 							{location.node.name}
 						</Text>
 					</View>
-					<Text numberOfLines={1} style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}>
+					<Text numberOfLines={1} style={tw`text-ink-dull mt-0.5 text-[10px] font-semibold`}>
 						{location.local_path}
 					</Text>
 				</View>

@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { List } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 
 // Default header with search bar and button to open drawer
 export default function Header() {
@@ -17,7 +17,7 @@ export default function Header() {
 
 	return (
 		<View
-			style={tw.style('mx-4 bg-app-overlay border border-app-line rounded', {
+			style={twStyle('border-app-line bg-app-overlay mx-4 rounded border', {
 				marginTop: top + 10
 			})}
 		>
@@ -34,7 +34,7 @@ export default function Header() {
 					style={tw`h-full flex-1 justify-center`}
 					onPress={() => navigation.navigate('Search')}
 				>
-					<Text style={tw`text-sm font-medium text-ink-dull`}>Search</Text>
+					<Text style={tw`text-ink-dull text-sm font-medium`}>Search</Text>
 				</Pressable>
 			</View>
 		</View>

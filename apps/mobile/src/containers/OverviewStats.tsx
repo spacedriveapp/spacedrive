@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Statistics, useLibraryQuery } from '@sd/client';
 import useCounter from '../hooks/useCounter';
-import tw from '../lib/tailwind';
+import tw, { twStyle } from '../lib/tailwind';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',
@@ -22,7 +22,7 @@ const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 		<View style={tw`flex flex-col p-4`}>
 			<Text style={tw`text-sm text-gray-400`}>{title}</Text>
 			<View style={tw`mt-1 flex-row items-baseline`}>
-				<Text style={tw.style('text-2xl font-bold text-white tabular-nums')}>{count}</Text>
+				<Text style={twStyle('text-2xl font-bold tabular-nums text-white')}>{count}</Text>
 				<Text style={tw`ml-1 text-sm text-gray-400`}>{unit}</Text>
 			</View>
 		</View>
