@@ -25,7 +25,7 @@ swift-rs.workspace = true
 tauri-build = { version = "1.1.1", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { workspace = true, features = [] }
+swift-rs = { workspace = true, features = ["build"] }
 
 [features]
 default = ["custom-protocol"]
