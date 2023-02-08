@@ -569,7 +569,7 @@ impl KeyManager {
 	///
 	/// Only provide the secret key if it should not/can not be sourced from an OS keychain (e.g. web, OS keychains not enabled/available, etc).
 	///
-	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
+	/// This minimizes the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
 	///
 	/// Both values need to be correct, otherwise this function will return a generic error.
 	///
