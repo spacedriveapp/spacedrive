@@ -53,15 +53,15 @@ pub struct AutomountUpdateArgs {
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
+			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore().await?) })
 		})
 		// do not unlock the key manager until this route returns true
 		.library_query("isUnlocked", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.is_unlocked().await?) })
+			t(|_, _: (), library| async move { Ok(library.key_manager.is_unlocked().await) })
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
+			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids().await) })
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
@@ -121,7 +121,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("syncKeyToLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.sync_to_database(key_uuid)?;
+				let key = library.key_manager.sync_to_database(key_uuid).await?;
 
 				// does not check that the key doesn't exist before writing
 				write_storedkey_to_db(&library.db, &key).await?;
@@ -132,10 +132,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("updateAutomountStatus", |t| {
 			t(|_, args: AutomountUpdateArgs, library| async move {
-				if !library.key_manager.is_memory_only(args.uuid)? {
+				if !library.key_manager.is_memory_only(args.uuid).await? {
 					library
 						.key_manager
-						.change_automount_status(args.uuid, args.status)?;
+						.change_automount_status(args.uuid, args.status)
+						.await?;
 
 					library
 						.db
@@ -155,7 +156,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				if !library.key_manager.is_memory_only(key_uuid)? {
+				if !library.key_manager.is_memory_only(key_uuid).await? {
 					library
 						.db
 						.key()
@@ -266,8 +267,11 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				if args.library_sync {
-					write_storedkey_to_db(&library.db, &library.key_manager.access_keystore(uuid)?)
-						.await?;
+					write_storedkey_to_db(
+						&library.db,
+						&library.key_manager.access_keystore(uuid).await?,
+					)
+					.await?;
 
 					if args.automount {
 						library
@@ -292,7 +296,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("backupKeystore", |t| {
 			t(|_, path: PathBuf, library| async move {
 				// dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
-				let mut stored_keys = library.key_manager.dump_keystore();
+				let mut stored_keys = library.key_manager.dump_keystore().await?;
 
 				// include the verification key at the time of backup
 				stored_keys.push(library.key_manager.get_verification_key().await?);

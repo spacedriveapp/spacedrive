@@ -152,6 +152,29 @@ impl KeyManager {
 		Ok(())
 	}
 
+	// This verifies that the key manager is unlocked before continuing the calling function.
+	pub async fn unlock_check(&self) -> Result<()> {
+		self.is_unlocked()
+			.await
+			.then(|| ())
+			.map_or_else(|| Err(Error::NotUnlocked), Ok)
+	}
+
+	// This verifies that the target key is not already queued before continuing the operation.
+	pub fn queue_check(&self, uuid: Uuid) -> Result<()> {
+		self.is_queued(uuid)
+			.then(|| Error::KeyAlreadyQueued)
+			.map_or_else(|| Ok(()), Err)
+	}
+
+	// This verifies that the target key is not already mounted before continuing the operation.
+	pub async fn mount_check(&self, uuid: Uuid) -> Result<()> {
+		self.keymount
+			.contains_key(&uuid)
+			.then(|| Error::KeyAlreadyMounted)
+			.map_or_else(|| Ok(()), Err)
+	}
+
 	pub async fn keyring_retrieve(
 		&self,
 		library_uuid: Uuid,
@@ -319,6 +342,8 @@ impl KeyManager {
 
 	/// This function removes a key from the keystore, the keymount and it's unset as the default.
 	pub async fn remove_key(&self, uuid: Uuid) -> Result<()> {
+		self.unlock_check().await?;
+
 		if self.keystore.contains_key(&uuid) {
 			// if key is default, clear it
 			// do this manually to prevent deadlocks
@@ -348,6 +373,8 @@ impl KeyManager {
 		hashing_algorithm: HashingAlgorithm,
 		library_uuid: Uuid,
 	) -> Result<StoredKey> {
+		self.unlock_check().await?;
+
 		let secret_key = SecretKey::generate();
 		let content_salt = Salt::generate();
 
@@ -429,6 +456,8 @@ impl KeyManager {
 		secret_key: SecretKeyString,        // at the time of the backup
 		stored_keys: &[StoredKey],          // from the backup
 	) -> Result<Vec<StoredKey>> {
+		self.unlock_check().await?;
+
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
 		let secret_key = secret_key.into();
 
@@ -563,11 +592,7 @@ impl KeyManager {
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
-		if self.is_unlocked().await? {
-			return Err(Error::KeyAlreadyMounted);
-		} else if self.is_queued(verification_key.uuid) {
-			return Err(Error::KeyAlreadyQueued);
-		}
+		self.queue_check(verification_key.uuid)?;
 
 		let secret_key = if let Some(secret_key) = provided_secret_key.clone() {
 			secret_key.into()
@@ -615,7 +640,7 @@ impl KeyManager {
 				.await
 				.map_err(|_| {
 					self.remove_from_queue(verification_key.uuid).ok();
-					Error::IncorrectKeymanagerDetails
+					Error::IncorrectPassword
 				})?;
 
 				*self.root_key.lock().await = Some(
@@ -663,11 +688,9 @@ impl KeyManager {
 	///
 	/// We could add a log to this, so that the user can view mounts
 	pub async fn mount(&self, uuid: Uuid) -> Result<()> {
-		if self.keymount.get(&uuid).is_some() {
-			return Err(Error::KeyAlreadyMounted);
-		} else if self.is_queued(uuid) {
-			return Err(Error::KeyAlreadyQueued);
-		}
+		self.unlock_check().await?;
+		self.mount_check(uuid).await?;
+		self.queue_check(uuid)?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
 			match stored_key.version {
@@ -738,6 +761,8 @@ impl KeyManager {
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub async fn get_key(&self, uuid: Uuid) -> Result<Password> {
+		self.unlock_check().await?;
+
 		if let Some(stored_key) = self.keystore.get(&uuid) {
 			let master_key = StreamDecryption::decrypt_bytes(
 				Key::derive(
@@ -790,6 +815,8 @@ impl KeyManager {
 		automount: bool,
 		content_salt: Option<Salt>,
 	) -> Result<Uuid> {
+		self.unlock_check().await?;
+
 		let uuid = Uuid::new_v4();
 
 		// Generate items we'll need for encryption
@@ -851,14 +878,18 @@ impl KeyManager {
 	/// This function is for accessing the internal keymount.
 	///
 	/// We could add a log to this, so that the user can view accesses
-	pub fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey> {
+	pub async fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey> {
+		self.unlock_check().await?;
+
 		self.keymount
 			.get(&uuid)
 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.clone()))
 	}
 
 	/// This function is for accessing a `StoredKey`.
-	pub fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey> {
+	pub async fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey> {
+		self.unlock_check().await?;
+
 		self.keystore
 			.get(&uuid)
 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.clone()))
@@ -866,6 +897,8 @@ impl KeyManager {
 
 	/// This allows you to set the default key
 	pub async fn set_default(&self, uuid: Uuid) -> Result<()> {
+		self.unlock_check().await?;
+
 		if self.keystore.contains_key(&uuid) {
 			*self.default.lock().await = Some(uuid);
 			Ok(())
@@ -876,16 +909,14 @@ impl KeyManager {
 
 	/// This allows you to get the default key's ID
 	pub async fn get_default(&self) -> Result<Uuid> {
+		self.unlock_check().await?;
+
 		self.default.lock().await.ok_or(Error::NoDefaultKeySet)
 	}
 
 	/// This should ONLY be used internally.
 	async fn get_root_key(&self) -> Result<Key> {
-		self.root_key
-			.lock()
-			.await
-			.clone()
-			.ok_or(Error::NoMasterPassword)
+		self.root_key.lock().await.clone().ok_or(Error::NotUnlocked)
 	}
 
 	pub async fn get_verification_key(&self) -> Result<StoredKey> {
@@ -896,13 +927,17 @@ impl KeyManager {
 			.ok_or(Error::NoVerificationKey)
 	}
 
-	pub fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
+	pub async fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
+		self.unlock_check().await?;
+
 		self.keystore
 			.get(&uuid)
 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.memory_only))
 	}
 
-	pub fn change_automount_status(&self, uuid: Uuid, status: bool) -> Result<()> {
+	pub async fn change_automount_status(&self, uuid: Uuid, status: bool) -> Result<()> {
+		self.unlock_check().await?;
+
 		let updated_key = self
 			.keystore
 			.get(&uuid)
@@ -933,8 +968,8 @@ impl KeyManager {
 	/// This function is for converting a memory-only key to a saved key which syncs to the library.
 	///
 	/// The returned value needs to be written to the database.
-	pub fn sync_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
-		if !self.is_memory_only(uuid)? {
+	pub async fn sync_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
+		if !self.is_memory_only(uuid).await? {
 			return Err(Error::KeyNotMemoryOnly);
 		}
 
@@ -961,8 +996,8 @@ impl KeyManager {
 	}
 
 	/// This function is used for checking if the key manager is unlocked.
-	pub async fn is_unlocked(&self) -> Result<bool> {
-		Ok(self.root_key.lock().await.is_some())
+	pub async fn is_unlocked(&self) -> bool {
+		self.root_key.lock().await.is_some()
 	}
 
 	/// This function is used for unmounting all keys at once.
@@ -986,12 +1021,14 @@ impl KeyManager {
 	///
 	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
 	#[must_use]
-	pub fn dump_keystore(&self) -> Vec<StoredKey> {
-		self.keystore.iter().map(|key| key.clone()).collect()
+	pub async fn dump_keystore(&self) -> Result<Vec<StoredKey>> {
+		self.unlock_check().await?;
+
+		Ok(self.keystore.iter().map(|key| key.clone()).collect())
 	}
 
 	#[must_use]
-	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
+	pub async fn get_mounted_uuids(&self) -> Vec<Uuid> {
 		self.keymount.iter().map(|key| key.uuid).collect()
 	}
 

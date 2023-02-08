@@ -87,9 +87,12 @@ impl StatefulJob for FileEncryptorJob {
 		if !info.path_data.is_dir {
 			// handle overwriting checks, and making sure there's enough available space
 
-			let user_key = key_manager.access_keymount(state.init.key_uuid)?.hashed_key;
+			let user_key = key_manager
+				.access_keymount(state.init.key_uuid)
+				.await?
+				.hashed_key;
 
-			let user_key_details = key_manager.access_keystore(state.init.key_uuid)?;
+			let user_key_details = key_manager.access_keystore(state.init.key_uuid).await?;
 
 			let output_path = state.init.output_path.clone().map_or_else(
 				|| {
