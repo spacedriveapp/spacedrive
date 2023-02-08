@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeSlash } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	Algorithm,
@@ -9,13 +8,10 @@ import {
 	useDebugState,
 	useOnboardingStore
 } from '@sd/client';
-import { Button, Card, Loader, forms } from '@sd/ui';
+import { Button, Card, Loader } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
-import { PasswordMeter } from '../key/PasswordMeter';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './OnboardingRoot';
-
-const { PasswordShowHideInput, z, useZodForm, Form } = forms;
 
 export default function OnboardingCreatingLibrary() {
 	const navigate = useNavigate();
@@ -49,11 +45,12 @@ export default function OnboardingCreatingLibrary() {
 	const create = async () => {
 		createLibrary.mutate({
 			name: ob_store.newLibraryName,
-			password: null,
-			tokenized_password: ob_store.passwordSetToken,
+			auth: {
+				type: 'TokenizedPassword',
+				value: ob_store.passwordSetToken || ''
+			},
 			algorithm: ob_store.algorithm as Algorithm,
-			hashing_algorithm: getHashingAlgorithmSettings(ob_store.hashingAlgorithm),
-			secret_key: null // temp
+			hashing_algorithm: getHashingAlgorithmSettings(ob_store.hashingAlgorithm)
 		});
 
 		return;

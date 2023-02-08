@@ -300,11 +300,10 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 			t(|_, location_id: i32, library| async move {
 				library
 					.db
-					.indexer_rules_in_location()
-					.find_many(vec![indexer_rules_in_location::location_id::equals(
-						location_id,
-					)])
-					.include(indexer_rules_in_location::include!({ indexer_rule }))
+					.indexer_rule()
+					.find_many(vec![indexer_rule::locations::some(vec![
+						indexer_rules_in_location::location_id::equals(location_id),
+					])])
 					.exec()
 					.await
 					.map_err(Into::into)

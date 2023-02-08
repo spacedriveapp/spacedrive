@@ -21,7 +21,7 @@ export type Procedures = {
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: Array<{ date_created: string, location_id: number, indexer_rule_id: number, indexer_rule: IndexerRule }> } | 
+        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: Array<IndexerRule> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
@@ -87,13 +87,15 @@ export type Procedures = {
 
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
+export type AuthOption = { type: "Password", value: string } | { type: "TokenizedPassword", value: string }
+
 export interface AutomountUpdateArgs { uuid: string, status: boolean }
 
 export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string | null, tokenized_password: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface CreateLibraryArgs { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 

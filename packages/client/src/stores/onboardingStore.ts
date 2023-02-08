@@ -1,5 +1,4 @@
 import { useSnapshot } from 'valtio';
-
 import { valtioPersist } from './util';
 
 export enum UseCase {

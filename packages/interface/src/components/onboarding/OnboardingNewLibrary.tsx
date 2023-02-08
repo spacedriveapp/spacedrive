@@ -2,7 +2,8 @@ import Database from '@sd/assets/images/Database.png';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useOnboardingStore } from '@sd/client';
-import { Button, forms } from '@sd/ui';
+import { Button } from '@sd/ui';
+import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import {
 	OnboardingContainer,
@@ -10,8 +11,6 @@ import {
 	OnboardingImg,
 	OnboardingTitle
 } from './OnboardingRoot';
-
-const { Input, z, useZodForm, Form } = forms;
 
 const schema = z.object({
 	name: z.string()
@@ -26,25 +25,23 @@ export default function OnboardingNewLibrary() {
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			// not sure why this needs "as string"? valtio...
-			name: (ob_store.newLibraryName as string) || ''
+			name: ob_store.newLibraryName
 		}
 	});
 
 	useUnlockOnboardingScreen();
 
-	const _onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
 		navigate('/onboarding/master-password');
-		return;
 	});
 
 	const handleImport = () => {
-		return;
+		// TODO
 	};
 
 	return (
-		<Form form={form} onSubmit={_onSubmit}>
+		<Form form={form} onSubmit={onSubmit}>
 			<OnboardingContainer>
 				<OnboardingImg src={Database} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
@@ -67,7 +64,6 @@ export default function OnboardingNewLibrary() {
 					<>
 						<Input
 							{...form.register('name')}
-							//@ts-expect-error - size prop conflicts for some reason, despite being a valid variant
 							size="md"
 							autoFocus
 							className="mt-6 w-[300px]"

@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { Algorithm, useBridgeMutation } from '@sd/client';

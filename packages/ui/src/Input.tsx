@@ -2,14 +2,13 @@ import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { PropsWithChildren, forwardRef, useState } from 'react';
-
 import { Button } from './Button';
 
 export interface InputBaseProps extends VariantProps<typeof styles> {}
 
-export type InputProps = InputBaseProps & React.InputHTMLAttributes<HTMLInputElement>;
+export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 'size'>;
 
-export type TextareaProps = InputBaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 const styles = cva(
 	[
@@ -67,11 +66,11 @@ export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHi
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(
-						'border-none absolute top-1.5 w-[25px] bottom-1.5 right-2 m-auto',
+						'absolute top-1.5 bottom-1.5 right-2 m-auto w-[25px] border-none',
 						props.buttonClassnames
 					)}
 				>
-					<CurrentEyeIcon className="w-4 h-4" />
+					<CurrentEyeIcon className="h-4 w-4" />
 				</Button>
 				<input
 					{...props}

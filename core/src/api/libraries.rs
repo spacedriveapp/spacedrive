@@ -78,27 +78,28 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.mutation("create", |t| {
 			#[derive(Deserialize, Type)]
+			#[serde(tag = "type", content = "value")]
+			#[specta(inline)]
+			enum AuthOption {
+				Password(Protected<String>),
+				TokenizedPassword(String),
+			}
+
+			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				password: Option<Protected<String>>,
-				tokenized_password: Option<String>,
+				auth: AuthOption,
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
 			}
 			println!("Creating library");
 
 			t(|ctx, args: CreateLibraryArgs| async move {
-				let password = match args.password {
-					Some(password) => password,
-					None => {
-						if args.tokenized_password.is_none() {
-							return Err(Error::new(
-								ErrorCode::BadRequest,
-								"No password or tokenized password provided".into(),
-							));
-						}
+				let password = match args.auth {
+					AuthOption::Password(password) => password,
+					AuthOption::TokenizedPassword(tokenized_pw) => {
 						// TODO: remove unwraps
-						let token = Uuid::parse_str(&args.tokenized_password.unwrap()).unwrap();
+						let token = Uuid::parse_str(&tokenized_pw).unwrap();
 						Protected::new(ctx.secure_temp_keystore.claim(token).unwrap())
 					}
 				};

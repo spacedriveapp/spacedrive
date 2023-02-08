@@ -170,26 +170,25 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
-		let mut params_to_update = vec![];
+		let params = [
+			self.name
+				.clone()
+				.filter(|name| location.name.as_ref() != Some(name))
+				.map(|v| location::name::set(Some(v))),
+			self.generate_preview_media
+				.map(location::generate_preview_media::set),
+			self.sync_preview_media
+				.map(location::sync_preview_media::set),
+			self.hidden.map(location::hidden::set),
+		]
+		.into_iter()
+		.flatten()
+		.collect::<Vec<_>>();
 
-		if self.name.is_some() && location.name != self.name {
-			params_to_update.push(location::name::set(self.name.clone()))
-		}
-		if let Some(gpm) = self.generate_preview_media {
-			params_to_update.push(location::generate_preview_media::set(gpm))
-		}
-		if let Some(spm) = self.sync_preview_media {
-			params_to_update.push(location::sync_preview_media::set(spm))
-		}
-
-		if let Some(hidden) = self.hidden {
-			params_to_update.push(location::hidden::set(hidden))
-		}
-
-		if params_to_update.len() > 0 {
+		if !params.is_empty() {
 			ctx.db
 				.location()
-				.update(location::id::equals(self.id), params_to_update)
+				.update(location::id::equals(self.id), params)
 				.exec()
 				.await?;
 
@@ -197,7 +196,7 @@ impl LocationUpdateArgs {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(local_path).await?
 				{
-					metadata.update(ctx.id, self.name.unwrap().clone()).await?;
+					metadata.update(ctx.id, self.name.unwrap()).await?;
 				}
 			}
 		}
@@ -394,22 +393,22 @@ async fn create_location(
 }
 
 pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	let LibraryContext { db, .. } = ctx;
+
 	ctx.location_manager()
 		.remove(location_id, ctx.clone())
 		.await?;
 
 	delete_directory(ctx, location_id, None).await?;
 
-	ctx.db
-		.indexer_rules_in_location()
+	db.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
 			location_id,
 		)])
 		.exec()
 		.await?;
 
-	let location = ctx
-		.db
+	let location = db
 		.location()
 		.delete(location::id::equals(location_id))
 		.exec()
