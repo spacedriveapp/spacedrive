@@ -154,10 +154,9 @@ impl KeyManager {
 
 	// This verifies that the key manager is unlocked before continuing the calling function.
 	pub async fn unlock_check(&self) -> Result<()> {
-		self.is_unlocked()
-			.await
-			.then(|| ())
-			.map_or_else(|| Err(Error::NotUnlocked), Ok)
+		(!self.is_unlocked().await)
+			.then(|| Error::NotUnlocked)
+			.map_or_else(|| Ok(()), Err)
 	}
 
 	// This verifies that the target key is not already queued before continuing the operation.
