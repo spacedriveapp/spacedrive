@@ -167,7 +167,7 @@ impl KeyManager {
 	}
 
 	// This verifies that the target key is not already mounted before continuing the operation.
-	pub async fn mount_check(&self, uuid: Uuid) -> Result<()> {
+	pub fn mount_check(&self, uuid: Uuid) -> Result<()> {
 		self.keymount
 			.contains_key(&uuid)
 			.then(|| Error::KeyAlreadyMounted)
@@ -688,7 +688,7 @@ impl KeyManager {
 	/// We could add a log to this, so that the user can view mounts
 	pub async fn mount(&self, uuid: Uuid) -> Result<()> {
 		self.unlock_check().await?;
-		self.mount_check(uuid).await?;
+		self.mount_check(uuid)?;
 		self.queue_check(uuid)?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
@@ -1019,15 +1019,13 @@ impl KeyManager {
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
 	///
 	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
-	#[must_use]
 	pub async fn dump_keystore(&self) -> Result<Vec<StoredKey>> {
 		self.unlock_check().await?;
 
 		Ok(self.keystore.iter().map(|key| key.clone()).collect())
 	}
 
-	#[must_use]
-	pub async fn get_mounted_uuids(&self) -> Vec<Uuid> {
+	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
 		self.keymount.iter().map(|key| key.uuid).collect()
 	}
 

@@ -61,7 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids().await) })
+			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
