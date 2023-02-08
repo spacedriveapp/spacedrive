@@ -29,7 +29,7 @@ impl SecureTempKeystore {
 			.map(|v| v.value().clone())
 			.ok_or(SecureTempKeystoreError::SecureItemNotFound)?;
 
-		let sensitive_value = value.clone().as_str().to_string();
+		let sensitive_value = value.as_str().to_string();
 
 		value.zeroize();
 
