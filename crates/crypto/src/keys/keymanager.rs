@@ -156,21 +156,21 @@ impl KeyManager {
 	pub async fn ensure_unlocked(&self) -> Result<()> {
 		self.is_unlocked()
 			.await
-			.then(|| ())
+			.then_some(())
 			.ok_or(Error::NotUnlocked)
 	}
 
 	// This verifies that the target key is not already queued before continuing the operation.
 	pub fn ensure_not_queued(&self, uuid: Uuid) -> Result<()> {
 		(!self.is_queued(uuid))
-			.then(|| ())
+			.then_some(())
 			.ok_or(Error::KeyAlreadyMounted)
 	}
 
 	// This verifies that the target key is not already mounted before continuing the operation.
 	pub fn ensure_not_mounted(&self, uuid: Uuid) -> Result<()> {
 		(!self.keymount.contains_key(&uuid))
-			.then(|| ())
+			.then_some(())
 			.ok_or(Error::KeyAlreadyMounted)
 	}
 
