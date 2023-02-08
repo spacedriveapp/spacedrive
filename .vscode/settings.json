@@ -2,6 +2,7 @@
 	"cSpell.words": [
 		"actix",
 		"bpfrpt",
+		"callees",
 		"consts",
 		"countup",
 		"creationdate",
@@ -51,5 +52,12 @@
 		// Hiding these folders bcs they create a lot of noise in the search results
 		"apps/mobile/android": true,
 		"apps/mobile/ios": true
-	}
+	},
+	"eslint.workingDirectories": [
+		"apps/landing",
+		"apps/mobile",
+		"packages/ui",
+		"packages/client",
+		"packages/interface"
+	]
 }

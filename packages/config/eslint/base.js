@@ -43,6 +43,7 @@ module.exports = {
 			version: 'detect'
 		},
 		tailwindcss: {
+			config: 'packages/ui/style/tailwind.js',
 			callees: ['classnames', 'clsx', 'ctl', 'cva', 'tw', `twStyle`],
 			tags: ['tw', 'twStyle']
 		}

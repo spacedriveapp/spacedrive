@@ -32,8 +32,8 @@ const LibraryGeneralSettingsScreen = ({
 	return (
 		<View>
 			{/* This looks bad... */}
-			<View style={tw`mt-4 bg-app-overlay px-2 py-4`}>
-				<Text style={tw`mb-1 ml-1 text-xs font-medium text-ink-dull`}>Name</Text>
+			<View style={tw`bg-app-overlay mt-4 px-2 py-4`}>
+				<Text style={tw`text-ink-dull mb-1 ml-1 text-xs font-medium`}>Name</Text>
 				<Controller
 					name="name"
 					control={form.control}
@@ -42,7 +42,7 @@ const LibraryGeneralSettingsScreen = ({
 					)}
 				/>
 				{/* Description */}
-				<Text style={tw`mb-1 ml-1 mt-3 text-xs font-medium text-ink-dull`}>Description</Text>
+				<Text style={tw`text-ink-dull mb-1 ml-1 mt-3 text-xs font-medium`}>Description</Text>
 				<Controller
 					name="description"
 					control={form.control}

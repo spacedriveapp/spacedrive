@@ -5,7 +5,7 @@ import { SpacesStackScreenProps } from '~/navigation/tabs/SpacesStack';
 export default function SpacesScreen({ navigation }: SpacesStackScreenProps<'Spaces'>) {
 	return (
 		<View style={tw`flex-1 items-center justify-center`}>
-			<Text style={tw`text-xl font-bold text-ink`}>Spaces</Text>
+			<Text style={tw`text-ink text-xl font-bold`}>Spaces</Text>
 		</View>
 	);
 }

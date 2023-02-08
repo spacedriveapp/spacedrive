@@ -6,7 +6,7 @@ type DividerProps = {
 };
 
 const Divider = ({ style }: DividerProps) => {
-	return <View style={[tw`my-1 h-[1px] w-full bg-app-line`, style]} />;
+	return <View style={[tw`bg-app-line my-1 h-[1px] w-full`, style]} />;
 };
 
 export default Divider;

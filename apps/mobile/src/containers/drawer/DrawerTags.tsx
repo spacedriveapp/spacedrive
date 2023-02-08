@@ -58,7 +58,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			</View>
 			{/* Add Tag */}
 			<CreateTagDialog>
-				<View style={tw`border-opacity/80 mt-1 rounded border border-dashed border-app-line`}>
+				<View style={tw`border-opacity/80 border-app-line mt-1 rounded border border-dashed`}>
 					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>
 			</CreateTagDialog>

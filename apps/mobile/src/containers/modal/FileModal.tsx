@@ -34,7 +34,7 @@ export const FileModal = () => {
 		<>
 			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
 				{data && (
-					<View style={tw`flex-1 bg-app p-4`}>
+					<View style={tw`bg-app flex-1 p-4`}>
 						{/* File Icon / Name */}
 						<View style={tw`flex flex-row items-center`}>
 							<FileIcon data={data} size={1.6} />
@@ -49,7 +49,7 @@ export const FileModal = () => {
 									<Text style={tw`ml-1 text-xs text-gray-400`}>15 Aug</Text>
 								</View>
 								<Pressable style={tw`mt-2`} onPress={() => fileDetailsRef.current.present()}>
-									<Text style={tw`text-sm text-accent`}>More</Text>
+									<Text style={tw`text-accent text-sm`}>More</Text>
 								</Pressable>
 							</View>
 						</View>
@@ -71,7 +71,7 @@ export const FileModal = () => {
 				snapPoints={['70%']}
 			>
 				{data && (
-					<BottomSheetScrollView style={tw`flex-1 bg-app p-4`}>
+					<BottomSheetScrollView style={tw`bg-app flex-1 p-4`}>
 						{/* Back Button */}
 						<Pressable style={tw`ml-4 w-full`} onPress={() => fileDetailsRef.current.close()}>
 							<CaretLeft color={tw.color('accent')} size={20} />
