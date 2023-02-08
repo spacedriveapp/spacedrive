@@ -4,16 +4,18 @@ use crate::{
 	volume::{get_volumes, save_volume},
 };
 
-use super::{utils::LibraryRequest, RouterBuilder};
+use super::{
+	utils::{get_size, LibraryRequest},
+	RouterBuilder,
+};
 use chrono::Utc;
-use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::{Error, ErrorCode, Type};
 use sd_crypto::{
 	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
 	primitives::types::OnboardingConfig, Protected,
 };
 use serde::Deserialize;
-use tokio::fs;
+use tracing::debug;
 use uuid::Uuid;
 
 pub(crate) fn mount() -> RouterBuilder {
@@ -36,20 +38,27 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let mut available_capacity: u64 = 0;
 				let mut total_capacity: u64 = 0;
-				if volumes.is_ok() {
-					for volume in volumes? {
+                if let Ok(volumes) = volumes {
+					for volume in volumes {
 						total_capacity += volume.total_capacity;
 						available_capacity += volume.available_capacity;
 					}
 				}
 
-				let library_db_size = match fs::metadata(library.config().data_directory()).await {
-					Ok(metadata) => metadata.len(),
-					Err(_) => 0,
-				};
+				let library_db_size = get_size(
+					library
+						.config()
+						.data_directory()
+						.join("libraries")
+						.join(&format!("{}.db", library.id)),
+				)
+				.await
+				.unwrap_or(0);
 
 				let thumbnail_folder_size =
-					get_size(library.config().data_directory().join("thumbnails"));
+					get_size(library.config().data_directory().join("thumbnails"))
+						.await
+						.unwrap_or(0);
 
 				use statistics::*;
 				let params = vec![
@@ -61,7 +70,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					total_bytes_capacity::set(total_capacity.to_string()),
 					total_unique_bytes::set(0.to_string()),
 					total_bytes_free::set(available_capacity.to_string()),
-					preview_media_bytes::set(thumbnail_folder_size.unwrap_or(0).to_string()),
+					preview_media_bytes::set(thumbnail_folder_size.to_string()),
 				];
 
 				Ok(library
@@ -92,15 +101,27 @@ pub(crate) fn mount() -> RouterBuilder {
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
 			}
-			println!("Creating library");
 
 			t(|ctx, args: CreateLibraryArgs| async move {
+				debug!("Creating library");
+
 				let password = match args.auth {
 					AuthOption::Password(password) => password,
 					AuthOption::TokenizedPassword(tokenized_pw) => {
-						// TODO: remove unwraps
-						let token = Uuid::parse_str(&tokenized_pw).unwrap();
-						Protected::new(ctx.secure_temp_keystore.claim(token).unwrap())
+						let token = Uuid::parse_str(&tokenized_pw).map_err(|err| {
+							Error::with_cause(
+								ErrorCode::BadRequest,
+								"Failed to parse UUID".to_string(),
+								err,
+							)
+						})?;
+						Protected::new(ctx.secure_temp_keystore.claim(token).map_err(|err| {
+							Error::with_cause(
+								ErrorCode::InternalServerError,
+								"Failed to claim token from keystore".to_string(),
+								err,
+							)
+						})?)
 					}
 				};
 
