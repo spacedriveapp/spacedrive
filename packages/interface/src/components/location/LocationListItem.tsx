@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useLibraryMutation } from '@sd/client';
+import { arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Location, Node } from '@sd/client';
 import { Button, Card, Dialog, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
@@ -18,8 +18,11 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
+	const onlineLocations = useOnlineLocations();
 
 	if (hide) return <></>;
+
+	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
 
 	return (
 		<Card
@@ -39,6 +42,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
 				{/* This is a fake button, do not add disabled prop pls */}
+
 				<Button
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
@@ -46,15 +50,8 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					variant="gray"
 					className="!py-1.5 !px-2 pointer-events-none flex"
 				>
-					<div
-						className={clsx(
-							'w-2 h-2  rounded-full',
-							location.is_online ? 'bg-green-500' : 'bg-red-500'
-						)}
-					/>
-					<span className="ml-1.5 text-xs text-ink-dull">
-						{location.is_online ? 'Online' : 'Offline'}
-					</span>
+					<div className={clsx('w-2 h-2  rounded-full', online ? 'bg-green-500' : 'bg-red-500')} />
+					<span className="ml-1.5 text-xs text-ink-dull">{online ? 'Online' : 'Offline'}</span>
 				</Button>
 				<Button
 					variant="gray"

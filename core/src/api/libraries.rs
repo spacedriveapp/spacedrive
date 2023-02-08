@@ -9,8 +9,8 @@ use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::{Error, ErrorCode, Type};
 use sd_crypto::{
-	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, primitives::OnboardingConfig,
-	Protected,
+	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
+	primitives::types::OnboardingConfig, Protected,
 };
 use serde::Deserialize;
 use tokio::fs;
@@ -82,7 +82,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				name: String,
 				password: Option<Protected<String>>,
 				tokenized_password: Option<String>,
-				secret_key: Option<Protected<String>>,
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
 			}
@@ -113,7 +112,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						},
 						OnboardingConfig {
 							password,
-							secret_key: args.secret_key,
 							algorithm: args.algorithm,
 							hashing_algorithm: args.hashing_algorithm,
 						},

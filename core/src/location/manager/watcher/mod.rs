@@ -29,7 +29,7 @@ mod windows;
 
 mod utils;
 
-use utils::{check_event, check_location_online};
+use utils::check_event;
 
 #[cfg(target_os = "linux")]
 type Handler = linux::LinuxEventHandler;
@@ -178,25 +178,31 @@ impl LocationWatcher {
 		library_ctx: &LibraryContext,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		if check_event(&event, ignore_paths) {
-			if let Some(location) = fetch_location(library_ctx, location_id)
-				.include(indexer_job_location::include())
-				.exec()
-				.await?
-			{
-				if check_location_online(&location) {
-					return event_handler
-						.handle_event(location, library_ctx, event)
-						.await;
-				} else {
-					warn!("Tried to handle event for offline location: <id='{location_id}'>");
-				}
-			} else {
-				warn!("Tried to handle event for unknown location: <id='{location_id}'>");
-			}
+		if !check_event(&event, ignore_paths) {
+			return Ok(());
 		}
 
-		Ok(())
+		let Some(location) = fetch_location(library_ctx, location_id)
+			.include(indexer_job_location::include())
+			.exec()
+			.await?
+		else {
+			warn!("Tried to handle event for unknown location: <id='{location_id}'>");
+            return Ok(())
+        };
+
+		if !library_ctx
+			.location_manager()
+			.is_online(&location.pub_id)
+			.await
+		{
+			warn!("Tried to handle event for offline location: <id='{location_id}'>");
+			return Ok(());
+		}
+
+		event_handler
+			.handle_event(location, library_ctx, event)
+			.await
 	}
 
 	pub(super) fn ignore_path(

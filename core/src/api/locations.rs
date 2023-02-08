@@ -220,6 +220,23 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				Ok(todo!())
 			})
 		})
+		.subscription("online", |t| {
+			t(|ctx, _: ()| {
+				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+
+				let mut rx = location_manager.online_rx();
+
+				async_stream::stream! {
+					let online = location_manager.get_online().await;
+					dbg!(&online);
+					yield online;
+
+					while let Ok(locations) = rx.recv().await {
+						yield locations;
+					}
+				}
+			})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 

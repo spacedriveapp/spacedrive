@@ -2,6 +2,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
+import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
 import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
@@ -10,6 +11,7 @@ import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
 import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '~/components/key/KeyList';
 import { KeyMounter } from '~/components/key/KeyMounter';
+import { DefaultProps } from '~/components/primitive/types';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
@@ -75,8 +77,9 @@ export const KeyMounterDropdown = ({
 
 export default function KeysSettings() {
 	const platform = usePlatform();
-	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.unlockKeyManager', {
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such
+	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
 				title: 'Unlock Error',
@@ -84,6 +87,7 @@ export default function KeysSettings() {
 			});
 		}
 	});
+
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
@@ -92,14 +96,17 @@ export default function KeysSettings() {
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
-	const [secretKey, setSecretKey] = useState('');
+	const [secretKey, setSecretKey] = useState(''); // for the unlock form
+	const [viewSecretKey, setViewSecretKey] = useState(false); // for the settings page
 
 	const keys = useLibraryQuery(['keys.list']);
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
-	if (!hasMasterPw?.data) {
+	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
+
+	if (!isUnlocked?.data) {
 		return (
 			<div className="p-2 mt-10 ml-20 mr-20">
 				<div className="relative flex flex-grow mb-2">
@@ -119,39 +126,55 @@ export default function KeysSettings() {
 						<MPCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
-
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={secretKey}
-						onChange={(e) => setSecretKey(e.target.value)}
-						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Secret Key"
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+				{enterSkManually && (
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Secret Key"
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
+				)}
 
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
+					disabled={
+						unlockKeyManager.isLoading || isKeyManagerUnlocking.data !== null
+							? isKeyManagerUnlocking.data!
+							: false
+					}
 					onClick={() => {
 						if (masterPassword !== '') {
-							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
+							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
 						}
 					}}
 				>
 					Unlock
 				</Button>
+				{!enterSkManually && (
+					<div className="relative flex flex-grow">
+						<p
+							className="text-accent mt-2"
+							onClick={(e) => {
+								setEnterSkManually(true);
+							}}
+						>
+							or enter secret key manually
+						</p>
+					</div>
+				)}
 			</div>
 		);
 	} else {
@@ -186,9 +209,36 @@ export default function KeysSettings() {
 							</div>
 						}
 					/>
+
 					<div className="grid space-y-2">
 						<ListOfKeys />
 					</div>
+
+					{keyringSk?.data && (
+						<>
+							<SettingsSubHeader title="Secret key" />
+							{!viewSecretKey && (
+								<div className="flex flex-row">
+									<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+										View Secret Key
+									</Button>
+								</div>
+							)}
+							{viewSecretKey && (
+								<div
+									className="flex flex-row"
+									onClick={() => {
+										keyringSk.data && navigator.clipboard.writeText(keyringSk.data);
+									}}
+								>
+									<>
+										<QRCode size={128} value={keyringSk.data} />
+										<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+									</>
+								</div>
+							)}
+						</>
+					)}
 
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">

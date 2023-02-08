@@ -49,12 +49,10 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	});
 
 	const onSubmit = form.handleSubmit((data) => {
-		const sk = data.secretKey || null;
-
 		if (data.filePath !== '') {
 			restoreKeystoreMutation.mutate({
 				password: data.masterPassword,
-				secret_key: sk,
+				secret_key: data.secretKey,
 				path: data.filePath
 			});
 			form.reset();
