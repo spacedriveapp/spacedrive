@@ -107,7 +107,7 @@ export interface FileCopierJobInit { source_location_id: number, source_path_id:
 
 export interface FileCutterJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string }
 
-export interface FileDecryptorJobInit { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
+export interface FileDecryptorJobInit { location_id: number, path_id: number, mount_associated_key: boolean, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
 export interface FileDeleterJobInit { location_id: number, path_id: number }
 

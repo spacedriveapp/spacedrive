@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::fs::File;
+use uuid::Uuid;
 
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 
@@ -19,6 +20,7 @@ pub struct FileDecryptorJobState {}
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
+	pub mount_associated_key: bool,
 	pub output_path: Option<PathBuf>,
 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 	pub save_to_library: Option<bool>,
@@ -118,6 +120,26 @@ impl StatefulJob for FileDecryptorJob {
 				)));
 			}
 		} else {
+			if state.init.mount_associated_key {
+				let keys: Vec<Uuid> = ctx
+					.library_ctx
+					.key_manager
+					.dump_keystore()
+					.iter()
+					.filter(|x| {
+						header
+							.keyslots
+							.iter()
+							.any(|k| k.content_salt == x.content_salt)
+					})
+					.map(|k| k.uuid)
+					.collect();
+
+				for key in keys.into_iter() {
+					ctx.library_ctx.key_manager.mount(key).await.ok();
+				}
+			}
+
 			let keys = ctx.library_ctx.key_manager.enumerate_hashed_keys();
 
 			header.decrypt_master_key_from_prehashed(keys).await?
