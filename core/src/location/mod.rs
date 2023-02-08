@@ -485,9 +485,9 @@ pub async fn delete_directory(
 pub async fn check_virtual_path_exists(
 	library_ctx: &LibraryContext,
 	location_id: i32,
-	subpath: &PathBuf,
+	subpath: impl AsRef<Path>,
 ) -> Result<bool, LocationError> {
-	let path = subpath.to_str().unwrap().to_string();
+	let path = subpath.as_ref().to_str().unwrap().to_string();
 
 	let file_path = library_ctx
 		.db
