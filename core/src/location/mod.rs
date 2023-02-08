@@ -315,14 +315,11 @@ pub async fn relink_location(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			[("local_path", json!(path)), ("is_online", json!(true))],
+			[("local_path", json!(path))],
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id),
-			vec![
-				location::local_path::set(Some(path)),
-				location::is_online::set(true),
-			],
+			vec![location::local_path::set(Some(path))],
 		),
 	)
 	.await?;
@@ -363,7 +360,6 @@ async fn create_location(
 				[
 					("node", json!({ "pub_id": ctx.id.as_bytes() })),
 					("name", json!(location_name)),
-					("is_online", json!(true)),
 					("local_path", json!(&local_path)),
 				],
 			),
@@ -373,7 +369,6 @@ async fn create_location(
 					node::id::equals(ctx.node_local_id),
 					vec![
 						location::name::set(Some(location_name.clone())),
-						location::is_online::set(true),
 						location::local_path::set(Some(local_path)),
 					],
 				)

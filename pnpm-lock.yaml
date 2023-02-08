@@ -453,6 +453,7 @@ importers:
       react-hook-form: ^7.36.1
       react-json-view: ^1.21.3
       react-loading-skeleton: ^3.1.0
+      react-qr-code: ^2.0.11
       react-router: 6.4.2
       react-router-dom: 6.4.2
       rooks: ^5.14.0
@@ -501,6 +502,7 @@ importers:
       react-hook-form: 7.42.1_react@18.2.0
       react-json-view: 1.21.3_5ndqzdd6t4rivxsukjv3i3ak2q
       react-loading-skeleton: 3.1.0_react@18.2.0
+      react-qr-code: 2.0.11_react@18.2.0
       react-router: 6.4.2_react@18.2.0
       react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       rooks: 5.14.1_biqbaboplfbrettd7655fr4n2y
@@ -7440,7 +7442,7 @@ packages:
       tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.2.4_postcss@8.4.21
+      tailwindcss: 3.2.4
     dev: false
 
   /@tailwindcss/line-clamp/0.4.2:
@@ -17037,6 +17039,10 @@ packages:
     resolution: {integrity: sha512-QFADYnsVoBMw1srW7OVKEYjG+MbIa49s54w1MA1EDY6r2r/sTcKKYqRX1f4GYvnXP7eN/Pe9HFcX+hwzmrXRHA==}
     dev: false
 
+  /qr.js/0.0.0:
+    resolution: {integrity: sha512-c4iYnWb+k2E+vYpRimHqSu575b1/wKl4XFeJGpFmrJQz5I88v9aY2czh7s0w36srfCM1sXgC/xpoJz5dJfq+OQ==}
+    dev: false
+
   /qrcode-terminal/0.11.0:
     resolution: {integrity: sha512-Uu7ii+FQy4Qf82G4xu7ShHhjhGahEpCWc3x8UavY3CTcWV+ufmmCtwkr7ZKsX42jdL0kr1B5FKUeqJvAn51jzQ==}
     hasBin: true
@@ -17534,6 +17540,20 @@ packages:
       - encoding
       - supports-color
       - utf-8-validate
+
+  /react-qr-code/2.0.11_react@18.2.0:
+    resolution: {integrity: sha512-P7mvVM5vk9NjGdHMt4Z0KWeeJYwRAtonHTghZT2r+AASinLUUKQ9wfsGH2lPKsT++gps7hXmaiMGRvwTDEL9OA==}
+    peerDependencies:
+      react: ^16.x || ^17.x || ^18.x
+      react-native-svg: '*'
+    peerDependenciesMeta:
+      react-native-svg:
+        optional: true
+    dependencies:
+      prop-types: 15.8.1
+      qr.js: 0.0.0
+      react: 18.2.0
+    dev: false
 
   /react-refresh/0.11.0:
     resolution: {integrity: sha512-F27qZr8uUqwhWZboondsPx8tnC3Ct3SxZA3V5WyEvujRyyNv0VYPhoBg1gZ8/MV5tubQp76Trw8lTv9hzRBa+A==}

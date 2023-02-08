@@ -102,7 +102,6 @@ model Location {
     filesystem         String?
     disk_type          Int?
     is_removable       Boolean?
-    is_online          Boolean  @default(true)
     is_archived        Boolean  @default(false)
     date_created       DateTime @default(now())
 
@@ -216,6 +215,7 @@ model Key {
     // uuid to identify the key
     uuid              String    @unique
     version           String
+    key_type          String
     // the name that the user sets
     name              String?
     // is this key the default for encryption?

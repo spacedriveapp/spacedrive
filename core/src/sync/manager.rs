@@ -26,12 +26,12 @@ pub struct SyncManager {
 }
 
 impl SyncManager {
-	pub fn new(db: Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<CRDTOperation>) {
+	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<CRDTOperation>) {
 		let (tx, rx) = mpsc::channel(64);
 
 		(
 			Self {
-				db,
+				db: db.clone(),
 				node,
 				clock: HLCBuilder::new().with_id(node.into()).build(),
 				_clocks: Default::default(),

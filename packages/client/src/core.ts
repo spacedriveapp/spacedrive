@@ -10,8 +10,9 @@ export type Procedures = {
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
-        { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
+        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean | null } | 
+        { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
@@ -20,7 +21,7 @@ export type Procedures = {
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
@@ -78,7 +79,8 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
+        { key: "locations.online", input: never, result: Array<Array<number>> }
 };
 
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
@@ -89,9 +91,11 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface CreateLibraryArgs { name: string, password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
+
+export type EncryptedKey = Array<number>
 
 export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } & Tag
 
@@ -139,7 +143,7 @@ export interface LibraryConfig { version: string | null, name: string, descripti
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 
-export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string }
+export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string }
 
 export interface LocationCreateArgs { path: string, indexer_rules_ids: Array<number> }
 
@@ -147,7 +151,7 @@ export interface LocationExplorerArgs { location_id: number, path: string, limit
 
 export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
 
-export interface MasterPasswordChangeArgs { password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
 
@@ -156,6 +160,8 @@ export interface Node { id: number, pub_id: Array<number>, name: string, platfor
 export interface NodeConfig { version: string | null, id: string, name: string, p2p_port: number | null }
 
 export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
+
+export type Nonce = { XChaCha20Poly1305: Array<number> } | { Aes256Gcm: Array<number> }
 
 export interface NormalisedCompositeId { $type: string, $id: any, org_id: string, user_id: string }
 
@@ -171,9 +177,11 @@ export interface ObjectValidatorArgs { id: number, path: string }
 
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-export interface RestoreBackupArgs { password: string, secret_key: string | null, path: string }
+export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type Salt = Array<number>
 
 export interface SetFavoriteArgs { id: number, favorite: boolean }
 
@@ -181,7 +189,9 @@ export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 
-export interface StoredKey { uuid: string, version: StoredKeyVersion, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, salt: Array<number>, memory_only: boolean, automount: boolean }
+export interface StoredKey { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Salt, master_key: EncryptedKey, master_key_nonce: Nonce, key_nonce: Nonce, key: Array<number>, salt: Salt, memory_only: boolean, automount: boolean }
+
+export type StoredKeyType = "User" | "Root"
 
 export type StoredKeyVersion = "V1"
 
@@ -193,7 +203,7 @@ export interface TagCreateArgs { name: string, color: string }
 
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
 
-export interface UnlockKeyManagerArgs { password: string, secret_key: string | null }
+export interface UnlockKeyManagerArgs { password: string, secret_key: string }
 
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
