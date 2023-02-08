@@ -1,7 +1,7 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
 	Location,
@@ -50,6 +50,16 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
+
+	useEffect(() => {
+		// Prevent the dropdown button to be auto focused on launch
+		// Hacky but it works
+		setTimeout(() => {
+			if (!document.activeElement || !('blur' in document.activeElement)) return;
+
+			(document.activeElement.blur as () => void)();
+		});
+	});
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
