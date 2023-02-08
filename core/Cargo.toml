@@ -55,7 +55,7 @@ include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.57"
 image = "0.24.4"
 webp = "0.2.2"
-ffmpeg-next = { version = "5.1.1", optional = true, features = ["build"] }
+ffmpeg-next = { version = "5.1.1", optional = true, features = ["static"] }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
 sd-file-ext = { path = "../crates/file-ext" }

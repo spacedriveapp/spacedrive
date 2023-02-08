@@ -1681,8 +1681,7 @@ dependencies = [
 [[package]]
 name = "ffmpeg-sys-next"
 version = "5.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d780b36e092254367e2f1f21191992735c8e23f31a5a5a8678db3a79f775021f"
+source = "git+https://github.com/oscartbeaumont/rust-ffmpeg-sys.git?rev=78015ff4175af29d5febec994297f98f812d0979#78015ff4175af29d5febec994297f98f812d0979"
 dependencies = [
  "bindgen",
  "cc",
