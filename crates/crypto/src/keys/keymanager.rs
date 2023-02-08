@@ -1019,10 +1019,8 @@ impl KeyManager {
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
 	///
 	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
-	pub async fn dump_keystore(&self) -> Result<Vec<StoredKey>> {
-		self.ensure_unlocked().await?;
-
-		Ok(self.keystore.iter().map(|key| key.clone()).collect())
+	pub fn dump_keystore(&self) -> Vec<StoredKey> {
+		self.keystore.iter().map(|key| key.clone()).collect()
 	}
 
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {

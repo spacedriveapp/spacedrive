@@ -53,7 +53,7 @@ pub struct AutomountUpdateArgs {
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore().await?) })
+			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
 		})
 		// do not unlock the key manager until this route returns true
 		.library_query("isUnlocked", |t| {
@@ -296,7 +296,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("backupKeystore", |t| {
 			t(|_, path: PathBuf, library| async move {
 				// dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
-				let mut stored_keys = library.key_manager.dump_keystore().await?;
+				let mut stored_keys = library.key_manager.dump_keystore();
 
 				// include the verification key at the time of backup
 				stored_keys.push(library.key_manager.get_verification_key().await?);
