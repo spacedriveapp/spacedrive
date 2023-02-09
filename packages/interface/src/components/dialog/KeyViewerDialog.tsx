@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Input, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { SelectOptionKeyList } from '../key/KeyList';
