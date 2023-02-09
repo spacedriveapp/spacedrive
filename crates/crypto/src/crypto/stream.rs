@@ -304,3 +304,203 @@ impl StreamDecryption {
 			.map_or_else(Err, |_| Ok(Protected::new(writer.into_inner())))
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	const KEY: [u8; 32] = [
+		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
+		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
+		0x23, 0x23,
+	];
+
+	const AES_NONCE: [u8; 8] = [0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9];
+	const XCHACHA_NONCE: [u8; 20] = [
+		0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9,
+		0xE9, 0xE9, 0xE9, 0xE9, 0xE9,
+	];
+
+	const PLAINTEXT: [u8; 32] = [
+		0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A,
+		0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A,
+		0x5A, 0x5A,
+	];
+
+	const AAD: [u8; 16] = [
+		0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92,
+		0x92,
+	];
+
+	const AES_ENCRYPT_BYTES_EXPECTED: [u8; 48] = [
+		38, 96, 235, 51, 131, 187, 162, 152, 183, 13, 174, 87, 108, 113, 198, 88, 106, 121, 208,
+		37, 20, 10, 2, 107, 69, 147, 171, 141, 46, 255, 181, 123, 24, 150, 104, 25, 70, 198, 169,
+		232, 124, 99, 151, 226, 84, 113, 184, 134,
+	];
+
+	const AES_ENCRYPT_BYTES_WITH_AAD_EXPECTED: [u8; 48] = [
+		38, 96, 235, 51, 131, 187, 162, 152, 183, 13, 174, 87, 108, 113, 198, 88, 106, 121, 208,
+		37, 20, 10, 2, 107, 69, 147, 171, 141, 46, 255, 181, 123, 172, 121, 35, 145, 71, 115, 203,
+		224, 20, 183, 1, 99, 223, 230, 255, 76,
+	];
+
+	const XCHACHA_ENCRYPT_BYTES_EXPECTED: [u8; 48] = [
+		35, 174, 252, 59, 215, 65, 5, 237, 198, 2, 51, 72, 239, 88, 36, 177, 136, 252, 64, 157,
+		141, 53, 138, 98, 185, 2, 75, 173, 253, 99, 133, 207, 145, 54, 100, 51, 44, 230, 60, 5,
+		157, 70, 110, 145, 166, 41, 215, 95,
+	];
+
+	const XCHACHA_ENCRYPT_BYTES_WITH_AAD_EXPECTED: [u8; 48] = [
+		35, 174, 252, 59, 215, 65, 5, 237, 198, 2, 51, 72, 239, 88, 36, 177, 136, 252, 64, 157,
+		141, 53, 138, 98, 185, 2, 75, 173, 253, 99, 133, 207, 110, 4, 255, 118, 55, 88, 24, 170,
+		101, 74, 104, 122, 105, 216, 225, 243,
+	];
+
+	#[tokio::test]
+	async fn aes_encrypt_bytes() {
+		let ciphertext = StreamEncryption::encrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+			&PLAINTEXT,
+			&[],
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(AES_ENCRYPT_BYTES_EXPECTED.to_vec(), ciphertext)
+	}
+
+	#[tokio::test]
+	async fn aes_encrypt_bytes_with_aad() {
+		let ciphertext = StreamEncryption::encrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+			&PLAINTEXT,
+			&AAD,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(AES_ENCRYPT_BYTES_WITH_AAD_EXPECTED.to_vec(), ciphertext)
+	}
+
+	#[tokio::test]
+	async fn aes_decrypt_bytes() {
+		let plaintext = StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+			&AES_ENCRYPT_BYTES_EXPECTED,
+			&[],
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+	}
+
+	#[tokio::test]
+	async fn aes_decrypt_bytes_with_aad() {
+		let plaintext = StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+			&AES_ENCRYPT_BYTES_WITH_AAD_EXPECTED,
+			&AAD,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+	}
+
+	#[tokio::test]
+	#[should_panic = "decryption with missing/invalid AAD should fail"]
+	async fn aes_decrypt_bytes_missing_aad() {
+		StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+			&AES_ENCRYPT_BYTES_WITH_AAD_EXPECTED,
+			&[],
+		)
+		.await
+		.unwrap();
+	}
+
+	#[tokio::test]
+	async fn xchacha_encrypt_bytes() {
+		let ciphertext = StreamEncryption::encrypt_bytes(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			&[],
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(XCHACHA_ENCRYPT_BYTES_EXPECTED.to_vec(), ciphertext)
+	}
+
+	#[tokio::test]
+	async fn xchacha_encrypt_bytes_with_aad() {
+		let ciphertext = StreamEncryption::encrypt_bytes(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			&AAD,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(XCHACHA_ENCRYPT_BYTES_WITH_AAD_EXPECTED.to_vec(), ciphertext)
+	}
+
+	#[tokio::test]
+	async fn xchacha_decrypt_bytes() {
+		let plaintext = StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPT_BYTES_EXPECTED,
+			&[],
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+	}
+
+	#[tokio::test]
+	async fn xchacha_decrypt_bytes_with_aad() {
+		let plaintext = StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPT_BYTES_WITH_AAD_EXPECTED,
+			&AAD,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+	}
+
+	#[tokio::test]
+	#[should_panic]
+	async fn xchacha_decrypt_bytes_missing_aad() {
+		StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPT_BYTES_WITH_AAD_EXPECTED,
+			&[],
+		)
+		.await
+		.unwrap();
+	}
+}
