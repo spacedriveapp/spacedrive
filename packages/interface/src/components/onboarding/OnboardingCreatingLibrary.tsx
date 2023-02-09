@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -18,7 +19,6 @@ export default function OnboardingCreatingLibrary() {
 	const queryClient = useQueryClient();
 
 	const [status, setStatus] = useState('Creating your library...');
-	const [error, setError] = useState<string | null>(null);
 
 	useUnlockOnboardingScreen();
 
@@ -33,7 +33,7 @@ export default function OnboardingCreatingLibrary() {
 			resetOnboardingStore();
 			navigate('/overview/');
 		},
-		onSettled: (err: any) => {
+		onError: (err: any) => {
 			resetOnboardingStore();
 			navigate('/onboarding/');
 		}
@@ -77,25 +77,6 @@ export default function OnboardingCreatingLibrary() {
 			<OnboardingTitle>Creating your library</OnboardingTitle>
 			<OnboardingDescription>{status}</OnboardingDescription>
 			<Loader className="mt-5" />
-			{error && (
-				<div className="flex w-[450px] mt-4 flex-col">
-					<Card className="flex flex-col mt-2 bg-red-500/20 border-red-500/10">
-						<span className="text-sm font-medium text-red-500">{error}</span>
-					</Card>
-					<div className="flex items-center justify-between w-full mt-7">
-						<Button
-							onClick={() => {
-								resetOnboardingStore();
-								navigate('/onboarding/');
-							}}
-							variant="outline"
-							size="sm"
-						>
-							Start again
-						</Button>
-					</div>
-				</div>
-			)}
 		</OnboardingContainer>
 	);
 }
