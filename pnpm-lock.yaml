@@ -43,6 +43,7 @@ importers:
       '@sd/config': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
+      '@tanstack/react-query': ^4.24.4
       '@tauri-apps/api': 1.1.0
       '@tauri-apps/cli': 1.1.1
       '@types/babel-core': ^6.25.7
@@ -63,6 +64,7 @@ importers:
       '@sd/client': link:../../packages/client
       '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       '@tauri-apps/api': 1.1.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -7492,6 +7494,10 @@ packages:
   /@tanstack/query-core/4.22.0:
     resolution: {integrity: sha512-OeLyBKBQoT265f5G9biReijeP8mBxNFwY7ZUu1dKL+YzqpG5q5z7J/N1eT8aWyKuhyDTiUHuKm5l+oIVzbtrjw==}
 
+  /@tanstack/query-core/4.24.4:
+    resolution: {integrity: sha512-9dqjv9eeB6VHN7lD3cLo16ZAjfjCsdXetSAD5+VyKqLUvcKTL0CklGQRJu+bWzdrS69R6Ea4UZo8obHYZnG6aA==}
+    dev: false
+
   /@tanstack/react-query-devtools/4.22.0_gp275tdwez2a4eujt75dnnp754:
     resolution: {integrity: sha512-YeYFBnfqvb+ZlA0IiJqiHNNSzepNhI1p2o9i8NlhQli9+Zrn230M47OBaBUs8qr3DD1dC2zGB1Dis50Ktz8gAA==}
     peerDependencies:
@@ -7556,6 +7562,24 @@ packages:
       react: 18.1.0
       react-native: 0.70.5_react@18.1.0
       use-sync-external-store: 1.2.0_react@18.1.0
+    dev: false
+
+  /@tanstack/react-query/4.24.4_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.24.4
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
     dev: false
 
   /@tanstack/react-virtual/3.0.0-beta.18_react@18.2.0:
@@ -8298,7 +8322,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - supports-color
 
@@ -20851,7 +20875,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20947,6 +20971,7 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -21014,7 +21039,6 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

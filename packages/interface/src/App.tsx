@@ -12,7 +12,7 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
-import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
+import { LibraryContextProvider, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
@@ -32,12 +32,10 @@ init({
 export default function SpacedriveInterface() {
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<QueryClientProvider client={queryClient} contextSharing={true}>
-				<Devtools />
-				<MemoryRouter>
-					<AppRouterWrapper />
-				</MemoryRouter>
-			</QueryClientProvider>
+			<Devtools />
+			<MemoryRouter>
+				<AppRouterWrapper />
+			</MemoryRouter>
 		</ErrorBoundary>
 	);
 }

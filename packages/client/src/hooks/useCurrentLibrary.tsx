@@ -31,9 +31,8 @@ export function getLibraryIdRaw(): string | null {
 	return currentLibraryUuidStore.id;
 }
 
-export function onLibraryChange(func: (newLibraryId: string | null) => void) {
+export const onLibraryChange = (func: (newLibraryId: string | null) => void) =>
 	subscribe(currentLibraryUuidStore, () => func(currentLibraryUuidStore.id));
-}
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
 export const useCurrentLibrary = () => {

@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { queryClient, useBridgeMutation } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
 import Dialog from '~/components/layout/Dialog';
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 };
 
 const DeleteLibraryDialog = ({ children, onSubmit, libraryUuid }: Props) => {
+	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
 
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(

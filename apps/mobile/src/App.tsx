@@ -1,6 +1,7 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { loggerLink } from '@rspc/client';
+import { QueryClient } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -11,7 +12,6 @@ import { useDeviceContext } from 'twrnc';
 import {
 	LibraryContextProvider,
 	getDebugState,
-	queryClient,
 	rspc,
 	useCurrentLibrary,
 	useInvalidateQuery
@@ -63,6 +63,8 @@ const client = rspc.createClient({
 		reactNativeLink()
 	]
 });
+
+const queryClient = new QueryClient();
 
 export default function App() {
 	useEffect(() => {

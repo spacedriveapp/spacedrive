@@ -1,0 +1,182 @@
+{
+	"mutations": [],
+	"queries": [
+		{
+			"state": {
+				"data": [
+					{
+						"uuid": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59",
+						"config": { "version": "0.1.0", "name": "My Library", "description": "" }
+					}
+				],
+				"dataUpdateCount": 2,
+				"dataUpdatedAt": 1675912735380,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": ["library.list"],
+			"queryHash": "[\"library.list\"]"
+		},
+		{
+			"state": {
+				"data": "macOS",
+				"dataUpdateCount": 0,
+				"dataUpdatedAt": 1675912734876,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": null,
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "idle"
+			},
+			"queryKey": ["_tauri", "platform"],
+			"queryHash": "[\"_tauri\",\"platform\"]"
+		},
+		{
+			"state": {
+				"data": [],
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735051,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": [
+				"locations.list",
+				{ "library_id": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59", "arg": null }
+			],
+			"queryHash": "[\"locations.list\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
+		},
+		{
+			"state": {
+				"data": [],
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735057,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": [
+				"tags.list",
+				{ "library_id": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59", "arg": null }
+			],
+			"queryHash": "[\"tags.list\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
+		},
+		{
+			"state": {
+				"data": false,
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735057,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": [
+				"jobs.isRunning",
+				{ "library_id": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59", "arg": null }
+			],
+			"queryHash": "[\"jobs.isRunning\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
+		},
+		{
+			"state": {
+				"data": { "version": "0.1.0", "commit": "07401ac0" },
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735057,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": ["buildInfo"],
+			"queryHash": "[\"buildInfo\"]"
+		},
+		{
+			"state": {
+				"data": {
+					"version": "0.1.0",
+					"id": "afa03a65-861e-489e-918b-dac0252fe40c",
+					"name": "Oscars-MBP-2.lan",
+					"p2p_port": null,
+					"data_path": "/Users/oscar/Desktop/sd-ui-testing/sdserver_data"
+				},
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735057,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": ["nodeState"],
+			"queryHash": "[\"nodeState\"]"
+		},
+		{
+			"state": {
+				"data": {
+					"id": 1,
+					"date_captured": "2023-02-09T03:18:55.378+00:00",
+					"total_object_count": 0,
+					"library_db_size": "128",
+					"total_bytes_used": "0",
+					"total_bytes_capacity": "994662584320",
+					"total_unique_bytes": "0",
+					"total_bytes_free": "170520260608",
+					"preview_media_bytes": "0"
+				},
+				"dataUpdateCount": 1,
+				"dataUpdatedAt": 1675912735381,
+				"error": null,
+				"errorUpdateCount": 0,
+				"errorUpdatedAt": 0,
+				"fetchFailureCount": 0,
+				"fetchFailureReason": null,
+				"fetchMeta": {},
+				"isInvalidated": false,
+				"status": "success",
+				"fetchStatus": "fetching"
+			},
+			"queryKey": [
+				"library.getStatistics",
+				{ "library_id": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59", "arg": null }
+			],
+			"queryHash": "[\"library.getStatistics\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
+		}
+	]
+}

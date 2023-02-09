@@ -66,7 +66,6 @@ const libraryHooks = hooks.createHooks<
 	}
 });
 
-export const queryClient = new QueryClient();
 export const rspc = hooks.createHooks<Procedures>();
 
 export const useBridgeQuery = nonLibraryHooks.useQuery;

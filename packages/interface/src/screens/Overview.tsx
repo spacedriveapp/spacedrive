@@ -1,10 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { proxy } from 'valtio';
-import { onLibraryChange, queryClient, useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { onLibraryChange, useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { Statistics } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
@@ -26,35 +27,6 @@ const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof type
 
 export const state = proxy({
 	lastRenderedLibraryId: undefined as string | undefined
-});
-
-onLibraryChange((newLibraryId) => {
-	state.lastRenderedLibraryId = undefined;
-
-	// TODO: Fix
-	// This is bad solution to the fact that the hooks don't rerun when opening a library that is already cached.
-	// This is because the count never drops back to zero as their is no loading state given the libraries data was already in the React Query cache.
-	queryClient.setQueryData(
-		[
-			'library.getStatistics',
-			{
-				library_id: newLibraryId,
-				arg: null
-			}
-		],
-		{
-			id: 0,
-			date_captured: '',
-			total_bytes_capacity: '0',
-			preview_media_bytes: '0',
-			library_db_size: '0',
-			total_object_count: 0,
-			total_bytes_free: '0',
-			total_bytes_used: '0',
-			total_unique_bytes: '0'
-		}
-	);
-	queryClient.invalidateQueries(['library.getStatistics']);
 });
 
 const StatItem: React.FC<StatItemProps> = (props) => {
@@ -126,6 +98,39 @@ export default function OverviewScreen() {
 			}
 		}
 	);
+
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		// return makes sure this is unsubscribed when the component is unmounted
+		return onLibraryChange((newLibraryId) => {
+			state.lastRenderedLibraryId = undefined;
+
+			// TODO: Fix
+			// This is bad solution to the fact that the hooks don't rerun when opening a library that is already cached.
+			// This is because the count never drops back to zero as their is no loading state given the libraries data was already in the React Query cache.
+			queryClient.setQueryData(
+				[
+					'library.getStatistics',
+					{
+						library_id: newLibraryId,
+						arg: null
+					}
+				],
+				{
+					id: 0,
+					date_captured: '',
+					total_bytes_capacity: '0',
+					preview_media_bytes: '0',
+					library_db_size: '0',
+					total_object_count: 0,
+					total_bytes_free: '0',
+					total_bytes_used: '0',
+					total_unique_bytes: '0'
+				}
+			);
+			queryClient.invalidateQueries(['library.getStatistics']);
+		});
+	});
 
 	return (
 		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-background">

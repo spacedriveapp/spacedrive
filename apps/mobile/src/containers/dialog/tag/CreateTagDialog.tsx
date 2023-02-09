@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { queryClient, useLibraryMutation } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
 import tw from '~/lib/tailwind';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
+	const queryClient = useQueryClient();
 	const [tagName, setTagName] = useState('');
 	const [tagColor, setTagColor] = useState('#A717D9');
 	const [isOpen, setIsOpen] = useState(false);

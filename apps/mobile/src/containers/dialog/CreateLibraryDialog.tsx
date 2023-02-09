@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
+import { useBridgeMutation, useCurrentLibrary } from '@sd/client';
 import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
+	const queryClient = useQueryClient();
 	const [libName, setLibName] = useState('');
 	const [isOpen, setIsOpen] = useState(false);
 

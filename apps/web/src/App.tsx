@@ -1,7 +1,9 @@
 import { createWSClient, loggerLink, wsLink } from '@rspc/client';
+import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { getDebugState, hooks, queryClient } from '@sd/client';
+import { getDebugState, hooks } from '@sd/client';
 import SpacedriveInterface, { Platform, PlatformProvider } from '@sd/interface';
+import demoData from './demoData.json';
 
 globalThis.isDev = import.meta.env.DEV;
 
@@ -29,17 +31,38 @@ const platform: Platform = {
 	getThumbnailUrlById: (casId) =>
 		`${http}://${serverOrigin}/spacedrive/thumbnail/${encodeURIComponent(casId)}.webp`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
-	demoMode: true
+	demoMode: import.meta.env.VITE_SD_DEMO_MODE === 'true'
 };
+
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: import.meta.env.VITE_SD_DEMO_MODE
+			? {
+					refetchOnWindowFocus: false,
+					staleTime: Infinity,
+					cacheTime: Infinity,
+					networkMode: 'offlineFirst',
+					enabled: false
+			  }
+			: undefined
+		// TODO: Mutations can't be globally disable which is annoying!
+	}
+});
 
 function App() {
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
+
+	if (import.meta.env.VITE_SD_DEMO_MODE === 'true') {
+		hydrate(queryClient, demoData);
+	}
 
 	return (
 		<div className="App">
 			<hooks.Provider client={client} queryClient={queryClient}>
 				<PlatformProvider platform={platform}>
-					<SpacedriveInterface />
+					<QueryClientProvider client={queryClient}>
+						<SpacedriveInterface />
+					</QueryClientProvider>
 				</PlatformProvider>
 			</hooks.Provider>
 		</div>
