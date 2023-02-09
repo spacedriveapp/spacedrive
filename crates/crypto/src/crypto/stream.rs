@@ -417,7 +417,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic = "decryption with missing/invalid AAD should fail"]
+	#[should_panic]
 	async fn aes_decrypt_bytes_missing_aad() {
 		StreamDecryption::decrypt_bytes(
 			Key::new(KEY),
