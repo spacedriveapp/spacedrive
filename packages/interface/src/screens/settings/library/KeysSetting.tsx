@@ -210,9 +210,11 @@ export default function KeysSettings() {
 						}
 					/>
 
-					<div className="grid space-y-2">
-						<ListOfKeys />
-					</div>
+					{isUnlocked && (
+						<div className="grid space-y-2">
+							<ListOfKeys />
+						</div>
+					)}
 
 					{keyringSk?.data && (
 						<>
