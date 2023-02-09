@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::fs::File;
-use uuid::Uuid;
 
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 
@@ -121,7 +120,7 @@ impl StatefulJob for FileDecryptorJob {
 			}
 		} else {
 			if state.init.mount_associated_key {
-				let keys: Vec<Uuid> = ctx
+				for key in ctx
 					.library_ctx
 					.key_manager
 					.dump_keystore()
@@ -131,12 +130,8 @@ impl StatefulJob for FileDecryptorJob {
 							.keyslots
 							.iter()
 							.any(|k| k.content_salt == x.content_salt)
-					})
-					.map(|k| k.uuid)
-					.collect();
-
-				for key in keys.into_iter() {
-					ctx.library_ctx.key_manager.mount(key).await.ok();
+					}) {
+					ctx.library_ctx.key_manager.mount(key.uuid).await.ok();
 				}
 			}
 
