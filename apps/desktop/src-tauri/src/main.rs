@@ -27,10 +27,13 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	window.show().unwrap();
 }
 
-pub fn spacedrive_plugin_init<R: Runtime>(listen_addr: SocketAddr) -> TauriPlugin<R> {
+pub fn spacedrive_plugin_init<R: Runtime>(
+	auth_token: &str,
+	listen_addr: SocketAddr,
+) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(
-			r#"window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}";"#
+			r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}";"#
 		))
 		.build()
 }
@@ -53,14 +56,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let endpoint = create_custom_uri_endpoint(node.clone());
 	#[cfg(target_os = "linux")]
 	let app = {
-		use axum::routing::get;
+		use axum::{extract::State, middleware, routing::get};
 		use std::net::TcpListener;
 
 		let signal = server::utils::axum_shutdown_signal(node.clone());
 
+		let auth_token: String = rand::thread_rng().gen_iter::<char>().take(10).collect();
+
+		async fn auth_middleware<B>(
+			State(auth_token): State<String>,
+			request: Request<B>,
+			next: Next<B>,
+		) -> Response {
+			println!("{:?} {:?}", auth_token, request); // TODO
+
+			next.run(request).await
+		}
+
 		let axum_app = axum::Router::new()
 			.route("/", get(|| async { "Spacedrive Server!" }))
 			.nest("/spacedrive", endpoint.axum())
+			.layer(middleware::from_fn_with_state(
+				auth_token.clone(),
+				auth_middleware,
+			))
 			.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 		let listener = TcpListener::bind("127.0.0.1:0").expect("Error creating localhost server!"); // Only allow current device to access it and randomise port
@@ -78,7 +97,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 				.expect("Error with HTTP server!");
 		});
 
-		app.plugin(spacedrive_plugin_init(listen_addr))
+		app.plugin(spacedrive_plugin_init(&auth_token, listen_addr))
 	};
 
 	#[cfg(not(target_os = "linux"))]

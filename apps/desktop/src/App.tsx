@@ -32,6 +32,7 @@ async function getOs(): Promise<OperatingSystem> {
 }
 
 let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
+const customUriAuthToken = (window as any).__SD_CUSTOM_URI_TOKEN__ as string | undefined;
 
 if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 	customUriServerUrl += '/';
@@ -39,7 +40,10 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 function getCustomUriURL(path: string): string {
 	if (customUriServerUrl) {
-		return customUriServerUrl + 'spacedrive/' + path;
+		const queryParams = customUriAuthToken
+			? `?token=${encodeURIComponent(customUriAuthToken)}`
+			: '';
+		return `${customUriServerUrl}spacedrive/${path}${queryParams}`;
 	} else {
 		return convertFileSrc(path, 'spacedrive');
 	}
