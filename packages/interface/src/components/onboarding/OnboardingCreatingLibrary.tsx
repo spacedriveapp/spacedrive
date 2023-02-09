@@ -33,10 +33,9 @@ export default function OnboardingCreatingLibrary() {
 			resetOnboardingStore();
 			navigate('/overview/');
 		},
-		onError: (err: any) => {
-			console.log({ libraryCreationError: err });
-			setError(err.message);
-			alert('fuck');
+		onSettled: (err: any) => {
+			resetOnboardingStore();
+			navigate('/onboarding/');
 		}
 	});
 
