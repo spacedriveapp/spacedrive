@@ -67,6 +67,7 @@ impl StatefulJob for FileDecryptorJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let info = &step.fs_info;
+		let key_manager = &ctx.library_ctx.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
 		let output_path = state.init.output_path.clone().map_or_else(
@@ -99,8 +100,7 @@ impl StatefulJob for FileDecryptorJob {
 					let index = header.find_key_index(password_bytes.clone()).await?;
 
 					// inherit the encryption algorithm from the keyslot
-					ctx.library_ctx
-						.key_manager
+					key_manager
 						.add_to_keystore(
 							Password::new(password),
 							header.algorithm,
@@ -120,22 +120,17 @@ impl StatefulJob for FileDecryptorJob {
 			}
 		} else {
 			if state.init.mount_associated_key {
-				for key in ctx
-					.library_ctx
-					.key_manager
-					.dump_keystore()
-					.iter()
-					.filter(|x| {
-						header
-							.keyslots
-							.iter()
-							.any(|k| k.content_salt == x.content_salt)
-					}) {
-					ctx.library_ctx.key_manager.mount(key.uuid).await.ok();
+				for key in key_manager.dump_keystore().iter().filter(|x| {
+					header
+						.keyslots
+						.iter()
+						.any(|k| k.content_salt == x.content_salt)
+				}) {
+					key_manager.mount(key.uuid).await.ok();
 				}
 			}
 
-			let keys = ctx.library_ctx.key_manager.enumerate_hashed_keys();
+			let keys = key_manager.enumerate_hashed_keys();
 
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
