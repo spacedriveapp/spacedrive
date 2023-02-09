@@ -6192,6 +6192,7 @@ dependencies = [
  "http",
  "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
  "percent-encoding",
+ "rand 0.8.5",
  "rspc",
  "sd-core",
  "serde",
@@ -6201,6 +6202,7 @@ dependencies = [
  "tauri-build",
  "tokio",
  "tracing",
+ "url",
  "window-shadows",
 ]
 

@@ -22,8 +22,10 @@ percent-encoding = "2.2.0"
 http = "0.2.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-axum = "0.6.4"
 server = { path = "../../server" }
+axum = "0.6.4"
+rand = "0.8.5"
+url = "2.1.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs.workspace = true

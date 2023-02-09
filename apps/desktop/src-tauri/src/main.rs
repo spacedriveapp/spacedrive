@@ -56,27 +56,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let endpoint = create_custom_uri_endpoint(node.clone());
 	#[cfg(target_os = "linux")]
 	let app = {
-		use axum::{extract::State, middleware, routing::get};
+		use axum::{
+			extract::State,
+			http::{Request, StatusCode},
+			middleware::{self, Next},
+			response::{IntoResponse, Response},
+			routing::get,
+		};
+		use rand::{distributions::Alphanumeric, Rng};
 		use std::net::TcpListener;
+		use url::Url;
 
 		let signal = server::utils::axum_shutdown_signal(node.clone());
 
-		let auth_token: String = rand::thread_rng().gen_iter::<char>().take(10).collect();
+		let auth_token: String = rand::thread_rng()
+			.sample_iter(&Alphanumeric)
+			.take(10)
+			.map(char::from)
+			.collect();
 
 		async fn auth_middleware<B>(
 			State(auth_token): State<String>,
 			request: Request<B>,
 			next: Next<B>,
 		) -> Response {
-			println!("{:?} {:?}", auth_token, request); // TODO
+			let url = Url::parse(&request.uri().to_string()).unwrap();
+			if let Some((_, v)) = url.query_pairs().find(|(k, _)| k == "token") {
+				if v == auth_token {
+					return next.run(request).await;
+				}
+			} else if let Some(v) = request
+				.headers()
+				.get("Authorization")
+				.and_then(|v| v.to_str().ok())
+			{
+				if v == auth_token {
+					return next.run(request).await;
+				}
+			}
 
-			next.run(request).await
+			(StatusCode::UNAUTHORIZED, "Unauthorized!").into_response()
 		}
 
 		let axum_app = axum::Router::new()
 			.route("/", get(|| async { "Spacedrive Server!" }))
 			.nest("/spacedrive", endpoint.axum())
-			.layer(middleware::from_fn_with_state(
+			.route_layer(middleware::from_fn_with_state(
 				auth_token.clone(),
 				auth_middleware,
 			))
