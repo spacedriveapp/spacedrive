@@ -1,9 +1,9 @@
 import dayjs from 'dayjs';
-import { Heart } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { ObjectKind, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
+import FavoriteButton from '~/components/explorer/actions/FavoriteButton';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import Divider from '~/components/primitive/Divider';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
@@ -73,12 +73,7 @@ export const ActionsModal = () => {
 									</Pressable>
 								</View>
 							</View>
-							<Pressable style={tw`mr-4`} onPress={() => Alert.alert('TODO')}>
-								<Heart color="white" size={20} weight="regular" />
-							</Pressable>
-							{/* <Pressable style={tw`mt-0.5`} onPress={() => fileInfoRef.current.present()}>
-									<Text style={tw`text-sm text-accent`}>More</Text>
-								</Pressable> */}
+							<FavoriteButton style={tw`mr-4`} data={objectData} />
 						</View>
 						{/* Divider */}
 						<Divider style={tw`my-5`} />
