@@ -4,14 +4,14 @@ import {
 	init
 } from '@sentry/browser';
 import '@fontsource/inter/variable.css';
-import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
+import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MemoryRouter, useNavigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, useNavigate } from 'react-router-dom';
 import { LibraryContextProvider, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
@@ -29,13 +29,14 @@ init({
 	integrations: [new HttpContextIntegration(), new DedupeIntegration()]
 });
 
-export default function SpacedriveInterface() {
+export default function SpacedriveInterface({ router }: { router: 'memory' | 'browser' }) {
+	const Router = router === 'memory' ? MemoryRouter : BrowserRouter;
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
-			<MemoryRouter>
+			<Router>
 				<AppRouterWrapper />
-			</MemoryRouter>
+			</Router>
 		</ErrorBoundary>
 	);
 }

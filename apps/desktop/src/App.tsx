@@ -66,7 +66,7 @@ export default function App() {
 		<hooks.Provider client={client} queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<SpacedriveInterface />
+					<SpacedriveInterface router="memory" />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</hooks.Provider>
