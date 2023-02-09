@@ -140,9 +140,11 @@ export function KeyManager(props: KeyManagerProps) {
 							</ButtonLink>
 						</Tabs.List>
 					</div>
-					<Tabs.Content value="keys">
-						<KeyList />
-					</Tabs.Content>
+					{isUnlocked && (
+						<Tabs.Content value="keys">
+							<KeyList />
+						</Tabs.Content>
+					)}
 					<Tabs.Content value="mount">
 						<KeyMounter />
 					</Tabs.Content>
