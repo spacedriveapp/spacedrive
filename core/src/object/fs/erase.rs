@@ -117,7 +117,7 @@ impl StatefulJob for FileEraserJob {
 		Ok(())
 	}
 
-    async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		if let Some(ref info) = state.data {
 			if info.path_data.is_dir {
 				tokio::fs::remove_dir_all(&info.fs_path).await?;

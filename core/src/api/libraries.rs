@@ -7,8 +7,8 @@ use crate::{
 };
 
 use sd_crypto::{
-    crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
-    primitives::types::OnboardingConfig, Protected,
+	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
+	primitives::types::OnboardingConfig, Protected,
 };
 
 use chrono::Utc;
@@ -18,8 +18,8 @@ use tracing::debug;
 use uuid::Uuid;
 
 use super::{
-    utils::{get_size, LibraryRequest},
-    RouterBuilder,
+	utils::{get_size, LibraryRequest},
+	RouterBuilder,
 };
 
 pub(crate) fn mount() -> RouterBuilder {
