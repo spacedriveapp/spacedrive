@@ -162,6 +162,8 @@ impl PasswordHasher {
 mod tests {
 	use super::*;
 
+	const TEST_CONTEXT: &str = "spacedrive 2023-02-09 17:44:14 test key derivation";
+
 	const ARGON2ID_STANDARD: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 	const ARGON2ID_HARDENED: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Hardened);
 	const ARGON2ID_PARANOID: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Paranoid);
@@ -170,6 +172,12 @@ mod tests {
 	const B3BALLOON_PARANOID: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Paranoid);
 
 	const PASSWORD: [u8; 8] = *b"password";
+
+	const KEY: [u8; 32] = [
+		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
+		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
+		0x23, 0x23,
+	];
 
 	const SALT: Salt = Salt([
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -239,6 +247,11 @@ mod tests {
 	const HASH_B3BALLOON_P_WITH_SECRET_EXPECTED: [u8; 32] = [
 		165, 240, 162, 25, 172, 3, 232, 2, 43, 230, 226, 128, 174, 28, 211, 61, 139, 136, 221, 197,
 		16, 83, 221, 18, 212, 190, 138, 79, 239, 148, 89, 215,
+	];
+
+	const DERIVE_B3_EXPECTED: [u8; 32] = [
+		27, 34, 251, 101, 201, 89, 78, 90, 20, 175, 62, 206, 200, 153, 166, 103, 118, 179, 194, 44,
+		216, 26, 48, 120, 137, 157, 60, 234, 234, 53, 46, 60,
 	];
 
 	#[test]
@@ -371,5 +384,12 @@ mod tests {
 			.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_P_WITH_SECRET_EXPECTED, output.expose())
+	}
+
+	#[test]
+	fn derive_b3() {
+		let output = Key::derive(Key::new(KEY), SALT, TEST_CONTEXT);
+
+		assert_eq!(&DERIVE_B3_EXPECTED, output.expose())
 	}
 }
