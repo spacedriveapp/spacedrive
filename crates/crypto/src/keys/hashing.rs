@@ -157,3 +157,87 @@ impl PasswordHasher {
 			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	const ARGON2ID_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
+	const B3BALLOON_ALGORITHM: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Standard);
+
+	const PASSWORD: [u8; 8] = *b"password";
+
+	const SALT: Salt = Salt([
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF,
+	]);
+
+	const SECRET: [u8; 18] = [
+		0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+		0x55, 0x55, 0x55,
+	];
+
+	const HASH_ARGON2ID_EXPECTED: [u8; 32] = [
+		194, 153, 245, 125, 12, 102, 65, 30, 254, 191, 9, 125, 4, 113, 99, 209, 162, 43, 140, 93,
+		217, 220, 222, 46, 105, 48, 123, 220, 180, 103, 20, 11,
+	];
+
+	const HASH_ARGON2ID_WITH_SECRET_EXPECTED: [u8; 32] = [
+		132, 102, 123, 67, 87, 219, 88, 76, 81, 191, 128, 41, 246, 201, 103, 155, 200, 114, 54,
+		116, 240, 66, 155, 78, 73, 44, 87, 174, 231, 196, 206, 236,
+	];
+
+	const HASH_B3BALLOON_EXPECTED: [u8; 32] = [
+		105, 36, 165, 219, 22, 136, 156, 19, 32, 143, 237, 150, 236, 194, 70, 113, 73, 137, 243,
+		106, 80, 31, 43, 73, 207, 210, 29, 251, 88, 6, 132, 77,
+	];
+
+	const HASH_B3BALLOON_WITH_SECRET_EXPECTED: [u8; 32] = [
+		188, 0, 43, 39, 137, 199, 91, 142, 97, 31, 98, 6, 130, 75, 251, 71, 150, 109, 29, 62, 237,
+		171, 210, 22, 139, 108, 94, 190, 91, 74, 134, 47,
+	];
+
+	#[test]
+	fn hash_argon2id() {
+		let output = ARGON2ID_ALGORITHM
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
+			.unwrap();
+
+		assert_eq!(&HASH_ARGON2ID_EXPECTED, output.expose())
+	}
+
+	#[test]
+	fn hash_argon2id_with_secret() {
+		let output = ARGON2ID_ALGORITHM
+			.hash(
+				Protected::new(PASSWORD.to_vec()),
+				SALT,
+				Some(SecretKey::new(SECRET)),
+			)
+			.unwrap();
+
+		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED, output.expose())
+	}
+
+	#[test]
+	fn hash_b3balloon() {
+		let output = B3BALLOON_ALGORITHM
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
+			.unwrap();
+
+		assert_eq!(&HASH_B3BALLOON_EXPECTED, output.expose())
+	}
+
+	#[test]
+	fn hash_b3balloon_with_secret() {
+		let output = B3BALLOON_ALGORITHM
+			.hash(
+				Protected::new(PASSWORD.to_vec()),
+				SALT,
+				Some(SecretKey::new(SECRET)),
+			)
+			.unwrap();
+
+		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED, output.expose())
+	}
+}
