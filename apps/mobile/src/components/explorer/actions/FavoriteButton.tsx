@@ -13,7 +13,7 @@ const FavoriteButton = (props: Props) => {
 
 	const { mutate: toggleFavorite, isLoading } = useLibraryMutation('files.setFavorite', {
 		onSuccess: () => {
-			// TODO: Not sure why rust isn't invalidating the cache for this query.
+			// TODO: Not sure why rust isn't invalidating these...
 			queryClient.invalidateQueries(['locations.getExplorerData']);
 			queryClient.invalidateQueries(['tags.getExplorerData']);
 			setFavorite(!favorite);
@@ -26,7 +26,7 @@ const FavoriteButton = (props: Props) => {
 			onPress={() => toggleFavorite({ id: props.data.id, favorite: !favorite })}
 			style={props.style}
 		>
-			<Heart color="white" size={20} weight={favorite ? 'fill' : 'regular'} />
+			<Heart color="white" size={22} weight={favorite ? 'fill' : 'regular'} />
 		</Pressable>
 	);
 };

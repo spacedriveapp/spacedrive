@@ -1,15 +1,41 @@
 import dayjs from 'dayjs';
-import { useRef } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Heart, Icon, Info } from 'phosphor-react-native';
+import { PropsWithChildren, useRef } from 'react';
+import { Alert, Pressable, Text, View, ViewStyle } from 'react-native';
 import { ObjectKind, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/actions/FavoriteButton';
 import { Modal, ModalRef } from '~/components/layout/Modal';
-import Divider from '~/components/primitive/Divider';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 import FileInfoModal from './FileInfoModal';
+
+type ActionsContainerProps = PropsWithChildren<{
+	style?: ViewStyle;
+}>;
+
+const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
+	<View style={twStyle('bg-app-box rounded-lg py-3.5', style)}>{children}</View>
+);
+
+type ActionsItemProps = {
+	title: string;
+	icon: Icon;
+	onPress?: () => void;
+};
+
+const ActionsItem = ({ icon, onPress, title }: ActionsItemProps) => {
+	const Icon = icon;
+	return (
+		<Pressable onPress={onPress} style={tw`flex flex-row items-center justify-between px-4`}>
+			<Text style={tw`text-base leading-none text-white`}>{title}</Text>
+			<Icon color="white" size={22} />
+		</Pressable>
+	);
+};
+
+const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
@@ -75,10 +101,24 @@ export const ActionsModal = () => {
 							</View>
 							<FavoriteButton style={tw`mr-4`} data={objectData} />
 						</View>
-						{/* Divider */}
-						<Divider style={tw`my-5`} />
-						{/* Buttons */}
-						<Text style={tw`text-ink font-bold`}>ACTIONS HERE</Text>
+						<View style={tw`my-2`} />
+						{/* Actions */}
+						<ActionsContainer>
+							<ActionsItem icon={Heart} title="test" />
+							<ActionDivider />
+							<ActionsItem icon={Heart} title="test" />
+							<ActionDivider />
+							<ActionsItem icon={Heart} title="test" />
+							<ActionDivider />
+							<ActionsItem icon={Heart} title="test" />
+						</ActionsContainer>
+						<ActionsContainer style={tw`my-2`}>
+							<ActionsItem
+								icon={Info}
+								title="Show Info"
+								onPress={() => fileInfoRef.current.present()}
+							/>
+						</ActionsContainer>
 					</View>
 				)}
 			</Modal>
