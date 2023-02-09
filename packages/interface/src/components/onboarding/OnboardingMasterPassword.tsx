@@ -1,8 +1,7 @@
-import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
-import { Button, Card, forms } from '@sd/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-
+import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
+import { Button, Card, forms } from '@sd/ui';
 import { PasswordMeter } from '../key/PasswordMeter';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './OnboardingRoot';
@@ -86,10 +85,8 @@ export default function OnboardingNewLibrary() {
 					<div className="flex flex-grow mt-2 mb-2">
 						<PasswordShowHideInput
 							{...form.register('password')}
-							//@ts-expect-error - size prop conflicts for some reason, despite being a valid variant
 							size="md"
 							autoFocus
-							// value={disabled ? 'xxxxxxxxxxxxxxxxxxxxxxxx' : ''}
 							className="w-full"
 							disabled={form.formState.isSubmitting}
 						/>
@@ -98,11 +95,9 @@ export default function OnboardingNewLibrary() {
 						<div className="flex flex-grow mb-2">
 							<PasswordShowHideInput
 								{...form.register('password_validate')}
-								//@ts-expect-error - size prop conflicts for some reason, despite being a valid variant
 								size="md"
 								placeholder="Confirm password"
 								autoFocus
-								// value={disabled ? 'xxxxxxxxxxxxxxxxxxxxxxxx' : ''}
 								className="w-full"
 								disabled={form.formState.isSubmitting}
 							/>

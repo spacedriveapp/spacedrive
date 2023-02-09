@@ -55,7 +55,6 @@ export default function EditLocation() {
 	});
 
 	const onSubmit = form.handleSubmit(async (data) => {
-		console.log({ data });
 		updateLocation.mutate({
 			id: Number(id),
 			name: data.displayName,

@@ -5,3 +5,5 @@ export function arraysEqual<T>(a: T[], b: T[]) {
 
 	return a.every((n, i) => b[i] === n);
 }
+
+export * from './objectKind';
