@@ -29,7 +29,7 @@
 //! // Write the header to the file
 //! header.write(&mut writer).unwrap();
 //! ```
-use std::io::SeekFrom;
+use std::io::{Cursor, SeekFrom};
 
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
@@ -294,25 +294,26 @@ impl FileHeader {
 				// read and discard the padding
 				reader.read_exact(&mut vec![0u8; 25 - nonce.len()]).await?;
 
-				let mut keyslot_bytes = [0u8; (KEYSLOT_SIZE * 2)]; // length of 2x keyslots
+				let mut keyslot_bytes = vec![0u8; KEYSLOT_SIZE * 2]; // length of 2x keyslots
 				let mut keyslots: Vec<Keyslot> = Vec::new();
 
 				reader.read_exact(&mut keyslot_bytes).await?;
+				let mut keyslot_reader = Cursor::new(keyslot_bytes);
 
 				for _ in 0..2 {
-					Keyslot::from_reader(&mut keyslot_bytes.as_ref())
+					Keyslot::from_reader(&mut keyslot_reader)
 						.map(|k| keyslots.push(k))
 						.ok();
 				}
 
 				let metadata = if let Ok(metadata) = Metadata::from_reader(reader).await {
+					Ok::<Option<Metadata>, Error>(Some(metadata))
+				} else {
 					reader
 						.seek(SeekFrom::Start(
 							Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 						))
 						.await?;
-					Ok::<Option<Metadata>, Error>(Some(metadata))
-				} else {
 					Ok(None)
 				}?;
 
