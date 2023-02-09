@@ -79,6 +79,10 @@ impl FileHeader {
 		algorithm: Algorithm,
 		keyslots: Vec<Keyslot>,
 	) -> Result<Self> {
+		if keyslots.len() > 2 {
+			return Err(Error::TooManyKeyslots);
+		}
+
 		let f = Self {
 			version,
 			algorithm,
@@ -341,5 +345,326 @@ impl FileHeader {
 		};
 
 		Ok((header, aad))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use crate::{
+		keys::hashing::{HashingAlgorithm, Params},
+		primitives::{types::Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_PREVIEW_MEDIA},
+	};
+
+	use super::*;
+
+	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
+	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
+	const PVM_BYTES: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
+
+	#[tokio::test]
+	async fn serialize_and_deserialize_header() {
+		let mk = Key::generate();
+		let content_salt = Salt::generate();
+		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![Keyslot::new(
+				LATEST_KEYSLOT,
+				ALGORITHM,
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw,
+				mk,
+			)
+			.await
+			.unwrap()],
+		)
+		.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		FileHeader::from_reader(&mut writer).await.unwrap();
+
+		assert!(writer.position() == 260)
+	}
+
+	#[tokio::test]
+	async fn serialize_and_deserialize_header_with_preview_media() {
+		let mk = Key::generate();
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![Keyslot::new(
+				LATEST_KEYSLOT,
+				ALGORITHM,
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk.clone(),
+			)
+			.await
+			.unwrap()],
+		)
+		.unwrap();
+
+		header
+			.add_preview_media(LATEST_PREVIEW_MEDIA, ALGORITHM, mk, &PVM_BYTES)
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let (header, _) = FileHeader::from_reader(&mut writer).await.unwrap();
+
+		assert!(header.preview_media.is_some());
+		assert!(header.metadata.is_none());
+		assert!(header.keyslots.len() == 1);
+	}
+
+	#[cfg(feature = "serde")]
+	#[tokio::test]
+	async fn serialize_and_deserialize_header_with_metadata() {
+		use crate::primitives::LATEST_METADATA;
+
+		#[derive(serde::Serialize)]
+		struct Metadata {
+			pub name: String,
+			pub favorite: bool,
+		}
+
+		let mk = Key::generate();
+		let md = Metadata {
+			name: "file.txt".to_string(),
+			favorite: true,
+		};
+
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![Keyslot::new(
+				LATEST_KEYSLOT,
+				ALGORITHM,
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk.clone(),
+			)
+			.await
+			.unwrap()],
+		)
+		.unwrap();
+
+		header
+			.add_metadata(LATEST_METADATA, ALGORITHM, mk, &md)
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let (header, _) = FileHeader::from_reader(&mut writer).await.unwrap();
+
+		assert!(header.metadata.is_some());
+		assert!(header.preview_media.is_none());
+		assert!(header.keyslots.len() == 1);
+	}
+
+	#[tokio::test]
+	async fn serialize_and_deserialize_header_with_two_keyslots() {
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mk = Key::generate();
+
+		let header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk.clone(),
+				)
+				.await
+				.unwrap(),
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk,
+				)
+				.await
+				.unwrap(),
+			],
+		)
+		.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let (header, _) = FileHeader::from_reader(&mut writer).await.unwrap();
+		assert!(header.keyslots.len() == 2);
+		assert!(header.metadata.is_none());
+		assert!(header.preview_media.is_none());
+	}
+
+	#[tokio::test]
+	#[should_panic]
+	async fn serialize_and_deserialize_header_with_too_many_keyslots() {
+		let mk = Key::generate();
+
+		FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk.clone(),
+				)
+				.await
+				.unwrap(),
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk.clone(),
+				)
+				.await
+				.unwrap(),
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk,
+				)
+				.await
+				.unwrap(),
+			],
+		)
+		.unwrap();
+	}
+
+	#[cfg(feature = "serde")]
+	#[tokio::test]
+	async fn serialize_and_deserialize_header_with_all() {
+		use crate::primitives::LATEST_METADATA;
+
+		#[derive(serde::Serialize)]
+		struct Metadata {
+			pub name: String,
+			pub favorite: bool,
+		}
+
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mk = Key::generate();
+
+		let md = Metadata {
+			name: "file.txt".to_string(),
+			favorite: true,
+		};
+
+		let mut header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk.clone(),
+				)
+				.await
+				.unwrap(),
+				Keyslot::new(
+					LATEST_KEYSLOT,
+					ALGORITHM,
+					HASHING_ALGORITHM,
+					Salt::generate(),
+					Key::generate(),
+					mk.clone(),
+				)
+				.await
+				.unwrap(),
+			],
+		)
+		.unwrap();
+
+		header
+			.add_metadata(LATEST_METADATA, ALGORITHM, mk.clone(), &md)
+			.await
+			.unwrap();
+
+		header
+			.add_preview_media(LATEST_PREVIEW_MEDIA, ALGORITHM, mk, &PVM_BYTES)
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let (header, _) = FileHeader::from_reader(&mut writer).await.unwrap();
+		assert!(header.metadata.is_some());
+		assert!(header.preview_media.is_some());
+		assert!(header.keyslots.len() == 2);
+	}
+
+	#[tokio::test]
+	async fn aad_validity() {
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let header = FileHeader::new(
+			LATEST_FILE_HEADER,
+			ALGORITHM,
+			vec![Keyslot::new(
+				LATEST_KEYSLOT,
+				ALGORITHM,
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				Key::generate(),
+			)
+			.await
+			.unwrap()],
+		)
+		.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let (header, aad) = FileHeader::from_reader(&mut writer).await.unwrap();
+
+		assert_eq!(header.generate_aad(), aad);
+		assert_eq!(&header.to_bytes().unwrap()[..36], aad);
 	}
 }
