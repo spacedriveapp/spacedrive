@@ -117,7 +117,20 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 
 	return (
 		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
-			<div ref={scrollRef} className="h-screen custom-scroll explorer-scroll">
+			<div
+				ref={scrollRef}
+				className="h-screen custom-scroll explorer-scroll"
+				onClick={(e) => {
+					if (
+						!scrollRef.current ||
+						(!(e.target as HTMLElement).classList.contains('file-row') &&
+							scrollRef.current !== e.target)
+					)
+						return;
+
+					getExplorerStore().selectedRowIndex = -1;
+				}}
+			>
 				<div
 					ref={innerRef}
 					style={{
@@ -132,7 +145,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 								height: `${virtualRow.size}px`,
 								transform: `translateY(${virtualRow.start}px)`
 							}}
-							className="absolute top-0 left-0 flex w-full"
+							className="file-row absolute top-0 left-0 flex w-full"
 							key={virtualRow.key}
 						>
 							{explorerStore.layoutMode === 'list' ? (
