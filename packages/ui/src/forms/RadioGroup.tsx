@@ -30,9 +30,9 @@ export function options<T extends Options>(data: T) {
 		schema,
 		details: <Details extends object>(details: Record<z.infer<z.ZodUnion<T>>, Details>) => ({
 			schema,
-			options: Object.entries(schema).map(([value, details]) => ({
+			options: Object.entries(details).map(([value, details]) => ({
 				value,
-				...details
+				...(details as any)
 			})) as {
 				[Value in keyof T]: {
 					value: Value;
