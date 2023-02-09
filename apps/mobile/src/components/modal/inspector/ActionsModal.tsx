@@ -1,6 +1,8 @@
+import dayjs from 'dayjs';
+import { Heart } from 'phosphor-react-native';
 import { useRef } from 'react';
-import { Button, Text, View } from 'react-native';
-import { ExplorerItem, ObjectKind, isObject, isPath, useLibraryQuery } from '@sd/client';
+import { Alert, Pressable, Text, View } from 'react-native';
+import { ObjectKind, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import Divider from '~/components/primitive/Divider';
@@ -30,15 +32,26 @@ export const ActionsModal = () => {
 					<View style={tw`flex-1 p-4`}>
 						<View style={tw`flex flex-row items-center`}>
 							{/* Thumbnail/Icon */}
-							<FileThumb data={data} size={1} />
+							<Pressable onPress={() => fileInfoRef.current.present()}>
+								<FileThumb data={data} size={1} />
+							</Pressable>
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text style={tw`text-base font-bold text-gray-200`} numberOfLines={1}>
 									{item.name}
 									{item.extension && `.${item.extension}`}
 								</Text>
+								<View style={tw`flex flex-row`}>
+									<Text style={tw`text-ink-faint text-xs`}>
+										{formatBytes(Number(objectData?.size_in_bytes || 0))},
+									</Text>
+									<Text style={tw`text-ink-faint text-xs`}>
+										{' '}
+										{dayjs(item.date_created).format('MMM Do YYYY')}
+									</Text>
+								</View>
 								{/* Info pills w/ tags */}
-								<View style={tw`flex flex-row flex-wrap mt-2`}>
+								<View style={tw`flex flex-row flex-wrap mt-1`}>
 									{/* Kind */}
 									<InfoPill
 										containerStyle={tw`mr-1`}
@@ -55,20 +68,22 @@ export const ActionsModal = () => {
 											textStyle={tw`text-white`}
 										/>
 									))}
-									<PlaceholderPill text={'Add Tag'} />
+									<Pressable onPress={() => Alert.alert('TODO')}>
+										<PlaceholderPill text={'Add Tag'} />
+									</Pressable>
 								</View>
-								{/* <Pressable style={tw`mt-0.5`} onPress={() => fileInfoRef.current.present()}>
+							</View>
+							<Pressable style={tw`mr-4`} onPress={() => Alert.alert('TODO')}>
+								<Heart color="white" size={20} weight="regular" />
+							</Pressable>
+							{/* <Pressable style={tw`mt-0.5`} onPress={() => fileInfoRef.current.present()}>
 									<Text style={tw`text-sm text-accent`}>More</Text>
 								</Pressable> */}
-							</View>
 						</View>
 						{/* Divider */}
-						<Divider style={tw`my-6`} />
+						<Divider style={tw`my-5`} />
 						{/* Buttons */}
-						<Button onPress={() => modalRef.current.close()} title="Copy" color="white" />
-						<Button onPress={() => modalRef.current.close()} title="Move" color="white" />
-						<Button onPress={() => modalRef.current.close()} title="Share" color="white" />
-						<Button onPress={() => modalRef.current.close()} title="Delete" color="white" />
+						<Text style={tw`text-ink font-bold`}>ACTIONS HERE</Text>
 					</View>
 				)}
 			</Modal>
