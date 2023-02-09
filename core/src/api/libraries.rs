@@ -1,30 +1,34 @@
 use crate::{
-	library::LibraryConfig,
+	api::Ctx,
+	invalidate_query,
+	library::{LibraryConfig, LibraryContext},
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
 };
 
-use super::{
-	utils::{get_size, LibraryRequest},
-	RouterBuilder,
+use sd_crypto::{
+    crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
+    primitives::types::OnboardingConfig, Protected,
 };
+
 use chrono::Utc;
 use rspc::{Error, ErrorCode, Type};
-use sd_crypto::{
-	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
-	primitives::types::OnboardingConfig, Protected,
-};
 use serde::Deserialize;
 use tracing::debug;
 use uuid::Uuid;
 
+use super::{
+    utils::{get_size, LibraryRequest},
+    RouterBuilder,
+};
+
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
 		.query("list", |t| {
-			t(|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
+			t(|ctx: Ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
 		})
 		.library_query("getStatistics", |t| {
-			t(|_, _: (), library| async move {
+			t(|_, _: (), library: LibraryContext| async move {
 				let _statistics = library
 					.db
 					.statistics()
@@ -102,7 +106,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				hashing_algorithm: HashingAlgorithm,
 			}
 
-			t(|ctx, args: CreateLibraryArgs| async move {
+			t(|ctx: Ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
 				let password = match args.auth {
@@ -125,7 +129,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 				};
 
-				Ok(ctx
+				let new_library = ctx
 					.library_manager
 					.create(
 						LibraryConfig {
@@ -138,7 +142,15 @@ pub(crate) fn mount() -> RouterBuilder {
 							hashing_algorithm: args.hashing_algorithm,
 						},
 					)
-					.await?)
+					.await?;
+
+				invalidate_query!(
+					// SAFETY: This unwrap is alright as we just created the library
+					ctx.library_manager.get_ctx(new_library.uuid).await.unwrap(),
+					"library.getStatistics"
+				);
+
+				Ok(new_library)
 			})
 		})
 		.mutation("edit", |t| {
@@ -149,7 +161,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub description: Option<String>,
 			}
 
-			t(|ctx, args: EditLibraryArgs| async move {
+			t(|ctx: Ctx, args: EditLibraryArgs| async move {
 				Ok(ctx
 					.library_manager
 					.edit(args.id, args.name, args.description)
@@ -157,6 +169,6 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.mutation("delete", |t| {
-			t(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
+			t(|ctx: Ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
 		})
 }
