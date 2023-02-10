@@ -1,5 +1,16 @@
 import dayjs from 'dayjs';
-import { Heart, Icon, Info } from 'phosphor-react-native';
+import {
+	Copy,
+	Heart,
+	Icon,
+	Info,
+	LockSimple,
+	LockSimpleOpen,
+	Package,
+	Pencil,
+	Share,
+	TrashSimple
+} from 'phosphor-react-native';
 import { PropsWithChildren, useRef } from 'react';
 import { Alert, Pressable, Text, View, ViewStyle } from 'react-native';
 import { ObjectKind, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
@@ -23,14 +34,22 @@ type ActionsItemProps = {
 	title: string;
 	icon: Icon;
 	onPress?: () => void;
+	isDanger?: boolean;
 };
 
-const ActionsItem = ({ icon, onPress, title }: ActionsItemProps) => {
+const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProps) => {
 	const Icon = icon;
 	return (
 		<Pressable onPress={onPress} style={tw`flex flex-row items-center justify-between px-4`}>
-			<Text style={tw`text-base leading-none text-white`}>{title}</Text>
-			<Icon color="white" size={22} />
+			<Text
+				style={twStyle(
+					'text-base leading-none font-medium',
+					isDanger ? 'text-red-600' : 'text-ink'
+				)}
+			>
+				{title}
+			</Text>
+			<Icon color={isDanger ? 'red' : 'white'} size={22} />
 		</Pressable>
 	);
 };
@@ -55,7 +74,7 @@ export const ActionsModal = () => {
 		<>
 			<Modal ref={modalRef} snapPoints={['60%', '90%']}>
 				{data && (
-					<View style={tw`flex-1 p-4`}>
+					<View style={tw`flex-1 px-4`}>
 						<View style={tw`flex flex-row items-center`}>
 							{/* Thumbnail/Icon */}
 							<Pressable onPress={() => fileInfoRef.current.present()}>
@@ -101,23 +120,30 @@ export const ActionsModal = () => {
 							</View>
 							<FavoriteButton style={tw`mr-4`} data={objectData} />
 						</View>
-						<View style={tw`my-2`} />
+						<View style={tw`my-3`} />
 						{/* Actions */}
 						<ActionsContainer>
-							<ActionsItem icon={Heart} title="test" />
-							<ActionDivider />
-							<ActionsItem icon={Heart} title="test" />
-							<ActionDivider />
-							<ActionsItem icon={Heart} title="test" />
-							<ActionDivider />
-							<ActionsItem icon={Heart} title="test" />
-						</ActionsContainer>
-						<ActionsContainer style={tw`my-2`}>
 							<ActionsItem
 								icon={Info}
 								title="Show Info"
 								onPress={() => fileInfoRef.current.present()}
 							/>
+						</ActionsContainer>
+						<ActionsContainer style={tw`mt-2`}>
+							<ActionsItem icon={Pencil} title="Rename" />
+							<ActionDivider />
+							<ActionsItem icon={Copy} title="Duplicate" />
+							<ActionDivider />
+							<ActionsItem icon={Share} title="Share" />
+						</ActionsContainer>
+						<ActionsContainer style={tw`mt-2`}>
+							<ActionsItem icon={LockSimple} title="Encrypt" />
+							<ActionDivider />
+							<ActionsItem icon={LockSimpleOpen} title="Decrypt" />
+							<ActionDivider />
+							<ActionsItem icon={Package} title="Compress" />
+							<ActionDivider />
+							<ActionsItem icon={TrashSimple} title="Delete" isDanger />
 						</ActionsContainer>
 					</View>
 				)}

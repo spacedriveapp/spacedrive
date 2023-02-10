@@ -16,7 +16,7 @@ type FileThumbProps = {
 };
 
 export const getThumbnailUrlById = (casId: string) =>
-	`${DocumentDirectoryPath}/dev/thumbnails/${encodeURIComponent(casId)}.webp`;
+	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
 const FileThumbWrapper = ({ children, size = 1 }) => (
 	<View style={[tw`justify-center items-center`, { width: 80 * size, height: 80 * size }]}>
