@@ -1,15 +1,18 @@
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import { cx } from 'class-variance-authority';
 import clsx from 'clsx';
+import { forwardRef } from 'react';
 
 export interface RootProps extends RadioGroup.RadioGroupProps {}
-export const Root = ({ children, className, ...props }: RootProps) => {
-	return (
-		<RadioGroup.Root {...props}>
-			<div className={clsx('space-y-3', className)}>{children}</div>
-		</RadioGroup.Root>
-	);
-};
+export const Root = forwardRef<HTMLDivElement, RootProps>(
+	({ children, className, ...props }, ref) => {
+		return (
+			<RadioGroup.Root {...props} ref={ref}>
+				<div className={clsx('space-y-3', className)}>{children}</div>
+			</RadioGroup.Root>
+		);
+	}
+);
 
 // export const Item = tw(
 // 	RadioGroup.Item

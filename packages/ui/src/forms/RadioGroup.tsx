@@ -9,12 +9,20 @@ export interface RootProps extends UseFormFieldProps, RadioGroup.RootProps {
 }
 
 export const Root = forwardRef<HTMLDivElement, RootProps>((props, _) => {
-	const { field } = useController(props);
+	const {
+		field: { onChange, ...field }
+	} = useController(props);
 	const { formFieldProps, childProps } = useFormField(props);
 
 	return (
 		<FormField {...formFieldProps}>
-			<RadioGroup.Root {...childProps} value={field.value} onValueChange={field.onChange} />
+			<RadioGroup.Root
+				{...childProps}
+				{...field}
+				/* No-op so that only onValueChange is used */
+				onChange={() => {}}
+				onValueChange={onChange}
+			/>
 		</FormField>
 	);
 });
