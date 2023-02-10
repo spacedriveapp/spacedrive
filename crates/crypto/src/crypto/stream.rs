@@ -307,6 +307,9 @@ impl StreamDecryption {
 
 #[cfg(test)]
 mod tests {
+	use rand::{RngCore, SeedableRng};
+	use rand_chacha::ChaCha20Rng;
+
 	use super::*;
 
 	const KEY: [u8; 32] = [
@@ -431,6 +434,84 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn aes_encrypt_and_decrypt_5_blocks() {
+		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = StreamEncryption::new(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+		)
+		.unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = StreamDecryption::new(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+		)
+		.unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[tokio::test]
+	async fn aes_encrypt_and_decrypt_5_blocks_with_aad() {
+		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = StreamEncryption::new(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+		)
+		.unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = StreamDecryption::new(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::Aes256Gcm,
+		)
+		.unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[tokio::test]
 	async fn xchacha_encrypt_bytes() {
 		let ciphertext = StreamEncryption::encrypt_bytes(
 			Key::new(KEY),
@@ -502,5 +583,83 @@ mod tests {
 		)
 		.await
 		.unwrap();
+	}
+
+	#[tokio::test]
+	async fn xchacha_encrypt_and_decrypt_5_blocks() {
+		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = StreamEncryption::new(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = StreamDecryption::new(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[tokio::test]
+	async fn xchacha_encrypt_and_decrypt_5_blocks_with_aad() {
+		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = StreamEncryption::new(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = StreamDecryption::new(
+			Key::new(KEY),
+			Nonce::XChaCha20Poly1305(XCHACHA_NONCE),
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
 	}
 }
