@@ -1,9 +1,19 @@
+//! This module defines all of the possible types used throughout this crate,
+//! in an effort to add additional type safety.
 use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 use zeroize::Zeroize;
 
 use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 
+use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
+
+/// This should be used for providing a nonce to encrypt/decrypt functions.
+///
+/// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
@@ -67,6 +77,11 @@ impl Deref for Nonce {
 	}
 }
 
+/// This should be used for providing a key to functions.
+///
+/// It can either be a random key, or a hashed key.
+///
+/// You may also generate a secure random key with `Key::generate()`
 #[derive(Clone)]
 pub struct Key(pub Protected<[u8; KEY_LEN]>);
 
@@ -117,6 +132,9 @@ impl Deref for Key {
 	}
 }
 
+/// This should be used for providing a secret key to functions.
+///
+/// You may also generate a secret key with `SecretKey::generate()`
 #[derive(Clone)]
 pub struct SecretKey(pub Protected<[u8; SECRET_KEY_LEN]>);
 
@@ -144,6 +162,24 @@ impl Deref for SecretKey {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+/// This should be used for passing a secret key string around.
+///
+/// It is `SECRET_KEY_LEN` bytes, encoded in hex and delimited with `-` every 6 characters.
+#[derive(Clone)]
+pub struct SecretKeyString(pub Protected<String>);
+
+impl SecretKeyString {
+	#[must_use]
+	pub const fn new(v: String) -> Self {
+		Self(Protected::new(v))
+	}
+
+	#[must_use]
+	pub const fn expose(&self) -> &String {
+		self.0.expose()
 	}
 }
 
@@ -184,6 +220,9 @@ impl From<SecretKeyString> for SecretKey {
 	}
 }
 
+/// This should be used for passing a password around.
+///
+/// It can be a string of any length.
 #[derive(Clone)]
 pub struct Password(pub Protected<String>);
 
@@ -199,25 +238,9 @@ impl Password {
 	}
 }
 
-#[derive(Clone)]
-pub struct SecretKeyString(pub Protected<String>);
-
-impl SecretKeyString {
-	#[must_use]
-	pub const fn new(v: String) -> Self {
-		Self(Protected::new(v))
-	}
-
-	#[must_use]
-	pub const fn expose(&self) -> &String {
-		self.0.expose()
-	}
-}
-
-#[cfg(feature = "serde")]
-use serde_big_array::BigArray;
-
-use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+/// This should be used for passing an encrypted key around.
+///
+/// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
@@ -242,6 +265,9 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 	}
 }
 
+/// This should be used for passing a salt around.
+///
+/// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]

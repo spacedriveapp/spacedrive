@@ -6,7 +6,7 @@ use std::io::Cursor;
 use crate::{
 	primitives::{
 		types::{Key, Nonce},
-		AEAD_TAG_SIZE, BLOCK_SIZE,
+		AEAD_TAG_LEN, BLOCK_LEN,
 	},
 	Error, Protected, Result,
 };
@@ -104,7 +104,7 @@ impl StreamEncryption {
 
 	/// This function should be used for encrypting large amounts of data.
 	///
-	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, encrypts, and writes to the writer.
+	/// The streaming implementation reads blocks of data in `BLOCK_LEN`, encrypts, and writes to the writer.
 	///
 	/// It requires a reader, a writer, and any AAD to go with it.
 	///
@@ -119,20 +119,20 @@ impl StreamEncryption {
 		R: AsyncReadExt + Unpin + Send,
 		W: AsyncWriteExt + Unpin + Send,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
+		let mut read_buffer = vec![0u8; BLOCK_LEN].into_boxed_slice();
 
 		loop {
 			let mut read_count = 0;
 			loop {
 				let i = reader.read(&mut read_buffer[read_count..]).await?;
 				read_count += i;
-				if i == 0 || read_count == BLOCK_SIZE {
+				if i == 0 || read_count == BLOCK_LEN {
 					// if we're EOF or the buffer is filled
 					break;
 				}
 			}
 
-			if read_count == BLOCK_SIZE {
+			if read_count == BLOCK_LEN {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer,
@@ -231,7 +231,7 @@ impl StreamDecryption {
 
 	/// This function should be used for decrypting large amounts of data.
 	///
-	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, decrypts, and writes to the writer.
+	/// The streaming implementation reads blocks of data in `BLOCK_LEN`, decrypts, and writes to the writer.
 	///
 	/// It requires a reader, a writer, and any AAD that was used.
 	///
@@ -246,20 +246,20 @@ impl StreamDecryption {
 		R: AsyncReadExt + Unpin + Send,
 		W: AsyncWriteExt + Unpin + Send,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_SIZE + AEAD_TAG_SIZE].into_boxed_slice();
+		let mut read_buffer = vec![0u8; BLOCK_LEN + AEAD_TAG_LEN].into_boxed_slice();
 
 		loop {
 			let mut read_count = 0;
 			loop {
 				let i = reader.read(&mut read_buffer[read_count..]).await?;
 				read_count += i;
-				if i == 0 || read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
+				if i == 0 || read_count == (BLOCK_LEN + AEAD_TAG_LEN) {
 					// if we're EOF or the buffer is filled
 					break;
 				}
 			}
 
-			if read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
+			if read_count == (BLOCK_LEN + AEAD_TAG_LEN) {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer,
@@ -435,7 +435,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn aes_encrypt_and_decrypt_5_blocks() {
-		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
@@ -474,7 +474,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn aes_encrypt_and_decrypt_5_blocks_with_aad() {
-		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
@@ -587,7 +587,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_encrypt_and_decrypt_5_blocks() {
-		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
@@ -626,7 +626,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_encrypt_and_decrypt_5_blocks_with_aad() {
-		let mut buf = vec![0u8; BLOCK_SIZE * 5];
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
