@@ -1,13 +1,23 @@
 -- CreateTable
-CREATE TABLE "sync_event" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE "owned_operation" (
+    "id" BLOB NOT NULL PRIMARY KEY,
+    "timestamp" BIGINT NOT NULL,
+    "data" BLOB NOT NULL,
+    "model" TEXT NOT NULL,
     "node_id" INTEGER NOT NULL,
-    "timestamp" TEXT NOT NULL,
+    CONSTRAINT "owned_operation_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "shared_operation" (
+    "id" BLOB NOT NULL PRIMARY KEY,
+    "timestamp" BIGINT NOT NULL,
+    "model" TEXT NOT NULL,
     "record_id" BLOB NOT NULL,
-    "kind" INTEGER NOT NULL,
-    "column" TEXT,
-    "value" TEXT NOT NULL,
-    CONSTRAINT "sync_event_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "kind" TEXT NOT NULL,
+    "data" BLOB NOT NULL,
+    "node_id" INTEGER NOT NULL,
+    CONSTRAINT "shared_operation_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -58,11 +68,10 @@ CREATE TABLE "location" (
     "local_path" TEXT,
     "total_capacity" INTEGER,
     "available_capacity" INTEGER,
-    "filesystem" TEXT,
-    "disk_type" INTEGER,
-    "is_removable" BOOLEAN,
-    "is_online" BOOLEAN NOT NULL DEFAULT true,
     "is_archived" BOOLEAN NOT NULL DEFAULT false,
+    "generate_preview_media" BOOLEAN NOT NULL DEFAULT true,
+    "sync_preview_media" BOOLEAN NOT NULL DEFAULT true,
+    "hidden" BOOLEAN NOT NULL DEFAULT false,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "location_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -70,12 +79,11 @@ CREATE TABLE "location" (
 -- CreateTable
 CREATE TABLE "object" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "cas_id" TEXT NOT NULL,
-    "integrity_checksum" TEXT,
+    "pub_id" BLOB NOT NULL,
     "name" TEXT,
-    "extension" TEXT COLLATE NOCASE,
+    "extension" TEXT,
     "kind" INTEGER NOT NULL DEFAULT 0,
-    "size_in_bytes" TEXT NOT NULL,
+    "size_in_bytes" TEXT NOT NULL DEFAULT '0',
     "key_id" INTEGER,
     "hidden" BOOLEAN NOT NULL DEFAULT false,
     "favorite" BOOLEAN NOT NULL DEFAULT false,
@@ -95,10 +103,12 @@ CREATE TABLE "object" (
 CREATE TABLE "file_path" (
     "id" INTEGER NOT NULL,
     "is_dir" BOOLEAN NOT NULL DEFAULT false,
+    "cas_id" TEXT,
+    "integrity_checksum" TEXT,
     "location_id" INTEGER NOT NULL,
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "extension" TEXT COLLATE NOCASE,
+    "extension" TEXT,
     "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,
@@ -107,8 +117,8 @@ CREATE TABLE "file_path" (
     "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY ("location_id", "id"),
-    CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "file_path_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "file_path_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "key" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -121,10 +131,21 @@ CREATE TABLE "file_conflict" (
 -- CreateTable
 CREATE TABLE "key" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "checksum" TEXT NOT NULL,
+    "uuid" TEXT NOT NULL,
+    "version" TEXT NOT NULL,
+    "key_type" TEXT NOT NULL,
     "name" TEXT,
+    "default" BOOLEAN NOT NULL DEFAULT false,
     "date_created" DATETIME DEFAULT CURRENT_TIMESTAMP,
-    "algorithm" INTEGER DEFAULT 0
+    "algorithm" TEXT NOT NULL,
+    "hashing_algorithm" TEXT NOT NULL,
+    "content_salt" BLOB NOT NULL,
+    "master_key" BLOB NOT NULL,
+    "master_key_nonce" BLOB NOT NULL,
+    "key_nonce" BLOB NOT NULL,
+    "key" BLOB NOT NULL,
+    "salt" BLOB NOT NULL,
+    "automount" BOOLEAN NOT NULL DEFAULT false
 );
 
 -- CreateTable
@@ -288,10 +309,10 @@ CREATE UNIQUE INDEX "volume_node_id_mount_point_name_key" ON "volume"("node_id",
 CREATE UNIQUE INDEX "location_pub_id_key" ON "location"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "object_cas_id_key" ON "object"("cas_id");
+CREATE UNIQUE INDEX "object_pub_id_key" ON "object"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "object_integrity_checksum_key" ON "object"("integrity_checksum");
+CREATE UNIQUE INDEX "file_path_integrity_checksum_key" ON "file_path"("integrity_checksum");
 
 -- CreateIndex
 CREATE INDEX "file_path_location_id_idx" ON "file_path"("location_id");
@@ -306,7 +327,7 @@ CREATE UNIQUE INDEX "file_conflict_original_object_id_key" ON "file_conflict"("o
 CREATE UNIQUE INDEX "file_conflict_detactched_object_id_key" ON "file_conflict"("detactched_object_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "key_checksum_key" ON "key"("checksum");
+CREATE UNIQUE INDEX "key_uuid_key" ON "key"("uuid");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tag_pub_id_key" ON "tag"("pub_id");
