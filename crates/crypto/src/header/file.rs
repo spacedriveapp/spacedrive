@@ -529,7 +529,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic]
+	#[should_panic(expected = "TooManyKeyslots")]
 	async fn serialize_and_deserialize_header_with_too_many_keyslots() {
 		let mk = Key::generate();
 

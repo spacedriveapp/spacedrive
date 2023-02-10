@@ -420,7 +420,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic]
+	#[should_panic(expected = "Decrypt")]
 	async fn aes_decrypt_bytes_missing_aad() {
 		StreamDecryption::decrypt_bytes(
 			Key::new(KEY),
@@ -572,7 +572,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic]
+	#[should_panic(expected = "Decrypt")]
 	async fn xchacha_decrypt_bytes_missing_aad() {
 		StreamDecryption::decrypt_bytes(
 			Key::new(KEY),
@@ -664,7 +664,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic]
+	#[should_panic(expected = "NonceLengthMismatch")]
 	async fn encrypt_with_invalid_nonce() {
 		StreamEncryption::encrypt_bytes(
 			Key::new(KEY),
@@ -678,7 +678,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic]
+	#[should_panic(expected = "NonceLengthMismatch")]
 	async fn decrypt_with_invalid_nonce() {
 		StreamDecryption::decrypt_bytes(
 			Key::new(KEY),
