@@ -118,6 +118,7 @@ model Object {
     pub_id            Bytes    @unique
     // basic metadata
     name              String?
+    // Must have 'COLLATE NOCASE' in migration
     extension         String?
     kind              Int      @default(0)
     size_in_bytes     String   @default("0")
@@ -171,6 +172,7 @@ model FilePath {
     // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
+    // Must have 'COLLATE NOCASE' in migration
     name              String
     extension         String?
 
