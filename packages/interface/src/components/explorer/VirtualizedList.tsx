@@ -121,13 +121,6 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 				ref={scrollRef}
 				className="h-screen custom-scroll explorer-scroll"
 				onClick={(e) => {
-					if (
-						!scrollRef.current ||
-						(!(e.target as HTMLElement).classList.contains('file-row') &&
-							scrollRef.current !== e.target)
-					)
-						return;
-
 					getExplorerStore().selectedRowIndex = -1;
 				}}
 			>
@@ -145,7 +138,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 								height: `${virtualRow.size}px`,
 								transform: `translateY(${virtualRow.start}px)`
 							}}
-							className="file-row absolute top-0 left-0 flex w-full"
+							className="absolute top-0 left-0 flex w-full"
 							key={virtualRow.key}
 						>
 							{explorerStore.layoutMode === 'list' ? (
@@ -199,9 +192,14 @@ const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) =
 		if (isPath(item) && item.item.is_dir) setSearchParams({ path: item.item.materialized_path });
 	}, [item, setSearchParams]);
 
-	const onClick = useCallback(() => {
-		getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
-	}, [isSelected, index]);
+	const onClick = useCallback(
+		(e: React.MouseEvent<HTMLDivElement>) => {
+			e.stopPropagation();
+
+			getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
+		},
+		[isSelected, index]
+	);
 
 	const ItemComponent = kind === 'list' ? FileRow : FileItem;
 
