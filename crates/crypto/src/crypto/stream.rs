@@ -662,4 +662,32 @@ mod tests {
 
 		assert_eq!(buf, output);
 	}
+
+	#[tokio::test]
+	#[should_panic]
+	async fn encrypt_with_invalid_nonce() {
+		StreamEncryption::encrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			&[],
+		)
+		.await
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic]
+	async fn decrypt_with_invalid_nonce() {
+		StreamDecryption::decrypt_bytes(
+			Key::new(KEY),
+			Nonce::Aes256Gcm(AES_NONCE),
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPT_BYTES_EXPECTED,
+			&[],
+		)
+		.await
+		.unwrap();
+	}
 }
