@@ -21,7 +21,7 @@ pub const SALT_LEN: usize = 16;
 /// The length of the secret key, in bytes.
 pub const SECRET_KEY_LEN: usize = 18;
 
-/// The size used for STREAM encryption/decryption. This size seems to offer the best performance compared to alternatives.
+/// The block size used for STREAM encryption/decryption. This size seems to offer the best performance compared to alternatives.
 ///
 /// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag), plus the size of the header.
 pub const BLOCK_LEN: usize = 1_048_576;
@@ -66,9 +66,11 @@ pub const MASTER_PASSWORD_CONTEXT: &str =
 /// Defines the context string for BLAKE3-KDF in regards to file key derivation (for file encryption)
 pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation";
 
-/// This is used for converting a `Vec<u8>` to an array of bytes
+/// This is used for converting a `&[u8]` to an array of bytes.
 ///
-/// This function `zeroize`s any data it can
+/// It does `Clone`, with `to_vec()`.
+///
+/// This function calls `zeroize` on any data it can
 pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
 	bytes.to_vec().try_into().map_err(|mut b: Vec<u8>| {
 		b.zeroize();
