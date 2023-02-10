@@ -1,16 +1,19 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
+	Location,
 	LocationCreateArgs,
+	arraysEqual,
 	getDebugState,
 	useBridgeQuery,
 	useCurrentLibrary,
 	useDebugState,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	useOnlineLocations
 } from '@sd/client';
 import {
 	Button,
@@ -47,6 +50,16 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
+
+	useEffect(() => {
+		// Prevent the dropdown button to be auto focused on launch
+		// Hacky but it works
+		setTimeout(() => {
+			if (!document.activeElement || !('blur' in document.activeElement)) return;
+
+			(document.activeElement.blur as () => void)();
+		});
+	});
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
@@ -119,7 +132,6 @@ export function Sidebar() {
 				{library && <LibraryScopedSection />}
 				<div className="flex-grow" />
 			</SidebarContents>
-
 			<SidebarFooter>
 				<div className="flex">
 					<ButtonLink
@@ -313,6 +325,8 @@ function LibraryScopedSection() {
 
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const onlineLocations = useOnlineLocations();
+
 	const createLocation = useLibraryMutation('locations.create');
 
 	return (
@@ -328,21 +342,10 @@ function LibraryScopedSection() {
 					}
 				>
 					{locations.data?.map((location) => {
-						return (
-							<div key={location.id} className="flex flex-row items-center">
-								<SidebarLink
-									className="relative w-full group"
-									to={{
-										pathname: `location/${location.id}`
-									}}
-								>
-									<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-										<Folder size={18} />
-									</div>
+						const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 
-									<span className="flex-grow flex-shrink-0">{location.name}</span>
-								</SidebarLink>
-							</div>
+						return (
+							<SidebarLocation location={location} online={online ?? false} key={location.id} />
 						);
 					})}
 					{(locations.data?.length || 0) < 4 && (
@@ -395,6 +398,36 @@ function LibraryScopedSection() {
 				</SidebarSection>
 			)}
 		</>
+	);
+}
+
+interface SidebarLocationProps {
+	location: Location;
+	online: boolean;
+}
+
+function SidebarLocation({ location, online }: SidebarLocationProps) {
+	return (
+		<div className="flex flex-row items-center">
+			<SidebarLink
+				className="relative w-full group"
+				to={{
+					pathname: `location/${location.id}`
+				}}
+			>
+				<div className="relative -mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
+					<Folder size={18} />
+					<div
+						className={clsx(
+							'absolute w-1.5 h-1.5 right-0 bottom-0.5 rounded-full',
+							online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+				</div>
+
+				<span className="flex-grow flex-shrink-0">{location.name}</span>
+			</SidebarLink>
+		</div>
 	);
 }
 

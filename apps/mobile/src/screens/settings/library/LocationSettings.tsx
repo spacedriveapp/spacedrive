@@ -1,18 +1,27 @@
 import { CaretRight, Repeat, Trash } from 'phosphor-react-native';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	Location,
+	Node,
+	arraysEqual,
+	useLibraryMutation,
+	useLibraryQuery,
+	useOnlineLocations
+} from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {
-	const { mutate: fullRescan } = useLibraryMutation('locations.fullRescan', {
+	const fullRescan = useLibraryMutation('locations.fullRescan', {
 		onMutate: () => {
 			// TODO: Show Toast
 		}
 	});
+
+	const onlineLocations = useOnlineLocations();
 
 	const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
 		const translate = progress.interpolate({
@@ -38,7 +47,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 				{/* Full Re-scan IS too much here */}
 				<Pressable
 					style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm mx-2`}
-					onPress={() => fullRescan(location.id)}
+					onPress={() => fullRescan.mutate(location.id)}
 				>
 					<Repeat size={18} color="white" />
 				</Pressable>
@@ -62,7 +71,9 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 					<View
 						style={tw.style(
 							'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
-							location.is_online ? 'bg-green-500' : 'bg-red-500'
+							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
+								? 'bg-green-500'
+								: 'bg-red-500'
 						)}
 					/>
 				</View>

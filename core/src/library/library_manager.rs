@@ -33,7 +33,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<LibraryContext>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	node_context: NodeContext,
+	pub node_context: NodeContext,
 }
 
 #[derive(Error, Debug)]
@@ -332,9 +332,9 @@ impl LibraryManager {
 			.await?;
 
 		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-
 		seed_keymanager(&db, &key_manager).await?;
-		let (sync_manager, _) = SyncManager::new(db.clone(), id);
+
+		let (sync_manager, _) = SyncManager::new(&db, id);
 
 		Ok(LibraryContext {
 			id,
