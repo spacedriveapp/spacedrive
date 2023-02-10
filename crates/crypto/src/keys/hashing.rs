@@ -171,23 +171,23 @@ mod tests {
 	const B3BALLOON_HARDENED: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Hardened);
 	const B3BALLOON_PARANOID: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Paranoid);
 
-	const PASSWORD: [u8; 8] = *b"password";
+	const PASSWORD: [u8; 8] = [0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64];
 
-	const KEY: [u8; 32] = [
+	const KEY: Key = Key::new([
 		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
 		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
 		0x23, 0x23,
-	];
+	]);
 
 	const SALT: Salt = Salt([
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF,
 	]);
 
-	const SECRET: [u8; 18] = [
+	const SECRET_KEY: SecretKey = SecretKey::new([
 		0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
 		0x55, 0x55, 0x55,
-	];
+	]);
 
 	// for the `const` arrays below, [0] is standard params, [1] is hardened and [2] is paranoid
 
@@ -268,11 +268,7 @@ mod tests {
 	#[test]
 	fn hash_argon2id_standard_with_secret() {
 		let output = ARGON2ID_STANDARD
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[0], output.expose())
@@ -290,11 +286,7 @@ mod tests {
 	#[test]
 	fn hash_argon2id_hardened_with_secret() {
 		let output = ARGON2ID_HARDENED
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[1], output.expose())
@@ -312,11 +304,7 @@ mod tests {
 	#[test]
 	fn hash_argon2id_paranoid_with_secret() {
 		let output = ARGON2ID_PARANOID
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[2], output.expose())
@@ -334,11 +322,7 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_standard_with_secret() {
 		let output = B3BALLOON_STANDARD
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[0], output.expose())
@@ -356,11 +340,7 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_hardened_with_secret() {
 		let output = B3BALLOON_HARDENED
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[1], output.expose())
@@ -378,11 +358,7 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_paranoid_with_secret() {
 		let output = B3BALLOON_PARANOID
-			.hash(
-				Protected::new(PASSWORD.to_vec()),
-				SALT,
-				Some(SecretKey::new(SECRET)),
-			)
+			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[2], output.expose())
@@ -390,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn derive_b3() {
-		let output = Key::derive(Key::new(KEY), SALT, TEST_CONTEXT);
+		let output = Key::derive(KEY, SALT, TEST_CONTEXT);
 
 		assert_eq!(&DERIVE_B3_EXPECTED, output.expose())
 	}
