@@ -91,7 +91,7 @@ pub trait StatefulJob: Send + Sync + Sized {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
-	async fn finalize(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 #[async_trait::async_trait]

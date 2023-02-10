@@ -21,8 +21,12 @@ export const SettingsSidebar = () => {
 	const os = useOperatingSystem();
 	return (
 		<div className="h-full border-r max-w-[180px] flex-shrink-0 border-app-line/50 w-60 custom-scroll no-scrollbar pb-5">
-			{os !== 'browser' && <div data-tauri-drag-region className="w-full h-5" />}
-			<div className="px-4 py-2.5">
+			{os !== 'browser' ? (
+				<div data-tauri-drag-region className="w-full h-5" />
+			) : (
+				<div className="h-3" />
+			)}
+			<div className="px-4 pb-2.5">
 				<SettingsHeading className="!mt-2">Client</SettingsHeading>
 				<SidebarLink to="/settings/general">
 					<SettingsIcon component={GearSix} />
