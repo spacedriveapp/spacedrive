@@ -8,7 +8,6 @@ const placeholderFileItems: ExplorerItem[] = [
 	{
 		type: 'Path',
 		item: {
-			pending: false,
 			date_created: '2020-01-01T00:00:00.000Z',
 			date_indexed: '2020-01-01T00:00:00.000Z',
 			date_modified: '2020-01-01T00:00:00.000Z',
@@ -115,7 +114,7 @@ const DeviceIcon = {
 
 const Device = ({ name, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`my-2 bg-app-overlay border rounded-md border-app-line`}>
+		<View style={tw`my-2 border rounded-md bg-app-overlay border-app-line`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{DeviceIcon[type]}
