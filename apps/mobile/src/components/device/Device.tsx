@@ -8,6 +8,7 @@ const placeholderFileItems: ExplorerItem[] = [
 	{
 		type: 'Path',
 		item: {
+			pending: false,
 			date_created: '2020-01-01T00:00:00.000Z',
 			date_indexed: '2020-01-01T00:00:00.000Z',
 			date_modified: '2020-01-01T00:00:00.000Z',

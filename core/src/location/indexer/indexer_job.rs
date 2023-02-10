@@ -316,7 +316,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Logs some metadata about the indexer job
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

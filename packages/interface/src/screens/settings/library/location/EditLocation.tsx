@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { useFormState } from 'react-hook-form';
 import { useParams } from 'react-router';
@@ -29,6 +30,7 @@ const schema = z.object({
 });
 
 export default function EditLocation() {
+	const queryClient = useQueryClient();
 	const { id } = useParams<keyof EditLocationParams>() as EditLocationParams;
 
 	useLibraryQuery(['locations.getById', Number(id)], {
@@ -51,19 +53,22 @@ export default function EditLocation() {
 
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: (e) => console.log({ e }),
-		onSuccess: (e) => form.reset(form.getValues())
+		onSuccess: (e) => {
+			form.reset(form.getValues());
+			queryClient.invalidateQueries(['locations.list']);
+		}
 	});
 
-	const onSubmit = form.handleSubmit(async (data) => {
-		updateLocation.mutate({
+	const onSubmit = form.handleSubmit(async (data) =>
+		updateLocation.mutateAsync({
 			id: Number(id),
 			name: data.displayName,
 			sync_preview_media: data.syncPreviewMedia,
 			generate_preview_media: data.generatePreviewMedia,
 			hidden: data.hidden,
 			indexer_rules_ids: []
-		});
-	});
+		})
+	);
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
@@ -91,8 +96,6 @@ export default function EditLocation() {
 					</div>
 				}
 			>
-				{/* {JSON.stringify(form.formState.errors)} */}
-
 				<div className="flex space-x-4">
 					<FlexCol>
 						<Label>Display Name</Label>
