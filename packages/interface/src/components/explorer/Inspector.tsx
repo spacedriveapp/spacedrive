@@ -1,7 +1,7 @@
 // import types from '../../constants/file-types.json';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Barcode, CircleWavyCheck, Clock, Cube, Link, Lock, Snowflake } from 'phosphor-react';
+import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 import { ExplorerContext, ExplorerItem, ObjectKind, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
@@ -20,6 +20,8 @@ export const PlaceholderPill = tw.span`inline border  px-1 text-[11px] shadow sh
 export const MetaContainer = tw.div`flex flex-col px-4 py-1.5`;
 
 export const MetaTitle = tw.h5`text-xs font-bold`;
+
+export const MetaKeyName = tw.h5`text-xs flex-shrink-0 flex-wrap-0`;
 
 export const MetaValue = tw.p`text-xs break-all text-ink truncate`;
 
@@ -59,6 +61,9 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	});
 
 	const item = data?.item;
+
+	// map array of numbers into string
+	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
 
 	return (
 		<div
@@ -150,14 +155,14 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
-									<span className="mr-1.5">Created</span>
+									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
 									<MetaValue>{dayjs(item?.date_created).format('MMM Do YYYY')}</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
-									<span className="mr-1.5">Indexed</span>
+									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
 									<MetaValue>{dayjs(item?.date_indexed).format('MMM Do YYYY')}</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
@@ -171,7 +176,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 									<Tooltip label={filePathData?.cas_id || ''}>
 										<MetaTextLine>
 											<InspectorIcon component={Snowflake} />
-											<span className="mr-1.5">Content ID</span>
+											<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
 											<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
 										</MetaTextLine>
 									</Tooltip>
@@ -179,8 +184,17 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<span className="mr-1.5">Checksum</span>
+												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
 												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+											</MetaTextLine>
+										</Tooltip>
+									)}
+									{pub_id && (
+										<Tooltip label={pub_id || ''}>
+											<MetaTextLine>
+												<InspectorIcon component={Hash} />
+												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}

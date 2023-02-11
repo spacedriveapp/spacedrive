@@ -330,11 +330,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 							className="my-2"
 						>
-							{store.showInspector ? (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							) : (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							)}
+							<SidebarSimple
+								weight={store.showInspector ? 'fill' : 'regular'}
+								className={clsx(TOP_BAR_ICON_STYLE, 'transform scale-x-[-1]')}
+							/>
 						</TopBarButton>
 					</Tooltip>
 					{/* <Dropdown

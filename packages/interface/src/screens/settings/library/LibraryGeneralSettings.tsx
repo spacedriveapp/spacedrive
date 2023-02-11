@@ -32,11 +32,15 @@ export default function LibraryGeneralSettings() {
 			<div className="flex flex-row pb-3 space-x-5">
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Name</span>
-					<Input {...form.register('name', { required: true })} defaultValue="My Default Library" />
+					<Input
+						size="md"
+						{...form.register('name', { required: true })}
+						defaultValue="My Default Library"
+					/>
 				</div>
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Description</span>
-					<Input {...form.register('description')} placeholder="" />
+					<Input size="md" {...form.register('description')} placeholder="" />
 				</div>
 			</div>
 

@@ -1,8 +1,14 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
 import {
+	Broadcast,
 	CheckCircle,
 	CirclesFour,
+	CopySimple,
+	Crosshair,
+	Eraser,
+	Eyeglasses,
+	FilmStrip,
 	Gear,
 	Lock,
 	MonitorPlay,
@@ -141,8 +147,33 @@ export function Sidebar() {
 						<Icon component={MonitorPlay} />
 						Media
 					</SidebarLink>
+					<SidebarLink to="spacedrop">
+						<Icon component={Broadcast} />
+						Spacedrop
+					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
+				<SidebarSection
+					name="Tools"
+					actionArea={<SidebarHeadingOptionsButton to="/settings/locations" />}
+				>
+					<SidebarLink to="duplicate-finder">
+						<Icon component={CopySimple} />
+						Duplicate Finder
+					</SidebarLink>
+					<SidebarLink to="lost-and-found">
+						<Icon component={Crosshair} />
+						Find a File
+					</SidebarLink>
+					<SidebarLink to="cache-cleaner">
+						<Icon component={Eraser} />
+						Cache Cleaner
+					</SidebarLink>
+					<SidebarLink to="media-encoder">
+						<Icon component={FilmStrip} />
+						Media Encoder
+					</SidebarLink>
+				</SidebarSection>
 				<div className="flex-grow" />
 			</SidebarContents>
 			<SidebarFooter>

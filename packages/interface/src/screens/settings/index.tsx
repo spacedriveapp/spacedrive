@@ -1,6 +1,6 @@
 import { Navigate, Route, RouteProps } from 'react-router-dom';
 import { lazyEl } from '~/util';
-import SettingsSubPage from './SettingsSubPage';
+import SettingsSubPageScreen from './SettingsSubPage';
 import LocationsSettings from './library/LocationsSettings';
 import EditLocation from './library/location/EditLocation';
 
@@ -35,7 +35,7 @@ export default (
 			<Route key={route.path} {...route} />
 		))}
 		{/* Skipping implementing via routes object due to a lack of understanding on how to accomplish the below route setup with this new approach, feel free to fix Brendan */}
-		<Route path="locations" element={<SettingsSubPage />}>
+		<Route path="locations" element={<SettingsSubPageScreen />}>
 			<Route index element={<LocationsSettings />} />
 			<Route path="location/:id" element={<EditLocation />} />
 		</Route>

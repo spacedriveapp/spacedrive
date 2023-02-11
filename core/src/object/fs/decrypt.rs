@@ -74,7 +74,7 @@ impl StatefulJob for FileDecryptorJob {
 			|| {
 				let mut path = info.fs_path.clone();
 				let extension = path.extension().map_or("decrypted", |ext| {
-					if ext == ".sdenc" {
+					if ext == ".bytes" {
 						""
 					} else {
 						"decrypted"

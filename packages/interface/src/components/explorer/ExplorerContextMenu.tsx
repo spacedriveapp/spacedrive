@@ -4,6 +4,7 @@ import {
 	Copy,
 	FileX,
 	Image,
+	Info,
 	LockSimple,
 	LockSimpleOpen,
 	Package,
@@ -12,6 +13,7 @@ import {
 	Scissors,
 	Share,
 	ShieldCheck,
+	Sidebar,
 	TagSimple,
 	Trash,
 	TrashSimple
@@ -229,6 +231,19 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 
 				<CM.Separator />
 
+				{!store.showInspector && (
+					<>
+						<CM.Item
+							label="Details"
+							// icon={Sidebar}
+							onClick={(e) => {
+								getExplorerStore().showInspector = true;
+							}}
+						/>
+						<CM.Separator />
+					</>
+				)}
+
 				<CM.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
@@ -244,7 +259,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 							source_path_id: data.item.id,
 							target_location_id: store.locationId!,
 							target_path: params.path,
-							target_file_name_suffix: ' - Clone'
+							target_file_name_suffix: ' copy'
 						});
 					}}
 				/>

@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { Outlet } from 'react-router';
 import { SettingsSidebar } from '~/components/settings/SettingsSidebar';
 
-export default function SettingsScreen() {
+export default function SettingsScreenContainer() {
 	return (
 		<div className="flex flex-row w-full app-background">
 			<SettingsSidebar />

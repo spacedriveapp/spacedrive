@@ -22,7 +22,7 @@ const state = {
 	listItemSize: 40,
 	selectedRowIndex: 1,
 	tagAssignMode: false,
-	showInspector: true,
+	showInspector: false,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
