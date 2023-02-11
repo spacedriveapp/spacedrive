@@ -3,6 +3,7 @@ import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, tw } from '@sd/ui';
 import { Divider } from '../explorer/inspector/Divider';
+import DragRegion from '~/components/layout/DragRegion'
 
 interface Props extends PropsWithChildren {
 	title: string;
@@ -20,7 +21,7 @@ export const SettingsSubPage = ({ children, title, topRight }: Props) => {
 
 	return (
 		<PageOuter>
-			<div data-tauri-drag-region className="absolute w-full h-5" />
+			<DragRegion />
 			<Page>
 				<PageInner>
 					<HeaderArea>

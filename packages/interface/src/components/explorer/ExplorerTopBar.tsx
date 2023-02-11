@@ -24,6 +24,7 @@ import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 import { ExplorerOptionsPanel } from './ExplorerOptionsPanel';
+import DragRegion from '~/components/layout/DragRegion'
 
 export interface TopBarButtonProps {
 	children: React.ReactNode;

@@ -4,6 +4,7 @@ import { tw } from '@sd/ui';
 import clsx from 'clsx';
 import { ComponentType, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
+import DragRegion from '~/components/layout/DragRegion'
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import OnboardingCreatingLibrary from './OnboardingCreatingLibrary';
@@ -77,7 +78,7 @@ export default function OnboardingRoot() {
 				'flex flex-col h-screen bg-sidebar text-ink'
 			)}
 		>
-			<div data-tauri-drag-region className="z-50 flex flex-shrink-0 w-full h-9" />
+			<DragRegion classNames="h-9 z-50" />
 
 			<div className="flex flex-col flex-grow p-10 -mt-5">
 				<div className="flex flex-col items-center justify-center flex-grow">

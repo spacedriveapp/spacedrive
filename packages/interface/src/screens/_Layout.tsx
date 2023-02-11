@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
+import DragRegion from "~/components/layout/DragRegion"
 
 export function ScreenContainer(props: PropsWithChildren & { className?: string }) {
 	return (
@@ -9,7 +10,7 @@ export function ScreenContainer(props: PropsWithChildren & { className?: string 
 				props.className
 			)}
 		>
-			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
+			<DragRegion />
 			{props.children}
 		</div>
 	);
