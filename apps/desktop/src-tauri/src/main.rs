@@ -40,7 +40,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	}));
 
 	// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-	// TODO: Secure this server against other apps on the users machine making requests to it using a HTTP header and random token or something
 	let endpoint = create_custom_uri_endpoint(Arc::clone(&node));
 
 	#[cfg(target_os = "linux")]
