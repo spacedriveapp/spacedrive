@@ -1,4 +1,7 @@
-use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
+use sd_crypto::{
+	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::types::Password,
+	Protected,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -16,6 +19,7 @@ pub struct FileDecryptorJobState {}
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
+	pub mount_associated_key: bool,
 	pub output_path: Option<PathBuf>,
 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 	pub save_to_library: Option<bool>,
@@ -63,6 +67,7 @@ impl StatefulJob for FileDecryptorJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let info = &step.fs_info;
+		let key_manager = &ctx.library_ctx.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
 		let output_path = state.init.output_path.clone().map_or_else(
@@ -88,17 +93,16 @@ impl StatefulJob for FileDecryptorJob {
 
 		let master_key = if let Some(password) = state.init.password.clone() {
 			if let Some(save_to_library) = state.init.save_to_library {
-				let password = Protected::new(password.into_bytes());
-
 				// we can do this first, as `find_key_index` requires a successful decryption (just like `decrypt_master_key`)
+				let password_bytes = Protected::new(password.as_bytes().to_vec());
+
 				if save_to_library {
-					let index = header.find_key_index(password.clone()).await?;
+					let index = header.find_key_index(password_bytes.clone()).await?;
 
 					// inherit the encryption algorithm from the keyslot
-					ctx.library_ctx
-						.key_manager
+					key_manager
 						.add_to_keystore(
-							password.clone(),
+							Password::new(password),
 							header.algorithm,
 							header.keyslots[index].hashing_algorithm,
 							false,
@@ -108,19 +112,30 @@ impl StatefulJob for FileDecryptorJob {
 						.await?;
 				}
 
-				header.decrypt_master_key(password).await?
+				header.decrypt_master_key(password_bytes).await?
 			} else {
 				return Err(JobError::JobDataNotFound(String::from(
 					"Password decryption selected, but save to library boolean was not included",
 				)));
 			}
 		} else {
-			let keys = ctx.library_ctx.key_manager.enumerate_hashed_keys();
+			if state.init.mount_associated_key {
+				for key in key_manager.dump_keystore().iter().filter(|x| {
+					header
+						.keyslots
+						.iter()
+						.any(|k| k.content_salt == x.content_salt)
+				}) {
+					key_manager.mount(key.uuid).await.ok();
+				}
+			}
+
+			let keys = key_manager.enumerate_hashed_keys();
 
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
+		let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm)?;
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &aad)
@@ -136,7 +151,7 @@ impl StatefulJob for FileDecryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

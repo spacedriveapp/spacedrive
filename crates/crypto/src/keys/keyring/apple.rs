@@ -1,9 +1,9 @@
-//! This is Spacedrive's Apple OS keychain integration. It has no strict dependencies.
+//! This is Spacedrive's Apple OS keyring integration. It has no strict dependencies.
 //!
 //! This has been tested on macOS, but should work just the same for iOS (according to the `security_framework` documentation)
 
 use super::{Identifier, Keyring};
-use crate::{Error, Protected, Result};
+use crate::{primitives::types::SecretKeyString, Error, Protected, Result};
 use security_framework::passwords::{
 	delete_generic_password, get_generic_password, set_generic_password,
 };
@@ -11,7 +11,7 @@ use security_framework::passwords::{
 pub struct AppleKeyring;
 
 impl Keyring for AppleKeyring {
-	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
+	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
 		set_generic_password(
 			identifier.application,
 			&identifier.to_apple_account(),

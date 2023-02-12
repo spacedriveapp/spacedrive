@@ -35,8 +35,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{generate_nonce, to_array, Key, KEY_LEN},
-	protected::ProtectedVec,
+	primitives::types::{Key, Nonce},
 	Error, Protected, Result,
 };
 
@@ -61,7 +60,7 @@ pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
-	pub nonce: Vec<u8>,
+	pub nonce: Nonce,
 	pub keyslots: Vec<Keyslot>,
 	pub metadata: Option<Metadata>,
 	pub preview_media: Option<PreviewMedia>,
@@ -75,16 +74,21 @@ pub enum FileHeaderVersion {
 
 impl FileHeader {
 	/// This function is used for creating a file header.
-	#[must_use]
-	pub fn new(version: FileHeaderVersion, algorithm: Algorithm, keyslots: Vec<Keyslot>) -> Self {
-		Self {
+	pub fn new(
+		version: FileHeaderVersion,
+		algorithm: Algorithm,
+		keyslots: Vec<Keyslot>,
+	) -> Result<Self> {
+		let f = Self {
 			version,
 			algorithm,
-			nonce: generate_nonce(algorithm),
+			nonce: Nonce::generate(algorithm)?,
 			keyslots,
 			metadata: None,
 			preview_media: None,
-		}
+		};
+
+		Ok(f)
 	}
 
 	/// This includes the magic bytes at the start of the file, and remainder of the header itself (excluding keyslots, metadata, and preview media as these can all change)
@@ -101,19 +105,39 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key(&self, password: ProtectedVec<u8>) -> Result<Protected<Key>> {
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
 		for v in &self.keyslots {
-			if let Some(key) = v
-				.decrypt_master_key(password.clone())
-				.await
-				.ok()
-				.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
-			{
+			if let Ok(key) = v.decrypt_master_key(password.clone()).await {
 				return Ok(key);
+			}
+		}
+
+		Err(Error::IncorrectPassword)
+	}
+
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
+	///
+	/// It takes in a Vec of pre-hashed keys, which is what the key manager returns
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub async fn decrypt_master_key_from_prehashed(&self, hashed_keys: Vec<Key>) -> Result<Key> {
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for hashed_key in hashed_keys {
+			for v in &self.keyslots {
+				if let Ok(key) = v
+					.decrypt_master_key_from_prehashed(hashed_key.clone())
+					.await
+				{
+					return Ok(key);
+				}
 			}
 		}
 
@@ -129,41 +153,11 @@ impl FileHeader {
 		Ok(())
 	}
 
-	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
-	///
-	/// It takes in a Vec of pre-hashed keys, which is what the key manager returns
-	///
-	/// You receive an error if the password doesn't match or if there are no keyslots.
-	#[allow(clippy::needless_pass_by_value)]
-	pub async fn decrypt_master_key_from_prehashed(
-		&self,
-		hashed_keys: Vec<Protected<Key>>,
-	) -> Result<Protected<Key>> {
-		if self.keyslots.is_empty() {
-			return Err(Error::NoKeyslots);
-		}
-
-		for hashed_key in hashed_keys {
-			for v in &self.keyslots {
-				if let Some(key) = v
-					.decrypt_master_key_from_prehashed(hashed_key.clone())
-					.await
-					.ok()
-					.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
-				{
-					return Ok(key);
-				}
-			}
-		}
-
-		Err(Error::IncorrectPassword)
-	}
-
 	/// This is a helper function to find which keyslot a key belongs to.
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn find_key_index(&self, password: ProtectedVec<u8>) -> Result<usize> {
+	pub async fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -185,9 +179,9 @@ impl FileHeader {
 		match self.version {
 			FileHeaderVersion::V1 => [
 				MAGIC_BYTES.as_ref(),
-				self.version.to_bytes().as_ref(),
-				self.algorithm.to_bytes().as_ref(),
-				self.nonce.as_ref(),
+				&self.version.to_bytes(),
+				&self.algorithm.to_bytes(),
+				&self.nonce,
 				&vec![0u8; 25 - self.nonce.len()],
 			]
 			.into_iter()
@@ -262,7 +256,7 @@ impl FileHeader {
 		reader.read_exact(&mut magic_bytes).await?;
 
 		if magic_bytes != MAGIC_BYTES {
-			return Err(Error::FileHeader);
+			return Err(Error::Serialization);
 		}
 
 		let mut version = [0u8; 2];
@@ -291,6 +285,7 @@ impl FileHeader {
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut nonce).await?;
+				let nonce = Nonce::try_from(nonce)?;
 
 				// read and discard the padding
 				reader.read_exact(&mut vec![0u8; 25 - nonce.len()]).await?;

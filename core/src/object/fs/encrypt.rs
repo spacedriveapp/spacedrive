@@ -7,8 +7,7 @@ use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
 	primitives::{
-		generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA,
-		LATEST_PREVIEW_MEDIA,
+		types::Key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA,
 	},
 };
 use serde::{Deserialize, Serialize};
@@ -39,7 +38,7 @@ pub struct Metadata {
 	pub path_id: i32,
 	pub name: String,
 	pub hidden: bool,
-	pub favourite: bool,
+	pub favorite: bool,
 	pub important: bool,
 	pub note: Option<String>,
 	pub date_created: chrono::DateTime<FixedOffset>,
@@ -88,9 +87,12 @@ impl StatefulJob for FileEncryptorJob {
 		if !info.path_data.is_dir {
 			// handle overwriting checks, and making sure there's enough available space
 
-			let user_key = key_manager.access_keymount(state.init.key_uuid)?.hashed_key;
+			let user_key = key_manager
+				.access_keymount(state.init.key_uuid)
+				.await?
+				.hashed_key;
 
-			let user_key_details = key_manager.access_keystore(state.init.key_uuid)?;
+			let user_key_details = key_manager.access_keystore(state.init.key_uuid).await?;
 
 			let output_path = state.init.output_path.clone().map_or_else(
 				|| {
@@ -130,7 +132,7 @@ impl StatefulJob for FileEncryptorJob {
 			let mut reader = File::open(&info.fs_path).await?;
 			let mut writer = File::create(output_path).await?;
 
-			let master_key = generate_master_key();
+			let master_key = Key::generate();
 
 			let mut header = FileHeader::new(
 				LATEST_FILE_HEADER,
@@ -146,7 +148,7 @@ impl StatefulJob for FileEncryptorJob {
 					)
 					.await?,
 				],
-			);
+			)?;
 
 			if state.init.metadata || state.init.preview_media {
 				// if any are requested, we can make the query as it'll be used at least once
@@ -156,7 +158,7 @@ impl StatefulJob for FileEncryptorJob {
 							path_id: state.init.path_id,
 							name: info.path_data.materialized_path.clone(),
 							hidden: object.hidden,
-							favourite: object.favorite,
+							favorite: object.favorite,
 							important: object.important,
 							note: object.note,
 							date_created: object.date_created,
@@ -208,7 +210,7 @@ impl StatefulJob for FileEncryptorJob {
 
 			header.write(&mut writer).await?;
 
-			let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
+			let encryptor = StreamEncryption::new(master_key, header.nonce, header.algorithm)?;
 
 			encryptor
 				.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
@@ -227,7 +229,7 @@ impl StatefulJob for FileEncryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

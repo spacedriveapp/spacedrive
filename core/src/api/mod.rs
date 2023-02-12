@@ -11,6 +11,7 @@ use crate::{
 	job::JobManager,
 	library::LibraryManager,
 	node::{NodeConfig, NodeConfigManager},
+	util::secure_temp_keystore::SecureTempKeystore,
 };
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
@@ -32,6 +33,7 @@ pub struct Ctx {
 	pub config: Arc<NodeConfigManager>,
 	pub jobs: Arc<JobManager>,
 	pub event_bus: broadcast::Sender<CoreEvent>,
+	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 mod files;
@@ -39,6 +41,7 @@ mod jobs;
 mod keys;
 mod libraries;
 mod locations;
+mod nodes;
 mod tags;
 pub mod utils;
 pub mod volumes;
@@ -89,6 +92,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.yolo_merge("library.", libraries::mount())
 		.yolo_merge("volumes.", volumes::mount())
 		.yolo_merge("tags.", tags::mount())
+		.yolo_merge("nodes.", nodes::mount())
 		.yolo_merge("keys.", keys::mount())
 		.yolo_merge("locations.", locations::mount())
 		.yolo_merge("files.", files::mount())

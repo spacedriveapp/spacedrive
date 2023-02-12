@@ -218,11 +218,9 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
-	const hasMasterPassword =
-		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
-			? true
-			: false;
+	const isUnlockedQuery = useLibraryQuery(['keys.isUnlocked']);
+	const isUnlocked =
+		isUnlockedQuery.data !== undefined && isUnlockedQuery.data === true ? true : false;
 
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const hasMountedKeys =
@@ -338,7 +336,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						icon={LockSimple}
 						keybind="⌘E"
 						onClick={() => {
-							if (hasMasterPassword && hasMountedKeys) {
+							if (isUnlocked && hasMountedKeys) {
 								dialogManager.create((dp) => (
 									<EncryptFileDialog
 										{...dp}
@@ -346,7 +344,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 										path_id={data.item.id}
 									/>
 								));
-							} else if (!hasMasterPassword) {
+							} else if (!isUnlocked) {
 								showAlertDialog({
 									title: 'Key manager locked',
 									value: 'The key manager is currently locked. Please unlock it and try again.'
@@ -365,11 +363,11 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (hasMasterPassword) {
+							if (isUnlocked) {
 								dialogManager.create((dp) => (
 									<DecryptFileDialog
 										{...dp}
-										location_id={useExplorerStore().locationId!}
+										location_id={store.locationId!}
 										path_id={data.item.id}
 									/>
 								));

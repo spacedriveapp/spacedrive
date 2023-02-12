@@ -92,19 +92,18 @@ model Volume {
 
 /// @owned(id: pub_id)
 model Location {
-    id                 Int      @id @default(autoincrement())
-    pub_id             Bytes    @unique
-    node_id            Int
-    name               String?
-    local_path         String?
-    total_capacity     Int?
-    available_capacity Int?
-    filesystem         String?
-    disk_type          Int?
-    is_removable       Boolean?
-    is_online          Boolean  @default(true)
-    is_archived        Boolean  @default(false)
-    date_created       DateTime @default(now())
+    id                     Int      @id @default(autoincrement())
+    pub_id                 Bytes    @unique
+    node_id                Int
+    name                   String?
+    local_path             String?
+    total_capacity         Int?
+    available_capacity     Int?
+    is_archived            Boolean  @default(false)
+    generate_preview_media Boolean  @default(true)
+    sync_preview_media     Boolean  @default(true)
+    hidden                 Boolean  @default(false)
+    date_created           DateTime @default(now())
 
     node          Node                     @relation(fields: [node_id], references: [id])
     file_paths    FilePath[]
@@ -119,6 +118,7 @@ model Object {
     pub_id            Bytes    @unique
     // basic metadata
     name              String?
+    // Must have 'COLLATE NOCASE' in migration
     extension         String?
     kind              Int      @default(0)
     size_in_bytes     String   @default("0")
@@ -172,6 +172,7 @@ model FilePath {
     // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
+    // Must have 'COLLATE NOCASE' in migration
     name              String
     extension         String?
 
@@ -216,6 +217,7 @@ model Key {
     // uuid to identify the key
     uuid              String    @unique
     version           String
+    key_type          String
     // the name that the user sets
     name              String?
     // is this key the default for encryption?

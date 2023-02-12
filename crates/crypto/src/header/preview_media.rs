@@ -24,8 +24,8 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, Key},
-	Error, Protected, ProtectedVec, Result,
+	primitives::types::{Key, Nonce},
+	Error, Protected, Result,
 };
 
 use super::file::FileHeader;
@@ -39,7 +39,7 @@ use super::file::FileHeader;
 pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
 	pub algorithm: Algorithm, // encryption algorithm
-	pub media_nonce: Vec<u8>,
+	pub media_nonce: Nonce,
 	pub media: Vec<u8>,
 }
 
@@ -61,14 +61,13 @@ impl FileHeader {
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: Protected<Key>,
+		master_key: Key,
 		media: &[u8],
 	) -> Result<()> {
-		let media_nonce = generate_nonce(algorithm);
+		let media_nonce = Nonce::generate(algorithm)?;
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])
-				.await?;
+			StreamEncryption::encrypt_bytes(master_key, media_nonce, algorithm, media, &[]).await?;
 
 		self.preview_media = Some(PreviewMedia {
 			version,
@@ -82,19 +81,19 @@ impl FileHeader {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is pre-hashed keys returned from the key manager
+	/// All it requires is the user's password. Hashing is handled for you.
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub async fn decrypt_preview_media_from_prehashed(
+	pub async fn decrypt_preview_media(
 		&self,
-		hashed_keys: Vec<Protected<Key>>,
-	) -> Result<ProtectedVec<u8>> {
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>> {
+		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(
 				master_key,
-				&pvm.media_nonce,
+				pvm.media_nonce,
 				pvm.algorithm,
 				&pvm.media,
 				&[],
@@ -109,19 +108,19 @@ impl FileHeader {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is the user's password. Hashing is handled for you.
+	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub async fn decrypt_preview_media(
+	pub async fn decrypt_preview_media_from_prehashed(
 		&self,
-		password: ProtectedVec<u8>,
-	) -> Result<ProtectedVec<u8>> {
-		let master_key = self.decrypt_master_key(password).await?;
+		hashed_keys: Vec<Key>,
+	) -> Result<Protected<Vec<u8>>> {
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
 			let pvm = StreamDecryption::decrypt_bytes(
 				master_key,
-				&pvm.media_nonce,
+				pvm.media_nonce,
 				pvm.algorithm,
 				&pvm.media,
 				&[],
@@ -184,6 +183,7 @@ impl PreviewMedia {
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut media_nonce).await?;
+				let media_nonce = Nonce::try_from(media_nonce)?;
 
 				reader
 					.read_exact(&mut vec![0u8; 24 - media_nonce.len()])

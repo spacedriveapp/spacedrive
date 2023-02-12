@@ -43,6 +43,7 @@ pub struct ExplorerData {
 
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
+indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
 pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 	<RouterBuilder>::new()
@@ -63,6 +64,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.db
 					.location()
 					.find_unique(location::id::equals(location_id))
+					.include(location::include!({ indexer_rules }))
 					.exec()
 					.await?)
 			})
@@ -213,6 +215,23 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 				Ok(todo!())
 			})
 		})
+		.subscription("online", |t| {
+			t(|ctx, _: ()| {
+				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+
+				let mut rx = location_manager.online_rx();
+
+				async_stream::stream! {
+					let online = location_manager.get_online().await;
+					dbg!(&online);
+					yield online;
+
+					while let Ok(locations) = rx.recv().await {
+						yield locations;
+					}
+				}
+			})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
@@ -266,6 +285,20 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					.db
 					.indexer_rule()
 					.find_many(vec![])
+					.exec()
+					.await
+					.map_err(Into::into)
+			})
+		})
+		// list indexer rules for location, returning the indexer rule
+		.library_query("listForLocation", |t| {
+			t(|_, location_id: i32, library| async move {
+				library
+					.db
+					.indexer_rule()
+					.find_many(vec![indexer_rule::locations::some(vec![
+						indexer_rules_in_location::location_id::equals(location_id),
+					])])
 					.exec()
 					.await
 					.map_err(Into::into)

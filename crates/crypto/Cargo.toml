@@ -5,7 +5,7 @@ authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
-rust-version = "1.64.0"
+rust-version = "1.67.0"
 
 [features]
 rspc = ["dep:rspc"]
@@ -47,13 +47,15 @@ dashmap = "5.4.0"
 rspc = { workspace = true, features = ["uuid"], optional = true }
 
 # for asynchronous crypto
-tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
 
-# linux OS keychain
+hex = "0.4.3"
+
+# linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = "2.0.2"
 
-# macos/ios OS keychain
+# macos/ios OS keyring
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 security-framework = "2.8.1"
 

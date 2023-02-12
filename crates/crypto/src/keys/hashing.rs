@@ -12,8 +12,11 @@
 //! ```
 
 use crate::{
-	primitives::{Key, Salt, KEY_LEN},
-	Error, Protected, ProtectedVec, Result,
+	primitives::{
+		types::{Key, Salt, SecretKey},
+		KEY_LEN,
+	},
+	Error, Protected, Result,
 };
 use argon2::Argon2;
 use balloon_hash::Balloon;
@@ -53,10 +56,10 @@ impl HashingAlgorithm {
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn hash(
 		&self,
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
-	) -> Result<Protected<Key>> {
+		secret: Option<SecretKey>,
+	) -> Result<Key> {
 		match self {
 			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
 			Self::BalloonBlake3(params) => {
@@ -79,8 +82,8 @@ impl Params {
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
 			Self::Standard => argon2::Params::new(131_072, 8, 4, None).unwrap(),
-			Self::Paranoid => argon2::Params::new(262_144, 8, 4, None).unwrap(),
-			Self::Hardened => argon2::Params::new(524_288, 8, 4, None).unwrap(),
+			Self::Hardened => argon2::Params::new(262_144, 8, 4, None).unwrap(),
+			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None).unwrap(),
 		}
 	}
 
@@ -95,9 +98,9 @@ impl Params {
 			// It's very hardware dependant but we should aim for at least 64MB of RAM usage on standard
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
-			Self::Standard => balloon_hash::Params::new(131_072, 1, 1).unwrap(),
-			Self::Paranoid => balloon_hash::Params::new(262_144, 1, 1).unwrap(),
-			Self::Hardened => balloon_hash::Params::new(524_288, 1, 1).unwrap(),
+			Self::Standard => balloon_hash::Params::new(131_072, 2, 1).unwrap(),
+			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1).unwrap(),
+			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1).unwrap(),
 		}
 	}
 }
@@ -107,12 +110,14 @@ struct PasswordHasher;
 impl PasswordHasher {
 	#[allow(clippy::needless_pass_by_value)]
 	fn argon2id(
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
+		secret: Option<SecretKey>,
 		params: Params,
-	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| k);
+	) -> Result<Key> {
+		let secret = secret.map_or(Protected::new(vec![]), |k| {
+			Protected::new(k.expose().to_vec())
+		});
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -125,17 +130,19 @@ impl PasswordHasher {
 
 		argon2
 			.hash_password_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
+			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
 	fn balloon_blake3(
-		password: ProtectedVec<u8>,
+		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<ProtectedVec<u8>>,
+		secret: Option<SecretKey>,
 		params: Params,
-	) -> Result<Protected<Key>> {
-		let secret = secret.map_or(Protected::new(vec![]), |k| k);
+	) -> Result<Key> {
+		let secret = secret.map_or(Protected::new(vec![]), |k| {
+			Protected::new(k.expose().to_vec())
+		});
 
 		let mut key = [0u8; KEY_LEN];
 
@@ -147,6 +154,6 @@ impl PasswordHasher {
 
 		balloon
 			.hash_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
+			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
 	}
 }

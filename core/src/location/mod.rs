@@ -156,6 +156,9 @@ impl LocationCreateArgs {
 pub struct LocationUpdateArgs {
 	pub id: i32,
 	pub name: Option<String>,
+	pub generate_preview_media: Option<bool>,
+	pub sync_preview_media: Option<bool>,
+	pub hidden: Option<bool>,
 	pub indexer_rules_ids: Vec<i32>,
 }
 
@@ -167,13 +170,25 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
-		if self.name.is_some() && location.name != self.name {
+		let params = [
+			self.name
+				.clone()
+				.filter(|name| location.name.as_ref() != Some(name))
+				.map(|v| location::name::set(Some(v))),
+			self.generate_preview_media
+				.map(location::generate_preview_media::set),
+			self.sync_preview_media
+				.map(location::sync_preview_media::set),
+			self.hidden.map(location::hidden::set),
+		]
+		.into_iter()
+		.flatten()
+		.collect::<Vec<_>>();
+
+		if !params.is_empty() {
 			ctx.db
 				.location()
-				.update(
-					location::id::equals(self.id),
-					vec![location::name::set(self.name.clone())],
-				)
+				.update(location::id::equals(self.id), params)
 				.exec()
 				.await?;
 
@@ -181,7 +196,7 @@ impl LocationUpdateArgs {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(local_path).await?
 				{
-					metadata.update(ctx.id, self.name.unwrap().clone()).await?;
+					metadata.update(ctx.id, self.name.unwrap()).await?;
 				}
 			}
 		}
@@ -296,16 +311,13 @@ pub async fn relink_location(
 		.location()
 		.update(
 			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
-			vec![
-				location::local_path::set(Some(
-					location_path
-						.as_ref()
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-				)),
-				location::is_online::set(true),
-			],
+			vec![location::local_path::set(Some(
+				location_path
+					.as_ref()
+					.to_str()
+					.expect("Found non-UTF-8 path")
+					.to_string(),
+			))],
 		)
 		.exec()
 		.await?;
@@ -346,7 +358,6 @@ async fn create_location(
 				[
 					("node", json!({ "pub_id": ctx.id.as_bytes() })),
 					("name", json!(location_name)),
-					("is_online", json!(true)),
 					("local_path", json!(&local_path)),
 				],
 			),
@@ -356,7 +367,6 @@ async fn create_location(
 					node::id::equals(ctx.node_local_id),
 					vec![
 						location::name::set(Some(location_name.clone())),
-						location::is_online::set(true),
 						location::local_path::set(Some(local_path)),
 					],
 				)
@@ -383,22 +393,22 @@ async fn create_location(
 }
 
 pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	let LibraryContext { db, .. } = ctx;
+
 	ctx.location_manager()
 		.remove(location_id, ctx.clone())
 		.await?;
 
 	delete_directory(ctx, location_id, None).await?;
 
-	ctx.db
-		.indexer_rules_in_location()
+	db.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
 			location_id,
 		)])
 		.exec()
 		.await?;
 
-	let location = ctx
-		.db
+	let location = db
 		.location()
 		.delete(location::id::equals(location_id))
 		.exec()
@@ -469,4 +479,25 @@ pub async fn delete_directory(
 	invalidate_query!(ctx, "locations.getExplorerData");
 
 	Ok(())
+}
+
+// check if a path exists in our database at that location
+pub async fn check_virtual_path_exists(
+	library_ctx: &LibraryContext,
+	location_id: i32,
+	subpath: impl AsRef<Path>,
+) -> Result<bool, LocationError> {
+	let path = subpath.as_ref().to_str().unwrap().to_string();
+
+	let file_path = library_ctx
+		.db
+		.file_path()
+		.find_first(vec![
+			file_path::location_id::equals(location_id),
+			file_path::materialized_path::equals(path),
+		])
+		.exec()
+		.await?;
+
+	Ok(file_path.is_some())
 }

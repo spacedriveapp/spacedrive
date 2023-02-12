@@ -10,17 +10,19 @@ export type Procedures = {
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
-        { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
+        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean | null } | 
+        { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: StoredKey[] } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
+        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: IndexerRulesInLocation[] } | null } | 
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }[] } | 
+        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
@@ -67,19 +69,23 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<null>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
+        { key: "locations.online", input: never, result: number[][] }
 };
 
 /**
  *  These are all possible algorithms that can be used for encryption and decryption
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
+
+export type AuthOption = { type: "Password", value: string } | { type: "TokenizedPassword", value: string }
 
 export type AutomountUpdateArgs = { uuid: string, status: boolean }
 
@@ -91,9 +97,11 @@ export type BuildInfo = { version: string, commit: string }
  */
 export type ConfigMetadata = { version: string | null }
 
-export type CreateLibraryArgs = { name: string, password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export type EditLibraryArgs = { id: string, name: string | null, description: string | null }
+
+export type EncryptedKey = number[]
 
 export type ExplorerContext = ({ type:  "Location" } & Location) | ({ type:  "Tag" } & Tag)
 
@@ -105,7 +113,7 @@ export type FileCopierJobInit = { source_location_id: number, source_path_id: nu
 
 export type FileCutterJobInit = { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string }
 
-export type FileDecryptorJobInit = { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
+export type FileDecryptorJobInit = { location_id: number, path_id: number, mount_associated_key: boolean, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
 export type FileDeleterJobInit = { location_id: number, path_id: number }
 
@@ -140,6 +148,8 @@ export type IndexerRule = { id: number, kind: number, name: string, parameters: 
  */
 export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
 
+export type IndexerRulesInLocation = { date_created: string, location_id: number, indexer_rule_id: number }
+
 export type InvalidateOperationEvent = { key: string, arg: any }
 
 export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
@@ -160,7 +170,7 @@ export type LibraryConfig = ({ version: string | null }) & { name: string, descr
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
 
-export type Location = { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string }
+export type Location = { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
 
 /**
  *  `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -179,9 +189,9 @@ export type LocationExplorerArgs = { location_id: number, path: string, limit: n
  *  It is important to note that only the indexer rule ids in this vector will be used from now on.
  *  Old rules that aren't in this vector will be purged.
  */
-export type LocationUpdateArgs = { id: number, name: string | null, indexer_rules_ids: number[] }
+export type LocationUpdateArgs = { id: number, name: string | null, generate_preview_media: boolean | null, sync_preview_media: boolean | null, hidden: boolean | null, indexer_rules_ids: number[] }
 
-export type MasterPasswordChangeArgs = { password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export type MasterPasswordChangeArgs = { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export type MediaData = { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
 
@@ -194,6 +204,8 @@ export type NodeConfig = ({ version: string | null }) & { id: string, name: stri
 
 export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null }) & { data_path: string }
 
+export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
+
 export type Object = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
 
 export type ObjectValidatorArgs = { id: number, path: string }
@@ -205,9 +217,11 @@ export type ObjectValidatorArgs = { id: number, path: string }
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-export type RestoreBackupArgs = { password: string, secret_key: string | null, path: string }
+export type RestoreBackupArgs = { password: string, secret_key: string, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type Salt = number[]
 
 export type SetFavoriteArgs = { id: number, favorite: boolean }
 
@@ -218,7 +232,9 @@ export type Statistics = { id: number, date_captured: string, total_object_count
 /**
  *  This is a stored key, and can be freely written to Prisma/another database.
  */
-export type StoredKey = { uuid: string, version: StoredKeyVersion, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: number[], master_key: number[], master_key_nonce: number[], key_nonce: number[], key: number[], salt: number[], memory_only: boolean, automount: boolean }
+export type StoredKey = { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Salt, master_key: EncryptedKey, master_key_nonce: Nonce, key_nonce: Nonce, key: number[], salt: Salt, memory_only: boolean, automount: boolean }
+
+export type StoredKeyType = "User" | "Root"
 
 export type StoredKeyVersion = "V1"
 
@@ -230,7 +246,11 @@ export type TagCreateArgs = { name: string, color: string }
 
 export type TagUpdateArgs = { id: number, name: string | null, color: string | null }
 
-export type UnlockKeyManagerArgs = { password: string, secret_key: string | null }
+export type TokenizeKeyArgs = { secret_key: string }
+
+export type TokenizeResponse = { token: string }
+
+export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 
 export type Volume = { name: string, mount_point: string, total_capacity: string, available_capacity: string, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 

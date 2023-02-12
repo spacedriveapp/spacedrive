@@ -4,8 +4,10 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{Key, AEAD_TAG_SIZE, BLOCK_SIZE},
-	protected::ProtectedVec,
+	primitives::{
+		types::{Key, Nonce},
+		AEAD_TAG_SIZE, BLOCK_SIZE,
+	},
 	Error, Protected, Result,
 };
 use aead::{
@@ -55,7 +57,7 @@ impl StreamEncryption {
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<Key>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -65,14 +67,14 @@ impl StreamEncryption {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 
-				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
+				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 
-				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
+				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
@@ -137,7 +139,6 @@ impl StreamEncryption {
 				};
 
 				let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
-
 				writer.write_all(&encrypted_data).await?;
 			} else {
 				// we use `..read_count` in order to only use the read data, and not zeroes also
@@ -148,7 +149,6 @@ impl StreamEncryption {
 
 				let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
 				writer.write_all(&encrypted_data).await?;
-
 				break;
 			}
 		}
@@ -163,8 +163,8 @@ impl StreamEncryption {
 	/// It is just a thin wrapper around `encrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub async fn encrypt_bytes(
-		key: Protected<Key>,
-		nonce: &[u8],
+		key: Key,
+		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
@@ -184,7 +184,7 @@ impl StreamDecryption {
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(key: Protected<Key>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
+	pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -194,14 +194,14 @@ impl StreamDecryption {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 
-				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
+				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 
-				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
+				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
 				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
@@ -266,7 +266,6 @@ impl StreamDecryption {
 				};
 
 				let decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
-
 				writer.write_all(&decrypted_data).await?;
 			} else {
 				let payload = Payload {
@@ -276,7 +275,6 @@ impl StreamDecryption {
 
 				let decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
 				writer.write_all(&decrypted_data).await?;
-
 				break;
 			}
 		}
@@ -291,12 +289,12 @@ impl StreamDecryption {
 	/// It is just a thin wrapper around `decrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub async fn decrypt_bytes(
-		key: Protected<Key>,
-		nonce: &[u8],
+		key: Key,
+		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
-	) -> Result<ProtectedVec<u8>> {
+	) -> Result<Protected<Vec<u8>>> {
 		let mut writer = Cursor::new(Vec::<u8>::new());
 		let decryptor = Self::new(key, nonce, algorithm)?;
 

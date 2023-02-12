@@ -55,7 +55,6 @@ sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
-fs_extra = "1.2.0"
 tracing = "0.1.36"
 tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
 tracing-android = { version = "0.2.0", optional = true }
@@ -72,6 +71,7 @@ uhlc = "0.5.1"
 http-range = "0.1.5"
 mini-moka = "0.10.0"
 serde_with = "2.2.0"
+dashmap =  { version = "5.4.0", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "^3.3.0"

@@ -1,9 +1,8 @@
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem, isVideoExt } from '@sd/client';
+import { ExplorerItem, ObjectKind } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
-import { ObjectKind } from '~/util/kind';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
@@ -29,7 +28,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 
 function FileItem({ data, selected, index, ...rest }: Props) {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const isVid = isVideoExt(data.item.extension || '');
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 	const item = data.item;
 
 	return (

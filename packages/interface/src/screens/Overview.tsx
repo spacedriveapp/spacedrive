@@ -1,11 +1,28 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import {
+	AppWindow,
+	Camera,
+	CloudArrowDown,
+	FileText,
+	FrameCorners,
+	Heart,
+	Image,
+	MusicNote,
+	Wrench
+} from 'phosphor-react';
 import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { proxy } from 'valtio';
-import { onLibraryChange, queryClient, useCurrentLibrary, useLibraryQuery } from '@sd/client';
-import { Statistics } from '@sd/client';
+import {
+	Statistics,
+	onLibraryChange,
+	queryClient,
+	useCurrentLibrary,
+	useLibraryQuery
+} from '@sd/client';
+import { Card } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 
@@ -136,10 +153,9 @@ export default function OverviewScreen() {
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
-					<div className="flex -mb-1 overflow-hidden">
+					<div className="flex h-20 -mb-1 overflow-hidden">
 						{Object.entries(overviewStats || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
-
 							return (
 								<StatItem
 									key={library?.uuid + ' ' + key}
@@ -150,46 +166,25 @@ export default function OverviewScreen() {
 							);
 						})}
 					</div>
-
 					<div className="flex-grow" />
-					<div className="flex items-center h-full space-x-2">
-						<div>
-							{/* <Dialog
-								title="Add Device"
-								description="Connect a new device to your library. Either enter another device's code or copy this one."
-								// ctaAction={() => {}}
-								ctaLabel="Connect"
-								trigger={
-									<Button size="sm" variant="gray">
-										<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />
-										<span className="hidden xl:inline-block">Add Device</span>
-									</Button>
-								}
-							>
-								<div className="flex flex-col mt-2 space-y-3">
-									<div className="flex flex-col">
-										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-											This Device
-										</span>
-										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
-									</div>
-									<div className="flex flex-col">
-										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-											Enter a device code
-										</span>
-										<Input value="" />
-									</div>
-								</div>
-							</Dialog>*/}
-						</div>
-					</div>
 				</div>
-				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					{/* <Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" /> */}
-					{/* <Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
-					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
+				<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
+					<CategoryButton icon={Heart} category="Favorites" />
+					<CategoryButton icon={FileText} category="Documents" />
+					<CategoryButton icon={Camera} category="Movies" />
+					<CategoryButton icon={FrameCorners} category="Screenshots" />
+					<CategoryButton icon={AppWindow} category="Applications" />
+					<CategoryButton icon={Wrench} category="Projects" />
+					<CategoryButton icon={CloudArrowDown} category="Downloads" />
+					<CategoryButton icon={MusicNote} category="Music" />
+					<CategoryButton icon={Image} category="Albums" />
+					<CategoryButton icon={Heart} category="Favorites" />
 					<Debug />
 				</div>
+				<Card className="text-ink-dull">
+					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
+					functional.
+				</Card>
 				<div className="flex flex-shrink-0 w-full h-4" />
 			</div>
 		</div>
@@ -202,4 +197,21 @@ function Debug() {
 	// console.log(org.data);
 
 	return null;
+}
+
+interface CategoryButtonProps {
+	category: string;
+	icon: any;
+}
+
+function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
+	return (
+		<Card className="!px-3 items-center">
+			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />
+			<div>
+				<h2 className="text-sm font-medium">{category}</h2>
+				<p className="text-xs text-ink-faint">23,324 items</p>
+			</div>
+		</Card>
+	);
 }

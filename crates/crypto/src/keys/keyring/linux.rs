@@ -1,11 +1,12 @@
-//! This is Spacedrive's Linux keychain implementation, which makes use of the Secret Service API.
+//! This is Spacedrive's Linux keyring implementation, which makes use of the Secret Service API.
 //!
 //! This does strictly require `DBus`, and either `gnome-keyring`, `kwallet` or another implementor of the Secret Service API.
 
 use secret_service::{Collection, EncryptionType, SecretService};
 
 use crate::{
-	keys::keychain::{Identifier, Keyring},
+	keys::keyring::{Identifier, Keyring},
+	primitives::types::SecretKeyString,
 	Error, Protected, Result,
 };
 
@@ -33,7 +34,7 @@ impl<'a> LinuxKeyring<'a> {
 }
 
 impl<'a> Keyring for LinuxKeyring<'a> {
-	fn insert(&self, identifier: Identifier, value: Protected<String>) -> Result<()> {
+	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
 		self.get_collection()?.create_item(
 			&identifier.generate_linux_label(),
 			identifier.to_hashmap(),
