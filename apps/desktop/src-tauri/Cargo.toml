@@ -12,7 +12,7 @@ build = "build.rs"
 [dependencies]
 tauri = { version = "1.2.4", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
-httpz = { workspace = true, features = ["axum", "tauri"] } # TODO: The `axmu` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
+httpz = { workspace = true, features = ["axum", "tauri"] } # TODO: The `axum` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.0"
