@@ -4,7 +4,12 @@ use crate::{
 	object::{identifier_job::IdentifierJobError, preview::ThumbnailError},
 };
 
-use std::{collections::VecDeque, fmt::Debug, hash::Hash, sync::Arc};
+use std::{
+	collections::{hash_map::DefaultHasher, VecDeque},
+	fmt::Debug,
+	hash::{Hash, Hasher},
+	sync::Arc,
+};
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
@@ -79,15 +84,22 @@ pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 
 /// TODO
-pub trait JobInitData {
+pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	type Job: StatefulJob;
+
+	fn hash(&self) -> u64 {
+		let mut s = DefaultHasher::new();
+		<Self::Job as StatefulJob>::NAME.hash(&mut s);
+		<Self as Hash>::hash(&self, &mut s);
+		s.finish()
+	}
 }
 
 /// TODO
 #[async_trait::async_trait]
 pub trait StatefulJob: Send + Sync + Sized + JobRestorer + 'static {
 	/// TODO
-	type Init: Serialize + DeserializeOwned + Send + Sync + Hash + JobInitData<Job = Self>;
+	type Init: JobInitData<Job = Self>;
 	/// TODO
 	type Data: Serialize + DeserializeOwned + Send + Sync;
 	/// TODO

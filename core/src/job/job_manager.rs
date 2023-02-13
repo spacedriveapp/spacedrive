@@ -1,7 +1,7 @@
 use crate::{
 	api::utils::LibraryArgs,
 	invalidate_query,
-	job::{JobError, JobReport, WorkerContext},
+	job::{JobError, JobInitData, JobReport, WorkerContext},
 	library::LibraryContext,
 	location::indexer::indexer_job::IndexerJob,
 	object::{
@@ -98,12 +98,13 @@ pub struct QueuedJob {
 	start: oneshot::Sender<()>,
 }
 
-pub enum JobExitReason {
-	/// The job was asked to stop execution but maintain state to be resumed in the future
-	Stop,
-	/// The job was cancelled by the user and will never be resumed
-	Cancelled,
-}
+// TODO: Allow pausing an individual job. This will be needed for that.
+// pub enum JobExitReason {
+// 	/// The job was asked to stop execution but maintain state to be resumed in the future
+// 	Stop,
+// 	/// The job was cancelled by the user and will never be resumed
+// 	Cancelled,
+// }
 
 /// state for a currently running job.
 /// This is held by the job manager so is eventually consistent with the actual state of the job stored by the thread.
@@ -111,6 +112,8 @@ pub struct RunningJob {
 	/// the job report. NOTE: THIS IS EVENTUALLY CONSISTENT
 	/// Every `STEPS_BETWEEN_PERSIST` steps the job report here will be updated.
 	report: JobReport,
+	/// used to detect duplicate jobs
+	hash: u64,
 	// /// channel which is used to signal the job thread to stop execution
 	// pause: oneshot::Sender<JobExitReason>, // TODO: Make this work
 }
@@ -284,6 +287,7 @@ impl JobManager {
 
 		tokio::spawn(async move {
 			let mut shutdown_rx = self.shutdown_tx.subscribe();
+			let job_init_hash = state.init.hash();
 			if job_should_queue {
 				let (start_tx, start_rx) = oneshot::channel();
 				self.queue.write().await.push_back(QueuedJob {
@@ -303,19 +307,39 @@ impl JobManager {
 						self.running.write().await.remove(&report.id);
 						return;
 					}
-					_ = start_rx => {},
+					_ = start_rx => {
+						report.status = JobStatus::Running;
+						self.running.write().await.insert(
+							report.id,
+							RunningJob {
+								report: report.clone(),
+								hash: job_init_hash,
+							},
+						)
+					},
 				};
 
-				report.status = JobStatus::Running;
 				report.upsert(&self, &library_ctx).await.unwrap(); // TODO: Error handling
 			} else {
-				self.running.write().await.insert(
+				let mut running = self.running.write().await;
+				if running
+					.iter()
+					.find(|(_, job)| job.hash == job_init_hash)
+					.is_some()
+				{
+					debug!("Job '{}' already running, skipping", T::NAME);
+					return;
+				}
+
+				running.insert(
 					report.id,
 					RunningJob {
 						report: report.clone(),
+						hash: job_init_hash,
 					},
 				);
 			}
+
 			info!("Running job '{}'", T::NAME);
 
 			let mut ctx = WorkerContext {
@@ -365,6 +389,7 @@ impl JobManager {
 						ctx.report.id,
 						RunningJob {
 							report: ctx.report.clone(),
+							hash: job_init_hash,
 						},
 					);
 
@@ -417,6 +442,7 @@ impl JobManager {
 						next_job.report.id,
 						RunningJob {
 							report: next_job.report,
+							hash: job_init_hash,
 						},
 					);
 					if let Err(err) = next_job.start.send(()) {

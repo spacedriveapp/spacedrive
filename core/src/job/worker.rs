@@ -38,9 +38,7 @@ impl WorkerContext {
 			}
 		}
 
-		// TODO: Copy the prototype sender level debounce onto this invalidate_query call to respect argument.
-
-		invalidate_query!(self.library_ctx, "jobs.getRunning");
+		invalidate_query!(self.library_ctx, "jobs.getRunning"); // TODO: Push data to frontend by emitting this event through the JobManager. This will save on heaps of IPC bandwidth and make the UI more responsive.
 	}
 
 	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
