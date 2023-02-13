@@ -6,7 +6,8 @@ use crate::{
 	location::indexer::indexer_job::IndexerJob,
 	object::{
 		fs::{
-			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
+			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
+			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
 		},
 		identifier_job::full_identifier_job::FullFileIdentifierJob,
 		preview::ThumbnailJob,
@@ -42,51 +43,49 @@ const MAX_WORKERS: usize = 1;
 ///   - Write `JobReport` to the DB
 const STEPS_BETWEEN_PERSIST: usize = 10; // TODO: Tune this constant
 
+pub enum JobType {
+	Restartable(Box<dyn JobRestorer>),
+	Oneshot,
+}
+
 /// JOB_RESTORER is a map of job names to their restorer traits.
 /// This allows us to be sure when dispatching a job that it has the ability to be restored on restart because that was a common mistake with the old system.
-const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::new(|| {
+const JOB_RESTORER: Lazy<HashMap<&'static str, JobType>> = Lazy::new(|| {
 	HashMap::from([
 		(
 			<ThumbnailJob as StatefulJob>::NAME,
-			Box::new(ThumbnailJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(ThumbnailJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<IndexerJob as StatefulJob>::NAME,
-			Box::new(IndexerJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(IndexerJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<FullFileIdentifierJob as StatefulJob>::NAME,
-			Box::new(FullFileIdentifierJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(FullFileIdentifierJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<ObjectValidatorJob as StatefulJob>::NAME,
-			Box::new(ObjectValidatorJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(ObjectValidatorJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<FileCutterJob as StatefulJob>::NAME,
-			Box::new(FileCutterJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(FileCutterJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<FileCopierJob as StatefulJob>::NAME,
-			Box::new(FileCopierJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(FileCopierJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<FileDeleterJob as StatefulJob>::NAME,
-			Box::new(FileDeleterJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(FileDeleterJob {}) as Box<dyn JobRestorer>),
 		),
 		(
 			<FileEraserJob as StatefulJob>::NAME,
-			Box::new(FileEraserJob {}) as Box<dyn JobRestorer>,
+			JobType::Restartable(Box::new(FileEraserJob {}) as Box<dyn JobRestorer>),
 		),
-		// TODO: Allow queuing these but not restarting them
-		// (
-		// 	<FileEncryptorJob as StatefulJob>::NAME,
-		// 	Box::new(FileEncryptorJob {}) as Box<dyn JobRestorer>,
-		// ),
-		// (
-		// 	<FileDecryptorJob as StatefulJob>::NAME,
-		// 	Box::new(FileDecryptorJob {}) as Box<dyn JobRestorer>,
-		// ),
+		(<FileEncryptorJob as StatefulJob>::NAME, JobType::Oneshot),
+		(<FileDecryptorJob as StatefulJob>::NAME, JobType::Oneshot),
 	])
 });
 
@@ -249,11 +248,12 @@ impl JobManager {
 			info!("Resuming job: {}, id: {}", report.name, report.id);
 
 			match JOB_RESTORER.get(report.name.as_str()) {
-				Some(restorer) => {
+				Some(JobType::Restartable(restorer)) => {
 					restorer
 						.restore(Arc::clone(self), ctx, report, job_state_data)
 						.await?;
 				}
+				Some(JobType::Oneshot) => {}
 				None => {
 					error!(
 						"Error restoring job of id '{}' due it being of an unknown type '{}'",
