@@ -1,5 +1,5 @@
 import { Heart } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, PressableProps } from 'react-native';
 import { Object as SDObject, queryClient, useLibraryMutation } from '@sd/client';
 

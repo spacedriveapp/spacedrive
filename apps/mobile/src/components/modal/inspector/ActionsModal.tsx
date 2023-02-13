@@ -1,7 +1,6 @@
 import dayjs from 'dayjs';
 import {
 	Copy,
-	Heart,
 	Icon,
 	Info,
 	LockSimple,
@@ -12,12 +11,12 @@ import {
 	TrashSimple
 } from 'phosphor-react-native';
 import { PropsWithChildren, useRef } from 'react';
-import { Alert, Pressable, Text, View, ViewStyle } from 'react-native';
-import { ObjectKind, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
+import { Pressable, Text, View, ViewStyle } from 'react-native';
+import { formatBytes, isObject } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
-import FavoriteButton from '~/components/explorer/actions/FavoriteButton';
+import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
+import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef } from '~/components/layout/Modal';
-import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import tw, { twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 import FileInfoModal from './FileInfoModal';
@@ -64,11 +63,6 @@ export const ActionsModal = () => {
 	const item = data?.item;
 
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const isDir = data && isPath(data) ? data.item.is_dir : false;
-
-	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id], {
-		enabled: Boolean(objectData)
-	});
 
 	return (
 		<>
@@ -95,28 +89,7 @@ export const ActionsModal = () => {
 										{dayjs(item.date_created).format('MMM Do YYYY')}
 									</Text>
 								</View>
-								{/* Info pills w/ tags */}
-								<View style={tw`flex flex-row flex-wrap mt-1`}>
-									{/* Kind */}
-									<InfoPill
-										containerStyle={tw`mr-1`}
-										text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
-									/>
-									{/* Extension */}
-									{item.extension && <InfoPill text={item.extension} containerStyle={tw`mr-1`} />}
-									{/* TODO: What happens if I have too many? */}
-									{tagsQuery.data?.map((tag) => (
-										<InfoPill
-											key={tag.id}
-											text={tag.name}
-											containerStyle={tw.style('mr-1', { backgroundColor: tag.color + 'CC' })}
-											textStyle={tw`text-white`}
-										/>
-									))}
-									<Pressable onPress={() => Alert.alert('TODO')}>
-										<PlaceholderPill text={'Add Tag'} />
-									</Pressable>
-								</View>
+								<InfoTagPills data={data} />
 							</View>
 							<FavoriteButton style={tw`mr-4`} data={objectData} />
 						</View>

@@ -71,7 +71,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 					<View
 						style={tw.style(
 							'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
-							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
+							onlineLocations?.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
 						)}
