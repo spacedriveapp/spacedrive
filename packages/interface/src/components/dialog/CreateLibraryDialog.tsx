@@ -57,7 +57,11 @@ export default function CreateLibraryDialog(props: Props) {
 			await createLibrary.mutateAsync({
 				...data,
 				algorithm: data.algorithm as Algorithm,
-				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm)
+				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm),
+				auth: {
+					type: 'Password',
+					value: data.password
+				}
 			});
 		}
 	});

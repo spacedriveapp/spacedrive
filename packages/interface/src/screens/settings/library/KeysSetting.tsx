@@ -192,14 +192,14 @@ export default function KeysSettings() {
 										unmountAll.mutate(null);
 										clearMasterPassword.mutate(null);
 									}}
-									variant="outline"
+									variant="subtle"
 									className="text-ink-faint"
 								>
 									<Lock className="text-ink-faint h-4 w-4" />
 								</Button>
 								<KeyMounterDropdown
 									trigger={
-										<Button size="icon" variant="outline" className="text-ink-faint">
+										<Button size="icon" variant="subtle" className="text-ink-faint">
 											<Plus className="text-ink-faint h-4 w-4" />
 										</Button>
 									}
@@ -210,9 +210,11 @@ export default function KeysSettings() {
 						}
 					/>
 
-					<div className="grid space-y-2">
-						<ListOfKeys />
-					</div>
+					{isUnlocked && (
+						<div className="grid space-y-2">
+							<ListOfKeys />
+						</div>
+					)}
 
 					{keyringSk?.data && (
 						<>

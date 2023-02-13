@@ -11,6 +11,7 @@ export * from './Popover';
 export * from './Select';
 export * from './Switch';
 export * as Tabs from './Tabs';
+export * as RadioGroup from './RadioGroup';
 export * from './Typography';
 export * as forms from './forms';
 export * from './utils';

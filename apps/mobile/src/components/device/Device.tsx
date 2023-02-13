@@ -114,7 +114,7 @@ const DeviceIcon = {
 
 const Device = ({ name, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`border-app-line bg-app-overlay my-2 rounded-md border`}>
+		<View style={tw`bg-app-overlay border-app-line my-2 rounded-md border`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{DeviceIcon[type]}

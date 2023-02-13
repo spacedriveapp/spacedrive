@@ -16,6 +16,7 @@ interface DecryptDialogProps extends UseDialogProps {
 const schema = z.object({
 	type: z.union([z.literal('password'), z.literal('key')]),
 	outputPath: z.string(),
+	mountAssociatedKey: z.boolean(),
 	password: z.string(),
 	saveToKeyManager: z.boolean()
 });
@@ -63,7 +64,8 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 			type: hasMountedKeys ? 'key' : 'password',
 			saveToKeyManager: true,
 			outputPath: '',
-			password: ''
+			password: '',
+			mountAssociatedKey: true
 		},
 		schema
 	});
@@ -73,6 +75,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 			location_id: props.location_id,
 			path_id: props.path_id,
 			output_path: data.outputPath !== '' ? data.outputPath : null,
+			mount_associated_key: data.mountAssociatedKey,
 			password: data.type === 'password' ? data.password : null,
 			save_to_library: data.type === 'password' ? data.saveToKeyManager : null
 		})
@@ -116,6 +119,24 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 					</RadioGroup.Option>
 				</div>
 			</RadioGroup>
+
+			{form.watch('type') === 'key' && (
+				<div className="relative mt-3 mb-2 flex flex-grow">
+					<div className="space-x-2">
+						<Switch
+							className="bg-app-selected"
+							size="sm"
+							name=""
+							checked={form.watch('mountAssociatedKey')}
+							onCheckedChange={(e) => form.setValue('mountAssociatedKey', e)}
+						/>
+					</div>
+					<span className="ml-3 mt-0.5 text-xs font-medium">Automatically mount key</span>
+					<Tooltip label="The key linked with the file will be automatically mounted">
+						<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+					</Tooltip>
+				</div>
+			)}
 
 			{form.watch('type') === 'password' && (
 				<>

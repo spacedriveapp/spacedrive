@@ -17,11 +17,12 @@ export type Procedures = {
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
+        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: Array<IndexerRulesInLocation> } | null } | 
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: Array<IndexerRule> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
@@ -73,6 +74,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<null>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -85,13 +87,15 @@ export type Procedures = {
 
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
+export type AuthOption = { type: "Password", value: string } | { type: "TokenizedPassword", value: string }
+
 export interface AutomountUpdateArgs { uuid: string, status: boolean }
 
 export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface CreateLibraryArgs { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -107,7 +111,7 @@ export interface FileCopierJobInit { source_location_id: number, source_path_id:
 
 export interface FileCutterJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string }
 
-export interface FileDecryptorJobInit { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
+export interface FileDecryptorJobInit { location_id: number, path_id: number, mount_associated_key: boolean, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
 export interface FileDeleterJobInit { location_id: number, path_id: number }
 
@@ -129,6 +133,8 @@ export interface IndexerRule { id: number, kind: number, name: string, parameter
 
 export interface IndexerRuleCreateArgs { kind: RuleKind, name: string, parameters: Array<number> }
 
+export interface IndexerRulesInLocation { date_created: string, location_id: number, indexer_rule_id: number }
+
 export interface InvalidateOperationEvent { key: string, arg: any }
 
 export interface JobReport { id: string, name: string, data: Array<number> | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
@@ -143,13 +149,13 @@ export interface LibraryConfig { version: string | null, name: string, descripti
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 
-export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_archived: boolean, date_created: string }
+export interface Location { id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
 
 export interface LocationCreateArgs { path: string, indexer_rules_ids: Array<number> }
 
 export interface LocationExplorerArgs { location_id: number, path: string, limit: number, cursor: string | null }
 
-export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
+export interface LocationUpdateArgs { id: number, name: string | null, generate_preview_media: boolean | null, sync_preview_media: boolean | null, hidden: boolean | null, indexer_rules_ids: Array<number> }
 
 export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
@@ -202,6 +208,10 @@ export interface TagAssignArgs { object_id: number, tag_id: number, unassign: bo
 export interface TagCreateArgs { name: string, color: string }
 
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
+
+export interface TokenizeKeyArgs { secret_key: string }
+
+export interface TokenizeResponse { token: string }
 
 export interface UnlockKeyManagerArgs { password: string, secret_key: string }
 

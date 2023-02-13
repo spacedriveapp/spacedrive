@@ -1,8 +1,9 @@
 import { Text, View } from 'react-native';
-import { ExplorerItem, isVideoExt } from '@sd/client';
+import { ExplorerItem, ObjectKind } from '@sd/client';
 import Layout from '~/constants/Layout';
+import tw, { twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
-import tw, { twStyle } from '../../lib/tailwind';
+import { isObject } from '~/types/helper';
 import FileThumb from './FileThumb';
 
 type FileItemProps = {
@@ -12,7 +13,9 @@ type FileItemProps = {
 const FileItem = ({ data }: FileItemProps) => {
 	const { item } = data;
 
-	const isVid = isVideoExt(item.extension || '');
+	// temp fix (will handle this on mobile-inspector branch)
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 
 	const gridItemSize = Layout.window.width / getExplorerStore().gridNumColumns;
 

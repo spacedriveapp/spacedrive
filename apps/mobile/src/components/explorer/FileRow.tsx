@@ -1,8 +1,9 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { ExplorerItem, isVideoExt } from '@sd/client';
+import { ExplorerItem, ObjectKind } from '@sd/client';
 import tw, { twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
+import { isObject } from '~/types/helper';
 import FileThumb from './FileThumb';
 
 type FileRowProps = {
@@ -12,7 +13,9 @@ type FileRowProps = {
 const FileRow = ({ data }: FileRowProps) => {
 	const { item } = data;
 
-	const isVid = isVideoExt(item.extension || '');
+	// temp fix (will handle this on mobile-inspector branch)
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 
 	return (
 		<View

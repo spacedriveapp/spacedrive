@@ -1,3 +1,5 @@
+pub mod create;
+
 use crate::{
 	job::JobError,
 	prisma::{file_path, location, PrismaClient},
@@ -11,9 +13,13 @@ use super::preview::file_path_with_object;
 
 pub mod copy;
 pub mod cut;
+
 pub mod decrypt;
 pub mod delete;
 pub mod encrypt;
+
+pub mod error;
+
 pub mod erase;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

@@ -43,6 +43,7 @@ pub struct ExplorerData {
 
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
+indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
 // TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
 pub(crate) fn mount() -> rspc::RouterBuilder<
@@ -68,6 +69,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.db
 					.location()
 					.find_unique(location::id::equals(location_id))
+					.include(location::include!({ indexer_rules }))
 					.exec()
 					.await?)
 			})
@@ -288,6 +290,20 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					.db
 					.indexer_rule()
 					.find_many(vec![])
+					.exec()
+					.await
+					.map_err(Into::into)
+			})
+		})
+		// list indexer rules for location, returning the indexer rule
+		.library_query("listForLocation", |t| {
+			t(|_, location_id: i32, library| async move {
+				library
+					.db
+					.indexer_rule()
+					.find_many(vec![indexer_rule::locations::some(vec![
+						indexer_rules_in_location::location_id::equals(location_id),
+					])])
 					.exec()
 					.await
 					.map_err(Into::into)

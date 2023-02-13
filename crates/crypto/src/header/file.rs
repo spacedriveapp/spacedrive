@@ -256,7 +256,7 @@ impl FileHeader {
 		reader.read_exact(&mut magic_bytes).await?;
 
 		if magic_bytes != MAGIC_BYTES {
-			return Err(Error::FileHeader);
+			return Err(Error::Serialization);
 		}
 
 		let mut version = [0u8; 2];

@@ -117,7 +117,13 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 
 	return (
 		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-2">
-			<div ref={scrollRef} className="custom-scroll explorer-scroll h-screen">
+			<div
+				ref={scrollRef}
+				className="custom-scroll explorer-scroll h-screen"
+				onClick={(e) => {
+					getExplorerStore().selectedRowIndex = -1;
+				}}
+			>
 				<div
 					ref={innerRef}
 					style={{
@@ -186,9 +192,14 @@ const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) =
 		if (isPath(item) && item.item.is_dir) setSearchParams({ path: item.item.materialized_path });
 	}, [item, setSearchParams]);
 
-	const onClick = useCallback(() => {
-		getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
-	}, [isSelected, index]);
+	const onClick = useCallback(
+		(e: React.MouseEvent<HTMLDivElement>) => {
+			e.stopPropagation();
+
+			getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
+		},
+		[isSelected, index]
+	);
 
 	const ItemComponent = kind === 'list' ? FileRow : FileItem;
 

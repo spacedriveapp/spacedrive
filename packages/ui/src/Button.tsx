@@ -42,8 +42,11 @@ const styles = cva(
 					'active:bg-app-selected hover:bg-app-hover bg-transparent',
 					'hover:border-app-line active:border-app-line border-transparent'
 				],
-				outline: [
+				subtle: [
 					'hover:border-app-line/50 active:border-app-line active:bg-app-box/30 border-transparent'
+				],
+				outline: [
+					'border-sidebar-line/60 hover:border-sidebar-line active:border-sidebar-line active:border-sidebar-line/30'
 				],
 				gray: [
 					'bg-app-button active:bg-app-selected hover:bg-app-hover',

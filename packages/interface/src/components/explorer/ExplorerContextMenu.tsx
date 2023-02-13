@@ -347,7 +347,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 								dialogManager.create((dp) => (
 									<DecryptFileDialog
 										{...dp}
-										location_id={getExplorerStore().locationId!}
+										location_id={store.locationId!}
 										path_id={data.item.id}
 									/>
 								));
