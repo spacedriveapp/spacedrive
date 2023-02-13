@@ -37,9 +37,10 @@ swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29
 tokio = { version = "1.25.0" }
 
 [patch.crates-io]
-# We use this patch so we can compile for the IOS simulator on M1
-openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
+openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "66510ace8c803829a77f683d297179f7db2c7b6c" } # We use this patch so we can compile for the IOS simulator on M1
+bip39 = { git = "https://github.com/spacedriveapp/rust-bip39", rev = "e9ee260fc6e35eb9bb2ad1c052185186f19a8ebe" } # Unpin `unicode-normalization` version (this increases MSRV but that is irrelevant for us)
+tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "852e11e17b1573280671bfc4d5fae051aa218cf9" } # https://github.com/tauri-apps/tauri/issues/5070 (Fix will be release in v1.3)
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin + upgraded Tauri version is released
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin + upgraded Tauri & Axum version is released
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }

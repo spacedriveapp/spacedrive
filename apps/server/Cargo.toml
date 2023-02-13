@@ -7,9 +7,9 @@ edition = "2021"
 sd-core = { path = "../../core", features = ["ffmpeg"] }
 rspc = { workspace = true, features = ["axum"] }
 httpz = { workspace = true, features = ["axum"] }
-axum = "0.6.4"
+axum = "0.6.6"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
-tracing = "0.1.36"
-ctrlc = "3.2.3"
+tracing = "0.1.37"
+ctrlc = "3.2.5"
 http = "0.2.8"
-hyper = "0.14.23"
+hyper = "0.14.24"
