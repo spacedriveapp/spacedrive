@@ -18,8 +18,6 @@ use tokio::{
 use tracing::{error, warn};
 use uuid::Uuid;
 
-file_path::include!(file_path_with_location { location });
-
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 type MetadataCacheKey = (Uuid, i32, i32);
@@ -114,7 +112,7 @@ async fn handle_file(
 				.db
 				.file_path()
 				.find_unique(file_path::location_id_id(location_id, file_path_id))
-				.include(file_path_with_location::include())
+				.include(post::include!({ location }))
 				.exec()
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
