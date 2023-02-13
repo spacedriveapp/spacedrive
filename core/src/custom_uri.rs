@@ -170,7 +170,6 @@ async fn handle_file(
 		let mut status_code = 200;
 
 		// if the webview sent a range header, we need to send a 206 in return
-		// Actually only macOS and Windows are supported. Linux will ALWAYS return empty headers.
 		let buf = if let Some(range) = req.headers().get("range") {
 			let mut buf = Vec::new();
 			let file_size = metadata.len();
