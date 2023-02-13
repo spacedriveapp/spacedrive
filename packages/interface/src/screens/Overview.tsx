@@ -166,7 +166,7 @@ export default function OverviewScreen() {
 							);
 						})}
 					</div>
-					<div className="flex-grow" />
+					<div className="grow" />
 				</div>
 				<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
 					<CategoryButton icon={Heart} category="Favorites" />
@@ -185,7 +185,7 @@ export default function OverviewScreen() {
 					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
 					functional.
 				</Card>
-				<div className="flex h-4 w-full flex-shrink-0" />
+				<div className="flex h-4 w-full shrink-0" />
 			</div>
 		</div>
 	);

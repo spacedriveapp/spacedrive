@@ -121,7 +121,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 			</RadioGroup>
 
 			{form.watch('type') === 'key' && (
-				<div className="relative mt-3 mb-2 flex flex-grow">
+				<div className="relative mt-3 mb-2 flex grow">
 					<div className="space-x-2">
 						<Switch
 							className="bg-app-selected"

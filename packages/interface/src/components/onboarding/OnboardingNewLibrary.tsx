@@ -69,7 +69,7 @@ export default function OnboardingNewLibrary() {
 							className="mt-6 w-[300px]"
 							placeholder={'e.g. "James\' Library"'}
 						/>
-						<div className="flex flex-grow" />
+						<div className="flex grow" />
 						<div className="mt-7 space-x-2">
 							<Button type="submit" variant="accent" size="sm">
 								New library

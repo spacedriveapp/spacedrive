@@ -61,12 +61,12 @@ export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHi
 		const [showPassword, setShowPassword] = useState(false);
 		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
 		return (
-			<span className="relative flex-grow">
+			<span className="relative grow">
 				<Button
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(
-						'absolute top-1.5 bottom-1.5 right-2 m-auto w-[25px] border-none',
+						'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
 						props.buttonClassnames
 					)}
 				>

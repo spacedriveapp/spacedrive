@@ -76,10 +76,10 @@ export default function OnboardingRoot() {
 				'bg-sidebar text-ink flex h-screen flex-col'
 			)}
 		>
-			<div data-tauri-drag-region className="z-50 flex h-9 w-full flex-shrink-0" />
+			<div data-tauri-drag-region className="z-50 flex h-9 w-full shrink-0" />
 
-			<div className="-mt-5 flex flex-grow flex-col p-10">
-				<div className="flex flex-grow flex-col items-center justify-center">
+			<div className="-mt-5 flex grow flex-col p-10">
+				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
 				</div>
 				<OnboardingProgress />

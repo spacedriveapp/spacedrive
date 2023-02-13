@@ -32,7 +32,7 @@ export const SettingsSubPage = ({ children, title, topRight }: Props) => {
 								/>
 							</div>
 						</Button>
-						<h3 className="flex-grow text-lg font-semibold">{title}</h3>
+						<h3 className="grow text-lg font-semibold">{title}</h3>
 						{topRight}
 					</HeaderArea>
 					<div className="px-8">

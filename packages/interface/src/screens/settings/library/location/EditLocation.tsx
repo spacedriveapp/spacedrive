@@ -117,17 +117,15 @@ export default function EditLocation() {
 
 				<div className="space-y-2">
 					<ToggleSection>
-						<Label className="flex-grow">Generate preview media for this Location</Label>
+						<Label className="grow">Generate preview media for this Location</Label>
 						<Switch {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="flex-grow">
-							Sync preview media for this Location with your devices
-						</Label>
+						<Label className="grow">Sync preview media for this Location with your devices</Label>
 						<Switch {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="flex-grow">
+						<Label className="grow">
 							Hide location and contents from view{' '}
 							<Tooltip label='Prevents the location and its contents from appearing in summary categories, search and tags unless "Show hidden items" is enabled.'>
 								<Info className="inline" />
@@ -138,7 +136,7 @@ export default function EditLocation() {
 				</div>
 				<Divider />
 				<div className="pointer-events-none flex flex-col opacity-30">
-					<Label className="flex-grow">Indexer rules</Label>
+					<Label className="grow">Indexer rules</Label>
 					<InfoText className="mt-0 mb-1">
 						Indexer rules allow you to specify paths to ignore using RegEx.
 					</InfoText>

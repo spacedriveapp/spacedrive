@@ -82,7 +82,7 @@ export default function OnboardingNewLibrary() {
 							</span>
 						</Card>
 					)}
-					<div className="mt-2 mb-2 flex flex-grow">
+					<div className="my-2 flex grow">
 						<PasswordShowHideInput
 							{...form.register('password')}
 							size="md"
@@ -92,7 +92,7 @@ export default function OnboardingNewLibrary() {
 						/>
 					</div>
 					{showPasswordValidate && (
-						<div className="mb-2 flex flex-grow">
+						<div className="mb-2 flex grow">
 							<PasswordShowHideInput
 								{...form.register('password_validate')}
 								size="md"
