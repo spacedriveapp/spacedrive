@@ -13,10 +13,7 @@ default = ["p2p"]
 p2p = [] # This feature controls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
 mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
 android = ["dep:tracing-android"]
-ffmpeg = [
-  "dep:ffmpeg-next",
-  "dep:sd-ffmpeg",
-] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+ffmpeg = ["dep:ffmpeg-next", "dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 
 [dependencies]
@@ -73,6 +70,7 @@ notify = { version = "5.0.0", default-features = false, features = [
 uhlc = "0.5.1"
 serde-hashkey = "0.4.5"
 dashmap =  { version = "5.4.0", features = ["serde"] }
+portable-atomic = "1.0.1"
 
 [dev-dependencies]
 tempfile = "^3.3.0"

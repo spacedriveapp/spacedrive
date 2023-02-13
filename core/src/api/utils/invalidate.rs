@@ -227,8 +227,6 @@ pub fn mount_invalidate() -> RouterBuilder {
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
 			// Batching is important because when refetching data on the frontend rspc can fetch all invalidated queries in a single round trip.
 			if !manager_thread_active.swap(true, Ordering::Relaxed) {
-				println!("TODO: STARTING");
-
 				let mut event_bus_rx = ctx.event_bus.subscribe();
 				let tx = tx.clone();
 				tokio::spawn(async move {
@@ -240,11 +238,7 @@ pub fn mount_invalidate() -> RouterBuilder {
 								match event {
 									CoreEvent::InvalidateOperation(op) => {
 										// Newer data replaces older data in the buffer
-										let key = to_key(&(op.key, &op.arg)).unwrap();
-										if buf.get(&key).is_some() {
-											buf.remove(&key);
-										}
-										buf.insert(key, op);
+										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
 									}
 									_ => {}
 								}

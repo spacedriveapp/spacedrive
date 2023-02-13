@@ -4347,6 +4347,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39c00c8683a03bd4fe7db7dd64ab4abee6b42166bc81231da983486ce96be51a"
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5468,6 +5474,7 @@ dependencies = [
  "normi",
  "notify",
  "once_cell",
+ "portable-atomic",
  "prisma-client-rust",
  "rmp",
  "rmp-serde",

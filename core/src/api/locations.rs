@@ -131,7 +131,6 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				// 			root_path: PathBuf::from(&directory.materialized_path),
 				// 			background: true,
 				// 		},
-				// 		ThumbnailJob {},
 				// 	)
 				// 	.await;
 

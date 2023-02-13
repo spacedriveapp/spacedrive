@@ -15,19 +15,12 @@ pub struct WorkerContext {
 
 impl WorkerContext {
 	pub fn progress(&mut self, updates: Vec<JobReportUpdate>) {
-		self.progress_inner(updates, false);
-	}
-
-	pub fn progress_debounced(&mut self, updates: Vec<JobReportUpdate>) {
-		self.progress_inner(updates, true);
-	}
-
-	fn progress_inner(&mut self, updates: Vec<JobReportUpdate>, debounce: bool) {
 		// protect against updates if job is not running
 		if self.report.status != JobStatus::Running {
 			warn!("Attempted to update job progress while job is not running");
 			return;
 		};
+
 		for update in updates {
 			match update {
 				JobReportUpdate::TaskCount(task_count) => {
@@ -47,7 +40,6 @@ impl WorkerContext {
 
 		// TODO: Copy the prototype sender level debounce onto this invalidate_query call to respect argument.
 
-		// TODO: invalidate query without library context and just reference to channel
 		invalidate_query!(self.library_ctx, "jobs.getRunning");
 	}
 

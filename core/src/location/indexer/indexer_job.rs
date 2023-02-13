@@ -8,18 +8,18 @@ use crate::{
 };
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, VecDeque},
 	ffi::OsStr,
 	hash::{Hash, Hasher},
 	path::PathBuf,
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
+use portable_atomic::{AtomicU128, Ordering};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::time::Instant;
 use tracing::info;
 
 use super::{
@@ -72,6 +72,13 @@ pub struct IndexerJobData {
 	db_write_start: DateTime<Utc>,
 	scan_read_time: Duration,
 	total_paths: usize,
+	// Used for debouncing updates
+	#[serde(skip, default = "default_last_progress_event")]
+	last_progress_event: AtomicU128,
+}
+
+fn default_last_progress_event() -> AtomicU128 {
+	AtomicU128::new(0) // 0 here represents Unix epoch and is used so the first update is emitted
 }
 
 /// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
@@ -89,18 +96,24 @@ pub struct IndexerJobStepEntry {
 	is_dir: bool,
 }
 
+const DEBOUNCE_TIMEOUT: u32 = 250;
+
 impl IndexerJobData {
-	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress_debounced(
-			progress
-				.iter()
-				.map(|p| match p.clone() {
-					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
-					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => JobReportUpdate::Message(m),
-				})
-				.collect(),
-		)
+	fn on_scan_progress(&self, ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
+		let now = Instant::now().elapsed().as_millis();
+		if (self.last_progress_event.load(Ordering::Relaxed) + DEBOUNCE_TIMEOUT as u128) <= now {
+			self.last_progress_event.store(now, Ordering::Relaxed);
+			ctx.progress(
+				progress
+					.into_iter()
+					.map(|p| match p {
+						ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
+						ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
+						ScanProgress::Message(m) => JobReportUpdate::Message(m),
+					})
+					.collect(),
+			)
+		}
 	}
 }
 
@@ -149,13 +162,15 @@ impl StatefulJob for IndexerJob {
 			location_path.clone(),
 			&indexer_rules_by_kind,
 			|path, total_entries| {
-				IndexerJobData::on_scan_progress(
-					ctx,
-					vec![
-						ScanProgress::Message(format!("Scanning {}", path.display())),
-						ScanProgress::ChunkCount(total_entries / BATCH_SIZE),
-					],
-				);
+				if let Some(data) = &state.data {
+					data.on_scan_progress(
+						ctx,
+						vec![
+							ScanProgress::Message(format!("Scanning {}", path.display())),
+							ScanProgress::ChunkCount(total_entries / BATCH_SIZE),
+						],
+					);
+				}
 			},
 		)
 		.await?;
@@ -205,16 +220,22 @@ impl StatefulJob for IndexerJob {
 			db_write_start: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
 			total_paths: total_entries,
+			last_progress_event: default_last_progress_event(),
 		});
 
-		state.steps = paths_entries
+		let mut steps = VecDeque::with_capacity(BATCH_SIZE / paths_entries.len());
+		for (i, chunk) in paths_entries
 			.into_iter()
 			.chunks(BATCH_SIZE)
 			.into_iter()
 			.enumerate()
-			.map(|(i, chunk)| {
-				let chunk_steps = chunk.collect::<Vec<_>>();
-				IndexerJobData::on_scan_progress(
+		{
+			let chunk_steps = chunk.collect::<Vec<_>>();
+			state
+				.data
+				.as_ref()
+				.expect("unreachable. indexer job data not assigned.")
+				.on_scan_progress(
 					ctx,
 					vec![
 						ScanProgress::SavedChunks(i),
@@ -225,9 +246,9 @@ impl StatefulJob for IndexerJob {
 						)),
 					],
 				);
-				chunk_steps
-			})
-			.collect();
+			steps.push_back(chunk_steps);
+		}
+		state.steps = steps;
 
 		Ok(())
 	}
