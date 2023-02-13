@@ -112,7 +112,7 @@ async fn handle_file(
 				.db
 				.file_path()
 				.find_unique(file_path::location_id_id(location_id, file_path_id))
-				.include(post::include!({ location }))
+				.include(file_path::include!({ location }))
 				.exec()
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
