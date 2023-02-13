@@ -113,7 +113,7 @@ pub trait StatefulJob: Send + Sync + Sized + JobRestorer + 'static {
 	) -> Result<(), JobError>;
 
 	/// TODO
-	async fn finalize(&self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 /// TODO

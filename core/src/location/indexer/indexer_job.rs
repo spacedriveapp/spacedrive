@@ -4,6 +4,7 @@ use crate::{
 	},
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
+	sync,
 };
 
 use std::{
@@ -278,10 +279,12 @@ impl StatefulJob for IndexerJob {
 
 				(
 					(
-						json!({
-							"id": entry.file_id,
-							"location_id": state.init.location.pub_id,
-						}),
+						sync::file_path::SyncId {
+							id: entry.file_id,
+							location: sync::location::SyncId {
+								pub_id: state.init.location.pub_id.clone(),
+							},
+						},
 						[
 							("materialized_path", json!(materialized_path.clone())),
 							("name", json!(name.clone())),
@@ -312,9 +315,7 @@ impl StatefulJob for IndexerJob {
 			.sync
 			.write_op(
 				db,
-				ctx.library_ctx
-					.sync
-					.owned_create_many("FilePath", sync_stuff, true),
+				ctx.library_ctx.sync.owned_create_many(sync_stuff, true),
 				db.file_path().create_many(paths).skip_duplicates(),
 			)
 			.await?;
@@ -325,7 +326,11 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Logs some metadata about the indexer job
-	async fn finalize(&self, _ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(
+		&mut self,
+		_ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

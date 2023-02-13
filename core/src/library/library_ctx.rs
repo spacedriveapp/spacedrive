@@ -3,6 +3,7 @@ use crate::{
 	job::{JobInitData, StatefulJob},
 	location::LocationManager,
 	node::NodeConfigManager,
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::PrismaClient,
 	sync::SyncManager,
 	NodeContext,
@@ -79,5 +80,20 @@ impl LibraryContext {
 
 	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
 		&self.node_context.location_manager
+	}
+
+	pub async fn thumbnail_exists(&self, cas_id: &str) -> tokio::io::Result<bool> {
+		let thumb_path = self
+			.config()
+			.data_directory()
+			.join(THUMBNAIL_CACHE_DIR_NAME)
+			.join(cas_id)
+			.with_extension("webp");
+
+		match tokio::fs::metadata(thumb_path).await {
+			Ok(_) => Ok(true),
+			Err(e) if e.kind() == tokio::io::ErrorKind::NotFound => Ok(false),
+			Err(e) => Err(e),
+		}
 	}
 }

@@ -92,19 +92,18 @@ model Volume {
 
 /// @owned(id: pub_id)
 model Location {
-    id                 Int      @id @default(autoincrement())
-    pub_id             Bytes    @unique
-    node_id            Int
-    name               String?
-    local_path         String?
-    total_capacity     Int?
-    available_capacity Int?
-    filesystem         String?
-    disk_type          Int?
-    is_removable       Boolean?
-    is_online          Boolean  @default(true)
-    is_archived        Boolean  @default(false)
-    date_created       DateTime @default(now())
+    id                     Int      @id @default(autoincrement())
+    pub_id                 Bytes    @unique
+    node_id                Int
+    name                   String?
+    local_path             String?
+    total_capacity         Int?
+    available_capacity     Int?
+    is_archived            Boolean  @default(false)
+    generate_preview_media Boolean  @default(true)
+    sync_preview_media     Boolean  @default(true)
+    hidden                 Boolean  @default(false)
+    date_created           DateTime @default(now())
 
     node          Node                     @relation(fields: [node_id], references: [id])
     file_paths    FilePath[]
@@ -113,37 +112,35 @@ model Location {
     @@map("location")
 }
 
-/// @shared(id: cas_id)
+/// @shared(id: pub_id)
 model Object {
-    id                 Int      @id @default(autoincrement())
-    // content addressable storage id - blake3 sampled checksum
-    cas_id             String   @unique
-    // full byte contents digested into blake3 checksum
-    integrity_checksum String?  @unique
+    id                Int      @id @default(autoincrement())
+    pub_id            Bytes    @unique
     // basic metadata
-    name               String?
-    extension          String?
-    kind               Int      @default(0)
-    size_in_bytes      String   @default("0")
-    key_id             Int?
+    name              String?
+    // Must have 'COLLATE NOCASE' in migration
+    extension         String?
+    kind              Int      @default(0)
+    size_in_bytes     String   @default("0")
+    key_id            Int?
     // handy ways to mark an object
-    hidden             Boolean  @default(false)
-    favorite           Boolean  @default(false)
-    important          Boolean  @default(false)
+    hidden            Boolean  @default(false)
+    favorite          Boolean  @default(false)
+    important         Boolean  @default(false)
     // if we have generated preview media for this object
-    has_thumbnail      Boolean  @default(false)
-    has_thumbstrip     Boolean  @default(false)
-    has_video_preview  Boolean  @default(false)
+    has_thumbnail     Boolean  @default(false)
+    has_thumbstrip    Boolean  @default(false)
+    has_video_preview Boolean  @default(false)
     // integration with ipfs
-    ipfs_id            String?
+    ipfs_id           String?
     // plain text note
-    note               String?
+    note              String?
     // the original known creation date of this object
-    date_created       DateTime @default(now())
+    date_created      DateTime @default(now())
     // the last time this object was modified
-    date_modified      DateTime @default(now())
+    date_modified     DateTime @default(now())
     // when this object was first indexed
-    date_indexed       DateTime @default(now())
+    date_indexed      DateTime @default(now())
 
     tags       TagOnObject[]
     labels     LabelOnObject[]
@@ -160,24 +157,33 @@ model Object {
 
 /// @shared(id: [location, id])
 model FilePath {
-    id                Int
-    is_dir            Boolean  @default(false)
+    id     Int
+    is_dir Boolean @default(false)
+
+    // content addressable storage id - blake3 sampled checksum
+    cas_id             String?
+    // full byte contents digested into blake3 checksum
+    integrity_checksum String? @unique
+
     // location that owns this path
-    location_id       Int
-    location          Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location_id Int
+    location    Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
     // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
+    // Must have 'COLLATE NOCASE' in migration
     name              String
     extension         String?
+
     // the unique Object for this file path
-    object_id         Int?
-    object            Object?  @relation(fields: [object_id], references: [id], onDelete: Restrict)
+    object_id Int?
+    object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
     // the parent in the file tree
-    parent_id         Int?
-    key_id            Int? // replacement for encryption
+    parent_id Int?
+    key_id    Int? // replacement for encryption
     // permissions       String?
-    // temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -211,6 +217,7 @@ model Key {
     // uuid to identify the key
     uuid              String    @unique
     version           String
+    key_type          String
     // the name that the user sets
     name              String?
     // is this key the default for encryption?

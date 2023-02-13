@@ -5,7 +5,7 @@ authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
-rust-version = "1.64.0"
+rust-version = "1.67.0"
 
 [dependencies]
 # rng
@@ -33,35 +33,50 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 serde-big-array = { version = "0.4.1", optional = true }
 
+# for storedkey organisation and handling
 uuid = { version = "1.1.2", features = ["v4"] }
 
+# better/faster keymanager
 dashmap = "5.4.0"
 
+# optional, for support with rspc
 rspc = { workspace = true, features = ["uuid"], optional = true }
 specta = { workspace = true, optional = true }
 
+# for asynchronous crypto
+tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
+
 hex = "0.4.3"
 
-tokio = { version = "1.21.2", features = ["io-util", "rt-multi-thread"] }
+# linux OS keyring
+[target.'cfg(target_os = "linux")'.dependencies]
+secret-service = "2.0.2"
+
+# macos/ios OS keyring
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+security-framework = "2.8.1"
 
 [dev-dependencies]
-criterion = "0.4.0"
+tokio = { workspace = true, features = [
+    "fs",
+    "macros",
+] } # features needed for examples
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
 
-[[bench]]
-name = "aes-256-gcm"
-path = "benches/aes-256-gcm.rs"
-harness = false
+# [[bench]]
+# name = "aes-256-gcm"
+# path = "benches/aes-256-gcm.rs"
+# harness = false
 
-[[bench]]
-name = "xchacha20-poly1305"
-path = "benches/xchacha20-poly1305.rs"
-harness = false
+# [[bench]]
+# name = "xchacha20-poly1305"
+# path = "benches/xchacha20-poly1305.rs"
+# harness = false
 
-[[bench]]
-name = "argon2id"
-path = "benches/argon2id.rs"
-harness = false
+# [[bench]]
+# name = "argon2id"
+# path = "benches/argon2id.rs"
+# harness = false

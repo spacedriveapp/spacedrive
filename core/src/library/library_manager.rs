@@ -12,7 +12,7 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	primitives::{to_array, OnboardingConfig},
+	primitives::types::{EncryptedKey, Nonce, OnboardingConfig, Salt},
 };
 use std::{
 	env, fs, io,
@@ -34,7 +34,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<LibraryContext>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	node_context: NodeContext,
+	pub node_context: NodeContext,
 }
 
 #[derive(Error, Debug)]
@@ -94,16 +94,18 @@ pub async fn seed_keymanager(
 				uuid,
 				version: serde_json::from_str(&key.version)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
+				key_type: serde_json::from_str(&key.key_type)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
 				algorithm: serde_json::from_str(&key.algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
-				content_salt: to_array(key.content_salt)?,
-				master_key: to_array(key.master_key)?,
-				master_key_nonce: key.master_key_nonce,
-				key_nonce: key.key_nonce,
+				content_salt: Salt::try_from(key.content_salt)?,
+				master_key: EncryptedKey::try_from(key.master_key)?,
+				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
+				key_nonce: Nonce::try_from(key.key_nonce)?,
 				key: key.key,
 				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
-				salt: to_array(key.salt)?,
+				salt: Salt::try_from(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
 			})
@@ -112,7 +114,7 @@ pub async fn seed_keymanager(
 		.unwrap();
 
 	// insert all keys from the DB into the keymanager's keystore
-	km.populate_keystore(stored_keys)?;
+	km.populate_keystore(stored_keys).await?;
 
 	// if any key had an associated default tag
 	default.map(|k| km.set_default(k));
@@ -209,7 +211,7 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// setup master password
-		let verification_key = KeyManager::onboarding(km_config)?;
+		let verification_key = KeyManager::onboarding(km_config, library.id).await?;
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;
 
@@ -337,10 +339,10 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let key_manager = Arc::new(KeyManager::new(vec![])?);
-
+		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		seed_keymanager(&db, &key_manager).await?;
-		let (sync_manager, _) = SyncManager::new(db.clone(), id);
+
+		let (sync_manager, _) = SyncManager::new(&db, id);
 
 		let this = LibraryContext {
 			id,

@@ -27,16 +27,17 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::Read;
 
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, KEY_LEN},
+	primitives::types::Key,
 	Protected,
 };
 
-use crate::{crypto::stream::Algorithm, Error, Result};
+use tokio::io::AsyncReadExt;
+
+use crate::{crypto::stream::Algorithm, primitives::types::Nonce, Error, Result};
 
 use super::file::FileHeader;
 
@@ -49,7 +50,7 @@ use super::file::FileHeader;
 pub struct Metadata {
 	pub version: MetadataVersion,
 	pub algorithm: Algorithm, // encryption algorithm
-	pub metadata_nonce: Vec<u8>,
+	pub metadata_nonce: Nonce,
 	pub metadata: Vec<u8>,
 }
 
@@ -68,67 +69,35 @@ impl FileHeader {
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[cfg(feature = "serde")]
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn add_metadata<T>(
+	pub async fn add_metadata<T>(
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: Protected<[u8; KEY_LEN]>,
+		master_key: Key,
 		metadata: &T,
 	) -> Result<()>
 	where
-		T: ?Sized + serde::Serialize,
+		T: ?Sized + serde::Serialize + Sync + Send,
 	{
-		let metadata_nonce = generate_nonce(algorithm);
+		let metadata_nonce = Nonce::generate(algorithm)?;
 
 		let encrypted_metadata = StreamEncryption::encrypt_bytes(
 			master_key,
-			&metadata_nonce,
+			metadata_nonce,
 			algorithm,
 			&serde_json::to_vec(metadata).map_err(|_| Error::Serialization)?,
 			&[],
-		)?;
+		)
+		.await?;
 
-		let metadata = Metadata {
+		self.metadata = Some(Metadata {
 			version,
 			algorithm,
 			metadata_nonce,
 			metadata: encrypted_metadata,
-		};
-
-		self.metadata = Some(metadata);
+		});
 
 		Ok(())
-	}
-
-	/// This function should be used to retrieve the metadata for a file
-	///
-	/// All it requires is pre-hashed keys returned from the key manager
-	///
-	/// A deserialized data type will be returned from this function
-	#[cfg(feature = "serde")]
-	pub fn decrypt_metadata_from_prehashed<T>(
-		&self,
-		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
-	) -> Result<T>
-	where
-		T: serde::de::DeserializeOwned,
-	{
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
-
-		self.metadata.as_ref().map_or_else(
-			|| Err(Error::NoMetadata),
-			|metadata| {
-				let metadata = StreamDecryption::decrypt_bytes(
-					master_key,
-					&metadata.metadata_nonce,
-					metadata.algorithm,
-					&metadata.metadata,
-					&[],
-				)?;
-
-				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			},
-		)
 	}
 
 	/// This function should be used to retrieve the metadata for a file
@@ -137,26 +106,54 @@ impl FileHeader {
 	///
 	/// A deserialized data type will be returned from this function
 	#[cfg(feature = "serde")]
-	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
+	pub async fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key(password)?;
+		let master_key = self.decrypt_master_key(password).await?;
 
-		self.metadata.as_ref().map_or_else(
-			|| Err(Error::NoMetadata),
-			|metadata| {
-				let metadata = StreamDecryption::decrypt_bytes(
-					master_key,
-					&metadata.metadata_nonce,
-					metadata.algorithm,
-					&metadata.metadata,
-					&[],
-				)?;
+		if let Some(metadata) = self.metadata.as_ref() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)
+			.await?;
 
-				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-			},
-		)
+			serde_json::from_slice::<T>(metadata.expose()).map_err(|_| Error::Serialization)
+		} else {
+			Err(Error::NoMetadata)
+		}
+	}
+
+	/// This function should be used to retrieve the metadata for a file
+	///
+	/// All it requires is pre-hashed keys returned from the key manager
+	///
+	/// A deserialized data type will be returned from this function
+	#[cfg(feature = "serde")]
+	pub async fn decrypt_metadata_from_prehashed<T>(&self, hashed_keys: Vec<Key>) -> Result<T>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
+
+		if let Some(metadata) = self.metadata.as_ref() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)
+			.await?;
+
+			serde_json::from_slice::<T>(metadata.expose()).map_err(|_| Error::Serialization)
+		} else {
+			Err(Error::NoMetadata)
+		}
 	}
 }
 
@@ -192,33 +189,36 @@ impl Metadata {
 	/// The cursor will be left at the end of the metadata item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read,
+		R: AsyncReadExt + Unpin + Send,
 	{
 		let mut version = [0u8; 2];
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version = MetadataVersion::from_bytes(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut metadata_nonce)?;
+				reader.read_exact(&mut metadata_nonce).await?;
+				let metadata_nonce = Nonce::try_from(metadata_nonce)?;
 
-				reader.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])?;
+				reader
+					.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])
+					.await?;
 
 				let mut metadata_length = [0u8; 8];
-				reader.read_exact(&mut metadata_length)?;
+				reader.read_exact(&mut metadata_length).await?;
 
 				let metadata_length = u64::from_le_bytes(metadata_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut metadata = vec![0u8; metadata_length as usize];
-				reader.read_exact(&mut metadata)?;
+				reader.read_exact(&mut metadata).await?;
 
 				let metadata = Self {
 					version,

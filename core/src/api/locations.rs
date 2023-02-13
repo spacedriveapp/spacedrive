@@ -4,7 +4,6 @@ use crate::{
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
@@ -12,7 +11,6 @@ use std::path::PathBuf;
 
 use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -27,8 +25,14 @@ pub enum ExplorerContext {
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(Box<file_path_with_object::Data>),
-	Object(Box<object_with_file_paths::Data>),
+	Path {
+		has_thumbnail: bool,
+		item: Box<file_path_with_object::Data>,
+	},
+	Object {
+		has_thumbnail: bool,
+		item: Box<object_with_file_paths::Data>,
+	},
 }
 
 #[derive(Serialize, Deserialize, Type, Debug)]
@@ -39,6 +43,7 @@ pub struct ExplorerData {
 
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
+indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
 // TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
 pub(crate) fn mount() -> rspc::RouterBuilder<
@@ -64,6 +69,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.db
 					.location()
 					.find_unique(location::id::equals(location_id))
+					.include(location::include!({ indexer_rules }))
 					.exec()
 					.await?)
 			})
@@ -130,24 +136,21 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				// 	.await;
 
 				let mut items = Vec::with_capacity(file_paths.len());
-				for mut file_path in file_paths {
-					if let Some(object) = &mut file_path.object.as_mut() {
-						// TODO: Use helper function to build this url as as the Rust file loading layer
-						let thumb_path = library
-							.config()
-							.data_directory()
-							.join(THUMBNAIL_CACHE_DIR_NAME)
-							.join(&object.cas_id)
-							.with_extension("webp");
 
-						object.has_thumbnail = (match fs::metadata(thumb_path).await {
-							Ok(_) => Ok(true),
-							Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
-							Err(e) => Err(e),
-						})
-						.map_err(LocationError::IOError)?;
-					}
-					items.push(ExplorerItem::Path(Box::new(file_path)));
+				for file_path in file_paths {
+					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
+						library
+							.thumbnail_exists(cas_id)
+							.await
+							.map_err(LocationError::IOError)?
+					} else {
+						false
+					};
+
+					items.push(ExplorerItem::Path {
+						has_thumbnail,
+						item: Box::new(file_path),
+					});
 				}
 
 				Ok(ExplorerData {
@@ -217,6 +220,23 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				Ok(todo!())
 			})
 		})
+		.subscription("online", |t| {
+			t(|ctx, _: ()| {
+				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+
+				let mut rx = location_manager.online_rx();
+
+				async_stream::stream! {
+					let online = location_manager.get_online().await;
+					dbg!(&online);
+					yield online;
+
+					while let Ok(locations) = rx.recv().await {
+						yield locations;
+					}
+				}
+			})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
@@ -270,6 +290,20 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					.db
 					.indexer_rule()
 					.find_many(vec![])
+					.exec()
+					.await
+					.map_err(Into::into)
+			})
+		})
+		// list indexer rules for location, returning the indexer rule
+		.library_query("listForLocation", |t| {
+			t(|_, location_id: i32, library| async move {
+				library
+					.db
+					.indexer_rule()
+					.find_many(vec![indexer_rule::locations::some(vec![
+						indexer_rules_in_location::location_id::equals(location_id),
+					])])
 					.exec()
 					.await
 					.map_err(Into::into)

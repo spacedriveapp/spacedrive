@@ -30,24 +30,12 @@
 //!
 use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
-
 #[derive(Clone)]
 pub struct Protected<T>
 where
 	T: Zeroize,
 {
 	data: T,
-}
-
-impl<T> std::ops::Deref for Protected<T>
-where
-	T: Zeroize,
-{
-	type Target = T;
-
-	fn deref(&self) -> &Self::Target {
-		&self.data
-	}
 }
 
 impl<T> Protected<T>

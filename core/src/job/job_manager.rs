@@ -6,8 +6,7 @@ use crate::{
 	location::indexer::indexer_job::IndexerJob,
 	object::{
 		fs::{
-			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
-			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
+			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
 		},
 		identifier_job::full_identifier_job::FullFileIdentifierJob,
 		preview::ThumbnailJob,
@@ -79,14 +78,15 @@ const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::ne
 			<FileEraserJob as StatefulJob>::NAME,
 			Box::new(FileEraserJob {}) as Box<dyn JobRestorer>,
 		),
-		(
-			<FileEncryptorJob as StatefulJob>::NAME,
-			Box::new(FileEncryptorJob {}) as Box<dyn JobRestorer>,
-		),
-		(
-			<FileDecryptorJob as StatefulJob>::NAME,
-			Box::new(FileDecryptorJob {}) as Box<dyn JobRestorer>,
-		),
+		// TODO: Allow queuing these but not restarting them
+		// (
+		// 	<FileEncryptorJob as StatefulJob>::NAME,
+		// 	Box::new(FileEncryptorJob {}) as Box<dyn JobRestorer>,
+		// ),
+		// (
+		// 	<FileDecryptorJob as StatefulJob>::NAME,
+		// 	Box::new(FileDecryptorJob {}) as Box<dyn JobRestorer>,
+		// ),
 	])
 });
 
@@ -274,7 +274,7 @@ impl JobManager {
 		library_ctx: LibraryContext,
 		mut report: JobReport,
 		mut state: JobState<T>,
-		job: T,
+		mut job: T,
 	) {
 		let job_should_queue = self.running.read().await.len() <= MAX_WORKERS;
 		report.status = job_should_queue

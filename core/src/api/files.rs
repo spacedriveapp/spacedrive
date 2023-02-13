@@ -1,5 +1,6 @@
 use crate::{
 	invalidate_query,
+	library::LibraryContext,
 	location::fetch_location,
 	object::fs::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
@@ -20,7 +21,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			pub struct GetArgs {
 				pub id: i32,
 			}
-			t(|_, args: GetArgs, library| async move {
+			t(|_, args: GetArgs, library: LibraryContext| async move {
 				Ok(library
 					.db
 					.object()
@@ -37,7 +38,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub note: Option<String>,
 			}
 
-			t(|_, args: SetNoteArgs, library| async move {
+			t(|_, args: SetNoteArgs, library: LibraryContext| async move {
 				library
 					.db
 					.object()
@@ -61,25 +62,27 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub favorite: bool,
 			}
 
-			t(|_, args: SetFavoriteArgs, library| async move {
-				library
-					.db
-					.object()
-					.update(
-						object::id::equals(args.id),
-						vec![object::favorite::set(args.favorite)],
-					)
-					.exec()
-					.await?;
+			t(
+				|_, args: SetFavoriteArgs, library: LibraryContext| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(args.id),
+							vec![object::favorite::set(args.favorite)],
+						)
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "locations.getExplorerData");
+					invalidate_query!(library, "tags.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				},
+			)
 		})
 		.library_mutation("delete", |t| {
-			t(|_, id: i32, library| async move {
+			t(|_, id: i32, library: LibraryContext| async move {
 				library
 					.db
 					.object()
@@ -148,25 +151,21 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("duplicateFiles", |t| {
 			t(|_, args: FileCopierJobInit, library| async move {
 				library.spawn_job(args).await;
-				invalidate_query!(library, "locations.getExplorerData");
-
-				Ok(())
 			})
 		})
 		.library_mutation("copyFiles", |t| {
 			t(|_, args: FileCopierJobInit, library| async move {
 				library.spawn_job(args).await;
-				invalidate_query!(library, "locations.getExplorerData");
-
-				Ok(())
 			})
 		})
 		.library_mutation("cutFiles", |t| {
-			t(|_, args: FileCutterJobInit, library| async move {
-				library.spawn_job(args).await;
-				invalidate_query!(library, "locations.getExplorerData");
+			t(
+				|_, args: FileCutterJobInit, library: LibraryContext| async move {
+					library.spawn_job(args).await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				},
+			)
 		})
 }

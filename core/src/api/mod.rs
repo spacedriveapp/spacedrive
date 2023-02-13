@@ -8,6 +8,7 @@ use crate::{
 	job::JobManager,
 	library::LibraryManager,
 	node::{NodeConfig, NodeConfigManager},
+	util::secure_temp_keystore::SecureTempKeystore,
 };
 
 use utils::{mount_invalidate, InvalidRequests, InvalidateOperationEvent};
@@ -28,6 +29,7 @@ pub struct Ctx {
 	pub config: Arc<NodeConfigManager>,
 	pub jobs: Arc<JobManager>,
 	pub event_bus: broadcast::Sender<CoreEvent>,
+	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 mod files;
@@ -35,6 +37,7 @@ mod jobs;
 mod keys;
 mod libraries;
 mod locations;
+mod nodes;
 mod normi;
 mod tags;
 pub mod utils;
@@ -87,6 +90,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
+		.merge("nodes.", nodes::mount())
 		.merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
