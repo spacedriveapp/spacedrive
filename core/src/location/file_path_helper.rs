@@ -6,8 +6,6 @@ use prisma_client_rust::{Direction, QueryError};
 
 static LAST_FILE_PATH_ID: AtomicI32 = AtomicI32::new(0);
 
-file_path::select!(file_path_id_only { id });
-
 pub async fn get_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, QueryError> {
 	let mut last_id = LAST_FILE_PATH_ID.load(Ordering::Acquire);
 	if last_id == 0 {
@@ -28,7 +26,7 @@ async fn fetch_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, Que
 		.file_path()
 		.find_first(vec![])
 		.order_by(file_path::id::order(Direction::Desc))
-		.select(file_path_id_only::select())
+		.select(file_path::select!({ id }))
 		.exec()
 		.await?
 		.map(|r| r.id)

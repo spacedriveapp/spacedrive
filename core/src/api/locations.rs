@@ -43,7 +43,6 @@ pub struct ExplorerData {
 
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
-indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
 // TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
 pub(crate) fn mount() -> rspc::RouterBuilder<

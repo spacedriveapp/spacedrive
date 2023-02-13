@@ -46,7 +46,6 @@ pub struct IndexerJob;
 location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
-file_path::select!(file_path_id_only { id });
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 #[derive(Serialize, Deserialize)]

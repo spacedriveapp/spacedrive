@@ -57,7 +57,6 @@ pub enum ThumbnailError {
 }
 
 file_path::include!(file_path_with_object { object });
-file_path::select!(file_path_id_only { id });
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
@@ -125,7 +124,7 @@ impl StatefulJob for ThumbnailJob {
 				}),
 				file_path::is_dir::equals(true),
 			])
-			.select(file_path_id_only::select())
+			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.ok_or_else(|| ThumbnailError::MissingRootFilePath(state.init.root_path.clone()))?
