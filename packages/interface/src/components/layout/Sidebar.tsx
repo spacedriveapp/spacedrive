@@ -1,7 +1,16 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Gear,
+	Lock,
+	MonitorPlay,
+	Planet,
+	Plus,
+	UsersThree
+} from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
@@ -121,13 +130,17 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					{/* <SidebarLink to="photos">
-						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
-					<SidebarLink to="content">
+					<SidebarLink to="spaces">
 						<Icon component={CirclesFour} />
 						Spaces
+					</SidebarLink>
+					<SidebarLink to="people">
+						<Icon component={UsersThree} />
+						People
+					</SidebarLink>
+					<SidebarLink to="media">
+						<Icon component={MonitorPlay} />
+						Media
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
@@ -138,7 +151,7 @@ export function Sidebar() {
 					<ButtonLink
 						to="/settings/general"
 						size="icon"
-						variant="outline"
+						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings">
@@ -149,7 +162,7 @@ export function Sidebar() {
 						trigger={
 							<Button
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 								disabled={!library}
 							>
@@ -327,7 +340,7 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 	const Icon = props.icon ?? Ellipsis;
 	return (
 		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="outline">
+			<Button className="!p-[5px]" variant="subtle">
 				<Icon className="w-3 h-3" />
 			</Button>
 		</NavLink>

@@ -1,3 +1,5 @@
+// An array of Object kinds.
+// Note: The order of this enum should never change, and always be kept in sync with `crates/file_ext/src/kind.rs`
 export const ObjectKind = [
 	'Unknown',
 	'Document',
@@ -22,5 +24,3 @@ export const ObjectKind = [
 	'Code',
 	'Database'
 ];
-
-// export type ObjectKinds = keyof ObjectKind;

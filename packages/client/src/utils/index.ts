@@ -1,5 +1,3 @@
-export * from './isVideoExt';
-
 export function arraysEqual<T>(a: T[], b: T[]) {
 	if (a === b) return true;
 	if (a == null || b == null) return false;
@@ -7,3 +5,5 @@ export function arraysEqual<T>(a: T[], b: T[]) {
 
 	return a.every((n, i) => b[i] === n);
 }
+
+export * from './objectKind';

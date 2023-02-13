@@ -13,7 +13,12 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>((props, ref) =>
 
 	return (
 		<FormField {...formFieldProps}>
-			<Root.Switch {...childProps} value={field.value} onCheckedChange={field.value} ref={ref} />
+			<Root.Switch
+				{...childProps}
+				checked={field.value}
+				onCheckedChange={field.onChange}
+				ref={ref}
+			/>
 		</FormField>
 	);
 });

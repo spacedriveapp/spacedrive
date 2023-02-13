@@ -3,6 +3,7 @@ use job::JobManager;
 use library::LibraryManager;
 use location::{LocationManager, LocationManagerError};
 use node::NodeConfigManager;
+use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
@@ -40,6 +41,7 @@ pub struct Node {
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 #[cfg(not(feature = "android"))]
@@ -118,6 +120,7 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
+		let secure_temp_keystore = SecureTempKeystore::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -167,6 +170,7 @@ impl Node {
 			library_manager,
 			jobs,
 			event_bus,
+			secure_temp_keystore,
 		};
 
 		info!("Spacedrive online.");
@@ -179,6 +183,7 @@ impl Node {
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
+			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}
 	}
 

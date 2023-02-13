@@ -125,7 +125,7 @@ export function KeyManager(props: KeyManagerProps) {
 									unmountAll.mutate(null);
 									clearMasterPassword.mutate(null);
 								}}
-								variant="outline"
+								variant="subtle"
 								className="text-ink-faint"
 							>
 								<Lock className="w-4 h-4 text-ink-faint" />
@@ -133,16 +133,18 @@ export function KeyManager(props: KeyManagerProps) {
 							<ButtonLink
 								to="/settings/keys"
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="text-ink-faint"
 							>
 								<Gear className="w-4 h-4 text-ink-faint" />
 							</ButtonLink>
 						</Tabs.List>
 					</div>
-					<Tabs.Content value="keys">
-						<KeyList />
-					</Tabs.Content>
+					{isUnlocked && (
+						<Tabs.Content value="keys">
+							<KeyList />
+						</Tabs.Content>
+					)}
 					<Tabs.Content value="mount">
 						<KeyMounter />
 					</Tabs.Content>

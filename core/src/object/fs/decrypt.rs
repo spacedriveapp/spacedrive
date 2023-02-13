@@ -19,6 +19,7 @@ pub struct FileDecryptorJobState {}
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
+	pub mount_associated_key: bool,
 	pub output_path: Option<PathBuf>,
 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 	pub save_to_library: Option<bool>,
@@ -66,6 +67,7 @@ impl StatefulJob for FileDecryptorJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let info = &step.fs_info;
+		let key_manager = &ctx.library_ctx.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
 		let output_path = state.init.output_path.clone().map_or_else(
@@ -98,8 +100,7 @@ impl StatefulJob for FileDecryptorJob {
 					let index = header.find_key_index(password_bytes.clone()).await?;
 
 					// inherit the encryption algorithm from the keyslot
-					ctx.library_ctx
-						.key_manager
+					key_manager
 						.add_to_keystore(
 							Password::new(password),
 							header.algorithm,
@@ -118,7 +119,18 @@ impl StatefulJob for FileDecryptorJob {
 				)));
 			}
 		} else {
-			let keys = ctx.library_ctx.key_manager.enumerate_hashed_keys();
+			if state.init.mount_associated_key {
+				for key in key_manager.dump_keystore().iter().filter(|x| {
+					header
+						.keyslots
+						.iter()
+						.any(|k| k.content_salt == x.content_salt)
+				}) {
+					key_manager.mount(key.uuid).await.ok();
+				}
+			}
+
+			let keys = key_manager.enumerate_hashed_keys();
 
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
@@ -139,7 +151,7 @@ impl StatefulJob for FileDecryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

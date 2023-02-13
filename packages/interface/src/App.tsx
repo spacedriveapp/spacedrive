@@ -11,7 +11,7 @@ import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
-import { BrowserRouter, MemoryRouter, useNavigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { LibraryContextProvider, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
@@ -59,9 +59,14 @@ function Devtools() {
 // This can't go in `<SpacedriveInterface />` cause it needs the router context but it can't go in `<AppRouter />` because that requires this context
 function AppRouterWrapper() {
 	const navigate = useNavigate();
-
+	const { pathname } = useLocation();
 	return (
-		<LibraryContextProvider onNoLibrary={() => navigate('/onboarding')}>
+		<LibraryContextProvider
+			onNoLibrary={() => {
+				// only redirect to onboarding flow if path doesn't already include onboarding
+				if (!pathname.includes('onboarding')) navigate('/onboarding');
+			}}
+		>
 			<AppRouter />
 			<Dialogs />
 		</LibraryContextProvider>
