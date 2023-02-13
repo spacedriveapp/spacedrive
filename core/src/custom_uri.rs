@@ -294,7 +294,7 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.to_vec(),
 			),
 		})
-		// SAFETY: This unwrap is ok as we have an hardcoded setup for the response
-		.unwrap()
+		// SAFETY: This unwrap is ok as we have an hardcoded the response builders.
+		.expect("internal error building hardcoded HTTP error response")
 	}
 }
