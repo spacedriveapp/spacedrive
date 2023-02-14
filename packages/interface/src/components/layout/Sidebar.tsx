@@ -1,6 +1,15 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Gear,
+	Lock,
+	MonitorPlay,
+	Planet,
+	Plus,
+	UsersThree
+} from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
@@ -30,7 +39,7 @@ import {
 	tw
 } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
+import { OperatingSystem, usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -120,13 +129,17 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					{/* <SidebarLink to="photos">
-						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
-					<SidebarLink to="content">
+					<SidebarLink to="spaces">
 						<Icon component={CirclesFour} />
 						Spaces
+					</SidebarLink>
+					<SidebarLink to="people">
+						<Icon component={UsersThree} />
+						People
+					</SidebarLink>
+					<SidebarLink to="media">
+						<Icon component={MonitorPlay} />
+						Media
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
@@ -137,7 +150,7 @@ export function Sidebar() {
 					<ButtonLink
 						to="/settings/general"
 						size="icon"
-						variant="outline"
+						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings">
@@ -148,7 +161,7 @@ export function Sidebar() {
 						trigger={
 							<Button
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 								disabled={!library}
 							>
@@ -313,7 +326,7 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 	const Icon = props.icon ?? Ellipsis;
 	return (
 		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="outline">
+			<Button className="!p-[5px]" variant="subtle">
 				<Icon className="w-3 h-3" />
 			</Button>
 		</NavLink>
@@ -436,16 +449,17 @@ const Icon = ({ component: Icon, ...props }: any) => (
 );
 
 // cute little helper to decrease code clutter
-const macOnly = (platform: string | undefined, classnames: string) =>
+const macOnly = (platform: OperatingSystem | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 function WindowControls() {
 	const { platform } = usePlatform();
+	const os = useOperatingSystem();
 
 	const showControls = window.location.search.includes('showControls');
 	if (platform === 'tauri' || showControls) {
 		return (
-			<div data-tauri-drag-region className="flex-shrink-0 h-7">
+			<div data-tauri-drag-region className={clsx('flex-shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
 				{showControls && <MacTrafficLights className="z-50 absolute top-[13px] left-[13px]" />}
 			</div>

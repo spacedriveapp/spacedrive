@@ -18,30 +18,17 @@ export const PasswordMeter = (props: { password: string }) => {
 
 	const zx = zxcvbn(props.password);
 
-	const innerDiv = {
-		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`,
-		height: '5px',
-		borderRadius: 80
+	const widthCalcStyle = {
+		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`
 	};
 
 	return (
-		<div className="mt-4 mb-5 relative flex flex-grow">
-			<div className="mt-2 w-4/5 h-[5px] rounded-[80px]">
-				<div
-					style={innerDiv}
-					className={clsx(
-						zx.score === 0 && 'bg-red-700',
-						zx.score === 1 && 'bg-red-500',
-						zx.score === 2 && 'bg-amber-400',
-						zx.score === 3 && 'bg-lime-500',
-						zx.score === 4 && 'bg-accent'
-					)}
-				/>
-			</div>
+		<div className="relative ">
+			<h3 className="text-sm">Password strength</h3>
 			<span
 				className={clsx(
-					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
-					zx.score === 0 && 'text-red-700',
+					'absolute font-semibold top-0.5 right-0 text-sm pr-1 pl-1',
+					zx.score === 0 && 'text-red-500',
 					zx.score === 1 && 'text-red-500',
 					zx.score === 2 && 'text-amber-400',
 					zx.score === 3 && 'text-lime-500',
@@ -50,6 +37,21 @@ export const PasswordMeter = (props: { password: string }) => {
 			>
 				{ratings[zx.score]}
 			</span>
+			<div className="flex flex-grow ">
+				<div className="w-full mt-2 rounded-full bg-app-box/50">
+					<div
+						style={widthCalcStyle}
+						className={clsx(
+							'h-2 rounded-full',
+							zx.score === 0 && 'bg-red-500',
+							zx.score === 1 && 'bg-red-500',
+							zx.score === 2 && 'bg-amber-400',
+							zx.score === 3 && 'bg-lime-500',
+							zx.score === 4 && 'bg-accent'
+						)}
+					/>
+				</div>
+			</div>
 		</div>
 	);
 };

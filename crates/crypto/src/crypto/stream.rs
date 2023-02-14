@@ -25,7 +25,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 	derive(serde::Serialize),
 	derive(serde::Deserialize)
 )]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,

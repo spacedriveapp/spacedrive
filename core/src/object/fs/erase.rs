@@ -3,6 +3,7 @@ use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, Wo
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::{trace, warn};
@@ -11,10 +12,13 @@ use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileEraserJob {}
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub passes: usize,
 }
 
@@ -117,7 +121,7 @@ impl StatefulJob for FileEraserJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		if let Some(ref info) = state.data {
 			if info.path_data.is_dir {
 				tokio::fs::remove_dir_all(&info.fs_path).await?;

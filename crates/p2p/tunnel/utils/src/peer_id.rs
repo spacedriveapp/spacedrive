@@ -27,7 +27,7 @@ impl PeerId {
 		let peer_id = digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, &cert.0)
 			.as_ref()
 			.iter()
-			.map(|b| format!("{:02x}", b))
+			.map(|b| format!("{b:02x}"))
 			.collect();
 
 		Self(peer_id)

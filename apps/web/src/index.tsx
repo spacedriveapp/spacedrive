@@ -3,8 +3,8 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import '@sd/ui/style';
 // THIS MUST GO BEFORE importing the App
+import '~/patches';
 import App from './App';
-import './patches';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
