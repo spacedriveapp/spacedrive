@@ -83,7 +83,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							iconClassNames="my-3 max-h-[150px]"
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
-							className="flex flex-grow-0 flex-shrink bg-green-500"
+							className="flex flex-grow-0 flex-shrink "
 							data={data}
 						/>
 					</div>
