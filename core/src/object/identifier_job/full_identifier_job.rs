@@ -156,7 +156,7 @@ impl StatefulJob for FullFileIdentifierJob {
 
 		let (total_objects_created, total_objects_linked) = identifier_job_step(
 			&ctx.library_ctx,
-			state.init.location_id,
+			&data.location,
 			&data.location_path,
 			&file_paths,
 		)
@@ -184,7 +184,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

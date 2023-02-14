@@ -29,11 +29,13 @@
 //! // Write the header to the file
 //! header.write(&mut writer).unwrap();
 //! ```
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::SeekFrom;
+
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{generate_nonce, to_array, KEY_LEN},
+	primitives::types::{Key, Nonce},
 	Error, Protected, Result,
 };
 
@@ -58,7 +60,7 @@ pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
-	pub nonce: Vec<u8>,
+	pub nonce: Nonce,
 	pub keyslots: Vec<Keyslot>,
 	pub metadata: Option<Metadata>,
 	pub preview_media: Option<PreviewMedia>,
@@ -72,16 +74,21 @@ pub enum FileHeaderVersion {
 
 impl FileHeader {
 	/// This function is used for creating a file header.
-	#[must_use]
-	pub fn new(version: FileHeaderVersion, algorithm: Algorithm, keyslots: Vec<Keyslot>) -> Self {
-		Self {
+	pub fn new(
+		version: FileHeaderVersion,
+		algorithm: Algorithm,
+		keyslots: Vec<Keyslot>,
+	) -> Result<Self> {
+		let f = Self {
 			version,
 			algorithm,
-			nonce: generate_nonce(algorithm),
+			nonce: Nonce::generate(algorithm)?,
 			keyslots,
 			metadata: None,
 			preview_media: None,
-		}
+		};
+
+		Ok(f)
 	}
 
 	/// This includes the magic bytes at the start of the file, and remainder of the header itself (excluding keyslots, metadata, and preview media as these can all change)
@@ -98,44 +105,18 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key(
-		&self,
-		password: Protected<Vec<u8>>,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		self.keyslots
-			.iter()
-			.find_map(|v| v.decrypt_master_key(password.clone()).ok())
-			.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
-			.ok_or(Error::IncorrectPassword)
-	}
-
-	/// This is a helper function to find which keyslot a key belongs to.
-	///
-	/// You receive an error if the password doesn't match or if there are no keyslots.
-	#[allow(clippy::needless_pass_by_value)]
-	pub fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
-		if self.keyslots.is_empty() {
-			return Err(Error::NoKeyslots);
+		for v in &self.keyslots {
+			if let Ok(key) = v.decrypt_master_key(password.clone()).await {
+				return Ok(key);
+			}
 		}
 
-		self.keyslots
-			.iter()
-			.enumerate()
-			.find_map(|(i, v)| v.decrypt_master_key(password.clone()).ok().map(|_| i))
-			.ok_or(Error::IncorrectPassword)
-	}
-
-	/// This is a helper function to serialize and write a header to a file.
-	pub fn write<W>(&self, writer: &mut W) -> Result<()>
-	where
-		W: Write,
-	{
-		writer.write_all(&self.to_bytes()?)?;
-		Ok(())
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
@@ -144,24 +125,50 @@ impl FileHeader {
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key_from_prehashed(
-		&self,
-		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
+	pub async fn decrypt_master_key_from_prehashed(&self, hashed_keys: Vec<Key>) -> Result<Key> {
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		hashed_keys
-			.iter()
-			.find_map(|v| {
-				self.keyslots.iter().find_map(|z| {
-					z.decrypt_master_key_from_prehashed(v.clone())
-						.ok()
-						.map(|x| Protected::new(to_array::<KEY_LEN>(x.into_inner()).unwrap()))
-				})
-			})
-			.ok_or(Error::IncorrectPassword)
+		for hashed_key in hashed_keys {
+			for v in &self.keyslots {
+				if let Ok(key) = v
+					.decrypt_master_key_from_prehashed(hashed_key.clone())
+					.await
+				{
+					return Ok(key);
+				}
+			}
+		}
+
+		Err(Error::IncorrectPassword)
+	}
+
+	/// This is a helper function to serialize and write a header to a file.
+	pub async fn write<W>(&self, writer: &mut W) -> Result<()>
+	where
+		W: AsyncWriteExt + Unpin + Send,
+	{
+		writer.write_all(&self.to_bytes()?).await?;
+		Ok(())
+	}
+
+	/// This is a helper function to find which keyslot a key belongs to.
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub async fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for (i, v) in self.keyslots.iter().enumerate() {
+			if let Some(i) = v.decrypt_master_key(password.clone()).await.ok().map(|_| i) {
+				return Ok(i);
+			}
+		}
+
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This function should be used for generating AAD before encryption
@@ -172,9 +179,9 @@ impl FileHeader {
 		match self.version {
 			FileHeaderVersion::V1 => [
 				MAGIC_BYTES.as_ref(),
-				self.version.to_bytes().as_ref(),
-				self.algorithm.to_bytes().as_ref(),
-				self.nonce.as_ref(),
+				&self.version.to_bytes(),
+				&self.algorithm.to_bytes(),
+				&self.nonce,
 				&vec![0u8; 25 - self.nonce.len()],
 			]
 			.into_iter()
@@ -241,49 +248,52 @@ impl FileHeader {
 	/// On error, the cursor will not be rewound.
 	///
 	/// It returns both the header, and the AAD that should be used for decryption.
-	pub fn from_reader<R>(reader: &mut R) -> Result<(Self, Vec<u8>)>
+	pub async fn from_reader<R>(reader: &mut R) -> Result<(Self, Vec<u8>)>
 	where
-		R: Read + Seek,
+		R: AsyncReadExt + AsyncSeekExt + Unpin + Send,
 	{
 		let mut magic_bytes = [0u8; MAGIC_BYTES.len()];
-		reader.read_exact(&mut magic_bytes)?;
+		reader.read_exact(&mut magic_bytes).await?;
 
 		if magic_bytes != MAGIC_BYTES {
-			return Err(Error::FileHeader);
+			return Err(Error::Serialization);
 		}
 
 		let mut version = [0u8; 2];
 
-		reader.read_exact(&mut version)?;
+		reader.read_exact(&mut version).await?;
 		let version = FileHeaderVersion::from_bytes(version)?;
 
 		// Rewind so we can get the AAD
-		reader.rewind()?;
+		reader.rewind().await?;
 
 		// read the aad according to the size
 		let mut aad = vec![0u8; Self::size(version)];
-		reader.read_exact(&mut aad)?;
+		reader.read_exact(&mut aad).await?;
 
 		// seek back to the start (plus magic bytes and the two version bytes)
-		reader.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))?;
+		reader
+			.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))
+			.await?;
 
 		// read the header
 		let header = match version {
 			FileHeaderVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read_exact(&mut algorithm)?;
+				reader.read_exact(&mut algorithm).await?;
 				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read_exact(&mut nonce)?;
+				reader.read_exact(&mut nonce).await?;
+				let nonce = Nonce::try_from(nonce)?;
 
 				// read and discard the padding
-				reader.read_exact(&mut vec![0u8; 25 - nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 25 - nonce.len()]).await?;
 
 				let mut keyslot_bytes = [0u8; (KEYSLOT_SIZE * 2)]; // length of 2x keyslots
 				let mut keyslots: Vec<Keyslot> = Vec::new();
 
-				reader.read_exact(&mut keyslot_bytes)?;
+				reader.read_exact(&mut keyslot_bytes).await?;
 
 				for _ in 0..2 {
 					Keyslot::from_reader(&mut keyslot_bytes.as_ref())
@@ -291,18 +301,21 @@ impl FileHeader {
 						.ok();
 				}
 
-				let metadata = Metadata::from_reader(reader).map_or_else(
-					|_| {
-						reader.seek(SeekFrom::Start(
+				let metadata = if let Ok(metadata) = Metadata::from_reader(reader).await {
+					reader
+						.seek(SeekFrom::Start(
 							Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-						))?;
-						Ok::<Option<Metadata>, Error>(None)
-					},
-					|metadata| Ok(Some(metadata)),
-				)?;
+						))
+						.await?;
+					Ok::<Option<Metadata>, Error>(Some(metadata))
+				} else {
+					Ok(None)
+				}?;
 
-				let preview_media = PreviewMedia::from_reader(reader).map_or_else(
-					|_| {
+				let preview_media =
+					if let Ok(preview_media) = PreviewMedia::from_reader(reader).await {
+						Ok::<Option<PreviewMedia>, Error>(Some(preview_media))
+					} else {
 						let seek_len = metadata.as_ref().map_or_else(
 							|| Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 							|metadata| {
@@ -311,12 +324,10 @@ impl FileHeader {
 							},
 						);
 
-						reader.seek(SeekFrom::Start(seek_len))?;
+						reader.seek(SeekFrom::Start(seek_len)).await?;
 
-						Ok::<Option<PreviewMedia>, Error>(None)
-					},
-					|preview_media| Ok(Some(preview_media)),
-				)?;
+						Ok(None)
+					}?;
 
 				Self {
 					version,

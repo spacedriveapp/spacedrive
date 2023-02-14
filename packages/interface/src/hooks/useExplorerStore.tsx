@@ -10,6 +10,8 @@ export enum ExplorerKind {
 	Space
 }
 
+export type CutCopyType = 'Cut' | 'Copy';
+
 const state = {
 	locationId: null as number | null,
 	layoutMode: 'grid' as ExplorerLayoutMode,
@@ -21,7 +23,13 @@ const state = {
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
-	newThumbnails: {} as Record<string, boolean>
+	newThumbnails: {} as Record<string, boolean>,
+	cutCopyState: {
+		sourceLocationId: 0,
+		sourcePathId: 0,
+		actionType: 'Cut',
+		active: false
+	}
 };
 
 onLibraryChange(() => getExplorerStore().reset());

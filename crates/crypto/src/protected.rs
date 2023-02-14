@@ -30,24 +30,12 @@
 //!
 use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
-
 #[derive(Clone)]
 pub struct Protected<T>
 where
 	T: Zeroize,
 {
 	data: T,
-}
-
-impl<T> std::ops::Deref for Protected<T>
-where
-	T: Zeroize,
-{
-	type Target = T;
-
-	fn deref(&self) -> &Self::Target {
-		&self.data
-	}
 }
 
 impl<T> Protected<T>
@@ -110,11 +98,15 @@ where
 }
 
 #[cfg(feature = "rspc")]
+use rspc::internal::specta;
+#[cfg(feature = "rspc")]
 impl<T> specta::Type for Protected<T>
 where
 	T: specta::Type + Zeroize,
 {
 	const NAME: &'static str = T::NAME;
+	const SID: specta::TypeSid = specta::sid!();
+	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
 
 	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
 		T::inline(opts, generics)
@@ -124,7 +116,7 @@ where
 		T::reference(opts, generics)
 	}
 
-	fn definition(opts: specta::DefOpts) -> specta::DataType {
+	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
 		T::definition(opts)
 	}
 }

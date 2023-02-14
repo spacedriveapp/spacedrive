@@ -8,6 +8,7 @@ pub enum AttributeFieldValue<'a> {
 	List(Vec<&'a str>),
 }
 
+#[allow(unused)]
 impl AttributeFieldValue<'_> {
 	pub fn as_single(&self) -> Option<&str> {
 		match self {
@@ -44,10 +45,6 @@ pub fn model_attributes(model: &dml::Model) -> Vec<Attribute> {
 	model
 		.documentation
 		.as_ref()
-		.map(|docs| {
-			docs.lines()
-				.flat_map(|line| Attribute::parse(line))
-				.collect()
-		})
+		.map(|docs| docs.lines().flat_map(Attribute::parse).collect())
 		.unwrap_or_default()
 }

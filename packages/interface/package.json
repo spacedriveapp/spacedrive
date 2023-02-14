@@ -13,7 +13,7 @@
 	},
 	"scripts": {
 		"icons": "./scripts/generateSvgImports.mjs",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"lint": "eslint src",
 		"typecheck": "tsc -b",
 		"build": "tsc"
 	},
@@ -34,7 +34,7 @@
 		"@splinetool/runtime": "^0.9.128",
 		"@tailwindcss/forms": "^0.5.3",
 		"@tanstack/react-query": "^4.12.0",
-		"@tanstack/react-query-devtools": "^4.12.0",
+		"@tanstack/react-query-devtools": "^4.22.0",
 		"@tanstack/react-virtual": "3.0.0-beta.18",
 		"@vitejs/plugin-react": "^2.1.0",
 		"@zxcvbn-ts/core": "^2.1.0",
@@ -54,6 +54,7 @@
 		"react-hook-form": "^7.36.1",
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.1.0",
+		"react-qr-code": "^2.0.11",
 		"react-router": "6.4.2",
 		"react-router-dom": "6.4.2",
 		"rooks": "^5.14.0",

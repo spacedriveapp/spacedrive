@@ -3,22 +3,22 @@ import dayjs from 'dayjs';
 import {
 	ArrowsClockwise,
 	Camera,
+	Copy,
 	DotsThree,
 	Eye,
 	Fingerprint,
 	Folder,
-	IconProps,
 	LockSimple,
 	LockSimpleOpen,
 	Pause,
 	Question,
+	Scissors,
 	Trash,
 	TrashSimple,
 	X
 } from 'phosphor-react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/client';
-import { Button, CategoryHeading, tw } from '@sd/ui';
+import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, Popover, PopoverClose, tw } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -69,6 +69,18 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
 		}`,
 		icon: Trash
+	},
+	file_copier: {
+		name: `Copied ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Copy
+	},
+	file_cutter: {
+		name: `Moved ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Scissors
 	}
 });
 
@@ -103,11 +115,13 @@ export function JobsManager() {
 						<Trash className="w-5 h-5" />
 					</Tooltip>
 				</Button>
-				<Button size="icon">
-					<Tooltip label="Close">
-						<X className="w-5 h-5" />
-					</Tooltip>
-				</Button>
+				<PopoverClose asChild>
+					<Button size="icon">
+						<Tooltip label="Close">
+							<X className="w-5 h-5" />
+						</Tooltip>
+					</Button>
+				</PopoverClose>
 			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
 				<div className="">

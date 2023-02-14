@@ -1,16 +1,28 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Gear,
+	Lock,
+	MonitorPlay,
+	Planet,
+	Plus,
+	UsersThree
+} from 'phosphor-react';
+import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
+	Location,
 	LocationCreateArgs,
+	arraysEqual,
 	getDebugState,
 	useBridgeQuery,
 	useCurrentLibrary,
 	useDebugState,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	useOnlineLocations
 } from '@sd/client';
 import {
 	Button,
@@ -18,7 +30,7 @@ import {
 	CategoryHeading,
 	Dropdown,
 	Loader,
-	OverlayPanel,
+	Popover,
 	Select,
 	SelectOption,
 	Switch,
@@ -27,7 +39,7 @@ import {
 	tw
 } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
+import { OperatingSystem, usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -47,6 +59,16 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
+
+	useEffect(() => {
+		// Prevent the dropdown button to be auto focused on launch
+		// Hacky but it works
+		setTimeout(() => {
+			if (!document.activeElement || !('blur' in document.activeElement)) return;
+
+			(document.activeElement.blur as () => void)();
+		});
+	});
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
@@ -107,39 +129,41 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					{/* <SidebarLink to="photos">
-						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
-					<SidebarLink to="content">
+					<SidebarLink to="spaces">
 						<Icon component={CirclesFour} />
 						Spaces
+					</SidebarLink>
+					<SidebarLink to="people">
+						<Icon component={UsersThree} />
+						People
+					</SidebarLink>
+					<SidebarLink to="media">
+						<Icon component={MonitorPlay} />
+						Media
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
 				<div className="flex-grow" />
 			</SidebarContents>
-
 			<SidebarFooter>
 				<div className="flex">
 					<ButtonLink
 						to="/settings/general"
 						size="icon"
-						variant="outline"
+						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings">
 							<Gear className="w-5 h-5" />
 						</Tooltip>
 					</ButtonLink>
-					<OverlayPanel
-						transformOrigin="bottom left"
-						disabled={!library}
+					<Popover
 						trigger={
 							<Button
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
+								disabled={!library}
 							>
 								{library && (
 									<Tooltip label="Recent Jobs">
@@ -152,7 +176,7 @@ export function Sidebar() {
 						<div className="block w-[430px] h-96">
 							<JobsManager />
 						</div>
-					</OverlayPanel>
+					</Popover>
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</SidebarFooter>
@@ -177,7 +201,7 @@ function DebugPanel() {
 	const platform = usePlatform();
 
 	return (
-		<OverlayPanel
+		<Popover
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
@@ -246,7 +270,7 @@ function DebugPanel() {
 					</InputContainer>
 				)} */}
 			</div>
-		</OverlayPanel>
+		</Popover>
 	);
 }
 
@@ -302,7 +326,7 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 	const Icon = props.icon ?? Ellipsis;
 	return (
 		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="outline">
+			<Button className="!p-[5px]" variant="subtle">
 				<Icon className="w-3 h-3" />
 			</Button>
 		</NavLink>
@@ -314,6 +338,8 @@ function LibraryScopedSection() {
 
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const onlineLocations = useOnlineLocations();
+
 	const createLocation = useLibraryMutation('locations.create');
 
 	return (
@@ -329,21 +355,10 @@ function LibraryScopedSection() {
 					}
 				>
 					{locations.data?.map((location) => {
-						return (
-							<div key={location.id} className="flex flex-row items-center">
-								<SidebarLink
-									className="relative w-full group"
-									to={{
-										pathname: `location/${location.id}`
-									}}
-								>
-									<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-										<Folder size={18} />
-									</div>
+						const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 
-									<span className="flex-grow flex-shrink-0">{location.name}</span>
-								</SidebarLink>
-							</div>
+						return (
+							<SidebarLocation location={location} online={online ?? false} key={location.id} />
 						);
 					})}
 					{(locations.data?.length || 0) < 4 && (
@@ -399,21 +414,52 @@ function LibraryScopedSection() {
 	);
 }
 
+interface SidebarLocationProps {
+	location: Location;
+	online: boolean;
+}
+
+function SidebarLocation({ location, online }: SidebarLocationProps) {
+	return (
+		<div className="flex flex-row items-center">
+			<SidebarLink
+				className="relative w-full group"
+				to={{
+					pathname: `location/${location.id}`
+				}}
+			>
+				<div className="relative -mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
+					<Folder size={18} />
+					<div
+						className={clsx(
+							'absolute w-1.5 h-1.5 right-0 bottom-0.5 rounded-full',
+							online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+				</div>
+
+				<span className="flex-grow flex-shrink-0">{location.name}</span>
+			</SidebarLink>
+		</div>
+	);
+}
+
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
 
 // cute little helper to decrease code clutter
-const macOnly = (platform: string | undefined, classnames: string) =>
+const macOnly = (platform: OperatingSystem | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 function WindowControls() {
 	const { platform } = usePlatform();
+	const os = useOperatingSystem();
 
 	const showControls = window.location.search.includes('showControls');
 	if (platform === 'tauri' || showControls) {
 		return (
-			<div data-tauri-drag-region className="flex-shrink-0 h-7">
+			<div data-tauri-drag-region className={clsx('flex-shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
 				{showControls && <MacTrafficLights className="z-50 absolute top-[13px] left-[13px]" />}
 			</div>

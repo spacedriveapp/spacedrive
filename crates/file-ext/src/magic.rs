@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::extensions::{CodeExtension, Extension, VideoExtension};
-use std::io::SeekFrom;
+use std::{ffi::OsStr, io::SeekFrom, path::Path};
 
 use tokio::{
 	fs::File,
@@ -172,14 +172,20 @@ pub async fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut File) -> Optio
 
 impl Extension {
 	pub async fn resolve_conflicting(
-		ext_str: &str,
-		file: &mut File,
+		path: impl AsRef<Path>,
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
-		let ext = match Extension::from_str(ext_str) {
-			Some(e) => e,
-			None => return None,
+		let Some(ext_str) = path.as_ref().extension().and_then(OsStr::to_str) else {
+            return None
+        };
+
+		let Some(ext) = Extension::from_str(ext_str) else {
+			return None
 		};
+
+		let Ok(ref mut file) = File::open(&path).await else {
+            return None
+        };
 
 		match ext {
 			// we don't need to check the magic bytes unless there is conflict

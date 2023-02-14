@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem, isVideoExt } from '@sd/client';
+import { ExplorerItem, ObjectKind } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
 import { FileItemContextMenu } from './ExplorerContextMenu';
@@ -27,11 +27,12 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isVid = isVideoExt(data.extension || '');
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
+	const item = data.item;
 
 	return (
-		<FileItemContextMenu item={data}>
+		<FileItemContextMenu data={data}>
 			<div
 				onContextMenu={(e) => {
 					if (index != undefined) {
@@ -65,20 +66,20 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 								isVid && '!border-black rounded border-x-0 border-y-[7px]'
 							)}
 							data={data}
-							kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+							kind={ObjectKind[objectData?.kind || 0]}
 							size={getExplorerStore().gridItemSize}
 						/>
-						{data?.extension && isVid && (
+						{item.extension && isVid && (
 							<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
-								{data.extension}
+								{item.extension}
 							</div>
 						)}
 					</div>
 				</div>
 				<NameArea>
 					<span className={nameContainerStyles({ selected })}>
-						{data?.name}
-						{data?.extension && `.${data.extension}`}
+						{item.name}
+						{item.extension && `.${item.extension}`}
 					</span>
 				</NameArea>
 			</div>

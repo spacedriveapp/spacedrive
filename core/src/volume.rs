@@ -2,6 +2,7 @@ use crate::{library::LibraryContext, prisma::volume::*};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::process::Command;
 use swift_rs::{swift_object, Bool, SRString, UInt64};
 use sysinfo::{DiskExt, RefreshKind, System, SystemExt};
@@ -23,11 +24,16 @@ struct VolumeFromSwift {
 	is_removable: Bool,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub total_capacity: u64,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub available_capacity: u64,
 	pub is_removable: bool,
 	pub disk_type: Option<String>,

@@ -9,7 +9,7 @@ sd-tunnel-utils = { path = "./tunnel/utils" }
 dashmap = "5.3.4"
 rcgen = "0.9.2"
 rustls = "0.20.6"
-tokio = { version = "1.19.2", features = ["macros", "sync"] }
+tokio = { workspace = true, features = ["macros", "sync"] }
 if-watch = "1.1.1"
 thiserror = "1.0.31"
 mdns-sd = "0.5.5"
@@ -25,4 +25,4 @@ tracing = "0.1.35"
 specta = "0.0.2"
 
 [dev-dependencies]
-tokio = { version = "1.19.2", features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }

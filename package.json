@@ -21,7 +21,9 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "turbo run typecheck"
+		"typecheck": "turbo run typecheck",
+		"lint": "turbo run lint",
+		"clean": "rimraf node_modules/ **/node_modules/ target/ **/.build/ **/.next/ **/dist/**"
 	},
 	"pnpm": {
 		"overrides": {
@@ -38,6 +40,7 @@
 		"lint-staged": "^13.1.0",
 		"markdown-link-check": "^3.10.3",
 		"prettier": "^2.8.3",
+		"rimraf": "^4.1.1",
 		"turbo": "^1.5.5",
 		"turbo-ignore": "^0.3.0",
 		"typescript": "^4.9.4"

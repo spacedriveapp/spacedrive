@@ -9,6 +9,7 @@
 		"types": ["vite-plugin-svgr/client", "vite/client"]
 	},
 	"include": ["src"],
+	"exclude": ["dist"],
 	"references": [
 		{
 			"path": "../ui"

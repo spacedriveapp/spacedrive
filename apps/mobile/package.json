@@ -10,7 +10,7 @@
 		"ios": "expo run:ios",
 		"xcode": "open ios/spacedrive.xcworkspace",
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"lint": "eslint src",
 		"postinstall": "node scripts/postinstall.js",
 		"typecheck": "tsc -b"
 	},

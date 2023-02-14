@@ -4,6 +4,12 @@ use crate::{
 	library::LibraryContext,
 	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
 	object::{
+		fs::{
+			copy::{FileCopierJob, COPY_JOB_NAME},
+			cut::{FileCutterJob, CUT_JOB_NAME},
+			delete::{FileDeleterJob, DELETE_JOB_NAME},
+			erase::{FileEraserJob, ERASE_JOB_NAME},
+		},
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FULL_IDENTIFIER_JOB_NAME},
 		preview::{ThumbnailJob, THUMBNAIL_JOB_NAME},
 		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
@@ -215,6 +221,29 @@ impl JobManager {
 				VALIDATOR_JOB_NAME => {
 					Arc::clone(&self)
 						.dispatch_job(ctx, Job::resume(paused_job, ObjectValidatorJob {})?)
+						.await;
+				}
+				CUT_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, FileCutterJob {})?)
+						.await;
+				}
+				COPY_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(
+							ctx,
+							Job::resume(paused_job, FileCopierJob { done_tx: None })?,
+						)
+						.await;
+				}
+				DELETE_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, FileDeleterJob {})?)
+						.await;
+				}
+				ERASE_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, FileEraserJob {})?)
 						.await;
 				}
 				_ => {

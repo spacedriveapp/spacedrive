@@ -3,22 +3,20 @@
 	windows_subsystem = "windows"
 )]
 
-use std::error::Error;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{error::Error, path::PathBuf, sync::Arc, time::Duration};
 
-use sd_core::Node;
-use tauri::async_runtime::block_on;
-use tauri::{
-	api::path,
-	http::{ResponseBuilder, Uri},
-	Manager, RunEvent,
-};
-use tokio::task::block_in_place;
-use tokio::time::sleep;
+use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
+
+use tauri::{api::path, async_runtime::block_on, Manager, RunEvent};
+use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
+
 #[cfg(target_os = "macos")]
 mod macos;
+
+#[cfg(target_os = "linux")]
+mod app_linux;
+
 mod menu;
 
 #[tauri::command(async)]
@@ -34,28 +32,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
 
+	#[cfg(debug_assertions)]
+	let data_dir = data_dir.join("dev");
+
 	let (node, router) = Node::new(data_dir).await?;
 
-	let app = tauri::Builder::default()
-		.plugin(rspc::integrations::tauri::plugin(router, {
-			let node = node.clone();
-			move || node.get_request_context()
-		}))
-		.register_uri_scheme_protocol("spacedrive", {
-			let node = node.clone();
-			move |_, req| {
-				let url = req.uri().parse::<Uri>().unwrap();
-				let mut path = url.path().split('/').collect::<Vec<_>>();
-				path[0] = url.host().unwrap(); // The first forward slash causes an empty item and we replace it with the URL's host which you expect to be at the start
+	let app = tauri::Builder::default().plugin(rspc::integrations::tauri::plugin(router, {
+		let node = Arc::clone(&node);
+		move || node.get_request_context()
+	}));
 
-				let (status_code, content_type, body) =
-					block_in_place(|| block_on(node.handle_custom_uri(path)));
-				ResponseBuilder::new()
-					.status(status_code)
-					.mimetype(content_type)
-					.body(body)
-			}
-		})
+	// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
+	let endpoint = create_custom_uri_endpoint(Arc::clone(&node));
+
+	#[cfg(target_os = "linux")]
+	let app = app_linux::setup(app, Arc::clone(&node), endpoint).await;
+
+	#[cfg(not(target_os = "linux"))]
+	let app = app.register_uri_scheme_protocol("spacedrive", endpoint.tauri_uri_scheme("spacedrive"));
+
+	let app = app
 		.setup(|app| {
 			let app = app.handle();
 			app.windows().iter().for_each(|(_, window)| {
@@ -66,7 +62,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					async move {
 						sleep(Duration::from_secs(3)).await;
 						if !window.is_visible().unwrap_or(true) {
-							println!("Window did not emit `app_ready` event fast enough. Showing window...");
+							println!(
+							"Window did not emit `app_ready` event fast enough. Showing window..."
+						);
 							let _ = window.show();
 						}
 					}

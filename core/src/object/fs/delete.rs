@@ -1,8 +1,11 @@
-use super::{context_menu_fs_info, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+
+use std::hash::Hash;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, hash::Hash};
+
+use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileDeleterJob {}
 
@@ -15,21 +18,16 @@ pub struct FileDeleterJobInit {
 	pub path_id: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileDeleterJobStep {
-	pub fs_info: FsInfo,
-}
-
-const JOB_NAME: &str = "file_deleter";
+pub const DELETE_JOB_NAME: &str = "file_deleter";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDeleterJob {
-	type Data = FileDeleterJobState;
 	type Init = FileDeleterJobInit;
-	type Step = FileDeleterJobStep;
+	type Data = FileDeleterJobState;
+	type Step = FsInfo;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		DELETE_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -40,8 +38,7 @@ impl StatefulJob for FileDeleterJob {
 		)
 		.await?;
 
-		state.steps = VecDeque::new();
-		state.steps.push_back(FileDeleterJobStep { fs_info });
+		state.steps = [fs_info].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -53,15 +50,15 @@ impl StatefulJob for FileDeleterJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-		let info = &step.fs_info;
+		let info = &state.steps[0];
 
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
-		match info.obj_type {
-			ObjectType::File => tokio::fs::remove_file(info.obj_path.clone()).await,
-			ObjectType::Directory => tokio::fs::remove_dir_all(info.obj_path.clone()).await,
+		if info.path_data.is_dir {
+			tokio::fs::remove_dir_all(info.fs_path.clone()).await
+		} else {
+			tokio::fs::remove_file(info.fs_path.clone()).await
 		}?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
@@ -70,7 +67,7 @@ impl StatefulJob for FileDeleterJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }

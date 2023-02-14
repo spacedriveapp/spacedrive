@@ -16,6 +16,7 @@
 	"scripts": {
 		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook",
+		"lint": "eslint src",
 		"typecheck": "tsc -b",
 		"build": "tsc"
 	},
@@ -25,6 +26,8 @@
 		"@radix-ui/react-context-menu": "^1.0.0",
 		"@radix-ui/react-dialog": "^1.0.0",
 		"@radix-ui/react-dropdown-menu": "^1.0.0",
+		"@radix-ui/react-radio-group": "^1.1.0",
+		"@radix-ui/react-popover": "^1.0.3",
 		"@radix-ui/react-select": "^1.1.2",
 		"@radix-ui/react-switch": "^1.0.1",
 		"@radix-ui/react-tabs": "^1.0.1",

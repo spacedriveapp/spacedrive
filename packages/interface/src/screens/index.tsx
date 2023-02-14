@@ -11,8 +11,9 @@ const routes: RouteProps[] = [
 		path: 'overview',
 		element: lazyEl(() => import('./Overview'))
 	},
-	{ path: 'content', element: lazyEl(() => import('./Content')) },
-	{ path: 'photos', element: lazyEl(() => import('./Photos')) },
+	{ path: 'people', element: lazyEl(() => import('./People')) },
+	{ path: 'media', element: lazyEl(() => import('./Media')) },
+	{ path: 'spaces', element: lazyEl(() => import('./Spaces')) },
 	{ path: 'debug', element: lazyEl(() => import('./Debug')) },
 	{ path: 'location/:id', element: lazyEl(() => import('./LocationExplorer')) },
 	{ path: 'tag/:id', element: lazyEl(() => import('./TagExplorer')) },

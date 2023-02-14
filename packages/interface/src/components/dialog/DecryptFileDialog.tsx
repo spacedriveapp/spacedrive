@@ -16,6 +16,7 @@ interface DecryptDialogProps extends UseDialogProps {
 const schema = z.object({
 	type: z.union([z.literal('password'), z.literal('key')]),
 	outputPath: z.string(),
+	mountAssociatedKey: z.boolean(),
 	password: z.string(),
 	saveToKeyManager: z.boolean()
 });
@@ -41,7 +42,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const decryptFile = useLibraryMutation('files.decryptFiles', {
 		onSuccess: () => {
 			showAlertDialog({
-				title: 'Info',
+				title: 'Success',
 				value:
 					'The decryption job has started successfully. You may track the progress in the job overview panel.'
 			});
@@ -59,26 +60,26 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const PasswordCurrentEyeIcon = show.password ? EyeSlash : Eye;
 
 	const form = useZodForm({
-		schema,
 		defaultValues: {
 			type: hasMountedKeys ? 'key' : 'password',
-			saveToKeyManager: true
-		}
+			saveToKeyManager: true,
+			outputPath: '',
+			password: '',
+			mountAssociatedKey: true
+		},
+		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		const output = data.outputPath !== '' ? data.outputPath : null;
-		const pw = data.type === 'password' ? data.password : null;
-		const save = data.type === 'password' ? data.saveToKeyManager : null;
-
-		return decryptFile.mutateAsync({
+	const onSubmit = form.handleSubmit((data) =>
+		decryptFile.mutateAsync({
 			location_id: props.location_id,
 			path_id: props.path_id,
-			output_path: output,
-			password: pw,
-			save_to_library: save
-		});
-	});
+			output_path: data.outputPath !== '' ? data.outputPath : null,
+			mount_associated_key: data.mountAssociatedKey,
+			password: data.type === 'password' ? data.password : null,
+			save_to_library: data.type === 'password' ? data.saveToKeyManager : null
+		})
+	);
 
 	return (
 		<Dialog
@@ -118,6 +119,24 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 					</RadioGroup.Option>
 				</div>
 			</RadioGroup>
+
+			{form.watch('type') === 'key' && (
+				<div className="relative flex flex-grow mt-3 mb-2">
+					<div className="space-x-2">
+						<Switch
+							className="bg-app-selected"
+							size="sm"
+							name=""
+							checked={form.watch('mountAssociatedKey')}
+							onCheckedChange={(e) => form.setValue('mountAssociatedKey', e)}
+						/>
+					</div>
+					<span className="ml-3 text-xs font-medium mt-0.5">Automatically mount key</span>
+					<Tooltip label="The key linked with the file will be automatically mounted">
+						<Info className="w-4 h-4 ml-1.5 text-ink-faint mt-0.5" />
+					</Tooltip>
+				</div>
+			)}
 
 			{form.watch('type') === 'password' && (
 				<>
