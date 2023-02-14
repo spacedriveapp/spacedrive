@@ -1,8 +1,7 @@
-import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-
+import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
 import { ONBOARDING_SCREENS } from './OnboardingRoot';
 import { useCurrentOnboardingScreenKey } from './helpers/screens';
 
