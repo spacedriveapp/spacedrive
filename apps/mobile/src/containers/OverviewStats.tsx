@@ -13,8 +13,8 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
-const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
-	const { value, unit } = byteSize(+bytes);
+const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
+	const { value, unit } = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 
 	const count = useCounter({ name: title, end: Number(value) });
 
@@ -51,12 +51,13 @@ const OverviewStats = () => {
 
 	return libraryStatistics ? (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-			{Object.entries(libraryStatistics).map(([key, bytes]) => {
+			{Object.entries(libraryStatistics).map(([key, bytesRaw]) => {
 				if (!displayableStatItems.includes(key)) return null;
+				let bytes = BigInt(bytesRaw);
 				if (key === 'total_bytes_free') {
-					bytes = sizeInfo.freeSpace;
+					bytes = BigInt(sizeInfo.freeSpace);
 				} else if (key === 'total_bytes_capacity') {
-					bytes = sizeInfo.totalSpace;
+					bytes = BigInt(sizeInfo.totalSpace);
 				}
 				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
 			})}

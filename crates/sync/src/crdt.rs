@@ -75,7 +75,7 @@ pub enum CRDTOperationType {
 	Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone, Type)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CRDTOperation {
 	pub node: Uuid,
 	pub timestamp: NTP64,

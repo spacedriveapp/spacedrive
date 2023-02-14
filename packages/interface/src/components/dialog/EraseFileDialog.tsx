@@ -29,7 +29,7 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 		eraseFile.mutateAsync({
 			location_id: props.location_id,
 			path_id: props.path_id,
-			passes: data.passes
+			passes: data.passes.toString()
 		})
 	);
 

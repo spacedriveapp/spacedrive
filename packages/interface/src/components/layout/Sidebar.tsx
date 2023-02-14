@@ -39,7 +39,7 @@ import {
 	tw
 } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
+import { OperatingSystem, usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -449,16 +449,17 @@ const Icon = ({ component: Icon, ...props }: any) => (
 );
 
 // cute little helper to decrease code clutter
-const macOnly = (platform: string | undefined, classnames: string) =>
+const macOnly = (platform: OperatingSystem | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 function WindowControls() {
 	const { platform } = usePlatform();
+	const os = useOperatingSystem();
 
 	const showControls = window.location.search.includes('showControls');
 	if (platform === 'tauri' || showControls) {
 		return (
-			<div data-tauri-drag-region className="h-7 shrink-0">
+			<div data-tauri-drag-region className={clsx('shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
 				{showControls && <MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />}
 			</div>

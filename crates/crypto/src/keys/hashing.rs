@@ -30,7 +30,7 @@ use balloon_hash::Balloon;
 	derive(serde::Serialize),
 	derive(serde::Deserialize)
 )]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -45,7 +45,7 @@ pub enum Params {
 	derive(serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	BalloonBlake3(Params),

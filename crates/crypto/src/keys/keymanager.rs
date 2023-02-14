@@ -62,7 +62,7 @@ use super::{
 /// This is a stored key, and can be freely written to Prisma/another database.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct StoredKey {
 	pub uuid: Uuid, // uuid for identification. shared with mounted keys
 	pub version: StoredKeyVersion,
@@ -81,7 +81,7 @@ pub struct StoredKey {
 
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum StoredKeyType {
 	User,
 	Root,
@@ -89,7 +89,7 @@ pub enum StoredKeyType {
 
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum StoredKeyVersion {
 	V1,
 }
