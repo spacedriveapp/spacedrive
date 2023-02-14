@@ -1,12 +1,7 @@
 use std::{env, net::SocketAddr, path::Path};
 
-use axum::{
-	extract,
-	handler::Handler,
-	http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
-	routing::get,
-};
-use sd_core::Node;
+use axum::routing::get;
+use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
 use tracing::info;
 
 mod utils;
@@ -39,29 +34,15 @@ async fn main() {
 	let app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))
 		.route("/health", get(|| async { "OK" }))
-		.route("/spacedrive/*id", {
-			let node = node.clone();
-			get(|extract::Path(path): extract::Path<String>| async move {
-				let (status_code, content_type, body) = node
-					.handle_custom_uri(path.split('/').skip(1).collect())
-					.await;
-
-				(
-					StatusCode::from_u16(status_code).unwrap(),
-					{
-						let mut headers = HeaderMap::new();
-						headers.insert(CONTENT_TYPE, content_type.parse().unwrap());
-						headers
-					},
-					body,
-				)
-			})
-		})
-		.route(
-			"/rspc/:id",
+		.nest(
+			"/spacedrive",
+			create_custom_uri_endpoint(node.clone()).axum(),
+		)
+		.nest(
+			"/rspc",
 			router.endpoint(move || node.get_request_context()).axum(),
 		)
-		.fallback((|| async { "404 Not Found: We're past the event horizon..." }).into_service());
+		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);

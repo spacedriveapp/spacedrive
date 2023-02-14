@@ -4,7 +4,7 @@ use crate::extensions::{CodeExtension, Extension, VideoExtension};
 use std::{ffi::OsStr, io::SeekFrom, path::Path};
 
 use tokio::{
-	fs::{self, File},
+	fs::File,
 	io::{AsyncReadExt, AsyncSeekExt},
 };
 

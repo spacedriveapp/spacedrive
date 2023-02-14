@@ -1,10 +1,9 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
-import { getOnboardingStore } from '@sd/client';
-import { tw } from '@sd/ui';
 import clsx from 'clsx';
 import { ComponentType, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
-
+import { getOnboardingStore } from '@sd/client';
+import { tw } from '@sd/ui';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import OnboardingCreatingLibrary from './OnboardingCreatingLibrary';
 import OnboardingMasterPassword from './OnboardingMasterPassword';

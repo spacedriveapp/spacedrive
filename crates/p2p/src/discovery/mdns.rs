@@ -104,7 +104,7 @@ impl<TP2PManager: P2PManager> Mdns<TP2PManager> {
 		let service_info = ServiceInfo::new(
 			&self.service_type,
 			peer_id_str,
-			&format!("{}.", peer_id_str),
+			&format!("{peer_id_str}."),
 			&(self
 				.nm
 				.lan_addrs

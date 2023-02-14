@@ -9,7 +9,7 @@ use crate::{
 
 use std::path::PathBuf;
 
-use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
+use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
@@ -27,11 +27,11 @@ pub enum ExplorerContext {
 pub enum ExplorerItem {
 	Path {
 		has_thumbnail: bool,
-		item: Box<file_path_with_object::Data>,
+		item: file_path_with_object::Data,
 	},
 	Object {
 		has_thumbnail: bool,
-		item: Box<object_with_file_paths::Data>,
+		item: object_with_file_paths::Data,
 	},
 }
 
@@ -45,12 +45,7 @@ file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
 indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
-// TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
-pub(crate) fn mount() -> rspc::RouterBuilder<
-	Ctx,
-	(),
-	impl MiddlewareBuilderLike<Ctx, LayerContext = Ctx> + Send + 'static,
-> {
+pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 	<RouterBuilder>::new()
 		.library_query("list", |t| {
 			t(|_, _: (), library| async move {
@@ -149,7 +144,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 
 					items.push(ExplorerItem::Path {
 						has_thumbnail,
-						item: Box::new(file_path),
+						item: file_path,
 					});
 				}
 

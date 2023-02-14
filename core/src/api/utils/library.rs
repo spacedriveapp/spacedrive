@@ -67,7 +67,7 @@ pub trait LibraryRequest {
 }
 
 // Note: This will break with middleware context switching but that's fine for now
-impl<TMiddleware> LibraryRequest for rspc::RouterBuilder<Ctx, (), TMiddleware>
+impl<TMiddleware> LibraryRequest for rspc::RouterBuilder<Ctx, TMiddleware>
 where
 	TMiddleware: MiddlewareBuilderLike<Ctx, LayerContext = Ctx> + Send + 'static,
 {
