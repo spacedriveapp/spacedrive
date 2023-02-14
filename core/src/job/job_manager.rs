@@ -78,6 +78,8 @@ impl JobManager {
 			}
 		});
 
+		debug!("JobManager initialized");
+
 		this
 	}
 

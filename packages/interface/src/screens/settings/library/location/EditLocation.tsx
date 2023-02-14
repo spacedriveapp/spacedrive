@@ -37,8 +37,8 @@ export default function EditLocation() {
 		onSuccess: (data) => {
 			if (data && !isDirty)
 				form.reset({
-					displayName: data.name || undefined,
-					localPath: data.local_path || undefined,
+					displayName: data.name,
+					localPath: data.path,
 					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule_id.toString()),
 					generatePreviewMedia: data.generate_preview_media,
 					syncPreviewMedia: data.sync_preview_media,

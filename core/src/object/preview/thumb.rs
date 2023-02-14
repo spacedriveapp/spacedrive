@@ -52,7 +52,6 @@ pub enum ThumbnailError {
 }
 
 file_path::include!(file_path_with_object { object });
-file_path::select!(file_path_id_only { id });
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
@@ -79,15 +78,15 @@ impl StatefulJob for ThumbnailJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+		let LibraryContext { db, .. } = &ctx.library_ctx;
+
 		let thumbnail_dir = ctx
 			.library_ctx
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME);
 
-		let location = ctx
-			.library_ctx
-			.db
+		let location = db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
@@ -101,9 +100,7 @@ impl StatefulJob for ThumbnailJob {
 			.expect("Found non-UTF-8 path")
 			.to_string();
 
-		let parent_directory_id = ctx
-			.library_ctx
-			.db
+		let parent_directory_id = db
 			.file_path()
 			.find_first(vec![
 				file_path::location_id::equals(state.init.location_id),
@@ -114,7 +111,7 @@ impl StatefulJob for ThumbnailJob {
 				}),
 				file_path::is_dir::equals(true),
 			])
-			.select(file_path_id_only::select())
+			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.ok_or_else(|| ThumbnailError::MissingRootFilePath(state.init.root_path.clone()))?
@@ -127,10 +124,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir).await?;
-		let root_path = location
-			.local_path
-			.map(PathBuf::from)
-			.ok_or(ThumbnailError::LocationLocalPath(location.id))?;
+		let root_path = location.path.into();
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(

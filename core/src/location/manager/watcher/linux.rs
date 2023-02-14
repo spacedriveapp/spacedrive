@@ -38,7 +38,7 @@ impl EventHandler for LinuxEventHandler {
 				file_creation_or_update(location, event, library_ctx).await?;
 			}
 			EventKind::Create(CreateKind::Folder) => {
-				create_dir(location, event, library_ctx.clone()).await?;
+				create_dir(location, event, &library_ctx).await?;
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
 				rename_both_event(location, event, library_ctx).await?;

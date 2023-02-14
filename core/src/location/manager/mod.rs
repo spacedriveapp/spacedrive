@@ -117,6 +117,8 @@ impl LocationManager {
 	pub fn new() -> Arc<Self> {
 		let online_tx = broadcast::channel(16).0;
 
+		debug!("LocationManager initialized");
+
 		#[cfg(feature = "location-watcher")]
 		{
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
@@ -432,14 +434,13 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library_ctx).await {
-						if let Some(ref local_path_str) = location.local_path.clone() {
+						if location.node_id == library_ctx.node_local_id {
 							if check_online(&location, &library_ctx).await
 								&& !forced_unwatch.contains(&key)
 							{
 								watch_location(
 									location,
 									library_ctx.id,
-									local_path_str,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);
@@ -447,7 +448,6 @@ impl LocationManager {
 								unwatch_location(
 									location,
 									library_ctx.id,
-									local_path_str,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);

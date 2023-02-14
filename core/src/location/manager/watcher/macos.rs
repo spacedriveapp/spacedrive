@@ -39,7 +39,7 @@ impl EventHandler for MacOsEventHandler {
 
 		match event.kind {
 			EventKind::Create(CreateKind::Folder) => {
-				create_dir(location, event, library_ctx.clone()).await?;
+				create_dir(location, event, library_ctx).await?;
 			}
 			EventKind::Modify(ModifyKind::Data(DataChange::Content)) => {
 				// If a file had its content modified, then it was updated or created

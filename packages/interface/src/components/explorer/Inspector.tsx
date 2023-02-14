@@ -108,7 +108,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						{context?.type == 'Location' && data?.type === 'Path' && (
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
-								<MetaValue>{`${context.local_path}/${data.item.materialized_path}`}</MetaValue>
+								<MetaValue>{`${context.path}/${data.item.materialized_path}`}</MetaValue>
 							</MetaContainer>
 						)}
 						<Divider />

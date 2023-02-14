@@ -12,7 +12,7 @@ use tokio::{
 	io::AsyncReadExt,
 	sync::broadcast,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
@@ -152,6 +152,8 @@ impl Node {
 				}
 			}
 		}
+
+		debug!("Watching locations");
 
 		// Trying to resume possible paused jobs
 		let inner_library_manager = Arc::clone(&library_manager);

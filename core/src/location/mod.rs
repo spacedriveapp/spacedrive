@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{
 	collections::HashSet,
+	ffi::OsStr,
 	path::{Path, PathBuf},
 };
 
@@ -93,7 +94,7 @@ impl LocationCreateArgs {
 			ctx.id,
 			uuid,
 			&self.path,
-			location.name.as_ref().unwrap().clone(),
+			location.name.clone(),
 		)
 		.await?;
 
@@ -129,12 +130,7 @@ impl LocationCreateArgs {
 		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
 
 		metadata
-			.add_library(
-				ctx.id,
-				uuid,
-				&self.path,
-				location.name.as_ref().unwrap().clone(),
-			)
+			.add_library(ctx.id, uuid, &self.path, location.name.clone())
 			.await?;
 
 		info!(
@@ -173,8 +169,8 @@ impl LocationUpdateArgs {
 		let params = [
 			self.name
 				.clone()
-				.filter(|name| location.name.as_ref() != Some(name))
-				.map(|v| location::name::set(Some(v))),
+				.filter(|name| &location.name != name)
+				.map(location::name::set),
 			self.generate_preview_media
 				.map(location::generate_preview_media::set),
 			self.sync_preview_media
@@ -192,9 +188,9 @@ impl LocationUpdateArgs {
 				.exec()
 				.await?;
 
-			if let Some(ref local_path) = location.local_path {
+			if location.node_id == ctx.node_local_id {
 				if let Some(mut metadata) =
-					SpacedriveLocationMetadataFile::try_load(local_path).await?
+					SpacedriveLocationMetadataFile::try_load(&location.path).await?
 				{
 					metadata.update(ctx.id, self.name.unwrap()).await?;
 				}
@@ -268,10 +264,6 @@ pub async fn scan_location(
 	ctx: &LibraryContext,
 	location: indexer_job_location::Data,
 ) -> Result<(), LocationError> {
-	if location.local_path.is_none() {
-		return Err(LocationError::MissingLocalPath(location.id));
-	};
-
 	ctx.queue_job(Job::new(
 		FullFileIdentifierJobInit {
 			location_id: location.id,
@@ -311,13 +303,13 @@ pub async fn relink_location(
 		.location()
 		.update(
 			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
-			vec![location::local_path::set(Some(
+			vec![location::path::set(
 				location_path
 					.as_ref()
 					.to_str()
 					.expect("Found non-UTF-8 path")
 					.to_string(),
-			))],
+			)],
 		)
 		.exec()
 		.await?;
@@ -331,48 +323,47 @@ async fn create_location(
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 ) -> Result<indexer_job_location::Data, LocationError> {
-	let db = &ctx.db;
+	let LibraryContext { db, sync, .. } = &ctx;
 
-	let location_name = location_path
-		.as_ref()
+	let location_path = location_path.as_ref();
+
+	let name = location_path
 		.file_name()
-		.unwrap()
-		.to_str()
-		.unwrap()
-		.to_string();
+		.and_then(OsStr::to_str)
+		.map(str::to_string)
+		.unwrap();
 
-	let local_path = location_path
-		.as_ref()
+	let path = location_path
 		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
+		.map(str::to_string)
+		.expect("Found non-UTF-8 path");
 
-	let location = ctx
-		.sync
+	let location = sync
 		.write_op(
 			db,
-			ctx.sync.owned_create(
+			sync.owned_create(
 				sync::location::SyncId {
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[
 					("node", json!({ "pub_id": ctx.id.as_bytes() })),
-					("name", json!(location_name)),
-					("local_path", json!(&local_path)),
+					("name", json!(&name)),
+					("path", json!(&path)),
 				],
 			),
 			db.location()
 				.create(
 					location_pub_id.as_bytes().to_vec(),
+					name,
+					path,
 					node::id::equals(ctx.node_local_id),
-					vec![
-						location::name::set(Some(location_name.clone())),
-						location::local_path::set(Some(local_path)),
-					],
+					vec![],
 				)
 				.include(indexer_job_location::include()),
 		)
 		.await?;
+
+	debug!("created in db");
 
 	if !indexer_rules_ids.is_empty() {
 		link_location_and_indexer_rules(ctx, location.id, indexer_rules_ids).await?;
@@ -414,8 +405,9 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	if let Some(local_path) = location.local_path {
-		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(&local_path).await
+	if location.node_id == ctx.node_local_id {
+		if let Ok(Some(mut metadata)) =
+			SpacedriveLocationMetadataFile::try_load(&location.path).await
 		{
 			metadata.remove_library(ctx.id).await?;
 		}
@@ -482,22 +474,22 @@ pub async fn delete_directory(
 }
 
 // check if a path exists in our database at that location
-pub async fn check_virtual_path_exists(
-	library_ctx: &LibraryContext,
-	location_id: i32,
-	subpath: impl AsRef<Path>,
-) -> Result<bool, LocationError> {
-	let path = subpath.as_ref().to_str().unwrap().to_string();
+// pub async fn check_virtual_path_exists(
+// 	library_ctx: &LibraryContext,
+// 	location_id: i32,
+// 	subpath: impl AsRef<Path>,
+// ) -> Result<bool, LocationError> {
+// 	let path = subpath.as_ref().to_str().unwrap().to_string();
 
-	let file_path = library_ctx
-		.db
-		.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::equals(path),
-		])
-		.exec()
-		.await?;
+// 	let file_path = library_ctx
+// 		.db
+// 		.file_path()
+// 		.find_first(vec![
+// 			file_path::location_id::equals(location_id),
+// 			file_path::materialized_path::equals(path),
+// 		])
+// 		.exec()
+// 		.await?;
 
-	Ok(file_path.is_some())
-}
+// 	Ok(file_path.is_some())
+// }
