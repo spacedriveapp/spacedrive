@@ -10,7 +10,7 @@ import {
 } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { ExplorerItem, formatBytes, isObject, isPath, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, formatBytes, isObject, useLibraryQuery } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';

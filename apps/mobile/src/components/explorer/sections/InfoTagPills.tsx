@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, Text, View, ViewStyle } from 'react-native';
+import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import { ExplorerItem, ObjectKind, isObject, isPath, useLibraryQuery } from '@sd/client';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import tw, { twStyle } from '~/lib/tailwind';
