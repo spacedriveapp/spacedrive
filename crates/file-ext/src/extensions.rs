@@ -294,18 +294,7 @@ mod test {
 	async fn magic_bytes() {
 		async fn test_path(subpath: &str) -> Option<Extension> {
 			println!("testing {}...", subpath);
-			let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-				.parent()
-				.unwrap()
-				.parent()
-				.unwrap()
-				.join("packages/test-files/files")
-				.join(subpath);
-
-			let mut file = File::open(path).await.unwrap();
-
-			Extension::resolve_conflicting(subpath.split('.').last().unwrap(), &mut file, true)
-				.await
+			Extension::resolve_conflicting(subpath.split('.').last().unwrap(), true).await
 		}
 		// Video extension tests
 		assert_eq!(

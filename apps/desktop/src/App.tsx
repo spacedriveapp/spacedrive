@@ -2,6 +2,7 @@ import { loggerLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
 import { getDebugState, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
@@ -30,9 +31,29 @@ async function getOs(): Promise<OperatingSystem> {
 	}
 }
 
+let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
+const customUriAuthToken = (window as any).__SD_CUSTOM_URI_TOKEN__ as string | undefined;
+
+if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
+	customUriServerUrl += '/';
+}
+
+function getCustomUriURL(path: string): string {
+	if (customUriServerUrl) {
+		const queryParams = customUriAuthToken
+			? `?token=${encodeURIComponent(customUriAuthToken)}`
+			: '';
+		return `${customUriServerUrl}spacedrive/${path}${queryParams}`;
+	} else {
+		return convertFileSrc(path, 'spacedrive');
+	}
+}
+
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	getThumbnailUrlById: (casId) => getCustomUriURL(`thumbnail/${casId}`),
+	getFileUrl: (libraryId, locationLocalId, filePathId) =>
+		getCustomUriURL(`file/${libraryId}/${locationLocalId}/${filePathId}`),
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),

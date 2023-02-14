@@ -4,11 +4,7 @@ import { resetStore } from '@sd/client';
 // TODO: Add "media"
 export type ExplorerLayoutMode = 'list' | 'grid';
 
-export enum ExplorerKind {
-	Location,
-	Tag,
-	Space
-}
+export type ExplorerKind = 'Location' | 'Tag' | 'Space';
 
 const state = {
 	locationId: null as number | null,

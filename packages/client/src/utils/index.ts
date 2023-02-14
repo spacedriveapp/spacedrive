@@ -1,7 +1,6 @@
 import { ExplorerItem } from '../core';
 
-export * from './isVideoExt';
-export * from './kind';
+export * from './objectKind';
 export * from './formatBytes';
 
 export function isPath(item: ExplorerItem): item is Extract<ExplorerItem, { type: 'Path' }> {

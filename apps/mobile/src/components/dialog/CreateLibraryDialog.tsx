@@ -48,7 +48,10 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 				createLibrary({
 					name: libName,
 					// TODO: Support password and secret on mobile
-					password: '',
+					auth: {
+						type: 'Password',
+						value: ''
+					},
 					algorithm: 'XChaCha20Poly1305',
 					hashing_algorithm: { name: 'Argon2id', params: 'Standard' }
 				})

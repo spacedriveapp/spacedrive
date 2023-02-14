@@ -13,6 +13,7 @@ struct SDSyncGenerator {}
 type FieldVec<'a> = Vec<&'a dml::Field>;
 
 #[derive(Debug)]
+#[allow(unused)]
 enum ModelSyncType<'a> {
 	Local {
 		id: FieldVec<'a>,
@@ -79,7 +80,7 @@ impl PrismaGenerator for SDSyncGenerator {
 		let model_modules = args.dml.models().map(|model| {
             let model_name_snake = snake_ident(&model.name);
 
-            let attributes = model_attributes(&model);
+            let attributes = model_attributes(model);
 
             let sync_id = attributes
                 .iter()

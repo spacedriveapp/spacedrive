@@ -17,9 +17,15 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	getLibraryIdRaw,
+	isObject,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
-import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
 import { usePlatform } from '~/util/Platform';
@@ -142,7 +148,7 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 					keybind="⌘V"
 					hidden={!store.cutCopyState.active}
 					onClick={(e) => {
-						if (store.cutCopyState.actionType == CutCopyType.Copy) {
+						if (store.cutCopyState.actionType == 'Copy') {
 							store.locationId &&
 								copyFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
@@ -207,6 +213,7 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
+	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const isUnlockedQuery = useLibraryQuery(['keys.isUnlocked']);
@@ -222,7 +229,19 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 	return (
 		<div className="relative">
 			<CM.ContextMenu trigger={props.children}>
-				<CM.Item label="Open" keybind="⌘O" />
+				<CM.Item
+					label="Open"
+					keybind="⌘O"
+					onClick={(e) => {
+						// TODO: Replace this with a proper UI
+						window.location.href = platform.getFileUrl(
+							getLibraryIdRaw()!,
+							store.locationId!,
+							data.item.id
+						);
+					}}
+					icon={Copy}
+				/>
 				<CM.Item label="Open with..." />
 
 				<CM.Separator />
@@ -254,7 +273,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
-							actionType: CutCopyType.Cut,
+							actionType: 'Cut',
 							active: true
 						};
 					}}
@@ -268,7 +287,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
-							actionType: CutCopyType.Copy,
+							actionType: 'Copy',
 							active: true
 						};
 					}}

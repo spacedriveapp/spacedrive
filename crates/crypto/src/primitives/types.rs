@@ -6,7 +6,7 @@ use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, P
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
 	Aes256Gcm([u8; 8]),
@@ -220,7 +220,7 @@ use serde_big_array::BigArray;
 use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
 	pub  [u8; ENCRYPTED_KEY_LEN],
@@ -244,7 +244,7 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct Salt(pub [u8; SALT_LEN]);
 
 impl Salt {
@@ -274,7 +274,7 @@ impl TryFrom<Vec<u8>> for Salt {
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct OnboardingConfig {
 	pub password: Protected<String>,
 	pub algorithm: Algorithm,
