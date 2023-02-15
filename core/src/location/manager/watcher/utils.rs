@@ -50,7 +50,7 @@ pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> boo
 }
 
 pub(super) async fn create_dir(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -103,7 +103,7 @@ pub(super) async fn create_dir(
 }
 
 pub(super) async fn create_file(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -226,12 +226,12 @@ pub(super) async fn create_file(
 }
 
 pub(super) async fn file_creation_or_update(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(file_path) =
-		get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
+	if let Some(ref file_path) =
+		get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
 	{
 		inner_update_file(location, file_path, event, library_ctx).await
 	} else {
@@ -241,13 +241,13 @@ pub(super) async fn file_creation_or_update(
 }
 
 pub(super) async fn update_file(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library_ctx.node_local_id {
-		if let Some(file_path) =
-			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
+		if let Some(ref file_path) =
+			get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
 		{
 			let ret = inner_update_file(location, file_path, event, library_ctx).await;
 			invalidate_query!(library_ctx, "locations.getExplorerData");
@@ -263,8 +263,8 @@ pub(super) async fn update_file(
 }
 
 async fn inner_update_file(
-	location: indexer_job_location::Data,
-	file_path: file_path_with_object::Data,
+	location: &indexer_job_location::Data,
+	file_path: &file_path_with_object::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -310,6 +310,7 @@ async fn inner_update_file(
 
 			if file_path
 				.object
+				.as_ref()
 				.map(|o| o.has_thumbnail)
 				.unwrap_or_default()
 			{
@@ -327,7 +328,7 @@ async fn inner_update_file(
 }
 
 pub(super) async fn rename_both_event(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -337,22 +338,21 @@ pub(super) async fn rename_both_event(
 pub(super) async fn rename(
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	let mut old_path_materialized = extract_materialized_path(&location, old_path.as_ref())?
+	let mut old_path_materialized = extract_materialized_path(location, old_path.as_ref())?
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	let new_path_materialized = extract_materialized_path(&location, new_path.as_ref())?;
+	let new_path_materialized = extract_materialized_path(location, new_path.as_ref())?;
 	let mut new_path_materialized_str = new_path_materialized
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	if let Some(file_path) =
-		get_existing_file_or_directory(&location, old_path, library_ctx).await?
+	if let Some(file_path) = get_existing_file_or_directory(location, old_path, library_ctx).await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
@@ -409,7 +409,7 @@ pub(super) async fn rename(
 }
 
 pub(super) async fn remove_event(
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	event: Event,
 	remove_kind: RemoveKind,
 	library_ctx: &LibraryContext,
@@ -418,7 +418,7 @@ pub(super) async fn remove_event(
 
 	// if it doesn't either way, then we don't care
 	if let Some(file_path) =
-		get_existing_file_or_directory(&location, &event.paths[0], library_ctx).await?
+		get_existing_file_or_directory(location, &event.paths[0], library_ctx).await?
 	{
 		// check file still exists on disk
 		match fs::metadata(&event.paths[0]).await {

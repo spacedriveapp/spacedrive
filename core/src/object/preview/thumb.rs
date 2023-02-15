@@ -47,8 +47,6 @@ pub enum ThumbnailError {
 	MissingLocation(i32),
 	#[error("Root file path not found: <path = '{0}'>")]
 	MissingRootFilePath(PathBuf),
-	#[error("Location without local path: <id = '{0}'>")]
-	LocationLocalPath(i32),
 }
 
 file_path::include!(file_path_with_object { object });

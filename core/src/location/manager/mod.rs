@@ -15,13 +15,10 @@ use tokio::{
 		oneshot, RwLock,
 	},
 };
-use tracing::error;
+use tracing::{debug, error};
 
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
-
-#[cfg(feature = "location-watcher")]
-use tracing::debug;
 
 #[cfg(feature = "location-watcher")]
 mod watcher;
@@ -131,8 +128,6 @@ impl LocationManager {
 				watcher_management_rx,
 				stop_rx,
 			));
-
-			debug!("Location manager initialized");
 
 			Arc::new(Self {
 				online_locations: Default::default(),

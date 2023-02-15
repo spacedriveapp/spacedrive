@@ -35,16 +35,16 @@ impl EventHandler for LinuxEventHandler {
 		match event.kind {
 			EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
 				// If a file was closed with write mode, then it was updated or created
-				file_creation_or_update(location, event, library_ctx).await?;
+				file_creation_or_update(&location, event, library_ctx).await?;
 			}
 			EventKind::Create(CreateKind::Folder) => {
-				create_dir(location, event, &library_ctx).await?;
+				create_dir(&location, event, library_ctx).await?;
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
-				rename_both_event(location, event, library_ctx).await?;
+				rename_both_event(&location, event, library_ctx).await?;
 			}
 			EventKind::Remove(remove_kind) => {
-				remove_event(location, event, remove_kind, library_ctx).await?;
+				remove_event(&location, event, remove_kind, library_ctx).await?;
 			}
 			other_event_kind => {
 				trace!("Other Linux event that we don't handle for now: {other_event_kind:#?}");

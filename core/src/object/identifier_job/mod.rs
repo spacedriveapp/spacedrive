@@ -33,8 +33,6 @@ pub enum IdentifierJobError {
 	MissingLocation(i32),
 	#[error("Root file path not found: <path = '{0}'>")]
 	MissingRootFilePath(PathBuf),
-	#[error("Location without local path: <id = '{0}'>")]
-	LocationLocalPath(i32),
 }
 
 #[derive(Debug, Clone)]
