@@ -1,38 +1,14 @@
 use anyhow::Result;
 use cargo_metadata::CargoOpt;
-use clap::{Args, Parser, Subcommand};
+use clap::Parser;
 use std::{fs::File, path::PathBuf};
-use types::{backend::BackendDependency, frontend::FrontendDependency};
+use types::{
+	backend::BackendDependency,
+	cli::{Action, Arguments},
+	frontend::FrontendDependency,
+};
 
 pub mod types;
-
-#[derive(Parser)]
-struct Arguments {
-	#[command(subcommand)]
-	action: Action,
-}
-
-#[derive(Subcommand)]
-enum Action {
-	Frontend(FrontendArgs),
-	Backend(BackendArgs),
-}
-
-#[derive(Args)]
-struct FrontendArgs {
-	#[arg(help = "the git revision")]
-	revision: String,
-	#[arg(help = "the output path")]
-	path: PathBuf,
-}
-
-#[derive(Args)]
-struct BackendArgs {
-	#[arg(help = "path to the cargo manifest")]
-	manifest_path: PathBuf,
-	#[arg(help = "the output path")]
-	output_path: PathBuf,
-}
 
 const FOSSA_BASE_URL: &str =
 	"https://app.fossa.com/api/revisions/git%2Bgithub.com%2Fspacedriveapp%2Fspacedrive%24";
