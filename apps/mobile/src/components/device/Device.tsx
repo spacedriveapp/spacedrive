@@ -114,19 +114,19 @@ const DeviceIcon = {
 
 const Device = ({ name, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`my-2 border rounded-md bg-app-overlay border-app-line`}>
+		<View style={tw`bg-app-overlay border-app-line my-2 rounded-md border`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{DeviceIcon[type]}
-					<Text style={tw`text-base font-semibold text-ink`}>{name || 'Unnamed Device'}</Text>
+					<Text style={tw`text-ink text-base font-semibold`}>{name || 'Unnamed Device'}</Text>
 					{/* P2P Lock */}
-					<View style={tw`flex flex-row rounded items-center ml-2 bg-app-box py-[1px] px-[4px]`}>
+					<View style={tw`bg-app-box ml-2 flex flex-row items-center rounded py-[1px] px-[4px]`}>
 						<Lock weight="bold" size={12} color={tw.color('ink-dull')} />
-						<Text style={tw`text-ink-dull font-semibold ml-0.5 text-xs`}>P2P</Text>
+						<Text style={tw`text-ink-dull ml-0.5 text-xs font-semibold`}>P2P</Text>
 					</View>
 				</View>
 				{/* Size */}
-				<Text style={tw`ml-2 text-sm font-semibold text-ink-dull`}>{size}</Text>
+				<Text style={tw`text-ink-dull ml-2 text-sm font-semibold`}>{size}</Text>
 			</View>
 			<FlatList
 				data={placeholderFileItems}

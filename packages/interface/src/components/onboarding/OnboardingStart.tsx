@@ -11,9 +11,9 @@ export default function OnboardingStart() {
 
 	return (
 		<OnboardingContainer>
-			<OnboardingImg src={AppLogo} className="flex-shrink-0 mb-8 h-36 w-36" />
+			<OnboardingImg src={AppLogo} className="mb-8 h-36 w-36 shrink-0" />
 
-			<h1 className="mb-2 text-4xl font-bold text-center text-ink">
+			<h1 className="text-ink mb-2 text-center text-4xl font-bold">
 				The file explorer from the future.
 			</h1>
 			<OnboardingDescription>

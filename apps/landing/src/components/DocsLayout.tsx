@@ -17,7 +17,7 @@ export default function DocsLayout(props: Props) {
 	const [menuOpen, setMenuOpen] = useState(false);
 
 	return (
-		<div className="flex flex-col items-start w-full sm:flex-row">
+		<div className="flex w-full flex-col items-start sm:flex-row">
 			<Menu
 				onClose={() => setMenuOpen(false)}
 				customBurgerIcon={false}
@@ -25,33 +25,33 @@ export default function DocsLayout(props: Props) {
 				pageWrapId="page-container"
 				className="shadow-2xl shadow-black"
 			>
-				<div className="visible h-screen pb-20 overflow-x-hidden custom-scroll doc-sidebar-scroll bg-gray-650 pt-7 px-7 sm:invisible">
+				<div className="custom-scroll doc-sidebar-scroll bg-gray-650 visible h-screen overflow-x-hidden px-7 pb-20 pt-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
-						className="!px-1 -ml-0.5 mb-3 !border-none"
+						className="-ml-0.5 mb-3 !border-none !px-1"
 					>
-						<X weight="bold" className="w-6 h-6" />
+						<X weight="bold" className="h-6 w-6" />
 					</Button>
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</div>
 			</Menu>
 
-			<aside className="sticky hidden px-5 mt-32 mb-20 ml-2 mr-0 lg:mr-4 top-32 sm:inline">
+			<aside className="sticky top-32 mt-32 mb-20 ml-2 mr-0 hidden px-5 sm:inline lg:mr-4">
 				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 			</aside>
-			<div className="flex flex-col w-full sm:flex-row" id="page-container">
-				<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden items-center ">
+			<div className="flex w-full flex-col sm:flex-row" id="page-container">
+				<div className="mt-[65px] flex h-12 w-full items-center border-y border-gray-600 px-5 sm:hidden">
 					<div className="flex sm:hidden">
-						<Button onClick={() => setMenuOpen(!menuOpen)} className="!px-2 ml-1 !border-none">
-							<List weight="bold" className="w-6 h-6" />
+						<Button onClick={() => setMenuOpen(!menuOpen)} className="ml-1 !border-none !px-2">
+							<List weight="bold" className="h-6 w-6" />
 						</Button>
 					</div>
 					{props.doc?.url.split('/').map((item, index) => {
 						if (index === 2) return null;
 						return (
-							<div key={index} className="flex flex-row items-center ml-2">
+							<div key={index} className="ml-2 flex flex-row items-center">
 								<a className="px-1 text-sm">{toTitleCase(item)}</a>
-								{index < 1 && <CaretRight className="w-4 h-4 ml-1 -mr-2" />}
+								{index < 1 && <CaretRight className="ml-1 -mr-2 h-4 w-4" />}
 							</div>
 						);
 					})}

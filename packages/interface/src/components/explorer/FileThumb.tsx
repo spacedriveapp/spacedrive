@@ -51,7 +51,7 @@ export default function FileThumb({ data, ...props }: Props) {
 				style={props.style}
 				decoding="async"
 				// width={props.size}
-				className={clsx('pointer-events-none z-90', props.className)}
+				className={clsx('z-90 pointer-events-none', props.className)}
 				src={url}
 			/>
 		);
@@ -64,5 +64,5 @@ export default function FileThumb({ data, ...props }: Props) {
 	else if (props.kind === 'Executable') icon = executable;
 	else if (props.kind === 'Encrypted') icon = archive;
 
-	return <img src={icon} className={clsx('overflow-hidden h-full', props.iconClassNames)} />;
+	return <img src={icon} className={clsx('h-full overflow-hidden', props.iconClassNames)} />;
 }
