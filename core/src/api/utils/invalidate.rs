@@ -235,16 +235,12 @@ pub fn mount_invalidate() -> RouterBuilder {
 					tokio::select! {
 						event = event_bus_rx.recv() => {
 							if let Ok(event) = event {
-								match event {
-									CoreEvent::InvalidateOperation(op) => {
-										// Newer data replaces older data in the buffer
-										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
-									}
-									_ => {}
+								if let CoreEvent::InvalidateOperation(op) = event {
+									// Newer data replaces older data in the buffer
+									buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
 								}
 							} else {
 								warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
-								return;
 							}
 						},
 						// Given human reaction time of ~250 milli this should be a good ballance.

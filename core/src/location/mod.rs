@@ -275,12 +275,12 @@ pub async fn scan_location(
 	// TODO: This code makes the assumption that their is a single worker thread. This is true today but may not be true in the future refactor to not make that assumption.
 	ctx.spawn_job(IndexerJobInit { location }).await;
 	ctx.spawn_job(FullFileIdentifierJobInit {
-		location_id: location_id,
+		location_id,
 		sub_path: None,
 	})
 	.await;
 	ctx.spawn_job(ThumbnailJobInit {
-		location_id: location_id,
+		location_id,
 		root_path: PathBuf::new(),
 		background: false,
 	})

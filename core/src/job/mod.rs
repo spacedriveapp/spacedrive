@@ -90,7 +90,7 @@ pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	fn hash(&self) -> u64 {
 		let mut s = DefaultHasher::new();
 		<Self::Job as StatefulJob>::NAME.hash(&mut s);
-		<Self as Hash>::hash(&self, &mut s);
+		<Self as Hash>::hash(self, &mut s);
 		s.finish()
 	}
 }

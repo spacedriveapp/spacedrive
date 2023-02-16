@@ -50,7 +50,7 @@ pub enum JobType {
 
 /// JOB_RESTORER is a map of job names to their restorer traits.
 /// This allows us to be sure when dispatching a job that it has the ability to be restored on restart because that was a common mistake with the old system.
-const JOB_RESTORER: Lazy<HashMap<&'static str, JobType>> = Lazy::new(|| {
+static JOB_RESTORER: Lazy<HashMap<&'static str, JobType>> = Lazy::new(|| {
 	HashMap::from([
 		(
 			<ThumbnailJob as StatefulJob>::NAME,
@@ -197,7 +197,7 @@ impl JobManager {
 
 		ctx.db.job().delete_many(vec![]).exec().await?;
 
-		match self.get_history(&ctx).await {
+		match self.get_history(ctx).await {
 			Ok(jobs) => {
 				invalidate_query!(ctx, "jobs.getHistory":  LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: jobs);
 			}
@@ -314,11 +314,7 @@ impl JobManager {
 				report.upsert(&self, &library_ctx).await.unwrap(); // TODO: Error handling
 			} else {
 				let mut running = self.running.write().await;
-				if running
-					.iter()
-					.find(|(_, job)| job.hash == job_init_hash)
-					.is_some()
-				{
+				if running.iter().any(|(_, job)| job.hash == job_init_hash) {
 					debug!("Job '{}' already running, skipping", T::NAME);
 					return;
 				}
@@ -428,7 +424,7 @@ impl JobManager {
 				let mut running = self.running.write().await;
 				running.remove(&ctx.report.id);
 				if let Some(next_job) = next_job {
-					let id = next_job.report.id.clone();
+					let id = next_job.report.id;
 					let name = next_job.report.name.clone();
 					running.insert(
 						next_job.report.id,
@@ -437,11 +433,8 @@ impl JobManager {
 							hash: job_init_hash,
 						},
 					);
-					if let Err(err) = next_job.start.send(()) {
-						error!(
-							"failed to trigger job '{}' with id '{}': {:#?}",
-							name, id, err
-						);
+					if next_job.start.send(()).is_err() {
+						error!("failed to trigger job '{name}' with id '{id}'");
 					}
 				}
 			}

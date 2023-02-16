@@ -140,7 +140,7 @@ impl JobReport {
 		let running_jobs = job_manager.get_running().await;
 		invalidate_query!(library_ctx, "jobs.getRunning": LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: running_jobs);
 
-		match job_manager.get_history(&library_ctx).await {
+		match job_manager.get_history(library_ctx).await {
 			Ok(jobs) => {
 				invalidate_query!(library_ctx, "jobs.getHistory":  LibraryArgs<()>, LibraryArgs::default(), Vec<JobReport>: jobs);
 			}
