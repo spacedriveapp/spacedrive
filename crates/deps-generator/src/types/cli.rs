@@ -16,6 +16,7 @@ pub enum Action {
 
 #[derive(Args)]
 pub struct FrontendArgs {
+	// could source this from `$GITHUB_SHA` for CI, if not set
 	#[arg(help = "the git revision")]
 	pub revision: String,
 	#[arg(help = "the output path")]
@@ -24,6 +25,7 @@ pub struct FrontendArgs {
 
 #[derive(Args)]
 pub struct BackendArgs {
+	// could use `Cargo.toml` as the default from current dir (if not set)
 	#[arg(help = "path to the cargo manifest")]
 	pub manifest_path: PathBuf,
 	#[arg(help = "the output path")]
