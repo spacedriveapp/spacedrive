@@ -117,17 +117,15 @@ export default function EditLocation() {
 
 				<div className="space-y-2">
 					<ToggleSection>
-						<Label className="flex-grow">Generate preview media for this Location</Label>
+						<Label className="grow">Generate preview media for this Location</Label>
 						<Switch {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="flex-grow">
-							Sync preview media for this Location with your devices
-						</Label>
+						<Label className="grow">Sync preview media for this Location with your devices</Label>
 						<Switch {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="flex-grow">
+						<Label className="grow">
 							Hide location and contents from view{' '}
 							<Tooltip label='Prevents the location and its contents from appearing in summary categories, search and tags unless "Show hidden items" is enabled.'>
 								<Info className="inline" />
@@ -137,8 +135,8 @@ export default function EditLocation() {
 					</ToggleSection>
 				</div>
 				<Divider />
-				<div className="flex flex-col pointer-events-none opacity-30">
-					<Label className="flex-grow">Indexer rules</Label>
+				<div className="pointer-events-none flex flex-col opacity-30">
+					<Label className="grow">Indexer rules</Label>
 					<InfoText className="mt-0 mb-1">
 						Indexer rules allow you to specify paths to ignore using RegEx.
 					</InfoText>
@@ -149,7 +147,7 @@ export default function EditLocation() {
 					<FlexCol>
 						<div>
 							<Button onClick={() => fullRescan.mutate(Number(id))} size="sm" variant="outline">
-								<ArrowsClockwise className="inline w-4 h-4 mr-1.5 -mt-0.5" />
+								<ArrowsClockwise className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Full Reindex
 							</Button>
 						</div>
@@ -163,7 +161,7 @@ export default function EditLocation() {
 								variant="outline"
 								className=""
 							>
-								<Archive className="inline w-4 h-4 mr-1.5 -mt-0.5" />
+								<Archive className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Archive
 							</Button>
 						</div>
@@ -173,8 +171,8 @@ export default function EditLocation() {
 					</FlexCol>
 					<FlexCol>
 						<div>
-							<Button size="sm" variant="colored" className="bg-red-500 border-red-500 ">
-								<Trash className="inline w-4 h-4 mr-1.5 -mt-0.5" />
+							<Button size="sm" variant="colored" className="border-red-500 bg-red-500 ">
+								<Trash className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Delete
 							</Button>
 						</div>

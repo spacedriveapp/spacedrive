@@ -19,7 +19,7 @@ export const Menu = (props: MenuProps) => (
 	<View>
 		<PMenu>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions optionsContainerStyle={tw`bg-app-menu p-1 rounded`}>
+			<MenuOptions optionsContainerStyle={tw`bg-app-menu rounded p-1`}>
 				{props.children}
 			</MenuOptions>
 		</PMenu>
@@ -43,7 +43,7 @@ export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
 			<MenuOption
 				{...props}
 				customStyles={{
-					optionText: tw`text-ink text-sm font-medium py-0.5`
+					optionText: tw`text-ink py-0.5 text-sm font-medium`
 				}}
 				style={tw`flex flex-row items-center`}
 			/>

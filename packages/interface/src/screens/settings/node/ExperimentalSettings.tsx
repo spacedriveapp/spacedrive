@@ -16,7 +16,7 @@ export default function ExperimentalSettings() {
 				title="Debug Menu"
 				description="Shows data about Spacedrive such as Jobs, Job History and Client State."
 			>
-				<div className="flex items-center h-full pl-10">
+				<div className="flex h-full items-center pl-10">
 					<Switch
 						checked={isExperimental}
 						size="sm"

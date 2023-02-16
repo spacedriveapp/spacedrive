@@ -4,7 +4,7 @@ import { SettingsSidebar } from '~/components/settings/SettingsSidebar';
 
 export default function SettingsScreen() {
 	return (
-		<div className="flex flex-row w-full app-background">
+		<div className="app-background flex w-full flex-row">
 			<SettingsSidebar />
 			<div className="w-full">
 				<Suspense>

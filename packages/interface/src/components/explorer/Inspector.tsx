@@ -26,7 +26,7 @@ export const MetaValue = tw.p`text-xs break-all text-ink truncate`;
 const MetaTextLine = tw.div`flex items-center my-0.5 text-xs text-ink-dull`;
 
 const InspectorIcon = ({ component: Icon, ...props }: any) => (
-	<Icon weight="bold" {...props} className={clsx('mr-2 flex-shrink-0', props.className)} />
+	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
 interface Props extends DefaultProps<HTMLDivElement> {
@@ -63,13 +63,13 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="-mt-[50px] pt-[55px] z-10 pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-4"
+			className="custom-scroll inspector-scroll z-10 mt-[-50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
 		>
 			{data && (
 				<>
 					<div
 						className={clsx(
-							'flex h-52 items-center justify-center w-full mb-[10px] overflow-hidden rounded-lg',
+							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden rounded-lg',
 							objectData?.kind === 7 && objectData?.has_thumbnail && 'bg-black'
 						)}
 					>
@@ -77,29 +77,29 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							iconClassNames="my-3 max-h-[150px]"
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
-							className="flex flex-grow-0 flex-shrink bg-green-500"
+							className="flex shrink grow-0 bg-green-500"
 							data={data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-0.5 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
-						<h3 className="px-3 pt-2 pb-1 text-base font-bold truncate">
+					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
+						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
 							{item?.name}
 							{item?.extension && `.${item.extension}`}
 						</h3>
 						{objectData && (
-							<div className="flex flex-row mt-1 mb-0.5 mx-3 space-x-0.5">
+							<div className="mx-3 mt-1 mb-0.5 flex flex-row space-x-0.5">
 								<Tooltip label="Favorite">
 									<FavoriteButton data={objectData} />
 								</Tooltip>
 
 								<Tooltip label="Encrypt">
 									<Button size="icon">
-										<Lock className="w-[18px] h-[18px]" />
+										<Lock className="h-[18px] w-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Share">
 									<Button size="icon">
-										<Link className="w-[18px] h-[18px]" />
+										<Link className="h-[18px] w-[18px]" />
 									</Button>
 								</Tooltip>
 							</div>

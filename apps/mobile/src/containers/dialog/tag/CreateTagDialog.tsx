@@ -4,7 +4,7 @@ import ColorPicker from 'react-native-wheel-color-picker';
 import { queryClient, useLibraryMutation } from '@sd/client';
 import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 
 type Props = {
 	onSubmit?: () => void;
@@ -57,17 +57,17 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 			<View style={tw`flex flex-row items-center`}>
 				<Pressable
 					onPress={() => setShowPicker((v) => !v)}
-					style={tw.style({ backgroundColor: tagColor }, 'w-5 h-5 rounded-full')}
+					style={twStyle({ backgroundColor: tagColor }, 'h-5 w-5 rounded-full')}
 				/>
 				<Input
-					style={tw`flex-1 ml-2`}
+					style={tw`ml-2 flex-1`}
 					value={tagName}
 					onChangeText={(text) => setTagName(text)}
 					placeholder="Name"
 				/>
 			</View>
 			{showPicker && (
-				<View style={tw`h-64 mt-4`}>
+				<View style={tw`my-4 h-64`}>
 					<ColorPicker
 						autoResetSlider
 						gapSize={0}

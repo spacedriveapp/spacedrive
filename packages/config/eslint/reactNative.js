@@ -23,5 +23,10 @@ module.exports = {
 				]
 			}
 		]
+	},
+	settings: {
+		tailwindcss: {
+			config: 'apps/mobile/tailwind.config.js'
+		}
 	}
 };
