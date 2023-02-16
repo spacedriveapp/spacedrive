@@ -130,7 +130,7 @@ pub trait StatefulJob: Send + Sync + Sized + JobRestorer + 'static {
 
 /// TODO
 #[async_trait::async_trait]
-pub trait JobRestorer {
+pub trait JobRestorer: Send + Sync {
 	async fn restore(
 		&self,
 		job_manager: Arc<JobManager>,
