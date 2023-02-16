@@ -188,6 +188,12 @@ jobs:
       - name: Check core
         run: cargo check -p sd-core --release
 
+      - name: Compile frontend dependencies
+        run: cargo run --release -p deps-generator -- frontend $GITHUB_SHA frontend-deps.json
+
+      - name: Compile backend dependencies
+        run: cargo run --release -p deps-generator -- backend Cargo.toml backend-deps.json
+
       - name: Bundle Desktop
         run: pnpm desktop tauri build
 
