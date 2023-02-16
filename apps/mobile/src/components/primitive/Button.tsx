@@ -2,7 +2,7 @@ import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import { FC, useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 const button = cva(['items-center justify-center rounded-md border shadow-sm'], {
 	variants: {

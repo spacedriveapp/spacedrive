@@ -15,7 +15,7 @@ import {
 import React from 'react';
 import { SectionList, Text, View } from 'react-native';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
-import tw from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 type SectionType = {
@@ -108,8 +108,8 @@ const sections: SectionType[] = [
 function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
-			style={tw.style(
-				'mb-2 ml-3 text-sm font-semibold text-ink-dull',
+			style={twStyle(
+				'text-ink-dull mb-2 ml-3 text-sm font-semibold',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>

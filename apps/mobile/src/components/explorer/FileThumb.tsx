@@ -2,7 +2,7 @@ import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
 import { ExplorerItem, isObject, isPath } from '@sd/client';
 // import icons from '../../assets/icons/file';
-import tw from '../../lib/tailwind';
+import { tw } from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 
 type FileThumbProps = {

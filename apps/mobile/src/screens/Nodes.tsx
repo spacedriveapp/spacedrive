@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { NodesStackScreenProps } from '~/navigation/tabs/NodesStack';
 
 export default function NodesScreen({ navigation }: NodesStackScreenProps<'Nodes'>) {

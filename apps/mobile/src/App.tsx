@@ -22,7 +22,7 @@ import {
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
-import tw from './lib/tailwind';
+import { tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 

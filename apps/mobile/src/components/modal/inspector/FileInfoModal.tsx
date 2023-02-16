@@ -16,7 +16,7 @@ import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
 import Divider from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 type MetaItemProps = {
 	title: string;
@@ -69,13 +69,13 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			{data && (
 				<ModalScrollView style={tw`flex-1 p-4`}>
 					{/* Back Button */}
-					<Pressable onPress={() => modalRef.current.close()} style={tw`absolute ml-4 z-10`}>
+					<Pressable onPress={() => modalRef.current.close()} style={tw`absolute z-10 ml-4`}>
 						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
 					</Pressable>
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`text-base font-bold text-gray-200 mt-2`}>{item.name}</Text>
+						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{item.name}</Text>
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}

@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 import CollapsibleView from '../layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';

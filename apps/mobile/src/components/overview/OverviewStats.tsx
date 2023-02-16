@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Statistics, useLibraryQuery } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',

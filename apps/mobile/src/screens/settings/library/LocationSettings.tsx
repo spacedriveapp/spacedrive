@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {

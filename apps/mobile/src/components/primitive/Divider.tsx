@@ -1,5 +1,5 @@
 import { StyleProp, View, ViewStyle } from 'react-native';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 type DividerProps = {
 	style?: StyleProp<ViewStyle>;

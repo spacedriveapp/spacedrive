@@ -6,7 +6,7 @@ import { Pressable, View } from 'react-native';
 import { ExplorerData, ExplorerItem, isPath } from '@sd/client';
 import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';

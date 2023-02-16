@@ -5,7 +5,7 @@ import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useCurrentLibrary } from '~/../../../packages/client/src';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { AnimatedHeight } from '../animation/layout';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import Divider from '../primitive/Divider';

@@ -7,7 +7,7 @@ import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
 import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {

@@ -5,7 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LibraryItem({

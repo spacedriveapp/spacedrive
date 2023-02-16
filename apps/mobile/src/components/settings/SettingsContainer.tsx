@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { Text, View } from 'react-native';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 type SettingsContainerProps = PropsWithChildren<{
 	title?: string;

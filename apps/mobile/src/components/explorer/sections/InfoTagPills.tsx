@@ -2,7 +2,7 @@ import React from 'react';
 import { Alert, Pressable, View, ViewStyle } from 'react-native';
 import { ExplorerItem, ObjectKind, isObject, isPath, useLibraryQuery } from '@sd/client';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 type Props = {
 	data: ExplorerItem;
@@ -21,7 +21,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 	const item = data?.item;
 
 	return (
-		<View style={twStyle('flex flex-row flex-wrap mt-1', style)}>
+		<View style={twStyle('mt-1 flex flex-row flex-wrap', style)}>
 			{/* Kind */}
 			<InfoPill
 				containerStyle={tw`mr-1`}
@@ -34,7 +34,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 				<InfoPill
 					key={tag.id}
 					text={tag.name}
-					containerStyle={tw.style('mr-1', { backgroundColor: tag.color + 'CC' })}
+					containerStyle={twStyle('mr-1', { backgroundColor: tag.color + 'CC' })}
 					textStyle={tw`text-white`}
 				/>
 			))}

@@ -17,7 +17,7 @@ import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef } from '~/components/layout/Modal';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 import FileInfoModal from './FileInfoModal';
 
@@ -42,7 +42,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 		<Pressable onPress={onPress} style={tw`flex flex-row items-center justify-between px-4`}>
 			<Text
 				style={twStyle(
-					'text-base leading-none font-medium',
+					'text-base font-medium leading-none',
 					isDanger ? 'text-red-600' : 'text-ink'
 				)}
 			>
@@ -53,7 +53,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 	);
 };
 
-const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
+const ActionDivider = () => <View style={tw`bg-app-line/80 my-3.5 h-[0.5px]`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);

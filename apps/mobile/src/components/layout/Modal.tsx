@@ -11,7 +11,7 @@ import { X } from 'phosphor-react-native';
 import { ReactNode, forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { Button } from '../primitive/Button';
 
 const ModalBackdrop = (props: BottomSheetBackdropProps) => (
@@ -26,13 +26,13 @@ interface ModalHandle extends BottomSheetHandleProps {
 const ModalHandle = (props: ModalHandle) => (
 	<BottomSheetHandle
 		{...props}
-		style={tw`bg-app rounded-t-2xl items-end`}
+		style={tw`bg-app items-end rounded-t-2xl`}
 		indicatorStyle={tw`bg-app-highlight/60`}
 	>
 		{props.showCloseButton && (
 			<Pressable
 				onPress={() => props.modalRef.current.close()}
-				style={tw`absolute top-5 right-4 w-7 h-7 items-center justify-center bg-app-button rounded-full`}
+				style={tw`bg-app-button absolute top-5 right-4 h-7 w-7 items-center justify-center rounded-full`}
 			>
 				<X size={16} color="white" weight="bold" />
 			</Pressable>
@@ -61,7 +61,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			handleComponent={(props) => ModalHandle({ modalRef, showCloseButton, ...props })}
 			{...otherProps}
 		>
-			{title && <Text style={tw`text-ink font-medium text-base text-center`}>{title}</Text>}
+			{title && <Text style={tw`text-ink text-center text-base font-medium`}>{title}</Text>}
 			{children}
 		</BottomSheetModal>
 	);
@@ -112,9 +112,9 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 			>
 				{/* Title */}
 				{props.title && (
-					<Text style={tw`text-ink font-medium text-base text-center`}>{props.title}</Text>
+					<Text style={tw`text-ink text-center text-base font-medium`}>{props.title}</Text>
 				)}
-				<View style={tw`px-6 mt-4`}>
+				<View style={tw`mt-4 px-6`}>
 					{/* Description */}
 					{props.description && <Text style={tw`text-ink-dull text-sm`}>{props.description}</Text>}
 					{/* Children */}
@@ -132,7 +132,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 						</Button>
 						{props.ctaAction && (
 							<Button
-								style={tw`flex-1 ml-4`}
+								style={tw`ml-4 flex-1`}
 								variant={props.ctaDanger ? 'danger' : 'accent'}
 								size="lg"
 								onPress={props.ctaAction}

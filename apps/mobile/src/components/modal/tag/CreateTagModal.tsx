@@ -7,7 +7,7 @@ import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
-import tw from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
@@ -54,13 +54,13 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			showCloseButton
 		>
 			<View style={tw`p-4`}>
-				<View style={tw`flex flex-row items-center mt-4`}>
+				<View style={tw`mt-4 flex flex-row items-center`}>
 					<Pressable
 						onPress={() => setShowPicker((v) => !v)}
-						style={tw.style({ backgroundColor: tagColor }, 'w-6 h-6 rounded-full')}
+						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}
 					/>
 					<Input
-						style={tw`flex-1 ml-2`}
+						style={tw`ml-2 flex-1`}
 						value={tagName}
 						onChangeText={(text) => setTagName(text)}
 						placeholder="Name"
@@ -69,7 +69,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				{/* Color Picker */}
 				{showPicker && (
 					<FadeInAnimation>
-						<View style={tw`h-64 mt-4`}>
+						<View style={tw`mt-4 h-64`}>
 							<ColorPicker
 								autoResetSlider
 								gapSize={0}
@@ -101,7 +101,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					style={tw`mt-6`}
 					disabled={tagName.length === 0}
 				>
-					<Text style={tw`text-white font-medium text-sm`}>Create</Text>
+					<Text style={tw`text-sm font-medium text-white`}>Create</Text>
 				</Button>
 			</View>
 		</Modal>

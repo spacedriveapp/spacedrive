@@ -9,7 +9,7 @@ import { Switch } from '~/components/primitive/Switch';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const LibraryGeneralSettingsScreen = ({

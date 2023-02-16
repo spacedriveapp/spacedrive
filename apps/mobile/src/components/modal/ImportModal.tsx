@@ -7,7 +7,7 @@ import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 // WIP component
 const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {

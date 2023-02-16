@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Menu, MenuItem } from '~/components/primitive/Menu';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 const sortOptions = {
 	name: 'Name',
