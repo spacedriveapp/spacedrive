@@ -356,7 +356,7 @@ model Job {
     node_id  Int
     action   Int
     status   Int    @default(0)
-    data     Bytes?
+    data     Bytes
     metadata Bytes?
 
     task_count           Int      @default(1)

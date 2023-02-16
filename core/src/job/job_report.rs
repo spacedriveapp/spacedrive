@@ -28,7 +28,7 @@ pub enum JobReportUpdate {
 pub struct JobReport {
 	pub id: Uuid,
 	pub name: String,
-	pub data: Option<Vec<u8>>,
+	pub data: Vec<u8>,
 	pub metadata: Option<serde_json::Value>,
 	// client_id: i32,
 	pub date_created: chrono::DateTime<chrono::Utc>,
@@ -89,7 +89,7 @@ impl JobReport {
 			date_modified: chrono::Utc::now(),
 			status: JobStatus::Queued,
 			task_count: 0,
-			data: None,
+			data: Vec::new(),
 			metadata: None,
 			completed_task_count: 0,
 			message: String::new(),
@@ -111,8 +111,9 @@ impl JobReport {
 					self.id.as_bytes().to_vec(),
 					self.name.clone(),
 					self.status.int_value(),
+					self.data.clone(),
 					node::id::equals(library_ctx.node_local_id),
-					vec![job::data::set(self.data.clone())],
+					vec![],
 				),
 				vec![
 					job::status::set(self.status.int_value()),

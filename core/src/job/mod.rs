@@ -136,7 +136,6 @@ pub trait JobRestorer: Send + Sync {
 		job_manager: Arc<JobManager>,
 		ctx: &LibraryContext,
 		report: JobReport,
-		job_state_data: Vec<u8>,
 	) -> Result<(), JobError>;
 }
 
@@ -147,13 +146,12 @@ impl<T: StatefulJob> JobRestorer for T {
 		job_manager: Arc<JobManager>,
 		ctx: &LibraryContext,
 		report: JobReport,
-		job_state_data: Vec<u8>,
 	) -> Result<(), JobError> {
 		job_manager
 			.internal_dispatch_job(
 				ctx.clone(),
+				rmp_serde::from_slice(&report.data)?,
 				report,
-				rmp_serde::from_slice(&job_state_data)?,
 				Self::new(),
 			)
 			.await;

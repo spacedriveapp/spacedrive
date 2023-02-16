@@ -153,13 +153,13 @@ impl JobManager {
 
 		self.internal_dispatch_job(
 			ctx,
-			JobReport::new(Uuid::new_v4(), T::NAME.to_string()), // `dispatch_job` will handle pushing this to the database
 			JobState {
 				init,
 				data: None,
 				steps: VecDeque::new(),
 				step_number: 0,
 			},
+			JobReport::new(Uuid::new_v4(), T::NAME.to_string()), // `dispatch_job` will handle pushing this to the database
 			job,
 		)
 		.await;
@@ -239,24 +239,17 @@ impl JobManager {
 
 		// TODO: If we error out we are gonna end up with everything half loaded into memory which is bad. Deal with this!
 		for job in paused_jobs {
-			let mut report = JobReport::from(job);
-
-			let job_state_data = if let Some(data) = report.data.take() {
-				data
-			} else {
-				// TODO: What about this optional? Can it be removed by changing the Prisma Schema?
-				return Err(JobError::MissingJobDataState(report.id, report.name));
-			};
+			let report = JobReport::from(job);
 
 			info!("Resuming job: {}, id: {}", report.name, report.id);
 
 			match JOB_RESTORER.get(report.name.as_str()) {
 				Some(JobType::Restartable(restorer)) => {
-					restorer
-						.restore(Arc::clone(self), ctx, report, job_state_data)
-						.await?;
+					restorer.restore(Arc::clone(self), ctx, report).await?;
 				}
-				Some(JobType::Oneshot) => {}
+				Some(JobType::Oneshot) => {
+					debug!("Skipping, as {} is an Oneshot job", report.name);
+				}
 				None => {
 					error!(
 						"Error restoring job of id '{}' due it being of an unknown type '{}'",
@@ -271,12 +264,11 @@ impl JobManager {
 	}
 
 	/// TODO
-	/// This should be treated as a private function but it is public because it is used within implementations of the `JobRestorer` trait.
-	pub async fn internal_dispatch_job<T: StatefulJob>(
+	pub(super) async fn internal_dispatch_job<T: StatefulJob>(
 		self: Arc<Self>,
 		library_ctx: LibraryContext,
-		mut report: JobReport,
 		mut state: JobState<T>,
+		mut report: JobReport,
 		mut job: T,
 	) {
 		let job_should_queue = self.running.read().await.len() <= MAX_WORKERS;
@@ -406,13 +398,13 @@ impl JobManager {
 				Ok(metadata) => {
 					info!("Completed job '{}' with id '{}'", T::NAME, ctx.report.id);
 					ctx.report.status = JobStatus::Completed;
-					ctx.report.data = None;
+					ctx.report.data = Vec::new();
 					ctx.report.metadata = metadata;
 				}
 				Err(JobError::Paused(state)) => {
 					info!("Paused job '{}' with id '{}'", T::NAME, ctx.report.id);
 					ctx.report.status = JobStatus::Paused;
-					ctx.report.data = Some(state);
+					ctx.report.data = state;
 				}
 				Err(err) => {
 					warn!(
@@ -422,7 +414,7 @@ impl JobManager {
 						err
 					);
 					ctx.report.status = JobStatus::Failed;
-					ctx.report.data = None;
+					ctx.report.data = Vec::new();
 				}
 			}
 

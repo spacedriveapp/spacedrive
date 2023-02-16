@@ -236,7 +236,7 @@ CREATE TABLE "job" (
     "node_id" INTEGER NOT NULL,
     "action" INTEGER NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 0,
-    "data" BLOB,
+    "data" BLOB NOT NULL,
     "metadata" BLOB,
     "task_count" INTEGER NOT NULL DEFAULT 1,
     "completed_task_count" INTEGER NOT NULL DEFAULT 0,
