@@ -35,20 +35,14 @@ fn write_backend_deps(manifest_path: PathBuf, output_path: PathBuf) -> Result<()
 		.packages
 		.into_iter()
 		.filter_map(|p| {
-			if !cmd.workspace_members.iter().any(|t| &p.id == t) {
-				let dep = BackendDependency {
-					title: p.name,
-					description: p.description,
-					url: p.repository,
-					version: p.version.to_string(),
-					authors: p.authors,
-					license: p.license,
-				};
-
-				Some(dep)
-			} else {
-				None
-			}
+			(!cmd.workspace_members.iter().any(|t| &p.id == t)).then_some(BackendDependency {
+				title: p.name,
+				description: p.description,
+				url: p.repository,
+				version: p.version.to_string(),
+				authors: p.authors,
+				license: p.license,
+			})
 		})
 		.collect();
 
