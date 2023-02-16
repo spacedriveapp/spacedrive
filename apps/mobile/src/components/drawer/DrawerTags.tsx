@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import CollapsibleView from '../layout/CollapsibleView';
 import CreateTagModal from '../modal/tag/CreateTagModal';
 
@@ -18,9 +18,9 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>
-			<View style={tw.style('flex mb-[4px] flex-row items-center py-2 px-1 rounded')}>
-				<View style={tw.style('w-3.5 h-3.5 rounded-full', { backgroundColor: tagColor })} />
-				<Text style={tw.style('text-gray-300 text-sm font-medium ml-2')} numberOfLines={1}>
+			<View style={twStyle('mb-[4px] flex flex-row items-center rounded py-2 px-1')}>
+				<View style={twStyle('h-3.5 w-3.5 rounded-full', { backgroundColor: tagColor })} />
+				<Text style={twStyle('ml-2 text-sm font-medium text-gray-300')} numberOfLines={1}>
 					{tagName}
 				</Text>
 			</View>
@@ -62,8 +62,8 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			</View>
 			{/* Add Tag */}
 			<Pressable onPress={() => createTagModalRef.current.present()}>
-				<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
-					<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>Add Tag</Text>
+				<View style={tw`border-app-line/80 mt-1 rounded border border-dashed`}>
+					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>
 			</Pressable>
 			<CreateTagModal ref={createTagModalRef} />

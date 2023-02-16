@@ -13,13 +13,13 @@ export default function AboutSpacedrive() {
 				description={
 					<div className="flex flex-col">
 						<span>The file manager from the future.</span>
-						<span className="mt-2 text-xs text-ink-faint/80">
+						<span className="text-ink-faint/80 mt-2 text-xs">
 							v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 						</span>
 					</div>
 				}
 			>
-				<img src={Logo} className="w-[88px] mr-8" />
+				<img src={Logo} className="mr-8 w-[88px]" />
 			</SettingsHeader>
 		</SettingsContainer>
 	);

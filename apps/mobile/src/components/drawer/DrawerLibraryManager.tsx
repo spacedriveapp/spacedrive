@@ -5,7 +5,7 @@ import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useCurrentLibrary } from '~/../../../packages/client/src';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { AnimatedHeight } from '../animation/layout';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import Divider from '../primitive/Divider';
@@ -27,11 +27,11 @@ const DrawerLibraryManager = () => {
 		<View>
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
-					style={tw.style(
-						'flex flex-row justify-between items-center px-3 h-10 w-full bg-sidebar-box border shadow-sm',
+					style={twStyle(
+						'bg-sidebar-box flex h-10 w-full flex-row items-center justify-between border px-3 shadow-sm',
 						dropdownClosed
-							? 'rounded-md border-sidebar-line/50'
-							: 'rounded-t-md border-b-app-box border-sidebar-line bg-sidebar-button'
+							? 'border-sidebar-line/50 rounded-md'
+							: 'border-b-app-box border-sidebar-line bg-sidebar-button rounded-t-md'
 					)}
 				>
 					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
@@ -47,21 +47,19 @@ const DrawerLibraryManager = () => {
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
-				<View
-					style={tw`py-2 px-2 bg-sidebar-button border-l border-b border-r border-sidebar-line rounded-b-md`}
-				>
+				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md border-x border-b p-2`}>
 					{/* Libraries */}
 					{libraries?.map((library) => (
 						<Pressable key={library.uuid} onPress={() => switchLibrary(library.uuid)}>
 							<View
-								style={tw.style(
-									'p-2 mt-1',
+								style={twStyle(
+									'mt-1 p-2',
 									currentLibrary.uuid === library.uuid && 'bg-accent rounded'
 								)}
 							>
 								<Text
-									style={tw.style(
-										'text-sm text-ink font-semibold',
+									style={twStyle(
+										'text-ink text-sm font-semibold',
 										currentLibrary.uuid === library.uuid && 'text-white'
 									)}
 								>
@@ -70,13 +68,13 @@ const DrawerLibraryManager = () => {
 							</View>
 						</Pressable>
 					))}
-					<Divider style={tw`mt-2 mb-2`} />
+					<Divider style={tw`my-2`} />
 					{/* Menu */}
 					{/* Create Library */}
 					<CreateLibraryDialog>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Plus size={18} weight="bold" color="white" style={tw`mr-2`} />
-							<Text style={tw`text-sm text-white font-semibold`}>New Library</Text>
+							<Text style={tw`text-sm font-semibold text-white`}>New Library</Text>
 						</View>
 					</CreateLibraryDialog>
 					{/* Manage Library */}
@@ -85,14 +83,14 @@ const DrawerLibraryManager = () => {
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Gear size={18} weight="bold" color="white" style={tw`mr-2`} />
-							<Text style={tw`text-sm text-white font-semibold`}>Manage Library</Text>
+							<Text style={tw`text-sm font-semibold text-white`}>Manage Library</Text>
 						</View>
 					</Pressable>
 					{/* Lock */}
 					<Pressable onPress={() => Alert.alert('TODO')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Lock size={18} weight="bold" color="white" style={tw`mr-2`} />
-							<Text style={tw`text-sm text-white font-semibold`}>Lock</Text>
+							<Text style={tw`text-sm font-semibold text-white`}>Lock</Text>
 						</View>
 					</Pressable>
 				</View>

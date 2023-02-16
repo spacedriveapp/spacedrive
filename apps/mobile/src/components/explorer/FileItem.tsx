@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
 import Layout from '~/constants/Layout';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
 import FileThumb from './FileThumb';
 
@@ -20,7 +20,7 @@ const FileItem = ({ data }: FileItemProps) => {
 
 	return (
 		<View
-			style={tw.style('items-center', {
+			style={twStyle('items-center', {
 				width: gridItemSize,
 				height: gridItemSize
 			})}
@@ -30,12 +30,12 @@ const FileItem = ({ data }: FileItemProps) => {
 				kind={data.item.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
 			/>
 			{item.extension && isVid && (
-				<View style={tw`absolute bottom-8 opacity-70 right-5 py-0.5 px-1 bg-black/70 rounded`}>
-					<Text style={tw`text-[9px] text-white uppercase font-semibold`}>{item.extension}</Text>
+				<View style={tw`absolute bottom-8 right-5 rounded bg-black/70 py-0.5 px-1 opacity-70`}>
+					<Text style={tw`text-[9px] font-semibold uppercase text-white`}>{item.extension}</Text>
 				</View>
 			)}
-			<View style={tw`px-1.5 py-[1px] mt-1`}>
-				<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-white`}>
+			<View style={tw`mt-1 px-1.5 py-[1px]`}>
+				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-white`}>
 					{item?.name}
 					{item?.extension && `.${item.extension}`}
 				</Text>

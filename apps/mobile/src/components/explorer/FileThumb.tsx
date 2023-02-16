@@ -19,7 +19,7 @@ export const getThumbnailUrlById = (casId: string) =>
 	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
 const FileThumbWrapper = ({ children, size = 1 }) => (
-	<View style={[tw`justify-center items-center`, { width: 80 * size, height: 80 * size }]}>
+	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
 		{children}
 	</View>
 );
@@ -61,7 +61,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (data.has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
-				<Image source={{ uri: url }} resizeMode="contain" style={tw`w-full h-full`} />
+				<Image source={{ uri: url }} resizeMode="contain" style={tw`h-full w-full`} />
 			</FileThumbWrapper>
 		);
 	}

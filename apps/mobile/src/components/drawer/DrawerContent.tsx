@@ -3,7 +3,7 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typesc
 import { Gear } from 'phosphor-react-native';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
 import Layout from '~/constants/Layout';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
@@ -19,11 +19,11 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 
 	return (
 		<DrawerContentScrollView style={tw`flex-1 px-3 py-2`} scrollEnabled={false}>
-			<View style={tw.style('justify-between', { height: drawerHeight })}>
+			<View style={twStyle('justify-between', { height: drawerHeight })}>
 				<View>
 					<View style={tw`flex flex-row items-center`}>
-						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-[40px] h-[40px]`} />
-						<Text style={tw`text-lg font-bold text-ink ml-2`}>Spacedrive</Text>
+						<Image source={require('@sd/assets/images/logo.png')} style={tw`h-[40px] w-[40px]`} />
+						<Text style={tw`text-ink ml-2 text-lg font-bold`}>Spacedrive</Text>
 					</View>
 					<View style={tw`mt-6`} />
 					{/* Library Manager */}

@@ -14,22 +14,22 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 	return (
 		<Card>
 			<DotsSixVertical weight="bold" className="mt-[15px] mr-3 opacity-30" />
-			<div className="flex-1 my-0.5">
+			<div className="my-0.5 flex-1">
 				<h3 className="font-semibold">
 					{props.library.config.name}
 					{props.current && <Pill>Current</Pill>}
 				</h3>
-				<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
+				<p className="text-ink-dull mt-0.5 text-xs">{props.library.uuid}</p>
 			</div>
 			<div className="flex flex-row items-center space-x-2">
 				<Button className="!p-1.5" variant="gray">
 					<Tooltip label="TODO">
-						<Database className="w-4 h-4" />
+						<Database className="h-4 w-4" />
 					</Tooltip>
 				</Button>
 				<ButtonLink className="!p-1.5" to="/settings/library" variant="gray">
 					<Tooltip label="Edit Library">
-						<Pencil className="w-4 h-4" />
+						<Pencil className="h-4 w-4" />
 					</Tooltip>
 				</ButtonLink>
 				<Button
@@ -42,7 +42,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 					}}
 				>
 					<Tooltip label="Delete Library">
-						<Trash className="w-4 h-4" />
+						<Trash className="h-4 w-4" />
 					</Tooltip>
 				</Button>
 			</div>

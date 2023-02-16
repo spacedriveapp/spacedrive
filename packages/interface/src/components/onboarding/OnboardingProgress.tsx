@@ -22,7 +22,7 @@ export default function OnboardingProgress() {
 	const currentScreenKey = useCurrentOnboardingScreenKey();
 
 	return (
-		<div className="flex items-center justify-center w-full">
+		<div className="flex w-full items-center justify-center">
 			<div className="flex items-center justify-center space-x-1">
 				{ONBOARDING_SCREENS.map(({ isSkippable, key }) => (
 					<div
@@ -33,7 +33,7 @@ export default function OnboardingProgress() {
 							}
 						}}
 						className={clsx(
-							'w-2 h-2 rounded-full hover:bg-ink transition',
+							'hover:bg-ink h-2 w-2 rounded-full transition',
 							currentScreenKey === key ? 'bg-ink' : 'bg-ink-faint',
 							!ob_store.unlockedScreens.includes(key) && 'opacity-10'
 						)}

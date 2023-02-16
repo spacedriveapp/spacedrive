@@ -100,7 +100,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default ',
+				'flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
@@ -145,15 +145,15 @@ export default function OverviewScreen() {
 	);
 
 	return (
-		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-background">
-			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
+		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
+			<div data-tauri-drag-region className="flex h-5 w-full shrink-0" />
 			{/* PAGE */}
 
-			<div className="flex flex-col w-full h-screen px-4">
+			<div className="flex h-screen w-full flex-col px-4">
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
-					<div className="flex h-20 -mb-1 overflow-hidden">
+					<div className="-mb-1 flex h-20 overflow-hidden">
 						{Object.entries(overviewStats || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 							return (
@@ -166,9 +166,9 @@ export default function OverviewScreen() {
 							);
 						})}
 					</div>
-					<div className="flex-grow" />
+					<div className="grow" />
 				</div>
-				<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
+				<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
 					<CategoryButton icon={Heart} category="Favorites" />
 					<CategoryButton icon={FileText} category="Documents" />
 					<CategoryButton icon={Camera} category="Movies" />
@@ -185,7 +185,7 @@ export default function OverviewScreen() {
 					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
 					functional.
 				</Card>
-				<div className="flex flex-shrink-0 w-full h-4" />
+				<div className="flex h-4 w-full shrink-0" />
 			</div>
 		</div>
 	);
@@ -206,11 +206,11 @@ interface CategoryButtonProps {
 
 function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
-		<Card className="!px-3 items-center">
-			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />
+		<Card className="items-center !px-3">
+			<Icon weight="fill" className="text-ink-dull mr-3 h-6 w-6 opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-xs text-ink-faint">23,324 items</p>
+				<p className="text-ink-faint text-xs">23,324 items</p>
 			</div>
 		</Card>
 	);

@@ -86,7 +86,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 			loading={encryptFile.isLoading}
 			ctaLabel="Encrypt"
 		>
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -105,7 +105,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 					<Button
 						size="sm"
 						variant={form.watch('outputPath') !== '' ? 'accent' : 'gray'}
-						className="h-[23px] text-xs leading-3 mt-2"
+						className="mt-2 h-[23px] text-xs leading-3"
 						type="button"
 						onClick={() => {
 							// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
@@ -130,7 +130,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 				</div>
 			</div>
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -160,13 +160,13 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 				</div>
 			</div>
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex">
-					<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">Metadata</span>
+					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Metadata</span>
 					<CheckBox {...form.register('metadata')} />
 				</div>
 				<div className="flex">
-					<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">Preview Media</span>
+					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Preview Media</span>
 					<CheckBox {...form.register('previewMedia')} />
 				</div>
 			</div>

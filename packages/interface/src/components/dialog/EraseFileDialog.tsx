@@ -45,11 +45,11 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 			loading={eraseFile.isLoading}
 			ctaLabel="Erase"
 		>
-			<div className="flex flex-col mt-2">
+			<div className="mt-2 flex flex-col">
 				<span className="text-xs font-bold"># of passes</span>
 
 				<div className="flex flex-row space-x-2">
-					<div className="relative flex flex-grow mt-2">
+					<div className="relative mt-2 flex grow">
 						<Slider
 							value={passes}
 							max={16}
@@ -62,7 +62,7 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 							}}
 						/>
 					</div>
-					<span className="text-sm mt-2.5 font-medium">{passes}</span>
+					<span className="mt-2.5 text-sm font-medium">{passes}</span>
 				</div>
 			</div>
 

@@ -134,9 +134,9 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				)}
 				renderSectionHeader={renderSectionHeader}
 				ListFooterComponent={
-					<View style={tw`items-center mt-6 mb-4`}>
-						<Text style={tw`text-sm font-bold text-ink`}>Spacedrive</Text>
-						<Text style={tw`text-ink-faint text-xs mt-0.5`}>v0.1.0</Text>
+					<View style={tw`mt-6 mb-4 items-center`}>
+						<Text style={tw`text-ink text-sm font-bold`}>Spacedrive</Text>
+						<Text style={tw`text-ink-faint mt-0.5 text-xs`}>v0.1.0</Text>
 					</View>
 				}
 				showsVerticalScrollIndicator={false}

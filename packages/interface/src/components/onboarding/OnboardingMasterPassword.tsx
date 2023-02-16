@@ -74,15 +74,15 @@ export default function OnboardingNewLibrary() {
 					This will be used to encrypt your library and/or open the built-in key manager.
 				</OnboardingDescription>
 
-				<div className="flex w-[450px] mt-4 flex-col">
+				<div className="mt-4 flex w-[450px] flex-col">
 					{form.formState.errors.password_validate && (
-						<Card className="flex flex-col mt-2 bg-red-500/20 border-red-500/10">
+						<Card className="mt-2 flex flex-col border-red-500/10 bg-red-500/20">
 							<span className="text-sm font-medium text-red-500">
 								{form.formState.errors.password_validate.message}
 							</span>
 						</Card>
 					)}
-					<div className="flex flex-grow mt-2 mb-2">
+					<div className="my-2 flex grow">
 						<PasswordShowHideInput
 							{...form.register('password')}
 							size="md"
@@ -92,7 +92,7 @@ export default function OnboardingNewLibrary() {
 						/>
 					</div>
 					{showPasswordValidate && (
-						<div className="flex flex-grow mb-2">
+						<div className="mb-2 flex grow">
 							<PasswordShowHideInput
 								{...form.register('password_validate')}
 								size="md"
@@ -104,10 +104,10 @@ export default function OnboardingNewLibrary() {
 						</div>
 					)}
 
-					<div className="flex flex-col mt-3">
+					<div className="mt-3 flex flex-col">
 						<PasswordMeter password={form.watch('password')} />
 					</div>
-					<div className="flex justify-between w-full mt-7">
+					<div className="mt-7 flex w-full justify-between">
 						{!ob_store.passwordSetToken ? (
 							<Button
 								disabled={form.formState.isSubmitting}

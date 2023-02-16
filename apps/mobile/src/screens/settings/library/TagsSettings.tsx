@@ -7,7 +7,7 @@ import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
 import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
@@ -46,8 +46,8 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 
 	return (
 		<Swipeable
-			containerStyle={tw.style(
-				'bg-app-overlay border border-app-line rounded-lg px-4 py-3',
+			containerStyle={twStyle(
+				'border-app-line bg-app-overlay rounded-lg border px-4 py-3',
 				index !== 0 && 'mt-2'
 			)}
 			enableTrackpadTwoFingerGesture
@@ -55,8 +55,8 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View style={tw`flex flex-row`}>
-					<View style={tw.style({ backgroundColor: tag.color }, 'w-4 h-4 rounded-full')} />
-					<Text style={tw`ml-3 text-ink`}>{tag.name}</Text>
+					<View style={twStyle({ backgroundColor: tag.color }, 'h-4 w-4 rounded-full')} />
+					<Text style={tw`text-ink ml-3`}>{tag.name}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>

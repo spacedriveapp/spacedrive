@@ -115,10 +115,10 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	// );
 
 	return (
-		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-2">
 			<div
 				ref={scrollRef}
-				className="h-screen custom-scroll explorer-scroll"
+				className="custom-scroll explorer-scroll h-screen"
 				onClick={(e) => {
 					getExplorerStore().selectedRowIndex = -1;
 				}}

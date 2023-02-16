@@ -16,7 +16,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 
 	return (
 		<View style={containerStyle}>
-			<Pressable onPress={toggle} style={tw`flex flex-row justify-between items-center`}>
+			<Pressable onPress={toggle} style={tw`flex flex-row items-center justify-between`}>
 				<Text style={titleStyle} selectable={false}>
 					{title}
 				</Text>

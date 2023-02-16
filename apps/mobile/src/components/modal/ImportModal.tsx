@@ -138,7 +138,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				<Button size="md" variant="accent" onPress={handlePhotosButton}>
 					<Text>Import from Photos</Text>
 				</Button>
-				<Text style={tw`text-white text-center mt-4`}>TODO</Text>
+				<Text style={tw`mt-4 text-center text-white`}>TODO</Text>
 			</View>
 		</Modal>
 	);
