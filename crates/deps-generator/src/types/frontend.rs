@@ -18,7 +18,7 @@ pub struct Project {
 #[derive(Serialize, Deserialize)]
 pub struct License {
 	pub text: Option<String>,
-	pub license_id: Option<String>,
+	// pub license_id: Option<String>, // always null AFAIK
 	pub copyright: Option<String>,
 	// pub license_group_id: i64,
 	// pub ignored: bool, // always false from my testing
