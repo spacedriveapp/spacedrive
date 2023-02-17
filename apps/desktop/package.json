@@ -18,13 +18,13 @@
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@tauri-apps/api": "1.1.0",
+		"@tauri-apps/api": "1.2.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@tauri-apps/cli": "1.1.1",
+		"@tauri-apps/cli": "1.2.3",
 		"@types/babel-core": "^6.25.7",
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",

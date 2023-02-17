@@ -12,8 +12,8 @@ export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 const styles = cva(
 	[
-		'px-3 py-1 text-sm rounded-md border leading-7',
-		'outline-none shadow-sm focus:ring-2 transition-all'
+		'rounded-md border px-3 py-1 text-sm leading-7',
+		'shadow-sm outline-none transition-all focus:ring-2'
 	],
 	{
 		variants: {
@@ -61,12 +61,12 @@ export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHi
 		const [showPassword, setShowPassword] = useState(false);
 		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
 		return (
-			<span className="relative flex-grow">
+			<span className="relative grow">
 				<Button
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(
-						'absolute top-1.5 bottom-1.5 right-2 m-auto w-[25px] border-none',
+						'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
 						props.buttonClassnames
 					)}
 				>

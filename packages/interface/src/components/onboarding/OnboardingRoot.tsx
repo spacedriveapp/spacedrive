@@ -1,10 +1,9 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
-import { getOnboardingStore } from '@sd/client';
-import { tw } from '@sd/ui';
 import clsx from 'clsx';
 import { ComponentType, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
-
+import { getOnboardingStore } from '@sd/client';
+import { tw } from '@sd/ui';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import OnboardingCreatingLibrary from './OnboardingCreatingLibrary';
 import OnboardingMasterPassword from './OnboardingMasterPassword';
@@ -74,23 +73,23 @@ export default function OnboardingRoot() {
 		<div
 			className={clsx(
 				macOnly(os, 'bg-opacity-[0.75]'),
-				'flex flex-col h-screen bg-sidebar text-ink'
+				'bg-sidebar text-ink flex h-screen flex-col'
 			)}
 		>
-			<div data-tauri-drag-region className="z-50 flex flex-shrink-0 w-full h-9" />
+			<div data-tauri-drag-region className="z-50 flex h-9 w-full shrink-0" />
 
-			<div className="flex flex-col flex-grow p-10 -mt-5">
-				<div className="flex flex-col items-center justify-center flex-grow">
+			<div className="-mt-5 flex grow flex-col p-10">
+				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
 				</div>
 				<OnboardingProgress />
 			</div>
 			<div className="flex justify-center p-4">
-				<p className="text-xs opacity-50 text-ink-dull">&copy; 2022 Spacedrive Technology Inc.</p>
+				<p className="text-ink-dull text-xs opacity-50">&copy; 2022 Spacedrive Technology Inc.</p>
 			</div>
 			<div className="absolute -z-10">
-				<div className="relative w-screen h-screen">
-					<img src={BloomOne} className="absolute w-[2000px] h-[2000px]" />
+				<div className="relative h-screen w-screen">
+					<img src={BloomOne} className="absolute h-[2000px] w-[2000px]" />
 					{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 				</div>
 			</div>

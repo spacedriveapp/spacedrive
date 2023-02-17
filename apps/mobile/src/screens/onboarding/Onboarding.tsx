@@ -6,11 +6,11 @@ import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
 	return (
-		<View style={tw`flex-1 items-center justify-around bg-app p-4 z-10`}>
+		<View style={tw`bg-app z-10 flex-1 items-center justify-around p-4`}>
 			{/* Logo */}
 			<LogoAnimation>
-				<View style={tw`items-center mt-2`}>
-					<Image source={require('@sd/assets/images/logo.png')} style={tw`w-24 h-24`} />
+				<View style={tw`mt-2 items-center`}>
+					<Image source={require('@sd/assets/images/logo.png')} style={tw`h-24 w-24`} />
 				</View>
 			</LogoAnimation>
 			{/* Text */}
@@ -21,7 +21,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 					</Text>
 				</FadeInUpAnimation>
 				<FadeInUpAnimation delay={800}>
-					<Text style={tw`text-ink-dull text-center px-6 mt-8 text-base leading-relaxed`}>
+					<Text style={tw`text-ink-dull mt-8 px-6 text-center text-base leading-relaxed`}>
 						Combine your drives and clouds into one database that you can organize and explore from
 						any device.
 					</Text>
@@ -30,7 +30,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200}>
 				<AnimatedButton variant="accent" onPress={() => navigation.navigate('CreateLibrary')}>
-					<Text style={tw`text-ink text-center px-6 py-2 text-base font-medium`}>Get Started</Text>
+					<Text style={tw`text-ink px-6 py-2 text-center text-base font-medium`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
 		</View>

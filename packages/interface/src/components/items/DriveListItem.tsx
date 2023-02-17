@@ -9,7 +9,7 @@ export const DriveListItem: React.FC<DriveListItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'rounded px-1.5 py-1 text-xs font-medium inline-block cursor-default',
+				'inline-block cursor-default rounded px-1.5 py-1 text-xs font-medium',
 				props.className
 			)}
 		></div>

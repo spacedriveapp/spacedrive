@@ -39,7 +39,7 @@ function AppContainer() {
 
 	const { library } = useCurrentLibrary();
 	return (
-		<SafeAreaProvider style={tw`flex-1 bg-app`}>
+		<SafeAreaProvider style={tw`bg-app flex-1`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
 				<MenuProvider>
 					<BottomSheetModalProvider>

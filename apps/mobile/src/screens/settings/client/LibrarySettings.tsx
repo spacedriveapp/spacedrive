@@ -5,7 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteLibraryDialog from '~/containers/dialog/DeleteLibraryDialog';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LibraryItem({
@@ -45,17 +45,17 @@ function LibraryItem({
 
 	return (
 		<Swipeable
-			containerStyle={tw.style(
+			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'bg-app-overlay border border-app-line rounded-lg px-4 py-3'
+				'border-app-line bg-app-overlay rounded-lg border px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`font-semibold text-ink`}>{library.config.name}</Text>
-					<Text style={tw`mt-0.5 text-xs text-ink-dull`}>{library.uuid}</Text>
+					<Text style={tw`text-ink font-semibold`}>{library.config.name}</Text>
+					<Text style={tw`text-ink-dull mt-0.5 text-xs`}>{library.uuid}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>
@@ -67,7 +67,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	return (
-		<View style={tw`py-4 px-3 flex-1`}>
+		<View style={tw`flex-1 py-4 px-3`}>
 			<FlatList
 				data={libraries}
 				keyExtractor={(item) => item.uuid}

@@ -14,8 +14,8 @@ export const SwitchContainer: FC<SwitchContainerProps> = ({ title, description, 
 	return (
 		<View style={tw`flex flex-row items-center justify-between pb-6`}>
 			<View style={tw`w-[80%]`}>
-				<Text style={tw`font-medium text-ink text-sm`}>{title}</Text>
-				{description && <Text style={tw`text-ink-dull text-sm mt-2`}>{description}</Text>}
+				<Text style={tw`text-ink text-sm font-medium`}>{title}</Text>
+				{description && <Text style={tw`text-ink-dull mt-2 text-sm`}>{description}</Text>}
 			</View>
 			<Switch trackColor={{ false: tw.color('app-line'), true: tw.color('accent') }} {...props} />
 		</View>

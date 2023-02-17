@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
-import tw from '~/lib/tailwind';
+import tw, { twStyle } from '~/lib/tailwind';
 import FolderIcon from '../../components/icons/FolderIcon';
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';
@@ -19,9 +19,9 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 
 	return (
 		<Pressable onPress={onPress}>
-			<View style={tw.style('flex mb-[4px] flex-row items-center py-2 px-1 rounded')}>
+			<View style={twStyle('mb-[4px] flex flex-row items-center rounded py-2 px-1')}>
 				<FolderIcon size={18} />
-				<Text style={tw.style('text-gray-300 text-sm font-medium ml-2')} numberOfLines={1}>
+				<Text style={twStyle('ml-2 text-sm font-medium text-gray-300')} numberOfLines={1}>
 					{folderName}
 				</Text>
 			</View>
@@ -63,10 +63,8 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 				</View>
 				{/* Add Location */}
 				<Pressable onPress={() => importModalRef.current.present()}>
-					<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
-						<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
-							Add Location
-						</Text>
+					<View style={tw`border-opacity/80 border-app-line mt-1 rounded border border-dashed`}>
+						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Location</Text>
 					</View>
 				</Pressable>
 			</CollapsibleView>

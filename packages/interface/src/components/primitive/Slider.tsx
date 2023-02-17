@@ -4,13 +4,13 @@ import clsx from 'clsx';
 const Slider = (props: SliderPrimitive.SliderProps) => (
 	<SliderPrimitive.Root
 		{...props}
-		className={clsx('relative flex items-center w-full h-6 select-none', props.className)}
+		className={clsx('relative flex h-6 w-full select-none items-center', props.className)}
 	>
-		<SliderPrimitive.Track className="relative flex-grow h-2 rounded-full outline-none bg-app-box">
-			<SliderPrimitive.Range className="absolute h-full rounded-full outline-none bg-accent" />
+		<SliderPrimitive.Track className="bg-app-box relative h-2 grow rounded-full outline-none">
+			<SliderPrimitive.Range className="bg-accent absolute h-full rounded-full outline-none" />
 		</SliderPrimitive.Track>
 		<SliderPrimitive.Thumb
-			className="z-50 block w-5 h-5 font-bold transition rounded-full shadow-lg outline-none shadow-black/20 bg-accent ring-accent ring-opacity-30 focus:ring-4"
+			className="bg-accent ring-accent ring-opacity/30 z-50 block h-5 w-5 rounded-full font-bold shadow-lg shadow-black/20 outline-none transition focus:ring-4"
 			data-tip="1.0"
 		/>
 	</SliderPrimitive.Root>

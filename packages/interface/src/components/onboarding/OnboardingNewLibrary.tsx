@@ -51,11 +51,11 @@ export default function OnboardingNewLibrary() {
 				</OnboardingDescription>
 
 				{importMode ? (
-					<div className="space-x-2 mt-7">
+					<div className="mt-7 space-x-2">
 						<Button onClick={handleImport} variant="accent" size="sm">
 							Import
 						</Button>
-						<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+						<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
 						<Button onClick={() => setImportMode(false)} variant="outline" size="sm">
 							Create new library
 						</Button>
@@ -69,12 +69,12 @@ export default function OnboardingNewLibrary() {
 							className="mt-6 w-[300px]"
 							placeholder={'e.g. "James\' Library"'}
 						/>
-						<div className="flex flex-grow" />
-						<div className="space-x-2 mt-7">
+						<div className="flex grow" />
+						<div className="mt-7 space-x-2">
 							<Button type="submit" variant="accent" size="sm">
 								New library
 							</Button>
-							<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+							<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
 							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
 								Import library
 							</Button>

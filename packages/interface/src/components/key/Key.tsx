@@ -67,9 +67,9 @@ export const KeyDropdown = ({
 									// most of this is copied over from the `OverlayPanel`
 									className={clsx(
 										'flex flex-col',
-										'pl-4 pr-4 pt-2 pb-2 z-50 m-2 space-y-1',
-										'select-none cursor-default rounded-lg',
-										'text-left text-sm text-ink',
+										'z-50 m-2 space-y-1 px-4 py-2',
+										'cursor-default select-none rounded-lg',
+										'text-ink text-left text-sm',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -102,13 +102,13 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 	return (
 		<div
 			className={clsx(
-				'flex items-center justify-between px-2 py-1.5 shadow-app-shade/10 text-sm bg-app-box shadow-lg rounded-lg'
+				'shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg px-2 py-1.5 text-sm shadow-lg'
 			)}
 		>
 			<div className="flex items-center">
 				<KeyIcon
 					className={clsx(
-						'w-5 h-5 ml-1 mr-3',
+						'ml-1 mr-3 h-5 w-5',
 						data.mounted ? (data.locked ? 'text-accent' : 'text-accent') : 'text-gray-400/80'
 					)}
 				/>
@@ -116,33 +116,33 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					<div className="flex flex-row items-center">
 						<div className="font-semibold">{data.name}</div>
 						{data.mounted && (
-							<div className="inline ml-2 px-1 text-[8pt] font-medium text-gray-300 bg-gray-500 rounded">
+							<div className="ml-2 inline rounded bg-gray-500 px-1 text-[8pt] font-medium text-gray-300">
 								{data.nodes?.length || 0 > 0 ? `${data.nodes?.length || 0} nodes` : 'This node'}
 							</div>
 						)}
 						{data.default && (
-							<div className="inline ml-2 px-1 text-[8pt] font-medium text-gray-300 bg-gray-500 rounded">
+							<div className="ml-2 inline rounded bg-gray-500 px-1 text-[8pt] font-medium text-gray-300">
 								Default
 							</div>
 						)}
 					</div>
 					{/* <div className="text-xs text-gray-300 opacity-30">#{data.id}</div> */}
 					{data.stats ? (
-						<div className="flex flex-row mt-[1px] space-x-3">
+						<div className="mt-[1px] flex flex-row space-x-3">
 							{data.stats.objectCount && (
-								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
+								<div className="text-ink-dull text-[8pt] font-medium opacity-30">
 									{data.stats.objectCount} Objects
 								</div>
 							)}
 							{data.stats.containerCount && (
-								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
+								<div className="text-ink-dull text-[8pt] font-medium opacity-30">
 									{data.stats.containerCount} Containers
 								</div>
 							)}
 						</div>
 					) : (
 						!data.mounted && (
-							<div className="text-[8pt] font-medium text-ink-dull opacity-30">
+							<div className="text-ink-dull text-[8pt] font-medium opacity-30">
 								{data.queue.has(data.id) ? 'Key mounting...' : 'Key not mounted'}
 							</div>
 						)
@@ -153,14 +153,14 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 				{data.mounted && (
 					<Tooltip label="Browse files">
 						<Button size="icon">
-							<Eye className="w-4 h-4 text-ink-faint" />
+							<Eye className="text-ink-faint h-4 w-4" />
 						</Button>
 					</Tooltip>
 				)}
 				<KeyDropdown
 					trigger={
 						<Button size="icon">
-							<DotsThree className="w-4 h-4 text-ink-faint" />
+							<DotsThree className="text-ink-faint h-4 w-4" />
 						</Button>
 					}
 				>
@@ -226,7 +226,7 @@ export const KeyDropdownItem = (props: {
 }) => {
 	return (
 		<DropdownMenu.DropdownMenuItem
-			className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
+			className="text-menu-ink !cursor-default select-none py-0.5 focus:outline-none active:opacity-80"
 			onClick={props.onClick}
 			hidden={props.hidden}
 		>
@@ -237,9 +237,9 @@ export const KeyDropdownItem = (props: {
 
 export const DummyKey = (props: { text: string }) => {
 	return (
-		<div className="flex items-center justify-between px-2 py-1.5 pt-2 pb-2 shadow-app-shade/10 text-sm bg-app-box shadow-lg rounded-lg">
+		<div className="shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg p-2 py-1.5 text-sm shadow-lg">
 			<div className="flex items-center">
-				<KeyIcon className="w-5 h-5 ml-1 mr-3 text-gray-400/80" />
+				<KeyIcon className="ml-1 mr-3 h-5 w-5 text-gray-400/80" />
 				<div className="flex flex-col ">
 					<div className="flex flex-row items-center">
 						<div className="font-medium">{props.text}</div>

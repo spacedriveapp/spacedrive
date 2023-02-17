@@ -8,12 +8,12 @@ export const SettingsContainer = ({ children }: PropsWithChildren) => {
 	return (
 		<>
 			{os !== 'browser' ? (
-				<div data-tauri-drag-region className="w-full h-5" />
+				<div data-tauri-drag-region className="h-5 w-full" />
 			) : (
 				<div className="h-5" />
 			)}
-			<div className="flex flex-grow-0 w-full h-full max-h-screen custom-scroll page-scroll">
-				<div className={clsx('flex flex-col flex-grow w-full max-w-4xl space-y-6 pt-2 px-12 pb-5')}>
+			<div className="custom-scroll page-scroll flex h-full max-h-screen w-full grow-0">
+				<div className={clsx('flex w-full max-w-4xl grow flex-col space-y-6 px-12 pt-2 pb-5')}>
 					{children}
 					<div className="block h-20" />
 				</div>

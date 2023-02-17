@@ -7,15 +7,12 @@ use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
-use tokio::{
-	fs::{self, File},
-	io::AsyncReadExt,
-	sync::broadcast,
-};
+use tokio::{fs, sync::broadcast};
 use tracing::{debug, error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
+pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
@@ -186,50 +183,6 @@ impl Node {
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
 			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
-		}
-	}
-
-	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
-	pub async fn handle_custom_uri(
-		&self,
-		path: Vec<&str>,
-	) -> (
-		u16,     /* Status Code */
-		&str,    /* Content-Type */
-		Vec<u8>, /* Body */
-	) {
-		match path.first().copied() {
-			Some("thumbnail") => {
-				if path.len() != 2 {
-					return (
-						400,
-						"text/html",
-						b"Bad Request: Invalid number of parameters".to_vec(),
-					);
-				}
-
-				let filename = Path::new(&self.config.data_directory())
-					.join("thumbnails")
-					.join(path[1] /* file_cas_id */)
-					.with_extension("webp");
-				match File::open(&filename).await {
-					Ok(mut file) => {
-						let mut buf = match fs::metadata(&filename).await {
-							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
-							Err(_) => Vec::new(),
-						};
-
-						file.read_to_end(&mut buf).await.unwrap();
-						(200, "image/webp", buf)
-					}
-					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
-				}
-			}
-			_ => (
-				400,
-				"text/html",
-				b"Bad Request: Invalid operation!".to_vec(),
-			),
 		}
 	}
 
