@@ -108,7 +108,7 @@ pub(super) async fn create_file(
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id != library_ctx.node_local_id {
-		return Err(LocationManagerError::LocationMissingLocalPath(location.id));
+		return Ok(());
 	}
 
 	trace!(

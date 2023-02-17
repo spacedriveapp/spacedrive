@@ -264,6 +264,10 @@ pub async fn scan_location(
 	ctx: &LibraryContext,
 	location: indexer_job_location::Data,
 ) -> Result<(), LocationError> {
+	if location.node_id != ctx.node_local_id {
+		return Ok(());
+	}
+
 	ctx.queue_job(Job::new(
 		FullFileIdentifierJobInit {
 			location_id: location.id,
