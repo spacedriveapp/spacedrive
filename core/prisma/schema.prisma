@@ -97,7 +97,6 @@ model Location {
     node_id                Int
     name                   String
     path                   String
-    // local_path             String?
     total_capacity         Int?
     available_capacity     Int?
     is_archived            Boolean  @default(false)
