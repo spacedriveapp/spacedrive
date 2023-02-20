@@ -4,7 +4,7 @@ import { useBridgeQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Divider from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {

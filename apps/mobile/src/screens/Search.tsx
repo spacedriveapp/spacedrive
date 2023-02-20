@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '~/components/primitive/Button';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {

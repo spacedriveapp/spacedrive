@@ -1,9 +1,19 @@
 {
 	"cli": {
-		"version": ">= 0.56.0"
+		"version": ">= 0.56.0",
+		"promptToConfigurePushNotifications": false
 	},
 	"build": {
+		"production": {
+			"node": "18.12.1"
+		},
+		"preview": {
+			"extends": "production",
+			"distribution": "internal"
+		},
 		"development": {
+			"extends": "production",
+			"developmentClient": true,
 			"distribution": "internal",
 			"android": {
 				"gradleCommand": ":app:assembleDebug"
@@ -11,11 +21,7 @@
 			"ios": {
 				"buildConfiguration": "Debug"
 			}
-		},
-		"preview": {
-			"distribution": "internal"
-		},
-		"production": {}
+		}
 	},
 	"submit": {
 		"production": {}

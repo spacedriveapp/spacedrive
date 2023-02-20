@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { List } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 // Default header with search bar and button to open drawer
 export default function Header() {

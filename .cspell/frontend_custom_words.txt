@@ -19,6 +19,7 @@ fontsource
 fontttf
 fontwoff
 gopackage
+gorhom
 haml
 headlessui
 heroicons
@@ -74,11 +75,13 @@ titlebar
 tmpl
 tryghost
 tsparticles
+twrnc
 typescriptdef
 unlisten
 Waitlist
 webp
 windi
 wunsub
+xcworkspace
 yarnerror
 zustand

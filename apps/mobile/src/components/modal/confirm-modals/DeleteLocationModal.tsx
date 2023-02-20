@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import Dialog from '~/components/layout/Dialog';
+import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	locationId: number;
 	onSubmit?: () => void;
-	children: React.ReactNode;
+	trigger: React.ReactNode;
 };
 
-const DeleteLocationDialog = ({ children, onSubmit, locationId }: Props) => {
-	const [isOpen, setIsOpen] = useState(false);
+const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
+	const modalRef = useRef<ModalRef>();
 
 	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
 		'locations.delete',
@@ -18,24 +18,22 @@ const DeleteLocationDialog = ({ children, onSubmit, locationId }: Props) => {
 				onSubmit?.();
 			},
 			onSettled: () => {
-				// Close dialog
-				setIsOpen(false);
+				modalRef.current.close();
 			}
 		}
 	);
 	return (
-		<Dialog
-			isVisible={isOpen}
-			setIsVisible={setIsOpen}
+		<ConfirmModal
+			ref={modalRef}
 			title="Delete Location"
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 			ctaLabel="Delete"
 			ctaAction={() => deleteLoc(locationId)}
 			loading={deleteLocLoading}
-			trigger={children}
+			trigger={trigger}
 			ctaDanger
 		/>
 	);
 };
 
-export default DeleteLocationDialog;
+export default DeleteLocationModal;

@@ -10,8 +10,8 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
-import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
-import tw, { twStyle } from '~/lib/tailwind';
+import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {
@@ -34,13 +34,16 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<DeleteLocationDialog locationId={location.id}>
-					<View
-						style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
-					>
-						<Trash size={18} color="white" />
-					</View>
-				</DeleteLocationDialog>
+				<DeleteLocationModal
+					locationId={location.id}
+					trigger={
+						<View
+							style={tw`bg-app-button border-app-line items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+						>
+							<Trash size={18} color="white" />
+						</View>
+					}
+				/>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
 					style={tw`border-app-line bg-app-button mx-2 items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
@@ -68,7 +71,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 					<View
 						style={twStyle(
 							'absolute right-0 bottom-0.5 h-2 w-2 rounded-full',
-							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
+							onlineLocations?.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
 						)}

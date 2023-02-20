@@ -14,12 +14,9 @@
 		},
 		"assetBundlePatterns": ["**/*"],
 		"ios": {
-			"supportsTablet": false,
-			"bundleIdentifier": "com.spacedrive.app"
+			"supportsTablet": false
 		},
-		"android": {
-			"package": "com.spacedrive.app"
-		},
+		"android": {},
 		"privacy": "hidden",
 		"extra": {
 			"eas": {

@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { queryClient, useBridgeMutation } from '@sd/client';
-import Dialog from '~/components/layout/Dialog';
+import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	libraryUuid: string;
 	onSubmit?: () => void;
-	children: React.ReactNode;
+	trigger: React.ReactNode;
 };
 
-const DeleteLibraryDialog = ({ children, onSubmit, libraryUuid }: Props) => {
-	const [isOpen, setIsOpen] = useState(false);
+const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
+	const modalRef = useRef<ModalRef>();
 
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(
 		'library.delete',
@@ -19,24 +19,21 @@ const DeleteLibraryDialog = ({ children, onSubmit, libraryUuid }: Props) => {
 				onSubmit?.();
 			},
 			onSettled: () => {
-				// Close dialog
-				setIsOpen(false);
+				modalRef.current.close();
 			}
 		}
 	);
 	return (
-		<Dialog
-			isVisible={isOpen}
-			setIsVisible={setIsOpen}
+		<ConfirmModal
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."
 			ctaLabel="Delete"
 			ctaAction={() => deleteLibrary(libraryUuid)}
 			loading={deleteLibLoading}
-			trigger={children}
+			trigger={trigger}
 			ctaDanger
 		/>
 	);
 };
 
-export default DeleteLibraryDialog;
+export default DeleteLibraryModal;
