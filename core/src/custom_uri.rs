@@ -1,6 +1,12 @@
 use crate::{prisma::file_path, Node};
 
-use std::{cmp::min, io, path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+	cmp::min,
+	io,
+	path::{Path, PathBuf},
+	str::FromStr,
+	sync::Arc,
+};
 
 use http_range::HttpRange;
 use httpz::{
@@ -15,7 +21,7 @@ use tokio::{
 	fs::{self, File},
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
-use tracing::{error, warn};
+use tracing::error;
 use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
@@ -118,14 +124,7 @@ async fn handle_file(
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 			let lru_entry = (
-				PathBuf::from(file_path.location.local_path.ok_or_else(|| {
-					warn!(
-						"Location '{}' doesn't have local path set",
-						file_path.location_id
-					);
-					HandleCustomUriError::BadRequest("Location doesn't have `local_path` set!")
-				})?)
-				.join(&file_path.materialized_path),
+				Path::new(&file_path.location.path).join(&file_path.materialized_path),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());

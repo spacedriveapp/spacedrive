@@ -8,7 +8,7 @@ use util::secure_temp_keystore::SecureTempKeystore;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
@@ -149,6 +149,8 @@ impl Node {
 				}
 			}
 		}
+
+		debug!("Watching locations");
 
 		// Trying to resume possible paused jobs
 		let inner_library_manager = Arc::clone(&library_manager);

@@ -33,8 +33,6 @@ pub enum IdentifierJobError {
 	MissingLocation(i32),
 	#[error("Root file path not found: <path = '{0}'>")]
 	MissingRootFilePath(PathBuf),
-	#[error("Location without local path: <id = '{0}'>")]
-	LocationLocalPath(i32),
 }
 
 #[derive(Debug, Clone)]
@@ -80,13 +78,10 @@ impl FileMetadata {
 async fn identifier_job_step(
 	LibraryContext { db, sync, .. }: &LibraryContext,
 	location: &location::Data,
-	location_path: impl AsRef<Path>,
 	file_paths: &[file_path::Data],
 ) -> Result<(usize, usize), JobError> {
-	let location_path = location_path.as_ref();
-
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
-		FileMetadata::new(location_path, &file_path.materialized_path)
+		FileMetadata::new(&location.path, &file_path.materialized_path)
 			.await
 			.map(|params| (file_path.id, (params, file_path)))
 	}))

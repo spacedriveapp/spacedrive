@@ -95,8 +95,8 @@ model Location {
     id                     Int      @id @default(autoincrement())
     pub_id                 Bytes    @unique
     node_id                Int
-    name                   String?
-    local_path             String?
+    name                   String
+    path                   String
     total_capacity         Int?
     available_capacity     Int?
     is_archived            Boolean  @default(false)

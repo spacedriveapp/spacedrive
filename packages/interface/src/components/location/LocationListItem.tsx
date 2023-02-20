@@ -36,7 +36,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="text-ink-dull mt-0.5 select-text  truncate text-sm">
 					<span className="bg-app-selected mr-1 rounded  py-[1px] px-1">{location.node.name}</span>
-					{location.local_path}
+					{location.path}
 				</p>
 			</div>
 			<div className="flex grow" />

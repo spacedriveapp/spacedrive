@@ -52,10 +52,12 @@ impl Ord for WalkEntry {
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
 pub(super) async fn walk(
-	root: PathBuf,
+	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: impl Fn(&Path, usize),
 ) -> Result<Vec<WalkEntry>, IndexerError> {
+	let root = root.as_ref().to_path_buf();
+
 	let mut to_walk = VecDeque::with_capacity(1);
 	to_walk.push_back((root.clone(), None));
 	let mut indexed_paths = HashMap::new();
