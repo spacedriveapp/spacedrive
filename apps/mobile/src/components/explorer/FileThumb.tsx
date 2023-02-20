@@ -1,9 +1,8 @@
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
-import { ExplorerItem } from '@sd/client';
-import { isObject, isPath } from '~/types/helper';
+import { ExplorerItem, isObject, isPath } from '@sd/client';
 // import icons from '../../assets/icons/file';
-import tw from '../../lib/tailwind';
+import { tw } from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 
 type FileThumbProps = {
@@ -20,7 +19,7 @@ export const getThumbnailUrlById = (casId: string) =>
 	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
 const FileThumbWrapper = ({ children, size = 1 }) => (
-	<View style={[tw`justify-center items-center`, { width: 80 * size, height: 80 * size }]}>
+	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
 		{children}
 	</View>
 );
@@ -38,8 +37,8 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 			</FileThumbWrapper>
 		);
 
-	const cas_id = isObject(data) ? data.item.file_paths[0].cas_id : data.item.cas_id;
-	if (!cas_id) return undefined;
+	const casId = isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id;
+	if (!casId) return undefined;
 
 	// Icon
 	let icon = undefined;
@@ -57,13 +56,12 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 		);
 	}
 
-	const url = getThumbnailUrlById(cas_id);
+	const url = getThumbnailUrlById(casId);
 
-	// TODO: Not styled yet
 	if (data.has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
-				<Image source={{ uri: url }} resizeMode="contain" style={tw`w-full h-full`} />
+				<Image source={{ uri: url }} resizeMode="contain" style={tw`h-full w-full`} />
 			</FileThumbWrapper>
 		);
 	}

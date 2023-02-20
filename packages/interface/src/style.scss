@@ -41,7 +41,7 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-[#00000000] mt-[53px] rounded-[6px];
+		@apply mt-[53px] rounded-[6px] bg-[#00000000];
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-transparent;
@@ -58,10 +58,10 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-transparent rounded-[6px];
+		@apply rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-box;
+		@apply bg-app-box rounded-[6px];
 	}
 }
 .page-scroll {
@@ -70,10 +70,10 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-transparent rounded-[6px]  my-[10px];
+		@apply my-[10px] rounded-[6px]  bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-box;
+		@apply bg-app-box rounded-[6px];
 	}
 }
 .inspector-scroll {
@@ -83,10 +83,10 @@ body {
 		width: 5px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-transparent my-[8px];
+		@apply my-[8px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] opacity-0 bg-app/70;
+		@apply bg-app/70 rounded-[6px] opacity-0;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {
@@ -102,10 +102,10 @@ body {
 		width: 5px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-transparent my-[5px];
+		@apply my-[5px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] opacity-0 bg-black/70 w-[5px];
+		@apply w-[5px] rounded-[6px] bg-black/70 opacity-0;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {

@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { Algorithm, useBridgeMutation } from '@sd/client';
@@ -58,7 +57,11 @@ export default function CreateLibraryDialog(props: Props) {
 			await createLibrary.mutateAsync({
 				...data,
 				algorithm: data.algorithm as Algorithm,
-				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm)
+				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm),
+				auth: {
+					type: 'Password',
+					value: data.password
+				}
 			});
 		}
 	});
@@ -74,9 +77,9 @@ export default function CreateLibraryDialog(props: Props) {
 			ctaLabel="Create"
 		>
 			<div className="relative flex flex-col">
-				<p className="text-sm mt-2 mb-2 font-bold">Library name</p>
+				<p className="my-2 text-sm font-bold">Library name</p>
 				<Input
-					className="flex-grow w-full"
+					className="w-full grow"
 					placeholder="My Cool Library"
 					{...form.register('name', { required: true })}
 				/>
@@ -86,13 +89,13 @@ export default function CreateLibraryDialog(props: Props) {
 			{/* <span className="text-sm">Make the secret key field empty to skip key setup.</span> */}
 
 			<div className="relative flex flex-col">
-				<p className="text-center mt-2 mb-1 text-[0.95rem] font-bold">Key Manager</p>
-				<div className="w-full my-1 h-[2px] bg-gray-500" />
+				<p className="mt-2 mb-1 text-center text-[0.95rem] font-bold">Key Manager</p>
+				<div className="my-1 h-[2px] w-full bg-gray-500" />
 
-				<p className="text-sm mt-2 mb-2 font-bold">Master password</p>
-				<div className="relative flex flex-grow mb-2">
+				<p className="my-2 text-sm font-bold">Master password</p>
+				<div className="relative mb-2 flex grow">
 					<Input
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Password"
 						type={showMasterPassword1 ? 'text' : 'password'}
 						{...form.register('password')}
@@ -108,33 +111,33 @@ export default function CreateLibraryDialog(props: Props) {
 							setShowMasterPassword2(true);
 						}}
 						size="icon"
-						className="border-none absolute right-[65px] top-[5px]"
+						className="absolute right-[65px] top-[5px] border-none"
 					>
-						<ArrowsClockwise className="w-4 h-4" />
+						<ArrowsClockwise className="h-4 w-4" />
 					</Button>
 					<Button
 						onClick={() => {
 							navigator.clipboard.writeText(form.watch('password') as string);
 						}}
 						size="icon"
-						className="border-none absolute right-[35px] top-[5px]"
+						className="absolute right-[35px] top-[5px] border-none"
 					>
-						<Clipboard className="w-4 h-4" />
+						<Clipboard className="h-4 w-4" />
 					</Button>
 					<Button
 						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<MP1CurrentEyeIcon className="w-4 h-4" />
+						<MP1CurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 			</div>
 			<div className="relative flex flex-col">
-				<p className="text-sm mt-2 mb-2 font-bold">Master password (again)</p>
-				<div className="relative flex flex-grow mb-2">
+				<p className="my-2 text-sm font-bold">Master password (again)</p>
+				<div className="relative mb-2 flex grow">
 					<Input
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Password"
 						type={showMasterPassword2 ? 'text' : 'password'}
 						{...form.register('password_validate')}
@@ -142,14 +145,14 @@ export default function CreateLibraryDialog(props: Props) {
 					<Button
 						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<MP2CurrentEyeIcon className="w-4 h-4" />
+						<MP2CurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 			</div>
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-sm font-bold">Encryption</span>
 					<Select

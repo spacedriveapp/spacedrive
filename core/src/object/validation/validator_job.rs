@@ -83,7 +83,7 @@ impl StatefulJob for ObjectValidatorJob {
 			.unwrap();
 
 		state.data = Some(ObjectValidatorJobState {
-			root_path: location.local_path.as_ref().map(PathBuf::from).unwrap(),
+			root_path: location.path.into(),
 			task_count: state.steps.len(),
 		});
 
@@ -135,7 +135,7 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

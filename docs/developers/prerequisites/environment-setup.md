@@ -60,10 +60,8 @@ To run mobile app
 2. `./.github/scripts/setup-system.sh mobile`
    _The should setup most of the dependencies for the mobile app to build._
 3. You must also ensure you have [NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
-4. `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
-5. `pnpm android` - runs on Android Emulator
-6. `pnpm ios` - runs on iOS Emulator
-7. `pnpm dev` - For already bundled app - This is only temporarily supported. The final app will require the Spacedrive Rust code which isn't included in Expo Go.
+4. `pnpm mobile android` - runs on Android Emulator
+5. `pnpm mobile ios` - runs on iOS Emulator
 
 ### Troubleshooting
 

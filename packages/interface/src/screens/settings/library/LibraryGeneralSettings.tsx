@@ -10,9 +10,11 @@ import { useDebouncedForm } from '~/hooks/useDebouncedForm';
 export default function LibraryGeneralSettings() {
 	const { library } = useCurrentLibrary();
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
+
 	const form = useForm({
 		defaultValues: { id: library!.uuid, ...library?.config }
 	});
+
 	useDebouncedForm(form, (value) =>
 		editLibrary({
 			id: library!.uuid,
@@ -27,12 +29,12 @@ export default function LibraryGeneralSettings() {
 				title="Library Settings"
 				description="General settings related to the currently active library."
 			/>
-			<div className="flex flex-row pb-3 space-x-5">
-				<div className="flex flex-col flex-grow">
+			<div className="flex flex-row space-x-5 pb-3">
+				<div className="flex grow flex-col">
 					<span className="mb-1 text-sm font-medium">Name</span>
 					<Input {...form.register('name', { required: true })} defaultValue="My Default Library" />
 				</div>
-				<div className="flex flex-col flex-grow">
+				<div className="flex grow flex-col">
 					<span className="mb-1 text-sm font-medium">Description</span>
 					<Input {...form.register('description')} placeholder="" />
 				</div>
@@ -43,7 +45,7 @@ export default function LibraryGeneralSettings() {
 				title="Encrypt Library"
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
-				<div className="flex items-center ml-3">
+				<div className="ml-3 flex items-center">
 					<Switch checked={false} />
 				</div>
 			</InputContainer>
@@ -60,7 +62,7 @@ export default function LibraryGeneralSettings() {
 				description="This is permanent, your files will not be deleted, only the Spacedrive library."
 			>
 				<div className="mt-2">
-					<Button size="sm" variant="colored" className="bg-red-500 border-red-500">
+					<Button size="sm" variant="colored" className="border-red-500 bg-red-500">
 						Delete
 					</Button>
 				</div>

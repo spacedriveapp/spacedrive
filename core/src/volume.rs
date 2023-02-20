@@ -2,15 +2,21 @@ use crate::{library::LibraryContext, prisma::volume::*};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub total_capacity: u64,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
 	pub available_capacity: u64,
 	pub is_removable: bool,
 	pub disk_type: Option<String>,

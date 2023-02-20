@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { ExplorerItem, isVideoExt } from '@sd/client';
-import tw from '~/lib/tailwind';
+import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
+import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
 import FileThumb from './FileThumb';
 
@@ -12,11 +12,13 @@ type FileRowProps = {
 const FileRow = ({ data }: FileRowProps) => {
 	const { item } = data;
 
-	const isVid = isVideoExt(item.extension || '');
+	// temp fix (will handle this on mobile-inspector branch)
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 
 	return (
 		<View
-			style={tw.style('flex flex-row items-center px-3', {
+			style={twStyle('flex flex-row items-center px-3', {
 				height: getExplorerStore().listItemSize
 			})}
 		>
@@ -26,7 +28,7 @@ const FileRow = ({ data }: FileRowProps) => {
 				size={0.6}
 			/>
 			<View style={tw`ml-3`}>
-				<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-ink-dull`}>
+				<Text numberOfLines={1} style={tw`text-ink-dull text-center text-xs font-medium`}>
 					{item?.name}
 					{item?.extension && `.${item.extension}`}
 				</Text>

@@ -188,6 +188,9 @@ jobs:
       - name: Check core
         run: cargo check -p sd-core --release
 
+      - name: Cargo test sd-crypto
+        run: cargo test -p sd-crypto --release --lib --all-features
+
       - name: Bundle Desktop
         run: pnpm desktop tauri build
 

@@ -6,7 +6,10 @@ edition = "2021"
 [dependencies]
 sd-core = { path = "../../core", features = ["ffmpeg"] }
 rspc = { workspace = true, features = ["axum"] }
-axum = "0.5.16"
+httpz = { workspace = true, features = ["axum"] }
+axum = "0.6.4"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = "0.1.36"
 ctrlc = "3.2.3"
+http = "0.2.8"
+hyper = "0.14.23"

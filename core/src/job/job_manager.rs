@@ -78,6 +78,8 @@ impl JobManager {
 			}
 		});
 
+		debug!("JobManager initialized");
+
 		this
 	}
 
@@ -230,7 +232,10 @@ impl JobManager {
 				}
 				COPY_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FileCopierJob {})?)
+						.dispatch_job(
+							ctx,
+							Job::resume(paused_job, FileCopierJob { done_tx: None })?,
+						)
 						.await;
 				}
 				DELETE_JOB_NAME => {

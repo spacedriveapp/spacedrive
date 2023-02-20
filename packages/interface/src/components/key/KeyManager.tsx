@@ -38,39 +38,39 @@ export function KeyManager(props: KeyManagerProps) {
 
 		return (
 			<div className="p-2">
-				<div className="relative flex flex-grow mb-2">
+				<div className="relative mb-2 flex grow">
 					<Input
 						value={masterPassword}
 						onChange={(e) => setMasterPassword(e.target.value)}
 						autoFocus
 						type={showMasterPassword ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 						placeholder="Master Password"
 					/>
 					<Button
 						onClick={() => setShowMasterPassword(!showMasterPassword)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<MPCurrentEyeIcon className="w-4 h-4" />
+						<MPCurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 
 				{enterSkManually && (
-					<div className="relative flex flex-grow mb-2">
+					<div className="relative mb-2 flex grow">
 						<Input
 							value={secretKey}
 							onChange={(e) => setSecretKey(e.target.value)}
 							type={showSecretKey ? 'text' : 'password'}
-							className="flex-grow !py-0.5"
+							className="grow !py-0.5"
 							placeholder="Secret Key"
 						/>
 						<Button
 							onClick={() => setShowSecretKey(!showSecretKey)}
 							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
+							className="absolute right-[5px] top-[5px] border-none"
 						>
-							<SKCurrentEyeIcon className="w-4 h-4" />
+							<SKCurrentEyeIcon className="h-4 w-4" />
 						</Button>
 					</div>
 				)}
@@ -93,7 +93,7 @@ export function KeyManager(props: KeyManagerProps) {
 					Unlock
 				</Button>
 				{!enterSkManually && (
-					<div className="relative flex flex-grow">
+					<div className="relative flex grow">
 						<p
 							className="text-accent mt-2"
 							onClick={(e) => {
@@ -118,31 +118,33 @@ export function KeyManager(props: KeyManagerProps) {
 							<Tabs.Trigger className="text-sm font-medium" value="keys">
 								Keys
 							</Tabs.Trigger>
-							<div className="flex-grow" />
+							<div className="grow" />
 							<Button
 								size="icon"
 								onClick={() => {
 									unmountAll.mutate(null);
 									clearMasterPassword.mutate(null);
 								}}
-								variant="outline"
+								variant="subtle"
 								className="text-ink-faint"
 							>
-								<Lock className="w-4 h-4 text-ink-faint" />
+								<Lock className="text-ink-faint h-4 w-4" />
 							</Button>
 							<ButtonLink
 								to="/settings/keys"
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="text-ink-faint"
 							>
-								<Gear className="w-4 h-4 text-ink-faint" />
+								<Gear className="text-ink-faint h-4 w-4" />
 							</ButtonLink>
 						</Tabs.List>
 					</div>
-					<Tabs.Content value="keys">
-						<KeyList />
-					</Tabs.Content>
+					{isUnlocked && (
+						<Tabs.Content value="keys">
+							<KeyList />
+						</Tabs.Content>
+					)}
 					<Tabs.Content value="mount">
 						<KeyMounter />
 					</Tabs.Content>

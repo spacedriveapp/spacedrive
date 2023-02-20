@@ -328,6 +328,10 @@ impl SyncManager {
 								db.location()
 									.create(
 										id.pub_id,
+										serde_json::from_value(data.remove("name").unwrap())
+											.unwrap(),
+										serde_json::from_value(data.remove("path").unwrap())
+											.unwrap(),
 										{
 											let val: std::collections::HashMap<String, Value> =
 												from_value(data.remove("node").unwrap()).unwrap();
@@ -484,13 +488,12 @@ impl SyncManager {
 		}))
 	}
 	pub fn owned_update<
-		const SIZE: usize,
 		TSyncId: SyncId<ModelTypes = TModel>,
 		TModel: SyncType<Marker = OwnedSyncType>,
 	>(
 		&self,
 		id: TSyncId,
-		values: [(&'static str, Value); SIZE],
+		values: impl IntoIterator<Item = (&'static str, Value)>,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
 			model: TModel::MODEL.to_string(),

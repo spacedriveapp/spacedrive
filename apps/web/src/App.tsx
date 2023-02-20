@@ -23,11 +23,16 @@ const client = hooks.createClient({
 });
 
 const http = isDev ? 'http' : 'https';
+const spacedriveProtocol = `${http}://${serverOrigin}/spacedrive`;
 
 const platform: Platform = {
 	platform: 'web',
 	getThumbnailUrlById: (casId) =>
-		`${http}://${serverOrigin}/spacedrive/thumbnail/${encodeURIComponent(casId)}.webp`,
+		`${spacedriveProtocol}/thumbnail/${encodeURIComponent(casId)}.webp`,
+	getFileUrl: (libraryId, locationLocalId, filePathId) =>
+		`${spacedriveProtocol}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
+			locationLocalId
+		)}/${encodeURIComponent(filePathId)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	demoMode: true
 };

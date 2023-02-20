@@ -5,11 +5,11 @@ import { Helmet } from 'react-helmet';
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { SingleDocResponse, toTitleCase } from './api';
+import { SingleDocResponse } from './api';
 
 function BottomCard(props: PropsWithChildren) {
 	return (
-		<div className="flex flex-row items-center p-4 text-sm border border-gray-700 rounded-lg group !text-gray-200 hover:!text-primary hover:shadow-xl hover:border-primary hover:shadow-primary/10 transition-all duration-200 hover:-translate-y-[2px]">
+		<div className="hover:border-primary hover:!text-primary hover:shadow-primary/10 group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:shadow-xl">
 			{props.children}
 		</div>
 	);
@@ -31,11 +31,11 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 
 			<DocsLayout doc={doc} navigation={navigation}>
 				<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">
-					<h5 className="mb-2 text-sm font-semibold text-primary lg:min-w-[700px]">
+					<h5 className="text-primary mb-2 text-sm font-semibold lg:min-w-[700px]">
 						{doc.categoryName}
 					</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
-					<div className="flex flex-col gap-3 mt-10 sm:flex-row">
+					<div className="mt-10 flex flex-col gap-3 sm:flex-row">
 						<a
 							target="_blank"
 							rel="noreferrer"
@@ -43,14 +43,14 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 							className="w-full"
 						>
 							<BottomCard>
-								<Github className="w-5 mr-3" />
+								<Github className="mr-3 w-5" />
 								Edit this page on GitHub
 							</BottomCard>
 						</a>
 						{nextDoc && (
 							<a href={`/docs/${nextDoc.url}`} className="w-full">
 								<BottomCard>
-									<CaretRight className="w-5 mr-3" />
+									<CaretRight className="mr-3 w-5" />
 									Next article: {nextDoc?.title}
 								</BottomCard>
 							</a>

@@ -202,34 +202,34 @@ function Page() {
 				<title>Our Team - Spacedrive</title>
 				<meta name="description" content="Who's behind Spacedrive?" />
 			</Helmet>
-			<div className="relative mx-auto team-page">
+			<div className="team-page relative mx-auto">
 				<div
-					className="bloom subtle egg-bloom-one -top-60 -right-[400px]"
+					className="bloom subtle egg-bloom-one -top-60 right-[-400px]"
 					style={{ transform: 'scale(2)' }}
 				/>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-tight sm:leading-snug fade-in-heading ">
+					<h1 className="fade-in-heading text-5xl leading-tight sm:leading-snug ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
-					<p className="text-white/50 animation-delay-2 fade-in-heading ">
+					<p className="animation-delay-2 fade-in-heading text-white/50 ">
 						Your priceless personal data shouldn't be stuck in a device ecosystem. It should be OS
 						agnostic, permanent and owned by you.
 					</p>
-					<p className="text-white/50 animation-delay-2 fade-in-heading ">
+					<p className="animation-delay-2 fade-in-heading text-white/50 ">
 						The data we create daily is our legacy—that will long outlive us. Open source technology
 						is the only way to ensure we retain absolute control over the files that define our
 						lives, at unlimited scale.
 					</p>
 					<a
 						href="/docs/product/resources/faq"
-						className="flex flex-row items-center text-gray-400 duration-150 animation-delay-3 fade-in-heading hover:text-white text-underline underline-offset-4"
+						className="animation-delay-3 fade-in-heading text-underline flex flex-row items-center text-gray-400 underline-offset-4 duration-150 hover:text-white"
 					>
 						<ArrowRight className="mr-2" />
 						Read more
 					</a>
 					<div className="fade-in-heading animation-delay-5">
 						<h2 className="mt-10 text-2xl leading-relaxed sm:mt-20 ">Meet the team</h2>
-						<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10">
+						<div className="xs:grid-cols-3 my-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-4">
 							{teamMembers.map((member) => (
 								<TeamMember key={member.name} {...member} />
 							))}
@@ -240,7 +240,7 @@ function Page() {
 								href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 								target="_blank"
 								rel="noreferrer"
-								className="duration-200 oss-credit-gradient hover:opacity-75"
+								className="oss-credit-gradient duration-200 hover:opacity-75"
 							>
 								open source contributors
 							</a>{' '}
@@ -252,7 +252,7 @@ function Page() {
 						<p className="text-sm text-gray-400 ">
 							We're backed by some of the greatest leaders in the technology industry.
 						</p>
-						<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">
+						<div className="my-10 grid grid-cols-3 gap-x-5 gap-y-10 sm:grid-cols-5">
 							{investors.map((investor) => (
 								<TeamMember key={investor.name + investor.investmentRound} {...investor} />
 							))}

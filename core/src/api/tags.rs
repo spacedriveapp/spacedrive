@@ -81,7 +81,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 					items.push(ExplorerItem::Object {
 						has_thumbnail,
-						item: Box::new(object),
+						item: object,
 					});
 				}
 

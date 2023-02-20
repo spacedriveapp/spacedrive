@@ -1,3 +1,5 @@
+pub mod create;
+
 use crate::{
 	job::JobError,
 	prisma::{file_path, location, PrismaClient},
@@ -11,9 +13,13 @@ use super::preview::file_path_with_object;
 
 pub mod copy;
 pub mod cut;
+
 pub mod decrypt;
 pub mod delete;
 pub mod encrypt;
+
+pub mod error;
+
 pub mod erase;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -39,22 +45,16 @@ pub async fn get_path_from_location_id(
 	db: &PrismaClient,
 	location_id: i32,
 ) -> Result<PathBuf, JobError> {
-	let location = db
+	Ok(db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
 		.await?
 		.ok_or(JobError::MissingData {
 			value: String::from("location which matches location_id"),
-		})?;
-
-	location
-		.local_path
-		.as_ref()
-		.map(PathBuf::from)
-		.ok_or(JobError::MissingData {
-			value: String::from("path when cast as `PathBuf`"),
-		})
+		})?
+		.path
+		.into())
 }
 
 pub async fn context_menu_fs_info(

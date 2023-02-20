@@ -93,96 +93,96 @@ function Page() {
 				<title>Careers - Spacedrive</title>
 				<meta name="description" content="Work with us to build the future of file management." />
 			</Helmet>
-			<div className="container relative max-w-4xl min-h-screen p-4 pt-32 m-auto mb-20 prose text-white prose-invert">
+			<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 				<div
-					className="bloom subtle egg-bloom-two -top-60 -right-[400px]"
+					className="bloom subtle egg-bloom-two -top-60 right-[-400px]"
 					style={{ transform: 'scale(2)' }}
 				/>
-				<h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center text-white fade-in-heading md:text-5xl">
+				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
 					Build the future of files.
 				</h1>
-				<div className="z-30 flex flex-col items-center fade-in animation-delay-1">
-					<p className="z-40 text-lg text-center text-gray-350">
+				<div className="fade-in animation-delay-1 z-30 flex flex-col items-center">
+					<p className="text-gray-350 z-40 text-center text-lg">
 						Spacedrive is redefining the way we think about our personal data, building a open
 						ecosystem to help preserve your digital legacy and make cross-platform file management a
 						breeze.
 					</p>
 					<Button
 						onClick={scrollToPositions}
-						className="z-30 border-0 cursor-pointer"
+						className="z-30 cursor-pointer border-0"
 						variant="accent"
 					>
 						See Open Positions
 					</Button>
-					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h2 className="px-2 mb-0 text-4xl font-black leading-tight text-center">Our Values</h2>
+					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
+					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">Our Values</h2>
 					<p className="mt-2 mb-4">What drives us daily.</p>
-					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-2">
+					<div className="mt-5 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
 						{values.map((value, index) => (
 							<div
 								key={value.title + index}
-								className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550"
+								className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
 							>
-								<value.icon className="w-8 m-0" />
+								<value.icon className="m-0 w-8" />
 								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
-								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
+								<p className="text-gray-350 mt-1 mb-0">{value.desc}</p>
 							</div>
 						))}
 					</div>
-					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h2 className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white">
+					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
+					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Perks and Benefits
 					</h2>
 					<p className="mt-2 mb-4">We're behind you 100%.</p>
-					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-3">
+					<div className="mt-5 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
 						{perks.map((value, index) => (
 							<div
 								key={value.title + index}
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
-								className="flex flex-col p-8 border rounded-md bg-gray-550 bg-opacity-30"
+								className="bg-opacity30 bg-gray-550 flex flex-col rounded-md border p-8"
 							>
-								<value.icon className="w-8 m-0" color={value.color} />
+								<value.icon className="m-0 w-8" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
 								<p className="mt-1 mb-0 text-sm text-white opacity-60">{value.desc}</p>
 							</div>
 						))}
 					</div>
-					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" ref={openPositionsRef} />
-					<h2 className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white">
+					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" ref={openPositionsRef} />
+					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Open Positions
 					</h2>
 					<p className="mt-2 mb-4">If any open positions suit you, apply now!</p>
-					<div className="grid w-full grid-cols-1 gap-4 mt-5">
+					<div className="mt-5 grid w-full grid-cols-1 gap-4">
 						{positions.length === 0 ? (
-							<p className="m-0 text-center text-gray-350">
+							<p className="text-gray-350 m-0 text-center">
 								There are no positions open at this time. Please check back later!
 							</p>
 						) : (
 							positions.map((value, index) => (
 								<div
 									key={value.name + index}
-									className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550"
+									className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
 								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
 										<div className="mt-3 sm:mt-0.5">
 											<span className="text-sm font-semibold text-gray-300 sm:ml-4">
-												<CurrencyDollar className="inline w-4 mr-1 -mt-1" />
+												<CurrencyDollar className="mr-1 -mt-1 inline w-4" />
 												{value.salary}
 											</span>
 											<span className="ml-4 text-sm font-semibold text-gray-300">
-												<Clock className="inline w-4 mr-1 -mt-1" />
+												<Clock className="mr-1 -mt-1 inline w-4" />
 												{value.type}
 											</span>
 										</div>
 									</div>
-									<p className="mt-3 mb-0 text-gray-350">{value.description}</p>
+									<p className="text-gray-350 mt-3 mb-0">{value.description}</p>
 								</div>
 							))
 						)}
 					</div>
-					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h2 className="px-2 mb-0 text-3xl font-black text-center text-white">How to apply?</h2>
+					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
+					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">How to apply?</h2>
 					<p className="mt-2">
 						Send your cover letter and resume to <strong>careers at spacedrive dot com</strong> and
 						we'll get back to you shortly!

@@ -7,7 +7,7 @@ export function useAutoForm<TFieldValues extends FieldValues = FieldValues, TCon
 	form: UseFormReturn<TFieldValues, TContext>,
 	callback: (data: any) => void,
 	/**
-	 *Wait time in miliseconds
+	 *Wait time in milliseconds
 	 */
 	waitTime = 500
 ) {
