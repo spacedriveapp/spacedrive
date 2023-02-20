@@ -84,7 +84,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 						</Text>
 					</View>
 					<Text numberOfLines={1} style={tw`text-ink-dull mt-0.5 text-[10px] font-semibold`}>
-						{location.local_path}
+						{location.path}
 					</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />

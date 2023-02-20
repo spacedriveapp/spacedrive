@@ -17,12 +17,12 @@ export type Procedures = {
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: IndexerRulesInLocation[] } | null } | 
+        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: IndexerRulesInLocation[] } | null } | 
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }[] } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
@@ -101,6 +101,11 @@ export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Alg
 
 export type EditLibraryArgs = { id: string, name: string | null, description: string | null }
 
+/**
+ *  This should be used for passing an encrypted key around.
+ * 
+ *  This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
+ */
 export type EncryptedKey = number[]
 
 export type ExplorerContext = ({ type:  "Location" } & Location) | ({ type:  "Tag" } & Tag)
@@ -170,7 +175,7 @@ export type LibraryConfig = ({ version: string | null }) & { name: string, descr
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
 
-export type Location = { id: number, pub_id: number[], node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
+export type Location = { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
 
 /**
  *  `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -204,6 +209,11 @@ export type NodeConfig = ({ version: string | null }) & { id: string, name: stri
 
 export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null }) & { data_path: string }
 
+/**
+ *  This should be used for providing a nonce to encrypt/decrypt functions.
+ * 
+ *  You may also generate a nonce for a given algorithm with `Nonce::generate()`
+ */
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type Object = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
@@ -213,7 +223,7 @@ export type ObjectValidatorArgs = { id: number, path: string }
 /**
  *  These parameters define the password-hashing level.
  * 
- *  The harder the parameter, the longer the password will take to hash.
+ *  The greater the parameter, the longer the password will take to hash.
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
@@ -221,6 +231,11 @@ export type RestoreBackupArgs = { password: string, secret_key: string, path: st
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
+/**
+ *  This should be used for passing a salt around.
+ * 
+ *  You may also generate a salt with `Salt::generate()`
+ */
 export type Salt = number[]
 
 export type SetFavoriteArgs = { id: number, favorite: boolean }
@@ -230,12 +245,20 @@ export type SetNoteArgs = { id: number, note: string | null }
 export type Statistics = { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 
 /**
- *  This is a stored key, and can be freely written to Prisma/another database.
+ *  This is a stored key, and can be freely written to the database.
+ * 
+ *  It contains no sensitive information that is not encrypted.
  */
 export type StoredKey = { uuid: string, version: StoredKeyVersion, key_type: StoredKeyType, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Salt, master_key: EncryptedKey, master_key_nonce: Nonce, key_nonce: Nonce, key: number[], salt: Salt, memory_only: boolean, automount: boolean }
 
+/**
+ *  This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
+ */
 export type StoredKeyType = "User" | "Root"
 
+/**
+ *  This denotes the `StoredKey` version.
+ */
 export type StoredKeyVersion = "V1"
 
 export type Tag = { id: number, pub_id: number[], name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, date_created: string, date_modified: string }
