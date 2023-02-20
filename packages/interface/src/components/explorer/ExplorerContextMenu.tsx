@@ -17,7 +17,13 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import { ExplorerItem, getLibraryIdRaw, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	getLibraryIdRaw,
+	isObject,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -28,7 +34,6 @@ import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { EraseFileDialog } from '../dialog/EraseFileDialog';
-import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });

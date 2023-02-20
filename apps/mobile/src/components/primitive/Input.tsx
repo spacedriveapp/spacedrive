@@ -1,9 +1,9 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { FC } from 'react';
 import { TextInputProps as RNTextInputProps, TextInput } from 'react-native';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
-const input = cva(['rounded-md border text-sm shadow-sm'], {
+const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 	variants: {
 		variant: {
 			default: 'border-app-line bg-app text-ink'

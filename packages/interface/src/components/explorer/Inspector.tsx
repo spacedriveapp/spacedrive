@@ -3,7 +3,14 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Link, Lock, Snowflake } from 'phosphor-react';
 import { useEffect, useState } from 'react';
-import { ExplorerContext, ExplorerItem, ObjectKind, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerContext,
+	ExplorerItem,
+	ObjectKind,
+	formatBytes,
+	isObject,
+	useLibraryQuery
+} from '@sd/client';
 import { Button, tw } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -11,7 +18,6 @@ import FileThumb from './FileThumb';
 import { Divider } from './inspector/Divider';
 import FavoriteButton from './inspector/FavoriteButton';
 import Note from './inspector/Note';
-import { isObject } from './utils';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
 
@@ -77,7 +83,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							iconClassNames="my-3 max-h-[150px]"
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
-							className="flex shrink grow-0 bg-green-500"
+							className="flex shrink grow-0"
 							data={data}
 						/>
 					</div>
@@ -112,24 +118,22 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							</MetaContainer>
 						)}
 						<Divider />
-						{
-							<MetaContainer>
-								<div className="flex flex-wrap gap-1">
-									<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-									{item && <InfoPill>{item.extension}</InfoPill>}
-									{tags?.data?.map((tag) => (
-										<InfoPill
-											className="!text-white"
-											key={tag.id}
-											style={{ backgroundColor: tag.color + 'CC' }}
-										>
-											{tag.name}
-										</InfoPill>
-									))}
-									<PlaceholderPill>Add Tag</PlaceholderPill>
-								</div>
-							</MetaContainer>
-						}
+						<MetaContainer>
+							<div className="flex flex-wrap gap-1">
+								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+								{item && <InfoPill>{item.extension}</InfoPill>}
+								{tags?.data?.map((tag) => (
+									<InfoPill
+										className="!text-white"
+										key={tag.id}
+										style={{ backgroundColor: tag.color + 'CC' }}
+									>
+										{tag.name}
+									</InfoPill>
+								))}
+								<PlaceholderPill>Add Tag</PlaceholderPill>
+							</div>
+						</MetaContainer>
 						<Divider />
 						<MetaContainer className="!flex-row space-x-2">
 							<MetaTextLine>
@@ -193,15 +197,3 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 		</div>
 	);
 };
-
-function formatBytes(bytes: number, decimals = 2) {
-	if (bytes === 0) return '0 Bytes';
-
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}

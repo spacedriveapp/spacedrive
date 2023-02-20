@@ -9,7 +9,7 @@ import { Switch } from '~/components/primitive/Switch';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const LibraryGeneralSettingsScreen = ({
@@ -60,9 +60,8 @@ const LibraryGeneralSettingsScreen = ({
 			{/* Export */}
 			<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
 			<View style={tw`mt-4`} />
-			{/* Delete Library
-			TODO: Open delete library dialog here, but do handle library switching
-			And what happens if there is no library set ? */}
+			{/* Delete Library */}
+			{/* TODO: Open delete library dialog here, but do handle library switching and what happens if there is no library set ? */}
 			<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
 				<SettingsItem
 					title="Delete Library"

@@ -1,9 +1,8 @@
 import { Text, View } from 'react-native';
-import { ExplorerItem, ObjectKind } from '@sd/client';
+import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
 import Layout from '~/constants/Layout';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
-import { isObject } from '~/types/helper';
 import FileThumb from './FileThumb';
 
 type FileItemProps = {

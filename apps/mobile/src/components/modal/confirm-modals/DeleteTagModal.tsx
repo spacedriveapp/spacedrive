@@ -1,38 +1,36 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import Dialog from '~/components/layout/Dialog';
+import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	tagId: number;
 	onSubmit?: () => void;
-	children: React.ReactNode;
+	trigger: React.ReactNode;
 };
 
-const DeleteTagDialog = ({ children, onSubmit, tagId }: Props) => {
-	const [isOpen, setIsOpen] = useState(false);
+const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
+	const modalRef = useRef<ModalRef>();
 
 	const { mutate: deleteTag, isLoading: deleteTagLoading } = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
 			onSubmit?.();
 		},
 		onSettled: () => {
-			// Close dialog
-			setIsOpen(false);
+			modalRef.current.close();
 		}
 	});
+
 	return (
-		<Dialog
-			isVisible={isOpen}
-			setIsVisible={setIsOpen}
+		<ConfirmModal
 			title="Delete Tag"
 			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 			ctaLabel="Delete"
 			ctaAction={() => deleteTag(tagId)}
 			loading={deleteTagLoading}
-			trigger={children}
+			trigger={trigger}
 			ctaDanger
 		/>
 	);
 };
 
-export default DeleteTagDialog;
+export default DeleteTagModal;

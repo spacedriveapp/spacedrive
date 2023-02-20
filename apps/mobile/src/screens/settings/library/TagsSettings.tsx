@@ -1,14 +1,18 @@
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
+import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
+import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteTagDialog from '~/containers/dialog/tag/DeleteTagDialog';
-import UpdateTagDialog from '~/containers/dialog/tag/UpdateTagDialog';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
+	const updateTagModalRef = useRef<ModalRef>();
+
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,
 		_dragX: Animated.AnimatedInterpolation<number>,
@@ -24,16 +28,18 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<UpdateTagDialog tag={tag} onSubmit={() => swipeable.close()}>
-					<AnimatedButton size="md">
-						<Pen size={18} color="white" />
-					</AnimatedButton>
-				</UpdateTagDialog>
-				<DeleteTagDialog tagId={tag.id}>
-					<AnimatedButton size="md" style={tw`mx-2`}>
-						<Trash size={18} color="white" />
-					</AnimatedButton>
-				</DeleteTagDialog>
+				<UpdateTagModal tag={tag} ref={updateTagModalRef} onSubmit={() => swipeable.close()} />
+				<AnimatedButton size="md" onPress={() => updateTagModalRef.current.present()}>
+					<Pen size={18} color="white" />
+				</AnimatedButton>
+				<DeleteTagModal
+					tagId={tag.id}
+					trigger={
+						<AnimatedButton size="md" style={tw`mx-2`}>
+							<Trash size={18} color="white" />
+						</AnimatedButton>
+					}
+				/>
 			</Animated.View>
 		);
 	};

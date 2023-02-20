@@ -3,9 +3,9 @@ import React from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteLibraryDialog from '~/containers/dialog/DeleteLibraryDialog';
-import tw, { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function LibraryItem({
@@ -34,11 +34,14 @@ function LibraryItem({
 				<AnimatedButton size="md" onPress={() => navigation.replace('LibraryGeneralSettings')}>
 					<Pen size={18} color="white" />
 				</AnimatedButton>
-				<DeleteLibraryDialog libraryUuid={library.uuid}>
-					<AnimatedButton size="md" style={tw`mx-2`}>
-						<Trash size={18} color="white" />
-					</AnimatedButton>
-				</DeleteLibraryDialog>
+				<DeleteLibraryModal
+					libraryUuid={library.uuid}
+					trigger={
+						<AnimatedButton size="md" style={tw`mx-2`}>
+							<Trash size={18} color="white" />
+						</AnimatedButton>
+					}
+				/>
 			</Animated.View>
 		);
 	};
