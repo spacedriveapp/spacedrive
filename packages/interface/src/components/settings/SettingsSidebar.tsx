@@ -2,6 +2,7 @@ import {
 	Books,
 	FlyingSaucer,
 	GearSix,
+	Graph,
 	HardDrive,
 	Heart,
 	Key,
@@ -82,6 +83,10 @@ export const SettingsSidebar = () => {
 				<SidebarLink to="/settings/changelog">
 					<SettingsIcon component={Receipt} />
 					Changelog
+				</SidebarLink>
+				<SidebarLink to="/settings/dependencies">
+					<SettingsIcon component={Graph} />
+					Dependencies
 				</SidebarLink>
 				<SidebarLink to="/settings/support">
 					<SettingsIcon component={Heart} />

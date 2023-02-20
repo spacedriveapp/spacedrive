@@ -26,6 +26,7 @@ const routes: RouteProps[] = [
 	{ path: 'privacy', element: lazyEl(() => import('./client/PrivacySettings')) },
 	{ path: 'about', element: lazyEl(() => import('./info/AboutSpacedrive')) },
 	{ path: 'changelog', element: lazyEl(() => import('./info/Changelog')) },
+	{ path: 'dependencies', element: lazyEl(() => import('./info/Dependencies')) },
 	{ path: 'support', element: lazyEl(() => import('./info/Support')) }
 ];
 
