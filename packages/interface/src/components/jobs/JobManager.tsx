@@ -149,7 +149,9 @@ function Job({ job }: { job: JobReport }) {
 	};
 	const isRunning = job.status === 'Running';
 	return (
-		<div className="border-app-line/50 flex items-center border-b p-2 pl-4">
+		// Do we actually need bg-opacity-60 here? Where is the bg?
+		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
+		<div className="border-app-line/50 flex items-center border-b bg-opacity-60 p-2 pl-4">
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
 			</Tooltip>
