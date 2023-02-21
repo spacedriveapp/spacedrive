@@ -8,7 +8,7 @@ export default function DependenciesScreen() {
 	const platform = usePlatform();
 
 	return (
-		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll app-background">
+		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col p-5">
 			<ScreenHeading>Dependencies</ScreenHeading>
 
 			{/* item has a LOT more data that we can display, i just went with the basics */}
@@ -19,7 +19,7 @@ export default function DependenciesScreen() {
 					frontEnd.data?.default.map((item) => {
 						return (
 							<a key={item.title} onClick={() => platform.openLink(item.url ?? '')}>
-								<div className="px-4 py-4 text-gray-300 border-2 border-gray-500 rounded">
+								<div className="rounded border-2 border-gray-500 p-4 text-gray-300">
 									<h4 className="text-center">
 										{item.title.trimEnd().substring(0, 24) + (item.title.length > 24 ? '...' : '')}
 									</h4>
@@ -35,7 +35,7 @@ export default function DependenciesScreen() {
 					backEnd.data?.default.map((item) => {
 						return (
 							<a key={item.title} onClick={() => platform.openLink(item.url ?? '')}>
-								<div className="px-4 py-4 text-gray-300 border-2 border-gray-500 rounded">
+								<div className="rounded border-2 border-gray-500 p-4 text-gray-300">
 									<h4 className="text-center">{item.title.trimEnd()}</h4>
 								</div>
 							</a>

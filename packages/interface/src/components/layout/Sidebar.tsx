@@ -287,7 +287,7 @@ const sidebarItemClass = cva(
 				false: 'text-ink-dull'
 			},
 			isTransparent: {
-				true: 'bg-opacity/90',
+				true: 'bg-opacity-90',
 				false: ''
 			}
 		}

@@ -22,7 +22,7 @@ export function Toasts() {
 								'radix-swipe-end:animate-toast-swipe-out',
 								'translate-x-radix-toast-swipe-move-x',
 								'radix-swipe-cancel:translate-x-0 radix-swipe-cancel:duration-200 radix-swipe-cancel:ease-[ease]',
-								'focus-visible:ring-accent focus-visible:ring-opacity/75 border-2 border-white/10 shadow-2xl focus:outline-none focus-visible:ring'
+								'focus-visible:ring-accent/75 border-2 border-white/10 shadow-2xl focus:outline-none focus-visible:ring'
 							)}
 						>
 							<div className="flex">
@@ -44,7 +44,7 @@ export function Toasts() {
 											{toast.actionButton && (
 												<ToastPrimitive.Action
 													altText="view now"
-													className="text-accent focus-visible:ring-accent focus-visible:ring-opacity/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring"
+													className="text-accent focus-visible:ring-accent/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring"
 													onClick={(e) => {
 														e.preventDefault();
 														toast.actionButton?.onClick();
@@ -56,7 +56,7 @@ export function Toasts() {
 											)}
 										</div>
 										<div className="flex h-0 flex-1">
-											<ToastPrimitive.Close className="text-ink-faint focus-visible:ring-accent focus-visible:ring-opacity/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring">
+											<ToastPrimitive.Close className="text-ink-faint focus-visible:ring-accent/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring">
 												Dismiss
 											</ToastPrimitive.Close>
 										</div>

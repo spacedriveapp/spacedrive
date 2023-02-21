@@ -149,7 +149,7 @@ function Job({ job }: { job: JobReport }) {
 	};
 	const isRunning = job.status === 'Running';
 	return (
-		<div className="border-app-line/50 bg-opacity/60 flex items-center border-b p-2 pl-4">
+		<div className="border-app-line/50 flex items-center border-b p-2 pl-4">
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
 			</Tooltip>
