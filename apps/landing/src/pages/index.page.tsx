@@ -108,7 +108,7 @@ function Page() {
 			{unsubscribedFromWaitlist && (
 				<div
 					className={
-						'bg-opacity/20 my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800 px-2'
+						'my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2'
 					}
 				>
 					<Info className="mr-1 w-5 fill-green-500" />

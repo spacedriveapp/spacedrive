@@ -55,7 +55,7 @@ export default function NavBar() {
 				'fixed z-[55] h-16 w-full border-b px-2 transition ',
 				isAtTop
 					? 'border-transparent bg-transparent'
-					: 'bg-opacity/80 border-gray-550 bg-gray-700 backdrop-blur'
+					: 'border-gray-550 bg-gray-700/80 backdrop-blur'
 			)}
 		>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
@@ -72,7 +72,7 @@ export default function NavBar() {
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
-							<span className="bg-opacity/80 bg-primary absolute -top-1 -right-2 rounded-md px-[5px] text-xs">
+							<span className="bg-primary/80 absolute -top-1 -right-2 rounded-md px-[5px] text-xs">
 								{` ${positions.length} `}
 							</span>
 						) : null}

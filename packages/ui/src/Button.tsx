@@ -55,7 +55,7 @@ const styles = cva(
 				accent: [
 					'bg-accent active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-app-shade/10 text-white shadow-md'
 				],
-				colored: ['hover:bg-opacity/90 active:bg-opacity/100 text-white shadow-sm'],
+				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
 			}
 		},

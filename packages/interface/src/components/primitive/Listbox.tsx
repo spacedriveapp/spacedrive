@@ -24,9 +24,9 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 				<div className="relative w-full">
 					<ListboxPrimitive.Button
 						className={clsx(
-							`focus-visible:ring-opacity/75 relative w-full cursor-default rounded-lg bg-white py-2 pl-3 
-								pr-10 text-left shadow-md focus:outline-none focus-visible:border-indigo-500 
-								focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 
+							`relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 
+								text-left shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 
+								focus-visible:ring-white/75 focus-visible:ring-offset-2 
 								focus-visible:ring-offset-orange-300 dark:bg-gray-500 sm:text-sm`,
 							props.className
 						)}
@@ -44,9 +44,9 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 
 					<ListboxPrimitive.Options
 						className={`
-							ring-opacity/5 absolute mt-1 max-h-60 w-full overflow-auto
+							absolute mt-1 max-h-60 w-full overflow-auto
 							rounded-md bg-white text-base shadow-lg ring-1 
-							ring-black focus:outline-none dark:bg-gray-500 sm:text-sm
+							ring-black/5 focus:outline-none dark:bg-gray-500 sm:text-sm
 						`}
 					>
 						{props.options.map((option, index) => (
@@ -54,9 +54,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 								key={option.key}
 								className={({ active }) =>
 									`relative m-1 cursor-default select-none rounded py-2 pl-8 pr-4 focus:outline-none dark:text-white  ${
-										active
-											? 'text-accent bg-accent'
-											: 'dark:hover:bg-opacity/20 text-gray-900 dark:hover:bg-gray-600'
+										active ? 'text-accent bg-accent' : 'text-gray-900 dark:hover:bg-gray-600/20'
 									}`
 								}
 								value={option}

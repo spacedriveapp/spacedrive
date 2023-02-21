@@ -144,7 +144,7 @@ export function Dialog<S extends FieldValues>({
 					<DialogPrimitive.Portal forceMount>
 						<DialogPrimitive.Overlay asChild forceMount>
 							<animated.div
-								className="z-49 bg-app bg-opacity/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
+								className="z-49 bg-app/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
 								style={{
 									opacity: styles.opacity
 								}}
