@@ -1,5 +1,4 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
-import { useNavigate } from 'react-router';
 import { subscribe, useSnapshot } from 'valtio';
 import { useBridgeQuery } from '../rspc';
 import { valtioPersist } from '../stores';
@@ -35,8 +34,6 @@ export function onLibraryChange(func: (newLibraryId: string | null) => void) {
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
 export const useCurrentLibrary = () => {
-	const navigate = useNavigate();
-
 	const currentLibraryUuid = useSnapshot(currentLibraryUuidStore).id;
 	const ctx = useContext(CringeContext);
 	if (ctx === undefined)
@@ -69,13 +66,9 @@ export const useCurrentLibrary = () => {
 		}
 	});
 
-	const switchLibrary = useCallback(
-		(libraryUuid: string) => {
-			currentLibraryUuidStore.id = libraryUuid;
-			navigate('/');
-		},
-		[navigate]
-	);
+	const switchLibrary = useCallback((libraryUuid: string) => {
+		currentLibraryUuidStore.id = libraryUuid;
+	}, []);
 
 	// memorize library to avoid re-running find function
 	const library = useMemo(() => {

@@ -11,7 +11,7 @@ import {
 	UsersThree
 } from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
+import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 import {
 	Location,
 	LocationCreateArgs,
@@ -59,6 +59,7 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		// Prevent the dropdown button to be auto focused on launch
@@ -100,7 +101,10 @@ export function Sidebar() {
 						<Dropdown.Item
 							selected={lib.uuid === library?.uuid}
 							key={lib.uuid}
-							onClick={() => switchLibrary(lib.uuid)}
+							onClick={() => {
+								switchLibrary(lib.uuid);
+								navigate('/');
+							}}
 						>
 							{lib.config.name}
 						</Dropdown.Item>
