@@ -27,7 +27,7 @@ export function Model(
 				>
 					<div
 						data-tauri-drag-region
-						className="bg-opacity/90 absolute top-0 left-0 -z-50 h-screen w-screen rounded-2xl bg-white dark:bg-gray-800"
+						className="absolute top-0 left-0 -z-50 h-screen w-screen rounded-2xl bg-white/90 dark:bg-gray-800/90"
 					/>
 				</Transition>
 				<ButtonLink to="/" variant="gray" className="absolute top-2 right-2 !px-1.5">
