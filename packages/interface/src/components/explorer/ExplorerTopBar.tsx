@@ -16,6 +16,7 @@ import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Popover, cva } from '@sd/ui';
+import DragRegion from '~/components/layout/DragRegion';
 import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { KeybindEvent } from '../../util/keybind';
@@ -24,7 +25,6 @@ import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 import { ExplorerOptionsPanel } from './ExplorerOptionsPanel';
-import DragRegion from '~/components/layout/DragRegion'
 
 export interface TopBarButtonProps {
 	children: React.ReactNode;
@@ -70,7 +70,7 @@ const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	}
 );
 
-const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+export const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
 	const {
 		register,
 		handleSubmit,
@@ -98,11 +98,15 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="w-32 transition-all focus:w-52"
+				className={clsx('w-32 transition-all focus:w-52', props.className)}
 				{...searchField}
 			/>
 
-			<div className={clsx('space-x-1 absolute right-1 peer-focus:invisible pointer-events-none')}>
+			<div
+				className={clsx(
+					'space-x-1 absolute h-7 flex items-center right-1 peer-focus:invisible opacity-70 pointer-events-none'
+				)}
+			>
 				{platform === 'browser' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (

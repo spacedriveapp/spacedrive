@@ -1,6 +1,10 @@
+import GoogleDrive from '@sd/assets/images/GoogleDrive.png';
+import iCloud from '@sd/assets/images/iCloud.png';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, PhoneX, User } from 'phosphor-react';
+import { useRef } from 'react';
 import { tw } from '@sd/ui';
+import { SearchBar } from '../components/explorer/ExplorerTopBar';
 import { OperatingSystem } from '../util/Platform';
 import classes from './Spacedrop.module.scss';
 import { ScreenContainer } from './_Layout';
@@ -11,15 +15,33 @@ const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] fon
 type DropItemProps = {
 	// TODO: remove optionals when dummy data is removed (except for icon)
 	name?: string;
-	connectionType?: 'lan' | 'bluetooth' | 'usb' | 'spacetunnel' | 'p2p';
+	connectionType?: 'lan' | 'bluetooth' | 'usb' | 'spacetunnel' | 'p2p' | 'cloud';
 	receivingNodeOsType?: Omit<OperatingSystem, 'unknown'>;
-} & ({ image: string } | { icon?: Icon });
+} & ({ image: string } | { icon?: Icon } | { brandIcon: string });
 
 function DropItem(props: DropItemProps) {
 	let icon;
 	if ('image' in props) {
 		icon = <img className="rounded-full" src={props.image} alt={props.name} />;
+	} else if ('brandIcon' in props) {
+		let brandIconSrc;
+		switch (props.brandIcon) {
+			case 'google-drive':
+				brandIconSrc = GoogleDrive;
+				break;
+			case 'icloud':
+				brandIconSrc = iCloud;
+				break;
+		}
+		if (brandIconSrc) {
+			icon = (
+				<div className="flex items-center justify-center h-full p-3">
+					<img className="rounded-full " src={brandIconSrc} alt={props.name} />
+				</div>
+			);
+		}
 	} else {
+		//
 		const Icon = props.icon || User;
 		icon = <Icon className={clsx('w-8 h-8 m-3', !props.name && 'opacity-20')} />;
 	}
@@ -51,9 +73,18 @@ function DropItem(props: DropItemProps) {
 }
 
 export default function SpacedropScreen() {
+	const searchRef = useRef<HTMLInputElement>(null);
+
 	return (
-		<ScreenContainer className={classes.honeycombOuter}>
-			<div className={classes.honeycombContainer}>
+		<ScreenContainer
+			dragRegionChildren={
+				<div className="flex justify-center w-full pb-4 mt-2">
+					<SearchBar className="ml-[13px]" ref={searchRef} />
+				</div>
+			}
+			className={classes.honeycombOuter}
+		>
+			<div className={clsx(classes.honeycombContainer, 'mt-8')}>
 				<DropItem
 					name="Jamie's MacBook Pro"
 					receivingNodeOsType="macOs"
@@ -83,22 +114,8 @@ export default function SpacedropScreen() {
 				<DropItem name="Oscar Beaumont" image="https://github.com/oscartbeaumont.png" />
 				<DropItem name="Polar" image="https://github.com/polargh.png" />
 				<DropItem name="Andrew Haskell" image="https://github.com/andrewtechx.png" />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
-				<DropItem />
+				<DropItem name="Jamie's Google Drive" brandIcon="google-drive" connectionType="cloud" />
+				<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
 			</div>
 		</ScreenContainer>
 	);
