@@ -1,4 +1,3 @@
-import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
 import {
 	Broadcast,
@@ -7,14 +6,12 @@ import {
 	CopySimple,
 	Crosshair,
 	Eraser,
-	Eyeglasses,
 	FilmStrip,
 	Gear,
 	Lock,
 	MonitorPlay,
 	Planet,
-	Plus,
-	UsersThree
+	Plus
 } from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
@@ -52,6 +49,7 @@ import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
+import { SubtleButton } from '../primitive/SubtleButton';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
@@ -139,10 +137,10 @@ export function Sidebar() {
 						<Icon component={CirclesFour} />
 						Spaces
 					</SidebarLink>
-					<SidebarLink to="people">
+					{/* <SidebarLink to="people">
 						<Icon component={UsersThree} />
 						People
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="media">
 						<Icon component={MonitorPlay} />
 						Media
@@ -153,10 +151,7 @@ export function Sidebar() {
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
-				<SidebarSection
-					name="Tools"
-					actionArea={<SidebarHeadingOptionsButton to="/settings/locations" />}
-				>
+				<SidebarSection name="Tools" actionArea={<SubtleButton />}>
 					<SidebarLink to="duplicate-finder">
 						<Icon component={CopySimple} />
 						Duplicate Finder
@@ -353,17 +348,6 @@ const SidebarSection: React.FC<{
 	);
 };
 
-const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (props) => {
-	const Icon = props.icon ?? Ellipsis;
-	return (
-		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="subtle">
-				<Icon className="w-3 h-3" />
-			</Button>
-		</NavLink>
-	);
-};
-
 function LibraryScopedSection() {
 	const platform = usePlatform();
 
@@ -379,10 +363,9 @@ function LibraryScopedSection() {
 				<SidebarSection
 					name="Locations"
 					actionArea={
-						<>
-							{/* <SidebarHeadingOptionsButton to="/settings/locations" icon={CogIcon} /> */}
-							<SidebarHeadingOptionsButton to="/settings/locations" />
-						</>
+						<NavLink to="/settings/locations">
+							<SubtleButton />
+						</NavLink>
 					}
 				>
 					{locations.data?.map((location) => {
@@ -426,7 +409,11 @@ function LibraryScopedSection() {
 			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
-					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
+					actionArea={
+						<NavLink to="/settings/tags">
+							<SubtleButton />
+						</NavLink>
+					}
 				>
 					<div className="mt-1 mb-2">
 						{tags.data?.slice(0, 6).map((tag, index) => (

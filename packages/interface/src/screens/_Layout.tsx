@@ -13,7 +13,6 @@ export function ScreenContainer(
 			)}
 		>
 			<DragRegion>{props.dragRegionChildren}</DragRegion>
-
 			<div className="flex flex-col w-full h-screen p-5 pt-0">{props.children}</div>
 		</div>
 	);
