@@ -17,17 +17,12 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import {
-	ExplorerItem,
-	getLibraryIdRaw,
-	isObject,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
+import { useLibraryId } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
@@ -211,6 +206,7 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 }
 
 export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
+	const libraryId = useLibraryId();
 	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const platform = usePlatform();
@@ -232,13 +228,9 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Open"
 					keybind="⌘O"
-					onClick={(e) => {
+					onClick={() => {
 						// TODO: Replace this with a proper UI
-						window.location.href = platform.getFileUrl(
-							getLibraryIdRaw()!,
-							store.locationId!,
-							data.item.id
-						);
+						window.location.href = platform.getFileUrl(libraryId, store.locationId!, data.item.id);
 					}}
 					icon={Copy}
 				/>

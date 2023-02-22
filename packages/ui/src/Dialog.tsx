@@ -60,8 +60,7 @@ class DialogManager {
 		if (state.open === false) {
 			delete this.dialogs[id];
 			delete this.state[id];
-			console.log(`Successfully removed state ${id}`);
-		} else console.log(`Tried to remove state ${id} but wasn't pending!`);
+		}
 	}
 }
 

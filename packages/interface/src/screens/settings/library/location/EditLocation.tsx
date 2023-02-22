@@ -3,7 +3,7 @@ import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { useFormState } from 'react-hook-form';
 import { useParams } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, TextArea, forms, tw } from '@sd/ui';
+import { Button, forms, tw } from '@sd/ui';
 import { Divider } from '~/components/explorer/inspector/Divider';
 import { SettingsSubPage } from '~/components/settings/SettingsSubPage';
 import { Tooltip } from '~/components/tooltip/Tooltip';

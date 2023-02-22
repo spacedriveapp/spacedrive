@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { proxy, useSnapshot } from 'valtio';
-import { onLibraryChange } from '@sd/client';
+import { useLibraryContext } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'columns' | 'media';
@@ -32,8 +33,6 @@ const state = {
 	}
 };
 
-onLibraryChange(() => getExplorerStore().reset());
-
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
 const explorerStore = proxy({
 	...state,
@@ -53,6 +52,12 @@ const explorerStore = proxy({
 });
 
 export function useExplorerStore() {
+	const { library } = useLibraryContext();
+
+	useEffect(() => {
+		explorerStore.reset();
+	}, [library.uuid]);
+
 	return useSnapshot(explorerStore);
 }
 

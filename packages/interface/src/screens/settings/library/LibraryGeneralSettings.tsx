@@ -1,25 +1,24 @@
 import { useForm } from 'react-hook-form';
-import { useBridgeMutation } from '@sd/client';
-import { useCurrentLibrary } from '@sd/client';
+import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
-import { useDebouncedForm } from '~/hooks/useDebouncedForm';
+import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 
 export default function LibraryGeneralSettings() {
-	const { library } = useCurrentLibrary();
-	const { mutate: editLibrary } = useBridgeMutation('library.edit');
+	const { library } = useLibraryContext();
+	const editLibrary = useBridgeMutation('library.edit');
 
 	const form = useForm({
 		defaultValues: { id: library!.uuid, ...library?.config }
 	});
 
-	useDebouncedForm(form, (value) =>
-		editLibrary({
-			id: library!.uuid,
-			name: value.name,
-			description: value.description
+	useDebouncedFormWatch(form, (value) =>
+		editLibrary.mutate({
+			id: library.uuid,
+			name: value.name ?? null,
+			description: value.description ?? null
 		})
 	);
 
