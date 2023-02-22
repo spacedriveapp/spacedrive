@@ -11,11 +11,9 @@ import {
 	MusicNote,
 	Wrench
 } from 'phosphor-react';
-import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { proxy } from 'valtio';
-import { Statistics, queryClient, useLibraryQuery } from '@sd/client';
+import { Statistics, useLibraryQuery } from '@sd/client';
 import { Card } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { useLibraryId } from '~/util';
@@ -48,55 +46,16 @@ const EMPTY_STATISTICS = {
 
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
-export const statsRefresh = proxy({
-	prevLibraryId: undefined as string | undefined
-});
-
-const useStatisticsRefresh = () => {
-	const libraryId = useLibraryId();
-
-	useEffect(() => {
-		statsRefresh.prevLibraryId = undefined;
-
-		// TODO: Fix
-		// This is bad solution to the fact that the hooks don't rerun when opening a library that is already cached.
-		// This is because the count never drops back to zero as their is no loading state given the libraries data was already in the React Query cache.
-		queryClient.setQueryData(
-			[
-				'library.getStatistics',
-				{
-					library_id: libraryId,
-					arg: null
-				}
-			],
-			{ ...EMPTY_STATISTICS }
-		);
-		queryClient.invalidateQueries(['library.getStatistics']);
-	}, [libraryId]);
-};
-
 const StatItem = (props: StatItemProps) => {
-	const libraryId = useLibraryId();
 	const { title, bytes = BigInt('0'), isLoading } = props;
 
 	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 	const count = useCounter({
 		name: title,
 		end: +size.value,
-		duration: statsRefresh.prevLibraryId === libraryId ? 0 : undefined,
+		duration: 1,
 		saveState: false
 	});
-
-	if (count !== 0 && count === +size.value) {
-		statsRefresh.prevLibraryId = libraryId;
-	}
-
-	// useEffect(() => {
-	// 	return () => {
-	// 		if (count !== 0) statsRefresh.prevLibraryId = libraryId;
-	// 	};
-	// 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	// }, []);
 
 	return (
 		<div
@@ -132,10 +91,6 @@ export default function OverviewScreen() {
 	const stats = useLibraryQuery(['library.getStatistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
-
-	console.log(stats.data);
-
-	useStatisticsRefresh();
 
 	return (
 		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
