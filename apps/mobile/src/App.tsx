@@ -7,11 +7,12 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
+import { proxy, useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
@@ -26,6 +27,7 @@ import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import { tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
+import { currentLibraryStore } from './utils/nav';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -66,7 +68,7 @@ function AppContainer() {
 
 	useInvalidateQuery();
 
-	const [libraryId, setLibraryId] = useState(null);
+	const { id } = useSnapshot(currentLibraryStore);
 
 	return (
 		<SafeAreaProvider style={tw`bg-app flex-1`}>
@@ -74,7 +76,7 @@ function AppContainer() {
 				<MenuProvider>
 					<BottomSheetModalProvider>
 						<StatusBar style="light" />
-						<ClientContextProvider currentLibraryId={libraryId}>
+						<ClientContextProvider currentLibraryId={id}>
 							<AppNavigation />
 						</ClientContextProvider>
 					</BottomSheetModalProvider>

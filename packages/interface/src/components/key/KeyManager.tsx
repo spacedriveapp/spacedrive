@@ -13,6 +13,7 @@ export function KeyManager() {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
+
 	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({

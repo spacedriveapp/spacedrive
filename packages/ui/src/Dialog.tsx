@@ -81,9 +81,13 @@ function Remover({ id }: { id: number }) {
 }
 
 export function useDialog(props: UseDialogProps) {
+	const state = dialogManager.getState(props.id);
+
+	if (!state) throw new Error(`Dialog ${props.id} does not exist!`);
+
 	return {
 		...props,
-		state: dialogManager.getState(props.id)
+		state
 	};
 }
 

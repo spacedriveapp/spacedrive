@@ -4,8 +4,9 @@ import { MotiView } from 'moti';
 import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { useCurrentLibrary } from '~/../../../packages/client/src';
+import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
+import { currentLibraryStore } from '~/utils/nav';
 import { AnimatedHeight } from '../animation/layout';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import Divider from '../primitive/Divider';
@@ -19,7 +20,7 @@ const DrawerLibraryManager = () => {
 		if (!isDrawerOpen) setDropdownClosed(true);
 	}, [isDrawerOpen]);
 
-	const { library: currentLibrary, libraries, switchLibrary } = useCurrentLibrary();
+	const { library: currentLibrary, libraries } = useClientContext();
 
 	const navigation = useNavigation();
 
@@ -34,7 +35,7 @@ const DrawerLibraryManager = () => {
 							: 'border-b-app-box border-sidebar-line bg-sidebar-button rounded-t-md'
 					)}
 				>
-					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
+					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary.config.name}</Text>
 					<MotiView
 						animate={{
 							rotate: dropdownClosed ? '0deg' : '180deg',
@@ -49,13 +50,10 @@ const DrawerLibraryManager = () => {
 			<AnimatedHeight hide={dropdownClosed}>
 				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md border-x border-b p-2`}>
 					{/* Libraries */}
-					{libraries?.map((library) => (
-						<Pressable key={library.uuid} onPress={() => switchLibrary(library.uuid)}>
+					{libraries.data?.map((library) => (
+						<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
 							<View
-								style={twStyle(
-									'mt-1 p-2',
-									currentLibrary.uuid === library.uuid && 'bg-accent rounded'
-								)}
+								style={twStyle('mt-1 p-2', library.uuid === library.uuid && 'bg-accent rounded')}
 							>
 								<Text
 									style={twStyle(

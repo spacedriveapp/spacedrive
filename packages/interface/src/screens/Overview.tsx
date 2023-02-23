@@ -46,6 +46,8 @@ const EMPTY_STATISTICS = {
 
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
+let overviewMounted = false;
+
 const StatItem = (props: StatItemProps) => {
 	const { title, bytes = BigInt('0'), isLoading } = props;
 
@@ -53,7 +55,7 @@ const StatItem = (props: StatItemProps) => {
 	const count = useCounter({
 		name: title,
 		end: +size.value,
-		duration: 1,
+		duration: overviewMounted ? 0 : 1,
 		saveState: false
 	});
 
@@ -91,6 +93,8 @@ export default function OverviewScreen() {
 	const stats = useLibraryQuery(['library.getStatistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
+
+	overviewMounted = true;
 
 	return (
 		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">

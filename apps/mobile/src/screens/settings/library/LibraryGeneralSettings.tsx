@@ -2,7 +2,7 @@ import { Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
-import { useBridgeMutation, useCurrentLibrary } from '@sd/client';
+import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import { Switch } from '~/components/primitive/Switch';
@@ -15,7 +15,7 @@ import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 const LibraryGeneralSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
-	const { library } = useCurrentLibrary();
+	const { library } = useLibraryContext();
 
 	const form = useForm({
 		defaultValues: { name: library.config.name, description: library.config.description }

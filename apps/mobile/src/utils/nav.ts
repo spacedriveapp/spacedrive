@@ -3,6 +3,11 @@ import {
 	ParamListBase,
 	getFocusedRouteNameFromRoute
 } from '@react-navigation/native';
+import { proxy } from 'valtio';
+
+export const currentLibraryStore = proxy({
+	id: null as string | null
+});
 
 export const getActiveRouteFromState = function (state: any) {
 	if (!state.routes || state.routes.length === 0 || state.index >= state.routes.length) {
