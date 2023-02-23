@@ -12,12 +12,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
+import { proxy, useSnapshot } from 'valtio';
 import {
+	ClientContextProvider,
 	LibraryContextProvider,
 	getDebugState,
 	queryClient,
 	rspc,
-	useCurrentLibrary,
+	useClientContext,
 	useInvalidateQuery
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
@@ -25,6 +27,7 @@ import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import { tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
+import { currentLibraryStore } from './utils/nav';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -35,9 +38,29 @@ const NavigatorTheme: Theme = {
 	colors: {
 		...DefaultTheme.colors,
 		// Default screen background
-		background: tw.color('app')
+		background: tw.color('app')!
 	}
 };
+
+function AppNavigation() {
+	const { library } = useClientContext();
+
+	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
+	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
+
+	return (
+		<NavigationContainer theme={NavigatorTheme}>
+			{!library ? (
+				<OnboardingNavigator />
+			) : (
+				<LibraryContextProvider library={library}>
+					<RootNavigator />
+					<GlobalModals />
+				</LibraryContextProvider>
+			)}
+		</NavigationContainer>
+	);
+}
 
 function AppContainer() {
 	// Enables dark mode, and screen size breakpoints, etc. for tailwind
@@ -45,23 +68,17 @@ function AppContainer() {
 
 	useInvalidateQuery();
 
-	const { library } = useCurrentLibrary();
+	const { id } = useSnapshot(currentLibraryStore);
+
 	return (
 		<SafeAreaProvider style={tw`bg-app flex-1`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
 				<MenuProvider>
 					<BottomSheetModalProvider>
 						<StatusBar style="light" />
-						<NavigationContainer theme={NavigatorTheme}>
-							{!library ? (
-								<OnboardingNavigator />
-							) : (
-								<>
-									<RootNavigator />
-									<GlobalModals />
-								</>
-							)}
-						</NavigationContainer>
+						<ClientContextProvider currentLibraryId={id}>
+							<AppNavigation />
+						</ClientContextProvider>
 					</BottomSheetModalProvider>
 				</MenuProvider>
 			</GestureHandlerRootView>
@@ -85,13 +102,7 @@ export default function App() {
 
 	return (
 		<rspc.Provider client={client} queryClient={queryClient}>
-			<LibraryContextProvider
-				onNoLibrary={() => {
-					console.log('TODO');
-				}}
-			>
-				<AppContainer />
-			</LibraryContextProvider>
+			<AppContainer />
 		</rspc.Provider>
 	);
 }

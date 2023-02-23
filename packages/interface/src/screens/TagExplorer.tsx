@@ -1,10 +1,10 @@
 import { useParams } from 'react-router-dom';
-import { useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { useLibraryContext, useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 
 export default function TagExplorer() {
 	const { id } = useParams();
-	const { library } = useCurrentLibrary();
+	const { library } = useLibraryContext();
 
 	const explorerData = useLibraryQuery(['tags.getExplorerData', Number(id)]);
 

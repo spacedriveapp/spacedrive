@@ -1,11 +1,7 @@
-import { Navigate, Route, RouteProps } from 'react-router-dom';
+import { RouteObject } from 'react-router-dom';
 import { lazyEl } from '~/util';
-import SettingsSubPage from './SettingsSubPage';
-import LocationsSettings from './library/LocationsSettings';
-import EditLocation from './library/location/EditLocation';
 
-const routes: RouteProps[] = [
-	{ index: true, element: <Navigate to="general" relative="route" /> },
+const screens: RouteObject[] = [
 	{ path: 'general', element: lazyEl(() => import('./client/GeneralSettings')) },
 	{ path: 'appearance', element: lazyEl(() => import('./client/AppearanceSettings')) },
 	{ path: 'keybindings', element: lazyEl(() => import('./client/KeybindingSettings')) },
@@ -27,18 +23,15 @@ const routes: RouteProps[] = [
 	{ path: 'about', element: lazyEl(() => import('./info/AboutSpacedrive')) },
 	{ path: 'changelog', element: lazyEl(() => import('./info/Changelog')) },
 	{ path: 'dependencies', element: lazyEl(() => import('./info/Dependencies')) },
-	{ path: 'support', element: lazyEl(() => import('./info/Support')) }
+	{ path: 'support', element: lazyEl(() => import('./info/Support')) },
+	{
+		path: 'locations',
+		element: lazyEl(() => import('./SettingsSubPage')),
+		children: [
+			{ index: true, element: lazyEl(() => import('./library/LocationsSettings')) },
+			{ path: ':id', element: lazyEl(() => import('./library/location/EditLocation')) }
+		]
+	}
 ];
 
-export default (
-	<>
-		{routes.map((route) => (
-			<Route key={route.path} {...route} />
-		))}
-		{/* Skipping implementing via routes object due to a lack of understanding on how to accomplish the below route setup with this new approach, feel free to fix Brendan */}
-		<Route path="locations" element={<SettingsSubPage />}>
-			<Route index element={<LocationsSettings />} />
-			<Route path="location/:id" element={<EditLocation />} />
-		</Route>
-	</>
-);
+export default screens;

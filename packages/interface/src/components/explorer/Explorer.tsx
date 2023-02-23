@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
+import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../explorer/Inspector';
 import { ExplorerContextMenu } from './ExplorerContextMenu';
@@ -12,7 +12,7 @@ interface Props {
 
 export default function Explorer(props: Props) {
 	const expStore = useExplorerStore();
-	const { library } = useCurrentLibrary();
+	const { library } = useLibraryContext();
 
 	const [scrollSegments, setScrollSegments] = useState<{ [key: string]: number }>({});
 	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);

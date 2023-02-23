@@ -11,14 +11,14 @@ import {
 	UsersThree
 } from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
-import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
+import { NavLink, NavLinkProps, useLocation } from 'react-router-dom';
 import {
 	Location,
 	LocationCreateArgs,
 	arraysEqual,
 	getDebugState,
 	useBridgeQuery,
-	useCurrentLibrary,
+	useClientContext,
 	useDebugState,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -56,10 +56,10 @@ const SidebarFooter = tw.div`flex flex-col mb-3 px-2.5`;
 
 export function Sidebar() {
 	// DO NOT DO LIBRARY QUERIES OR MUTATIONS HERE. This is rendered before a library is set.
+
 	const os = useOperatingSystem();
-	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
+	const { library, libraries, currentLibraryId } = useClientContext();
 	const debugState = useDebugState();
-	const navigate = useNavigate();
 
 	useEffect(() => {
 		// Prevent the dropdown button to be auto focused on launch
@@ -69,7 +69,9 @@ export function Sidebar() {
 
 			(document.activeElement.blur as () => void)();
 		});
-	});
+	}, []);
+
+	console.log(useLocation());
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
@@ -87,24 +89,21 @@ export function Sidebar() {
 							// these classname overrides are messy
 							// but they work
 							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line ring-offset-sidebar`,
-							(library === null || isLoadingLibraries) && '!text-ink-faint'
+							(library === null || libraries.isLoading) && '!text-ink-faint'
 						)}
 					>
 						<span className="truncate">
-							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+							{libraries.isLoading ? 'Loading...' : library ? library.config.name : ' '}
 						</span>
 					</Dropdown.Button>
 				}
 			>
 				<Dropdown.Section>
-					{libraries?.map((lib) => (
+					{libraries.data?.map((lib) => (
 						<Dropdown.Item
-							selected={lib.uuid === library?.uuid}
+							to={`/${lib.uuid}/overview`}
 							key={lib.uuid}
-							onClick={() => {
-								switchLibrary(lib.uuid);
-								navigate('/');
-							}}
+							selected={lib.uuid === currentLibraryId}
 						>
 							{lib.config.name}
 						</Dropdown.Item>
@@ -129,7 +128,7 @@ export function Sidebar() {
 			</Dropdown.Root>
 			<SidebarContents>
 				<div className="pt-1">
-					<SidebarLink to="/overview">
+					<SidebarLink to="overview">
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
@@ -146,13 +145,13 @@ export function Sidebar() {
 						Media
 					</SidebarLink>
 				</div>
-				{library && <LibraryScopedSection />}
+				{library && <LibraryScopedSection key={library.uuid} />}
 				<div className="grow" />
 			</SidebarContents>
 			<SidebarFooter>
 				<div className="flex">
 					<ButtonLink
-						to="/settings/general"
+						to="settings/general"
 						size="icon"
 						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
@@ -308,11 +307,12 @@ export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	);
 };
 
-const SidebarSection: React.FC<{
-	name: string;
-	actionArea?: React.ReactNode;
-	children: React.ReactNode;
-}> = (props) => {
+const SidebarSection = (
+	props: PropsWithChildren<{
+		name: string;
+		actionArea?: React.ReactNode;
+	}>
+) => {
 	return (
 		<div className="group mt-5">
 			<div className="mb-1 flex items-center justify-between">
@@ -354,7 +354,7 @@ function LibraryScopedSection() {
 					actionArea={
 						<>
 							{/* <SidebarHeadingOptionsButton to="/settings/locations" icon={CogIcon} /> */}
-							<SidebarHeadingOptionsButton to="/settings/locations" />
+							<SidebarHeadingOptionsButton to="settings/locations" />
 						</>
 					}
 				>
@@ -426,12 +426,7 @@ interface SidebarLocationProps {
 function SidebarLocation({ location, online }: SidebarLocationProps) {
 	return (
 		<div className="flex flex-row items-center">
-			<SidebarLink
-				className="group relative w-full"
-				to={{
-					pathname: `location/${location.id}`
-				}}
-			>
+			<SidebarLink className="group relative w-full" to={`location/${location.id}`}>
 				<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
 					<Folder size={18} />
 					<div

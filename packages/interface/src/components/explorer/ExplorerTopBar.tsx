@@ -277,7 +277,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								}
 							>
 								<div className="block w-[350px]">
-									<KeyManager className={TOP_BAR_ICON_STYLE} />
+									<KeyManager /* className={TOP_BAR_ICON_STYLE} */ />
 								</div>
 							</Popover>
 						</Tooltip>

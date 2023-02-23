@@ -1,7 +1,7 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
 import clsx from 'clsx';
-import { ComponentType, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { useEffect } from 'react';
+import { Navigate, Outlet, RouteObject, useNavigate } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -12,42 +12,30 @@ import OnboardingPrivacy from './OnboardingPrivacy';
 import OnboardingProgress from './OnboardingProgress';
 import OnboardingStart from './OnboardingStart';
 
-interface OnboardingScreen {
-	/**
-	 * React component for rendering this screen.
-	 */
-	component: ComponentType<Record<string, never>>;
-	/**
-	 * Unique key used to record progression to this screen
-	 */
-	key: string;
-	/**
-	 * Sets whether the user is allowed to skip this screen.
-	 * @default false
-	 */
-	isSkippable?: boolean;
-}
-
-export const ONBOARDING_SCREENS: OnboardingScreen[] = [
+export const ONBOARDING_ROUTES: RouteObject[] = [
 	{
-		component: OnboardingStart,
-		key: 'start'
+		index: true,
+		element: <Navigate to="start" />
 	},
 	{
-		component: OnboardingNewLibrary,
-		key: 'new-library'
+		element: <OnboardingStart />,
+		path: 'start'
 	},
 	{
-		component: OnboardingMasterPassword,
-		key: 'master-password'
+		element: <OnboardingNewLibrary />,
+		path: 'new-library'
 	},
 	{
-		component: OnboardingPrivacy,
-		key: 'privacy'
+		element: <OnboardingMasterPassword />,
+		path: 'master-password'
 	},
 	{
-		component: OnboardingCreatingLibrary,
-		key: 'creating-library'
+		element: <OnboardingPrivacy />,
+		path: 'privacy'
+	},
+	{
+		element: <OnboardingCreatingLibrary />,
+		path: 'creating-library'
 	}
 ];
 
