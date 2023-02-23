@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import {
+	ArchiveBox,
 	Broadcast,
 	CheckCircle,
 	CirclesFour,
@@ -148,6 +149,10 @@ export function Sidebar() {
 					<SidebarLink to="spacedrop">
 						<Icon component={Broadcast} />
 						Spacedrop
+					</SidebarLink>
+					<SidebarLink to="imports">
+						<Icon component={ArchiveBox} />
+						Imports
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}

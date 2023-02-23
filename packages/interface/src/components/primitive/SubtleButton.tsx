@@ -11,4 +11,4 @@ export const SubtleButton: React.FC<{ icon?: React.FC }> = (props) => {
 	);
 };
 
-export const SubtleButtonContainer = tw.div`transition-all duration-300 opacity-0 text-ink-faint group-hover:opacity-30 hover:!opacity-100`;
+export const SubtleButtonContainer = tw.div`opacity-0 text-ink-faint group-hover:opacity-30 hover:!opacity-100`;
