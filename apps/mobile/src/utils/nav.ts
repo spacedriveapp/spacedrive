@@ -3,9 +3,9 @@ import {
 	ParamListBase,
 	getFocusedRouteNameFromRoute
 } from '@react-navigation/native';
-import { proxy } from 'valtio';
+import { valtioPersist } from '@sd/client';
 
-export const currentLibraryStore = proxy({
+export const currentLibraryStore = valtioPersist('sdActiveLibrary', {
 	id: null as string | null
 });
 

@@ -48,24 +48,30 @@ const DrawerLibraryManager = () => {
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
-				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md border-x border-b p-2`}>
+				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md p-2`}>
 					{/* Libraries */}
-					{libraries.data?.map((library) => (
-						<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
-							<View
-								style={twStyle('mt-1 p-2', library.uuid === library.uuid && 'bg-accent rounded')}
-							>
-								<Text
+					{libraries.data?.map((library) => {
+						console.log('library', library);
+						return (
+							<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
+								<View
 									style={twStyle(
-										'text-ink text-sm font-semibold',
-										currentLibrary.uuid === library.uuid && 'text-white'
+										'mt-1 p-2',
+										currentLibrary.uuid === library.uuid && 'bg-accent rounded'
 									)}
 								>
-									{library.config.name}
-								</Text>
-							</View>
-						</Pressable>
-					))}
+									<Text
+										style={twStyle(
+											'text-ink text-sm font-semibold',
+											currentLibrary.uuid === library.uuid && 'text-white'
+										)}
+									>
+										{library.config.name}
+									</Text>
+								</View>
+							</Pressable>
+						);
+					})}
 					<Divider style={tw`my-2`} />
 					{/* Menu */}
 					{/* Create Library */}
