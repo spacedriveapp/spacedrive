@@ -12,8 +12,12 @@ function AppLayout() {
 
 	const os = useOperatingSystem();
 
-	if (library === null && libraries.data)
-		return <Navigate to={`${libraries.data[0].uuid}/overview`} />;
+	if (library === null && libraries.data) {
+		const firstLibrary = libraries.data[0];
+
+		if (firstLibrary) return <Navigate to={`${firstLibrary.uuid}/overview`} />;
+		else return <Navigate to="/" />;
+	}
 
 	return (
 		<div
