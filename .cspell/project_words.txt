@@ -53,6 +53,7 @@ specta
 storedkey
 stringly
 tobiaslutke
+typecheck
 vdfs
 vijay
 zacharysmith

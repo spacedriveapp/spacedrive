@@ -1,25 +1,24 @@
 import { useForm } from 'react-hook-form';
-import { useBridgeMutation } from '@sd/client';
-import { useCurrentLibrary } from '@sd/client';
+import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
-import { useDebouncedForm } from '~/hooks/useDebouncedForm';
+import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 
 export default function LibraryGeneralSettings() {
-	const { library } = useCurrentLibrary();
-	const { mutate: editLibrary } = useBridgeMutation('library.edit');
+	const { library } = useLibraryContext();
+	const editLibrary = useBridgeMutation('library.edit');
 
 	const form = useForm({
 		defaultValues: { id: library!.uuid, ...library?.config }
 	});
 
-	useDebouncedForm(form, (value) =>
-		editLibrary({
-			id: library!.uuid,
-			name: value.name,
-			description: value.description
+	useDebouncedFormWatch(form, (value) =>
+		editLibrary.mutate({
+			id: library.uuid,
+			name: value.name ?? null,
+			description: value.description ?? null
 		})
 	);
 
@@ -29,8 +28,8 @@ export default function LibraryGeneralSettings() {
 				title="Library Settings"
 				description="General settings related to the currently active library."
 			/>
-			<div className="flex flex-row pb-3 space-x-5">
-				<div className="flex flex-col flex-grow">
+			<div className="flex flex-row space-x-5 pb-3">
+				<div className="flex grow flex-col">
 					<span className="mb-1 text-sm font-medium">Name</span>
 					<Input
 						size="md"
@@ -38,7 +37,7 @@ export default function LibraryGeneralSettings() {
 						defaultValue="My Default Library"
 					/>
 				</div>
-				<div className="flex flex-col flex-grow">
+				<div className="flex grow flex-col">
 					<span className="mb-1 text-sm font-medium">Description</span>
 					<Input size="md" {...form.register('description')} placeholder="" />
 				</div>
@@ -49,7 +48,7 @@ export default function LibraryGeneralSettings() {
 				title="Encrypt Library"
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
-				<div className="flex items-center ml-3">
+				<div className="ml-3 flex items-center">
 					<Switch checked={false} />
 				</div>
 			</InputContainer>
@@ -66,7 +65,7 @@ export default function LibraryGeneralSettings() {
 				description="This is permanent, your files will not be deleted, only the Spacedrive library."
 			>
 				<div className="mt-2">
-					<Button size="sm" variant="colored" className="bg-red-500 border-red-500">
+					<Button size="sm" variant="colored" className="border-red-500 bg-red-500">
 						Delete
 					</Button>
 				</div>

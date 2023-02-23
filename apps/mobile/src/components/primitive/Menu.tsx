@@ -5,9 +5,10 @@ import {
 	MenuOptionProps,
 	MenuOptions,
 	MenuTrigger,
-	Menu as PMenu
+	Menu as PMenu,
+	renderers
 } from 'react-native-popup-menu';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 type MenuProps = {
 	trigger: React.ReactNode;
@@ -17,9 +18,9 @@ type MenuProps = {
 // TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
 	<View>
-		<PMenu>
+		<PMenu renderer={renderers.NotAnimatedContextMenu}>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions optionsContainerStyle={tw`bg-app-menu p-1 rounded`}>
+			<MenuOptions optionsContainerStyle={tw`bg-app-menu rounded p-1`}>
 				{props.children}
 			</MenuOptions>
 		</PMenu>
@@ -43,7 +44,7 @@ export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
 			<MenuOption
 				{...props}
 				customStyles={{
-					optionText: tw`text-ink text-sm font-medium py-0.5`
+					optionText: tw`text-ink py-0.5 text-sm font-medium`
 				}}
 				style={tw`flex flex-row items-center`}
 			/>

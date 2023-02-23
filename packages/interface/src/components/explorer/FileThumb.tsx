@@ -6,12 +6,10 @@ import Executable from '@sd/assets/images/Executable.png';
 import File from '@sd/assets/images/File.png';
 import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
-import { Suspense, lazy, useMemo } from 'react';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isObject, isPath } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
-import { isObject, isPath } from './utils';
 
 interface Props {
 	data: ExplorerItem;
@@ -22,22 +20,20 @@ interface Props {
 	kind?: string;
 }
 
-const icons = import.meta.glob('../../../../assets/icons/*.svg');
+// const icons = import.meta.glob('../../../../assets/icons/*.svg');
 
 export default function FileThumb({ data, ...props }: Props) {
 	const platform = usePlatform();
 	const store = useExplorerStore();
 
-	const item = data.item;
+	// const Icon = useMemo(() => {
+	// 	const icon = icons[`../../../../assets/icons/${item.extension}.svg`];
 
-	const Icon = useMemo(() => {
-		const icon = icons[`../../../../assets/icons/${item.extension}.svg`];
-
-		const Icon = icon
-			? lazy(() => icon().then((v) => ({ default: (v as any).ReactComponent })))
-			: undefined;
-		return Icon;
-	}, [item.extension]);
+	// 	const Icon = icon
+	// 		? lazy(() => icon().then((v) => ({ default: (v as any).ReactComponent })))
+	// 		: undefined;
+	// 	return Icon;
+	// }, [item.extension]);
 
 	if (isPath(data) && data.item.is_dir) return <Folder size={props.size * 0.7} />;
 
@@ -54,7 +50,7 @@ export default function FileThumb({ data, ...props }: Props) {
 					style={props.style}
 					decoding="async"
 					// width={props.size}
-					className={clsx('pointer-events-none z-90', props.className)}
+					className={clsx('z-90 pointer-events-none', props.className)}
 					src={url}
 				/>
 			);
@@ -69,5 +65,5 @@ export default function FileThumb({ data, ...props }: Props) {
 	else if (props.kind === 'Encrypted') icon = Encrypted;
 	else if (props.kind === 'Compressed') icon = Compressed;
 
-	return <img src={icon} className={clsx('overflow-hidden h-full', props.iconClassNames)} />;
+	return <img src={icon} className={clsx('h-full overflow-hidden', props.iconClassNames)} />;
 }

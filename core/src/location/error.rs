@@ -25,8 +25,6 @@ pub enum LocationError {
 	NotDirectory(PathBuf),
 	#[error("Could not find directory in Location (path: {0:?})")]
 	DirectoryNotFound(String),
-	#[error("Missing local_path (id: {0})")]
-	MissingLocalPath(i32),
 	#[error("Library exists in the location metadata file, must relink: (old_path: {old_path:?}, new_path: {new_path:?})")]
 	NeedRelink {
 		old_path: PathBuf,
@@ -72,7 +70,7 @@ impl From<LocationError> for rspc::Error {
 
 			// User's fault errors
 			LocationError::NotDirectory(_)
-			| LocationError::MissingLocalPath(_)
+			// | LocationError::MissingLocalPath(_)
 			| LocationError::NeedRelink { .. }
 			| LocationError::AddLibraryToMetadata(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)

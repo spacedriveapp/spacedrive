@@ -18,9 +18,23 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 	]);
 
 	useEffect(() => {
-		// Not sure why we do this.
+		// Set screen title to location.
+		if (path && path !== '') {
+			// Nested location.
+			navigation.setOptions({
+				title: path.split('/')[0]
+			});
+		} else {
+			navigation.setOptions({
+				title: data?.context.name
+			});
+		}
+	}, [data, navigation, path]);
+
+	useEffect(() => {
 		getExplorerStore().locationId = id;
-	}, [id]);
+		getExplorerStore().path = path;
+	}, [id, path]);
 
 	return <Explorer data={data} />;
 }

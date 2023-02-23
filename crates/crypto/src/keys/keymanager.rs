@@ -59,10 +59,12 @@ use super::{
 	keyring::{Identifier, KeyringInterface},
 };
 
-/// This is a stored key, and can be freely written to Prisma/another database.
+/// This is a stored key, and can be freely written to the database.
+///
+/// It contains no sensitive information that is not encrypted.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct StoredKey {
 	pub uuid: Uuid, // uuid for identification. shared with mounted keys
 	pub version: StoredKeyVersion,
@@ -79,17 +81,19 @@ pub struct StoredKey {
 	pub automount: bool,
 }
 
+/// This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum StoredKeyType {
 	User,
 	Root,
 }
 
+/// This denotes the `StoredKey` version.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum StoredKeyVersion {
 	V1,
 }
@@ -105,7 +109,7 @@ pub struct MountedKey {
 
 /// This is the key manager itself.
 ///
-/// It contains the keystore, the keymount, the master password and the default key.
+/// It contains the keystore, the keymount, the root key and a few other pieces of information.
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
@@ -117,10 +121,8 @@ pub struct KeyManager {
 	mounting_queue: DashSet<Uuid>,
 	keyring: Option<Arc<Mutex<KeyringInterface>>>,
 }
-
-/// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
-	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
+	/// Initialize the Key Manager with `StoredKeys` retrieved from the database.
 	pub async fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
 		let keyring = KeyringInterface::new()
 			.map(|k| Arc::new(Mutex::new(k)))
@@ -141,7 +143,9 @@ impl KeyManager {
 		Ok(keymanager)
 	}
 
-	// A returned error here should be treated as `false`
+	/// This should be used for checking if the secret key contains an item.
+	///
+	/// A returned error here should be treated as `false`
 	pub async fn keyring_contains(&self, library_uuid: Uuid, usage: String) -> Result<()> {
 		self.get_keyring()?.lock().await.retrieve(Identifier {
 			application: APP_IDENTIFIER,
@@ -152,7 +156,7 @@ impl KeyManager {
 		Ok(())
 	}
 
-	// This verifies that the key manager is unlocked before continuing the calling function.
+	/// This verifies that the key manager is unlocked before continuing the calling function.
 	pub async fn ensure_unlocked(&self) -> Result<()> {
 		self.is_unlocked()
 			.await
@@ -160,20 +164,21 @@ impl KeyManager {
 			.ok_or(Error::NotUnlocked)
 	}
 
-	// This verifies that the target key is not already queued before continuing the operation.
+	/// This verifies that the target key is not already queued before continuing the operation.
 	pub fn ensure_not_queued(&self, uuid: Uuid) -> Result<()> {
 		(!self.is_queued(uuid))
 			.then_some(())
 			.ok_or(Error::KeyAlreadyMounted)
 	}
 
-	// This verifies that the target key is not already mounted before continuing the operation.
+	/// This verifies that the target key is not already mounted before continuing the operation.
 	pub fn ensure_not_mounted(&self, uuid: Uuid) -> Result<()> {
 		(!self.keymount.contains_key(&uuid))
 			.then_some(())
 			.ok_or(Error::KeyAlreadyMounted)
 	}
 
+	/// This is used to retrieve an item from OS keyrings
 	pub async fn keyring_retrieve(
 		&self,
 		library_uuid: Uuid,
@@ -211,6 +216,7 @@ impl KeyManager {
 		Ok(())
 	}
 
+	/// This is used to insert an item into OS keyrings
 	async fn keyring_insert(
 		&self,
 		library_uuid: Uuid,
@@ -237,7 +243,7 @@ impl KeyManager {
 
 	/// This should be used to generate everything for the user during onboarding.
 	///
-	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, hex encoded)
+	/// This will create a secret key and attempt to store it in OS keyrings.
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
@@ -322,7 +328,7 @@ impl KeyManager {
 	///
 	/// It's suitable for when you created the key manager without populating it.
 	///
-	/// This also detects the nil-UUID master passphrase verification key
+	/// This also detects any `Root` type keys, that are used for unlocking the key manager.
 	pub async fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
 			if self.keystore.contains_key(&key.uuid) {
@@ -339,7 +345,7 @@ impl KeyManager {
 		Ok(())
 	}
 
-	/// This function removes a key from the keystore, the keymount and it's unset as the default.
+	/// This function removes a key from the keystore, keymount and from the default (if set).
 	pub async fn remove_key(&self, uuid: Uuid) -> Result<()> {
 		self.ensure_unlocked().await?;
 
@@ -364,6 +370,7 @@ impl KeyManager {
 		Ok(())
 	}
 
+	/// This is used for changing a master password. It will re-generate a new secret key.
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn change_master_password(
 		&self,
@@ -447,7 +454,7 @@ impl KeyManager {
 
 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
 	///
-	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
+	/// It returns a `Vec<StoredKey>` so they can be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn import_keystore_backup(
 		&self,
@@ -565,9 +572,7 @@ impl KeyManager {
 
 	/// This is used for unlocking the key manager, and requires both the master password and the secret key.
 	///
-	/// The master password and secret key are hashed together.
-	///
-	/// Only provide the secret key if it should not/can not be sourced from an OS keychain (e.g. web, OS keychains not enabled/available, etc).
+	/// Only provide the secret key if it should not/can not be sourced from an OS keyring (e.g. web, OS keyrings not enabled/available, etc).
 	///
 	/// This minimizes the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
 	///
@@ -681,11 +686,7 @@ impl KeyManager {
 
 	/// This function does not return a value by design.
 	///
-	/// Once a key is mounted, access it with `KeyManager::access()`
-	///
 	/// This is to ensure that only functions which require access to the mounted key receive it.
-	///
-	/// We could add a log to this, so that the user can view mounts
 	pub async fn mount(&self, uuid: Uuid) -> Result<()> {
 		self.ensure_unlocked().await?;
 		self.ensure_not_mounted(uuid)?;
@@ -757,8 +758,6 @@ impl KeyManager {
 	}
 
 	/// This function is used for getting the key value itself, from a given UUID.
-	///
-	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub async fn get_key(&self, uuid: Uuid) -> Result<Password> {
 		self.ensure_unlocked().await?;
 
@@ -799,11 +798,11 @@ impl KeyManager {
 	///
 	/// It does not mount the key, it just registers it.
 	///
-	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to Prisma.
+	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to the database.
 	///
-	/// You may use the returned ID to identify this key.
+	/// You may use the returned UUID to identify this key.
 	///
-	/// You may optionally provide a content salt, if not one will be generated (used primarily for password-based decryption)
+	/// You may optionally provide a content salt, if not one will be generated
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn add_to_keystore(
 		&self,
@@ -906,14 +905,14 @@ impl KeyManager {
 		}
 	}
 
-	/// This allows you to get the default key's ID
+	/// This allows you to get the default key's UUID
 	pub async fn get_default(&self) -> Result<Uuid> {
 		self.ensure_unlocked().await?;
 
 		self.default.lock().await.ok_or(Error::NoDefaultKeySet)
 	}
 
-	/// This should ONLY be used internally.
+	/// This should ONLY be used internally, for accessing the root key.
 	async fn get_root_key(&self) -> Result<Key> {
 		self.root_key.lock().await.clone().ok_or(Error::NotUnlocked)
 	}
@@ -926,6 +925,7 @@ impl KeyManager {
 			.ok_or(Error::NoVerificationKey)
 	}
 
+	/// This is used for checking if a key is memory only.
 	pub async fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
 		self.ensure_unlocked().await?;
 
@@ -934,6 +934,9 @@ impl KeyManager {
 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.memory_only))
 	}
 
+	/// This is for changing the automount status of a key in the keystore.
+	///
+	/// The database needs to be updated externally
 	pub async fn change_automount_status(&self, uuid: Uuid, status: bool) -> Result<()> {
 		self.ensure_unlocked().await?;
 
@@ -954,8 +957,6 @@ impl KeyManager {
 	/// This function is for getting an entire collection of hashed keys.
 	///
 	/// These are ideal for passing over to decryption functions, as each decryption attempt is negligible, performance wise.
-	///
-	/// This means we don't need to keep super specific track of which key goes to which file, and we can just throw all of them at it.
 	#[must_use]
 	pub fn enumerate_hashed_keys(&self) -> Vec<Key> {
 		self.keymount
@@ -987,7 +988,7 @@ impl KeyManager {
 		Ok(updated_key)
 	}
 
-	/// This function is for removing a previously-added master password
+	/// This function is for locking the key manager
 	pub async fn clear_root_key(&self) -> Result<()> {
 		*self.root_key.lock().await = None;
 
@@ -1023,24 +1024,29 @@ impl KeyManager {
 		self.keystore.iter().map(|key| key.clone()).collect()
 	}
 
+	/// This function returns all mounted keys from the key manager
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
 		self.keymount.iter().map(|key| key.uuid).collect()
 	}
 
+	/// This function gets the entire internal key manager queue
 	pub fn get_queue(&self) -> Vec<Uuid> {
 		self.mounting_queue.iter().map(|u| *u).collect()
 	}
 
+	/// This function checks to see if a key is queued
 	pub fn is_queued(&self, uuid: Uuid) -> bool {
 		self.mounting_queue.contains(&uuid)
 	}
 
+	/// This function checks to see if the key manager is unlocking
 	pub async fn is_unlocking(&self) -> Result<bool> {
 		Ok(self
 			.mounting_queue
 			.contains(&self.get_verification_key().await?.uuid))
 	}
 
+	/// This function removes a key from the mounting queue (if present)
 	pub fn remove_from_queue(&self, uuid: Uuid) -> Result<()> {
 		self.mounting_queue
 			.remove(&uuid)

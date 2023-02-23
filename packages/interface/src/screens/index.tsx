@@ -1,12 +1,8 @@
-import { Navigate, Route, RouteProps } from 'react-router-dom';
+import { RouteObject } from 'react-router-dom';
 import { lazyEl } from '~/util';
 import settingsScreens from './settings';
 
-const routes: RouteProps[] = [
-	{
-		index: true,
-		element: <Navigate to="overview" relative="route" />
-	},
+const screens: RouteObject[] = [
 	{
 		path: 'overview',
 		element: lazyEl(() => import('./Overview'))
@@ -22,13 +18,8 @@ const routes: RouteProps[] = [
 		path: 'settings',
 		element: lazyEl(() => import('./settings/_Layout')),
 		children: settingsScreens
-	}
+	},
+	{ path: '*', element: lazyEl(() => import('./NotFound')) }
 ];
 
-export default (
-	<>
-		{routes.map((route) => (
-			<Route key={route.path} {...route} />
-		))}
-	</>
-);
+export default screens;

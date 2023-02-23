@@ -10,7 +10,7 @@ export interface SwitchProps
 
 const switchStyles = cva(
 	[
-		'transition relative flex-shrink-0 inline-flex',
+		'relative inline-flex shrink-0 transition',
 		'items-center rounded-full p-1',
 		'bg-app-line radix-state-checked:bg-accent'
 	],
@@ -28,17 +28,13 @@ const switchStyles = cva(
 	}
 );
 const thumbStyles = cva(
-	[
-		'transition inline-block w-4 h-4',
-		'transform rounded-full bg-white',
-		'shadow-sm shadow-app-shade/40'
-	],
+	['inline-block h-4 w-4 transition', 'rounded-full bg-white', 'shadow-app-shade/40 shadow-sm'],
 	{
 		variants: {
 			size: {
-				sm: 'w-[12px] h-[12px] radix-state-checked:translate-x-[14px]',
-				md: 'w-[19px] h-[19px] radix-state-checked:translate-x-[20px]',
-				lg: 'w-6 h-6 radix-state-checked:translate-x-[23px]'
+				sm: 'radix-state-checked:translate-x-[14px] h-[12px] w-[12px]',
+				md: 'radix-state-checked:translate-x-[20px] h-[19px] w-[19px]',
+				lg: 'radix-state-checked:translate-x-[23px] h-6 w-6'
 			}
 		},
 		defaultVariants: {

@@ -1,11 +1,10 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
+import clsx from 'clsx';
+import { useEffect } from 'react';
+import { Navigate, Outlet, RouteObject, useNavigate } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
 import { tw } from '@sd/ui';
-import clsx from 'clsx';
-import { ComponentType, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router';
-import DragRegion from '~/components/layout/DragRegion'
-
+import DragRegion from '~/components/layout/DragRegion';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import OnboardingCreatingLibrary from './OnboardingCreatingLibrary';
 import OnboardingMasterPassword from './OnboardingMasterPassword';
@@ -14,42 +13,30 @@ import OnboardingPrivacy from './OnboardingPrivacy';
 import OnboardingProgress from './OnboardingProgress';
 import OnboardingStart from './OnboardingStart';
 
-interface OnboardingScreen {
-	/**
-	 * React component for rendering this screen.
-	 */
-	component: ComponentType<Record<string, never>>;
-	/**
-	 * Unique key used to record progression to this screen
-	 */
-	key: string;
-	/**
-	 * Sets whether the user is allowed to skip this screen.
-	 * @default false
-	 */
-	isSkippable?: boolean;
-}
-
-export const ONBOARDING_SCREENS: OnboardingScreen[] = [
+export const ONBOARDING_ROUTES: RouteObject[] = [
 	{
-		component: OnboardingStart,
-		key: 'start'
+		index: true,
+		element: <Navigate to="start" />
 	},
 	{
-		component: OnboardingNewLibrary,
-		key: 'new-library'
+		element: <OnboardingStart />,
+		path: 'start'
 	},
 	{
-		component: OnboardingMasterPassword,
-		key: 'master-password'
+		element: <OnboardingNewLibrary />,
+		path: 'new-library'
 	},
 	{
-		component: OnboardingPrivacy,
-		key: 'privacy'
+		element: <OnboardingMasterPassword />,
+		path: 'master-password'
 	},
 	{
-		component: OnboardingCreatingLibrary,
-		key: 'creating-library'
+		element: <OnboardingPrivacy />,
+		path: 'privacy'
+	},
+	{
+		element: <OnboardingCreatingLibrary />,
+		path: 'creating-library'
 	}
 ];
 
@@ -75,23 +62,23 @@ export default function OnboardingRoot() {
 		<div
 			className={clsx(
 				macOnly(os, 'bg-opacity-[0.75]'),
-				'flex flex-col h-screen bg-sidebar text-ink'
+				'bg-sidebar text-ink flex h-screen flex-col'
 			)}
 		>
-			<DragRegion classNames="h-9 z-50" />
+			<DragRegion className="z-50 h-9" />
 
-			<div className="flex flex-col flex-grow p-10 -mt-5">
-				<div className="flex flex-col items-center justify-center flex-grow">
+			<div className="-mt-5 flex grow flex-col p-10">
+				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
 				</div>
 				<OnboardingProgress />
 			</div>
 			<div className="flex justify-center p-4">
-				<p className="text-xs opacity-50 text-ink-dull">&copy; 2022 Spacedrive Technology Inc.</p>
+				<p className="text-ink-dull text-xs opacity-50">&copy; 2022 Spacedrive Technology Inc.</p>
 			</div>
 			<div className="absolute -z-10">
-				<div className="relative w-screen h-screen">
-					<img src={BloomOne} className="absolute w-[2000px] h-[2000px]" />
+				<div className="relative h-screen w-screen">
+					<img src={BloomOne} className="absolute h-[2000px] w-[2000px]" />
 					{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 				</div>
 			</div>

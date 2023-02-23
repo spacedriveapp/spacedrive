@@ -2,8 +2,8 @@ import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, tw } from '@sd/ui';
+import DragRegion from '~/components/layout/DragRegion';
 import { Divider } from '../explorer/inspector/Divider';
-import DragRegion from '~/components/layout/DragRegion'
 
 interface Props extends PropsWithChildren {
 	title: string;
@@ -26,14 +26,14 @@ export const SettingsSubPage = ({ children, title, topRight }: Props) => {
 				<PageInner>
 					<HeaderArea>
 						<Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-							<div className="flex justify-center w-4 h-4">
+							<div className="flex h-4 w-4 justify-center">
 								<CaretDown
-									className="w-[12px] text-ink-dull transition-transform rotate-90 translate-x-[-1px]"
+									className="text-ink-dull w-[12px] translate-x-[-1px] rotate-90 transition-transform"
 									aria-hidden="true"
 								/>
 							</div>
 						</Button>
-						<h3 className="flex-grow text-lg font-semibold">{title}</h3>
+						<h3 className="grow text-lg font-semibold">{title}</h3>
 						{topRight}
 					</HeaderArea>
 					<div className="px-8">

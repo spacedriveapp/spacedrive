@@ -36,10 +36,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 	if let Err(err) = result {
 		// TODO: Send rspc error or something here so we can show this in the UI.
 		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
-		println!(
-			"Error in Java_com_spacedrive_app_SDCore_registerCoreEventListener: {:?}",
-			err
-		);
+		println!("Error in Java_com_spacedrive_app_SDCore_registerCoreEventListener: {err:?}");
 	}
 }
 
@@ -86,9 +83,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				)
 				.unwrap();
 			}
-			Err(_) => {
-				// TODO: handle error
-			}
+			Err(err) => error!(err),
 		});
 	});
 

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { PropsWithChildren, ReactNode } from 'react';
+import { PropsWithChildren, ReactNode, createContext } from 'react';
 import DragRegion from '~/components/layout/DragRegion';
 
 export function ScreenContainer(
@@ -8,12 +8,12 @@ export function ScreenContainer(
 	return (
 		<div
 			className={clsx(
-				'flex flex-col w-full h-screen custom-scroll page-scroll app-background',
+				'custom-scroll page-scroll app-background flex h-screen w-full flex-col',
 				props.className
 			)}
 		>
 			<DragRegion>{props.dragRegionChildren}</DragRegion>
-			<div className="flex flex-col w-full h-screen p-5 pt-0">{props.children}</div>
+			<div className="flex h-screen w-full flex-col p-5 pt-0">{props.children}</div>
 		</div>
 	);
 }

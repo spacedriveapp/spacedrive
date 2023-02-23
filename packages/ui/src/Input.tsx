@@ -43,7 +43,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClassnames?: string }>(
 	({ variant, size, className, outerClassnames, ...props }, ref) => (
 		<div className={clsx('relative', outerClassnames)}>
-			<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
+			<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
 			<Input
 				{...props}
 				ref={ref}
@@ -74,16 +74,16 @@ export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHi
 		const [showPassword, setShowPassword] = useState(false);
 		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
 		return (
-			<span className="relative flex-grow">
+			<span className="relative grow">
 				<Button
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(
-						'absolute top-1.5 bottom-1.5 right-2 m-auto w-[25px] border-none',
+						'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
 						props.buttonClassnames
 					)}
 				>
-					<CurrentEyeIcon className="w-4 h-4" />
+					<CurrentEyeIcon className="h-4 w-4" />
 				</Button>
 				<input
 					{...props}

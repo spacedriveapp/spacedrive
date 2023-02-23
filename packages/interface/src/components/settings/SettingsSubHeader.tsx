@@ -8,7 +8,7 @@ export interface SettingsSubHeaderProps {
 export const SettingsSubHeader: React.FC<SettingsSubHeaderProps> = (props) => {
 	return (
 		<div className="flex">
-			<div className="flex-grow">
+			<div className="grow">
 				<h1 className="text-xl font-bold">{props.title}</h1>
 			</div>
 			{props.rightArea}

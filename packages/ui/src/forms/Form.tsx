@@ -20,21 +20,26 @@ export const Form = <T extends FieldValues>({
 	onSubmit,
 	children,
 	...props
-}: FormProps<T>) => (
-	<FormProvider {...form}>
-		<form
-			onSubmit={(e) => {
-				e.stopPropagation();
-				return onSubmit(e);
-			}}
-			{...props}
-		>
-			{/* <fieldset> passes the form's 'disabled' state to all of its elements,
+}: FormProps<T>) => {
+	const { className, ...otherProps } = props;
+	return (
+		<FormProvider {...form}>
+			<form
+				onSubmit={(e) => {
+					e.stopPropagation();
+					return onSubmit(e);
+				}}
+				{...otherProps}
+			>
+				{/* <fieldset> passes the form's 'disabled' state to all of its elements,
             allowing us to handle disabled style variants with just css */}
-			<fieldset disabled={form.formState.isSubmitting}>{children}</fieldset>
-		</form>
-	</FormProvider>
-);
+				<fieldset className={className} disabled={form.formState.isSubmitting}>
+					{children}
+				</fieldset>
+			</form>
+		</FormProvider>
+	);
+};
 
 interface UseZodFormProps<S extends z.ZodSchema>
 	extends Exclude<UseFormProps<z.infer<S>>, 'resolver'> {

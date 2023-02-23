@@ -46,8 +46,8 @@ function ExtensionItem(props: { extension: ExtensionItemData }) {
 	return (
 		<Card className="flex-col">
 			<h3 className="mt-2 text-sm font-bold">{name}</h3>
-			<p className="mt-1 mb-1 text-xs text-gray-300">{description}</p>
-			<div className="flex-grow" />
+			<p className="my-1 text-xs text-gray-300">{description}</p>
+			<div className="grow" />
 			<Button size="sm" className="my-2" variant={installed ? 'gray' : 'accent'}>
 				{installed ? 'Installed' : 'Install'}
 			</Button>

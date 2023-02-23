@@ -2,11 +2,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
-import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { ExplorerContext, ExplorerItem, isPath } from '@sd/client';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
-import { isPath } from './utils';
 
 const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;
@@ -116,10 +115,10 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	// );
 
 	return (
-		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-4 cursor-default">
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-4">
 			<div
 				ref={scrollRef}
-				className="h-screen custom-scroll explorer-scroll"
+				className="custom-scroll explorer-scroll h-screen"
 				onClick={(e) => {
 					getExplorerStore().selectedRowIndex = -1;
 				}}
