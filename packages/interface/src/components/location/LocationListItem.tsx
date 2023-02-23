@@ -28,7 +28,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 		<Card
 			className="hover:bg-app-box/70 cursor-pointer"
 			onClick={() => {
-				navigate(`/settings/locations/location/${location.id}`);
+				navigate(`${location.id}`);
 			}}
 		>
 			<Folder size={30} className="mr-3" />

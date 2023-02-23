@@ -1,5 +1,5 @@
 import { Database, DotsSixVertical, Pencil, Trash } from 'phosphor-react';
-import { useBridgeQuery, useCurrentLibrary } from '@sd/client';
+import { useBridgeQuery, useLibraryContext } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, tw } from '@sd/ui';
 import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
@@ -27,7 +27,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 						<Database className="h-4 w-4" />
 					</Tooltip>
 				</Button>
-				<ButtonLink className="!p-1.5" to="/settings/library" variant="gray">
+				<ButtonLink className="!p-1.5" to="../library" variant="gray">
 					<Tooltip label="Edit Library">
 						<Pencil className="h-4 w-4" />
 					</Tooltip>
@@ -53,7 +53,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 export default function LibrarySettings() {
 	const libraries = useBridgeQuery(['library.list']);
 
-	const { library: currentLibrary } = useCurrentLibrary();
+	const { library } = useLibraryContext();
 
 	return (
 		<SettingsContainer>
@@ -78,13 +78,13 @@ export default function LibrarySettings() {
 			<div className="space-y-2">
 				{libraries.data
 					?.sort((a, b) => {
-						if (a.uuid === currentLibrary?.uuid) return -1;
-						if (b.uuid === currentLibrary?.uuid) return 1;
+						if (a.uuid === library.uuid) return -1;
+						if (b.uuid === library.uuid) return 1;
 						return 0;
 					})
 					.map((library) => (
 						<LibraryListItem
-							current={library.uuid === currentLibrary?.uuid}
+							current={library.uuid === library.uuid}
 							key={library.uuid}
 							library={library}
 						/>

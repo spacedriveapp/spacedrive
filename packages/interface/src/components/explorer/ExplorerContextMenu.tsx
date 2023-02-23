@@ -19,8 +19,8 @@ import {
 import { PropsWithChildren, useMemo } from 'react';
 import {
 	ExplorerItem,
-	getLibraryIdRaw,
 	isObject,
+	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
@@ -28,6 +28,7 @@ import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerParams } from '~/screens/LocationExplorer';
+import { useLibraryId } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
@@ -211,18 +212,15 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 }
 
 export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
+	const { library } = useLibraryContext();
 	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	const isUnlockedQuery = useLibraryQuery(['keys.isUnlocked']);
-	const isUnlocked =
-		isUnlockedQuery.data !== undefined && isUnlockedQuery.data === true ? true : false;
-
-	const mountedUuids = useLibraryQuery(['keys.listMounted']);
-	const hasMountedKeys =
-		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
+	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
+	const mountedKeys = useLibraryQuery(['keys.listMounted']);
+	const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
@@ -232,10 +230,10 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Open"
 					keybind="⌘O"
-					onClick={(e) => {
+					onClick={() => {
 						// TODO: Replace this with a proper UI
 						window.location.href = platform.getFileUrl(
-							getLibraryIdRaw()!,
+							library.uuid,
 							store.locationId!,
 							data.item.id
 						);
@@ -255,7 +253,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Duplicate"
 					keybind="⌘D"
-					onClick={(e) => {
+					onClick={() => {
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
 							source_path_id: data.item.id,
@@ -269,7 +267,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Cut"
 					keybind="⌘X"
-					onClick={(e) => {
+					onClick={() => {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
@@ -283,7 +281,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Copy"
 					keybind="⌘C"
-					onClick={(e) => {
+					onClick={() => {
 						getExplorerStore().cutCopyState = {
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
@@ -297,7 +295,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 				<CM.Item
 					label="Deselect"
 					hidden={!store.cutCopyState.active}
-					onClick={(e) => {
+					onClick={() => {
 						getExplorerStore().cutCopyState = {
 							...store.cutCopyState,
 							active: false
@@ -334,7 +332,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						icon={LockSimple}
 						keybind="⌘E"
 						onClick={() => {
-							if (isUnlocked && hasMountedKeys) {
+							if (keyManagerUnlocked && hasMountedKeys) {
 								dialogManager.create((dp) => (
 									<EncryptFileDialog
 										{...dp}
@@ -342,7 +340,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 										path_id={data.item.id}
 									/>
 								));
-							} else if (!isUnlocked) {
+							} else if (!keyManagerUnlocked) {
 								showAlertDialog({
 									title: 'Key manager locked',
 									value: 'The key manager is currently locked. Please unlock it and try again.'
@@ -361,7 +359,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (isUnlocked) {
+							if (keyManagerUnlocked) {
 								dialogManager.create((dp) => (
 									<DecryptFileDialog
 										{...dp}

@@ -1,19 +1,19 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
-import { useCurrentLibrary } from '@sd/client';
+import { Navigate, Outlet } from 'react-router-dom';
+import { ClientContextProvider, LibraryContextProvider, useClientContext } from '@sd/client';
 import { Sidebar } from '~/components/layout/Sidebar';
 import { Toasts } from '~/components/primitive/Toasts';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useLibraryId } from './util';
 
-export function AppLayout() {
-	const { libraries } = useCurrentLibrary();
+function AppLayout() {
+	const { libraries, library } = useClientContext();
+
 	const os = useOperatingSystem();
 
-	// This will ensure nothing is rendered while the `useCurrentLibrary` hook navigates to the onboarding page. This prevents requests with an invalid library id being sent to the backend
-	if (libraries?.length === 0) {
-		return null;
-	}
+	if (library === null && libraries.data)
+		return <Navigate to={`${libraries.data[0].uuid}/overview`} />;
 
 	return (
 		<div
@@ -32,11 +32,27 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full">
-				<Suspense fallback={<div className="bg-app h-screen w-screen" />}>
-					<Outlet />
-				</Suspense>
+				{library ? (
+					<LibraryContextProvider library={library}>
+						<Suspense fallback={<div className="bg-app h-screen w-screen" />}>
+							<Outlet />
+						</Suspense>
+					</LibraryContextProvider>
+				) : (
+					<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
+				)}
 			</div>
 			<Toasts />
 		</div>
 	);
 }
+
+export default () => {
+	const currentLibraryId = useLibraryId();
+
+	return (
+		<ClientContextProvider currentLibraryId={currentLibraryId ?? null}>
+			<AppLayout />
+		</ClientContextProvider>
+	);
+};

@@ -11,19 +11,12 @@ import {
 	MusicNote,
 	Wrench
 } from 'phosphor-react';
-import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { proxy } from 'valtio';
-import {
-	Statistics,
-	onLibraryChange,
-	queryClient,
-	useCurrentLibrary,
-	useLibraryQuery
-} from '@sd/client';
+import { Statistics, useLibraryQuery } from '@sd/client';
 import { Card } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
+import { useLibraryId } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
@@ -39,63 +32,32 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
+const EMPTY_STATISTICS = {
+	id: 0,
+	date_captured: '',
+	total_bytes_capacity: '0',
+	preview_media_bytes: '0',
+	library_db_size: '0',
+	total_object_count: 0,
+	total_bytes_free: '0',
+	total_bytes_used: '0',
+	total_unique_bytes: '0'
+};
+
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
-export const state = proxy({
-	lastRenderedLibraryId: undefined as string | undefined
-});
+let overviewMounted = false;
 
-onLibraryChange((newLibraryId) => {
-	state.lastRenderedLibraryId = undefined;
-
-	// TODO: Fix
-	// This is bad solution to the fact that the hooks don't rerun when opening a library that is already cached.
-	// This is because the count never drops back to zero as their is no loading state given the libraries data was already in the React Query cache.
-	queryClient.setQueryData(
-		[
-			'library.getStatistics',
-			{
-				library_id: newLibraryId,
-				arg: null
-			}
-		],
-		{
-			id: 0,
-			date_captured: '',
-			total_bytes_capacity: '0',
-			preview_media_bytes: '0',
-			library_db_size: '0',
-			total_object_count: 0,
-			total_bytes_free: '0',
-			total_bytes_used: '0',
-			total_unique_bytes: '0'
-		}
-	);
-	queryClient.invalidateQueries(['library.getStatistics']);
-});
-
-const StatItem: React.FC<StatItemProps> = (props) => {
-	const { library } = useCurrentLibrary();
+const StatItem = (props: StatItemProps) => {
 	const { title, bytes = BigInt('0'), isLoading } = props;
 
 	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 	const count = useCounter({
 		name: title,
 		end: +size.value,
-		duration: state.lastRenderedLibraryId === library?.uuid ? 0 : undefined,
+		duration: overviewMounted ? 0 : 1,
 		saveState: false
 	});
-
-	if (count !== 0 && count == +size.value) {
-		state.lastRenderedLibraryId = library?.uuid;
-	}
-
-	useEffect(() => {
-		return () => {
-			if (count !== 0) state.lastRenderedLibraryId = library?.uuid;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
 
 	return (
 		<div
@@ -126,23 +88,13 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export default function OverviewScreen() {
 	const platform = usePlatform();
-	const { library } = useCurrentLibrary();
-	const { data: overviewStats, isLoading: isStatisticsLoading } = useLibraryQuery(
-		['library.getStatistics'],
-		{
-			initialData: {
-				id: 0,
-				date_captured: '',
-				total_bytes_capacity: '0',
-				preview_media_bytes: '0',
-				library_db_size: '0',
-				total_object_count: 0,
-				total_bytes_free: '0',
-				total_bytes_used: '0',
-				total_unique_bytes: '0'
-			}
-		}
-	);
+	const libraryId = useLibraryId();
+
+	const stats = useLibraryQuery(['library.getStatistics'], {
+		initialData: { ...EMPTY_STATISTICS }
+	});
+
+	overviewMounted = true;
 
 	return (
 		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
@@ -154,14 +106,14 @@ export default function OverviewScreen() {
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
 					<div className="-mb-1 flex h-20 overflow-hidden">
-						{Object.entries(overviewStats || []).map(([key, value]) => {
+						{Object.entries(stats?.data || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 							return (
 								<StatItem
-									key={library?.uuid + ' ' + key}
+									key={`${libraryId} ${key}`}
 									title={StatItemNames[key as keyof Statistics]!}
 									bytes={BigInt(value)}
-									isLoading={platform.demoMode === true ? false : isStatisticsLoading}
+									isLoading={platform.demoMode ? false : stats.isLoading}
 								/>
 							);
 						})}
@@ -179,7 +131,6 @@ export default function OverviewScreen() {
 					<CategoryButton icon={MusicNote} category="Music" />
 					<CategoryButton icon={Image} category="Albums" />
 					<CategoryButton icon={Heart} category="Favorites" />
-					<Debug />
 				</div>
 				<Card className="text-ink-dull">
 					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
@@ -189,14 +140,6 @@ export default function OverviewScreen() {
 			</div>
 		</div>
 	);
-}
-
-// TODO(@Oscar): Remove this
-function Debug() {
-	// const org = useBridgeQuery(['normi.org']);
-	// console.log(org.data);
-
-	return null;
 }
 
 interface CategoryButtonProps {

@@ -2,17 +2,18 @@ import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
+import { useLibraryId } from '~/util';
 import { showAlertDialog } from '~/util/dialog';
-import { DefaultProps } from '../primitive/types';
 import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
 
-export type KeyManagerProps = DefaultProps;
+export function KeyManager() {
+	const libraryId = useLibraryId();
 
-export function KeyManager(props: KeyManagerProps) {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' });
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
+
 	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
 		onError: () => {
 			showAlertDialog({
@@ -94,12 +95,7 @@ export function KeyManager(props: KeyManagerProps) {
 				</Button>
 				{!enterSkManually && (
 					<div className="relative flex grow">
-						<p
-							className="text-accent mt-2"
-							onClick={(e) => {
-								setEnterSkManually(true);
-							}}
-						>
+						<p className="text-accent mt-2" onClick={() => setEnterSkManually(true)}>
 							or enter secret key manually
 						</p>
 					</div>
@@ -131,7 +127,7 @@ export function KeyManager(props: KeyManagerProps) {
 								<Lock className="text-ink-faint h-4 w-4" />
 							</Button>
 							<ButtonLink
-								to="/settings/keys"
+								to={`/${libraryId}/settings/overview`}
 								size="icon"
 								variant="subtle"
 								className="text-ink-faint"
