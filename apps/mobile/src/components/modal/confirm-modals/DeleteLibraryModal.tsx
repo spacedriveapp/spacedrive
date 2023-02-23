@@ -9,7 +9,7 @@ type Props = {
 };
 
 const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
-	const modalRef = useRef<ModalRef>();
+	const modalRef = useRef<ModalRef>(null);
 
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(
 		'library.delete',
@@ -19,12 +19,13 @@ const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
 				onSubmit?.();
 			},
 			onSettled: () => {
-				modalRef.current.close();
+				modalRef.current?.close();
 			}
 		}
 	);
 	return (
 		<ConfirmModal
+			ref={modalRef}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."
 			ctaLabel="Delete"

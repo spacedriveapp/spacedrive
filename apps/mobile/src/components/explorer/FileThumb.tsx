@@ -1,3 +1,4 @@
+import { PropsWithChildren } from 'react';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
 import { ExplorerItem, isObject, isPath } from '@sd/client';
@@ -18,7 +19,7 @@ type FileThumbProps = {
 export const getThumbnailUrlById = (casId: string) =>
 	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
-const FileThumbWrapper = ({ children, size = 1 }) => (
+const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
 	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
 		{children}
 	</View>
@@ -38,7 +39,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 		);
 
 	const casId = isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id;
-	if (!casId) return undefined;
+	if (!casId) return null;
 
 	// Icon
 	let icon = undefined;

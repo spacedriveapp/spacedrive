@@ -14,7 +14,7 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	data: ExplorerData;
+	data: ExplorerData | undefined;
 };
 
 const Explorer = ({ data }: ExplorerProps) => {
@@ -22,7 +22,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
 
-	function changeLayoutMode(kind) {
+	function changeLayoutMode(kind: 'grid' | 'list') {
 		// We need to keep layoutMode as a state to make sure flash-list re-renders.
 		setLayoutMode(kind);
 		getExplorerStore().layoutMode = kind;
@@ -35,7 +35,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 			navigation.push('Location', { id: data.item.location_id, path: data.item.materialized_path });
 		} else {
 			setData(data);
-			modalRef.current.present();
+			modalRef.current?.present();
 		}
 	}
 

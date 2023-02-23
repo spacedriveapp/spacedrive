@@ -13,11 +13,13 @@ const sortOptions = {
 	date_last_opened: 'Date Last Opened'
 };
 
+type SortByType = keyof typeof sortOptions;
+
 const ArrowUpIcon = () => <ArrowUp weight="bold" size={16} color={tw.color('ink')} />;
 const ArrowDownIcon = () => <ArrowDown weight="bold" size={16} color={tw.color('ink')} />;
 
 const SortByMenu = () => {
-	const [sortBy, setSortBy] = useState('name');
+	const [sortBy, setSortBy] = useState<SortByType>('name');
 	const [sortDirection, setSortDirection] = useState('asc' as 'asc' | 'desc');
 
 	return (
@@ -32,7 +34,9 @@ const SortByMenu = () => {
 			{Object.entries(sortOptions).map(([value, text]) => (
 				<MenuItem
 					key={value}
-					icon={value === sortBy && (sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon)}
+					icon={
+						value === sortBy ? (sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon) : undefined
+					}
 					text={text}
 					value={value}
 					onSelect={() => {
@@ -42,7 +46,7 @@ const SortByMenu = () => {
 						}
 						// Reset sort direction to descending
 						sortDirection === 'asc' && setSortDirection('desc');
-						setSortBy(value);
+						setSortBy(value as SortByType);
 					}}
 				/>
 			))}

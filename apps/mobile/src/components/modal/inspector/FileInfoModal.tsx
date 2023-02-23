@@ -31,7 +31,7 @@ function MetaItem({ title, value, icon }: MetaItemProps) {
 		<>
 			<View style={tw`flex flex-row items-center`}>
 				<View style={tw`w-30 flex flex-row items-center`}>
-					{icon && <Icon color="white" size={18} style={tw`mr-1`} />}
+					{Icon && <Icon color="white" size={18} style={tw`mr-1`} />}
 					<Text style={tw`text-sm font-medium text-white`}>{title}</Text>
 				</View>
 				<Text style={tw`text-sm text-gray-400`}>{value}</Text>
@@ -42,7 +42,7 @@ function MetaItem({ title, value, icon }: MetaItemProps) {
 }
 
 type FileInfoModalProps = {
-	data: ExplorerItem;
+	data: ExplorerItem | null;
 };
 
 const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
@@ -69,13 +69,13 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			{data && (
 				<ModalScrollView style={tw`flex-1 p-4`}>
 					{/* Back Button */}
-					<Pressable onPress={() => modalRef.current.close()} style={tw`absolute z-10 ml-4`}>
+					<Pressable onPress={() => modalRef.current?.close()} style={tw`absolute z-10 ml-4`}>
 						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
 					</Pressable>
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{item.name}</Text>
+						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{item?.name}</Text>
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
@@ -99,19 +99,21 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							icon={Clock}
 							title="Created"
-							value={dayjs(item.date_created).format('MMM Do YYYY')}
+							value={dayjs(item?.date_created).format('MMM Do YYYY')}
 						/>
 						{/* Indexed */}
 						<MetaItem
 							icon={Barcode}
 							title="Indexed"
-							value={dayjs(item.date_indexed).format('MMM Do YYYY')}
+							value={dayjs(item?.date_indexed).format('MMM Do YYYY')}
 						/>
 
 						{filePathData && (
 							<>
 								{/* TODO: Note */}
-								<MetaItem icon={Snowflake} title="Content ID" value={filePathData.cas_id} />
+								{filePathData.cas_id && (
+									<MetaItem icon={Snowflake} title="Content ID" value={filePathData.cas_id} />
+								)}
 								{/* Checksum */}
 								{filePathData?.integrity_checksum && (
 									<MetaItem
