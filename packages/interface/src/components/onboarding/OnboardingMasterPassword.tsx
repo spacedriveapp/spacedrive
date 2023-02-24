@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
 import { Button, Card, forms } from '@sd/ui';
-import { PasswordMeter } from '../key/PasswordMeter';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './OnboardingRoot';
+
+const PasswordMeter = lazy(() => import('../key/PasswordMeter'));
 
 const { PasswordShowHideInput, z, useZodForm, Form } = forms;
 
