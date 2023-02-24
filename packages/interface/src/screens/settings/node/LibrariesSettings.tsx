@@ -82,12 +82,8 @@ export default function LibrarySettings() {
 						if (b.uuid === library.uuid) return 1;
 						return 0;
 					})
-					.map((library) => (
-						<LibraryListItem
-							current={library.uuid === library.uuid}
-							key={library.uuid}
-							library={library}
-						/>
+					.map((lib) => (
+						<LibraryListItem current={lib.uuid === library.uuid} key={lib.uuid} library={lib} />
 					))}
 			</div>
 		</SettingsContainer>
