@@ -9,19 +9,20 @@ type Props = {
 };
 
 const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
-	const modalRef = useRef<ModalRef>();
+	const modalRef = useRef<ModalRef>(null);
 
 	const { mutate: deleteTag, isLoading: deleteTagLoading } = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
 			onSubmit?.();
 		},
 		onSettled: () => {
-			modalRef.current.close();
+			modalRef.current?.close();
 		}
 	});
 
 	return (
 		<ConfirmModal
+			ref={modalRef}
 			title="Delete Tag"
 			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 			ctaLabel="Delete"

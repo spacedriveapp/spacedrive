@@ -14,7 +14,7 @@ function Index() {
 
 	const currentLibrary = libraries.data.find((l) => l.uuid === currentLibraryCache.id);
 
-	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0].uuid;
+	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
 
 	return <Navigate to={`${libraryId}/overview`} />;
 }

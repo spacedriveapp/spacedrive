@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function DocsSidebar(props: Props) {
-	const activeSection = props.activePath?.split('/')[0] || props.navigation[0].slug;
+	const activeSection = props.activePath?.split('/')[0] || props.navigation[0]?.slug;
 
 	const activeSectionData = props.navigation.find((section) => section.slug === activeSection);
 
@@ -27,7 +27,7 @@ export default function DocsSidebar(props: Props) {
 					const Icon = config.sections.find((s) => s.slug === section.slug)?.icon;
 					return (
 						<a
-							href={`/docs/${section.section[0].category[0].url}`}
+							href={`/docs/${section.section[0]?.category[0]?.url}`}
 							key={section.slug}
 							className={clsx(
 								`doc-sidebar-button flex items-center py-1.5 text-[14px] font-semibold`,

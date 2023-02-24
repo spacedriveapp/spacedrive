@@ -41,10 +41,10 @@ export function parseMarkdown(markdownRaw: string): MarkdownParsed {
 				return text;
 			} else {
 				const rawText = rawSplit[index],
-					meta = rawText.split(/\r?\n/)[0].trim(),
+					meta = rawText!.split(/\r?\n/)[0]!.trim(),
 					kind = meta.split(' ')[0],
 					name = meta.split(' ')[1],
-					extra = meta.substring(kind.length + name.length + 2),
+					extra = meta.substring(kind!.length + name!.length + 2),
 					content = text.substring(meta.length + 1, text.length).trim();
 
 				// console.log({ kind, name, extra, content });

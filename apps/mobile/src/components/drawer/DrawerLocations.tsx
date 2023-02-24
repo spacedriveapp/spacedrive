@@ -36,7 +36,7 @@ type DrawerLocationsProp = {
 const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	const importModalRef = useRef<ModalRef>();
+	const importModalRef = useRef<ModalRef>(null);
 
 	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 
@@ -62,7 +62,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					))}
 				</View>
 				{/* Add Location */}
-				<Pressable onPress={() => importModalRef.current.present()}>
+				<Pressable onPress={() => importModalRef.current?.present()}>
 					<View style={tw`border-app-line/80 mt-1 rounded border border-dashed`}>
 						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Location</Text>
 					</View>

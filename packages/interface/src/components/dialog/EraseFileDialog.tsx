@@ -56,9 +56,9 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 							min={1}
 							step={1}
 							defaultValue={[4]}
-							onValueChange={(e) => {
-								setPasses(e);
-								form.setValue('passes', e[0]);
+							onValueChange={(val) => {
+								setPasses(val);
+								form.setValue('passes', val[0] ?? 1);
 							}}
 						/>
 					</div>

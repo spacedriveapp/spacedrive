@@ -35,7 +35,7 @@ const DrawerLibraryManager = () => {
 							: 'border-b-app-box border-sidebar-line bg-sidebar-button rounded-t-md'
 					)}
 				>
-					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary.config.name}</Text>
+					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
 							rotate: dropdownClosed ? '0deg' : '180deg',
@@ -57,13 +57,13 @@ const DrawerLibraryManager = () => {
 								<View
 									style={twStyle(
 										'mt-1 p-2',
-										currentLibrary.uuid === library.uuid && 'bg-accent rounded'
+										currentLibrary?.uuid === library.uuid && 'bg-accent rounded'
 									)}
 								>
 									<Text
 										style={twStyle(
 											'text-ink text-sm font-semibold',
-											currentLibrary.uuid === library.uuid && 'text-white'
+											currentLibrary?.uuid === library.uuid && 'text-white'
 										)}
 									>
 										{library.config.name}

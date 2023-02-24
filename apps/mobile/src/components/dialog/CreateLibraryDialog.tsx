@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { queryClient, useBridgeMutation } from '@sd/client';
+import { Input } from '~/components/form/Input';
 import Dialog from '~/components/layout/Dialog';
-import { Input } from '~/components/primitive/Input';
 import { currentLibraryStore } from '~/utils/nav';
 
 type Props = {

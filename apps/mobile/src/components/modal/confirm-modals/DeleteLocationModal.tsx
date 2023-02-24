@@ -9,7 +9,7 @@ type Props = {
 };
 
 const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
-	const modalRef = useRef<ModalRef>();
+	const modalRef = useRef<ModalRef>(null);
 
 	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
 		'locations.delete',
@@ -18,7 +18,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
 				onSubmit?.();
 			},
 			onSettled: () => {
-				modalRef.current.close();
+				modalRef.current?.close();
 			}
 		}
 	);
