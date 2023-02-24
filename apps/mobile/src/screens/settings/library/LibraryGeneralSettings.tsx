@@ -5,7 +5,8 @@ import { Alert, Text, View } from 'react-native';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
-import { Button } from '~/components/primitive/Button';
+import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
+import { AnimatedButton, Button } from '~/components/primitive/Button';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
@@ -61,14 +62,18 @@ const LibraryGeneralSettingsScreen = ({
 			<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
 			<View style={tw`mt-4`} />
 			{/* Delete Library */}
-			{/* TODO: Open delete library dialog here, but do handle library switching and what happens if there is no library set ? */}
 			<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
 				<SettingsItem
 					title="Delete Library"
 					rightArea={
-						<Button size="sm" variant="danger" onPress={() => Alert.alert('TODO')}>
-							<Trash color={tw.color('ink')} size={20} />
-						</Button>
+						<DeleteLibraryModal
+							libraryUuid={library.uuid}
+							trigger={
+								<AnimatedButton size="sm" variant="danger">
+									<Trash color={tw.color('ink')} size={20} />
+								</AnimatedButton>
+							}
+						/>
 					}
 				/>
 			</SettingsContainer>
