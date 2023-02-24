@@ -4,7 +4,7 @@ import { AnimatedButton } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
-const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
+const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted'>) => {
 	return (
 		<View style={tw`bg-app z-10 flex-1 items-center justify-around p-4`}>
 			{/* Logo */}
@@ -29,7 +29,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 			</View>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200}>
-				<AnimatedButton variant="accent" onPress={() => navigation.navigate('CreateLibrary')}>
+				<AnimatedButton variant="accent" onPress={() => navigation.navigate('NewLibrary')}>
 					<Text style={tw`text-ink px-6 py-2 text-center text-base font-medium`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
@@ -37,4 +37,4 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 	);
 };
 
-export default OnboardingScreen;
+export default GetStartedScreen;

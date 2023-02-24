@@ -4,7 +4,7 @@ import { AnimatedButton } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
-const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateLibrary'>) => {
+const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {
 	return (
 		<View style={tw`bg-app flex-1 items-center justify-center p-4`}>
 			<Text style={tw`text-ink-dull my-8 px-6 text-center text-base leading-relaxed`}>
@@ -21,4 +21,4 @@ const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateL
 	);
 };
 
-export default CreateLibraryScreen;
+export default NewLibraryScreen;
