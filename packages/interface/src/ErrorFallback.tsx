@@ -9,6 +9,20 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 	};
 
 	return (
+		<ErrorPage message={error.message} sendReportBtn={onClick} reloadBtn={resetErrorBoundary} />
+	);
+}
+
+export function ErrorPage({
+	reloadBtn,
+	sendReportBtn,
+	message
+}: {
+	reloadBtn?: () => void;
+	sendReportBtn?: () => void;
+	message: string;
+}) {
+	return (
 		<div
 			data-tauri-drag-region
 			role="alert"
@@ -16,14 +30,18 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 		>
 			<p className="text-ink-faint m-3 text-sm font-bold">APP CRASHED</p>
 			<h1 className="text-ink text-2xl font-bold">We're past the event horizon...</h1>
-			<pre className="text-ink m-2">Error: {error.message}</pre>
+			<pre className="text-ink m-2">Error: {message}</pre>
 			<div className="text-ink flex flex-row space-x-2">
-				<Button variant="accent" className="mt-2" onClick={resetErrorBoundary}>
-					Reload
-				</Button>
-				<Button variant="gray" className="mt-2" onClick={onClick}>
-					Send report
-				</Button>
+				{reloadBtn && (
+					<Button variant="accent" className="mt-2" onClick={reloadBtn}>
+						Reload
+					</Button>
+				)}
+				{sendReportBtn && (
+					<Button variant="gray" className="mt-2" onClick={sendReportBtn}>
+						Send report
+					</Button>
+				)}
 			</div>
 		</div>
 	);

@@ -3,11 +3,11 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{error::Error, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
+use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
-use tauri::{api::path, async_runtime::block_on, Manager, RunEvent};
+use tauri::{api::path, async_runtime::block_on, plugin::TauriPlugin, Manager, RunEvent, Runtime};
 use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
 
@@ -26,8 +26,14 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	window.show().unwrap();
 }
 
+pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
+	tauri::plugin::Builder::new("spacedrive")
+		.js_init_script(format!(r#"window.__SD_ERROR__ = "{}";"#, err.to_string()))
+		.build()
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> tauri::Result<()> {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
@@ -35,21 +41,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
-	let (node, router) = Node::new(data_dir).await?;
+	let result = Node::new(data_dir).await;
 
-	let app = tauri::Builder::default().plugin(rspc::integrations::tauri::plugin(router, {
-		let node = Arc::clone(&node);
-		move || node.get_request_context()
-	}));
+	let app = tauri::Builder::default();
+	let (node, app) = match result {
+		Ok((node, router)) => {
+			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
+			let endpoint = create_custom_uri_endpoint(Arc::clone(&node));
 
-	// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-	let endpoint = create_custom_uri_endpoint(Arc::clone(&node));
+			#[cfg(target_os = "linux")]
+			let app = app_linux::setup(app, Arc::clone(&node), endpoint).await;
 
-	#[cfg(target_os = "linux")]
-	let app = app_linux::setup(app, Arc::clone(&node), endpoint).await;
+			#[cfg(not(target_os = "linux"))]
+			let app = app.register_uri_scheme_protocol(
+				"spacedrive",
+				endpoint.tauri_uri_scheme("spacedrive"),
+			);
 
-	#[cfg(not(target_os = "linux"))]
-	let app = app.register_uri_scheme_protocol("spacedrive", endpoint.tauri_uri_scheme("spacedrive"));
+			let app = app.plugin(rspc::integrations::tauri::plugin(router, {
+				let node = Arc::clone(&node);
+				move || node.get_request_context()
+			}));
+
+			(Some(node), app)
+		}
+		Err(err) => (None, app.plugin(tauri_error_plugin(err))),
+	};
 
 	let app = app
 		.setup(|app| {
@@ -104,7 +121,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					}
 				});
 
-			block_in_place(|| block_on(node.shutdown()));
+			if let Some(node) = &node {
+				block_in_place(|| block_on(node.shutdown()));
+			}
 			app_handler.exit(0);
 		}
 	});
