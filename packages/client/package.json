@@ -18,7 +18,10 @@
 		"@rspc/react": "^0.0.0-main-7c0a67c1",
 		"@sd/config": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",
-		"valtio": "^1.7.4"
+		"valtio": "^1.7.4",
+		"@zxcvbn-ts/core": "^2.1.0",
+		"@zxcvbn-ts/language-common": "^2.0.1",
+		"@zxcvbn-ts/language-en": "^2.1.0"
 	},
 	"devDependencies": {
 		"@types/react": "^18.0.21",

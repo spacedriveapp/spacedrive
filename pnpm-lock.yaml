@@ -374,6 +374,9 @@ importers:
       '@sd/config': workspace:*
       '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
+      '@zxcvbn-ts/core': ^2.1.0
+      '@zxcvbn-ts/language-common': ^2.0.1
+      '@zxcvbn-ts/language-en': ^2.1.0
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.8.4
@@ -383,6 +386,9 @@ importers:
       '@rspc/react': 0.0.0-main-7c0a67c1_tqsbl3x6ixew47ctvte2nz2yki
       '@sd/config': link:../config
       '@tanstack/react-query': 4.22.0
+      '@zxcvbn-ts/core': 2.1.0
+      '@zxcvbn-ts/language-common': 2.0.1
+      '@zxcvbn-ts/language-en': 2.1.0
       valtio: 1.9.0
     devDependencies:
       '@types/react': 18.0.27
@@ -439,9 +445,6 @@ importers:
       '@types/react-dom': ^18.0.6
       '@types/react-router-dom': ^5.3.3
       '@vitejs/plugin-react': ^2.1.0
-      '@zxcvbn-ts/core': ^2.1.0
-      '@zxcvbn-ts/language-common': ^2.0.1
-      '@zxcvbn-ts/language-en': ^2.1.0
       autoprefixer: ^10.4.12
       byte-size: ^8.1.0
       class-variance-authority: ^0.4.0
@@ -489,9 +492,6 @@ importers:
       '@tanstack/react-query-devtools': 4.22.0_gp275tdwez2a4eujt75dnnp754
       '@tanstack/react-virtual': 3.0.0-beta.18_react@18.2.0
       '@vitejs/plugin-react': 2.2.0_vite@4.0.4
-      '@zxcvbn-ts/core': 2.1.0
-      '@zxcvbn-ts/language-common': 2.0.1
-      '@zxcvbn-ts/language-en': 2.1.0
       autoprefixer: 10.4.13
       byte-size: 8.1.0
       class-variance-authority: 0.4.0_typescript@4.9.4
@@ -8394,7 +8394,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - supports-color
 
@@ -21023,7 +21023,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -21119,6 +21119,7 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -21186,7 +21187,6 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}
