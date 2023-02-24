@@ -1,5 +1,6 @@
 import { captureException } from '@sentry/browser';
 import { FallbackProps } from 'react-error-boundary';
+import { useDebugState } from '@sd/client';
 import { Button } from '@sd/ui';
 
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
@@ -7,6 +8,8 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 		captureException(error);
 		resetErrorBoundary();
 	};
+
+	const debug = useDebugState();
 
 	return (
 		<div
@@ -17,6 +20,11 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 			<p className="text-ink-faint m-3 text-sm font-bold">APP CRASHED</p>
 			<h1 className="text-ink text-2xl font-bold">We're past the event horizon...</h1>
 			<pre className="text-ink m-2">Error: {error.message}</pre>
+			{debug.enabled && (
+				<pre className="text-ink-dull m-2 text-sm">
+					Check the console (CMD/CRTL + OPTION + i) for stack trace.
+				</pre>
+			)}
 			<div className="text-ink flex flex-row space-x-2">
 				<Button variant="accent" className="mt-2" onClick={resetErrorBoundary}>
 					Reload

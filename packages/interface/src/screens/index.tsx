@@ -11,11 +11,12 @@ const screens: RouteObject[] = [
 	{ path: 'media', element: lazyEl(() => import('./Media')) },
 	{ path: 'spaces', element: lazyEl(() => import('./Spaces')) },
 	{ path: 'debug', element: lazyEl(() => import('./Debug')) },
+	{ path: 'spacedrop', element: lazyEl(() => import('./Spacedrop')) },
 	{ path: 'location/:id', element: lazyEl(() => import('./LocationExplorer')) },
 	{ path: 'tag/:id', element: lazyEl(() => import('./TagExplorer')) },
 	{
 		path: 'settings',
-		element: lazyEl(() => import('./settings/Layout')),
+		element: lazyEl(() => import('./settings/_Layout')),
 		children: settingsScreens
 	},
 	{ path: '*', element: lazyEl(() => import('./NotFound')) }

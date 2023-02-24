@@ -2,6 +2,7 @@ import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, tw } from '@sd/ui';
+import DragRegion from '~/components/layout/DragRegion';
 import { Divider } from '../explorer/inspector/Divider';
 
 interface Props extends PropsWithChildren {
@@ -20,7 +21,7 @@ export const SettingsSubPage = ({ children, title, topRight }: Props) => {
 
 	return (
 		<PageOuter>
-			<div data-tauri-drag-region className="absolute h-5 w-full" />
+			<DragRegion />
 			<Page>
 				<PageInner>
 					<HeaderArea>

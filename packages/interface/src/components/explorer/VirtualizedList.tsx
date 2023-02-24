@@ -115,7 +115,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	// );
 
 	return (
-		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-2">
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-4">
 			<div
 				ref={scrollRef}
 				className="custom-scroll explorer-scroll h-screen"

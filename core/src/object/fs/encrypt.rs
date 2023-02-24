@@ -98,7 +98,7 @@ impl StatefulJob for FileEncryptorJob {
 				|| {
 					let mut path = info.fs_path.clone();
 					let extension = path.extension().map_or_else(
-						|| Ok("sdenc".to_string()),
+						|| Ok("bytes".to_string()),
 						|extension| {
 							Ok::<String, JobError>(
 								extension
@@ -108,7 +108,7 @@ impl StatefulJob for FileEncryptorJob {
 											"path contents when converted to string",
 										),
 									})?
-									.to_string() + ".sdenc",
+									.to_string() + ".bytes",
 							)
 						},
 					)?;
