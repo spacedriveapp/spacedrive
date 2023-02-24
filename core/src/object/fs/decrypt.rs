@@ -9,7 +9,7 @@ use tokio::fs::File;
 
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 
-use super::{context_menu_fs_info, FsInfo};
+use super::{context_menu_fs_info, FsInfo, BYTES};
 pub struct FileDecryptorJob;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobState {}
@@ -74,7 +74,7 @@ impl StatefulJob for FileDecryptorJob {
 			|| {
 				let mut path = info.fs_path.clone();
 				let extension = path.extension().map_or("decrypted", |ext| {
-					if ext == ".bytes" {
+					if ext == BYTES {
 						""
 					} else {
 						"decrypted"
