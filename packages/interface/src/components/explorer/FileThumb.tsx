@@ -24,8 +24,6 @@ interface Props {
 
 export default function FileThumb({ data, ...props }: Props) {
 	const platform = usePlatform();
-	const store = useExplorerStore();
-
 	// const Icon = useMemo(() => {
 	// 	const icon = icons[`../../../../assets/icons/${item.extension}.svg`];
 
