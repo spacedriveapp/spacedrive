@@ -113,6 +113,19 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?)
 			})
 		})
+		// .library_mutation("create", |t| {
+		// 	#[derive(Type, Deserialize)]
+		// 	pub struct TagCreateArgs {
+		// 		pub name: String,
+		// 		pub color: String,
+		// 	}
+		// 	t(|_, args: TagCreateArgs, library| async move {
+		// 		let created_tag = Tag::new(args.name, args.color);
+		// 		created_tag.save(&library.db).await?;
+		// 		invalidate_query!(library, "tags.list");
+		// 		Ok(created_tag)
+		// 	})
+		// })
 		.library_mutation("create", |t| {
 			#[derive(Type, Deserialize)]
 			pub struct TagCreateArgs {

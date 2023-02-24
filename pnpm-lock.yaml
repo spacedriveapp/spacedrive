@@ -8394,7 +8394,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
 
@@ -21023,7 +21023,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -21119,7 +21119,6 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -21187,6 +21186,7 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

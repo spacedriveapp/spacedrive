@@ -1,7 +1,7 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
-import { Button, Input, dialogManager } from '@sd/ui';
+import { Button, Input, SearchInput, dialogManager } from '@sd/ui';
 import AddLocationDialog from '~/components/dialog/AddLocationDialog';
 import LocationListItem from '~/components/location/LocationListItem';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
@@ -20,14 +20,11 @@ export default function LocationSettings() {
 				description="Manage your storage locations."
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
-						<div className="relative hidden lg:block">
-							<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
-							<Input className="!p-0.5 !pl-9" placeholder="Search locations" />
-						</div>
+						<SearchInput placeholder="Search locations" />
 
 						<Button
 							variant="accent"
-							size="sm"
+							size="md"
 							onClick={() => {
 								if (platform.platform === 'web') {
 									dialogManager.create((dp) => <AddLocationDialog {...dp} />);

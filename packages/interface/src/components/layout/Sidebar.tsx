@@ -1,17 +1,21 @@
-import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import clsx from 'clsx';
 import {
+	ArchiveBox,
+	Broadcast,
 	CheckCircle,
 	CirclesFour,
+	CopySimple,
+	Crosshair,
+	Eraser,
+	FilmStrip,
 	Gear,
 	Lock,
 	MonitorPlay,
 	Planet,
-	Plus,
-	UsersThree
+	Plus
 } from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
-import { NavLink, NavLinkProps, useLocation } from 'react-router-dom';
+import { Link, NavLink, NavLinkProps, useLocation } from 'react-router-dom';
 import {
 	Location,
 	LocationCreateArgs,
@@ -46,6 +50,7 @@ import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
+import { SubtleButton } from '../primitive/SubtleButton';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
@@ -136,17 +141,43 @@ export function Sidebar() {
 						<Icon component={CirclesFour} />
 						Spaces
 					</SidebarLink>
-					<SidebarLink to="people">
+					{/* <SidebarLink to="people">
 						<Icon component={UsersThree} />
 						People
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="media">
 						<Icon component={MonitorPlay} />
 						Media
 					</SidebarLink>
+					<SidebarLink to="spacedrop">
+						<Icon component={Broadcast} />
+						Spacedrop
+					</SidebarLink>
+					<SidebarLink to="imports">
+						<Icon component={ArchiveBox} />
+						Imports
+					</SidebarLink>
 				</div>
-				{library && <LibraryScopedSection key={library.uuid} />}
-				<div className="grow" />
+				{library && <LibraryScopedSection />}
+				<SidebarSection name="Tools" actionArea={<SubtleButton />}>
+					<SidebarLink to="duplicate-finder">
+						<Icon component={CopySimple} />
+						Duplicate Finder
+					</SidebarLink>
+					<SidebarLink to="lost-and-found">
+						<Icon component={Crosshair} />
+						Find a File
+					</SidebarLink>
+					<SidebarLink to="cache-cleaner">
+						<Icon component={Eraser} />
+						Cache Cleaner
+					</SidebarLink>
+					<SidebarLink to="media-encoder">
+						<Icon component={FilmStrip} />
+						Media Encoder
+					</SidebarLink>
+				</SidebarSection>
+				<div className="flex-grow" />
 			</SidebarContents>
 			<SidebarFooter>
 				<div className="flex">
@@ -326,17 +357,6 @@ const SidebarSection = (
 	);
 };
 
-const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (props) => {
-	const Icon = props.icon ?? Ellipsis;
-	return (
-		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="subtle">
-				<Icon className="h-3 w-3" />
-			</Button>
-		</NavLink>
-	);
-};
-
 function LibraryScopedSection() {
 	const platform = usePlatform();
 
@@ -352,10 +372,9 @@ function LibraryScopedSection() {
 				<SidebarSection
 					name="Locations"
 					actionArea={
-						<>
-							{/* <SidebarHeadingOptionsButton to="/settings/locations" icon={CogIcon} /> */}
-							<SidebarHeadingOptionsButton to="settings/locations" />
-						</>
+						<Link to="settings/locations">
+							<SubtleButton />
+						</Link>
 					}
 				>
 					{locations.data?.map((location) => {
@@ -399,7 +418,11 @@ function LibraryScopedSection() {
 			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
-					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
+					actionArea={
+						<NavLink to="settings/tags">
+							<SubtleButton />
+						</NavLink>
+					}
 				>
 					<div className="mt-1 mb-2">
 						{tags.data?.slice(0, 6).map((tag, index) => (

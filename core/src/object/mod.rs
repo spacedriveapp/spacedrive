@@ -2,6 +2,7 @@ pub mod cas;
 pub mod fs;
 pub mod identifier_job;
 pub mod preview;
+pub mod tag;
 pub mod validation;
 
 // Objects are primarily created by the identifier from Paths
