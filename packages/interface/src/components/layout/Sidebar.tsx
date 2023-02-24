@@ -419,7 +419,7 @@ function LibraryScopedSection() {
 				<SidebarSection
 					name="Tags"
 					actionArea={
-						<NavLink to="/settings/tags">
+						<NavLink to="settings/tags">
 							<SubtleButton />
 						</NavLink>
 					}
