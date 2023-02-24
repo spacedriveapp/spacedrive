@@ -79,7 +79,7 @@ export function createReactNativeClient(): TRPCWebSocketClient {
 				body = JSON.stringify(outgoing);
 			}
 
-			SDCore.sd_core_msg(body).then((rawData) => {
+			SDCore.sd_core_msg(body).then((rawData: string) => {
 				const data = JSON.parse(rawData);
 				if (Array.isArray(data)) {
 					for (const payload of data) {

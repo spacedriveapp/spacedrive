@@ -1,6 +1,7 @@
+import { PropsWithChildren } from 'react';
 import { FlatList } from 'react-native';
 
-export default function VirtualizedListWrapper({ children }) {
+export default function VirtualizedListWrapper({ children }: PropsWithChildren) {
 	return (
 		<FlatList
 			data={[]}

@@ -35,7 +35,7 @@ export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
-			UpdateKey(data[0]);
+			UpdateKey(data[0] ?? '');
 		}
 	});
 

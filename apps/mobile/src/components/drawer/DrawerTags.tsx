@@ -37,7 +37,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 
 	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
-	const createTagModalRef = useRef<ModalRef>();
+	const createTagModalRef = useRef<ModalRef>(null);
 
 	return (
 		<CollapsibleView
@@ -49,7 +49,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 				{tags?.map((tag) => (
 					<DrawerTagItem
 						key={tag.id}
-						tagName={tag.name}
+						tagName={tag.name!}
 						onPress={() =>
 							navigation.navigate(stackName, {
 								screen: 'Tag',
@@ -61,7 +61,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 				))}
 			</View>
 			{/* Add Tag */}
-			<Pressable onPress={() => createTagModalRef.current.present()}>
+			<Pressable onPress={() => createTagModalRef.current?.present()}>
 				<View style={tw`border-app-line/80 mt-1 rounded border border-dashed`}>
 					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>

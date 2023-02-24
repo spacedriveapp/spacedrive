@@ -3,9 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { queryClient, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
+import { Input } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
-import { Input } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -29,12 +29,12 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		},
 		onSettled: () => {
 			// Close modal
-			modalRef.current.dismiss();
+			modalRef.current?.dismiss();
 		}
 	});
 
 	useEffect(() => {
-		modalRef.current.snapToIndex(showPicker ? 1 : 0);
+		modalRef.current?.snapToIndex(showPicker ? 1 : 0);
 	}, [modalRef, showPicker]);
 
 	return (
@@ -70,27 +70,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				{showPicker && (
 					<FadeInAnimation>
 						<View style={tw`mt-4 h-64`}>
-							<ColorPicker
-								autoResetSlider
-								gapSize={0}
-								thumbSize={40}
-								sliderSize={24}
-								shadeSliderThumb
-								color={tagColor}
-								onColorChangeComplete={(color) => setTagColor(color)}
-								swatchesLast={false}
-								palette={[
-									tw.color('blue-500'),
-									tw.color('red-500'),
-									tw.color('green-500'),
-									tw.color('yellow-500'),
-									tw.color('purple-500'),
-									tw.color('pink-500'),
-									tw.color('gray-500'),
-									tw.color('black'),
-									tw.color('white')
-								]}
-							/>
+							<ColorPicker color={tagColor} onColorChangeComplete={(color) => setTagColor(color)} />
 						</View>
 					</FadeInAnimation>
 				)}

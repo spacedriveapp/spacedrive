@@ -41,7 +41,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 	const keys = useLibraryQuery(['keys.list'], {
 		onSuccess: (data) => {
 			if (key === '' && data.length !== 0) {
-				setKey(data[0].uuid);
+				setKey(data[0]?.uuid ?? '');
 			}
 		}
 	});

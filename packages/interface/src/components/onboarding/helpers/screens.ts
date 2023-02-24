@@ -6,7 +6,7 @@ export const useCurrentOnboardingScreenKey = (): string | null => {
 	const { pathname } = useLocation();
 
 	if (pathname.startsWith(`/${ONBOARDING_ROUTE_PREFIX_NAME}/`)) {
-		return pathname.split('/')[2];
+		return pathname.split('/')[2] || null;
 	}
 
 	return null;

@@ -18,9 +18,9 @@ export function MacTrafficLights(props: TrafficLightsProps) {
 
 	return (
 		<div data-tauri-drag-region className={clsx('group flex flex-row space-x-[7.5px]', className)}>
-			<TrafficLight type="close" onClick={onClose} colorful={focused} />
-			<TrafficLight type="minimize" onClick={onMinimize} colorful={focused} />
-			<TrafficLight type="fullscreen" onClick={onFullscreen} colorful={focused} />
+			<TrafficLight type="close" onClick={onClose} colorful={focused ?? false} />
+			<TrafficLight type="minimize" onClick={onMinimize} colorful={focused ?? false} />
+			<TrafficLight type="fullscreen" onClick={onFullscreen} colorful={focused ?? false} />
 		</div>
 	);
 }

@@ -12,7 +12,7 @@ type Props = {
 const InfoTagPills = ({ data, style }: Props) => {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id], {
+	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: Boolean(objectData)
 	});
 
@@ -25,7 +25,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 			{/* Kind */}
 			<InfoPill
 				containerStyle={tw`mr-1`}
-				text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+				text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]!}
 			/>
 			{/* Extension */}
 			{item.extension && <InfoPill text={item.extension} containerStyle={tw`mr-1`} />}
@@ -33,7 +33,7 @@ const InfoTagPills = ({ data, style }: Props) => {
 			{tagsQuery.data?.map((tag) => (
 				<InfoPill
 					key={tag.id}
-					text={tag.name}
+					text={tag.name ?? 'Unnamed Tag'}
 					containerStyle={twStyle('mr-1', { backgroundColor: tag.color + 'CC' })}
 					textStyle={tw`text-white`}
 				/>

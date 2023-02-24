@@ -145,7 +145,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 									kind="list"
 									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
-									item={data[virtualRow.index]}
+									item={data[virtualRow.index]!}
 								/>
 							) : (
 								[...Array(amountOfColumns)].map((_, i) => {
