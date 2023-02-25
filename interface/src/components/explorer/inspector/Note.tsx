@@ -1,10 +1,8 @@
 import { useCallback, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
-import { useLibraryMutation } from '@sd/client';
-import { Object as SDObject } from '@sd/client';
-import { TextArea } from '@sd/ui';
+import { Object as SDObject, useLibraryMutation } from '@sd/client';
+import { Divider, TextArea } from '@sd/ui';
 import { MetaContainer, MetaTitle } from '../Inspector';
-import { Divider } from './Divider';
 
 interface Props {
 	data: SDObject;

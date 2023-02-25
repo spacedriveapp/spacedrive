@@ -9,8 +9,8 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter } from 'react-router-dom';
 import { queryClient, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
-import App from './src';
-import { ErrorFallback } from './src/ErrorFallback';
+import ErrorFallback from './ErrorFallback';
+import App from './src/app';
 
 export * from './src/util/keybind';
 export * from './src/util/Platform';

@@ -40,13 +40,16 @@ export const Form = <T extends FieldValues>({
 
 interface UseZodFormProps<S extends z.ZodSchema>
 	extends Exclude<UseFormProps<z.infer<S>>, 'resolver'> {
-	schema: S;
+	schema?: S;
 }
 
-export const useZodForm = <S extends z.ZodSchema>({ schema, ...formProps }: UseZodFormProps<S>) =>
-	useForm({
+export const useZodForm = <S extends z.ZodSchema = z.ZodObject<{}>>(props?: UseZodFormProps<S>) => {
+	const { schema, ...formProps } = props ?? {};
+
+	return useForm({
 		...formProps,
-		resolver: zodResolver(schema)
+		resolver: zodResolver(schema || z.object({}))
 	});
+};
 
 export { z } from 'zod';

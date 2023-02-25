@@ -4,8 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerContext, ExplorerItem, isPath } from '@sd/client';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import FileItem from './FileItem';
-import FileRow from './FileRow';
+import FileItem from './File/Item';
+import FileRow from './File/Row';
 
 const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;
@@ -16,7 +16,7 @@ interface Props {
 	onScroll?: (posY: number) => void;
 }
 
-export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
+export const VirtualizedList = memo(({ data, onScroll }: Props) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -62,7 +62,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 		getScrollElement: () => scrollRef.current,
 		overscan: 200,
 		estimateSize: () => itemSize,
-		measureElement: (index) => itemSize
+		measureElement: () => itemSize
 	});
 
 	// TODO: Make scroll adjustment work with both list and grid layout, currently top bar offset disrupts positioning of list, and grid just doesn't work
@@ -119,9 +119,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 			<div
 				ref={scrollRef}
 				className="custom-scroll explorer-scroll h-screen"
-				onClick={(e) => {
-					getExplorerStore().selectedRowIndex = -1;
-				}}
+				onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 			>
 				<div
 					ref={innerRef}

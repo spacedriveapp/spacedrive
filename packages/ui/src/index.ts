@@ -15,3 +15,8 @@ export * as RadioGroup from './RadioGroup';
 export * from './Typography';
 export * as forms from './forms';
 export * from './utils';
+export * from './Tooltip';
+export * from './Slider';
+export * from './Divider';
+export * from './PasswordMeter';
+export * from './Shortcut';
