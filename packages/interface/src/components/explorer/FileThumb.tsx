@@ -73,7 +73,7 @@ export function FileThumb({ data, size, className }: FileItemProps) {
 						: {}
 				}
 			/>
-			{extension && kind === 'Video' && (
+			{extension && kind === 'Video' && size > 80 && (
 				<div className="absolute bottom-[22%] right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
 					{extension}
 				</div>
@@ -112,7 +112,7 @@ export function FileThumbImg({
 	if (url && hasThumbnail) {
 		return (
 			<img
-				style={{ ...imgStyle }}
+				style={{ ...imgStyle, maxWidth: size }}
 				decoding="async"
 				className={clsx('z-90 pointer-events-none bg-black', imgClassName)}
 				src={url}
