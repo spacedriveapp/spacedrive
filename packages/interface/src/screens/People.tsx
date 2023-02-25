@@ -1,9 +1,10 @@
 import { ScreenHeading } from '@sd/ui';
+import { ScreenContainer } from './_Layout';
 
 export default function PeopleScreen() {
 	return (
-		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col p-5">
+		<ScreenContainer>
 			<ScreenHeading>People</ScreenHeading>
-		</div>
+		</ScreenContainer>
 	);
 }

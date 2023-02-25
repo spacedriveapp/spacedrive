@@ -20,7 +20,7 @@ const state = {
 	listItemSize: 40,
 	selectedRowIndex: 1,
 	tagAssignMode: false,
-	showInspector: true,
+	showInspector: false,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
@@ -52,11 +52,11 @@ const explorerStore = proxy({
 });
 
 export function useExplorerStore() {
-	const { library } = useLibraryContext();
+	// const { library } = useLibraryContext();
 
-	useEffect(() => {
-		explorerStore.reset();
-	}, [library.uuid]);
+	// useEffect(() => {
+	// 	explorerStore.reset();
+	// }, [library.uuid]);
 
 	return useSnapshot(explorerStore);
 }

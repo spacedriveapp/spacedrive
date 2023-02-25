@@ -11,7 +11,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
-	const updateTagModalRef = useRef<ModalRef>();
+	const updateTagModalRef = useRef<ModalRef>(null);
 
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,
@@ -29,7 +29,7 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
 				<UpdateTagModal tag={tag} ref={updateTagModalRef} onSubmit={() => swipeable.close()} />
-				<AnimatedButton size="md" onPress={() => updateTagModalRef.current.present()}>
+				<AnimatedButton size="md" onPress={() => updateTagModalRef.current?.present()}>
 					<Pen size={18} color="white" />
 				</AnimatedButton>
 				<DeleteTagModal
@@ -55,7 +55,7 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View style={tw`flex flex-row`}>
-					<View style={twStyle({ backgroundColor: tag.color }, 'h-4 w-4 rounded-full')} />
+					<View style={twStyle({ backgroundColor: tag.color! }, 'h-4 w-4 rounded-full')} />
 					<Text style={tw`text-ink ml-3`}>{tag.name}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />

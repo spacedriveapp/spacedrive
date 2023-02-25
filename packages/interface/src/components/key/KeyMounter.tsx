@@ -1,8 +1,8 @@
 import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import { Algorithm, useLibraryMutation } from '@sd/client';
+import { Button, CategoryHeading, Input, Select, SelectOption, Switch, tw } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -67,12 +67,12 @@ export function KeyMounter() {
 						min={8}
 						step={4}
 						defaultValue={[64]}
-						onValueChange={(e) => {
-							setSliderValue(e);
-							setKey(generatePassword(e[0]));
+						onValueChange={(val) => {
+							setSliderValue(val);
+							setKey(generatePassword(val[0] ?? 8));
 						}}
 						onClick={() => {
-							setKey(generatePassword(sliderValue[0]));
+							setKey(generatePassword(sliderValue[0] ?? 8));
 						}}
 					/>
 				</div>

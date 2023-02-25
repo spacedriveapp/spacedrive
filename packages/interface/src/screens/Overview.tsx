@@ -18,6 +18,7 @@ import { Card } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { useLibraryId } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { ScreenContainer } from './_Layout';
 
 interface StatItemProps {
 	title: string;
@@ -97,11 +98,8 @@ export default function OverviewScreen() {
 	overviewMounted = true;
 
 	return (
-		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col overflow-x-hidden">
-			<div data-tauri-drag-region className="flex h-5 w-full shrink-0" />
-			{/* PAGE */}
-
-			<div className="flex h-screen w-full flex-col px-4">
+		<ScreenContainer>
+			<div className="flex h-screen w-full flex-col">
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
@@ -138,7 +136,7 @@ export default function OverviewScreen() {
 				</Card>
 				<div className="flex h-4 w-full shrink-0" />
 			</div>
-		</div>
+		</ScreenContainer>
 	);
 }
 

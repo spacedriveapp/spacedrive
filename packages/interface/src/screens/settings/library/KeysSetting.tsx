@@ -312,7 +312,7 @@ const table: Record<string, HashingAlgorithm> = {
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
-	return table[hashingAlgorithm];
+	return table[hashingAlgorithm] || { name: 'Argon2id', params: 'Standard' };
 };
 
 // not sure of a suitable place for this function

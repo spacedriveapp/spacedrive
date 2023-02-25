@@ -7,7 +7,7 @@ export const passToClient = ['pageProps'];
 export async function onBeforeRender(pageContext: PageContextBuiltIn) {
 	return {
 		pageContext: {
-			pageProps: getDoc(pageContext.routeParams['*'], config)
+			pageProps: getDoc(pageContext.routeParams['*']!, config)
 		}
 	};
 }

@@ -1,9 +1,11 @@
+import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Clipboard,
 	Copy,
 	FileX,
 	Image,
+	Info,
 	LockSimple,
 	LockSimpleOpen,
 	Package,
@@ -12,6 +14,7 @@ import {
 	Scissors,
 	Share,
 	ShieldCheck,
+	Sidebar,
 	TagSimple,
 	Trash,
 	TrashSimple
@@ -207,11 +210,16 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 	);
 }
 
-export interface FileItemContextMenuProps extends PropsWithChildren {
+export interface ExplorerItemContextMenuProps extends PropsWithChildren {
 	data: ExplorerItem;
+	className?: string;
 }
 
-export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
+export function ExplorerItemContextMenu({
+	data,
+	className,
+	...props
+}: ExplorerItemContextMenuProps) {
 	const { library } = useLibraryContext();
 	const store = useExplorerStore();
 	const params = useExplorerParams();
@@ -225,7 +233,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div className="relative">
+		<div className={clsx('relative', className)}>
 			<CM.ContextMenu trigger={props.children}>
 				<CM.Item
 					label="Open"
@@ -244,6 +252,19 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 
 				<CM.Separator />
 
+				{!store.showInspector && (
+					<>
+						<CM.Item
+							label="Details"
+							// icon={Sidebar}
+							onClick={(e) => {
+								getExplorerStore().showInspector = true;
+							}}
+						/>
+						<CM.Separator />
+					</>
+				)}
+
 				<CM.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
@@ -259,7 +280,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 							source_path_id: data.item.id,
 							target_location_id: store.locationId!,
 							target_path: params.path,
-							target_file_name_suffix: ' - Clone'
+							target_file_name_suffix: ' copy'
 						});
 					}}
 				/>

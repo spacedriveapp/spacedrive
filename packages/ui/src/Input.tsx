@@ -1,6 +1,6 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash } from 'phosphor-react';
+import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
 import { PropsWithChildren, forwardRef, useState } from 'react';
 import { Button } from './Button';
 
@@ -12,8 +12,8 @@ export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 const styles = cva(
 	[
-		'rounded-md border px-3 py-1 text-sm leading-7',
-		'shadow-sm outline-none transition-all focus:ring-2'
+		'px-3 text-sm rounded-md border leading-7',
+		'outline-none shadow-sm focus:ring-2 transition-all'
 	],
 	{
 		variants: {
@@ -24,8 +24,8 @@ const styles = cva(
 				]
 			},
 			size: {
-				sm: 'text-sm',
-				md: 'text-base'
+				sm: 'text-sm py-0.5',
+				md: 'text-sm py-1'
 			}
 		},
 		defaultVariants: {
@@ -37,6 +37,19 @@ const styles = cva(
 export const Input = forwardRef<HTMLInputElement, InputProps>(
 	({ variant, size, className, ...props }, ref) => (
 		<input {...props} ref={ref} className={styles({ variant, size, className })} />
+	)
+);
+
+export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClassnames?: string }>(
+	({ variant, size, className, outerClassnames, ...props }, ref) => (
+		<div className={clsx('relative', outerClassnames)}>
+			<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
+			<Input
+				{...props}
+				ref={ref}
+				className={clsx(styles({ variant, size, className }), '!p-0.5 !pl-9')}
+			/>
+		</div>
 	)
 );
 

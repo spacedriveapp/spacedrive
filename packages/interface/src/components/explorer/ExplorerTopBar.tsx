@@ -16,6 +16,7 @@ import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Popover, cva } from '@sd/ui';
+import DragRegion from '~/components/layout/DragRegion';
 import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { KeybindEvent } from '../../util/keybind';
@@ -36,7 +37,7 @@ export interface TopBarButtonProps {
 // export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
 
 const topBarButtonStyle = cva(
-	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none p-0.5 font-medium outline-none transition-colors duration-100',
+	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none !p-0.5 font-medium outline-none transition-colors duration-100',
 	{
 		variants: {
 			active: {
@@ -62,14 +63,19 @@ const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	({ active, rounding, className, ...props }, ref) => {
 		return (
-			<Button {...props} ref={ref} className={topBarButtonStyle({ active, rounding, className })}>
+			<Button
+				// size="sm"
+				{...props}
+				ref={ref}
+				className={topBarButtonStyle({ active, rounding, className })}
+			>
 				{props.children}
 			</Button>
 		);
 	}
 );
 
-const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+export const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
 	const {
 		register,
 		handleSubmit,
@@ -97,11 +103,14 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="w-32 transition-all focus:w-52"
+				className={clsx('w-32 transition-all focus:w-52', props.className)}
 				{...searchField}
 			/>
-
-			<div className={clsx('pointer-events-none absolute right-1 space-x-1 peer-focus:invisible')}>
+			<div
+				className={clsx(
+					'pointer-events-none absolute right-1 flex h-7 items-center space-x-1 opacity-70 peer-focus:invisible'
+				)}
+			>
 				{platform === 'browser' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (
@@ -331,11 +340,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 							className="my-2"
 						>
-							{store.showInspector ? (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							) : (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							)}
+							<SidebarSimple
+								weight={store.showInspector ? 'fill' : 'regular'}
+								className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1] transform')}
+							/>
 						</TopBarButton>
 					</Tooltip>
 					{/* <Dropdown

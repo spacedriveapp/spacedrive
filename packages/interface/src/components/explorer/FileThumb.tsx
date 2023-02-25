@@ -1,64 +1,119 @@
-import archive from '@sd/assets/images/Archive.png';
-import documentPdf from '@sd/assets/images/Document_pdf.png';
-import executable from '@sd/assets/images/Executable.png';
-import file from '@sd/assets/images/File.png';
-import video from '@sd/assets/images/Video.png';
+import Archive from '@sd/assets/images/Archive.png';
+import Compressed from '@sd/assets/images/Compressed.png';
+import DocumentPdf from '@sd/assets/images/Document_pdf.png';
+import Encrypted from '@sd/assets/images/Encrypted.png';
+import Executable from '@sd/assets/images/Executable.png';
+import File from '@sd/assets/images/File.png';
+import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
-import { ExplorerItem, isObject, isPath } from '@sd/client';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { CSSProperties } from 'react';
+import { ExplorerItem } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
+import { getExplorerItemData } from './util';
 
-interface Props {
+// const icons = import.meta.glob('../../../../assets/icons/*.svg');
+interface FileItemProps {
 	data: ExplorerItem;
 	size: number;
 	className?: string;
-	style?: React.CSSProperties;
-	iconClassNames?: string;
-	kind?: string;
 }
 
-// const icons = import.meta.glob('../../../../assets/icons/*.svg');
+export function FileThumb({ data, size, className }: FileItemProps) {
+	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(data);
 
-export default function FileThumb({ data, ...props }: Props) {
+	// 10 percent of the size
+	const videoBarsHeight = Math.floor(size / 10);
+
+	// calculate 16:9 ratio for height from size
+	const videoHeight = Math.floor((size * 9) / 16) + videoBarsHeight * 2;
+
+	return (
+		<div
+			className={clsx(
+				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent',
+				className
+			)}
+		>
+			<FileThumbImg
+				size={size}
+				hasThumbnail={hasThumbnail}
+				isDir={isDir}
+				cas_id={cas_id}
+				extension={extension}
+				kind={kind}
+				imgClassName={clsx(
+					hasThumbnail &&
+						'max-h-full w-auto max-w-full rounded-sm object-cover shadow shadow-black/30',
+					kind === 'Image' && size > 60 && 'border-app-line border-2',
+					kind === 'Video' && 'rounded border-x-0 !border-black'
+				)}
+				imgStyle={
+					kind === 'Video'
+						? {
+								borderTopWidth: videoBarsHeight,
+								borderBottomWidth: videoBarsHeight,
+								width: size,
+								height: videoHeight
+						  }
+						: {}
+				}
+			/>
+			{extension && kind === 'Video' && size > 80 && (
+				<div className="absolute bottom-[22%] right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
+					{extension}
+				</div>
+			)}
+		</div>
+	);
+}
+interface FileThumbImgProps {
+	isDir: boolean;
+	cas_id: string | null;
+	kind: string | null;
+	extension: string | null;
+	size: number;
+	hasThumbnail: boolean;
+	imgClassName?: string;
+	imgStyle?: CSSProperties;
+}
+
+export function FileThumbImg({
+	isDir,
+	cas_id,
+	kind,
+	size,
+	hasThumbnail,
+	extension,
+	imgClassName,
+	imgStyle
+}: FileThumbImgProps) {
 	const platform = usePlatform();
-	const store = useExplorerStore();
 
-	// const Icon = useMemo(() => {
-	// 	const icon = icons[`../../../../assets/icons/${item.extension}.svg`];
-
-	// 	const Icon = icon
-	// 		? lazy(() => icon().then((v) => ({ default: (v as any).ReactComponent })))
-	// 		: undefined;
-	// 	return Icon;
-	// }, [item.extension]);
-
-	if (isPath(data) && data.item.is_dir) return <Folder size={props.size * 0.7} />;
-
-	const cas_id = isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id;
+	if (isDir) return <Folder size={size * 0.7} />;
 
 	if (!cas_id) return <div></div>;
-
 	const url = platform.getThumbnailUrlById(cas_id);
 
-	if (data.has_thumbnail && url)
+	if (url && hasThumbnail) {
 		return (
 			<img
-				style={props.style}
+				style={{ ...imgStyle, maxWidth: size, width: size - 10 }}
 				decoding="async"
-				// width={props.size}
-				className={clsx('z-90 pointer-events-none', props.className)}
+				className={clsx('z-90 pointer-events-none bg-black', imgClassName)}
 				src={url}
 			/>
 		);
+	}
 
-	let icon = file;
+	let icon = File;
 	// Hacky (and temporary) way to integrate thumbnails
-	if (props.kind === 'Archive') icon = archive;
-	else if (props.kind === 'Video') icon = video;
-	else if (props.kind === 'Document' && data.item.extension === 'pdf') icon = documentPdf;
-	else if (props.kind === 'Executable') icon = executable;
-	else if (props.kind === 'Encrypted') icon = archive;
+	if (kind === 'Archive') icon = Archive;
+	else if (kind === 'Video') icon = Video;
+	else if (kind === 'Document' && extension === 'pdf') icon = DocumentPdf;
+	else if (kind === 'Executable') icon = Executable;
+	else if (kind === 'Encrypted') icon = Encrypted;
+	else if (kind === 'Compressed') icon = Compressed;
 
-	return <img src={icon} className={clsx('h-full overflow-hidden', props.iconClassNames)} />;
+	return <img src={icon} className={clsx('h-full overflow-hidden')} />;
 }

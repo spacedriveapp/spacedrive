@@ -1,14 +1,24 @@
 {
-	"extends": "expo/tsconfig.base",
 	"compilerOptions": {
+		"allowJs": true,
+		"esModuleInterop": true,
+		"jsx": "react-native",
+		"lib": ["DOM", "ESNext"],
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
 		"target": "ESNext",
 		"module": "ESNext",
 		"noEmit": true,
 		"paths": {
 			"~/*": ["./src/*"]
 		},
-		"jsx": "react-native"
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"forceConsistentCasingInFileNames": true,
+		"allowSyntheticDefaultImports": true
 	},
+	"exclude": ["node_modules", "babel.config.js", "metro.config.js", "jest.config.js"],
 	"references": [
 		{
 			"path": "../../packages/client"

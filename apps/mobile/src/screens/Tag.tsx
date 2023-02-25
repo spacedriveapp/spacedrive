@@ -12,7 +12,7 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 	useEffect(() => {
 		// Set screen title to tag name.
 		navigation.setOptions({
-			title: data?.context.name
+			title: data?.context.name ?? 'Tag'
 		});
 	}, [data?.context.name, navigation]);
 
