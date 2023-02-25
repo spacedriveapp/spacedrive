@@ -13,7 +13,7 @@ const options = {
 };
 zxcvbnOptions.setOptions(options);
 
-export const PasswordMeter = (props: { password: string }) => {
+export default function PasswordMeterInner(props: { password: string }) {
 	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
 	const zx = zxcvbn(props.password);
@@ -54,4 +54,4 @@ export const PasswordMeter = (props: { password: string }) => {
 			</div>
 		</div>
 	);
-};
+}

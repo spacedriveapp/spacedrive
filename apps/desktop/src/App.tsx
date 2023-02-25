@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { getDebugState, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
 import { KeybindEvent } from '@sd/interface';
+import { ErrorPage } from '@sd/interface';
 import '@sd/ui/style';
 
 const client = hooks.createClient({
@@ -33,6 +34,7 @@ async function getOs(): Promise<OperatingSystem> {
 
 let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
 const customUriAuthToken = (window as any).__SD_CUSTOM_URI_TOKEN__ as string | undefined;
+const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 	customUriServerUrl += '/';
@@ -78,6 +80,10 @@ export default function App() {
 			keybindListener.then((unlisten) => unlisten());
 		};
 	}, []);
+
+	if (startupError) {
+		return <ErrorPage message={startupError} />;
+	}
 
 	return (
 		<hooks.Provider client={client} queryClient={queryClient}>

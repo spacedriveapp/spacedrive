@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 import { Algorithm, useBridgeMutation } from '@sd/client';
 import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
 import { generatePassword } from '../key/KeyMounter';
-import { PasswordMeter } from '../key/PasswordMeter';
+
+const PasswordMeter = lazy(() => import('../key/PasswordMeter'));
 
 const { Input, z, useZodForm } = forms;
 

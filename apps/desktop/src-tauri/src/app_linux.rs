@@ -57,7 +57,7 @@ pub(super) async fn setup<R: Runtime>(
 			.expect("Error with HTTP server!");
 	});
 
-	app.plugin(spacedrive_plugin_init(&auth_token, listen_addr))
+	app.plugin(tauri_plugin(&auth_token, listen_addr))
 }
 
 async fn auth_middleware<B>(
@@ -83,11 +83,8 @@ async fn auth_middleware<B>(
 	(StatusCode::UNAUTHORIZED, "Unauthorized!").into_response()
 }
 
-pub fn spacedrive_plugin_init<R: Runtime>(
-	auth_token: &str,
-	listen_addr: SocketAddr,
-) -> TauriPlugin<R> {
-	tauri::plugin::Builder::new("spacedrive")
+fn tauri_plugin<R: Runtime>(auth_token: &str, listen_addr: SocketAddr) -> TauriPlugin<R> {
+	tauri::plugin::Builder::new("spacedrive-linux")
 		.js_init_script(format!(
                 r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}";"#
 		))
