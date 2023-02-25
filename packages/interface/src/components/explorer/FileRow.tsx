@@ -56,7 +56,8 @@ const RenderCell: React.FC<{
 						<FileThumb data={data} size={35} />
 					</div>
 					<span className="truncate text-xs">
-						{data.item.name}.{data.item.extension}
+						{data.item.name}
+						{data.item.extension && `.${data.item.extension}`}
 					</span>
 				</div>
 			);
@@ -80,9 +81,6 @@ const RenderCell: React.FC<{
 					<InfoPill className="bg-app-button/50">
 						{isPath(data) && data.item.is_dir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
 					</InfoPill>
-					{data.item.extension && (
-						<span className="text-tiny text-ink-dull">{data.item.extension}</span>
-					)}
 				</div>
 			);
 		// case 'meta_integrity_hash':
