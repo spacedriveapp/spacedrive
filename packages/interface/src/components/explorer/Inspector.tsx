@@ -14,7 +14,7 @@ import {
 import { Button, tw } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
-import FileThumb from './FileThumb';
+import { FileThumb } from './FileThumb';
 import { Divider } from './inspector/Divider';
 import FavoriteButton from './inspector/FavoriteButton';
 import Note from './inspector/Note';
@@ -80,17 +80,10 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 				<>
 					<div
 						className={clsx(
-							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden rounded-lg',
-							objectData?.kind === 7 && objectData?.has_thumbnail && 'bg-black'
+							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden rounded-lg'
 						)}
 					>
-						<FileThumb
-							iconClassNames="my-3 max-h-[150px]"
-							size={230}
-							kind={ObjectKind[objectData?.kind || 0]}
-							className="flex shrink grow-0"
-							data={data}
-						/>
+						<FileThumb size={240} data={data} />
 					</div>
 					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
@@ -126,7 +119,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{item && <InfoPill>{item.extension}</InfoPill>}
+								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
 									<InfoPill
 										className="!text-white"
