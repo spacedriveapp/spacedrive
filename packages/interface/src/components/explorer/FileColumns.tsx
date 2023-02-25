@@ -11,14 +11,14 @@ export function ensureIsColumns<T extends IColumn[]>(data: T) {
 	return data;
 }
 
-export const columns = ensureIsColumns([
-	{ column: 'Name', key: 'name', width: 280 } as const,
-	// { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
-	{ column: 'Type', key: 'extension', width: 150 } as const,
-	{ column: 'Size', key: 'size', width: 100 } as const,
-	{ column: 'Date Created', key: 'date_created', width: 150 } as const,
-	{ column: 'Content ID', key: 'cas_id', width: 150 } as const
-]);
+export const columns = [
+	{ column: 'Name', key: 'name', width: 280 },
+	// { column: 'Size', key: 'size_in_bytes', width: 120 },
+	{ column: 'Type', key: 'extension', width: 150 },
+	{ column: 'Size', key: 'size', width: 100 },
+	{ column: 'Date Created', key: 'date_created', width: 150 },
+	{ column: 'Content ID', key: 'cas_id', width: 150 }
+] as const satisfies Readonly<IColumn[]>;
 
 export type ColumnKey = (typeof columns)[number]['key'];
 
