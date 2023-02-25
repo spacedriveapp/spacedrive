@@ -7,9 +7,8 @@ import { Button, Card, Dialog, Switch, UseDialogProps, dialogManager, useDialog 
 import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { PopoverPicker } from '~/components/primitive/PopoverPicker';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { Tooltip } from '~/components/tooltip/Tooltip';
+import { Header } from '../Layout';
 
 export default function TagsSettings() {
 	const tags = useLibraryQuery(['tags.list']);
@@ -45,8 +44,8 @@ export default function TagsSettings() {
 	}, [updateForm, autoUpdateTag]);
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="Tags"
 				description="Manage your tags."
 				rightArea={
@@ -131,7 +130,7 @@ export default function TagsSettings() {
 			) : (
 				<div className="text-sm font-medium text-gray-400">No Tag Selected</div>
 			)}
-		</SettingsContainer>
+		</>
 	);
 }
 

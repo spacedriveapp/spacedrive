@@ -1,10 +1,9 @@
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Header } from '../Layout';
 
 export default function SyncSettings() {
 	return (
-		<SettingsContainer>
-			<SettingsHeader title="Sync" description="Manage how Spacedrive syncs." />
-		</SettingsContainer>
+		<>
+			<Header title="Sync" description="Manage how Spacedrive syncs." />
+		</>
 	);
 }

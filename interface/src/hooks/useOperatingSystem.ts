@@ -10,7 +10,8 @@ export function guessOperatingSystem(): OperatingSystem {
 	return os;
 }
 
-// This hook will return the current os we are using. It will guess the OS on first render until Tauri responds with a more accurate answer.
+// This hook will return the current os we are using.
+// It will guess the OS on first render until Tauri responds with a more accurate answer.
 // This means the app can open insanely quickly without any weird layout shift.
 // Setting `realOs` to true will return a best guess of the underlying operating system instead of 'browser'.
 export function useOperatingSystem(realOs?: boolean): OperatingSystem {

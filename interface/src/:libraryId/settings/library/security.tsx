@@ -1,10 +1,9 @@
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Header } from '../Layout';
 
 export default function SecuritySettings() {
 	return (
-		<SettingsContainer>
-			<SettingsHeader title="Security" description="Keep your client safe." />
-		</SettingsContainer>
+		<>
+			<Header title="Security" description="Keep your client safe." />
+		</>
 	);
 }

@@ -26,7 +26,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 
 	return (
 		<Card
-			className="hover:bg-app-box/70 cursor-pointer"
+			className="hover:bg-app-box/70"
 			onClick={() => {
 				navigate(`${location.id}`);
 			}}

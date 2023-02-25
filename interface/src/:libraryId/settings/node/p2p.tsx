@@ -1,12 +1,11 @@
 import { Input, Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Header } from '../Layout';
 
 export default function P2PSettings() {
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="P2P Settings"
 				description="Manage how this node communicates with other nodes."
 			/>
@@ -30,6 +29,6 @@ export default function P2PSettings() {
 					</div>
 				</div>
 			</InputContainer>
-		</SettingsContainer>
+		</>
 	);
 }

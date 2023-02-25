@@ -1,6 +1,5 @@
 import Logo from '@sd/assets/images/logo.png';
 import { useBridgeQuery } from '@sd/client';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 export default function AboutSpacedrive() {
@@ -12,7 +11,7 @@ export default function AboutSpacedrive() {
 		os === 'browser' ? 'Web' : os == 'macOS' ? os : os.charAt(0).toUpperCase() + os.slice(1);
 
 	return (
-		<SettingsContainer>
+		<>
 			<div className="flex flex-row items-center">
 				<img src={Logo} className="mr-8 h-[88px] w-[88px]" />
 				<div className="flex flex-col">
@@ -25,6 +24,6 @@ export default function AboutSpacedrive() {
 					</span>
 				</div>
 			</div>
-		</SettingsContainer>
+		</>
 	);
 }

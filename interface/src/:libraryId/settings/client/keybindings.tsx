@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Header } from '../Layout';
 
 export default function AppearanceSettings() {
 	const [syncWithLibrary, setSyncWithLibrary] = useState(true);
 	return (
-		<SettingsContainer>
+		<>
 			{/* I don't care what you think the "right" way to write "keybinds" is, I simply refuse to refer to it as "keybindings" */}
-			<SettingsHeader title="Keybinds" description="Manage client keybinds" />
+			<Header title="Keybinds" description="Manage client keybinds" />
 			<InputContainer
 				mini
 				title="Sync with Library"
@@ -21,6 +20,6 @@ export default function AppearanceSettings() {
 					className="m-2 ml-4"
 				/>
 			</InputContainer>
-		</SettingsContainer>
+		</>
 	);
 }

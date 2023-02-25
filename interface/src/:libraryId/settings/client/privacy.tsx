@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Header } from '../Layout';
 
 export default function PrivacySettings() {
 	const [shareUsageData, setShareUsageData] = useState(true);
 	const [blurEffects, setBlurEffects] = useState(true);
+
 	return (
-		<SettingsContainer>
-			<SettingsHeader title="Privacy" description="" />
+		<>
+			<Header title="Privacy" description="" />
 			<InputContainer
 				mini
 				title="Share Usage Data"
@@ -17,6 +17,6 @@ export default function PrivacySettings() {
 			>
 				<Switch checked={shareUsageData} onCheckedChange={setShareUsageData} className="m-2 ml-4" />
 			</InputContainer>
-		</SettingsContainer>
+		</>
 	);
 }

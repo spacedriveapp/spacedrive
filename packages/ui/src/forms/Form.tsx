@@ -21,7 +21,6 @@ export const Form = <T extends FieldValues>({
 	children,
 	...props
 }: FormProps<T>) => {
-	const { className, ...otherProps } = props;
 	return (
 		<FormProvider {...form}>
 			<form
@@ -29,13 +28,11 @@ export const Form = <T extends FieldValues>({
 					e.stopPropagation();
 					return onSubmit(e);
 				}}
-				{...otherProps}
+				{...props}
 			>
 				{/* <fieldset> passes the form's 'disabled' state to all of its elements,
             allowing us to handle disabled style variants with just css */}
-				<fieldset className={className} disabled={form.formState.isSubmitting}>
-					{children}
-				</fieldset>
+				<fieldset disabled={form.formState.isSubmitting}>{children}</fieldset>
 			</form>
 		</FormProvider>
 	);

@@ -5,8 +5,8 @@ import { useParams } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, forms, tw } from '@sd/ui';
 import { Divider } from '~/components/explorer/inspector/Divider';
-import { SettingsSubPage } from '~/components/settings/SettingsSubPage';
 import { Tooltip } from '~/components/tooltip/Tooltip';
+import ModalContainer from '../../ModalContainer';
 import { IndexerRuleEditor } from './IndexerRuleEditor';
 
 const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
@@ -53,7 +53,7 @@ export default function EditLocation() {
 
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: (e) => console.log({ e }),
-		onSuccess: (e) => {
+		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
 		}
@@ -75,8 +75,8 @@ export default function EditLocation() {
 	const { isDirty } = useFormState({ control: form.control });
 
 	return (
-		<Form form={form} onSubmit={onSubmit}>
-			<SettingsSubPage
+		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
+			<ModalContainer
 				title="Edit Location"
 				topRight={
 					<div className="flex flex-row space-x-3">
@@ -183,7 +183,7 @@ export default function EditLocation() {
 				</div>
 				<Divider />
 				<div className="h-6" />
-			</SettingsSubPage>
+			</ModalContainer>
 		</Form>
 	);
 }

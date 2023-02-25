@@ -1,22 +1,19 @@
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
 import { Button, SearchInput, dialogManager } from '@sd/ui';
-import { RouteObject } from 'react-router';
 import AddLocationDialog from '~/components/dialog/AddLocationDialog';
 import LocationListItem from '~/components/location/LocationListItem';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
-import { lazyEl } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { Header } from '../../Layout';
 
-function LocationSettings() {
+export default () => {
 	const platform = usePlatform();
 	const locations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="Locations"
 				description="Manage your storage locations."
 				rightArea={
@@ -55,11 +52,6 @@ function LocationSettings() {
 					<LocationListItem key={location.id} location={location} />
 				))}
 			</div>
-		</SettingsContainer>
+		</>
 	);
-}
-
-export default [
-	{ index: true, element: <LocationSettings/> },
-	{ path: ':id', element: lazyEl(() => import('./:id')) }
-] satisfies RouteObject[];
+};

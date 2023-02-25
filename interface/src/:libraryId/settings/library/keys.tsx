@@ -11,12 +11,10 @@ import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
 import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '~/components/key/KeyList';
 import { KeyMounter } from '~/components/key/KeyMounter';
-import { DefaultProps } from '~/components/primitive/types';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
+import { Header } from '../Layout';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -165,12 +163,7 @@ export default function KeysSettings() {
 				</Button>
 				{!enterSkManually && (
 					<div className="relative flex grow">
-						<p
-							className="text-accent mt-2"
-							onClick={(e) => {
-								setEnterSkManually(true);
-							}}
-						>
+						<p className="text-accent mt-2" onClick={() => setEnterSkManually(true)}>
 							or enter secret key manually
 						</p>
 					</div>
@@ -180,144 +173,142 @@ export default function KeysSettings() {
 	} else {
 		return (
 			<>
-				<SettingsContainer>
-					<SettingsHeader
-						title="Keys"
-						description="Manage your keys."
-						rightArea={
-							<div className="flex flex-row items-center">
-								<Button
-									size="icon"
-									onClick={() => {
-										unmountAll.mutate(null);
-										clearMasterPassword.mutate(null);
-									}}
-									variant="subtle"
-									className="text-ink-faint"
-								>
-									<Lock className="text-ink-faint h-4 w-4" />
-								</Button>
-								<KeyMounterDropdown
-									trigger={
-										<Button size="icon" variant="subtle" className="text-ink-faint">
-											<Plus className="text-ink-faint h-4 w-4" />
-										</Button>
-									}
-								>
-									<KeyMounter />
-								</KeyMounterDropdown>
-							</div>
-						}
-					/>
-
-					{isUnlocked && (
-						<div className="grid space-y-2">
-							<ListOfKeys />
-						</div>
-					)}
-
-					{keyringSk?.data && (
-						<>
-							<SettingsSubHeader title="Secret key" />
-							{!viewSecretKey && (
-								<div className="flex flex-row">
-									<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
-										View Secret Key
+				<Header
+					title="Keys"
+					description="Manage your keys."
+					rightArea={
+						<div className="flex flex-row items-center">
+							<Button
+								size="icon"
+								onClick={() => {
+									unmountAll.mutate(null);
+									clearMasterPassword.mutate(null);
+								}}
+								variant="subtle"
+								className="text-ink-faint"
+							>
+								<Lock className="text-ink-faint h-4 w-4" />
+							</Button>
+							<KeyMounterDropdown
+								trigger={
+									<Button size="icon" variant="subtle" className="text-ink-faint">
+										<Plus className="text-ink-faint h-4 w-4" />
 									</Button>
-								</div>
-							)}
-							{viewSecretKey && (
-								<div
-									className="flex flex-row"
-									onClick={() => {
-										keyringSk.data && navigator.clipboard.writeText(keyringSk.data);
-									}}
-								>
-									<>
-										<QRCode size={128} value={keyringSk.data} />
-										<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
-									</>
-								</div>
-							)}
-						</>
-					)}
-
-					<SettingsSubHeader title="Password Options" />
-					<div className="flex flex-row">
-						<Button
-							size="sm"
-							variant="gray"
-							className="mr-2"
-							onClick={() => dialogManager.create((dp) => <MasterPasswordChangeDialog {...dp} />)}
-						>
-							Change Master Password
-						</Button>
-						<Button
-							size="sm"
-							variant="gray"
-							className="mr-2"
-							hidden={keys.data?.length === 0}
-							onClick={() => dialogManager.create((dp) => <KeyViewerDialog {...dp} />)}
-						>
-							View Key Values
-						</Button>
-					</div>
-
-					<SettingsSubHeader title="Data Recovery" />
-					<div className="flex flex-row">
-						<Button
-							size="sm"
-							variant="gray"
-							className="mr-2"
-							type="button"
-							onClick={() => {
-								if (!platform.saveFilePickerDialog) {
-									// TODO: Support opening locations on web
-									showAlertDialog({
-										title: 'Error',
-										value: "System dialogs aren't supported on this platform."
-									});
-									return;
 								}
-								platform.saveFilePickerDialog().then((result) => {
-									if (result) backupKeystore.mutate(result as string);
-								});
-							}}
-						>
-							Backup
-						</Button>
-						<Button
-							size="sm"
-							variant="gray"
-							className="mr-2"
-							onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
-						>
-							Restore
-						</Button>
+							>
+								<KeyMounter />
+							</KeyMounterDropdown>
+						</div>
+					}
+				/>
+
+				{isUnlocked && (
+					<div className="grid space-y-2">
+						<ListOfKeys />
 					</div>
-				</SettingsContainer>
+				)}
+
+				{keyringSk?.data && (
+					<>
+						<SettingsSubHeader title="Secret key" />
+						{!viewSecretKey && (
+							<div className="flex flex-row">
+								<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+									View Secret Key
+								</Button>
+							</div>
+						)}
+						{viewSecretKey && (
+							<div
+								className="flex flex-row"
+								onClick={() => {
+									keyringSk.data && navigator.clipboard.writeText(keyringSk.data);
+								}}
+							>
+								<>
+									<QRCode size={128} value={keyringSk.data} />
+									<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+								</>
+							</div>
+						)}
+					</>
+				)}
+
+				<SettingsSubHeader title="Password Options" />
+				<div className="flex flex-row">
+					<Button
+						size="sm"
+						variant="gray"
+						className="mr-2"
+						onClick={() => dialogManager.create((dp) => <MasterPasswordChangeDialog {...dp} />)}
+					>
+						Change Master Password
+					</Button>
+					<Button
+						size="sm"
+						variant="gray"
+						className="mr-2"
+						hidden={keys.data?.length === 0}
+						onClick={() => dialogManager.create((dp) => <KeyViewerDialog {...dp} />)}
+					>
+						View Key Values
+					</Button>
+				</div>
+
+				<SettingsSubHeader title="Data Recovery" />
+				<div className="flex flex-row">
+					<Button
+						size="sm"
+						variant="gray"
+						className="mr-2"
+						type="button"
+						onClick={() => {
+							if (!platform.saveFilePickerDialog) {
+								// TODO: Support opening locations on web
+								showAlertDialog({
+									title: 'Error',
+									value: "System dialogs aren't supported on this platform."
+								});
+								return;
+							}
+							platform.saveFilePickerDialog().then((result) => {
+								if (result) backupKeystore.mutate(result as string);
+							});
+						}}
+					>
+						Backup
+					</Button>
+					<Button
+						size="sm"
+						variant="gray"
+						className="mr-2"
+						onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
+					>
+						Restore
+					</Button>
+				</div>
 			</>
 		);
 	}
 }
 
-const table: Record<string, HashingAlgorithm> = {
+const HASHING_ALGOS = {
 	'Argon2id-s': { name: 'Argon2id', params: 'Standard' },
 	'Argon2id-h': { name: 'Argon2id', params: 'Hardened' },
 	'Argon2id-p': { name: 'Argon2id', params: 'Paranoid' },
 	'BalloonBlake3-s': { name: 'BalloonBlake3', params: 'Standard' },
 	'BalloonBlake3-h': { name: 'BalloonBlake3', params: 'Hardened' },
 	'BalloonBlake3-p': { name: 'BalloonBlake3', params: 'Paranoid' }
-};
+} as const satisfies Record<string, HashingAlgorithm>;
 
 // not sure of a suitable place for this function
-export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
-	return table[hashingAlgorithm] || { name: 'Argon2id', params: 'Standard' };
+export const getHashingAlgorithmSettings = (hashingAlgorithm: keyof typeof HASHING_ALGOS): HashingAlgorithm => {
+	return HASHING_ALGOS[hashingAlgorithm] || { name: 'Argon2id', params: 'Standard' };
 };
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
-	return Object.entries(table).find(
+	return Object.entries(HASHING_ALGOS).find(
 		([_, hashAlg]) =>
 			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
 	)![0];

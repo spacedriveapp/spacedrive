@@ -1,16 +1,19 @@
 import { RouteObject } from 'react-router-dom';
+import clientRoutes from './client';
+import libraryRoutes from './library';
+import nodeRoutes from './node';
+import OverviewContainer from './OverviewContainer';
+import resourcesRoutes from './resources';
 
-import clientRoutes from "./client"
-import nodeRoutes from "./node"
-import libraryRoutes from "./library"
-import infoRoutes from "./info"
-
-export default[
+export default [
 	{
-		path: "client", children: clientRoutes
+		path: 'client',
+		element: <OverviewContainer/>,
+		children: clientRoutes
 	},
 	{
-		path: "node",
+		path: 'node',
+		element: <OverviewContainer/>,
 		children: nodeRoutes
 	},
 	{
@@ -18,7 +21,8 @@ export default[
 		children: libraryRoutes
 	},
 	{
-		path: "info",
-		children: infoRoutes
-	},
+		path: 'resources',
+		element: <OverviewContainer/>,
+		children: resourcesRoutes
+	}
 ] satisfies RouteObject[];

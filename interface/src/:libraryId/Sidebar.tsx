@@ -42,21 +42,19 @@ import {
 	dialogManager,
 	tw
 } from '@sd/ui';
+import AddLocationDialog from '~/components/dialog/AddLocationDialog';
+import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
+import { Folder } from '~/components/icons/Folder';
+import { JobsManager } from '~/components/jobs/JobManager';
+import { MacTrafficLights } from '~/components/os/TrafficLights';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SubtleButton } from '~/components/primitive/SubtleButton';
+import { Tooltip } from '~/components/tooltip/Tooltip';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { OperatingSystem, usePlatform } from '~/util/Platform';
-import AddLocationDialog from '../dialog/AddLocationDialog';
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
-import { Folder } from '../icons/Folder';
-import { JobsManager } from '../jobs/JobManager';
-import { MacTrafficLights } from '../os/TrafficLights';
-import { InputContainer } from '../primitive/InputContainer';
-import { SubtleButton } from '../primitive/SubtleButton';
-import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
-
 const SidebarContents = tw.div`flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out`;
-
 const SidebarFooter = tw.div`flex flex-col mb-3 px-2.5`;
 
 export function Sidebar() {
@@ -326,6 +324,7 @@ const sidebarItemClass = cva(
 
 export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	const os = useOperatingSystem();
+
 	return (
 		<NavLink
 			{...props}

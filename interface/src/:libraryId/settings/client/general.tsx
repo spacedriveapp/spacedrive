@@ -2,9 +2,8 @@ import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { usePlatform } from '~/util/Platform';
+import { Header } from '../Layout';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -15,11 +14,8 @@ export default function GeneralSettings() {
 	const debugState = useDebugState();
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
-				title="General Settings"
-				description="General settings related to this client."
-			/>
+		<>
+			<Header title="General Settings" description="General settings related to this client." />
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
@@ -72,6 +68,6 @@ export default function GeneralSettings() {
 					onClick={() => (getDebugState().enabled = !debugState.enabled)}
 				/>
 			</InputContainer>
-		</SettingsContainer>
+		</>
 	);
 }

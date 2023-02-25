@@ -2,9 +2,8 @@ import { useForm } from 'react-hook-form';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
+import { Header } from '../Layout';
 
 export default function LibraryGeneralSettings() {
 	const { library } = useLibraryContext();
@@ -23,8 +22,8 @@ export default function LibraryGeneralSettings() {
 	);
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="Library Settings"
 				description="General settings related to the currently active library."
 			/>
@@ -70,6 +69,6 @@ export default function LibraryGeneralSettings() {
 					</Button>
 				</div>
 			</InputContainer>
-		</SettingsContainer>
+		</>
 	);
 }

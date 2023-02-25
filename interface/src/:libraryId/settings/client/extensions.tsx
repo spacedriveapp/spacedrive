@@ -1,7 +1,5 @@
-import { MagnifyingGlass } from 'phosphor-react';
-import { Button, Card, GridLayout, Input, SearchInput } from '@sd/ui';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Button, Card, GridLayout, SearchInput } from '@sd/ui';
+import { Header } from '../Layout';
 
 // extensions should cache their logos in the app data folder
 interface ExtensionItemData {
@@ -59,8 +57,8 @@ export default function ExtensionSettings() {
 	// const { data: volumes } = useBridgeQuery('GetVolumes');
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="Extensions"
 				description="Install extensions to extend the functionality of this client."
 				rightArea={<SearchInput outerClassnames="mt-1.5" placeholder="Search extensions" />}
@@ -71,6 +69,6 @@ export default function ExtensionSettings() {
 					<ExtensionItem key={extension.uuid} extension={extension} />
 				))}
 			</GridLayout>
-		</SettingsContainer>
+		</>
 	);
 }

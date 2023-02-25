@@ -4,9 +4,8 @@ import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, tw } from '@sd/ui';
 import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
 import DeleteLibraryDialog from '~/components/dialog/DeleteLibraryDialog';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { Tooltip } from '~/components/tooltip/Tooltip';
+import { Header } from '../Layout';
 
 const Pill = tw.span`px-1.5 ml-2 py-[2px] rounded text-xs font-medium bg-accent`;
 
@@ -56,8 +55,8 @@ export default function LibrarySettings() {
 	const { library } = useLibraryContext();
 
 	return (
-		<SettingsContainer>
-			<SettingsHeader
+		<>
+			<Header
 				title="Libraries"
 				description="The database contains all library data and file metadata."
 				rightArea={
@@ -90,6 +89,6 @@ export default function LibrarySettings() {
 						/>
 					))}
 			</div>
-		</SettingsContainer>
+		</>
 	);
 }
