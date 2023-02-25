@@ -8,7 +8,7 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 const TOP_BAR_HEIGHT = 46;
-const GRID_TEXT_AREA_HEIGHT = 25;
+// const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
 	context: ExplorerContext;
@@ -36,13 +36,23 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	}, [explorerStore.showInspector]);
 
 	// sizing calculations
-	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 8,
+	const GRID_TEXT_AREA_HEIGHT = explorerStore.gridItemSize / 4;
+	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 4,
 		amountOfRows =
 			explorerStore.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
 		itemSize =
 			explorerStore.layoutMode === 'grid'
 				? explorerStore.gridItemSize + GRID_TEXT_AREA_HEIGHT
 				: explorerStore.listItemSize;
+
+	console.log({
+		gridItemSize: explorerStore.gridItemSize,
+		itemSize,
+		dataLength: data.length,
+		amountOfRows,
+		amountOfColumns,
+		width
+	});
 
 	useEffect(() => {
 		const el = scrollRef.current;
@@ -92,28 +102,6 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
 	});
 
-	// const Header = () => (
-	// 	<div>
-	// 		{props.context.name && (
-	// 			<h1 className="pt-20 pl-4 text-xl font-bold ">{props.context.name}</h1>
-	// 		)}
-	// 		<div className="table-head">
-	// 			<div className="flex flex-row p-2 table-head-row">
-	// 				{columns.map((col) => (
-	// 					<div
-	// 						key={col.key}
-	// 						className="relative flex flex-row items-center pl-2 table-head-cell group"
-	// 						style={{ width: col.width }}
-	// 					>
-	// 						<EllipsisHorizontalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
-	// 						<span className="text-sm font-medium text-gray-500">{col.column}</span>
-	// 					</div>
-	// 				))}
-	// 			</div>
-	// 		</div>
-	// 	</div>
-	// );
-
 	return (
 		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-4">
 			<div
@@ -143,7 +131,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 							{explorerStore.layoutMode === 'list' ? (
 								<WrappedItem
 									kind="list"
-									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
+									isSelected={explorerStore.selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]!}
 								/>
@@ -194,7 +182,6 @@ const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) =
 	const onClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
 			e.stopPropagation();
-
 			getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
 		},
 		[isSelected, index]

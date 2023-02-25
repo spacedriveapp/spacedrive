@@ -1,7 +1,9 @@
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem } from '@sd/client';
-import FileThumb from './FileThumb';
+import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
+import { getExplorerStore } from '../../hooks/useExplorerStore';
+import { FileItemContextMenu } from './ExplorerContextMenu';
+import { FileThumb } from './FileThumb';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -11,24 +13,26 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 
 function FileRow({ data, index, selected, ...props }: Props) {
 	return (
-		<div
-			{...props}
-			className={clsx(
-				'table-body-row mr-2 flex w-full flex-row rounded-lg border-2',
-				selected ? 'border-accent' : 'border-transparent',
-				index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
-			)}
-		>
-			{columns.map((col) => (
-				<div
-					key={col.key}
-					className="table-body-cell flex items-center px-4 py-2 pr-2"
-					style={{ width: col.width }}
-				>
-					<RenderCell data={data} colKey={col.key} />
-				</div>
-			))}
-		</div>
+		<FileItemContextMenu className="w-full" data={data}>
+			<div
+				{...props}
+				className={clsx(
+					'table-body-row mr-2 flex w-full flex-row rounded-lg border-2',
+					selected ? 'border-accent' : 'border-transparent',
+					index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
+				)}
+			>
+				{columns.map((col) => (
+					<div
+						key={col.key}
+						className="table-body-cell flex items-center px-4 py-2 pr-2"
+						style={{ width: col.width }}
+					>
+						<RenderCell data={data} colKey={col.key} />
+					</div>
+				))}
+			</div>
+		</FileItemContextMenu>
 	);
 }
 
@@ -36,12 +40,14 @@ const RenderCell: React.FC<{
 	colKey: ColumnKey;
 	data: ExplorerItem;
 }> = ({ colKey, data }) => {
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+
 	switch (colKey) {
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
 					<div className="mr-3 flex h-6 w-6 shrink-0 items-center justify-center">
-						<FileThumb data={data} size={0} />
+						<FileThumb data={data} size={35} />
 					</div>
 					{/* {colKey == 'name' &&
             (() => {

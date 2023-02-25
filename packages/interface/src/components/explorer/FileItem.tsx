@@ -2,9 +2,9 @@ import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
 import { cva, tw } from '@sd/ui';
-import { getExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { FileItemContextMenu } from './ExplorerContextMenu';
-import FileThumb from './FileThumb';
+import { FileThumb } from './FileThumb';
 
 const NameArea = tw.div`flex justify-center`;
 
@@ -30,6 +30,8 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 	const item = data.item;
 
+	const explorerStore = useExplorerStore();
+
 	return (
 		<FileItemContextMenu data={data}>
 			<div
@@ -40,12 +42,13 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				}}
 				{...rest}
 				draggable
-				className={clsx('mb-3 inline-block w-[100px]', rest.className)}
+				style={{ width: explorerStore.gridItemSize }}
+				className={clsx('mb-3 inline-block', rest.className)}
 			>
 				<div
 					style={{
-						width: getExplorerStore().gridItemSize,
-						height: getExplorerStore().gridItemSize
+						width: explorerStore.gridItemSize,
+						height: explorerStore.gridItemSize
 					}}
 					className={clsx(
 						'mb-1 rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
@@ -54,26 +57,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 						}
 					)}
 				>
-					<div
-						className={clsx(
-							'relative flex h-full shrink-0 items-center justify-center rounded border-2 border-transparent p-1'
-						)}
-					>
-						<FileThumb
-							className={clsx(
-								'border-app-line max-h-full w-auto max-w-full overflow-hidden rounded-sm border-2 object-cover shadow shadow-black/40',
-								isVid && 'rounded border-x-0 border-y-[7px] !border-black'
-							)}
-							data={data}
-							kind={ObjectKind[objectData?.kind || 0]}
-							size={getExplorerStore().gridItemSize}
-						/>
-						{item.extension && isVid && (
-							<div className="absolute bottom-4 right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
-								{item.extension}
-							</div>
-						)}
-					</div>
+					<FileThumb data={data} size={explorerStore.gridItemSize} />
 				</div>
 				<NameArea>
 					<span className={nameContainerStyles({ selected })}>

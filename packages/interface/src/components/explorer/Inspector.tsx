@@ -14,7 +14,7 @@ import {
 import { Button, tw } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
-import FileThumb from './FileThumb';
+import { FileThumb } from './FileThumb';
 import { Divider } from './inspector/Divider';
 import FavoriteButton from './inspector/FavoriteButton';
 import Note from './inspector/Note';
@@ -85,9 +85,8 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 					>
 						<FileThumb
-							iconClassNames="my-3 max-h-[150px]"
+							// iconClassNames="my-3 max-h-[150px]"
 							size={230}
-							kind={ObjectKind[objectData?.kind || 0]}
 							className="flex shrink grow-0"
 							data={data}
 						/>

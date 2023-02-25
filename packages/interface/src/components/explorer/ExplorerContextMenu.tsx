@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Clipboard,
@@ -211,11 +212,12 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 
 export interface FileItemContextMenuProps extends PropsWithChildren {
 	data: ExplorerItem;
+	className?: string;
 }
 
 export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
 	const { library } = useLibraryContext();
-	const store = useExplorerStore();
+	const store = getExplorerStore();
 	const params = useExplorerParams();
 	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
@@ -227,7 +229,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div className="relative">
+		<div className={clsx('relative', props.className)}>
 			<CM.ContextMenu trigger={props.children}>
 				<CM.Item
 					label="Open"

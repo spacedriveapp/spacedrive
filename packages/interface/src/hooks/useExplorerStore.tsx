@@ -52,11 +52,11 @@ const explorerStore = proxy({
 });
 
 export function useExplorerStore() {
-	const { library } = useLibraryContext();
+	// const { library } = useLibraryContext();
 
-	useEffect(() => {
-		explorerStore.reset();
-	}, [library.uuid]);
+	// useEffect(() => {
+	// 	explorerStore.reset();
+	// }, [library.uuid]);
 
 	return useSnapshot(explorerStore);
 }

@@ -37,7 +37,7 @@ export interface TopBarButtonProps {
 // export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
 
 const topBarButtonStyle = cva(
-	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none p-0.5 font-medium outline-none transition-colors duration-100',
+	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none !p-0.5 font-medium outline-none transition-colors duration-100',
 	{
 		variants: {
 			active: {
@@ -63,7 +63,12 @@ const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	({ active, rounding, className, ...props }, ref) => {
 		return (
-			<Button {...props} ref={ref} className={topBarButtonStyle({ active, rounding, className })}>
+			<Button
+				// size="sm"
+				{...props}
+				ref={ref}
+				className={topBarButtonStyle({ active, rounding, className })}
+			>
 				{props.children}
 			</Button>
 		);
