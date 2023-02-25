@@ -94,6 +94,8 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
 	});
 
+	const layoutMode = explorerStore.layoutMode;
+
 	return (
 		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-4">
 			<div
@@ -105,23 +107,24 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 			>
 				<div
 					ref={innerRef}
+					className="relative w-full"
 					style={{
 						height: rowVirtualizer.getTotalSize(),
-						marginTop: TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT
+						marginTop:
+							layoutMode === 'list' ? TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT : TOP_BAR_HEIGHT
 					}}
-					className="relative w-full"
 				>
-					<ListViewHeader />
+					{layoutMode === 'list' && <ListViewHeader />}
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => (
 						<div
+							key={virtualRow.key}
+							className="absolute top-0 left-0 flex w-full"
 							style={{
-								height: `${virtualRow.size}px`,
+								height: virtualRow.size,
 								transform: `translateY(${virtualRow.start}px)`
 							}}
-							className="absolute top-0 left-0 flex w-full"
-							key={virtualRow.key}
 						>
-							{explorerStore.layoutMode === 'list' && (
+							{layoutMode === 'list' && (
 								<WrappedItem
 									kind="list"
 									isSelected={explorerStore.selectedRowIndex === virtualRow.index}
@@ -129,7 +132,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 									item={data[virtualRow.index]!}
 								/>
 							)}
-							{explorerStore.layoutMode === 'grid' &&
+							{layoutMode === 'grid' &&
 								[...Array(amountOfColumns)].map((_, i) => {
 									const index = virtualRow.index * amountOfColumns + i;
 									const item = data[index];
