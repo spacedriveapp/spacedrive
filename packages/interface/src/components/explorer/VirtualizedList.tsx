@@ -106,8 +106,8 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 				<div
 					ref={innerRef}
 					style={{
-						height: `${rowVirtualizer.getTotalSize()}px`,
-						marginTop: `${TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT}px`
+						height: rowVirtualizer.getTotalSize(),
+						marginTop: TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT
 					}}
 					className="relative w-full"
 				>
