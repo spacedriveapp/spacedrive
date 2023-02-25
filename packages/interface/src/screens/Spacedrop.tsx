@@ -40,7 +40,7 @@ function DropItem(props: DropItemProps) {
 		}
 		if (brandIconSrc) {
 			icon = (
-				<div className="flex items-center justify-center h-full p-3">
+				<div className="flex h-full items-center justify-center p-3">
 					<img className="rounded-full " src={brandIconSrc} alt={props.name} />
 				</div>
 			);
@@ -48,18 +48,18 @@ function DropItem(props: DropItemProps) {
 	} else {
 		//
 		const Icon = props.icon || User;
-		icon = <Icon className={clsx('w-8 h-8 m-3', !props.name && 'opacity-20')} />;
+		icon = <Icon className={clsx('m-3 h-8 w-8', !props.name && 'opacity-20')} />;
 	}
 
 	return (
 		<div
-			className={clsx(classes.honeycombItem, 'overflow-hidden bg-app-box/20 hover:bg-app-box/50')}
+			className={clsx(classes.honeycombItem, 'bg-app-box/20 hover:bg-app-box/50 overflow-hidden')}
 		>
-			<div className="relative flex flex-col items-center justify-center w-full h-full group ">
+			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				<SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer>
-				<div className="rounded-full w-14 h-14 bg-app-button">{icon}</div>
+				<div className="bg-app-button h-14 w-14 rounded-full">{icon}</div>
 				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
 				</SubtleButtonContainer>
@@ -69,7 +69,7 @@ function DropItem(props: DropItemProps) {
 					{props.connectionType && (
 						<Pill
 							className={clsx(
-								'!text-white uppercase',
+								'uppercase !text-white',
 								props.connectionType === 'lan' && 'bg-green-500',
 								props.connectionType === 'p2p' && 'bg-blue-500'
 							)}
@@ -89,7 +89,7 @@ export default function SpacedropScreen() {
 	return (
 		<ScreenContainer
 			dragRegionChildren={
-				<div className="flex flex-row items-center justify-center w-full h-8 pt-3">
+				<div className="flex h-8 w-full flex-row items-center justify-center pt-3">
 					<SearchBar className="ml-[13px]" ref={searchRef} />
 					{/* <Button variant="outline">Add</Button> */}
 				</div>
