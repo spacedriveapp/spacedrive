@@ -83,12 +83,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden rounded-lg'
 						)}
 					>
-						<FileThumb
-							// iconClassNames="my-3 max-h-[150px]"
-							size={240}
-							className="!rounded-2xl"
-							data={data}
-						/>
+						<FileThumb size={240} data={data} />
 					</div>
 					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">

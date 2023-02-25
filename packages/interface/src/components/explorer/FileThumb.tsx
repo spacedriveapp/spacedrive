@@ -8,21 +8,9 @@ import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
-
-export function getExplorerItemData(data: ExplorerItem) {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-
-	return {
-		cas_id: (isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id) || null,
-		isDir: isPath(data) && data.item.is_dir,
-		kind: ObjectKind[objectData?.kind || 0] || null,
-		hasThumbnail: data.has_thumbnail,
-		extension: data.item.extension
-	};
-}
+import { getExplorerItemData } from './util';
 
 // const icons = import.meta.glob('../../../../assets/icons/*.svg');
 interface FileItemProps {

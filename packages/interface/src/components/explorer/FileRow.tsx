@@ -6,8 +6,9 @@ import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { getExplorerStore } from '../../hooks/useExplorerStore';
 import { ExplorerItemContextMenu } from './ExplorerContextMenu';
 import { ColumnKey, columns } from './FileColumns';
-import { FileThumb, getExplorerItemData } from './FileThumb';
+import { FileThumb } from './FileThumb';
 import { InfoPill } from './Inspector';
+import { getExplorerItemData } from './util';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
