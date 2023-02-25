@@ -5,8 +5,13 @@ import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
 import { getDebugState, hooks, queryClient } from '@sd/client';
-import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
-import { KeybindEvent } from '@sd/interface';
+import {
+	KeybindEvent,
+	OperatingSystem,
+	Platform,
+	PlatformProvider,
+	SpacedriveInterface
+} from '@sd/interface';
 import '@sd/ui/style';
 
 const client = hooks.createClient({

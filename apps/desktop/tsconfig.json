@@ -10,7 +10,7 @@
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../packages/interface"
+			"path": "../../interface"
 		}
 	]
 }

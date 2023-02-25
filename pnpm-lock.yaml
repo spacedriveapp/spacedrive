@@ -63,7 +63,7 @@ importers:
       '@rspc/client': 0.0.0-main-7c0a67c1
       '@rspc/tauri': 0.0.0-main-7c0a67c1_@tauri-apps+api@1.2.0
       '@sd/client': link:../../packages/client
-      '@sd/interface': link:../../packages/interface
+      '@sd/interface': link:../../interface
       '@sd/ui': link:../../packages/ui
       '@tauri-apps/api': 1.2.0
       react: 18.2.0
@@ -315,7 +315,7 @@ importers:
       '@fontsource/inter': 4.5.15
       '@rspc/client': 0.0.0-main-7c0a67c1
       '@sd/client': link:../../packages/client
-      '@sd/interface': link:../../packages/interface
+      '@sd/interface': link:../../interface
       '@tanstack/react-query': 4.22.0_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -364,53 +364,7 @@ importers:
   docs:
     specifiers: {}
 
-  packages/assets:
-    specifiers: {}
-
-  packages/client:
-    specifiers:
-      '@rspc/client': ^0.0.0-main-7c0a67c1
-      '@rspc/react': ^0.0.0-main-7c0a67c1
-      '@sd/config': workspace:*
-      '@tanstack/react-query': ^4.12.0
-      '@types/react': ^18.0.21
-      scripts: '*'
-      tsconfig: '*'
-      typescript: ^4.8.4
-      valtio: ^1.7.4
-    dependencies:
-      '@rspc/client': 0.0.0-main-7c0a67c1
-      '@rspc/react': 0.0.0-main-7c0a67c1_tqsbl3x6ixew47ctvte2nz2yki
-      '@sd/config': link:../config
-      '@tanstack/react-query': 4.22.0
-      valtio: 1.9.0
-    devDependencies:
-      '@types/react': 18.0.27
-      scripts: 0.1.0
-      tsconfig: 7.0.0
-      typescript: 4.9.4
-
-  packages/config:
-    specifiers:
-      '@typescript-eslint/eslint-plugin': ^5.51.0
-      '@typescript-eslint/parser': ^5.51.0
-      eslint: ^8.33.0
-      eslint-config-prettier: ^8.5.0
-      eslint-config-turbo: ^0.0.7
-      eslint-plugin-react: ^7.32.2
-      eslint-plugin-react-hooks: ^4.6.0
-      eslint-plugin-tailwindcss: ^3.8.3
-    devDependencies:
-      '@typescript-eslint/eslint-plugin': 5.51.0_yzj2n2b43wonjwaifya6xmk2zy
-      '@typescript-eslint/parser': 5.51.0_eslint@8.33.0
-      eslint: 8.33.0
-      eslint-config-prettier: 8.6.0_eslint@8.33.0
-      eslint-config-turbo: 0.0.7_eslint@8.33.0
-      eslint-plugin-react: 7.32.2_eslint@8.33.0
-      eslint-plugin-react-hooks: 4.6.0_eslint@8.33.0
-      eslint-plugin-tailwindcss: 3.8.3
-
-  packages/interface:
+  interface:
     specifiers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
@@ -472,21 +426,21 @@ importers:
     dependencies:
       '@fontsource/inter': 4.5.15
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
-      '@hookform/resolvers': 2.9.10_react-hook-form@7.42.1
+      '@hookform/resolvers': 2.9.10_react-hook-form@7.43.0
       '@loadable/component': 5.15.2_react@18.2.0
       '@radix-ui/react-progress': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-toast': 1.1.2_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-tooltip': 1.0.3_5ndqzdd6t4rivxsukjv3i3ak2q
-      '@sd/assets': link:../assets
-      '@sd/client': link:../client
-      '@sd/ui': link:../ui
+      '@sd/assets': link:../packages/assets
+      '@sd/client': link:../packages/client
+      '@sd/ui': link:../packages/ui
       '@sentry/browser': 7.31.1
       '@splinetool/react-spline': 2.2.5_3ok4u2chf7465ntwlp4i32bwcu
       '@splinetool/runtime': 0.9.191
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
-      '@tanstack/react-query': 4.22.0_biqbaboplfbrettd7655fr4n2y
-      '@tanstack/react-query-devtools': 4.22.0_gp275tdwez2a4eujt75dnnp754
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query-devtools': 4.22.0_pkeil6ml7pq7xvil3imldjs2sa
       '@tanstack/react-virtual': 3.0.0-beta.18_react@18.2.0
       '@vitejs/plugin-react': 2.2.0_vite@4.0.4
       '@zxcvbn-ts/core': 2.1.0
@@ -503,7 +457,7 @@ importers:
       react-colorful: 5.6.1_biqbaboplfbrettd7655fr4n2y
       react-dom: 18.2.0_react@18.2.0
       react-error-boundary: 3.1.4_react@18.2.0
-      react-hook-form: 7.42.1_react@18.2.0
+      react-hook-form: 7.43.0_react@18.2.0
       react-json-view: 1.21.3_5ndqzdd6t4rivxsukjv3i3ak2q
       react-loading-skeleton: 3.1.0_react@18.2.0
       react-qr-code: 2.0.11_react@18.2.0
@@ -516,7 +470,7 @@ importers:
       valtio: 1.9.0_react@18.2.0
       zod: 3.20.2
     devDependencies:
-      '@sd/config': link:../config
+      '@sd/config': link:../packages/config
       '@types/babel-core': 6.25.7
       '@types/byte-size': 8.1.0
       '@types/loadable__component': 5.13.4
@@ -528,6 +482,52 @@ importers:
       typescript: 4.9.4
       vite: 4.0.4_@types+node@18.11.18
       vite-plugin-svgr: 2.4.0_vite@4.0.4
+
+  packages/assets:
+    specifiers: {}
+
+  packages/client:
+    specifiers:
+      '@rspc/client': ^0.0.0-main-7c0a67c1
+      '@rspc/react': ^0.0.0-main-7c0a67c1
+      '@sd/config': workspace:*
+      '@tanstack/react-query': ^4.12.0
+      '@types/react': ^18.0.21
+      scripts: '*'
+      tsconfig: '*'
+      typescript: ^4.8.4
+      valtio: ^1.7.4
+    dependencies:
+      '@rspc/client': 0.0.0-main-7c0a67c1
+      '@rspc/react': 0.0.0-main-7c0a67c1_tqsbl3x6ixew47ctvte2nz2yki
+      '@sd/config': link:../config
+      '@tanstack/react-query': 4.22.0
+      valtio: 1.9.0
+    devDependencies:
+      '@types/react': 18.0.27
+      scripts: 0.1.0
+      tsconfig: 7.0.0
+      typescript: 4.9.4
+
+  packages/config:
+    specifiers:
+      '@typescript-eslint/eslint-plugin': ^5.51.0
+      '@typescript-eslint/parser': ^5.51.0
+      eslint: ^8.33.0
+      eslint-config-prettier: ^8.5.0
+      eslint-config-turbo: ^0.0.7
+      eslint-plugin-react: ^7.32.2
+      eslint-plugin-react-hooks: ^4.6.0
+      eslint-plugin-tailwindcss: ^3.8.3
+    devDependencies:
+      '@typescript-eslint/eslint-plugin': 5.51.0_yzj2n2b43wonjwaifya6xmk2zy
+      '@typescript-eslint/parser': 5.51.0_eslint@8.33.0
+      eslint: 8.33.0
+      eslint-config-prettier: 8.6.0_eslint@8.33.0
+      eslint-config-turbo: 0.0.7_eslint@8.33.0
+      eslint-plugin-react: 7.32.2_eslint@8.33.0
+      eslint-plugin-react-hooks: 4.6.0_eslint@8.33.0
+      eslint-plugin-tailwindcss: 3.8.3
 
   packages/ui:
     specifiers:
@@ -4109,12 +4109,12 @@ packages:
       tailwindcss: 3.2.4
     dev: false
 
-  /@hookform/resolvers/2.9.10_react-hook-form@7.42.1:
+  /@hookform/resolvers/2.9.10_react-hook-form@7.43.0:
     resolution: {integrity: sha512-JIL1DgJIlH9yuxcNGtyhsWX/PgNltz+5Gr6+8SX9fhXc/hPbEIk6wPI82nhgvp3uUb6ZfAM5mqg/x7KR7NAb+A==}
     peerDependencies:
       react-hook-form: ^7.0.0
     dependencies:
-      react-hook-form: 7.42.1_react@18.2.0
+      react-hook-form: 7.43.0_react@18.2.0
     dev: false
 
   /@humanwhocodes/config-array/0.11.8:
@@ -7591,7 +7591,7 @@ packages:
     resolution: {integrity: sha512-9dqjv9eeB6VHN7lD3cLo16ZAjfjCsdXetSAD5+VyKqLUvcKTL0CklGQRJu+bWzdrS69R6Ea4UZo8obHYZnG6aA==}
     dev: false
 
-  /@tanstack/react-query-devtools/4.22.0_gp275tdwez2a4eujt75dnnp754:
+  /@tanstack/react-query-devtools/4.22.0_pkeil6ml7pq7xvil3imldjs2sa:
     resolution: {integrity: sha512-YeYFBnfqvb+ZlA0IiJqiHNNSzepNhI1p2o9i8NlhQli9+Zrn230M47OBaBUs8qr3DD1dC2zGB1Dis50Ktz8gAA==}
     peerDependencies:
       '@tanstack/react-query': 4.22.0
@@ -7599,7 +7599,7 @@ packages:
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
       '@tanstack/match-sorter-utils': 8.7.6
-      '@tanstack/react-query': 4.22.0_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       superjson: 1.12.2
@@ -7638,6 +7638,24 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
+
+  /@tanstack/react-query/4.24.4_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.24.4
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
+    dev: false
 
   /@tanstack/react-query/4.24.4_tj3nonr5gneraukzjkxpsiy7yu:
     resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
@@ -7954,14 +7972,14 @@ packages:
     resolution: {integrity: sha512-ZUxbzKl0IfJILTS6t7ip5fQQM/J3TJYubDm3nMbgubNNYS62eXeUpoLUC8/7fJNiFYHTrGPQn7hspDUzIHX3UA==}
     dependencies:
       '@types/minimatch': 5.1.2
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
     dev: true
 
   /@types/glob/8.0.0:
     resolution: {integrity: sha512-l6NQsDDyQUVeoTynNpC9uRvCUint/gSUXQA2euwmTuWGvPY5LSDUu6tkCtJB2SvGQlJQzLaKqcGZP4//7EDveA==}
     dependencies:
       '@types/minimatch': 5.1.2
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
     dev: true
 
   /@types/graceful-fs/4.1.6:
@@ -8054,12 +8072,13 @@ packages:
   /@types/node-fetch/2.6.2:
     resolution: {integrity: sha512-DHqhlq5jeESLy19TYhLakJ07kNumXWjcDdxXsLUMJZ6ue8VZJj4kLPQVE/2mdHh3xZziNF1xppu5lwmS53HR+A==}
     dependencies:
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
       form-data: 3.0.1
     dev: true
 
   /@types/node/16.18.11:
     resolution: {integrity: sha512-3oJbGBUWuS6ahSnEq1eN2XrCyf4YsWI8OyCvo7c64zQJNplk3mO84t53o8lfTk+2ji59g5ycfc6qQ3fdHliHuA==}
+    dev: true
 
   /@types/node/18.11.18:
     resolution: {integrity: sha512-DHQpWGjyQKSHj3ebjFI/wRKcqQcdR+MoFBygntYOZytCqNfkd2ZC4ARDJ2DQqhjH5p85Nnd3jhUJIXrszFX/JA==}
@@ -8201,7 +8220,7 @@ packages:
   /@types/webpack-sources/3.2.0:
     resolution: {integrity: sha512-Ft7YH3lEVRQ6ls8k4Ff1oB4jN6oy/XmU6tQISKdhfh+1mR+viZFphS6WL0IrtDOzvefmJg5a0s7ZQoRXwqTEFg==}
     dependencies:
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
       '@types/source-list-map': 0.1.2
       source-map: 0.7.4
     dev: true
@@ -8209,7 +8228,7 @@ packages:
   /@types/webpack/4.41.33:
     resolution: {integrity: sha512-PPajH64Ft2vWevkerISMtnZ8rTs4YmRbs+23c402J0INmxDKCrhZNvwZYtzx96gY2wAtXdrK1BS2fiC8MlLr3g==}
     dependencies:
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
       '@types/tapable': 1.0.8
       '@types/uglify-js': 3.17.1
       '@types/webpack-sources': 3.2.0
@@ -8394,7 +8413,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - supports-color
 
@@ -14450,7 +14469,7 @@ packages:
     resolution: {integrity: sha512-7vuh85V5cdDofPyxn58nrPjBktZo0u9x1g8WtjQol+jZDaE+fhN+cIvTj11GndBnMnyfrUOG1sZQxCdjKh+DKg==}
     engines: {node: '>= 10.13.0'}
     dependencies:
-      '@types/node': 16.18.11
+      '@types/node': 18.11.18
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -17492,6 +17511,15 @@ packages:
       react: ^16.8.0 || ^17 || ^18
     dependencies:
       react: 18.1.0
+    dev: false
+
+  /react-hook-form/7.43.0_react@18.2.0:
+    resolution: {integrity: sha512-/rVEz7T0gLdSFwPqutJ1kn2e0sQNyb9ci/hmwEYr2YG0KF/LSuRLvNrf9QWJM+gj88CjDpDW5Bh/1AD7B2+z9Q==}
+    engines: {node: '>=12.22.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /react-inspector/5.1.1_react@18.2.0:
@@ -21023,7 +21051,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -21119,6 +21147,7 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -21186,7 +21215,6 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}
