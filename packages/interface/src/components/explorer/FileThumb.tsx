@@ -7,7 +7,7 @@ import File from '@sd/assets/images/File.png';
 import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
-import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
 import { getExplorerItemData } from './util';
