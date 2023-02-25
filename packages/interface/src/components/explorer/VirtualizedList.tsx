@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerContext, ExplorerItem, isPath } from '@sd/client';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { LIST_VIEW_HEADER_HEIGHT, ListViewHeader } from './FileColumns';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
@@ -106,10 +107,11 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 					ref={innerRef}
 					style={{
 						height: `${rowVirtualizer.getTotalSize()}px`,
-						marginTop: `${TOP_BAR_HEIGHT}px`
+						marginTop: `${TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT}px`
 					}}
 					className="relative w-full"
 				>
+					<ListViewHeader />
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => (
 						<div
 							style={{
@@ -119,14 +121,15 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 							className="absolute top-0 left-0 flex w-full"
 							key={virtualRow.key}
 						>
-							{explorerStore.layoutMode === 'list' ? (
+							{explorerStore.layoutMode === 'list' && (
 								<WrappedItem
 									kind="list"
 									isSelected={explorerStore.selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]!}
 								/>
-							) : (
+							)}
+							{explorerStore.layoutMode === 'grid' &&
 								[...Array(amountOfColumns)].map((_, i) => {
 									const index = virtualRow.index * amountOfColumns + i;
 									const item = data[index];
@@ -143,8 +146,7 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 											)}
 										</div>
 									);
-								})
-							)}
+								})}
 						</div>
 					))}
 				</div>

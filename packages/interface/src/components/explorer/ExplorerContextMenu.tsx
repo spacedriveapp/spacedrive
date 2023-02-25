@@ -210,14 +210,18 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 	);
 }
 
-export interface FileItemContextMenuProps extends PropsWithChildren {
+export interface ExplorerItemContextMenuProps extends PropsWithChildren {
 	data: ExplorerItem;
 	className?: string;
 }
 
-export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps) {
+export function ExplorerItemContextMenu({
+	data,
+	className,
+	...props
+}: ExplorerItemContextMenuProps) {
 	const { library } = useLibraryContext();
-	const store = getExplorerStore();
+	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
@@ -229,7 +233,7 @@ export function FileItemContextMenu({ data, ...props }: FileItemContextMenuProps
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div className={clsx('relative', props.className)}>
+		<div className={clsx('relative', className)}>
 			<CM.ContextMenu trigger={props.children}>
 				<CM.Item
 					label="Open"

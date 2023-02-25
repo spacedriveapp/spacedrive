@@ -3,7 +3,7 @@ import { HTMLAttributes } from 'react';
 import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { FileItemContextMenu } from './ExplorerContextMenu';
+import { ExplorerItemContextMenu } from './ExplorerContextMenu';
 import { FileThumb } from './FileThumb';
 
 const NameArea = tw.div`flex justify-center`;
@@ -33,7 +33,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	const explorerStore = useExplorerStore();
 
 	return (
-		<FileItemContextMenu data={data}>
+		<ExplorerItemContextMenu data={data}>
 			<div
 				onContextMenu={(e) => {
 					if (index != undefined) {
@@ -66,7 +66,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					</span>
 				</NameArea>
 			</div>
-		</FileItemContextMenu>
+		</ExplorerItemContextMenu>
 	);
 }
 

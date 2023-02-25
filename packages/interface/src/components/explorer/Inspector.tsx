@@ -124,7 +124,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{item && <InfoPill>{item.extension}</InfoPill>}
+								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
 									<InfoPill
 										className="!text-white"

@@ -40,12 +40,10 @@ export function FileThumb({ data, size, className }: FileItemProps) {
 	// calculate 16:9 ratio for height from size
 	const videoHeight = Math.floor((size * 9) / 16) + videoBarsHeight * 2;
 
-	const videoHorizontalPadding = 0;
-
 	return (
 		<div
 			className={clsx(
-				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent p-1',
+				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent',
 				className
 			)}
 		>
@@ -58,8 +56,8 @@ export function FileThumb({ data, size, className }: FileItemProps) {
 				kind={kind}
 				imgClassName={clsx(
 					hasThumbnail &&
-						'max-h-full w-auto max-w-full overflow-hidden rounded-sm object-cover shadow shadow-black/30',
-					kind === 'Image' && 'border-app-line border-2',
+						'max-h-full w-auto max-w-full rounded-sm object-cover shadow shadow-black/30',
+					kind === 'Image' && size > 60 && 'border-app-line border-2',
 					kind === 'Video' && 'rounded border-x-0 !border-black'
 				)}
 				imgStyle={
@@ -67,7 +65,7 @@ export function FileThumb({ data, size, className }: FileItemProps) {
 						? {
 								borderTopWidth: videoBarsHeight,
 								borderBottomWidth: videoBarsHeight,
-								width: size - videoHorizontalPadding,
+								width: size,
 								height: videoHeight
 						  }
 						: {}
@@ -112,7 +110,7 @@ export function FileThumbImg({
 	if (url && hasThumbnail) {
 		return (
 			<img
-				style={{ ...imgStyle, maxWidth: size }}
+				style={{ ...imgStyle, maxWidth: size, width: size - 10 }}
 				decoding="async"
 				className={clsx('z-90 pointer-events-none bg-black', imgClassName)}
 				src={url}
