@@ -45,15 +45,6 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 				? explorerStore.gridItemSize + GRID_TEXT_AREA_HEIGHT
 				: explorerStore.listItemSize;
 
-	console.log({
-		gridItemSize: explorerStore.gridItemSize,
-		itemSize,
-		dataLength: data.length,
-		amountOfRows,
-		amountOfColumns,
-		width
-	});
-
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (!el) return;
