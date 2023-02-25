@@ -86,8 +86,8 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 					>
 						<FileThumb
 							// iconClassNames="my-3 max-h-[150px]"
-							size={230}
-							className="flex shrink grow-0"
+							size={240}
+							className="!rounded-2xl"
 							data={data}
 						/>
 					</div>

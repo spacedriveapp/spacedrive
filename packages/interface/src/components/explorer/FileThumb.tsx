@@ -6,6 +6,7 @@ import Executable from '@sd/assets/images/Executable.png';
 import File from '@sd/assets/images/File.png';
 import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
+import { CSSProperties } from 'react';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
@@ -29,12 +30,23 @@ interface FileItemProps {
 	size: number;
 	className?: string;
 }
-export function FileThumb({ data, size }: FileItemProps) {
+
+export function FileThumb({ data, size, className }: FileItemProps) {
 	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(data);
+
+	// 10 percent of the size
+	const videoBarsHeight = Math.floor(size / 10);
+
+	// calculate 16:9 ratio for height from size
+	const videoHeight = Math.floor((size * 9) / 16) + videoBarsHeight * 2;
+
+	const videoHorizontalPadding = 0;
+
 	return (
 		<div
 			className={clsx(
-				'relative flex h-full shrink-0 items-center justify-center rounded border-2 border-transparent p-1'
+				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent p-1',
+				className
 			)}
 		>
 			<FileThumbImg
@@ -46,12 +58,23 @@ export function FileThumb({ data, size }: FileItemProps) {
 				kind={kind}
 				imgClassName={clsx(
 					hasThumbnail &&
-						'border-app-line max-h-full w-auto max-w-full overflow-hidden rounded-sm border-2 object-cover shadow shadow-black/40',
-					kind === 'Video' && 'rounded border-x-0 border-y-[7px] !border-black'
+						'max-h-full w-auto max-w-full overflow-hidden rounded-sm object-cover shadow shadow-black/30',
+					kind === 'Image' && 'border-app-line border-2',
+					kind === 'Video' && 'rounded border-x-0 !border-black'
 				)}
+				imgStyle={
+					kind === 'Video'
+						? {
+								borderTopWidth: videoBarsHeight,
+								borderBottomWidth: videoBarsHeight,
+								width: size - videoHorizontalPadding,
+								height: videoHeight
+						  }
+						: {}
+				}
 			/>
 			{extension && kind === 'Video' && (
-				<div className="absolute bottom-4 right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
+				<div className="absolute bottom-[22%] right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
 					{extension}
 				</div>
 			)}
@@ -66,7 +89,7 @@ interface FileThumbImgProps {
 	size: number;
 	hasThumbnail: boolean;
 	imgClassName?: string;
-	imgStyle?: string;
+	imgStyle?: CSSProperties;
 }
 
 export function FileThumbImg({
@@ -86,15 +109,16 @@ export function FileThumbImg({
 	if (!cas_id) return <div></div>;
 	const url = platform.getThumbnailUrlById(cas_id);
 
-	if (url && hasThumbnail)
+	if (url && hasThumbnail) {
 		return (
 			<img
-				style={imgStyle}
+				style={{ ...imgStyle }}
 				decoding="async"
-				className={clsx('z-90 pointer-events-none', imgClassName)}
+				className={clsx('z-90 pointer-events-none bg-black', imgClassName)}
 				src={url}
 			/>
 		);
+	}
 
 	let icon = File;
 	// Hacky (and temporary) way to integrate thumbnails

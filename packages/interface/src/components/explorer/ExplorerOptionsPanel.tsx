@@ -30,7 +30,6 @@ export function ExplorerOptionsPanel() {
 		<div className="p-4 ">
 			{/* <Heading>Explorer Appearance</Heading> */}
 			<SubHeading>Item size</SubHeading>
-			{explorerStore.gridItemSize}
 			<Slider
 				onValueChange={(value) => {
 					getExplorerStore().gridItemSize = value[0] || 100;
@@ -39,7 +38,7 @@ export function ExplorerOptionsPanel() {
 				defaultValue={[explorerStore.gridItemSize]}
 				max={200}
 				step={10}
-				min={20}
+				min={60}
 			/>
 			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">

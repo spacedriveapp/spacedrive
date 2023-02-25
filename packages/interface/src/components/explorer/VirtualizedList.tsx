@@ -141,17 +141,15 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 									const item = data[index];
 									const isSelected = explorerStore.selectedRowIndex === index;
 									return (
-										<div key={index} className="">
-											<div className="flex">
-												{item && (
-													<WrappedItem
-														kind="grid"
-														isSelected={isSelected}
-														index={index}
-														item={item}
-													/>
-												)}
-											</div>
+										<div key={index} className="flex">
+											{item && (
+												<WrappedItem
+													kind="grid"
+													isSelected={isSelected}
+													index={index}
+													item={item}
+												/>
+											)}
 										</div>
 									);
 								})

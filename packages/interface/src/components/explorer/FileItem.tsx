@@ -53,7 +53,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					className={clsx(
 						'mb-1 rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
 						{
-							'bg-app-selected/30': selected
+							'bg-app-selected/20': selected
 						}
 					)}
 				>
