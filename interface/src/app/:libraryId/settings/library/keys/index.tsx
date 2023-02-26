@@ -7,13 +7,13 @@ import { animated, useTransition } from 'react-spring';
 import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
-import { showAlertDialog } from '~/util/dialog';
 import { Heading } from '../../Layout';
 import KeyMounter from "~/components/KeyManager/Mounter"
 import KeyList from "~/components/KeyManager/List"
 import BackupRestoreDialog from './BackupRestoreDialog';
 import KeyViewerDialog from './KeyViewerDialog';
 import MasterPasswordDialog from "./MasterPasswordDialog"
+import { showAlertDialog } from '~/components/AlertDialog';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;

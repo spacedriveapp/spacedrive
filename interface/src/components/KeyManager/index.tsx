@@ -2,7 +2,7 @@ import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
-import { showAlertDialog } from '~/util/dialog';
+import { showAlertDialog } from '../AlertDialog';
 import KeyList from './List';
 import KeyMounter from './Mounter';
 

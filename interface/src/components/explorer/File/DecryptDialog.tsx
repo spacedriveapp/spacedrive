@@ -5,8 +5,8 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
 import { Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
-import { showAlertDialog } from '~/util/dialog';
 
 interface Props extends UseDialogProps {
 	location_id: number;

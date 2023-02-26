@@ -16,8 +16,8 @@ import {
 	HashingAlgoSlug,
 	getHashingAlgorithmSettings
 } from '~/app/:libraryId/settings/library/keys';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { generatePassword } from '~/components/KeyManager/Mounter';
-import { showAlertDialog } from '~/util/dialog';
 
 const schema = z.object({
 	masterPassword: z.string(),

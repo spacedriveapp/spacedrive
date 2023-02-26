@@ -2,7 +2,7 @@ import ReactJson, { ReactJsonViewProps } from 'react-json-view';
 
 export type CodeBlockProps = ReactJsonViewProps;
 
-export default function CodeBlock(props: CodeBlockProps) {
+export const CodeBlock = (props: CodeBlockProps) => {
 	return (
 		<ReactJson
 			enableClipboard={false}
@@ -19,4 +19,4 @@ export default function CodeBlock(props: CodeBlockProps) {
 			{...props}
 		/>
 	);
-}
+};

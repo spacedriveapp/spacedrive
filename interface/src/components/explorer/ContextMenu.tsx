@@ -48,7 +48,7 @@ export default (props: PropsWithChildren) => {
 
 	return (
 		<div className="relative">
-			<CM.ContextMenu trigger={props.children}>
+			<CM.Root trigger={props.children}>
 				<OpenInNativeExplorer />
 
 				<CM.Separator />
@@ -133,7 +133,7 @@ export default (props: PropsWithChildren) => {
 				</CM.SubMenu>
 
 				<CM.Separator />
-			</CM.ContextMenu>
+			</CM.Root>
 		</div>
 	);
 };

@@ -23,8 +23,8 @@ import {
 } from '@sd/client';
 import { Button, ButtonLink, Loader, Popover, Tooltip } from '@sd/ui';
 import { Folder } from '~/components/Folder';
+import { SubtleButton } from '~/components/SubtleButton';
 import { MacTrafficLights } from '~/components/TrafficLights';
-import { SubtleButton } from '~/components/primitive/SubtleButton';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { OperatingSystem, usePlatform } from '~/util/Platform';
 import AddLocationButton from './AddLocationButton';

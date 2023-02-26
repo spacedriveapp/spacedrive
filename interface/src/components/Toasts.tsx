@@ -1,9 +1,9 @@
 import * as ToastPrimitive from '@radix-ui/react-toast';
 import clsx from 'clsx';
-import { useToasts } from '../../hooks/useToasts';
+import { useToasts } from '~/hooks/useToasts';
 
 export function Toasts() {
-	const { toasts, addToast, removeToast } = useToasts();
+	const { toasts, removeToast } = useToasts();
 	return (
 		<div className="fixed right-0 flex">
 			<ToastPrimitive.Provider>

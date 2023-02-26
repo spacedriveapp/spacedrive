@@ -162,7 +162,7 @@ export function Dialog<S extends FieldValues>({
 								<Form
 									form={form}
 									onSubmit={async (e) => {
-										await onSubmit(e);
+										await onSubmit?.(e);
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}

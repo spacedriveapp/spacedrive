@@ -2,8 +2,8 @@ import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmString } from '~/app/:libraryId/settings/library/keys';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
-import { showAlertDialog } from '~/util/dialog';
 import { KeyListSelectOptions } from '../../KeyManager/List';
 
 interface Props extends UseDialogProps {

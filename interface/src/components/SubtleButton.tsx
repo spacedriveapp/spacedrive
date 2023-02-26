@@ -1,8 +1,9 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { Button, tw } from '@sd/ui';
 
-export const SubtleButton: React.FC<{ icon?: React.FC }> = (props) => {
+export const SubtleButton = (props: { icon?: React.FC }) => {
 	const Icon = props.icon ?? Ellipsis;
+
 	return (
 		<Button className="!p-[5px]" variant="subtle">
 			{/* @ts-expect-error */}

@@ -20,3 +20,5 @@ export * from './Slider';
 export * from './Divider';
 export * from './PasswordMeter';
 export * from './Shortcut';
+export * from './ProgressBar';
+export * from './Codeblock';

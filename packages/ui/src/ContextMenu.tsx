@@ -17,12 +17,7 @@ const MENU_CLASSES = `
   select-none cursor-default rounded-md
 `;
 
-export const ContextMenu = ({
-	trigger,
-	children,
-	className,
-	...props
-}: PropsWithChildren<Props>) => {
+export const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Props>) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>

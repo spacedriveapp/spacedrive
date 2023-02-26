@@ -20,11 +20,11 @@ import {
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
-import { ContextMenu as CM, dialogManager } from '@sd/ui';
+import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/:libraryId/location/:id';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
-import { showAlertDialog } from '~/util/dialog';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -50,8 +50,8 @@ export default ({ data, ...props }: Props) => {
 
 	return (
 		<div className="relative">
-			<CM.ContextMenu trigger={props.children}>
-				<CM.Item
+			<ContextMenu.Root trigger={props.children}>
+				<ContextMenu.Item
 					label="Open"
 					keybind="⌘O"
 					onClick={() => {
@@ -64,28 +64,28 @@ export default ({ data, ...props }: Props) => {
 					}}
 					icon={Copy}
 				/>
-				<CM.Item label="Open with..." />
+				<ContextMenu.Item label="Open with..." />
 
-				<CM.Separator />
+				<ContextMenu.Separator />
 
 				{!store.showInspector && (
 					<>
-						<CM.Item
+						<ContextMenu.Item
 							label="Details"
 							// icon={Sidebar}
 							onClick={() => (getExplorerStore().showInspector = true)}
 						/>
-						<CM.Separator />
+						<ContextMenu.Separator />
 					</>
 				)}
 
-				<CM.Item label="Quick view" keybind="␣" />
+				<ContextMenu.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
-				<CM.Separator />
+				<ContextMenu.Separator />
 
-				<CM.Item label="Rename" />
-				<CM.Item
+				<ContextMenu.Item label="Rename" />
+				<ContextMenu.Item
 					label="Duplicate"
 					keybind="⌘D"
 					onClick={() => {
@@ -99,7 +99,7 @@ export default ({ data, ...props }: Props) => {
 					}}
 				/>
 
-				<CM.Item
+				<ContextMenu.Item
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
@@ -113,7 +113,7 @@ export default ({ data, ...props }: Props) => {
 					icon={Scissors}
 				/>
 
-				<CM.Item
+				<ContextMenu.Item
 					label="Copy"
 					keybind="⌘C"
 					onClick={() => {
@@ -127,7 +127,7 @@ export default ({ data, ...props }: Props) => {
 					icon={Copy}
 				/>
 
-				<CM.Item
+				<ContextMenu.Item
 					label="Deselect"
 					hidden={!store.cutCopyState.active}
 					onClick={() => {
@@ -139,9 +139,9 @@ export default ({ data, ...props }: Props) => {
 					icon={FileX}
 				/>
 
-				<CM.Separator />
+				<ContextMenu.Separator />
 
-				<CM.Item
+				<ContextMenu.Item
 					label="Share"
 					icon={Share}
 					onClick={(e) => {
@@ -155,14 +155,14 @@ export default ({ data, ...props }: Props) => {
 					}}
 				/>
 
-				<CM.Separator />
+				<ContextMenu.Separator />
 
-				<CM.SubMenu label="Assign tag" icon={TagSimple}>
+				<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
 					<AssignTagMenuItems objectId={objectData?.id || 0} />
-				</CM.SubMenu>
+				</ContextMenu.SubMenu>
 
-				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
+				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
+					<ContextMenu.Item
 						label="Encrypt"
 						icon={LockSimple}
 						keybind="⌘E"
@@ -185,7 +185,7 @@ export default ({ data, ...props }: Props) => {
 						}}
 					/>
 					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-					<CM.Item
+					<ContextMenu.Item
 						label="Decrypt"
 						icon={LockSimpleOpen}
 						keybind="⌘D"
@@ -202,14 +202,14 @@ export default ({ data, ...props }: Props) => {
 							}
 						}}
 					/>
-					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
-					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-						<CM.Item label="PNG" />
-						<CM.Item label="WebP" />
-					</CM.SubMenu>
-					<CM.Item label="Rescan Directory" icon={Package} />
-					<CM.Item label="Regen Thumbnails" icon={Package} />
-					<CM.Item
+					<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
+					<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+						<ContextMenu.Item label="PNG" />
+						<ContextMenu.Item label="WebP" />
+					</ContextMenu.SubMenu>
+					<ContextMenu.Item label="Rescan Directory" icon={Package} />
+					<ContextMenu.Item label="Regen Thumbnails" icon={Package} />
+					<ContextMenu.Item
 						variant="danger"
 						label="Secure delete"
 						icon={TrashSimple}
@@ -223,11 +223,11 @@ export default ({ data, ...props }: Props) => {
 							));
 						}}
 					/>
-				</CM.SubMenu>
+				</ContextMenu.SubMenu>
 
-				<CM.Separator />
+				<ContextMenu.Separator />
 
-				<CM.Item
+				<ContextMenu.Item
 					icon={Trash}
 					label="Delete"
 					variant="danger"
@@ -242,7 +242,7 @@ export default ({ data, ...props }: Props) => {
 						));
 					}}
 				/>
-			</CM.ContextMenu>
+			</ContextMenu.Root>
 		</div>
 	);
 };
@@ -258,7 +258,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
 
 				return (
-					<CM.Item
+					<ContextMenu.Item
 						key={tag.id}
 						keybind={`${index + 1}`}
 						onClick={(e) => {
@@ -280,7 +280,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 							}}
 						/>
 						<p>{tag.name}</p>
-					</CM.Item>
+					</ContextMenu.Item>
 				);
 			})}
 		</>

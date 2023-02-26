@@ -1,12 +1,14 @@
 import * as ProgressPrimitive from '@radix-ui/react-progress';
+import { memo } from 'react';
 
-interface Props {
+export interface ProgressBarProps {
 	value: number;
 	total: number;
 }
 
-const ProgressBar = (props: Props) => {
+export const ProgressBar = memo((props: ProgressBarProps) => {
 	const percentage = Math.round((props.value / props.total) * 100);
+
 	return (
 		<ProgressPrimitive.Root
 			value={percentage}
@@ -18,6 +20,4 @@ const ProgressBar = (props: Props) => {
 			/>
 		</ProgressPrimitive.Root>
 	);
-};
-
-export default ProgressBar;
+});

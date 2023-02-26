@@ -1,8 +1,8 @@
 import { Clipboard } from 'phosphor-react';
-import { Button, Dialog, Input, UseDialogProps, useDialog } from '@sd/ui';
+import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-export interface AlertDialogProps extends UseDialogProps {
+interface Props extends UseDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
 	value: string; // value to be displayed as text or in an input box
@@ -10,7 +10,7 @@ export interface AlertDialogProps extends UseDialogProps {
 	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
 }
 
-export const AlertDialog = (props: AlertDialogProps) => {
+const AlertDialog = (props: Props) => {
 	const dialog = useDialog(props);
 	const form = useZodForm({ schema: z.object({}) });
 	// maybe a copy-to-clipboard button would be beneficial too
@@ -42,3 +42,9 @@ export const AlertDialog = (props: AlertDialogProps) => {
 		</Dialog>
 	);
 };
+
+export default AlertDialog;
+
+export function showAlertDialog(props: Omit<Props, 'id'>) {
+	dialogManager.create((dp) => <AlertDialog {...dp} {...props} />);
+}

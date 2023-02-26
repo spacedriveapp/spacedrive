@@ -2,13 +2,13 @@ import clsx from 'clsx';
 import { useCallback, useRef, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { UseControllerProps, useController } from 'react-hook-form';
-import useClickOutside from '../../hooks/useClickOutside';
+import useClickOutside from '~/hooks/useClickOutside';
 
-interface PopoverPickerProps extends UseControllerProps {
+interface Props extends UseControllerProps {
 	className?: string;
 }
 
-export const PopoverPicker = ({ className, ...props }: PopoverPickerProps) => {
+export default ({ className, ...props }: Props) => {
 	const { field } = useController(props);
 	const popover = useRef<HTMLDivElement | null>(null);
 	const [isOpen, toggle] = useState(false);

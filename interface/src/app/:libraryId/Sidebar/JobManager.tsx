@@ -17,8 +17,7 @@ import {
 	X
 } from 'phosphor-react';
 import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
-import ProgressBar from '~/components/primitive/ProgressBar';
+import { Button, CategoryHeading, PopoverClose, ProgressBar, Tooltip } from '@sd/ui';
 
 interface JobNiceData {
 	name: string;

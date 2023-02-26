@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 export interface FormProps<T extends FieldValues> extends Omit<ComponentProps<'form'>, 'onSubmit'> {
 	form: UseFormReturn<T>;
-	onSubmit: ReturnType<UseFormHandleSubmit<T>>;
+	onSubmit?: ReturnType<UseFormHandleSubmit<T>>;
 }
 
 export const Form = <T extends FieldValues>({
@@ -26,7 +26,7 @@ export const Form = <T extends FieldValues>({
 			<form
 				onSubmit={(e) => {
 					e.stopPropagation();
-					return onSubmit(e);
+					return onSubmit?.(e);
 				}}
 				{...props}
 			>

@@ -1,5 +1,5 @@
 import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import CodeBlock from '~/components/primitive/Codeblock';
+import { CodeBlock } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom

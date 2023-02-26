@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
-import { showAlertDialog } from '~/util/dialog';
 
 const { Input, useZodForm, z } = forms;
 

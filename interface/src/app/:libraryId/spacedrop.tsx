@@ -6,7 +6,7 @@ import { DeviceMobile, HardDrives, Icon, Laptop, Star, User } from 'phosphor-rea
 import { useRef } from 'react';
 import { tw } from '@sd/ui';
 import { SearchBar } from '~/components/Explorer/TopBar';
-import { SubtleButton, SubtleButtonContainer } from '~/components/primitive/SubtleButton';
+import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
 import * as PageLayout from './PageLayout';
 import classes from './Spacedrop.module.scss';

@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { Suspense } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router-dom';
 import { ClientContextProvider, LibraryContextProvider, useClientContext } from '@sd/client';
-import { Toasts } from '~/components/primitive/Toasts';
+import { Toasts } from '~/components/Toasts';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import Sidebar from './Sidebar';
 
