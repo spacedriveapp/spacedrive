@@ -98,7 +98,7 @@ export default () => {
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
 					<DropItem
 						name="Jamie's MacBook Pro"
-						receivingNodeOsType="macOs"
+						receivingNodeOsType="macOS"
 						connectionType="lan"
 						icon={Laptop}
 					/>

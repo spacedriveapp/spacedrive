@@ -2,7 +2,7 @@ import * as ToastPrimitive from '@radix-ui/react-toast';
 import clsx from 'clsx';
 import { useToasts } from '~/hooks/useToasts';
 
-export function Toasts() {
+export default () => {
 	const { toasts, removeToast } = useToasts();
 	return (
 		<div className="fixed right-0 flex">
@@ -71,4 +71,4 @@ export function Toasts() {
 			</ToastPrimitive.Provider>
 		</div>
 	);
-}
+};
