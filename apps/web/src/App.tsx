@@ -1,7 +1,7 @@
 import { createWSClient, loggerLink, wsLink } from '@rspc/client';
 import { useEffect } from 'react';
 import { getDebugState, hooks, queryClient } from '@sd/client';
-import SpacedriveInterface, { Platform, PlatformProvider } from '@sd/interface';
+import { Platform, PlatformProvider, SpacedriveInterface } from '@sd/interface';
 
 globalThis.isDev = import.meta.env.DEV;
 
