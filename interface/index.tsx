@@ -1,5 +1,5 @@
 import { Integrations, init } from '@sentry/browser';
-import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
+import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -7,7 +7,7 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter } from 'react-router-dom';
-import { queryClient, useDebugState } from '@sd/client';
+import { QueryClientProvider, queryClient, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
 import App from './src/app';
@@ -29,7 +29,8 @@ init({
 const Devtools = () => {
 	const debugState = useDebugState();
 
-	// The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it
+	// The `context={defaultContext}` part is required for this to work on Windows.
+	// Why, idk, don't question it
 	return debugState.reactQueryDevtools !== 'disabled' ? (
 		<ReactQueryDevtools
 			position="bottom-right"
