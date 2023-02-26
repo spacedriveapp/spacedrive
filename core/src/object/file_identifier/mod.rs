@@ -67,7 +67,7 @@ impl FileMetadata {
 
 		let cas_id = generate_cas_id(&path, fs_metadata.len()).await?;
 
-		info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, kind);
+		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
