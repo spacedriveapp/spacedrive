@@ -9,7 +9,7 @@ import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
 import { SearchBar } from './Explorer/TopBar';
 import * as PageLayout from './PageLayout';
-import classes from './Spacedrop.module.scss';
+import classes from './spacedrop.module.scss';
 
 // TODO: move this to UI, copied from Inspector
 const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded text-ink-dull`;
