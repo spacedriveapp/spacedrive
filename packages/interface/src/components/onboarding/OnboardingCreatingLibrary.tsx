@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	Algorithm,
@@ -55,20 +55,25 @@ export default function OnboardingCreatingLibrary() {
 		return;
 	};
 
+	const created = useRef(false);
+
 	useEffect(() => {
-		create();
-		const timer = setTimeout(() => {
-			setStatus('Almost done...');
-		}, 2000);
-		const timer2 = setTimeout(() => {
-			if (debugState.enabled) {
-				setStatus(`You're running in development, this will take longer...`);
-			}
-		}, 5000);
-		return () => {
-			clearTimeout(timer);
-			clearTimeout(timer2);
-		};
+		if (created.current == false) {
+			created.current = true;
+			create();
+			const timer = setTimeout(() => {
+				setStatus('Almost done...');
+			}, 2000);
+			const timer2 = setTimeout(() => {
+				if (debugState.enabled) {
+					setStatus(`You're running in development, this will take longer...`);
+				}
+			}, 5000);
+			return () => {
+				clearTimeout(timer);
+				clearTimeout(timer2);
+			};
+		}
 	}, []);
 
 	return (
