@@ -1,0 +1,81 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "clippy",
+			"problemMatcher": ["$rustc"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"label": "rust: cargo clippy",
+			"args": ["--all-targets", "--all-features", "--all"]
+		},
+		{
+			"type": "npm",
+			"script": "prep",
+			"label": "pnpm: prep",
+			"group": "none",
+			"problemMatcher": ["$rustc"]
+		},
+		{
+			"type": "shell",
+			"label": "ui:dev",
+			"problemMatcher": {
+				"owner": "vite",
+				"fileLocation": "autoDetect",
+				"pattern": {
+					"regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
+					"file": 1,
+					"location": 2,
+					"severity": 3,
+					"code": 4,
+					"message": 5
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^> @sd\\/root@\\d\\.\\d\\.\\d desktop",
+					"endsPattern": "to show help$"
+				}
+			},
+			"isBackground": true,
+			"command": "pnpm",
+			"args": ["desktop", "vite", "--clearScreen=false", "--mode=development"],
+			"runOptions": {
+				"instanceLimit": 1
+			}
+		},
+		{
+			"type": "shell",
+			"label": "ui:build",
+			"problemMatcher": "$tsc",
+			"command": "pnpm",
+			"args": ["desktop", "vite", "build"]
+		},
+		{
+			"type": "cargo",
+			"command": "run",
+			"args": ["--package", "spacedrive", "--bin", "spacedrive"],
+			"env": {
+				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
+			},
+			"problemMatcher": ["$rustc"],
+			"group": "build",
+			"label": "rust: run spacedrive",
+			"dependsOn": ["ui:dev"]
+		},
+		{
+			"type": "cargo",
+			"command": "run",
+			"args": ["--package", "spacedrive", "--bin", "spacedrive", "--release"],
+			"env": {
+				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
+			},
+			"problemMatcher": ["$rustc"],
+			"group": "build",
+			"label": "rust: run spacedrive release",
+			"dependsOn": ["ui:build"]
+		}
+	]
+}
