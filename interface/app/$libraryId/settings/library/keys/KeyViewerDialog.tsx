@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { slugFromHashingAlgo, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
-import { KeyListSelectOptions } from '~/app/:libraryId/KeyManager/List';
+import { KeyListSelectOptions } from '~/app/$libraryId/KeyManager/List';
 
 export const KeyUpdater = (props: {
 	uuid: string;

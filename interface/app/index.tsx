@@ -2,7 +2,7 @@ import { Navigate, RouteObject, useRoutes } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import { lazyEl } from '~/util';
-import libraryRoutes from './:libraryId';
+import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import './style.scss';
 
@@ -32,7 +32,7 @@ const routes = [
 	},
 	{
 		path: ':libraryId',
-		element: lazyEl(() => import('./:libraryId/Layout')),
+		element: lazyEl(() => import('./$libraryId/Layout')),
 		children: libraryRoutes
 	}
 ] satisfies RouteObject[];

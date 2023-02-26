@@ -17,5 +17,5 @@ export default [
 			{ path: 'locations', element: lazyEl(() => import('./locations')) }
 		]
 	},
-	{ path: 'locations/:id', element: lazyEl(() => import('./locations/:id')) }
+	{ path: 'locations/:id', element: lazyEl(() => import('./locations/$id')) }
 ] satisfies RouteObject[];

@@ -2,7 +2,7 @@ import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosp
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
-import { useExplorerParams } from '~/app/:libraryId/location/:id';
+import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';

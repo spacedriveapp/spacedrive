@@ -21,7 +21,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { useExplorerParams } from '~/app/:libraryId/location/:id';
+import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
