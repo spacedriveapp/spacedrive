@@ -1,17 +1,49 @@
 const fs = require('fs/promises');
 const path = require('path');
 
+let pkgJsonCache = new Map();
+
 // only supports files rn
 module.exports = {
 	relativeAliasResolver: {
 		find: /^(~\/.+)/,
 		replacement: '$1',
 		async customResolver(source, importer) {
-			const [pkg] = importer.split('/src/');
+			let root = null;
 
 			const [_, sourcePath] = source.split('~/');
 
-			const absolutePath = `${pkg}/src/${sourcePath}`;
+			if (importer.includes('/src/')) {
+				const [pkg] = importer.split('/src/');
+
+				root = `${pkg}/src`;
+			} else {
+				let parent = importer;
+
+				while (parent !== '/') {
+					parent = path.dirname(parent);
+
+					let hasPkgJson = pkgJsonCache.get(parent);
+
+					if (hasPkgJson === undefined)
+						try {
+							await fs.stat(`${parent}/package.json`);
+							pkgJsonCache.set(parent, (hasPkgJson = true));
+						} catch {
+							pkgJsonCache.set(parent, (hasPkgJson = false));
+						}
+
+					if (hasPkgJson) {
+						root = parent;
+						break;
+					}
+				}
+
+				if (root === null)
+					throw new Error(`Failed to resolve import path ${source} in file ${importer}`);
+			}
+
+			const absolutePath = `${root}/${sourcePath}`;
 
 			const folderItems = await fs.readdir(path.join(absolutePath, '../'));
 

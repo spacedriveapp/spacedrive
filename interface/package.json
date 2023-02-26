@@ -7,12 +7,12 @@
 	"types": "index.tsx",
 	"exports": {
 		".": "./index.tsx",
-		"./assets/*": "./src/assets/*",
-		"./components/*": "./src/components/*"
+		"./assets/*": "./assets/*",
+		"./components/*": "./components/*"
 	},
 	"scripts": {
 		"icons": "./scripts/generateSvgImports.mjs",
-		"lint": "eslint src",
+		"lint": "eslint .",
 		"typecheck": "tsc -b",
 		"build": "tsc"
 	},

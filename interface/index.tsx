@@ -10,10 +10,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClientProvider, queryClient, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
-import App from './src/app';
+import App from './app';
 
-export * from './src/util/keybind';
-export * from './src/util/Platform';
+export * from './util/keybind';
+export * from './util/Platform';
 export { ErrorPage } from './ErrorFallback';
 
 dayjs.extend(advancedFormat);

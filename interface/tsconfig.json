@@ -3,7 +3,7 @@
 	"compilerOptions": {
 		"declarationDir": "dist",
 		"paths": {
-			"~/*": ["./src/*"]
+			"~/*": ["./*"]
 		},
 		"types": ["vite-plugin-svgr/client", "vite/client"]
 	},
