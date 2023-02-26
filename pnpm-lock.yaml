@@ -400,7 +400,6 @@ importers:
       byte-size: ^8.1.0
       class-variance-authority: ^0.4.0
       clsx: ^1.2.1
-      crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
@@ -450,7 +449,6 @@ importers:
       byte-size: 8.1.0
       class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
-      crypto-random-string: 5.0.0
       dayjs: 1.11.7
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
@@ -493,6 +491,7 @@ importers:
       '@sd/config': workspace:*
       '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
+      crypto-random-string: ^5.0.0
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.8.4
@@ -502,6 +501,7 @@ importers:
       '@rspc/react': 0.0.0-main-7c0a67c1_tqsbl3x6ixew47ctvte2nz2yki
       '@sd/config': link:../config
       '@tanstack/react-query': 4.22.0
+      crypto-random-string: 5.0.0
       valtio: 1.9.0
     devDependencies:
       '@types/react': 18.0.27

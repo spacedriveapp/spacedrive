@@ -1,17 +1,11 @@
 import { RadioGroup } from '@headlessui/react';
-import { Eye, EyeSlash, Info } from 'phosphor-react';
-import { useState } from 'react';
+import { Info } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
-import { Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import { PasswordInput, Switch, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
-
-interface Props extends UseDialogProps {
-	location_id: number;
-	path_id: number;
-}
 
 const schema = z.object({
 	type: z.union([z.literal('password'), z.literal('key')]),
@@ -20,6 +14,11 @@ const schema = z.object({
 	password: z.string(),
 	saveToKeyManager: z.boolean()
 });
+
+interface Props extends UseDialogProps {
+	location_id: number;
+	path_id: number;
+}
 
 export default (props: Props) => {
 	const platform = usePlatform();
@@ -55,10 +54,6 @@ export default (props: Props) => {
 		}
 	});
 
-	const [show, setShow] = useState({ password: false });
-
-	const PasswordCurrentEyeIcon = show.password ? EyeSlash : Eye;
-
 	const form = useZodForm({
 		defaultValues: {
 			type: hasMountedKeys ? 'key' : 'password',
@@ -91,13 +86,13 @@ export default (props: Props) => {
 			loading={decryptFile.isLoading}
 			ctaLabel="Decrypt"
 		>
-			<RadioGroup
-				value={form.watch('type')}
-				onChange={(e: 'key' | 'password') => form.setValue('type', e)}
-				className="mt-2"
-			>
-				<span className="text-xs font-bold">Key Type</span>
-				<div className="mt-2 flex flex-row gap-2">
+			<div className="space-y-2 py-2">
+				<h2 className="text-xs font-bold">Key Type</h2>
+				<RadioGroup
+					value={form.watch('type')}
+					onChange={(e: 'key' | 'password') => form.setValue('type', e)}
+					className="mt-2 flex flex-row gap-2"
+				>
 					<RadioGroup.Option disabled={!hasMountedKeys} value="key">
 						{({ checked }) => (
 							<Button
@@ -117,12 +112,10 @@ export default (props: Props) => {
 							</Button>
 						)}
 					</RadioGroup.Option>
-				</div>
-			</RadioGroup>
+				</RadioGroup>
 
-			{form.watch('type') === 'key' && (
-				<div className="relative mt-3 mb-2 flex grow">
-					<div className="space-x-2">
+				{form.watch('type') === 'key' && (
+					<div className="flex flex-row items-center">
 						<Switch
 							className="bg-app-selected"
 							size="sm"
@@ -130,76 +123,58 @@ export default (props: Props) => {
 							checked={form.watch('mountAssociatedKey')}
 							onCheckedChange={(e) => form.setValue('mountAssociatedKey', e)}
 						/>
+						<span className="ml-3 mt-0.5 text-xs font-medium">Automatically mount key</span>
+						<Tooltip label="The key linked with the file will be automatically mounted">
+							<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+						</Tooltip>
 					</div>
-					<span className="ml-3 mt-0.5 text-xs font-medium">Automatically mount key</span>
-					<Tooltip label="The key linked with the file will be automatically mounted">
-						<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
-					</Tooltip>
-				</div>
-			)}
+				)}
 
-			{form.watch('type') === 'password' && (
-				<>
-					<div className="relative mt-3 mb-2 flex grow">
-						<Input
-							className={`w-max grow !py-0.5`}
+				{form.watch('type') === 'password' && (
+					<>
+						<PasswordInput
 							placeholder="Password"
-							type={show.password ? 'text' : 'password'}
+							size="sm"
 							{...form.register('password', { required: true })}
 						/>
-						<Button
-							onClick={() => setShow((old) => ({ ...old, password: !old.password }))}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-							type="button"
-						>
-							<PasswordCurrentEyeIcon className="h-4 w-4" />
-						</Button>
-					</div>
 
-					<div className="relative mt-3 mb-2 flex grow">
-						<div className="space-x-2">
+						<div className="flex flex-row items-center">
 							<Switch
 								className="bg-app-selected"
 								size="sm"
 								{...form.register('saveToKeyManager')}
 							/>
+							<span className="ml-3 mt-0.5 text-xs font-medium">Save to Key Manager</span>
+							<Tooltip label="This key will be saved to the key manager">
+								<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+							</Tooltip>
 						</div>
-						<span className="ml-3 mt-0.5 text-xs font-medium">Save to Key Manager</span>
-						<Tooltip label="This key will be saved to the key manager">
-							<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
-						</Tooltip>
-					</div>
-				</>
-			)}
+					</>
+				)}
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
-				<div className="flex flex-col">
-					<span className="text-xs font-bold">Output file</span>
-
-					<Button
-						size="sm"
-						variant={form.watch('outputPath') !== '' ? 'accent' : 'gray'}
-						className="mt-2 h-[23px] text-xs leading-3"
-						type="button"
-						onClick={() => {
-							// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
-							if (!platform.saveFilePickerDialog) {
-								// TODO: Support opening locations on web
-								showAlertDialog({
-									title: 'Error',
-									value: "System dialogs aren't supported on this platform."
-								});
-								return;
-							}
-							platform.saveFilePickerDialog().then((result) => {
-								if (result) form.setValue('outputPath', result as string);
+				<h2 className="text-xs font-bold">Output file</h2>
+				<Button
+					size="sm"
+					variant={form.watch('outputPath') !== '' ? 'accent' : 'gray'}
+					className="h-[23px] text-xs leading-3"
+					type="button"
+					onClick={() => {
+						// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
+						if (!platform.saveFilePickerDialog) {
+							// TODO: Support opening locations on web
+							showAlertDialog({
+								title: 'Error',
+								value: "System dialogs aren't supported on this platform."
 							});
-						}}
-					>
-						Select
-					</Button>
-				</div>
+							return;
+						}
+						platform.saveFilePickerDialog().then((result) => {
+							if (result) form.setValue('outputPath', result as string);
+						});
+					}}
+				>
+					Select
+				</Button>
 			</div>
 		</Dialog>
 	);

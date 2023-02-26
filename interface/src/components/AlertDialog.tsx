@@ -43,8 +43,6 @@ const AlertDialog = (props: Props) => {
 	);
 };
 
-export default AlertDialog;
-
 export function showAlertDialog(props: Omit<Props, 'id'>) {
 	dialogManager.create((dp) => <AlertDialog {...dp} {...props} />);
 }

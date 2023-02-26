@@ -16,9 +16,9 @@ import { ComponentProps, forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Popover, Shortcut, Tooltip, cva } from '@sd/ui';
-import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { KeybindEvent } from '../../util/keybind';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { KeybindEvent } from '~/util/keybind';
 import { KeyManager } from '../KeyManager';
 import OptionsPanel from './OptionsPanel';
 

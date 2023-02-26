@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	Algorithm,
+	HASHING_ALGOS,
 	resetOnboardingStore,
 	useBridgeMutation,
 	useDebugState,
 	useOnboardingStore
 } from '@sd/client';
 import { Loader } from '@sd/ui';
-import { getHashingAlgorithmSettings } from '~/app/:libraryId/settings/library/keys';
 import { OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
@@ -49,7 +49,7 @@ export default function OnboardingCreatingLibrary() {
 				value: ob_store.passwordSetToken || ''
 			},
 			algorithm: ob_store.algorithm as Algorithm,
-			hashing_algorithm: getHashingAlgorithmSettings(ob_store.hashingAlgorithm as any)
+			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
 		});
 
 		return;

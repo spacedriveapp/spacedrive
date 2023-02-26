@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useLibraryQuery } from '@sd/client';
-import Explorer from '~/components/Explorer';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
+import Explorer from '../Explorer';
 
 export function useExplorerParams() {
 	const { id } = useParams<{ id?: string }>();

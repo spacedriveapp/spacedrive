@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
-import { Button, Card, PasswordMeter, forms } from '@sd/ui';
+import { Button, Card, PasswordMeter } from '@sd/ui';
+import { Form, PasswordInput, useZodForm, z } from '@sd/ui/src/forms';
 import { OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
-
-const { PasswordShowHideInput, z, useZodForm, Form } = forms;
 
 const schema = z.object({
 	password: z.string(),
@@ -81,7 +80,7 @@ export default function OnboardingNewLibrary() {
 					</Card>
 				)}
 				<div className="my-2 flex grow">
-					<PasswordShowHideInput
+					<PasswordInput
 						{...form.register('password')}
 						size="md"
 						autoFocus
@@ -91,7 +90,7 @@ export default function OnboardingNewLibrary() {
 				</div>
 				{showPasswordValidate && (
 					<div className="mb-2 flex grow">
-						<PasswordShowHideInput
+						<PasswordInput
 							{...form.register('password_validate')}
 							size="md"
 							placeholder="Confirm password"

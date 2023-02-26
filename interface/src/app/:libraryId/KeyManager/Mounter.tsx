@@ -1,19 +1,16 @@
-import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { Algorithm, useLibraryMutation } from '@sd/client';
+import {
+	Algorithm,
+	HASHING_ALGOS,
+	HashingAlgoSlug,
+	generatePassword,
+	useLibraryMutation
+} from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Slider, Switch, tw } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
-import {
-	HashingAlgoSlug,
-	getHashingAlgorithmSettings
-} from '~/app/:libraryId/settings/library/keys';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
-
-export const generatePassword = (length: number) => {
-	return cryptoRandomString({ length, type: 'ascii-printable' });
-};
 
 export default () => {
 	const ref = useRef<HTMLInputElement>(null);
@@ -146,7 +143,7 @@ export default () => {
 				onClick={() => {
 					setKey('');
 
-					const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
+					const hashing_algorithm = HASHING_ALGOS[hashingAlgo];
 
 					createKey.mutate({
 						algorithm: encryptionAlgo as Algorithm,

@@ -43,7 +43,6 @@
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.4.0",
 		"clsx": "^1.2.1",
-		"crypto-random-string": "^5.0.0",
 		"dayjs": "^1.11.5",
 		"phosphor-react": "^1.4.1",
 		"react": "^18.2.0",

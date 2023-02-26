@@ -1,11 +1,10 @@
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { useState } from 'react';
-import { useLibraryQuery } from '@sd/client';
+import { slugFromHashingAlgo, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
-import { getHashingAlgorithmString } from '~/app/:libraryId/settings/library/keys';
-import { KeyListSelectOptions } from '~/components/KeyManager/List';
+import { KeyListSelectOptions } from '~/app/:libraryId/KeyManager/List';
 
 export const KeyUpdater = (props: {
 	uuid: string;
@@ -23,9 +22,12 @@ export const KeyUpdater = (props: {
 	const keys = useLibraryQuery(['keys.list']);
 
 	const key = keys.data?.find((key) => key.uuid == props.uuid);
-	key && props.setEncryptionAlgo(key?.algorithm);
-	key && props.setHashingAlgo(getHashingAlgorithmString(key?.hashing_algorithm));
-	key && props.setContentSalt(Buffer.from(key.content_salt).toString('hex'));
+
+	if (key) {
+		props.setEncryptionAlgo(key?.algorithm);
+		props.setHashingAlgo(slugFromHashingAlgo(key?.hashing_algorithm));
+		props.setContentSalt(Buffer.from(key.content_salt).toString('hex'));
+	}
 
 	return <></>;
 };

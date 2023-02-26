@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Location, Node } from '@sd/client';
-import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
-import { Folder } from '~/components/Folder';
+import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {

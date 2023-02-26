@@ -1,7 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
-import { Algorithm, useBridgeMutation } from '@sd/client';
+import {
+	Algorithm,
+	HASHING_ALGOS,
+	HashingAlgoSlug,
+	generatePassword,
+	hashingAlgoSlugSchema,
+	useBridgeMutation
+} from '@sd/client';
 import {
 	Button,
 	Dialog,
@@ -12,8 +19,6 @@ import {
 	useDialog
 } from '@sd/ui';
 import { forms } from '@sd/ui';
-import { getHashingAlgorithmSettings } from '~/app/:libraryId/settings/library/keys';
-import { generatePassword } from '~/components/KeyManager/Mounter';
 
 const { Input, z, useZodForm } = forms;
 
@@ -22,12 +27,10 @@ const schema = z.object({
 	password: z.string(),
 	password_validate: z.string(),
 	algorithm: z.string(),
-	hashing_algorithm: z.string()
+	hashing_algorithm: hashingAlgoSlugSchema
 });
 
-type Props = UseDialogProps;
-
-export default (props: Props) => {
+export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
 
 	const form = useZodForm({
@@ -64,7 +67,7 @@ export default (props: Props) => {
 			await createLibrary.mutateAsync({
 				...data,
 				algorithm: data.algorithm as Algorithm,
-				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm as any),
+				hashing_algorithm: HASHING_ALGOS[data.hashing_algorithm],
 				auth: {
 					type: 'Password',
 					value: data.password
@@ -176,7 +179,7 @@ export default (props: Props) => {
 					<Select
 						className="mt-2"
 						value={form.watch('hashing_algorithm')}
-						onChange={(e) => form.setValue('hashing_algorithm', e)}
+						onChange={(e) => form.setValue('hashing_algorithm', e as HashingAlgoSlug)}
 					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>

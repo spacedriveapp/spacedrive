@@ -4,16 +4,16 @@ import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
-import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
+import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
+import KeyList from '../../../KeyManager/List';
+import KeyMounter from '../../../KeyManager/Mounter';
 import { Heading } from '../../Layout';
-import KeyMounter from "~/components/KeyManager/Mounter"
-import KeyList from "~/components/KeyManager/List"
 import BackupRestoreDialog from './BackupRestoreDialog';
 import KeyViewerDialog from './KeyViewerDialog';
-import MasterPasswordDialog from "./MasterPasswordDialog"
-import { showAlertDialog } from '~/components/AlertDialog';
+import MasterPasswordDialog from './MasterPasswordDialog';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -289,7 +289,7 @@ export default () => {
 			</>
 		);
 	}
-}
+};
 
 interface SubheadingProps {
 	title: string;
@@ -304,29 +304,3 @@ const Subheading = (props: SubheadingProps) => (
 		{props.rightArea}
 	</div>
 );
-
-const HASHING_ALGOS = {
-	'Argon2id-s': { name: 'Argon2id', params: 'Standard' },
-	'Argon2id-h': { name: 'Argon2id', params: 'Hardened' },
-	'Argon2id-p': { name: 'Argon2id', params: 'Paranoid' },
-	'BalloonBlake3-s': { name: 'BalloonBlake3', params: 'Standard' },
-	'BalloonBlake3-h': { name: 'BalloonBlake3', params: 'Hardened' },
-	'BalloonBlake3-p': { name: 'BalloonBlake3', params: 'Paranoid' }
-} as const satisfies Record<string, HashingAlgorithm>;
-
-export type HashingAlgoSlug = keyof typeof HASHING_ALGOS;
-
-// not sure of a suitable place for this function
-export const getHashingAlgorithmSettings = (
-	hashingAlgorithm: keyof typeof HASHING_ALGOS
-): HashingAlgorithm => {
-	return HASHING_ALGOS[hashingAlgorithm] || { name: 'Argon2id', params: 'Standard' };
-};
-
-// not sure of a suitable place for this function
-export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
-	return Object.entries(HASHING_ALGOS).find(
-		([_, hashAlg]) =>
-			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
-	)![0];
-};

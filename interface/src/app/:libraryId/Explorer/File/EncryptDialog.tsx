@@ -1,7 +1,12 @@
-import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	Algorithm,
+	hashingAlgoSlugSchema,
+	slugFromHashingAlgo,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
-import { getHashingAlgorithmString } from '~/app/:libraryId/settings/library/keys';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 import { KeyListSelectOptions } from '../../KeyManager/List';
@@ -14,7 +19,7 @@ interface Props extends UseDialogProps {
 const schema = z.object({
 	key: z.string(),
 	encryptionAlgo: z.string(),
-	hashingAlgo: z.string(),
+	hashingAlgo: hashingAlgoSlugSchema,
 	metadata: z.boolean(),
 	previewMedia: z.boolean(),
 	outputPath: z.string()
@@ -29,7 +34,7 @@ export default (props: Props) => {
 		const hashAlg = keys.data?.find((key) => {
 			return key.uuid === uuid;
 		})?.hashing_algorithm;
-		hashAlg && form.setValue('hashingAlgo', getHashingAlgorithmString(hashAlg));
+		hashAlg && form.setValue('hashingAlgo', slugFromHashingAlgo(hashAlg));
 	};
 
 	const keys = useLibraryQuery(['keys.list']);

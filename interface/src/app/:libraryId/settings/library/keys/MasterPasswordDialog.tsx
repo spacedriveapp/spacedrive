@@ -1,6 +1,13 @@
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
-import { Algorithm, useLibraryMutation } from '@sd/client';
+import {
+	Algorithm,
+	HASHING_ALGOS,
+	HashingAlgoSlug,
+	generatePassword,
+	hashingAlgoSlugSchema,
+	useLibraryMutation
+} from '@sd/client';
 import {
 	Button,
 	Dialog,
@@ -12,18 +19,13 @@ import {
 	useDialog
 } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
-import {
-	HashingAlgoSlug,
-	getHashingAlgorithmSettings
-} from '~/app/:libraryId/settings/library/keys';
 import { showAlertDialog } from '~/components/AlertDialog';
-import { generatePassword } from '~/components/KeyManager/Mounter';
 
 const schema = z.object({
 	masterPassword: z.string(),
 	masterPassword2: z.string(),
 	encryptionAlgo: z.string(),
-	hashingAlgo: z.string()
+	hashingAlgo: hashingAlgoSlugSchema
 });
 
 export default (props: UseDialogProps) => {
@@ -70,7 +72,8 @@ export default (props: UseDialogProps) => {
 				value: 'Passwords are not the same, please try again.'
 			});
 		} else {
-			const hashing_algorithm = getHashingAlgorithmSettings(data.hashingAlgo as HashingAlgoSlug);
+			const hashing_algorithm = HASHING_ALGOS[data.hashingAlgo];
+
 			return changeMasterPassword.mutateAsync({
 				algorithm: data.encryptionAlgo as Algorithm,
 				hashing_algorithm,
@@ -168,7 +171,7 @@ export default (props: UseDialogProps) => {
 					<Select
 						className="mt-2"
 						value={form.watch('hashingAlgo')}
-						onChange={(e) => form.setValue('hashingAlgo', e)}
+						onChange={(e) => form.setValue('hashingAlgo', e as HashingAlgoSlug)}
 					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
