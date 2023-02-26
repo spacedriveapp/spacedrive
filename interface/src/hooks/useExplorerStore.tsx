@@ -1,9 +1,7 @@
-import { useEffect } from 'react';
 import { proxy, useSnapshot } from 'valtio';
-import { useLibraryContext } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
-export type ExplorerLayoutMode = 'list' | 'grid' | 'columns' | 'media';
+export type ExplorerLayoutMode = 'rows' | 'grid' | 'columns' | 'media';
 
 export enum ExplorerKind {
 	Location,
@@ -52,11 +50,11 @@ const explorerStore = proxy({
 });
 
 export function useExplorerStore() {
-	const { library } = useLibraryContext();
+	// const { library } = useLibraryContext();
 
-	useEffect(() => {
-		explorerStore.reset();
-	}, [library.uuid]);
+	// useEffect(() => {
+	// 	explorerStore.reset();
+	// }, [library.uuid]);
 
 	return useSnapshot(explorerStore);
 }

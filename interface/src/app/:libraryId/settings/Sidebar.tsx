@@ -16,8 +16,8 @@ import {
 } from 'phosphor-react';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import Icon from '../Sidebar/Icon';
-import SidebarLink from '../Sidebar/Link';
+import Icon from '../Layout/Sidebar/Icon';
+import SidebarLink from '../Layout/Sidebar/Link';
 
 const Heading = tw.div`mt-5 mb-1 ml-1 text-xs font-semibold text-gray-400`;
 

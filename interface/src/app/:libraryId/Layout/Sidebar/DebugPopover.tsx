@@ -1,7 +1,7 @@
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Button, Popover, Select, SelectOption, Switch } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
-import Setting from '../settings/Setting';
+import Setting from '../../settings/Setting';
 
 export default () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);

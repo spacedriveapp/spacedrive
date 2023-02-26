@@ -1,7 +1,7 @@
 import { useLibraryMutation } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
-import AddLocationDialog from '../settings/library/locations/AddDialog';
+import AddLocationDialog from '../../settings/library/locations/AddDialog';
 
 export default () => {
 	const platform = usePlatform();

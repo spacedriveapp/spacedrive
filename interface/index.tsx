@@ -14,6 +14,7 @@ import App from './src/app';
 
 export * from './src/util/keybind';
 export * from './src/util/Platform';
+export { ErrorPage } from './ErrorFallback';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);

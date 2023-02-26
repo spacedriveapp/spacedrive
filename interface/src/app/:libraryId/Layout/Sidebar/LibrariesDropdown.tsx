@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { Gear, Lock, Plus } from 'phosphor-react';
 import { useClientContext } from '@sd/client';
 import { Dropdown, dialogManager } from '@sd/ui';
-import CreateLibraryDialog from '../settings/node/libraries/CreateDialog';
+import CreateDialog from '../../settings/node/libraries/CreateDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
@@ -44,7 +44,7 @@ export default () => {
 			<Dropdown.Section>
 				<Dropdown.Item
 					icon={Plus}
-					onClick={() => dialogManager.create((dp) => <CreateLibraryDialog {...dp} />)}
+					onClick={() => dialogManager.create((dp) => <CreateDialog {...dp} />)}
 				>
 					New Library
 				</Dropdown.Item>
