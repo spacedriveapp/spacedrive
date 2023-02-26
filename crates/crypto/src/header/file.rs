@@ -394,7 +394,7 @@ mod tests {
 
 		FileHeader::from_reader(&mut writer).await.unwrap();
 
-		assert!(writer.position() == 260)
+		assert!(writer.position() == 260);
 	}
 
 	#[tokio::test]

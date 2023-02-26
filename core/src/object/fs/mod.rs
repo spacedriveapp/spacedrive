@@ -22,7 +22,7 @@ pub mod error;
 
 pub mod erase;
 
-pub const BYTES: &str = "bytes";
+pub const BYTES_EXT: &str = ".bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
@@ -30,7 +30,6 @@ pub enum ObjectType {
 	Directory,
 }
 
-pub const BYTES_EXT: &str = ".bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FsInfo {

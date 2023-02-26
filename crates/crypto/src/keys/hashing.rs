@@ -254,7 +254,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_EXPECTED[0], output.expose())
+		assert_eq!(&HASH_ARGON2ID_EXPECTED[0], output.expose());
 	}
 
 	#[test]
@@ -263,7 +263,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[0], output.expose())
+		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[0], output.expose());
 	}
 
 	#[test]
@@ -272,7 +272,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_EXPECTED[1], output.expose())
+		assert_eq!(&HASH_ARGON2ID_EXPECTED[1], output.expose());
 	}
 
 	#[test]
@@ -281,7 +281,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[1], output.expose())
+		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[1], output.expose());
 	}
 
 	#[test]
@@ -290,7 +290,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_EXPECTED[2], output.expose())
+		assert_eq!(&HASH_ARGON2ID_EXPECTED[2], output.expose());
 	}
 
 	#[test]
@@ -299,7 +299,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[2], output.expose())
+		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[2], output.expose());
 	}
 
 	#[test]
@@ -308,7 +308,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_EXPECTED[0], output.expose())
+		assert_eq!(&HASH_B3BALLOON_EXPECTED[0], output.expose());
 	}
 
 	#[test]
@@ -317,7 +317,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[0], output.expose())
+		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[0], output.expose());
 	}
 
 	#[test]
@@ -326,7 +326,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_EXPECTED[1], output.expose())
+		assert_eq!(&HASH_B3BALLOON_EXPECTED[1], output.expose());
 	}
 
 	#[test]
@@ -335,7 +335,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[1], output.expose())
+		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[1], output.expose());
 	}
 
 	#[test]
@@ -344,7 +344,7 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, None)
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_EXPECTED[2], output.expose())
+		assert_eq!(&HASH_B3BALLOON_EXPECTED[2], output.expose());
 	}
 
 	#[test]
@@ -353,13 +353,13 @@ mod tests {
 			.hash(Protected::new(PASSWORD.to_vec()), SALT, Some(SECRET_KEY))
 			.unwrap();
 
-		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[2], output.expose())
+		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn derive_b3() {
 		let output = Key::derive(KEY, SALT, TEST_CONTEXT);
 
-		assert_eq!(&DERIVE_B3_EXPECTED, output.expose())
+		assert_eq!(&DERIVE_B3_EXPECTED, output.expose());
 	}
 }
