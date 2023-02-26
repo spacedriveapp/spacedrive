@@ -43,7 +43,9 @@ interface UseZodFormProps<S extends z.ZodSchema>
 	schema?: S;
 }
 
-export const useZodForm = <S extends z.ZodSchema = z.ZodObject<{}>>(props?: UseZodFormProps<S>) => {
+export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, never>>>(
+	props?: UseZodFormProps<S>
+) => {
 	const { schema, ...formProps } = props ?? {};
 
 	return useForm({

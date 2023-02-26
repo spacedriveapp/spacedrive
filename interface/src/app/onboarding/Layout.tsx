@@ -16,15 +16,16 @@ export const OnboardingImg = tw.img`w-20 h-20 mb-2`;
 export default () => {
 	const os = useOperatingSystem();
 	const navigate = useNavigate();
-	const ob_store = getOnboardingStore();
 
 	useEffect(() => {
+		const obStore = getOnboardingStore();
+
 		// This is neat because restores the last active screen, but only if it is not the starting screen
 		// Ignoring if people navigate back to the start if progress has been made
-		if (ob_store.unlockedScreens.length > 1) {
-			navigate(`/onboarding/${ob_store.lastActiveScreen}`);
+		if (obStore.unlockedScreens.length > 1) {
+			navigate(`/onboarding/${obStore.lastActiveScreen}`);
 		}
-	}, []);
+	}, [navigate]);
 
 	return (
 		<div

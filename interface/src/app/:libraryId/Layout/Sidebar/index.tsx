@@ -50,7 +50,7 @@ export default () => {
 	return (
 		<div
 			className={clsx(
-				'border-sidebar-divider bg-sidebar relative flex min-h-full w-44 flex-shrink-0 flex-grow-0 flex-col border-r',
+				'border-sidebar-divider bg-sidebar relative flex min-h-full w-44 shrink-0 grow-0 flex-col border-r',
 				macOnly(os, 'bg-opacity-[0.75]')
 			)}
 		>
@@ -150,7 +150,7 @@ const Contents = () => {
 	const { library } = useClientContext();
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex flex-grow flex-col overflow-x-hidden overflow-y-scroll px-2.5 pt-1 pb-10">
+		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll px-2.5 pt-1 pb-10">
 			<div className="pt-1">
 				<SidebarLink to="overview">
 					<Icon component={Planet} />

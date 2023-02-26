@@ -2,9 +2,6 @@ import { useEffect } from 'react';
 import { FieldValues, UseFormReturn, WatchObserver } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
-/**
- *
- */
 export function useDebouncedFormWatch<
 	TFieldValues extends FieldValues = FieldValues,
 	TContext = any
@@ -15,8 +12,8 @@ export function useDebouncedFormWatch<
 	useEffect(() => {
 		const { unsubscribe } = form.watch(debounced);
 		return () => unsubscribe();
-	}, []);
+	}, [form, debounced]);
 
 	// persist unchanged data when the component is unmounted
-	useEffect(() => () => debounced.flush(), [debounced]);
+	useEffect(() => () => debounced.flush(), [debounced, form]);
 }

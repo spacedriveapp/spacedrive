@@ -18,10 +18,8 @@ export const useCurrentOnboardingScreenKey = (): string | null => {
 export function useUnlockOnboardingScreen() {
 	const currentScreenKey = useCurrentOnboardingScreenKey()!;
 
-	const ob_store = getOnboardingStore();
-
 	useEffect(() => {
-		unlockOnboardingScreen(currentScreenKey, ob_store.unlockedScreens);
+		unlockOnboardingScreen(currentScreenKey, getOnboardingStore().unlockedScreens);
 	}, [currentScreenKey]);
 }
 
