@@ -54,7 +54,11 @@ pub(crate) fn mount() -> RouterBuilder {
 					// grab the first path and tac on the name
 					let oldest_path = &object.file_paths[0];
 					object.name = Some(oldest_path.name.clone());
-					object.extension = oldest_path.extension.clone();
+					object.extension = if oldest_path.extension.is_empty() {
+						None
+					} else {
+						Some(oldest_path.extension.clone())
+					};
 					// a long term fix for this would be to have the indexer give the Object
 					// a name and extension, sacrificing its own and only store newly found Path
 					// names that differ from the Object name

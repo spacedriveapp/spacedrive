@@ -1,7 +1,10 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	location::indexer::rules::RuleKind,
-	prisma::{file_path, location},
+	prisma::{
+		file_path,
+		location,
+	},
 	sync,
 };
 
@@ -230,11 +233,11 @@ impl StatefulJob for IndexerJob {
 				// if 'entry.path' is a directory, set extension to an empty string to
 				// avoid periods in folder names being interpreted as file extensions
 				if entry.is_dir {
-					extension = None;
+					extension = "".to_string();
 					name = extract_name(entry.path.file_name());
 				} else {
 					// if the 'entry.path' is not a directory, then get the extension and name.
-					extension = Some(extract_name(entry.path.extension()).to_lowercase());
+					extension = extract_name(entry.path.extension()).to_lowercase();
 					name = extract_name(entry.path.file_stem());
 				}
 				let mut materialized_path = entry
@@ -273,9 +276,9 @@ impl StatefulJob for IndexerJob {
 						location.id,
 						materialized_path,
 						name,
+						extension,
 						vec![
 							is_dir::set(entry.is_dir),
-							extension::set(extension),
 							parent_id::set(entry.parent_id),
 							date_created::set(entry.created_at.into()),
 						],
