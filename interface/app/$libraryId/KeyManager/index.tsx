@@ -42,7 +42,7 @@ const Unlocked = () => {
 							<Lock className="text-ink-faint h-4 w-4" />
 						</Button>
 						<ButtonLink
-							to={`/${library.uuid}/settings/overview`}
+							to={`/${library.uuid}/settings/library/keys`}
 							size="icon"
 							variant="subtle"
 							className="text-ink-faint"
