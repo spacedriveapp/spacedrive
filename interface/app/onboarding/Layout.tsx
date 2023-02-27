@@ -17,15 +17,19 @@ export default () => {
 	const os = useOperatingSystem();
 	const navigate = useNavigate();
 
-	useEffect(() => {
-		const obStore = getOnboardingStore();
+	useEffect(
+		() => {
+			const obStore = getOnboardingStore();
 
-		// This is neat because restores the last active screen, but only if it is not the starting screen
-		// Ignoring if people navigate back to the start if progress has been made
-		if (obStore.unlockedScreens.length > 1) {
-			navigate(`/onboarding/${obStore.lastActiveScreen}`);
-		}
-	}, [navigate]);
+			// This is neat because restores the last active screen, but only if it is not the starting screen
+			// Ignoring if people navigate back to the start if progress has been made
+			if (obStore.unlockedScreens.length > 1) {
+				navigate(`/onboarding/${obStore.lastActiveScreen}`);
+			}
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
+	);
 
 	return (
 		<div

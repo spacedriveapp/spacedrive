@@ -35,17 +35,13 @@ export default function OnboardingProgress() {
 					if (!path) return null;
 
 					return (
-						<div
+						<button
 							key={path}
-							onClick={() => {
-								if (ob_store.unlockedScreens.includes(path)) {
-									navigate(`/onboarding/${path}`);
-								}
-							}}
+							disabled={!ob_store.unlockedScreens.includes(path)}
+							onClick={() => navigate(`/onboarding/${path}`)}
 							className={clsx(
-								'hover:bg-ink h-2 w-2 rounded-full transition',
-								currentScreenKey === path ? 'bg-ink' : 'bg-ink-faint',
-								!ob_store.unlockedScreens.includes(path) && 'opacity-10'
+								'hover:bg-ink h-2 w-2 rounded-full transition disabled:opacity-10',
+								currentScreenKey === path ? 'bg-ink' : 'bg-ink-faint'
 							)}
 						/>
 					);
