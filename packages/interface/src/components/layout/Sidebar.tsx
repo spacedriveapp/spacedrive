@@ -76,8 +76,6 @@ export function Sidebar() {
 		});
 	}, []);
 
-	console.log(useLocation());
-
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
 			<WindowControls />

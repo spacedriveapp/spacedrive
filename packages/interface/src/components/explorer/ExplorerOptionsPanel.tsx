@@ -33,7 +33,6 @@ export function ExplorerOptionsPanel() {
 			<Slider
 				onValueChange={(value) => {
 					getExplorerStore().gridItemSize = value[0] || 100;
-					console.log({ value: value, gridItemSize: explorerStore.gridItemSize });
 				}}
 				defaultValue={[explorerStore.gridItemSize]}
 				max={200}

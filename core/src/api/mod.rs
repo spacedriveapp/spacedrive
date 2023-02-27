@@ -92,6 +92,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.yolo_merge("library.", libraries::mount())
 		.yolo_merge("volumes.", volumes::mount())
 		.yolo_merge("tags.", tags::mount())
+		.yolo_merge("nodes.", nodes::mount())
 		.yolo_merge("keys.", keys::mount())
 		.yolo_merge("locations.", locations::mount())
 		.yolo_merge("files.", files::mount())

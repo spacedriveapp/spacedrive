@@ -51,7 +51,6 @@ const DrawerLibraryManager = () => {
 				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md p-2`}>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
-						console.log('library', library);
 						return (
 							<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
 								<View
