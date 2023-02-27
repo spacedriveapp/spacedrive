@@ -5,10 +5,10 @@ import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerContext, ExplorerItem, isPath } from '@sd/client';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import FileItem from './File/Item';
-import FileRow, { ROW_HEADER_HEIGHT, RowHeader } from './File/Row';
+import FileRow from './File/Row';
+import { ROW_HEADER_HEIGHT, RowHeader } from './File/RowHeader';
 
 const TOP_BAR_HEIGHT = 46;
-// const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
 	context: ExplorerContext;

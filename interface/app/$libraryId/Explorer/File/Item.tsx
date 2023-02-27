@@ -12,8 +12,6 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 	const item = data.item;
 
 	const explorerStore = useExplorerStore();

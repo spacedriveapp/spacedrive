@@ -31,8 +31,8 @@ export default () => {
 			) : (
 				<div className="h-3" />
 			)}
-			<div className="px-4 pb-2.5 pt-2">
-				<Heading>Client</Heading>
+			<div className="px-4 pb-2.5">
+				<Heading className="!mt-3">Client</Heading>
 				<SidebarLink to="client/general">
 					<Icon component={GearSix} />
 					General

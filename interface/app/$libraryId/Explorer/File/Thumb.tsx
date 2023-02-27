@@ -59,8 +59,8 @@ export default ({ data, size, className }: Props) => {
 						: {}
 				}
 			/>
-			{extension && kind === 'Video' && size > 80 && (
-				<div className="absolute bottom-[22%] right-2 rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
+			{extension && kind === 'Video' && hasThumbnail && size > 80 && (
+				<div className="absolute bottom-[13%] right-[5%] rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
 					{extension}
 				</div>
 			)}
