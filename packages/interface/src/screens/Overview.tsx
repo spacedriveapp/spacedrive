@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import {
@@ -19,6 +20,7 @@ import useCounter from '~/hooks/useCounter';
 import { useLibraryId } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import { ScreenContainer } from './_Layout';
+import { useEffect } from 'react';
 
 interface StatItemProps {
 	title: string;
