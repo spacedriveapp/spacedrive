@@ -15,7 +15,7 @@ export default () => {
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
-				<h1 className="text-ink-faint/50 ml-1 mt-1 w-full text-[7pt]">
+				<h1 className="text-ink-faint/50 ml-1 w-full text-[7pt]">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}

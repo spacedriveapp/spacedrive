@@ -9,7 +9,6 @@ export default () => {
 
 	return (
 		<Dropdown.Root
-			className="mx-2.5 mt-2"
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
 			itemsClassName="dark:bg-sidebar-box dark:border-sidebar-line mt-1 dark:divide-menu-selected/30 shadow-none"

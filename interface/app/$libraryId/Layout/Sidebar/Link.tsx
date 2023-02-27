@@ -5,7 +5,7 @@ import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 const styles = cva(
-	'max-w ring-offset-sidebar focus:ring-accent mb-[2px] flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-offset-2',
+	'max-w ring-offset-sidebar focus:ring-accent flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-offset-2',
 	{
 		variants: {
 			active: {
