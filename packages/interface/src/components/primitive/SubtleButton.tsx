@@ -6,7 +6,7 @@ export const SubtleButton: React.FC<{ icon?: React.FC }> = (props) => {
 	return (
 		<Button className="!p-[5px]" variant="subtle">
 			{/* @ts-expect-error */}
-			<Icon weight="bold" className="w-3 h-3" />
+			<Icon weight="bold" className="h-3 w-3" />
 		</Button>
 	);
 };

@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
 	ArchiveBox,
@@ -229,6 +230,7 @@ function IsRunningJob() {
 }
 
 function DebugPanel() {
+	const queryClient = useQueryClient();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 	const nodeState = useBridgeQuery(['nodeState']);
 	const debugState = useDebugState();
@@ -289,6 +291,18 @@ function DebugPanel() {
 						<SelectOption value="enabled">Enabled</SelectOption>
 					</Select>
 				</InputContainer>
+				<div className="w-full p-2 flex items-center justify-center">
+					<Button
+						variant="accent"
+						onClick={() => {
+							import('@tanstack/react-query').then((v) => {
+								console.log(JSON.stringify(v.dehydrate(queryClient, { dehydrateQueries: true })));
+							});
+						}}
+					>
+						Dump RQ Cache to Console
+					</Button>
+				</div>
 
 				{/* {platform.showDevtools && (
 					<InputContainer

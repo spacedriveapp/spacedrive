@@ -15,7 +15,7 @@ use specta::Type;
 use tokio::{fs::File, io::AsyncReadExt};
 use tracing::warn;
 
-use super::{context_menu_fs_info, FsInfo};
+use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 
 pub struct FileEncryptorJob;
 
@@ -108,7 +108,7 @@ impl StatefulJob for FileEncryptorJob {
 											"path contents when converted to string",
 										),
 									})?
-									.to_string() + ".bytes",
+									.to_string() + BYTES_EXT,
 							)
 						},
 					)?;

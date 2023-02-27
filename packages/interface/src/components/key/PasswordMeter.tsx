@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { getPasswordStrength } from '@sd/client';
 
-export const PasswordMeter = (props: { password: string }) => {
+export default function PasswordMeterInner(props: { password: string }) {
 	const { score, scoreText } = getPasswordStrength(props.password);
 
 	return (
@@ -38,4 +38,4 @@ export const PasswordMeter = (props: { password: string }) => {
 			</div>
 		</div>
 	);
-};
+}

@@ -1,5 +1,6 @@
 import { PropsWithChildren, useState } from 'react';
 import { Select, SelectOption } from '@sd/ui';
+import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import Slider from '../primitive/Slider';
 
 function Heading({ children }: PropsWithChildren) {
@@ -22,13 +23,23 @@ const sortOptions = {
 export function ExplorerOptionsPanel() {
 	const [sortBy, setSortBy] = useState('name');
 	const [stackBy, setStackBy] = useState('kind');
-	const [size, setSize] = useState([50]);
+
+	const explorerStore = useExplorerStore();
 
 	return (
 		<div className="p-4 ">
 			{/* <Heading>Explorer Appearance</Heading> */}
 			<SubHeading>Item size</SubHeading>
-			<Slider defaultValue={size} step={10} />
+			<Slider
+				onValueChange={(value) => {
+					getExplorerStore().gridItemSize = value[0] || 100;
+					console.log({ value: value, gridItemSize: explorerStore.gridItemSize });
+				}}
+				defaultValue={[explorerStore.gridItemSize]}
+				max={200}
+				step={10}
+				min={60}
+			/>
 			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">
 					<SubHeading>Sort by</SubHeading>

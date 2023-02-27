@@ -6,6 +6,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
+		"test": "VITE_SD_DEMO_MODE=true playwright test",
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
@@ -18,6 +19,7 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.30.0",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@types/react": "^18.0.21",

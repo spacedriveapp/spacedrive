@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useState } from 'react';
-import { ColorValue, Pressable, Text, View } from 'react-native';
-import { Tag, queryClient, useLibraryMutation } from '@sd/client';
+import { Pressable, Text, View } from 'react-native';
+import { Tag, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import ColorPicker from '~/components/form/ColorPicker';
 import { Input } from '~/components/form/Input';
@@ -8,6 +8,7 @@ import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
+import { useQueryClient } from '@tanstack/react-query';
 
 type Props = {
 	tag: Tag;
@@ -15,6 +16,7 @@ type Props = {
 };
 
 const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
+	const queryClient = useQueryClient();
 	const modalRef = useForwardedRef(ref);
 
 	const [tagName, setTagName] = useState(props.tag.name!);

@@ -30,6 +30,8 @@ pub enum ObjectType {
 	Directory,
 }
 
+pub const BYTES_EXT: &str = ".bytes";
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FsInfo {
 	pub path_data: file_path_with_object::Data,
