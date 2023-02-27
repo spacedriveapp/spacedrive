@@ -9,7 +9,7 @@ interface Props extends PropsWithChildren {
 	topRight?: React.ReactNode;
 }
 
-const PageOuter = tw.div`flex h-screen flex-col m-3`;
+const PageOuter = tw.div`flex h-screen flex-col m-3 -mt-4`;
 const Page = tw.div`flex-1 w-full border rounded-md shadow-md shadow-app-shade/30 border-app-box bg-app-box/20`;
 const PageInner = tw.div`flex flex-col max-w-4xl w-full h-screen py-6`;
 const HeaderArea = tw.div`flex flex-row px-8 items-center space-x-4 mb-2`;
@@ -17,7 +17,6 @@ const ContentContainer = tw.div`px-8 pt-5 -mt-1 space-y-6 custom-scroll page-scr
 
 export default ({ children, title, topRight }: Props) => (
 	<PageOuter>
-		<DragRegion />
 		<Page>
 			<PageInner>
 				<HeaderArea>
