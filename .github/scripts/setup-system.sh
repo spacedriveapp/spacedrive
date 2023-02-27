@@ -37,6 +37,9 @@ else
 	echo "Skipping pnpm check."
 fi
 
+echo "Installing Rust tools"
+cargo install cargo-watch
+
 echo
 
 if [ "$1" == "mobile" ]; then
