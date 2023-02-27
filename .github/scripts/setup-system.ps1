@@ -68,6 +68,9 @@ else {
    Write-Host "Cargo is installed."
 }
 
+Write-Host "Installing Rust tools" -ForegroundColor Yellow
+cargo install cargo-watch
+
 Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
