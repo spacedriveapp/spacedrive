@@ -1,32 +1,49 @@
 import { MotiView, useDynamicAnimation } from 'moti';
 import { PropsWithChildren, ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
 import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 
-// Anything wrapped with FadeIn will fade in on mount.
-export const FadeInAnimation = ({ children, delay }: PropsWithChildren<{ delay?: number }>) => (
-	<MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ type: 'timing', delay }}>
-		{children}
-	</MotiView>
-);
+type MotiViewProps = PropsWithChildren<ViewProps>;
 
-export const FadeInUpAnimation = ({ children, delay }: PropsWithChildren<{ delay?: number }>) => (
+// Anything wrapped with FadeIn will fade in on mount.
+export const FadeInAnimation = ({
+	children,
+	delay,
+	...props
+}: MotiViewProps & { delay?: number }) => (
 	<MotiView
-		from={{ opacity: 0, translateY: 20 }}
-		animate={{ opacity: 1, translateY: 0 }}
+		from={{ opacity: 0 }}
+		animate={{ opacity: 1 }}
 		transition={{ type: 'timing', delay }}
+		{...props}
 	>
 		{children}
 	</MotiView>
 );
 
-export const LogoAnimation = ({ children }: PropsWithChildren) => (
+export const FadeInUpAnimation = ({
+	children,
+	delay,
+	...props
+}: MotiViewProps & { delay?: number }) => (
 	<MotiView
+		from={{ opacity: 0, translateY: 20 }}
+		animate={{ opacity: 1, translateY: 0 }}
+		transition={{ type: 'timing', delay }}
+		{...props}
+	>
+		{children}
+	</MotiView>
+);
+
+export const LogoAnimation = ({ children, ...props }: MotiViewProps) => (
+	<MotiView
+		transition={{ type: 'timing', delay: 200 }}
 		from={{ opacity: 0.8, translateY: Layout.window.width / 2 }}
 		animate={{ opacity: 1, translateY: 0 }}
-		transition={{ type: 'timing', delay: 200 }}
+		{...props}
 	>
 		{children}
 	</MotiView>

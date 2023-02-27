@@ -1,12 +1,13 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
+import { OnboardingContainer } from './GetStarted';
 
 const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreatingLibrary'>) => {
 	return (
-		<View>
+		<OnboardingContainer>
 			<Text>CreatingLibraryScreen</Text>
-		</View>
+		</OnboardingContainer>
 	);
 };
 
