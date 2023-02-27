@@ -31,6 +31,8 @@ pub struct PeerBootstrapProgress {
 
 pub struct P2PManager {
 	events: broadcast::Sender<sd_p2p::Event<PeerMetadata>>,
+	// TODO: Allow getting a type erased reference to the manager so it can be stored here
+	// manager: Manager<PeerMetadata, >
 }
 
 impl P2PManager {
@@ -62,29 +64,32 @@ impl P2PManager {
 					async move { peer_metadata }
 				}
 			},
-			move |manager, event: Event<PeerMetadata>| {
-				match tx.send(event.clone()) {
-					Ok(_) => {}
-					Err(e) => {
-						println!("Error sending event: {:?}", e);
-					}
-				}
-
-				async move {
-					// TODO: Send all these events to frontend through rspc
-					match event {
-						Event::PeerDiscovered(event) => {
-							println!(
-								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-								event.peer_id(),
-								event.addresses(),
-								event.metadata()
-							);
-
-							// TODO: Tie this into Spacedrive
-							event.dial(&manager).await;
+			{
+				let tx = tx.clone();
+				move |_manager, event: Event<PeerMetadata>| {
+					match tx.send(event.clone()) {
+						Ok(_) => {}
+						Err(e) => {
+							println!("Error sending event: {:?}", e);
 						}
-						event => println!("{:?}", event),
+					}
+
+					async move {
+						// TODO: Send all these events to frontend through rspc
+						match event {
+							Event::PeerDiscovered(event) => {
+								println!(
+									"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+									event.peer_id(),
+									event.addresses(),
+									event.metadata()
+								);
+
+								// TODO: Tie this into Spacedrive
+								// event.dial(&manager).await;
+							}
+							event => println!("{:?}", event),
+						}
 					}
 				}
 			},
@@ -106,6 +111,25 @@ impl P2PManager {
 		)
 		.await
 		.unwrap();
+
+		// TODO: Remove this once a type erased manager ref can be stored on `Self`
+		tokio::spawn({
+			let manager = manager.clone();
+			let events = tx.clone();
+			async move {
+				let mut rx = events.subscribe();
+				while let Ok(event) = rx.recv().await {
+					match event {
+						Event::EmitDiscoveredClients => {
+							for client in manager.get_discovered_peers().await {
+								events.send(Event::PeerDiscovered(client)).ok();
+							}
+						}
+						_ => {}
+					}
+				}
+			}
+		});
 
 		tokio::spawn({
 			let manager = manager.clone();
@@ -130,15 +154,15 @@ impl P2PManager {
 			);
 
 			// TODO: Remove this without the connections timing out????
-			loop {
-				sleep(Duration::from_secs(3)).await;
-				manager
-					.clone()
-					.broadcast(rmp_serde::to_vec(&Request::Ping).unwrap())
-					.await
-					.unwrap();
-				// println!("Sent broadcast!");
-			}
+			// loop {
+			// 	sleep(Duration::from_secs(3)).await;
+			// 	manager
+			// 		.clone()
+			// 		.broadcast(rmp_serde::to_vec(&Request::Ping).unwrap())
+			// 		.await
+			// 		.unwrap();
+			// 	// println!("Sent broadcast!");
+			// }
 		});
 
 		// TODO: proper shutdown
@@ -150,5 +174,9 @@ impl P2PManager {
 
 	pub fn events(&self) -> broadcast::Receiver<sd_p2p::Event<PeerMetadata>> {
 		self.events.subscribe()
+	}
+
+	pub async fn temp_emit_discovered_peers(&self) {
+		self.events.send(Event::EmitDiscoveredClients).ok();
 	}
 }

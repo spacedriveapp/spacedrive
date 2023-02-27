@@ -1,4 +1,5 @@
 //! Rust Peer to Peer Networking Library
+#![allow(warnings)] // TODO: Remove this once everything is more stable
 
 mod event;
 mod keypair;

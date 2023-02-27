@@ -155,15 +155,16 @@ where
 	/// TODO: Allow broadcasting to all or a defined set of peers -> Deal with establishing connection if not already connected
 	pub fn broadcast(&mut self, data: SpaceTimeMessage) {
 		debug!("TODO: Broadcast");
-		for (peer_id, conns) in &self.connected {
-			debug!("TODO: Broadcast to peer: {:?}", peer_id);
-			self.pending_events
-				.push_back(NetworkBehaviourAction::NotifyHandler {
-					peer_id: peer_id.0.clone(),
-					handler: NotifyHandler::One(conns.first().unwrap().id), // TODO: Error handling
-					event: todo!(),                                         // data.clone(), // TODO: Fix this
-				});
-		}
+		// TODO: Get this working again
+		// for (peer_id, conns) in &self.connected {
+		// 	debug!("TODO: Broadcast to peer: {:?}", peer_id);
+		// 	self.pending_events
+		// 		.push_back(NetworkBehaviourAction::NotifyHandler {
+		// 			peer_id: peer_id.0.clone(),
+		// 			handler: NotifyHandler::One(conns.first().unwrap().id), // TODO: Error handling
+		// 			event: todo!(),                                         // data.clone(), // TODO: Fix this
+		// 		});
+		// }
 	}
 }
 

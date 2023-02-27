@@ -78,7 +78,7 @@ export type Procedures = {
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
-        { key: "p2p.events", input: never, result: Event<PeerMetadata> }
+        { key: "p2p.discovery", input: never, result: Event<PeerMetadata> }
 };
 
 /**
@@ -126,7 +126,7 @@ export type EncryptedKey = number[]
  *  This is useful for updating your UI when stuff changes on the backend.
  *  You can also interact with some events to cause an event.
  */
-export type Event<TMetadata> = { AddListenAddr: string } | { RemoveListenAddr: string } | { PeerDiscovered: DiscoveredPeer<TMetadata> } | { PeerExpired: { id: string, metadata: TMetadata | null } } | { PeerConnected: ConnectedPeer } | { PeerDisconnected: string }
+export type Event<TMetadata> = { AddListenAddr: string } | { RemoveListenAddr: string } | { PeerDiscovered: DiscoveredPeer<TMetadata> } | { PeerExpired: { id: string, metadata: TMetadata | null } } | { PeerConnected: ConnectedPeer } | { PeerDisconnected: string } | "EmitDiscoveredClients"
 
 export type ExplorerContext = ({ type:  "Location" } & Location) | ({ type:  "Tag" } & Tag)
 

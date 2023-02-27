@@ -34,6 +34,9 @@ where
 	PeerConnected(ConnectedPeer),
 	/// communication was lost with a peer.
 	PeerDisconnected(PeerId),
+
+	// TODO: Remove this
+	EmitDiscoveredClients,
 }
 
 /// represents a discovered peer. It can be used to get information about the peer or to initiate an action with it.

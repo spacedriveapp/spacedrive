@@ -405,6 +405,16 @@ where
 			.await
 			.map_err(|_| ())
 	}
+
+	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
+		self.state
+			.discovered_peers
+			.read()
+			.await
+			.values()
+			.cloned()
+			.collect()
+	}
 }
 
 #[derive(Error, Debug)]
