@@ -1,4 +1,4 @@
-import { CaretDown } from 'phosphor-react';
+import { CaretLeft } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Divider, tw } from '@sd/ui';
@@ -38,10 +38,7 @@ const BackButton = () => {
 	return (
 		<Button variant="outline" size="icon" onClick={() => navigate(-1)}>
 			<div className="flex h-4 w-4 justify-center">
-				<CaretDown
-					className="text-ink-dull w-[12px] translate-x-[-1px] rotate-90 transition-transform"
-					aria-hidden="true"
-				/>
+				<CaretLeft weight="bold" className="text-ink-dull w-[12px] " aria-hidden="true" />
 			</div>
 		</Button>
 	);

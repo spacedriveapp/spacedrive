@@ -124,7 +124,7 @@ const LibrarySection = () => {
 				<Section
 					name="Tags"
 					actionArea={
-						<NavLink to="settings/tags">
+						<NavLink to="settings/library/tags">
 							<SubtleButton />
 						</NavLink>
 					}
