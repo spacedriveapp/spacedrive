@@ -45,6 +45,7 @@ importers:
       '@sd/config': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
+      '@tanstack/react-query': ^4.24.4
       '@tauri-apps/api': 1.2.0
       '@tauri-apps/cli': 1.2.3
       '@types/babel-core': ^6.25.7
@@ -65,6 +66,7 @@ importers:
       '@sd/client': link:../../packages/client
       '@sd/interface': link:../../interface
       '@sd/ui': link:../../packages/ui
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       '@tauri-apps/api': 1.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -292,6 +294,7 @@ importers:
   apps/web:
     specifiers:
       '@fontsource/inter': ^4.5.13
+      '@playwright/test': ^1.30.0
       '@rspc/client': ^0.0.0-main-7c0a67c1
       '@sd/client': workspace:*
       '@sd/config': workspace:*
@@ -320,6 +323,7 @@ importers:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
     devDependencies:
+      '@playwright/test': 1.30.0
       '@sd/config': link:../../packages/config
       '@sd/ui': link:../../packages/ui
       '@types/react': 18.0.27
@@ -382,6 +386,7 @@ importers:
       '@splinetool/react-spline': ^2.2.3
       '@splinetool/runtime': ^0.9.128
       '@tailwindcss/forms': ^0.5.3
+      '@tanstack/react-query': ^4.12.0
       '@tanstack/react-query-devtools': ^4.22.0
       '@tanstack/react-virtual': 3.0.0-beta.18
       '@types/babel-core': ^6.25.7
@@ -437,7 +442,8 @@ importers:
       '@splinetool/react-spline': 2.2.5_3ok4u2chf7465ntwlp4i32bwcu
       '@splinetool/runtime': 0.9.191
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
-      '@tanstack/react-query-devtools': 4.22.0_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query-devtools': 4.22.0_pkeil6ml7pq7xvil3imldjs2sa
       '@tanstack/react-virtual': 3.0.0-beta.18_react@18.2.0
       '@vitejs/plugin-react': 2.2.0_vite@4.0.4
       '@zxcvbn-ts/core': 2.1.0
@@ -4413,6 +4419,15 @@ packages:
       mkdirp: 1.0.4
       rimraf: 3.0.2
 
+  /@playwright/test/1.30.0:
+    resolution: {integrity: sha512-SVxkQw1xvn/Wk/EvBnqWIq6NLo1AppwbYOjNLmyU0R1RoQ3rLEBtmjTnElcnz8VEtn11fptj1ECxK0tgURhajw==}
+    engines: {node: '>=14'}
+    hasBin: true
+    dependencies:
+      '@types/node': 18.11.18
+      playwright-core: 1.30.0
+    dev: true
+
   /@pmmmwh/react-refresh-webpack-plugin/0.5.10_ohj47mxwagpoxvu7nhhwxzphqm:
     resolution: {integrity: sha512-j0Ya0hCFZPd4x40qLzbhGsh9TMtdb+CJQiso+WxLOPNasohq9cc5SNUcwsZaRH6++Xh91Xkm/xHCkuIiIu0LUA==}
     engines: {node: '>= 10.13'}
@@ -7589,7 +7604,7 @@ packages:
     resolution: {integrity: sha512-9dqjv9eeB6VHN7lD3cLo16ZAjfjCsdXetSAD5+VyKqLUvcKTL0CklGQRJu+bWzdrS69R6Ea4UZo8obHYZnG6aA==}
     dev: false
 
-  /@tanstack/react-query-devtools/4.22.0_biqbaboplfbrettd7655fr4n2y:
+  /@tanstack/react-query-devtools/4.22.0_pkeil6ml7pq7xvil3imldjs2sa:
     resolution: {integrity: sha512-YeYFBnfqvb+ZlA0IiJqiHNNSzepNhI1p2o9i8NlhQli9+Zrn230M47OBaBUs8qr3DD1dC2zGB1Dis50Ktz8gAA==}
     peerDependencies:
       '@tanstack/react-query': 4.22.0
@@ -7597,6 +7612,7 @@ packages:
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
       '@tanstack/match-sorter-utils': 8.7.6
+      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       superjson: 1.12.2
@@ -7635,6 +7651,24 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
+
+  /@tanstack/react-query/4.24.4_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.24.4
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
+    dev: false
 
   /@tanstack/react-query/4.24.4_tj3nonr5gneraukzjkxpsiy7yu:
     resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
@@ -16683,6 +16717,12 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       find-up: 3.0.0
+
+  /playwright-core/1.30.0:
+    resolution: {integrity: sha512-7AnRmTCf+GVYhHbLJsGUtskWTE33SwMZkybJ0v6rqR1boxq2x36U7p1vDRV7HO2IwTZgmycracLxPEJI49wu4g==}
+    engines: {node: '>=14'}
+    hasBin: true
+    dev: true
 
   /plist/3.0.6:
     resolution: {integrity: sha512-WiIVYyrp8TD4w8yCvyeIr+lkmrGRd5u0VbRnU+tP/aRLxP/YadJUYOMZJ/6hIa3oUyVCsycXvtNRgd5XBJIbiA==}

@@ -1,17 +1,17 @@
 import { loggerLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
-import { getDebugState, hooks, queryClient } from '@sd/client';
-import {
+import { getDebugState, hooks } from '@sd/client';
+import SpacedriveInterface, {
 	ErrorPage,
 	KeybindEvent,
 	OperatingSystem,
 	Platform,
-	PlatformProvider,
-	SpacedriveInterface
+	PlatformProvider
 } from '@sd/interface';
 import '@sd/ui/style';
 
@@ -70,6 +70,8 @@ const platform: Platform = {
 	openPath: (path) => shell.open(path)
 };
 
+const queryClient = new QueryClient();
+
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
@@ -91,9 +93,12 @@ export default function App() {
 	}
 
 	return (
+		// @ts-expect-error: Just a version mismatch
 		<hooks.Provider client={client} queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
-				<SpacedriveInterface />
+				<QueryClientProvider client={queryClient}>
+					<SpacedriveInterface router="memory" />
+				</QueryClientProvider>
 			</PlatformProvider>
 		</hooks.Provider>
 	);

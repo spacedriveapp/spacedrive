@@ -1,6 +1,7 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { loggerLink } from '@rspc/client';
+import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
@@ -17,7 +18,6 @@ import {
 	ClientContextProvider,
 	LibraryContextProvider,
 	getDebugState,
-	queryClient,
 	rspc,
 	useClientContext,
 	useInvalidateQuery
@@ -95,12 +95,15 @@ const client = rspc.createClient({
 	]
 });
 
+const queryClient = new QueryClient();
+
 export default function App() {
 	useEffect(() => {
 		SplashScreen.hideAsync();
 	}, []);
 
 	return (
+		// @ts-expect-error: Version mismatch
 		<rspc.Provider client={client} queryClient={queryClient}>
 			<AppContainer />
 		</rspc.Provider>
