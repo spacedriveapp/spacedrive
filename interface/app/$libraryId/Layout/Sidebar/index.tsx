@@ -90,7 +90,7 @@ const LibrarySection = () => {
 			<Section
 				name="Locations"
 				actionArea={
-					<Link to="settings/locations">
+					<Link to="settings/library/locations">
 						<SubtleButton />
 					</Link>
 				}
