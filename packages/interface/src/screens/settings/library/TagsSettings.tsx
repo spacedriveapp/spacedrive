@@ -64,7 +64,7 @@ export default function TagsSettings() {
 				}
 			/>
 			<Card className="!px-2">
-				<div className="flex flex-wrap gap-2 m-1">
+				<div className="m-1 flex flex-wrap gap-2">
 					{tags.data?.map((tag) => (
 						<div
 							onClick={() => setTag(tag.id === selectedTag?.id ? null : tag)}
@@ -82,14 +82,14 @@ export default function TagsSettings() {
 			</Card>
 			{selectedTag ? (
 				<Form form={updateForm} onSubmit={submitTagUpdate}>
-					<div className="flex flex-row mb-10 space-x-3">
+					<div className="mb-10 flex flex-row space-x-3">
 						<div className="flex flex-col">
 							<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">
 								Color
 							</span>
 							<div className="relative">
 								<PopoverPicker
-									className="!absolute left-[9px] -top-[3px]"
+									className="!absolute left-[9px] -top-[5px]"
 									{...updateForm.register('color')}
 								/>
 								<Input className="w-28 pl-[40px]" {...updateForm.register('color')} />
@@ -101,10 +101,10 @@ export default function TagsSettings() {
 							</span>
 							<Input {...updateForm.register('name')} />
 						</div>
-						<div className="flex flex-grow" />
+						<div className="flex grow" />
 						<Button
 							variant="gray"
-							className="h-[38px] mt-[22px]"
+							className="mt-[22px] h-[38px]"
 							onClick={() =>
 								dialogManager.create((dp) => (
 									<DeleteTagDialog
@@ -116,7 +116,7 @@ export default function TagsSettings() {
 							}
 						>
 							<Tooltip label="Delete Tag">
-								<Trash className="w-4 h-4" />
+								<Trash className="h-4 w-4" />
 							</Tooltip>
 						</Button>
 					</div>
@@ -163,7 +163,7 @@ function CreateTagDialog(props: UseDialogProps) {
 			ctaLabel="Create"
 		>
 			<div className="relative mt-3 ">
-				<PopoverPicker className="!absolute left-[9px] -top-[3px]" {...form.register('color')} />
+				<PopoverPicker className="!absolute left-[9px] -top-[5px]" {...form.register('color')} />
 				<Input
 					{...form.register('name', { required: true })}
 					className="w-full pl-[40px]"

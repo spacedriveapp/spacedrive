@@ -10,11 +10,11 @@ const ProgressBar = (props: Props) => {
 	return (
 		<ProgressPrimitive.Root
 			value={percentage}
-			className="w-full h-1 overflow-hidden bg-gray-200 rounded-full dark:bg-gray-500"
+			className="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-500"
 		>
 			<ProgressPrimitive.Indicator
 				style={{ width: `${percentage}%` }}
-				className="h-full duration-300 ease-in-out bg-accent "
+				className="bg-accent h-full duration-300 ease-in-out "
 			/>
 		</ProgressPrimitive.Root>
 	);

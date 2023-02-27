@@ -1,8 +1,8 @@
 import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import { Algorithm, useLibraryMutation } from '@sd/client';
+import { Button, CategoryHeading, Input, Select, SelectOption, Switch, tw } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -37,49 +37,49 @@ export function KeyMounter() {
 	}, []);
 
 	return (
-		<div className="p-3 pt-3 mb-1">
+		<div className="mb-1 p-3">
 			<KeyHeading>Mount key</KeyHeading>
 			<div className="flex space-x-2">
-				<div className="relative flex flex-grow">
+				<div className="relative flex grow">
 					<Input
 						ref={ref}
 						value={key}
 						onChange={(e) => setKey(e.target.value)}
 						autoFocus
 						type={showKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
+						className="grow !py-0.5"
 					/>
 					<Button
 						onClick={() => setShowKey(!showKey)}
 						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
+						className="absolute right-[5px] top-[5px] border-none"
 					>
-						<CurrentEyeIcon className="w-4 h-4" />
+						<CurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				</div>
 			</div>
 
 			<div className="flex flex-row space-x-2">
-				<div className="relative flex flex-grow mt-2">
+				<div className="relative mt-2 flex grow">
 					<Slider
 						value={sliderValue}
 						max={128}
 						min={8}
 						step={4}
 						defaultValue={[64]}
-						onValueChange={(e) => {
-							setSliderValue(e);
-							setKey(generatePassword(e[0]));
+						onValueChange={(val) => {
+							setSliderValue(val);
+							setKey(generatePassword(val[0] ?? 8));
 						}}
 						onClick={() => {
-							setKey(generatePassword(sliderValue[0]));
+							setKey(generatePassword(sliderValue[0] ?? 8));
 						}}
 					/>
 				</div>
-				<span className="text-sm mt-2.5 font-medium">{sliderValue}</span>
+				<span className="mt-2.5 text-sm font-medium">{sliderValue}</span>
 			</div>
 
-			<div className="flex flex-row items-center mt-3 mb-1">
+			<div className="mt-3 mb-1 flex flex-row items-center">
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
@@ -93,9 +93,9 @@ export function KeyMounter() {
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
 				<Tooltip label="This key will be registered with all devices running your Library">
-					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
+					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
 				</Tooltip>
-				<div className="flex-grow" />
+				<div className="grow" />
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
@@ -109,11 +109,11 @@ export function KeyMounter() {
 				</div>
 				<span className="ml-3 text-xs font-medium">Automount</span>
 				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
-					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
+					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
 				</Tooltip>
 			</div>
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
@@ -134,7 +134,7 @@ export function KeyMounter() {
 				</div>
 			</div>
 			<Button
-				className="w-full mt-2"
+				className="mt-2 w-full"
 				variant="accent"
 				disabled={key === ''}
 				onClick={() => {

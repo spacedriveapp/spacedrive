@@ -1,5 +1,5 @@
 import { MagnifyingGlass } from 'phosphor-react';
-import { Button, Card, GridLayout, Input } from '@sd/ui';
+import { Button, Card, GridLayout, Input, SearchInput } from '@sd/ui';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
@@ -46,8 +46,8 @@ function ExtensionItem(props: { extension: ExtensionItemData }) {
 	return (
 		<Card className="flex-col">
 			<h3 className="mt-2 text-sm font-bold">{name}</h3>
-			<p className="mt-1 mb-1 text-xs text-gray-300">{description}</p>
-			<div className="flex-grow" />
+			<p className="my-1 text-xs text-gray-300">{description}</p>
+			<div className="grow" />
 			<Button size="sm" className="my-2" variant={installed ? 'gray' : 'accent'}>
 				{installed ? 'Installed' : 'Install'}
 			</Button>
@@ -63,12 +63,7 @@ export default function ExtensionSettings() {
 			<SettingsHeader
 				title="Extensions"
 				description="Install extensions to extend the functionality of this client."
-				rightArea={
-					<div className="relative mt-6">
-						<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
-						<Input className="w-56 !p-0.5 !pl-9" placeholder="Search extensions" />
-					</div>
-				}
+				rightArea={<SearchInput outerClassnames="mt-1.5" placeholder="Search extensions" />}
 			/>
 
 			<GridLayout>

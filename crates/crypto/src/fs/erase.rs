@@ -1,4 +1,4 @@
-use crate::{primitives::BLOCK_SIZE, Result};
+use crate::{primitives::BLOCK_LEN, Result};
 
 use rand::{RngCore, SeedableRng};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 ///
 /// It requires the file size, a stream and the amount of passes (to overwrite the entire stream with random data)
 ///
-/// It works against `BLOCK_SIZE`.
+/// It works against `BLOCK_LEN`.
 ///
 /// Note, it will not be ideal on flash-based storage devices.
 /// The drive will be worn down, and due to wear-levelling built into the drive's firmware no tool (short of an ATA secure erase command)
@@ -18,10 +18,10 @@ pub async fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()
 where
 	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin + Send,
 {
-	let block_count = size / BLOCK_SIZE;
-	let additional = size % BLOCK_SIZE;
+	let block_count = size / BLOCK_LEN;
+	let additional = size % BLOCK_LEN;
 
-	let mut buf = vec![0u8; BLOCK_SIZE].into_boxed_slice();
+	let mut buf = vec![0u8; BLOCK_LEN].into_boxed_slice();
 	let mut end_buf = vec![0u8; additional].into_boxed_slice();
 
 	for _ in 0..passes {

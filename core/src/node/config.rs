@@ -2,7 +2,7 @@ use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::File,
-	io::{self, BufReader, Seek, SeekFrom, Write},
+	io::{self, BufReader, Seek, Write},
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -66,7 +66,7 @@ impl NodeConfig {
 				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 				Ok(hostname) => hostname.to_string_lossy().into_owned(),
 				Err(err) => {
-					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{}'", err);
+					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{err}'");
 					"my-spacedrive".into()
 				}
 			},
@@ -123,7 +123,7 @@ impl NodeConfigManager {
 
 				Self::migrate_config(base_config.version, path)?;
 
-				file.seek(SeekFrom::Start(0))?;
+				file.rewind()?;
 				Ok(serde_json::from_reader(BufReader::new(&mut file))?)
 			}
 			false => {

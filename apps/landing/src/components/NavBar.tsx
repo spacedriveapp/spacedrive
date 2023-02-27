@@ -13,7 +13,7 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 		<a
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
-			className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+			className="cursor-pointer p-4 text-gray-300 no-underline transition hover:text-gray-50"
 			rel="noreferrer"
 		>
 			{props.children}
@@ -52,19 +52,19 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed transition px-2 z-[55] w-full h-16 border-b ',
+				'fixed z-[55] h-16 w-full border-b px-2 transition ',
 				isAtTop
-					? 'bg-transparent border-transparent'
-					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
+					? 'border-transparent bg-transparent'
+					: 'border-gray-550 bg-gray-700/80 backdrop-blur'
 			)}
 		>
-			<div className="relative flex max-w-[100rem] mx-auto items-center h-full m-auto p-5">
+			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<a href="/" className="absolute flex flex-row items-center">
-					<img src={AppLogo} className="z-30 w-8 h-8 mr-3" />
+					<img src={AppLogo} className="z-30 mr-3 h-8 w-8" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</a>
 
-				<div className="hidden m-auto space-x-4 text-white lg:block ">
+				<div className="m-auto hidden space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
@@ -72,7 +72,7 @@ export default function NavBar() {
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
-							<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
+							<span className="bg-primary/80 absolute -top-1 -right-2 rounded-md px-[5px] text-xs">
 								{` ${positions.length} `}
 							</span>
 						) : null}
@@ -82,10 +82,10 @@ export default function NavBar() {
 				<Dropdown.Root
 					button={
 						<Button className="ml-[140px] hover:!bg-transparent" size="icon">
-							<DotsThreeVertical weight="bold" className="w-6 h-6 " />
+							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
 						</Button>
 					}
-					className="block h-6 text-white w-44 top-2 right-4 lg:hidden"
+					className="top-2 right-4 block h-6 w-44 text-white lg:hidden"
 					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500 text-[15px]"
 				>
 					<Dropdown.Section>
@@ -118,7 +118,7 @@ export default function NavBar() {
 					</Dropdown.Section>
 				</Dropdown.Root>
 
-				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
+				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />
 					</a>

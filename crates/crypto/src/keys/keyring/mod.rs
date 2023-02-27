@@ -6,6 +6,7 @@ pub mod linux;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub mod apple;
 
+/// This identifier is platform-agnostic and is used for identifying keys within OS keyrings
 #[derive(Clone, Copy)]
 pub struct Identifier<'a> {
 	pub application: &'a str,
@@ -45,6 +46,7 @@ pub trait Keyring {
 	fn delete(&self, identifier: Identifier) -> Result<()>;
 }
 
+/// This should be used to interact with all OS keyrings.
 pub struct KeyringInterface {
 	keyring: Box<dyn Keyring + Send>,
 }

@@ -29,7 +29,7 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 		eraseFile.mutateAsync({
 			location_id: props.location_id,
 			path_id: props.path_id,
-			passes: data.passes
+			passes: data.passes.toString()
 		})
 	);
 
@@ -45,24 +45,24 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 			loading={eraseFile.isLoading}
 			ctaLabel="Erase"
 		>
-			<div className="flex flex-col mt-2">
+			<div className="mt-2 flex flex-col">
 				<span className="text-xs font-bold"># of passes</span>
 
 				<div className="flex flex-row space-x-2">
-					<div className="relative flex flex-grow mt-2">
+					<div className="relative mt-2 flex grow">
 						<Slider
 							value={passes}
 							max={16}
 							min={1}
 							step={1}
 							defaultValue={[4]}
-							onValueChange={(e) => {
-								setPasses(e);
-								form.setValue('passes', e[0]);
+							onValueChange={(val) => {
+								setPasses(val);
+								form.setValue('passes', val[0] ?? 1);
 							}}
 						/>
 					</div>
-					<span className="text-sm mt-2.5 font-medium">{passes}</span>
+					<span className="mt-2.5 text-sm font-medium">{passes}</span>
 				</div>
 			</div>
 

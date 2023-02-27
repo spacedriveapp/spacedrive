@@ -81,12 +81,12 @@ export function HomeCTA() {
 				useWorker
 				zIndex={-1}
 			/> */}
-			<div className="z-30 flex flex-row items-center h-10 space-x-4 animation-delay-2 fade-in">
+			<div className="animation-delay-2 fade-in z-30 flex h-10 flex-row items-center space-x-4">
 				{!showWaitlistInput ? (
 					<>
 						<Button
 							onClick={() => setShowWaitlistInput(true)}
-							className="z-30 border-0 cursor-pointer"
+							className="z-30 cursor-pointer border-0"
 							variant="gray"
 						>
 							Join Waitlist
@@ -97,7 +97,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+							<Github className="mt-[-4px] -ml-1 mr-2 inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>
@@ -107,16 +107,16 @@ export function HomeCTA() {
 							{(waitlistError || waitlistSubmitted) && (
 								<div
 									className={clsx({
-										'flex flex-row items-center bg-opacity-20 border-2 my-2 px-2 rounded-md': true,
-										'bg-red-800 border-red-900': waitlistError,
-										'bg-green-800 border-green-900': !waitlistError,
+										'my-2 flex flex-row items-center rounded-md border-2 px-2': true,
+										'border-red-900 bg-red-800/20': waitlistError,
+										'border-green-900 bg-green-800/20': !waitlistError,
 										'-mt-2': waitlistSubmitted
 									})}
 								>
 									{waitlistError ? (
-										<Alert className="w-5 mr-1 fill-red-500" />
+										<Alert className="mr-1 w-5 fill-red-500" />
 									) : (
-										<Info className="w-5 mr-1 fill-green-500" />
+										<Info className="mr-1 w-5 fill-green-500" />
 									)}
 									<p
 										className={clsx({
@@ -145,15 +145,15 @@ export function HomeCTA() {
 								{!waitlistSubmitted && (
 									<Button
 										onClick={() => setShowWaitlistInput(true)}
-										className={clsx('z-30 border-0 rounded-l-none cursor-pointer', {
-											'opacity-50 cursor-default': loading
+										className={clsx('z-30 cursor-pointer rounded-l-none border-0', {
+											'cursor-default opacity-50': loading
 										})}
 										disabled={loading}
 										variant="accent"
 										type="submit"
 									>
 										{loading ? (
-											<Spinner className="w-6 h-6 text-white text-opacity-40 animate-spin fill-white" />
+											<Spinner className="h-6 w-6 animate-spin fill-white text-white text-opacity-40" />
 										) : (
 											'Submit'
 										)}
@@ -165,7 +165,7 @@ export function HomeCTA() {
 				)}
 			</div>
 			<p
-				className={clsx('z-30 px-6 text-sm text-center text-gray-450 animation-delay-3 fade-in', {
+				className={clsx('animation-delay-3 fade-in text-gray-450 z-30 px-6 text-center text-sm', {
 					'mt-10': waitlistError,
 					'mt-3': !waitlistError
 				})}

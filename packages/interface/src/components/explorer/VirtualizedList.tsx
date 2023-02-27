@@ -2,14 +2,14 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
-import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { ExplorerContext, ExplorerItem, isPath } from '@sd/client';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { LIST_VIEW_HEADER_HEIGHT, ListViewHeader } from './FileColumns';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
-import { isPath } from './utils';
 
 const TOP_BAR_HEIGHT = 46;
-const GRID_TEXT_AREA_HEIGHT = 25;
+// const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
 	context: ExplorerContext;
@@ -37,7 +37,8 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	}, [explorerStore.showInspector]);
 
 	// sizing calculations
-	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 8,
+	const GRID_TEXT_AREA_HEIGHT = explorerStore.gridItemSize / 4;
+	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 4,
 		amountOfRows =
 			explorerStore.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
 		itemSize =
@@ -93,82 +94,62 @@ export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
 	});
 
-	// const Header = () => (
-	// 	<div>
-	// 		{props.context.name && (
-	// 			<h1 className="pt-20 pl-4 text-xl font-bold ">{props.context.name}</h1>
-	// 		)}
-	// 		<div className="table-head">
-	// 			<div className="flex flex-row p-2 table-head-row">
-	// 				{columns.map((col) => (
-	// 					<div
-	// 						key={col.key}
-	// 						className="relative flex flex-row items-center pl-2 table-head-cell group"
-	// 						style={{ width: col.width }}
-	// 					>
-	// 						<EllipsisHorizontalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
-	// 						<span className="text-sm font-medium text-gray-500">{col.column}</span>
-	// 					</div>
-	// 				))}
-	// 			</div>
-	// 		</div>
-	// 	</div>
-	// );
+	const layoutMode = explorerStore.layoutMode;
 
 	return (
-		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full cursor-default pl-4">
 			<div
 				ref={scrollRef}
-				className="h-screen custom-scroll explorer-scroll"
+				className="custom-scroll explorer-scroll h-screen"
 				onClick={(e) => {
 					getExplorerStore().selectedRowIndex = -1;
 				}}
 			>
 				<div
 					ref={innerRef}
-					style={{
-						height: `${rowVirtualizer.getTotalSize()}px`,
-						marginTop: `${TOP_BAR_HEIGHT}px`
-					}}
 					className="relative w-full"
+					style={{
+						height: rowVirtualizer.getTotalSize(),
+						marginTop:
+							layoutMode === 'list' ? TOP_BAR_HEIGHT + LIST_VIEW_HEADER_HEIGHT : TOP_BAR_HEIGHT
+					}}
 				>
+					{layoutMode === 'list' && <ListViewHeader />}
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => (
 						<div
+							key={virtualRow.key}
+							className="absolute top-0 left-0 flex w-full"
 							style={{
-								height: `${virtualRow.size}px`,
+								height: virtualRow.size,
 								transform: `translateY(${virtualRow.start}px)`
 							}}
-							className="absolute top-0 left-0 flex w-full"
-							key={virtualRow.key}
 						>
-							{explorerStore.layoutMode === 'list' ? (
+							{layoutMode === 'list' && (
 								<WrappedItem
 									kind="list"
-									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
+									isSelected={explorerStore.selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
-									item={data[virtualRow.index]}
+									item={data[virtualRow.index]!}
 								/>
-							) : (
+							)}
+							{layoutMode === 'grid' &&
 								[...Array(amountOfColumns)].map((_, i) => {
 									const index = virtualRow.index * amountOfColumns + i;
 									const item = data[index];
 									const isSelected = explorerStore.selectedRowIndex === index;
 									return (
-										<div key={index} className="">
-											<div className="flex">
-												{item && (
-													<WrappedItem
-														kind="grid"
-														isSelected={isSelected}
-														index={index}
-														item={item}
-													/>
-												)}
-											</div>
+										<div key={index} className="flex">
+											{item && (
+												<WrappedItem
+													kind="grid"
+													isSelected={isSelected}
+													index={index}
+													item={item}
+												/>
+											)}
 										</div>
 									);
-								})
-							)}
+								})}
 						</div>
 					))}
 				</div>
@@ -195,7 +176,6 @@ const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) =
 	const onClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
 			e.stopPropagation();
-
 			getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
 		},
 		[isSelected, index]

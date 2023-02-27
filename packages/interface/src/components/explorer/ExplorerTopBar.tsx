@@ -16,6 +16,7 @@ import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Popover, cva } from '@sd/ui';
+import DragRegion from '~/components/layout/DragRegion';
 import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { KeybindEvent } from '../../util/keybind';
@@ -36,7 +37,7 @@ export interface TopBarButtonProps {
 // export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
 
 const topBarButtonStyle = cva(
-	'border-none text-ink hover:text-ink mr-[1px] flex py-0.5 px-0.5 text-md font-medium transition-colors duration-100 outline-none hover:bg-app-selected radix-state-open:bg-app-selected',
+	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none !p-0.5 font-medium outline-none transition-colors duration-100',
 	{
 		variants: {
 			active: {
@@ -62,14 +63,19 @@ const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	({ active, rounding, className, ...props }, ref) => {
 		return (
-			<Button {...props} ref={ref} className={topBarButtonStyle({ active, rounding, className })}>
+			<Button
+				// size="sm"
+				{...props}
+				ref={ref}
+				className={topBarButtonStyle({ active, rounding, className })}
+			>
 				{props.children}
 			</Button>
 		);
 	}
 );
 
-const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+export const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
 	const {
 		register,
 		handleSubmit,
@@ -97,11 +103,14 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="w-32 transition-all focus:w-52"
+				className={clsx('w-32 transition-all focus:w-52', props.className)}
 				{...searchField}
 			/>
-
-			<div className={clsx('space-x-1 absolute right-1 peer-focus:invisible pointer-events-none')}>
+			<div
+				className={clsx(
+					'pointer-events-none absolute right-1 flex h-7 items-center space-x-1 opacity-70 peer-focus:invisible'
+				)}
+			>
 				{platform === 'browser' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (
@@ -187,8 +196,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
+				// eslint-disable-next-line tailwindcss/no-contradicting-classname
 				className={clsx(
-					'flex h-[46px] max-w z-20 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'max-w bg-app duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
@@ -211,8 +221,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
 
-				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
-					<div className="flex mx-8">
+				<div data-tauri-drag-region className="flex grow flex-row justify-center">
+					<div className="mx-8 flex">
 						<Tooltip label="Grid view">
 							<TopBarButton
 								rounding="left"
@@ -263,7 +273,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 					<SearchBar ref={searchRef} />
 
-					<div className="flex mx-8 space-x-2">
+					<div className="mx-8 flex space-x-2">
 						<Tooltip label="Key Manager">
 							<Popover
 								className="focus:outline-none"
@@ -276,7 +286,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								}
 							>
 								<div className="block w-[350px]">
-									<KeyManager className={TOP_BAR_ICON_STYLE} />
+									<KeyManager /* className={TOP_BAR_ICON_STYLE} */ />
 								</div>
 							</Popover>
 						</Tooltip>
@@ -303,7 +313,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						</Tooltip>
 					</div>
 				</div>
-				<div className="flex mr-3 space-x-2">
+				<div className="mr-3 flex space-x-2">
 					<Tooltip label="File display options" position="left">
 						<Popover
 							className="focus:outline-none"
@@ -330,11 +340,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 							className="my-2"
 						>
-							{store.showInspector ? (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							) : (
-								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-							)}
+							<SidebarSimple
+								weight={store.showInspector ? 'fill' : 'regular'}
+								className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1] transform')}
+							/>
 						</TopBarButton>
 					</Tooltip>
 					{/* <Dropdown

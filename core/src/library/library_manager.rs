@@ -22,6 +22,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
+use tracing::debug;
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -170,6 +171,8 @@ impl LibraryManager {
 			libraries_dir,
 			node_context,
 		});
+
+		debug!("LibraryManager initialized");
 
 		Ok(this)
 	}

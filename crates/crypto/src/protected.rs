@@ -98,11 +98,15 @@ where
 }
 
 #[cfg(feature = "rspc")]
+use rspc::internal::specta;
+#[cfg(feature = "rspc")]
 impl<T> specta::Type for Protected<T>
 where
 	T: specta::Type + Zeroize,
 {
 	const NAME: &'static str = T::NAME;
+	const SID: specta::TypeSid = specta::sid!();
+	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
 
 	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
 		T::inline(opts, generics)
@@ -112,7 +116,7 @@ where
 		T::reference(opts, generics)
 	}
 
-	fn definition(opts: specta::DefOpts) -> specta::DataType {
+	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
 		T::definition(opts)
 	}
 }

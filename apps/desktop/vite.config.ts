@@ -19,6 +19,11 @@ export default defineConfig({
 			}
 		})
 	],
+	css: {
+		modules: {
+			localsConvention: 'camelCaseOnly'
+		}
+	},
 	resolve: {
 		alias: [relativeAliasResolver]
 	},

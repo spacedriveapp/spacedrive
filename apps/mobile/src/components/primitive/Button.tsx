@@ -2,15 +2,15 @@ import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import { FC, useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
-import tw from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
-const button = cva(['border rounded-md items-center justify-center shadow-sm'], {
+const button = cva(['items-center justify-center rounded-md border shadow-sm'], {
 	variants: {
 		variant: {
-			danger: ['bg-red-600 border-red-800'],
-			gray: ['bg-app-button border-app-line'],
-			dark_gray: ['bg-app border-app-box'],
-			accent: ['bg-accent border-accent-deep shadow-md shadow-app-shade/10']
+			danger: ['border-red-800 bg-red-600'],
+			gray: ['border-app-line bg-app-button'],
+			dark_gray: ['border-app-box bg-app'],
+			accent: ['border-accent-deep bg-accent shadow-app-shade/10 shadow-md']
 		},
 		size: {
 			default: ['py-1', 'px-3'],
@@ -35,7 +35,7 @@ export const Button: FC<ButtonProps> = ({ variant, size, disabled, ...props }) =
 	return (
 		<Pressable
 			disabled={disabled}
-			style={tw.style(button({ variant, size, disabled }), style as string)}
+			style={twStyle(button({ variant, size, disabled }), style as string)}
 			{...otherProps}
 		>
 			{props.children}
@@ -61,7 +61,7 @@ export const AnimatedButton: FC<AnimatedButtonProps> = ({ variant, size, disable
 					},
 				[]
 			)}
-			style={tw.style(button({ variant, size, disabled }), style as string)}
+			style={twStyle(button({ variant, size, disabled }), style as string)}
 			// MotiPressable acts differently than Pressable so containerStyle might need to used to achieve the same effect
 			containerStyle={containerStyle}
 			{...otherProps}

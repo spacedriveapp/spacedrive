@@ -1,9 +1,10 @@
 import { ScreenHeading } from '@sd/ui';
+import { ScreenContainer } from './_Layout';
 
 export default function SpacesScreen() {
 	return (
-		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll app-background">
+		<ScreenContainer>
 			<ScreenHeading>Spaces</ScreenHeading>
-		</div>
+		</ScreenContainer>
 	);
 }

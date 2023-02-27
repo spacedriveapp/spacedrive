@@ -20,8 +20,8 @@ const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 pub(super) async fn check_online(location: &location::Data, library_ctx: &LibraryContext) -> bool {
 	let pub_id = &location.pub_id;
 
-	if let Some(ref local_path) = location.local_path {
-		match fs::metadata(local_path).await {
+	if location.node_id == library_ctx.node_local_id {
+		match fs::metadata(&location.path).await {
 			Ok(_) => {
 				library_ctx.location_manager().add_online(pub_id).await;
 				true
@@ -53,13 +53,12 @@ pub(super) async fn location_check_sleep(
 pub(super) fn watch_location(
 	location: location::Data,
 	library_id: LibraryId,
-	location_path: impl AsRef<Path>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
 	if let Some(mut watcher) = locations_unwatched.remove(&(location_id, library_id)) {
-		if watcher.check_path(location_path) {
+		if watcher.check_path(&location.path) {
 			watcher.watch();
 		} else {
 			watcher.update_data(location, true);
@@ -72,13 +71,12 @@ pub(super) fn watch_location(
 pub(super) fn unwatch_location(
 	location: location::Data,
 	library_id: LibraryId,
-	location_path: impl AsRef<Path>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
 	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
-		if watcher.check_path(location_path) {
+		if watcher.check_path(&location.path) {
 			watcher.unwatch();
 		} else {
 			watcher.update_data(location, false)
@@ -149,11 +147,10 @@ pub(super) async fn handle_remove_location_request(
 ) {
 	let key = (location_id, library_ctx.id);
 	if let Some(location) = get_location(location_id, &library_ctx).await {
-		if let Some(ref local_path_str) = location.local_path.clone() {
+		if location.node_id == library_ctx.node_local_id {
 			unwatch_location(
 				location,
 				library_ctx.id,
-				local_path_str,
 				locations_watched,
 				locations_unwatched,
 			);
@@ -207,21 +204,14 @@ pub(super) async fn handle_stop_watcher_request(
 					reason: String::from("failed to fetch location from db"),
 				})
 				.map(|location| {
-					location
-						.local_path
-						.clone()
-						.ok_or(LocationManagerError::LocationMissingLocalPath(location_id))
-						.map(|local_path_str| {
-							unwatch_location(
-								location,
-								library_ctx.id,
-								local_path_str,
-								locations_watched,
-								locations_unwatched,
-							);
-							forced_unwatch.insert(key);
-						})
-				})?
+					unwatch_location(
+						location,
+						library_ctx.id,
+						locations_watched,
+						locations_unwatched,
+					);
+					forced_unwatch.insert(key);
+				})
 		} else {
 			Ok(())
 		}
@@ -262,21 +252,14 @@ pub(super) async fn handle_reinit_watcher_request(
 					reason: String::from("failed to fetch location from db"),
 				})
 				.map(|location| {
-					location
-						.local_path
-						.clone()
-						.ok_or(LocationManagerError::LocationMissingLocalPath(location_id))
-						.map(|local_path_str| {
-							watch_location(
-								location,
-								library_ctx.id,
-								local_path_str,
-								locations_watched,
-								locations_unwatched,
-							);
-							forced_unwatch.remove(&key);
-						})
-				})?
+					watch_location(
+						location,
+						library_ctx.id,
+						locations_watched,
+						locations_unwatched,
+					);
+					forced_unwatch.remove(&key);
+				})
 		} else {
 			Ok(())
 		}

@@ -1,6 +1,7 @@
 import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import CodeBlock from '~/components/primitive/Codeblock';
 import { usePlatform } from '~/util/Platform';
+import { ScreenContainer } from './_Layout';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export default function DebugScreen() {
@@ -16,9 +17,8 @@ export default function DebugScreen() {
 	// });
 	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
-		<div className="flex flex-col w-full h-screen custom-scroll page-scroll app-background">
-			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
-			<div className="flex flex-col p-5 pt-2 space-y-5 pb-7">
+		<ScreenContainer>
+			<div className="flex flex-col space-y-5 p-5 pt-2 pb-7">
 				<h1 className="text-lg font-bold ">Developer Debugger</h1>
 				{/* <div className="flex flex-row pb-4 space-x-2">
 					<Button
@@ -43,6 +43,6 @@ export default function DebugScreen() {
 				<h1 className="text-sm font-bold ">Libraries</h1>
 				<CodeBlock src={{ ...libraryState }} />
 			</div>
-		</div>
+		</ScreenContainer>
 	);
 }

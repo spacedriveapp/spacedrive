@@ -4,15 +4,15 @@ import {
 	init
 } from '@sentry/browser';
 import '@fontsource/inter/variable.css';
-import { defaultContext } from '@tanstack/react-query';
+import { defaultContext, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
-import { BrowserRouter, MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
-import { LibraryContextProvider, useDebugState } from '@sd/client';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
@@ -35,8 +35,9 @@ export default function SpacedriveInterface({ router }: { router: 'memory' | 'br
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
 			<Router>
-				<AppRouterWrapper />
+				<AppRouter />
 			</Router>
+			<Dialogs />
 		</ErrorBoundary>
 	);
 }
@@ -54,21 +55,4 @@ function Devtools() {
 			}}
 		/>
 	) : null;
-}
-
-// This can't go in `<SpacedriveInterface />` cause it needs the router context but it can't go in `<AppRouter />` because that requires this context
-function AppRouterWrapper() {
-	const navigate = useNavigate();
-	const { pathname } = useLocation();
-	return (
-		<LibraryContextProvider
-			onNoLibrary={() => {
-				// only redirect to onboarding flow if path doesn't already include onboarding
-				if (!pathname.includes('onboarding')) navigate('/onboarding');
-			}}
-		>
-			<AppRouter />
-			<Dialogs />
-		</LibraryContextProvider>
-	);
 }

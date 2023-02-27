@@ -1,7 +1,14 @@
+import byteSize from 'byte-size';
 import clsx from 'clsx';
+import dayjs from 'dayjs';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem } from '@sd/client';
-import FileThumb from './FileThumb';
+import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
+import { getExplorerStore } from '../../hooks/useExplorerStore';
+import { ExplorerItemContextMenu } from './ExplorerContextMenu';
+import { ColumnKey, columns } from './FileColumns';
+import { FileThumb } from './FileThumb';
+import { InfoPill } from './Inspector';
+import { getExplorerItemData } from './util';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -11,24 +18,26 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 
 function FileRow({ data, index, selected, ...props }: Props) {
 	return (
-		<div
-			{...props}
-			className={clsx(
-				'table-body-row mr-2 flex w-full flex-row rounded-lg border-2',
-				selected ? 'border-accent' : 'border-transparent',
-				index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
-			)}
-		>
-			{columns.map((col) => (
-				<div
-					key={col.key}
-					className="flex items-center px-4 py-2 pr-2 table-body-cell"
-					style={{ width: col.width }}
-				>
-					<RenderCell data={data} colKey={col.key} />
-				</div>
-			))}
-		</div>
+		<ExplorerItemContextMenu className="w-full" data={data}>
+			<div
+				{...props}
+				className={clsx(
+					'table-body-row mr-2 flex w-full flex-row rounded-lg border-2',
+					selected ? 'border-accent' : 'border-transparent',
+					index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
+				)}
+			>
+				{columns.map((col) => (
+					<div
+						key={col.key}
+						className="table-body-cell flex items-center px-4 py-2 pr-2"
+						style={{ width: col.width }}
+					>
+						<RenderCell data={data} colKey={col.key} />
+					</div>
+				))}
+			</div>
+		</ExplorerItemContextMenu>
 	);
 }
 
@@ -36,32 +45,44 @@ const RenderCell: React.FC<{
 	colKey: ColumnKey;
 	data: ExplorerItem;
 }> = ({ colKey, data }) => {
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const { cas_id } = getExplorerItemData(data);
+
 	switch (colKey) {
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
-					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb data={data} size={0} />
+					<div className="mr-3 flex h-6 w-12 shrink-0 items-center justify-center">
+						<FileThumb data={data} size={35} />
 					</div>
-					{/* {colKey == 'name' &&
-            (() => {
-              switch (row.extension.toLowerCase()) {
-                case 'mov' || 'mp4':
-                  return <FilmIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
-
-                default:
-                  if (row.is_dir)
-                    return <FolderIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
-                  return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
-              }
-            })()} */}
-					<span className="text-xs truncate">{data.item[colKey]}</span>
+					<span className="truncate text-xs">
+						{data.item.name}
+						{data.item.extension && `.${data.item.extension}`}
+					</span>
 				</div>
 			);
-		// case 'size_in_bytes':
-		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
+		case 'size':
+			return (
+				<span className="text-ink-dull text-left text-xs font-medium">
+					{byteSize(Number(objectData?.size_in_bytes || 0)).toString()}
+				</span>
+			);
+		case 'date_created':
+			return (
+				<span className="text-ink-dull text-left text-xs font-medium">
+					{dayjs(data.item?.date_created).format('MMM Do YYYY')}
+				</span>
+			);
+		case 'cas_id':
+			return <span className="text-ink-dull truncate text-left text-xs font-medium">{cas_id}</span>;
 		case 'extension':
-			return <span className="text-xs text-left">{data.item[colKey]}</span>;
+			return (
+				<div className="flex flex-row items-center space-x-3">
+					<InfoPill className="bg-app-button/50">
+						{isPath(data) && data.item.is_dir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+					</InfoPill>
+				</div>
+			);
 		// case 'meta_integrity_hash':
 		//   return <span className="truncate">{value}</span>;
 		// case 'tags':
@@ -71,24 +92,5 @@ const RenderCell: React.FC<{
 			return <></>;
 	}
 };
-
-interface IColumn {
-	column: string;
-	key: string;
-	width: number;
-}
-
-// Function ensure no types are lost, but guarantees that they are Column[]
-function ensureIsColumns<T extends IColumn[]>(data: T) {
-	return data;
-}
-
-const columns = ensureIsColumns([
-	{ column: 'Name', key: 'name', width: 280 } as const,
-	// { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
-	{ column: 'Type', key: 'extension', width: 100 } as const
-]);
-
-type ColumnKey = (typeof columns)[number]['key'];
 
 export default FileRow;

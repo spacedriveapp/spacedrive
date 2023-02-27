@@ -1,12 +1,13 @@
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 import { Algorithm, useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
 import { showAlertDialog } from '~/util/dialog';
 import { generatePassword } from '../key/KeyMounter';
-import { PasswordMeter } from '../key/PasswordMeter';
+
+const PasswordMeter = lazy(() => import('../key/PasswordMeter'));
 
 export type MasterPasswordChangeDialogProps = UseDialogProps;
 
@@ -80,9 +81,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			ctaDanger={true}
 			ctaLabel="Change"
 		>
-			<div className="relative flex flex-grow mt-3 mb-2">
+			<div className="relative mt-3 mb-2 flex grow">
 				<Input
-					className={`flex-grow w-max !py-0.5`}
+					className={`w-max grow !py-0.5`}
 					placeholder="New password"
 					type={show.masterPassword ? 'text' : 'password'}
 					{...form.register('masterPassword', { required: true })}
@@ -99,10 +100,10 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						}));
 					}}
 					size="icon"
-					className="border-none absolute right-[65px] top-[5px]"
+					className="absolute right-[65px] top-[5px] border-none"
 					type="button"
 				>
-					<ArrowsClockwise className="w-4 h-4" />
+					<ArrowsClockwise className="h-4 w-4" />
 				</Button>
 				<Button
 					type="button"
@@ -110,22 +111,22 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						navigator.clipboard.writeText(form.watch('masterPassword') as string);
 					}}
 					size="icon"
-					className="border-none absolute right-[35px] top-[5px]"
+					className="absolute right-[35px] top-[5px] border-none"
 				>
-					<Clipboard className="w-4 h-4" />
+					<Clipboard className="h-4 w-4" />
 				</Button>
 				<Button
 					onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
 					size="icon"
-					className="border-none absolute right-[5px] top-[5px]"
+					className="absolute right-[5px] top-[5px] border-none"
 					type="button"
 				>
-					<MP1CurrentEyeIcon className="w-4 h-4" />
+					<MP1CurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
-			<div className="relative flex flex-grow mb-2">
+			<div className="relative mb-2 flex grow">
 				<Input
-					className={`flex-grow !py-0.5}`}
+					className={`!py-0.5} grow`}
 					placeholder="New password (again)"
 					type={show.masterPassword2 ? 'text' : 'password'}
 					{...form.register('masterPassword2', { required: true })}
@@ -133,16 +134,16 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				<Button
 					onClick={() => setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))}
 					size="icon"
-					className="border-none absolute right-[5px] top-[5px]"
+					className="absolute right-[5px] top-[5px] border-none"
 					type="button"
 				>
-					<MP2CurrentEyeIcon className="w-4 h-4" />
+					<MP2CurrentEyeIcon className="h-4 w-4" />
 				</Button>
 			</div>
 
 			<PasswordMeter password={form.watch('masterPassword')} />
 
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select

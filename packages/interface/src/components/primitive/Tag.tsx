@@ -10,7 +10,7 @@ export function Tag(props: PropsWithChildren<TagProps>) {
 	return (
 		<div
 			className={clsx(
-				'rounded px-1.5 py-1 text-xs font-medium inline-block cursor-default',
+				'inline-block cursor-default rounded px-1.5 py-1 text-xs font-medium',
 				{
 					'bg-red-500 hover:bg-red-400': props.color === 'red',
 					'bg-orange-500 hover:bg-orange-400': props.color === 'orange',

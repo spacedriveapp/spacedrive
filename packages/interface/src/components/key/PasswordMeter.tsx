@@ -13,7 +13,7 @@ const options = {
 };
 zxcvbnOptions.setOptions(options);
 
-export const PasswordMeter = (props: { password: string }) => {
+export default function PasswordMeterInner(props: { password: string }) {
 	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
 	const zx = zxcvbn(props.password);
@@ -27,7 +27,7 @@ export const PasswordMeter = (props: { password: string }) => {
 			<h3 className="text-sm">Password strength</h3>
 			<span
 				className={clsx(
-					'absolute font-semibold top-0.5 right-0 text-sm pr-1 pl-1',
+					'absolute top-0.5 right-0 px-1 text-sm font-semibold',
 					zx.score === 0 && 'text-red-500',
 					zx.score === 1 && 'text-red-500',
 					zx.score === 2 && 'text-amber-400',
@@ -37,8 +37,8 @@ export const PasswordMeter = (props: { password: string }) => {
 			>
 				{ratings[zx.score]}
 			</span>
-			<div className="flex flex-grow ">
-				<div className="w-full mt-2 rounded-full bg-app-box/50">
+			<div className="flex grow ">
+				<div className="bg-app-box/50 mt-2 w-full rounded-full">
 					<div
 						style={widthCalcStyle}
 						className={clsx(
@@ -54,4 +54,4 @@ export const PasswordMeter = (props: { password: string }) => {
 			</div>
 		</div>
 	);
-};
+}

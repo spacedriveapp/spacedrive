@@ -22,11 +22,15 @@ pub mod error;
 
 pub mod erase;
 
+pub const BYTES: &str = "bytes";
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
 	File,
 	Directory,
 }
+
+pub const BYTES_EXT: &str = ".bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FsInfo {
@@ -45,22 +49,16 @@ pub async fn get_path_from_location_id(
 	db: &PrismaClient,
 	location_id: i32,
 ) -> Result<PathBuf, JobError> {
-	let location = db
+	Ok(db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
 		.await?
 		.ok_or(JobError::MissingData {
 			value: String::from("location which matches location_id"),
-		})?;
-
-	location
-		.local_path
-		.as_ref()
-		.map(PathBuf::from)
-		.ok_or(JobError::MissingData {
-			value: String::from("path when cast as `PathBuf`"),
-		})
+		})?
+		.path
+		.into())
 }
 
 pub async fn context_menu_fs_info(

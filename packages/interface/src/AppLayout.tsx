@@ -1,28 +1,32 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
-import { useCurrentLibrary } from '@sd/client';
+import { Navigate, Outlet } from 'react-router-dom';
+import { ClientContextProvider, LibraryContextProvider, useClientContext } from '@sd/client';
 import { Sidebar } from '~/components/layout/Sidebar';
 import { Toasts } from '~/components/primitive/Toasts';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useLibraryId } from './util';
 
-export function AppLayout() {
-	const { libraries } = useCurrentLibrary();
+function AppLayout() {
+	const { libraries, library } = useClientContext();
+
 	const os = useOperatingSystem();
 
-	// This will ensure nothing is rendered while the `useCurrentLibrary` hook navigates to the onboarding page. This prevents requests with an invalid library id being sent to the backend
-	if (libraries?.length === 0) {
-		return null;
+	if (library === null && libraries.data) {
+		const firstLibrary = libraries.data[0];
+
+		if (firstLibrary) return <Navigate to={`${firstLibrary.uuid}/overview`} />;
+		else return <Navigate to="/" />;
 	}
 
 	return (
 		<div
 			className={clsx(
 				// App level styles
-				'flex h-screen overflow-hidden text-ink select-none cursor-default',
-				os === 'browser' && 'bg-app border-t border-app-line/50',
-				os === 'macOS' && 'rounded-[10px] has-blur-effects',
-				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
+				'text-ink flex h-screen cursor-default select-none overflow-hidden',
+				os === 'browser' && 'bg-app border-app-line/50 border-t',
+				os === 'macOS' && 'has-blur-effects rounded-[10px]',
+				os !== 'browser' && os !== 'windows' && 'border-app-frame border'
 			)}
 			onContextMenu={(e) => {
 				// TODO: allow this on some UI text at least / disable default browser context menu
@@ -32,11 +36,27 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full">
-				<Suspense fallback={<div className="w-screen h-screen bg-app" />}>
-					<Outlet />
-				</Suspense>
+				{library ? (
+					<LibraryContextProvider library={library}>
+						<Suspense fallback={<div className="bg-app h-screen w-screen" />}>
+							<Outlet />
+						</Suspense>
+					</LibraryContextProvider>
+				) : (
+					<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
+				)}
 			</div>
 			<Toasts />
 		</div>
 	);
 }
+
+export default () => {
+	const currentLibraryId = useLibraryId();
+
+	return (
+		<ClientContextProvider currentLibraryId={currentLibraryId ?? null}>
+			<AppLayout />
+		</ClientContextProvider>
+	);
+};

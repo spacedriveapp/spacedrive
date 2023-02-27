@@ -22,7 +22,7 @@ export function IndexerRuleEditor({ locationId }: Props) {
 					<Rule key={rule.indexer_rule.id}>{rule.indexer_rule.name}</Rule>
 				))}
 			</Card> */}
-			<Card className="flex flex-wrap mb-2 space-x-1">
+			<Card className="mb-2 flex flex-wrap space-x-1">
 				{listIndexerRules.data?.map((rule) => (
 					<Rule key={rule.id}>{rule.name}</Rule>
 				))}

@@ -55,7 +55,7 @@ export default function OnboardingPrivacy() {
 						{shareTelemetry.options.map(({ value, heading, description }) => (
 							<RadioGroup.Item key={value} value={value}>
 								<h1 className="font-bold">{heading}</h1>
-								<p className="text-sm text-ink-faint">{description}</p>
+								<p className="text-ink-faint text-sm">{description}</p>
 							</RadioGroup.Item>
 						))}
 					</RadioGroup.Root>

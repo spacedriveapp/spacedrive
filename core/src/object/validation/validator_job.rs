@@ -83,7 +83,7 @@ impl StatefulJob for ObjectValidatorJob {
 			.unwrap();
 
 		state.data = Some(ObjectValidatorJobState {
-			root_path: location.local_path.as_ref().map(PathBuf::from).unwrap(),
+			root_path: location.path.into(),
 			task_count: state.steps.len(),
 		});
 

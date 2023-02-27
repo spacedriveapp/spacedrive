@@ -328,6 +328,10 @@ impl SyncManager {
 									.location()
 									.create(
 										id.pub_id,
+										serde_json::from_value(data.remove("name").unwrap())
+											.unwrap(),
+										serde_json::from_value(data.remove("path").unwrap())
+											.unwrap(),
 										{
 											let val: std::collections::HashMap<String, Value> =
 												from_value(data.remove("node").unwrap()).unwrap();

@@ -17,9 +17,9 @@ export const PopoverPicker = ({ className, ...props }: PopoverPickerProps) => {
 	useClickOutside(popover, close);
 
 	return (
-		<div className={clsx('relative flex items-center mt-3', className)}>
+		<div className={clsx('relative mt-3 flex items-center', className)}>
 			<div
-				className={clsx('w-5 h-5 rounded-full shadow ', isOpen && 'dark:border-gray-500')}
+				className={clsx('h-4 w-4 rounded-full shadow', isOpen && 'dark:border-gray-500')}
 				style={{ backgroundColor: field.value }}
 				onClick={() => toggle(true)}
 			/>
