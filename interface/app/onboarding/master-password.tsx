@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
 import { Button, Card, PasswordMeter } from '@sd/ui';
 import { Form, PasswordInput, useZodForm, z } from '@sd/ui/src/forms';
-import { OnboardingDescription, OnboardingTitle } from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
@@ -43,7 +43,7 @@ export default function OnboardingNewLibrary() {
 
 	const ob_store = useOnboardingStore();
 
-	const _onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit(async (data) => {
 		if (data.password !== data.password_validate) {
 			if (!showPasswordValidate) {
 				setShowPasswordValidate(true);
@@ -59,79 +59,79 @@ export default function OnboardingNewLibrary() {
 				secret_key: data.password
 			});
 		}
-
-		return;
 	});
 
 	return (
-		<Form form={form} onSubmit={_onSubmit}>
-			{/* <OnboardingImg src={Database} /> */}
-			<OnboardingTitle>Set a master password</OnboardingTitle>
-			<OnboardingDescription>
-				This will be used to encrypt your library and/or open the built-in key manager.
-			</OnboardingDescription>
+		<Form form={form} onSubmit={onSubmit}>
+			<OnboardingContainer>
+				{/* <OnboardingImg src={Database} /> */}
+				<OnboardingTitle>Set a master password</OnboardingTitle>
+				<OnboardingDescription>
+					This will be used to encrypt your library and/or open the built-in key manager.
+				</OnboardingDescription>
 
-			<div className="mt-4 flex w-[450px] flex-col">
-				{form.formState.errors.password_validate && (
-					<Card className="mt-2 flex flex-col border-red-500/10 bg-red-500/20">
-						<span className="text-sm font-medium text-red-500">
-							{form.formState.errors.password_validate.message}
-						</span>
-					</Card>
-				)}
-				<div className="my-2 flex grow">
-					<PasswordInput
-						{...form.register('password')}
-						size="md"
-						autoFocus
-						className="w-full"
-						disabled={form.formState.isSubmitting}
-					/>
-				</div>
-				{showPasswordValidate && (
-					<div className="mb-2 flex grow">
+				<div className="mt-4 flex w-[450px] flex-col">
+					{form.formState.errors.password_validate && (
+						<Card className="mt-2 flex flex-col border-red-500/10 bg-red-500/20">
+							<span className="text-sm font-medium text-red-500">
+								{form.formState.errors.password_validate.message}
+							</span>
+						</Card>
+					)}
+					<div className="my-2 flex grow">
 						<PasswordInput
-							{...form.register('password_validate')}
+							{...form.register('password')}
 							size="md"
-							placeholder="Confirm password"
 							autoFocus
 							className="w-full"
 							disabled={form.formState.isSubmitting}
 						/>
 					</div>
-				)}
-
-				<div className="mt-3 flex flex-col">
-					<PasswordMeter password={form.watch('password')} />
-				</div>
-				<div className="mt-7 flex w-full justify-between">
-					{!ob_store.passwordSetToken ? (
-						<Button
-							disabled={form.formState.isSubmitting}
-							type="submit"
-							variant="outline"
-							size="sm"
-						>
-							Continue without password →
-						</Button>
-					) : (
-						<Button
-							disabled={form.formState.isSubmitting}
-							variant="outline"
-							size="sm"
-							onClick={() => {
-								getOnboardingStore().passwordSetToken = null;
-								form.reset();
-							}}
-						>
-							Remove password
-						</Button>
+					{showPasswordValidate && (
+						<div className="mb-2 flex grow">
+							<PasswordInput
+								{...form.register('password_validate')}
+								size="md"
+								placeholder="Confirm password"
+								autoFocus
+								className="w-full"
+								disabled={form.formState.isSubmitting}
+							/>
+						</div>
 					)}
-					<Button disabled={form.formState.isSubmitting} type="submit" variant="accent" size="sm">
-						Set password
-					</Button>
+
+					<div className="mt-3 flex flex-col">
+						<PasswordMeter password={form.watch('password')} />
+					</div>
+					<div className="mt-7 flex w-full justify-between">
+						{!ob_store.passwordSetToken ? (
+							<Button
+								disabled={form.formState.isSubmitting}
+								type="submit"
+								variant="outline"
+								size="sm"
+							>
+								Continue without password →
+							</Button>
+						) : (
+							<Button
+								disabled={form.formState.isSubmitting}
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									getOnboardingStore().passwordSetToken = null;
+									form.reset();
+								}}
+							>
+								Remove password
+							</Button>
+						)}
+						<Button disabled={form.formState.isSubmitting} type="submit" variant="accent" size="sm">
+							Set password
+						</Button>
+					</div>
 				</div>
-			</div>
+			</OnboardingContainer>
 		</Form>
 	);
 }

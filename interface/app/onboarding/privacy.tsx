@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Form, RadioGroup, useZodForm, z } from '@sd/ui/src/forms';
-import { OnboardingDescription, OnboardingTitle } from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 const shareTelemetry = RadioGroup.options([
@@ -43,25 +43,27 @@ export default function OnboardingPrivacy() {
 	});
 
 	return (
-		<Form form={form} onSubmit={onSubmit}>
-			<OnboardingTitle>Your Privacy</OnboardingTitle>
-			<OnboardingDescription>
-				Spacedrive is built for privacy, that's why we're open source and local first. So we'll make
-				it very clear what data is shared with us.
-			</OnboardingDescription>
-			<div className="m-4">
-				<RadioGroup.Root {...form.register('shareTelemetry')}>
-					{shareTelemetry.options.map(({ value, heading, description }) => (
-						<RadioGroup.Item key={value} value={value}>
-							<h1 className="font-bold">{heading}</h1>
-							<p className="text-ink-faint text-sm">{description}</p>
-						</RadioGroup.Item>
-					))}
-				</RadioGroup.Root>
-			</div>
-			<Button type="submit" variant="accent" size="sm">
-				Continue
-			</Button>
+		<Form form={form} onSubmit={onSubmit} className="flex flex-col items-center">
+			<OnboardingContainer>
+				<OnboardingTitle>Your Privacy</OnboardingTitle>
+				<OnboardingDescription>
+					Spacedrive is built for privacy, that's why we're open source and local first. So we'll
+					make it very clear what data is shared with us.
+				</OnboardingDescription>
+				<div className="m-4">
+					<RadioGroup.Root {...form.register('shareTelemetry')}>
+						{shareTelemetry.options.map(({ value, heading, description }) => (
+							<RadioGroup.Item key={value} value={value}>
+								<h1 className="font-bold">{heading}</h1>
+								<p className="text-ink-faint text-sm">{description}</p>
+							</RadioGroup.Item>
+						))}
+					</RadioGroup.Root>
+				</div>
+				<Button className="text-center" type="submit" variant="accent" size="sm">
+					Continue
+				</Button>
+			</OnboardingContainer>
 		</Form>
 	);
 }

@@ -14,7 +14,7 @@ const Layout = () => {
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
-		if (firstLibrary) return <Navigate to={`${firstLibrary.uuid}/overview`} />;
+		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} />;
 		else return <Navigate to="/" />;
 	}
 

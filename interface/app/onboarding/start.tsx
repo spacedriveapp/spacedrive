@@ -1,10 +1,10 @@
 import AppLogo from '@sd/assets/images/logo.png';
 import { ButtonLink } from '@sd/ui';
-import { OnboardingDescription, OnboardingImg } from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingImg } from './Layout';
 
 export default function OnboardingStart() {
 	return (
-		<>
+		<OnboardingContainer>
 			<OnboardingImg src={AppLogo} className="mb-8 h-36 w-36 shrink-0" />
 
 			<h1 className="text-ink mb-2 text-center text-4xl font-bold">
@@ -18,6 +18,6 @@ export default function OnboardingStart() {
 					Get started
 				</ButtonLink>
 			</div>
-		</>
+		</OnboardingContainer>
 	);
 }

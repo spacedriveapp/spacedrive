@@ -38,9 +38,7 @@ export default () => {
 
 			<div className="-mt-5 flex grow flex-col p-10">
 				<div className="flex grow flex-col items-center justify-center">
-					<OnboardingContainer>
-						<Outlet />
-					</OnboardingContainer>
+					<Outlet />
 				</div>
 				<Progress />
 			</div>

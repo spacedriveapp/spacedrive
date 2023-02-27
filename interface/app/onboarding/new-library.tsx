@@ -4,7 +4,12 @@ import { useNavigate } from 'react-router';
 import { getOnboardingStore, useOnboardingStore } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
-import { OnboardingDescription, OnboardingImg, OnboardingTitle } from './Layout';
+import {
+	OnboardingContainer,
+	OnboardingDescription,
+	OnboardingImg,
+	OnboardingTitle
+} from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
@@ -37,44 +42,46 @@ export default function OnboardingNewLibrary() {
 
 	return (
 		<Form form={form} onSubmit={onSubmit}>
-			<OnboardingImg src={Database} />
-			<OnboardingTitle>Create a Library</OnboardingTitle>
-			<OnboardingDescription>
-				Libraries are a secure, on-device database. Your files remain where they are, the Library
-				catalogs them and stores all Spacedrive related data.
-			</OnboardingDescription>
+			<OnboardingContainer>
+				<OnboardingImg src={Database} />
+				<OnboardingTitle>Create a Library</OnboardingTitle>
+				<OnboardingDescription>
+					Libraries are a secure, on-device database. Your files remain where they are, the Library
+					catalogs them and stores all Spacedrive related data.
+				</OnboardingDescription>
 
-			{importMode ? (
-				<div className="mt-7 space-x-2">
-					<Button onClick={handleImport} variant="accent" size="sm">
-						Import
-					</Button>
-					<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
-					<Button onClick={() => setImportMode(false)} variant="outline" size="sm">
-						Create new library
-					</Button>
-				</div>
-			) : (
-				<>
-					<Input
-						{...form.register('name')}
-						size="md"
-						autoFocus
-						className="mt-6 w-[300px]"
-						placeholder={'e.g. "James\' Library"'}
-					/>
-					<div className="flex grow" />
+				{importMode ? (
 					<div className="mt-7 space-x-2">
-						<Button type="submit" variant="accent" size="sm">
-							New library
+						<Button onClick={handleImport} variant="accent" size="sm">
+							Import
 						</Button>
 						<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
-						<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
-							Import library
+						<Button onClick={() => setImportMode(false)} variant="outline" size="sm">
+							Create new library
 						</Button>
 					</div>
-				</>
-			)}
+				) : (
+					<>
+						<Input
+							{...form.register('name')}
+							size="md"
+							autoFocus
+							className="mt-6 w-[300px]"
+							placeholder={'e.g. "James\' Library"'}
+						/>
+						<div className="flex grow" />
+						<div className="mt-7 space-x-2">
+							<Button type="submit" variant="accent" size="sm">
+								New library
+							</Button>
+							<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
+							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
+								Import library
+							</Button>
+						</div>
+					</>
+				)}
+			</OnboardingContainer>
 		</Form>
 	);
 }

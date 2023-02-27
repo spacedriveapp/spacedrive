@@ -11,7 +11,7 @@ import {
 	useOnboardingStore
 } from '@sd/client';
 import { Loader } from '@sd/ui';
-import { OnboardingDescription, OnboardingTitle } from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 export default function OnboardingCreatingLibrary() {
@@ -31,7 +31,7 @@ export default function OnboardingCreatingLibrary() {
 				library
 			]);
 			resetOnboardingStore();
-			navigate('/overview/');
+			navigate(`/${library.uuid}/overview`);
 		},
 		onError: () => {
 			resetOnboardingStore();
@@ -72,11 +72,11 @@ export default function OnboardingCreatingLibrary() {
 	}, []);
 
 	return (
-		<>
+		<OnboardingContainer>
 			<span className="text-6xl">🛠</span>
 			<OnboardingTitle>Creating your library</OnboardingTitle>
 			<OnboardingDescription>{status}</OnboardingDescription>
 			<Loader className="mt-5" />
-		</>
+		</OnboardingContainer>
 	);
 }
