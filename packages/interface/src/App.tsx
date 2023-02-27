@@ -4,15 +4,15 @@ import {
 	init
 } from '@sentry/browser';
 import '@fontsource/inter/variable.css';
-import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
+import { defaultContext, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MemoryRouter } from 'react-router-dom';
-import { queryClient, useDebugState } from '@sd/client';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
@@ -29,16 +29,15 @@ init({
 	integrations: [new HttpContextIntegration(), new DedupeIntegration()]
 });
 
-export default function SpacedriveInterface() {
+export default function SpacedriveInterface({ router }: { router: 'memory' | 'browser' }) {
+	const Router = router === 'memory' ? MemoryRouter : BrowserRouter;
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<QueryClientProvider client={queryClient} contextSharing={true}>
-				<Devtools />
-				<MemoryRouter>
-					<AppRouter />
-				</MemoryRouter>
-				<Dialogs />
-			</QueryClientProvider>
+			<Devtools />
+			<Router>
+				<AppRouter />
+			</Router>
+			<Dialogs />
 		</ErrorBoundary>
 	);
 }
