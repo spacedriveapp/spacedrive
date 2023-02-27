@@ -22,7 +22,7 @@ pub mod error;
 
 pub mod erase;
 
-pub const BYTES: &str = "bytes";
+// pub const BYTES: &str = "bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {

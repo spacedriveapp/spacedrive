@@ -293,7 +293,7 @@ impl LibraryManager {
 
 	/// load the library from a given path
 	pub(crate) async fn load(
-		id: Uuid,
+		library_id: Uuid,
 		db_path: impl AsRef<Path>,
 		config: LibraryConfig,
 		node_context: NodeContext,
@@ -319,7 +319,7 @@ impl LibraryManager {
 			_ => Platform::Unknown,
 		};
 
-		let uuid_vec = id.as_bytes().to_vec();
+		let uuid_vec = library_id.as_bytes().to_vec();
 		let node_data = db
 			.node()
 			.upsert(
@@ -336,15 +336,14 @@ impl LibraryManager {
 
 		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		seed_keymanager(&db, &key_manager).await?;
-		let (sync, mut sync_rx) = SyncManager::new(db.clone(), id);
+		let (sync, mut sync_rx) = SyncManager::new(db.clone(), library_id);
 		let sync = Arc::new(sync);
 
 		let p2p_tx = node_context.p2p_tx.clone();
-		let library_id = id.clone();
 		// I @oscartbeaumont hate this, it's an extra tasks for no purpose but it's just how the sync system works.
 		tokio::spawn(async move {
 			while let Some(event) = sync_rx.recv().await {
-				match p2p_tx.send((library_id.clone(), event)).await {
+				match p2p_tx.send((library_id, event)).await {
 					Ok(_) => {}
 					Err(_) => error!("TODO: Error sending operation to P2P system"),
 				}
@@ -352,7 +351,7 @@ impl LibraryManager {
 		});
 
 		Ok(LibraryContext {
-			id,
+			id: library_id,
 			local_id: node_data.id,
 			config,
 			key_manager,

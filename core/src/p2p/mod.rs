@@ -21,7 +21,7 @@ use self::{
 mod peer_metadata;
 mod proto;
 
-const SPACEDRIVE_APP_ID: &'static str = "spacedrive";
+const SPACEDRIVE_APP_ID: &str = "spacedrive";
 
 /// TODO
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Type)]
@@ -48,7 +48,7 @@ impl P2PManager {
 
 		let manager = Manager::new(
 			SPACEDRIVE_APP_ID,
-			&config
+			config
 				.keypair
 				.as_ref()
 				.expect("Keypair not found. This should be unreachable code!"),
@@ -119,13 +119,10 @@ impl P2PManager {
 			async move {
 				let mut rx = events.subscribe();
 				while let Ok(event) = rx.recv().await {
-					match event {
-						Event::EmitDiscoveredClients => {
-							for client in manager.get_discovered_peers().await {
-								events.send(Event::PeerDiscovered(client)).ok();
-							}
+					if let Event::EmitDiscoveredClients = event {
+						for client in manager.get_discovered_peers().await {
+							events.send(Event::PeerDiscovered(client)).ok();
 						}
-						_ => {}
 					}
 				}
 			}

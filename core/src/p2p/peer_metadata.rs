@@ -52,7 +52,7 @@ pub enum OperatingSystem {
 	Windows,
 	Linux,
 	MacOS,
-	IOS,
+	Ios,
 	Android,
 	Other(String),
 }
@@ -63,7 +63,7 @@ impl OperatingSystem {
 			"windows" => OperatingSystem::Windows,
 			"macos" => OperatingSystem::MacOS,
 			"linux" => OperatingSystem::Linux,
-			"ios" => OperatingSystem::IOS,
+			"ios" => OperatingSystem::Ios,
 			"android" => OperatingSystem::Android,
 			platform => OperatingSystem::Other(platform.into()),
 		}
@@ -76,7 +76,7 @@ impl ToString for OperatingSystem {
 			OperatingSystem::Windows => "Windows".into(),
 			OperatingSystem::Linux => "Linux".into(),
 			OperatingSystem::MacOS => "MacOS".into(),
-			OperatingSystem::IOS => "IOS".into(),
+			OperatingSystem::Ios => "IOS".into(),
 			OperatingSystem::Android => "Android".into(),
 			OperatingSystem::Other(s) => {
 				let mut chars = s.chars();
@@ -96,7 +96,7 @@ impl FromStr for OperatingSystem {
 			Some('w') => Ok(OperatingSystem::Windows),
 			Some('l') => Ok(OperatingSystem::Linux),
 			Some('m') => Ok(OperatingSystem::MacOS),
-			Some('i') => Ok(OperatingSystem::IOS),
+			Some('i') => Ok(OperatingSystem::Ios),
 			Some('a') => Ok(OperatingSystem::Android),
 			_ => Ok(OperatingSystem::Other(chars.as_str().to_string())),
 		}
