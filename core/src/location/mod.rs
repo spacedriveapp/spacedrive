@@ -161,6 +161,8 @@ impl LocationCreateArgs {
 			.add(location.id, library.clone())
 			.await?;
 
+		ctx.location_manager().add(location.id, ctx.clone()).await?;
+
 		info!(
 			"Added library (library_id = {}) to location: {location:?}",
 			library.id
