@@ -46,19 +46,25 @@ pub struct SharedOperation {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum OwnedOperationData {
-	Create(Value, BTreeMap<String, Value>),
+	Create(BTreeMap<String, Value>),
 	CreateMany {
 		values: Vec<(Value, BTreeMap<String, Value>)>,
 		skip_duplicates: bool,
 	},
-	Update(Value, BTreeMap<String, Value>),
-	Delete(Value),
+	Update(BTreeMap<String, Value>),
+	Delete,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub struct OwnedOperationItem {
+	pub id: Value,
+	pub data: OwnedOperationData,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub struct OwnedOperation {
 	pub model: String,
-	pub data: Vec<OwnedOperationData>,
+	pub items: Vec<OwnedOperationItem>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
@@ -69,7 +75,7 @@ pub enum CRDTOperationType {
 	Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone, Type)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CRDTOperation {
 	pub node: Uuid,
 	pub timestamp: NTP64,

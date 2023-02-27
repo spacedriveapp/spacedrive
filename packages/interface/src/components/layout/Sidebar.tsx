@@ -1,12 +1,32 @@
-import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
+import clsx from 'clsx';
 import {
+	ArchiveBox,
+	Broadcast,
+	CheckCircle,
+	CirclesFour,
+	CopySimple,
+	Crosshair,
+	Eraser,
+	FilmStrip,
+	Gear,
+	Lock,
+	MonitorPlay,
+	Planet,
+	Plus
+} from 'phosphor-react';
+import React, { PropsWithChildren, useEffect } from 'react';
+import { Link, NavLink, NavLinkProps, useLocation } from 'react-router-dom';
+import {
+	Location,
 	LocationCreateArgs,
+	arraysEqual,
 	getDebugState,
 	useBridgeQuery,
-	useCurrentLibrary,
+	useClientContext,
 	useDebugState,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	useOnlineLocations
 } from '@sd/client';
 import {
 	Button,
@@ -14,26 +34,24 @@ import {
 	CategoryHeading,
 	Dropdown,
 	Loader,
-	OverlayPanel,
+	Popover,
 	Select,
 	SelectOption,
 	Switch,
 	cva,
+	dialogManager,
 	tw
 } from '@sd/ui';
-import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from 'phosphor-react';
-import React, { PropsWithChildren, useState } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
-
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
+import { OperatingSystem, usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
+import { SubtleButton } from '../primitive/SubtleButton';
+import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
 
@@ -43,16 +61,28 @@ const SidebarFooter = tw.div`flex flex-col mb-3 px-2.5`;
 
 export function Sidebar() {
 	// DO NOT DO LIBRARY QUERIES OR MUTATIONS HERE. This is rendered before a library is set.
+
 	const os = useOperatingSystem();
-	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
+	const { library, libraries, currentLibraryId } = useClientContext();
 	const debugState = useDebugState();
-	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+	useEffect(() => {
+		// Prevent the dropdown button to be auto focused on launch
+		// Hacky but it works
+		setTimeout(() => {
+			if (!document.activeElement || !('blur' in document.activeElement)) return;
+
+			(document.activeElement.blur as () => void)();
+		});
+	}, []);
+
+	console.log(useLocation());
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
 			<WindowControls />
 			<Dropdown.Root
-				className="mt-2 mx-2.5"
+				className="mx-2.5 mt-2"
 				// we override the sidebar dropdown item's hover styles
 				// because the dark style clashes with the sidebar
 				itemsClassName="dark:bg-sidebar-box dark:border-sidebar-line mt-1 dark:divide-menu-selected/30 shadow-none"
@@ -60,32 +90,37 @@ export function Sidebar() {
 					<Dropdown.Button
 						variant="gray"
 						className={clsx(
-							`w-full text-ink `,
+							`text-ink w-full `,
 							// these classname overrides are messy
 							// but they work
 							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line ring-offset-sidebar`,
-							(library === null || isLoadingLibraries) && '!text-ink-faint'
+							(library === null || libraries.isLoading) && '!text-ink-faint'
 						)}
 					>
 						<span className="truncate">
-							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+							{libraries.isLoading ? 'Loading...' : library ? library.config.name : ' '}
 						</span>
 					</Dropdown.Button>
 				}
 			>
 				<Dropdown.Section>
-					{libraries?.map((lib) => (
+					{libraries.data?.map((lib) => (
 						<Dropdown.Item
-							selected={lib.uuid === library?.uuid}
+							to={`/${lib.uuid}/overview`}
 							key={lib.uuid}
-							onClick={() => switchLibrary(lib.uuid)}
+							selected={lib.uuid === currentLibraryId}
 						>
 							{lib.config.name}
 						</Dropdown.Item>
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item icon={Plus} onClick={() => setIsCreateDialogOpen(true)}>
+					<Dropdown.Item
+						icon={Plus}
+						onClick={() => {
+							dialogManager.create((dp) => <CreateLibraryDialog {...dp} />);
+						}}
+					>
 						New Library
 					</Dropdown.Item>
 					<Dropdown.Item icon={Gear} to="settings/library">
@@ -98,55 +133,87 @@ export function Sidebar() {
 			</Dropdown.Root>
 			<SidebarContents>
 				<div className="pt-1">
-					<SidebarLink to="/overview">
+					<SidebarLink to="overview">
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					{/* <SidebarLink to="photos">
-						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
-					<SidebarLink to="content">
+					<SidebarLink to="spaces">
 						<Icon component={CirclesFour} />
 						Spaces
 					</SidebarLink>
+					{/* <SidebarLink to="people">
+						<Icon component={UsersThree} />
+						People
+					</SidebarLink> */}
+					<SidebarLink to="media">
+						<Icon component={MonitorPlay} />
+						Media
+					</SidebarLink>
+					<SidebarLink to="spacedrop">
+						<Icon component={Broadcast} />
+						Spacedrop
+					</SidebarLink>
+					<SidebarLink to="imports">
+						<Icon component={ArchiveBox} />
+						Imports
+					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}
+				<SidebarSection name="Tools" actionArea={<SubtleButton />}>
+					<SidebarLink to="duplicate-finder">
+						<Icon component={CopySimple} />
+						Duplicate Finder
+					</SidebarLink>
+					<SidebarLink to="lost-and-found">
+						<Icon component={Crosshair} />
+						Find a File
+					</SidebarLink>
+					<SidebarLink to="cache-cleaner">
+						<Icon component={Eraser} />
+						Cache Cleaner
+					</SidebarLink>
+					<SidebarLink to="media-encoder">
+						<Icon component={FilmStrip} />
+						Media Encoder
+					</SidebarLink>
+				</SidebarSection>
 				<div className="flex-grow" />
 			</SidebarContents>
-
 			<SidebarFooter>
 				<div className="flex">
 					<ButtonLink
-						to="/settings/general"
+						to="settings/general"
 						size="icon"
-						variant="outline"
+						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
 					>
-						<Gear className="w-5 h-5" />
+						<Tooltip label="Settings">
+							<Gear className="h-5 w-5" />
+						</Tooltip>
 					</ButtonLink>
-					<OverlayPanel
-						transformOrigin="bottom left"
-						disabled={!library}
+					<Popover
 						trigger={
 							<Button
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
+								disabled={!library}
 							>
-								{library && <IsRunningJob />}
+								{library && (
+									<Tooltip label="Recent Jobs">
+										<IsRunningJob />
+									</Tooltip>
+								)}
 							</Button>
 						}
 					>
-						<div className="block w-[430px] h-96">
+						<div className="block h-96 w-[430px]">
 							<JobsManager />
 						</div>
-					</OverlayPanel>
+					</Popover>
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</SidebarFooter>
-			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
-			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
 		</SidebarBody>
 	);
 }
@@ -155,9 +222,9 @@ function IsRunningJob() {
 	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
 
 	return isRunningJob ? (
-		<Loader className="w-[20px] h-[20px]" />
+		<Loader className="h-[20px] w-[20px]" />
 	) : (
-		<CheckCircle className="w-5 h-5" />
+		<CheckCircle className="h-5 w-5" />
 	);
 }
 
@@ -168,16 +235,16 @@ function DebugPanel() {
 	const platform = usePlatform();
 
 	return (
-		<OverlayPanel
+		<Popover
 			className="p-4 focus:outline-none"
 			transformOrigin="bottom left"
 			trigger={
-				<h1 className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">
+				<h1 className="text-ink-faint/50 ml-1 mt-1 w-full text-[7pt]">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}
 		>
-			<div className="block w-[430px] h-96">
+			<div className="block h-96 w-[430px]">
 				<InputContainer
 					mini
 					title="rspc Logger"
@@ -237,12 +304,12 @@ function DebugPanel() {
 					</InputContainer>
 				)} */}
 			</div>
-		</OverlayPanel>
+		</Popover>
 	);
 }
 
 const sidebarItemClass = cva(
-	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm outline-none ring-offset-sidebar focus:ring-2 focus:ring-accent focus:ring-offset-2',
+	'max-w ring-offset-sidebar focus:ring-accent mb-[2px] flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-offset-2',
 	{
 		variants: {
 			isActive: {
@@ -271,16 +338,17 @@ export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	);
 };
 
-const SidebarSection: React.FC<{
-	name: string;
-	actionArea?: React.ReactNode;
-	children: React.ReactNode;
-}> = (props) => {
+const SidebarSection = (
+	props: PropsWithChildren<{
+		name: string;
+		actionArea?: React.ReactNode;
+	}>
+) => {
 	return (
-		<div className="mt-5 group">
-			<div className="flex items-center justify-between mb-1">
+		<div className="group mt-5">
+			<div className="mb-1 flex items-center justify-between">
 				<CategoryHeading className="ml-1">{props.name}</CategoryHeading>
-				<div className="transition-all duration-300 opacity-0 text-ink-faint group-hover:opacity-30 hover:!opacity-100">
+				<div className="text-ink-faint opacity-0 transition-all duration-300 hover:!opacity-100 group-hover:opacity-30">
 					{props.actionArea}
 				</div>
 			</div>
@@ -289,23 +357,14 @@ const SidebarSection: React.FC<{
 	);
 };
 
-const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (props) => {
-	const Icon = props.icon ?? Ellipsis;
-	return (
-		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="outline">
-				<Icon className="w-3 h-3" />
-			</Button>
-		</NavLink>
-	);
-};
-
 function LibraryScopedSection() {
 	const platform = usePlatform();
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
-	const [textLocationDialogOpen, setTextLocationDialogOpen] = useState(false);
+
+	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const onlineLocations = useOnlineLocations();
+
+	const createLocation = useLibraryMutation('locations.create');
 
 	return (
 		<>
@@ -313,35 +372,23 @@ function LibraryScopedSection() {
 				<SidebarSection
 					name="Locations"
 					actionArea={
-						<>
-							{/* <SidebarHeadingOptionsButton to="/settings/locations" icon={CogIcon} /> */}
-							<SidebarHeadingOptionsButton to="/settings/locations" />
-						</>
+						<Link to="settings/locations">
+							<SubtleButton />
+						</Link>
 					}
 				>
-					{locations?.map((location) => {
-						return (
-							<div key={location.id} className="flex flex-row items-center">
-								<SidebarLink
-									className="relative w-full group"
-									to={{
-										pathname: `location/${location.id}`
-									}}
-								>
-									<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-										<Folder size={18} />
-									</div>
+					{locations.data?.map((location) => {
+						const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 
-									<span className="flex-grow flex-shrink-0">{location.name}</span>
-								</SidebarLink>
-							</div>
+						return (
+							<SidebarLocation location={location} online={online ?? false} key={location.id} />
 						);
 					})}
-					{(locations?.length || 0) < 4 && (
+					{(locations.data?.length || 0) < 4 && (
 						<button
 							onClick={() => {
 								if (platform.platform === 'web') {
-									setTextLocationDialogOpen(true);
+									dialogManager.create((dp) => <AddLocationDialog {...dp} />);
 								} else {
 									if (!platform.openDirectoryPickerDialog) {
 										alert('Opening a dialogue is not supported on this platform!');
@@ -350,7 +397,7 @@ function LibraryScopedSection() {
 									platform.openDirectoryPickerDialog().then((result) => {
 										// TODO: Pass indexer rules ids to create location
 										if (result)
-											createLocation({
+											createLocation.mutate({
 												path: result as string,
 												indexer_rules_ids: []
 											} as LocationCreateArgs);
@@ -358,27 +405,30 @@ function LibraryScopedSection() {
 								}
 							}}
 							className={clsx(
-								'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
-								'rounded border border-dashed border-sidebar-line hover:border-sidebar-selected',
-								'cursor-normal transition text-ink-faint'
+								'mt-1 w-full px-2 py-1 text-center text-xs font-medium',
+								'border-sidebar-line hover:border-sidebar-selected rounded border border-dashed',
+								'cursor-normal text-ink-faint transition'
 							)}
 						>
 							Add Location
 						</button>
 					)}
 				</SidebarSection>
-				<AddLocationDialog open={textLocationDialogOpen} setOpen={setTextLocationDialogOpen} />
 			</div>
-			{!!tags?.length && (
+			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
-					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
+					actionArea={
+						<NavLink to="settings/tags">
+							<SubtleButton />
+						</NavLink>
+					}
 				>
 					<div className="mt-1 mb-2">
-						{tags?.slice(0, 6).map((tag, index) => (
+						{tags.data?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
-									className="w-[12px] h-[12px] rounded-full"
+									className="h-[12px] w-[12px] rounded-full"
 									style={{ backgroundColor: tag.color || '#efefef' }}
 								/>
 								<span className="ml-1.5 text-sm">{tag.name}</span>
@@ -391,23 +441,49 @@ function LibraryScopedSection() {
 	);
 }
 
+interface SidebarLocationProps {
+	location: Location;
+	online: boolean;
+}
+
+function SidebarLocation({ location, online }: SidebarLocationProps) {
+	return (
+		<div className="flex flex-row items-center">
+			<SidebarLink className="group relative w-full" to={`location/${location.id}`}>
+				<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+					<Folder size={18} />
+					<div
+						className={clsx(
+							'absolute right-0 bottom-0.5 h-1.5 w-1.5 rounded-full',
+							online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+				</div>
+
+				<span className="shrink-0 grow">{location.name}</span>
+			</SidebarLink>
+		</div>
+	);
+}
+
 const Icon = ({ component: Icon, ...props }: any) => (
-	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
+	<Icon weight="bold" {...props} className={clsx('mr-2 h-4 w-4', props.className)} />
 );
 
 // cute little helper to decrease code clutter
-const macOnly = (platform: string | undefined, classnames: string) =>
+const macOnly = (platform: OperatingSystem | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 function WindowControls() {
 	const { platform } = usePlatform();
+	const os = useOperatingSystem();
 
 	const showControls = window.location.search.includes('showControls');
 	if (platform === 'tauri' || showControls) {
 		return (
-			<div data-tauri-drag-region className="flex-shrink-0 h-7">
+			<div data-tauri-drag-region className={clsx('shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
-				{showControls && <MacTrafficLights className="z-50 absolute top-[13px] left-[13px]" />}
+				{showControls && <MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />}
 			</div>
 		);
 	}

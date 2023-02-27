@@ -1,5 +1,7 @@
+/**
+ * {@type require('prettier').Config}
+ */
 module.exports = {
-	pluginSearchDirs: ['.'],
 	useTabs: true,
 	printWidth: 100,
 	singleQuote: true,
@@ -7,8 +9,19 @@ module.exports = {
 	bracketSameLine: false,
 	semi: true,
 	quoteProps: 'consistent',
-	importOrder: ['^[./]', '^@sd/interface/(.*)$', '^@sd/client/(.*)$', '^@sd/ui/(.*)$'],
-	importOrderSeparation: true,
+	importOrder: [
+		// external packages
+		'^([A-Za-z]|@[^s/])',
+		// spacedrive packages
+		'^@sd/(interface|client|ui)(/.*)?$',
+		// this package
+		'^~/',
+		// relative
+		'^\\.'
+	],
 	importOrderSortSpecifiers: true,
-	plugins: ['@trivago/prettier-plugin-sort-imports']
+	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
+	pluginSearchDirs: false,
+	plugins: ['@trivago/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss'],
+	tailwindConfig: 'packages/ui/tailwind.config.js'
 };

@@ -1,22 +1,20 @@
-import { useNavigation } from '@react-navigation/native';
-import { ExplorerData, ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
 import { Rows, SquaresFour } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ExplorerData, ExplorerItem, isPath } from '@sd/client';
+import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
-import SortByMenu from '~/containers/menu/SortByMenu';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
-import { useFileModalStore } from '~/stores/modalStore';
-import { isPath } from '~/types/helper';
-
+import { useActionsModalStore } from '~/stores/modalStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	data: ExplorerData;
+	data: ExplorerData | undefined;
 };
 
 const Explorer = ({ data }: ExplorerProps) => {
@@ -24,27 +22,20 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
 
-	function changeLayoutMode(kind) {
+	function changeLayoutMode(kind: 'grid' | 'list') {
 		// We need to keep layoutMode as a state to make sure flash-list re-renders.
 		setLayoutMode(kind);
 		getExplorerStore().layoutMode = kind;
 	}
 
-	useEffect(() => {
-		// Set screen title to location name.
-		navigation.setOptions({
-			title: data?.context.name
-		});
-	}, [data, navigation]);
+	const { modalRef, setData } = useActionsModalStore();
 
-	const { fileRef, setData } = useFileModalStore();
-
-	function handlePress(item: ExplorerItem) {
-		if (isPath(item) && item.is_dir) {
-			navigation.navigate('Location', { id: item.location_id });
+	function handlePress(data: ExplorerItem) {
+		if (isPath(data) && data.item.is_dir) {
+			navigation.push('Location', { id: data.item.location_id, path: data.item.materialized_path });
 		} else {
-			setData(item);
-			fileRef.current.present();
+			setData(data);
+			modalRef.current?.present();
 		}
 	}
 
@@ -71,7 +62,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
 					data={data.items}
-					keyExtractor={(item) => item.id.toString()}
+					keyExtractor={(item) => item.item.id.toString()}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
 							{layoutMode === 'grid' ? <FileItem data={item} /> : <FileRow data={item} />}

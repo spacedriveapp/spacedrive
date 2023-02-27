@@ -1,5 +1,5 @@
 use crate::{
-	location::{indexer::IndexerError, LocationError},
+	location::{indexer::IndexerError, LocationError, LocationManagerError},
 	object::{identifier_job::IdentifierJobError, preview::ThumbnailError},
 };
 
@@ -45,6 +45,12 @@ pub enum JobError {
 	MissingJobDataState(Uuid, String),
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
+	#[error("Location manager error: {0}")]
+	LocationManager(#[from] LocationManagerError),
+	#[error("error converting/handling OS strings")]
+	OsStr,
+	#[error("error converting/handling paths")]
+	Path,
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]
@@ -85,7 +91,7 @@ pub trait StatefulJob: Send + Sync + Sized {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
-	async fn finalize(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 #[async_trait::async_trait]

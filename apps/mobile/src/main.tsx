@@ -43,9 +43,9 @@ globalThis.localStorage = {
 	https://github.com/facebook/hermes/issues/23
 	
 	We are using "Hermes" on Android & IOS, which for the current version (0.11),
-	IOS does not support the Intl fully so we need pollyfill it.
+	IOS does not support the Intl fully so we need polyfill it.
 
-	NOTE: We can be picky about what we "pollyfill" to optimize but for now this works.
+	NOTE: We can be picky about what we "polyfill" to optimize but for now this works.
 */
 
 if (Platform.OS === 'ios') {
@@ -54,11 +54,11 @@ if (Platform.OS === 'ios') {
 }
 
 // This is insane. We load all data from `AsyncStorage` into the `_localStorage` global and then once complete we import the app.
-// This way the polyfilled `localStorage` implementation has its data populated before the global stores within `@sd/client` are initialised (as they are initialised on import).
+// This way the polyfilled `localStorage` implementation has its data populated before the global stores within `@sd/client` are initialized (as they are initialized on import).
 const App = lazy(async () => {
 	const keys = await AsyncStorage.getAllKeys();
 	const values = await AsyncStorage.multiGet(keys);
-	values.forEach(([key, value]) => _localStorage.set(key, value));
+	values.forEach(([key, value]) => _localStorage.set(key, value!));
 
 	return await import('./App');
 });

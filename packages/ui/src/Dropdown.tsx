@@ -1,17 +1,16 @@
-import { Menu, Transition } from '@headlessui/react';
 import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
+import { Menu, Transition } from '@headlessui/react';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
-
 import * as UI from '.';
 import { tw } from './utils';
 
 export const Section = tw.div`px-1 py-1 space-y-[2px]`;
 
 const itemStyles = cva(
-	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[3px] disabled:opacity-50 font-medium',
+	'group mb-[3px] flex w-full shrink-0 grow items-center whitespace-nowrap rounded px-2 py-1 text-sm font-medium disabled:opacity-50',
 	{
 		variants: {
 			selected: {
@@ -26,7 +25,7 @@ const itemStyles = cva(
 	}
 );
 
-const itemIconStyles = cva('mr-2 w-4 h-4', {
+const itemIconStyles = cva('mr-2 h-4 w-4', {
 	variants: {}
 });
 
@@ -40,21 +39,24 @@ type DropdownItemProps =
 			VariantProps<typeof itemStyles>;
 
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
-	let content = (
+	const content = (
 		<>
 			{Icon && <Icon weight="bold" className={itemIconStyles(props)} />}
 			<span className="text-left">{children}</span>
 		</>
 	);
-
-	return to ? (
-		<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
-			{content}
-		</Link>
-	) : (
-		<button {...props} className={clsx(itemStyles(props), className)}>
-			{content}
-		</button>
+	return (
+		<Menu.Item>
+			{to ? (
+				<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
+					{content}
+				</Link>
+			) : (
+				<button {...props} className={clsx(itemStyles(props), className)}>
+					{content}
+				</button>
+			)}
+		</Menu.Item>
 	);
 };
 
@@ -62,9 +64,9 @@ export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
 	return (
 		<UI.Button size="sm" {...props} className={clsx('flex text-left', className)}>
 			{children}
-			<span className="flex-grow" />
+			<span className="grow" />
 			<CaretDown
-				className="w-[12px] text-ink-dull transition-transform ui-open:rotate-180 ui-open:-translate-y-[1px] translate-y-[1px]"
+				className="text-ink-dull ui-open:rotate-180 ui-open:translate-y-[-1px] w-[12px] translate-y-[1px] transition-transform"
 				aria-hidden="true"
 			/>
 		</UI.Button>
@@ -96,7 +98,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute z-50 min-w-fit w-full border divide-y divide-menu-line rounded-md shadow-xl shadow-menu-shade/30 top-full focus:outline-none bg-menu border-menu-line text-menu-ink',
+							'divide-menu-line shadow-menu-shade/30 bg-menu border-menu-line text-menu-ink absolute top-full z-50 w-full min-w-fit divide-y rounded-md border shadow-xl focus:outline-none',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

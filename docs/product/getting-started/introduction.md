@@ -3,7 +3,9 @@ name: Introduction
 index: 0
 ---
 
-# Welcome to Spacedrive
+# Meet Spacedrive
+
+![image](/app-ui-explorer.webp)
 
 Spacedrive is a cross-platform file manager. It connects your devices together to help you organize files from anywhere.
 

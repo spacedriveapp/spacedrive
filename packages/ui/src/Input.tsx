@@ -1,16 +1,18 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { PropsWithChildren, forwardRef } from 'react';
+import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
+import { PropsWithChildren, forwardRef, useState } from 'react';
+import { Button } from './Button';
 
-export interface InputBaseProps extends VariantProps<typeof inputStyles> {}
+export interface InputBaseProps extends VariantProps<typeof styles> {}
 
-export type InputProps = InputBaseProps & React.InputHTMLAttributes<HTMLInputElement>;
+export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 'size'>;
 
-export type TextareaProps = InputBaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
-const inputStyles = cva(
+const styles = cva(
 	[
-		'px-3 py-1 text-sm rounded-md border leading-7',
+		'px-3 text-sm rounded-md border leading-7',
 		'outline-none shadow-sm focus:ring-2 transition-all'
 	],
 	{
@@ -22,8 +24,8 @@ const inputStyles = cva(
 				]
 			},
 			size: {
-				sm: 'text-sm',
-				md: 'text-base'
+				sm: 'text-sm py-0.5',
+				md: 'text-sm py-1'
 			}
 		},
 		defaultVariants: {
@@ -33,19 +35,26 @@ const inputStyles = cva(
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-	({ size, variant, ...props }, ref) => {
-		return (
-			<input
-				ref={ref}
+	({ variant, size, className, ...props }, ref) => (
+		<input {...props} ref={ref} className={styles({ variant, size, className })} />
+	)
+);
+
+export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClassnames?: string }>(
+	({ variant, size, className, outerClassnames, ...props }, ref) => (
+		<div className={clsx('relative', outerClassnames)}>
+			<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
+			<Input
 				{...props}
-				className={clsx(inputStyles({ size, variant }), props.className)}
+				ref={ref}
+				className={clsx(styles({ variant, size, className }), '!p-0.5 !pl-9')}
 			/>
-		);
-	}
+		</div>
+	)
 );
 
 export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
-	return <textarea {...props} className={clsx(inputStyles({ size, variant }), props.className)} />;
+	return <textarea {...props} className={clsx(styles({ size, variant }), props.className)} />;
 };
 
 export function Label(props: PropsWithChildren<{ slug?: string }>) {
@@ -55,3 +64,34 @@ export function Label(props: PropsWithChildren<{ slug?: string }>) {
 		</label>
 	);
 }
+
+interface PasswordShowHideInputProps extends InputProps {
+	buttonClassnames?: string;
+}
+
+export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHideInputProps>(
+	({ variant, size, className, ...props }, ref) => {
+		const [showPassword, setShowPassword] = useState(false);
+		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
+		return (
+			<span className="relative grow">
+				<Button
+					onClick={() => setShowPassword(!showPassword)}
+					size="icon"
+					className={clsx(
+						'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
+						props.buttonClassnames
+					)}
+				>
+					<CurrentEyeIcon className="h-4 w-4" />
+				</Button>
+				<input
+					{...props}
+					type={showPassword ? 'text' : 'password'}
+					ref={ref}
+					className={styles({ variant, size, className })}
+				/>
+			</span>
+		);
+	}
+);

@@ -1,9 +1,8 @@
 import { ProcedureDef } from '@rspc/client';
 import { internal_createReactHooksFactory } from '@rspc/react';
 import { QueryClient } from '@tanstack/react-query';
-
 import { LibraryArgs, Procedures } from './core';
-import { getLibraryIdRaw } from './index';
+import { currentLibraryCache } from './hooks';
 import { normiCustomHooks } from './normi';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
@@ -25,6 +24,10 @@ type StripLibraryArgsFromInput<T extends ProcedureDef> = T extends any
 		: never
 	: never;
 
+let getLibraryId: () => string | null;
+
+export const setLibraryIdGetter = (g: typeof getLibraryId) => (getLibraryId = g);
+
 export const hooks = internal_createReactHooksFactory();
 
 const nonLibraryHooks = hooks.createHooks<
@@ -45,22 +48,22 @@ const libraryHooks = hooks.createHooks<
 	// Normalized<StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>>,
 	StripLibraryArgsFromInput<LibraryProcedures<'queries'>>,
 	StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>,
-	never
+	StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>>
 >({
 	internal: {
 		customHooks: normiCustomHooks({ contextSharing: true }, () => {
 			return {
 				mapQueryKey: (keyAndInput) => {
-					const library_id = getLibraryIdRaw();
-					if (library_id === null)
+					const libraryId = currentLibraryCache.id;
+					if (libraryId === null)
 						throw new Error('Attempted to do library operation with no library set!');
-					return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+					return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] || null }];
 				},
 				doMutation: (keyAndInput, next) => {
-					const library_id = getLibraryIdRaw();
-					if (library_id === null)
+					const libraryId = currentLibraryCache.id;
+					if (libraryId === null)
 						throw new Error('Attempted to do library operation with no library set!');
-					return next([keyAndInput[0], { library_id, arg: keyAndInput[1] || null }]);
+					return next([keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] || null }]);
 				}
 			};
 		})
@@ -72,6 +75,7 @@ export const rspc = hooks.createHooks<Procedures>();
 
 export const useBridgeQuery = nonLibraryHooks.useQuery;
 export const useBridgeMutation = nonLibraryHooks.useMutation;
+export const useBridgeSubscription = nonLibraryHooks.useSubscription;
 export const useLibraryQuery = libraryHooks.useQuery;
 export const useLibraryMutation = libraryHooks.useMutation;
 

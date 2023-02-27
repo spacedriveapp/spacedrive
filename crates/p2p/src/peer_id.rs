@@ -22,6 +22,8 @@ impl Display for PeerId {
 #[cfg(feature = "specta")]
 impl specta::Type for PeerId {
 	const NAME: &'static str = "PeerId";
+	const SID: specta::TypeSid = specta::sid!();
+	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
 
 	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
 		<String as specta::Type>::inline(opts, generics)
@@ -31,7 +33,7 @@ impl specta::Type for PeerId {
 		<String as specta::Type>::reference(opts, generics)
 	}
 
-	fn definition(opts: specta::DefOpts) -> specta::DataType {
+	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
 		<String as specta::Type>::definition(opts)
 	}
 }

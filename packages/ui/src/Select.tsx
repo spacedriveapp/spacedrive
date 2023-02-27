@@ -1,5 +1,5 @@
-import * as SelectPrimitive from '@radix-ui/react-select';
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import * as SelectPrimitive from '@radix-ui/react-select';
 import clsx from 'clsx';
 import { CaretDown, Check } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
@@ -22,22 +22,22 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(
-					'inline-flex items-center pl-2 py-0.5 bg-app-box border',
-					'rounded-md shadow outline-none border-app-line shadow-app-shade/10',
+					'bg-app-box inline-flex items-center border py-0.5 pl-2',
+					'border-app-line shadow-app-shade/10 rounded-md shadow outline-none',
 					props.className
 				)}
 			>
-				<span className="flex-grow text-xs text-left truncate">
+				<span className="grow truncate text-left text-xs">
 					<SelectPrimitive.Value />
 				</span>
 
 				<SelectPrimitive.Icon>
-					<ChevronDouble className="w-3 h-3 mr-0.5 text-ink-dull" />
+					<ChevronDouble className="text-ink-dull mr-0.5 h-3 w-3" />
 				</SelectPrimitive.Icon>
 			</SelectPrimitive.Trigger>
 
 			<SelectPrimitive.Portal className="relative">
-				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border rounded-md shadow-2xl bg-app-box border-app-line shadow-app-shade/20 ">
+				<SelectPrimitive.Content className="bg-app-box border-app-line shadow-app-shade/20 absolute z-50 w-full rounded-md border p-1 shadow-2xl ">
 					<SelectPrimitive.ScrollUpButton className="hidden ">
 						<CaretDown />
 					</SelectPrimitive.ScrollUpButton>
@@ -53,15 +53,15 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(
-				'relative flex items-center pl-6 px-1 py-0.5 pr-4 text-xs',
-				'rounded font-sm cursor-pointer select-none text-ink',
-				'focus:outline-none hover:text-white radix-disabled:opacity-50 hover:bg-accent '
+				'relative flex items-center px-1 py-0.5 pl-6 pr-4 text-xs',
+				'font-sm text-ink cursor-pointer select-none rounded',
+				'radix-disabled:opacity-50 hover:bg-accent hover:text-white focus:outline-none '
 			)}
 			value={props.value}
 		>
 			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>
-			<SelectPrimitive.ItemIndicator className="absolute inline-flex items-center left-1">
-				<Check className="w-4 h-4" />
+			<SelectPrimitive.ItemIndicator className="absolute left-1 inline-flex items-center">
+				<Check className="h-4 w-4" />
 			</SelectPrimitive.ItemIndicator>
 		</SelectPrimitive.Item>
 	);

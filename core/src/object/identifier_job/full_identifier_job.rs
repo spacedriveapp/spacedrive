@@ -41,14 +41,13 @@ impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
 #[derive(Serialize, Deserialize)]
 pub struct FullFileIdentifierJobState {
 	location: location::Data,
-	location_path: PathBuf,
 	cursor: FilePathIdAndLocationIdCursor,
 	report: FileIdentifierReport,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct FileIdentifierReport {
-	location_path: String,
+	location_path: PathBuf,
 	total_orphan_paths: usize,
 	total_objects_created: usize,
 	total_objects_linked: usize,
@@ -78,12 +77,6 @@ impl StatefulJob for FullFileIdentifierJob {
 			.await?
 			.ok_or(IdentifierJobError::MissingLocation(state.init.location_id))?;
 
-		let location_path = location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.ok_or(IdentifierJobError::LocationLocalPath(location_id))?;
-
 		let orphan_count = count_orphan_file_paths(&ctx.library_ctx, location_id).await?;
 		info!("Found {} orphan file paths", orphan_count);
 
@@ -106,12 +99,11 @@ impl StatefulJob for FullFileIdentifierJob {
 
 		state.data = Some(FullFileIdentifierJobState {
 			report: FileIdentifierReport {
-				location_path: location_path.to_str().unwrap_or("").to_string(),
+				location_path: location.path.clone().into(),
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
 			location,
-			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
 				file_path_id: first_path_id,
 				location_id: state.init.location_id,
@@ -154,13 +146,9 @@ impl StatefulJob for FullFileIdentifierJob {
 			data.report.total_orphan_paths
 		);
 
-		let (total_objects_created, total_objects_linked) = identifier_job_step(
-			&ctx.library_ctx,
-			state.init.location_id,
-			&data.location_path,
-			&file_paths,
-		)
-		.await?;
+		let (total_objects_created, total_objects_linked) =
+			identifier_job_step(&ctx.library_ctx, &data.location, &file_paths).await?;
+
 		data.report.total_objects_created += total_objects_created;
 		data.report.total_objects_linked += total_objects_linked;
 
@@ -184,7 +172,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

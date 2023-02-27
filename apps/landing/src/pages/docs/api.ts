@@ -1,5 +1,4 @@
 import { Component } from 'react';
-
 import { parseMarkdown } from '../../utils/markdownParse';
 
 export interface Doc {
@@ -48,13 +47,13 @@ export function getDocs(config: DocsConfig): Record<string, Doc> {
 		const url = parsePath(path);
 		if (!url) return null;
 
-		const { render, metadata } = parseMarkdown(config.docs[path]);
+		const { render, metadata } = parseMarkdown(config.docs[path]!);
 
 		parsedDocs[url] = {
-			title: metadata?.name ?? toTitleCase(url.split('/')[2]),
-			slug: url.split('/')[2],
+			title: metadata?.name ?? toTitleCase(url.split('/')[2]!),
+			slug: url.split('/')[2]!,
 			url,
-			categoryName: toTitleCase(url.split('/')[1]),
+			categoryName: toTitleCase(url.split('/')[1]!),
 			sortByIndex: metadata?.index ?? DEFAULT_INDEX,
 			html: render
 		};
@@ -78,15 +77,15 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 			delete clonedDoc.html;
 
 			const category = url.split('/')[1],
-				title = toTitleCase(category),
+				title = toTitleCase(category!),
 				existingCategory = categories.findIndex((i) => i.slug === category);
 
 			if (existingCategory != -1) {
-				categories[existingCategory].category.push(clonedDoc);
+				categories[existingCategory]?.category.push(clonedDoc);
 			} else {
 				categories.push({
 					title,
-					slug: category,
+					slug: category!,
 					index: DEFAULT_INDEX,
 					category: [clonedDoc]
 				});
@@ -99,7 +98,7 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 				return cat;
 			})
 			// sort categories smallest first doc's index
-			.sort((a, b) => a.category[0].sortByIndex - b.category[0].sortByIndex);
+			.sort((a, b) => a.category[0]!.sortByIndex - b.category[0]!.sortByIndex);
 
 		navigation.push({
 			title: section.title,
@@ -135,8 +134,8 @@ export function getDoc(url: string, config: DocsConfig): SingleDocResponse {
 }
 
 function parsePath(path: string): string | null {
-	const url = path.split('docs/')[1].split('.md')[0];
-	if (!url.includes('/')) return null;
+	const url = path.split('docs/')[1]!.split('.md')[0];
+	if (!url?.includes('/')) return null;
 	return url;
 }
 
@@ -154,7 +153,7 @@ type DocUrls = { url: string; title: string }[];
 export function getNextDoc(
 	navigation: DocsNavigation,
 	docUrl: string
-): { url: string; title: string } {
+): { url: string; title: string } | undefined {
 	const docUrls: DocUrls = [];
 	// flatten the navigation
 	for (const section of navigation) {

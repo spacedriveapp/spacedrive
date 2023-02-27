@@ -27,8 +27,8 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
-		KEY_LEN, SALT_LEN,
+		types::{EncryptedKey, Key, Nonce, Salt},
+		ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN,
 	},
 	Error, Protected, Result,
 };
@@ -41,10 +41,10 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN], // the salt used for deriving a KEK from a (key/content salt) hash
-	pub content_salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
-	pub nonce: Vec<u8>,
+	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
+	pub content_salt: Salt,
+	pub master_key: EncryptedKey, // this is encrypted so we can store it
+	pub nonce: Nonce,
 }
 
 pub const KEYSLOT_SIZE: usize = 112;
@@ -64,25 +64,28 @@ impl Keyslot {
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(
+	pub async fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		content_salt: [u8; SALT_LEN],
-		hashed_key: Protected<[u8; KEY_LEN]>,
-		master_key: Protected<[u8; KEY_LEN]>,
+		content_salt: Salt,
+		hashed_key: Key,
+		master_key: Key,
 	) -> Result<Self> {
-		let nonce = generate_nonce(algorithm);
+		let nonce = Nonce::generate(algorithm)?;
 
-		let salt = generate_salt();
+		let salt = Salt::generate();
 
-		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
-			&nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
+		let encrypted_master_key = EncryptedKey::try_from(
+			StreamEncryption::encrypt_bytes(
+				Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
+				nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)
+			.await?,
+		)?;
 
 		Ok(Self {
 			version,
@@ -101,18 +104,21 @@ impl Keyslot {
 	///
 	/// An error will be returned on failure.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
+	pub async fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Key> {
 		let key = self
 			.hashing_algorithm
 			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
-		StreamDecryption::decrypt_bytes(
-			derive_key(key, self.salt, FILE_KEY_CONTEXT),
-			&self.nonce,
-			self.algorithm,
-			&self.master_key,
-			&[],
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
 		)
 	}
 
@@ -123,16 +129,16 @@ impl Keyslot {
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key_from_prehashed(
-		&self,
-		key: Protected<[u8; KEY_LEN]>,
-	) -> Result<Protected<Vec<u8>>> {
-		StreamDecryption::decrypt_bytes(
-			derive_key(key, self.salt, FILE_KEY_CONTEXT),
-			&self.nonce,
-			self.algorithm,
-			&self.master_key,
-			&[],
+	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Key> {
+		Key::try_from(
+			StreamDecryption::decrypt_bytes(
+				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+				self.nonce,
+				self.algorithm,
+				&self.master_key,
+				&[],
+			)
+			.await?,
 		)
 	}
 
@@ -191,6 +197,7 @@ impl Keyslot {
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut nonce)?;
+				let nonce = Nonce::try_from(nonce)?;
 
 				reader.read_exact(&mut vec![0u8; 26 - nonce.len()])?;
 
@@ -198,9 +205,9 @@ impl Keyslot {
 					version,
 					algorithm,
 					hashing_algorithm,
-					salt,
-					content_salt,
-					master_key,
+					salt: Salt(salt),
+					content_salt: Salt(content_salt),
+					master_key: EncryptedKey(master_key),
 					nonce,
 				};
 

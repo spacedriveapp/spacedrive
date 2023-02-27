@@ -1,8 +1,7 @@
 import { MotiView } from 'moti';
 import { ReactNode, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
-import tw from '~/lib/tailwind';
-
+import { tw } from '~/lib/tailwind';
 import { PulseAnimation } from '../animation/lottie';
 import { Button } from '../primitive/Button';
 
@@ -75,14 +74,14 @@ const Dialog = (props: DialogProps) => {
 					>
 						{/* TODO: Blur may look cool here */}
 						<View
-							style={tw`min-w-[360px] max-w-[380px] rounded-md bg-app border border-app-line shadow shadow-app-shade overflow-hidden`}
+							style={tw`border-app-line bg-app shadow-app-shade min-w-[360px] max-w-[380px] overflow-hidden rounded-md border shadow`}
 						>
 							<View style={tw`p-5`}>
 								{/* Title */}
-								<Text style={tw`font-bold text-ink text-base`}>{props.title}</Text>
+								<Text style={tw`text-ink text-base font-bold`}>{props.title}</Text>
 								{/* Description */}
 								{props.description && (
-									<Text style={tw`text-sm text-ink-dull mt-2 leading-normal`}>
+									<Text style={tw`text-ink-dull mt-2 text-sm leading-normal`}>
 										{props.description}
 									</Text>
 								)}
@@ -91,10 +90,10 @@ const Dialog = (props: DialogProps) => {
 							</View>
 							{/* Actions */}
 							<View
-								style={tw`flex flex-row items-center px-3 py-3 bg-app-highlight border-t border-app-line`}
+								style={tw`border-app-line bg-app-highlight flex flex-row items-center border-t p-3`}
 							>
 								{props.loading && <PulseAnimation style={tw`h-7`} />}
-								<View style={tw`flex-grow`} />
+								<View style={tw`grow`} />
 								<Button
 									variant="dark_gray"
 									size="md"

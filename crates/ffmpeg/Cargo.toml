@@ -15,8 +15,8 @@ resolver = "2"
 ffmpeg-sys-next = "5.1.1"
 thiserror = "1.0.37"
 webp = "0.2.2"
-tokio = { version = "1.21.2", features = ["fs", "rt"] }
+tokio = { workspace = true, features = ["fs", "rt"] }
 
 [dev-dependencies]
 tempfile = "3.3.0"
-tokio = { version = "1.21.2", features = ["fs", "rt", "macros"] }
+tokio = { workspace = true, features = ["fs", "rt", "macros"] }

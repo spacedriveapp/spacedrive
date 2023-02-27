@@ -1,9 +1,8 @@
+import { useCallback, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { useLibraryMutation } from '@sd/client';
 import { Object as SDObject } from '@sd/client';
 import { TextArea } from '@sd/ui';
-import { useCallback, useState } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
-
 import { MetaContainer, MetaTitle } from '../Inspector';
 import { Divider } from './Divider';
 
@@ -28,6 +27,7 @@ export default function Note(props: Props) {
 		2000
 	);
 
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const debouncedNote = useCallback((note: string) => debounce(note), [props.data.id, fileSetNote]);
 
 	// when input is updated, cache note
@@ -44,7 +44,7 @@ export default function Note(props: Props) {
 			<MetaContainer>
 				<MetaTitle>Note</MetaTitle>
 				<TextArea
-					className="mt-2 mb-1 text-xs leading-snug !py-2"
+					className="mt-2 mb-1 !py-2 text-xs leading-snug"
 					value={note || ''}
 					onChange={handleNoteUpdate}
 				/>{' '}

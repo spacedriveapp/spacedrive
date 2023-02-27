@@ -1,7 +1,7 @@
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::OnboardingConfig,
+	primitives::types::OnboardingConfig,
 	Protected,
 };
 use sd_sync::CRDTOperation;
@@ -57,7 +57,6 @@ impl Request {
 								// TODO: Don't hardcode the `OnboardingConfig`
 								OnboardingConfig {
 									password: Protected::new("password".to_string()),
-									secret_key: None,
 									algorithm: Algorithm::XChaCha20Poly1305,
 									hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
 								},

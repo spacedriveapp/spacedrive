@@ -3,7 +3,10 @@ use crate::{
 	prisma::{file_path, location},
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+	collections::HashSet,
+	path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -26,7 +29,7 @@ mod windows;
 
 mod utils;
 
-use utils::{check_event, check_location_online};
+use utils::check_event;
 
 #[cfg(target_os = "linux")]
 type Handler = linux::LinuxEventHandler;
@@ -38,6 +41,8 @@ type Handler = macos::MacOsEventHandler;
 type Handler = windows::WindowsEventHandler;
 
 file_path::include!(file_path_with_object { object });
+
+pub(super) type IgnorePath = (PathBuf, bool);
 
 #[async_trait]
 trait EventHandler {
@@ -56,8 +61,8 @@ trait EventHandler {
 #[derive(Debug)]
 pub(super) struct LocationWatcher {
 	location: location::Data,
-	path: PathBuf,
 	watcher: RecommendedWatcher,
+	ignore_path_tx: mpsc::UnboundedSender<IgnorePath>,
 	handle: Option<JoinHandle<()>>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
@@ -68,6 +73,7 @@ impl LocationWatcher {
 		library_ctx: LibraryContext,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
+		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
 
 		let watcher = RecommendedWatcher::new(
@@ -93,19 +99,14 @@ impl LocationWatcher {
 			location.id,
 			library_ctx,
 			events_rx,
+			ignore_path_rx,
 			stop_rx,
 		));
-		let path = PathBuf::from(
-			location
-				.local_path
-				.as_ref()
-				.ok_or(LocationManagerError::LocationMissingLocalPath(location.id))?,
-		);
 
 		Ok(Self {
 			location,
-			path,
 			watcher,
+			ignore_path_tx,
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
 		})
@@ -115,9 +116,12 @@ impl LocationWatcher {
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
+		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
 		let mut event_handler = Handler::new();
+
+		let mut paths_to_ignore = HashSet::new();
 
 		loop {
 			select! {
@@ -128,7 +132,8 @@ impl LocationWatcher {
 								location_id,
 								event,
 								&mut event_handler,
-								&library_ctx
+								&library_ctx,
+								&paths_to_ignore,
 							).await {
 								error!("Failed to handle location file system event: \
 									<id='{location_id}', error='{e:#?}'>",
@@ -140,6 +145,15 @@ impl LocationWatcher {
 						}
 					}
 				}
+
+				Some((path, ignore)) = ignore_path_rx.recv() => {
+					if ignore {
+						paths_to_ignore.insert(path);
+					} else {
+						paths_to_ignore.remove(&path);
+					}
+				}
+
 				_ = &mut stop_rx => {
 					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
@@ -153,79 +167,87 @@ impl LocationWatcher {
 		event: Event,
 		event_handler: &mut impl EventHandler,
 		library_ctx: &LibraryContext,
+		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		if check_event(&event) {
-			if let Some(location) = fetch_location(library_ctx, location_id)
-				.include(indexer_job_location::include())
-				.exec()
-				.await?
-			{
-				if check_location_online(&location) {
-					return event_handler
-						.handle_event(location, library_ctx, event)
-						.await;
-				} else {
-					warn!("Tried to handle event for offline location: <id='{location_id}'>");
-				}
-			} else {
-				warn!("Tried to handle event for unknown location: <id='{location_id}'>");
-			}
+		if !check_event(&event, ignore_paths) {
+			return Ok(());
 		}
 
-		Ok(())
+		let Some(location) = fetch_location(library_ctx, location_id)
+			.include(indexer_job_location::include())
+			.exec()
+			.await?
+		else {
+			warn!("Tried to handle event for unknown location: <id='{location_id}'>");
+            return Ok(())
+        };
+
+		if !library_ctx
+			.location_manager()
+			.is_online(&location.pub_id)
+			.await
+		{
+			warn!("Tried to handle event for offline location: <id='{location_id}'>");
+			return Ok(());
+		}
+
+		event_handler
+			.handle_event(location, library_ctx, event)
+			.await
+	}
+
+	pub(super) fn ignore_path(
+		&self,
+		path: PathBuf,
+		ignore: bool,
+	) -> Result<(), LocationManagerError> {
+		self.ignore_path_tx.send((path, ignore)).map_err(Into::into)
 	}
 
 	pub(super) fn check_path(&self, path: impl AsRef<Path>) -> bool {
-		self.path == path.as_ref()
+		(self.location.path.as_ref() as &Path) == path.as_ref()
 	}
 
 	pub(super) fn watch(&mut self) {
-		if let Err(e) = self.watcher.watch(&self.path, RecursiveMode::Recursive) {
-			error!(
-				"Unable to watch location: (path: {}, error: {e:#?})",
-				self.path.display()
-			);
+		let path = &self.location.path;
+		if let Err(e) = self.watcher.watch(path.as_ref(), RecursiveMode::Recursive) {
+			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			debug!("Now watching location: (path: {})", self.path.display());
+			debug!("Now watching location: (path: {path})");
 		}
 	}
 
 	pub(super) fn unwatch(&mut self) {
-		if let Err(e) = self.watcher.unwatch(&self.path) {
+		let path = &self.location.path;
+		if let Err(e) = self.watcher.unwatch(path.as_ref()) {
 			/**************************************** TODO: ****************************************
 			 * According to an unit test, this error may occur when a subdirectory is removed	   *
 			 * and we try to unwatch the parent directory then we have to check the implications   *
 			 * of unwatch error for this case.   												   *
 			 **************************************************************************************/
-			error!(
-				"Unable to unwatch location: (path: {}, error: {e:#?})",
-				self.path.display()
-			);
+			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			debug!("Stop watching location: (path: {})", self.path.display());
+			debug!("Stop watching location: (path: {path})");
 		}
 	}
 
-	pub(super) fn update_data(&mut self, location: location::Data, to_watch: bool) {
+	pub(super) fn update_data(&mut self, new_location: location::Data, to_watch: bool) {
 		assert_eq!(
-			self.location.id, location.id,
+			self.location.id, new_location.id,
 			"Updated location data must have the same id"
 		);
-		let path = PathBuf::from(location.local_path.as_ref().unwrap_or_else(|| {
-			panic!(
-				"Tried to watch a location without local_path: <id='{}'>",
-				location.id
-			)
-		}));
 
-		if self.path != path {
+		let new_path = self.location.path != new_location.path;
+
+		if new_path {
 			self.unwatch();
-			self.path = path;
-			if to_watch {
-				self.watch();
-			}
 		}
-		self.location = location;
+
+		self.location = new_location;
+
+		if new_path && to_watch {
+			self.watch();
+		}
 	}
 }
 
@@ -252,78 +274,77 @@ impl Drop for LocationWatcher {
 }
 
 /***************************************************************************************************
- * Some tests to validate our assumptions of events through different file systems				   *
- ***************************************************************************************************
- *	Events dispatched on Linux:																	   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
- *				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
- *			3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
- *			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
- *		Update File (rename):																	   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::File)												   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Folder)											   *
- *																								   *
- *	Events dispatched on MacOS:																	   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
- *		Update File (rename):																	   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
- *																								   *
- *	Events dispatched on Windows:																   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Any)												   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Any)												   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Any)												   *
- *		Update File (rename):																	   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *																								   *
- *	Events dispatched on Android:																   *
- *	TODO																						   *
- *																								   *
- *	Events dispatched on iOS:																	   *
- *	TODO																						   *
- *																								   *
- **************************************************************************************************/
+* Some tests to validate our assumptions of events through different file systems				   *
+***************************************************************************************************
+*	Events dispatched on Linux:																	   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::File)												   *
+*			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
+*				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
+*			3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Folder)											   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+*			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::File)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Folder)											   *
+*																								   *
+*	Events dispatched on MacOS:																	   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::File)												   *
+*			2) EventKind::Modify(ModifyKind::Data(DataChange::Content))							   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Folder)											   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Data(DataChange::Content))							   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::Any)) -- From						   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))	-- To						   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::Any)) -- From						   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))	-- To						   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::File)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Folder)											   *
+*																								   *
+*	Events dispatched on Windows:																   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::Any)												   *
+*			2) EventKind::Modify(ModifyKind::Any)												   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Any)												   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Any)												   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::Any)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Any)												   *
+*																								   *
+*	Events dispatched on Android:																   *
+*	TODO																						   *
+*																								   *
+*	Events dispatched on iOS:																	   *
+*	TODO																						   *
+*																								   *
+**************************************************************************************************/
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
@@ -334,7 +355,10 @@ mod tests {
 		Config, Event, EventKind, RecommendedWatcher, Watcher,
 	};
 	use std::io::ErrorKind;
-	use std::{path::Path, time::Duration};
+	use std::{
+		path::{Path, PathBuf},
+		time::Duration,
+	};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
@@ -365,16 +389,21 @@ mod tests {
 		path: impl AsRef<Path>,
 		expected_event: EventKind,
 	) {
-		debug!("Expecting event: {expected_event:#?}");
 		let path = path.as_ref();
+		debug!(
+			"Expecting event: {expected_event:#?} at path: {}",
+			path.display()
+		);
 		let mut tries = 0;
 		loop {
 			match events_rx.try_recv() {
 				Ok(maybe_event) => {
 					let event = maybe_event.expect("Failed to receive event");
 					debug!("Received event: {event:#?}");
-					// In case of file creation, we expect to see an close event on write mode
-					if event.paths[0] == path && event.kind == expected_event {
+					// Using `ends_with` and removing root path here due to a weird edge case on CI tests at MacOS
+					if event.paths[0].ends_with(path.iter().skip(1).collect::<PathBuf>())
+						&& event.kind == expected_event
+					{
 						debug!("Received expected event: {expected_event:#?}");
 						break;
 					}
@@ -409,7 +438,12 @@ mod tests {
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(events_rx, &file_path, EventKind::Create(CreateKind::File)).await;
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Data(DataChange::Content)),
+		)
+		.await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(
@@ -488,7 +522,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+			EventKind::Modify(ModifyKind::Data(DataChange::Content)),
 		)
 		.await;
 
@@ -627,12 +661,7 @@ mod tests {
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(
-			events_rx,
-			&root_dir.path(),
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
-		)
-		.await;
+		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
@@ -679,12 +708,7 @@ mod tests {
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(
-			events_rx,
-			&root_dir.path(),
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
-		)
-		.await;
+		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;

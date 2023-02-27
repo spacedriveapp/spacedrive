@@ -18,7 +18,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
-        .package(name: "SwiftRs", url: "https://github.com/Brendonovich/swift-rs", from: "0.2.3")
+        .package(url: "https://github.com/brendonovich/swift-rs", revision: "c3003bc0c28a6742d3da341b61887d8e072fda0a"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -26,6 +26,6 @@ let package = Package(
         .target(
             name: "swift-lib",
             dependencies: [.product(name: "SwiftRs", package: "SwiftRs")],
-            path: "src")
+            path: "Sources")
     ]
 )

@@ -1,12 +1,10 @@
 import React, { PropsWithChildren } from 'react';
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
-
+import '@sd/ui/style';
 import { Footer } from './components/Footer';
 import NavBar from './components/NavBar';
 import { PageContextProvider } from './renderer/usePageContext';
 import './style.scss';
-
-import '@sd/ui/style';
 
 export default function App({
 	children,
@@ -27,7 +25,7 @@ export default function App({
 
 				<>
 					<NavBar />
-					<div className="dark dark:bg-black dark:text-white z-10 max-w-[100rem] m-auto">
+					<div className="dark z-10 m-auto max-w-[100rem] dark:bg-black dark:text-white">
 						{children}
 					</div>
 					<Footer />

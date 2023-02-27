@@ -1,13 +1,12 @@
-import { useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-
+import { useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
 
 export function useExplorerParams() {
-	const { id } = useParams();
-	const location_id = id ? Number(id) : -1;
+	const { id } = useParams<{ id?: string }>();
+	const location_id = id ? Number(id) : null;
 
 	const [searchParams] = useSearchParams();
 	const path = searchParams.get('path') || '';
@@ -18,16 +17,17 @@ export function useExplorerParams() {
 
 export default function LocationExplorer() {
 	const { location_id, path } = useExplorerParams();
-	const { library } = useCurrentLibrary();
 
 	useEffect(() => {
 		getExplorerStore().locationId = location_id;
 	}, [location_id]);
 
+	if (location_id === null) throw new Error(`location_id is null!`);
+
 	const explorerData = useLibraryQuery([
 		'locations.getExplorerData',
 		{
-			location_id: location_id,
+			location_id,
 			path: path,
 			limit: 100,
 			cursor: null
@@ -35,7 +35,7 @@ export default function LocationExplorer() {
 	]);
 
 	return (
-		<div className="relative flex flex-col w-full">
+		<div className="relative flex w-full flex-col">
 			<Explorer data={explorerData.data} />
 		</div>
 	);

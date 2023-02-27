@@ -1,14 +1,14 @@
-import { Select, SelectOption } from '@sd/ui';
 import { PropsWithChildren, useState } from 'react';
-
+import { Select, SelectOption } from '@sd/ui';
+import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import Slider from '../primitive/Slider';
 
 function Heading({ children }: PropsWithChildren) {
-	return <div className="text-xs font-semibold text-ink-dull">{children}</div>;
+	return <div className="text-ink-dull text-xs font-semibold">{children}</div>;
 }
 
 function SubHeading({ children }: PropsWithChildren) {
-	return <div className="mb-1 text-xs font-medium text-ink-dull">{children}</div>;
+	return <div className="text-ink-dull mb-1 text-xs font-medium">{children}</div>;
 }
 
 const sortOptions = {
@@ -23,14 +23,24 @@ const sortOptions = {
 export function ExplorerOptionsPanel() {
 	const [sortBy, setSortBy] = useState('name');
 	const [stackBy, setStackBy] = useState('kind');
-	const [size, setSize] = useState([50]);
+
+	const explorerStore = useExplorerStore();
 
 	return (
 		<div className="p-4 ">
 			{/* <Heading>Explorer Appearance</Heading> */}
 			<SubHeading>Item size</SubHeading>
-			<Slider defaultValue={size} step={10} />
-			<div className="grid grid-cols-2 gap-2 my-2 mt-4">
+			<Slider
+				onValueChange={(value) => {
+					getExplorerStore().gridItemSize = value[0] || 100;
+					console.log({ value: value, gridItemSize: explorerStore.gridItemSize });
+				}}
+				defaultValue={[explorerStore.gridItemSize]}
+				max={200}
+				step={10}
+				min={60}
+			/>
+			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">
 					<SubHeading>Sort by</SubHeading>
 					<Select value={sortBy} size="sm" onChange={setSortBy}>

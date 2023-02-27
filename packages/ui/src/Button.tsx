@@ -22,41 +22,46 @@ type Button = {
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 const styles = cva(
-	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50 outline-none ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2',
+	[
+		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
+		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
+		'ring-offset-app-box focus:ring-accent focus:ring-2 focus:ring-offset-2'
+	],
 	{
 		variants: {
 			pressEffect: {
 				true: 'active:translate-y-[1px]'
 			},
-			disabled: {
-				true: 'opacity-70 pointer-events-none cursor-not-allowed'
-			},
 			size: {
 				icon: '!p-1',
-				md: 'py-1 px-3 text-md font-medium',
+				lg: 'py-1.5 px-3 text-md font-medium',
+				md: 'py-1.5 px-2.5 text-sm font-medium',
 				sm: 'py-1 px-2 text-sm font-medium'
 			},
 			variant: {
 				default: [
-					'bg-transparent active:bg-app-selected hover:bg-app-hover',
-					'border-transparent hover:border-app-line active:border-app-line'
+					'active:bg-app-selected hover:bg-app-hover bg-transparent',
+					'hover:border-app-line active:border-app-line border-transparent'
+				],
+				subtle: [
+					'hover:border-app-line/50 active:border-app-line active:bg-app-box/30 border-transparent'
 				],
 				outline: [
-					'border-transparent hover:border-app-line/50 active:border-app-line active:bg-app-box/30'
+					'border-sidebar-line/60 hover:border-sidebar-line active:border-sidebar-line active:border-sidebar-line/30'
 				],
 				gray: [
 					'bg-app-button active:bg-app-selected hover:bg-app-hover',
 					'border-app-line hover:border-app-line active:border-app-active'
 				],
 				accent: [
-					'bg-accent text-white active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-md shadow-app-shade/10'
+					'bg-accent active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-app-shade/10 text-white shadow-md'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
 			}
 		},
 		defaultVariants: {
-			size: 'md',
+			size: 'sm',
 			variant: 'default'
 		}
 	}
@@ -68,9 +73,9 @@ export const Button = forwardRef<
 >(({ className, ...props }, ref) => {
 	className = cx(styles(props), className);
 	return hasHref(props) ? (
-		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
+		<a {...props} ref={ref as any} className={cx(className, 'inline-block no-underline')} />
 	) : (
-		<button {...(props as ButtonProps)} ref={ref as any} className={className} />
+		<button type="button" {...(props as ButtonProps)} ref={ref as any} className={className} />
 	);
 });
 

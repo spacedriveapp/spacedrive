@@ -1,27 +1,22 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import {
-	Algorithm,
-	HashingAlgorithm,
-	Params,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
-import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
+import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
-
-import { AlertDialog, GenericAlertDialogState } from '~/components/dialog/AlertDialog';
+import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Input, dialogManager } from '@sd/ui';
 import { BackupRestoreDialog } from '~/components/dialog/BackupRestoreDialog';
 import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
 import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '~/components/key/KeyList';
 import { KeyMounter } from '~/components/key/KeyMounter';
+import { DefaultProps } from '~/components/primitive/types';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
 import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -32,10 +27,8 @@ interface Props extends DropdownMenu.MenuContentProps {
 export const KeyMounterDropdown = ({
 	trigger,
 	children,
-	disabled,
 	transformOrigin,
-	className,
-	...props
+	className
 }: PropsWithChildren<Props>) => {
 	const [open, setOpen] = useState(false);
 
@@ -63,8 +56,8 @@ export const KeyMounterDropdown = ({
 									className={clsx(
 										'flex flex-col',
 										'z-50 m-2 space-y-1',
-										'select-none cursor-default rounded-lg',
-										'text-left text-sm text-ink',
+										'cursor-default select-none rounded-lg',
+										'text-ink text-left text-sm',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -84,104 +77,105 @@ export const KeyMounterDropdown = ({
 
 export default function KeysSettings() {
 	const platform = usePlatform();
-	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such
+	const unlockKeyManager = useLibraryMutation('keys.unlockKeyManager', {
+		onError: () => {
+			showAlertDialog({
+				title: 'Unlock Error',
+				value: 'The information provided to the key manager was incorrect'
+			});
+		}
+	});
+
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
+	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
-	const [secretKey, setSecretKey] = useState('');
+	const [secretKey, setSecretKey] = useState(''); // for the unlock form
+	const [viewSecretKey, setViewSecretKey] = useState(false); // for the settings page
 
 	const keys = useLibraryQuery(['keys.list']);
-
-	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
-	const setShowAlertDialog = (state: boolean) => {
-		setAlertDialogData({ ...alertDialogData, open: state });
-	};
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
-	if (!hasMasterPw?.data) {
-		return (
-			<>
-				<div className="p-2 mr-20 ml-20 mt-10">
-					<div className="relative flex flex-grow mb-2">
-						<Input
-							value={masterPassword}
-							onChange={(e) => setMasterPassword(e.target.value)}
-							autoFocus
-							type={showMasterPassword ? 'text' : 'password'}
-							className="flex-grow !py-0.5"
-							placeholder="Master Password"
-						/>
-						<Button
-							onClick={() => setShowMasterPassword(!showMasterPassword)}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-						>
-							<MPCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
+	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
-					<div className="relative flex flex-grow mb-2">
+	if (!isUnlocked?.data) {
+		return (
+			<div className="mx-20 mt-10 p-2">
+				<div className="relative mb-2 flex grow">
+					<Input
+						value={masterPassword}
+						onChange={(e) => setMasterPassword(e.target.value)}
+						autoFocus
+						type={showMasterPassword ? 'text' : 'password'}
+						className="grow !py-0.5"
+						placeholder="Master Password"
+					/>
+					<Button
+						onClick={() => setShowMasterPassword(!showMasterPassword)}
+						size="icon"
+						className="absolute right-[5px] top-[5px] border-none"
+					>
+						<MPCurrentEyeIcon className="h-4 w-4" />
+					</Button>
+				</div>
+				{enterSkManually && (
+					<div className="relative mb-2 flex grow">
 						<Input
 							value={secretKey}
 							onChange={(e) => setSecretKey(e.target.value)}
 							type={showSecretKey ? 'text' : 'password'}
-							className="flex-grow !py-0.5"
+							className="grow !py-0.5"
 							placeholder="Secret Key"
 						/>
 						<Button
 							onClick={() => setShowSecretKey(!showSecretKey)}
 							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
+							className="absolute right-[5px] top-[5px] border-none"
 						>
-							<SKCurrentEyeIcon className="w-4 h-4" />
+							<SKCurrentEyeIcon className="h-4 w-4" />
 						</Button>
 					</div>
+				)}
 
-					<Button
-						className="w-full"
-						variant="accent"
-						disabled={setMasterPasswordMutation.isLoading}
-						onClick={() => {
-							if (masterPassword !== '') {
-								const sk = secretKey || null;
-								setMasterPassword('');
-								setSecretKey('');
-								setMasterPasswordMutation.mutate(
-									{ password: masterPassword, secret_key: sk },
-									{
-										onError: () => {
-											setAlertDialogData({
-												open: true,
-												title: 'Unlock Error',
-												description: '',
-												value: 'The information provided to the key manager was incorrect',
-												inputBox: false
-											});
-										}
-									}
-								);
-							}
-						}}
-					>
-						Unlock
-					</Button>
-				</div>
-				<AlertDialog
-					open={alertDialogData.open}
-					setOpen={setShowAlertDialog}
-					title={alertDialogData.title}
-					description={alertDialogData.description}
-					value={alertDialogData.value}
-					inputBox={alertDialogData.inputBox}
-				/>
-			</>
+				<Button
+					className="w-full"
+					variant="accent"
+					disabled={
+						unlockKeyManager.isLoading || isKeyManagerUnlocking.data !== null
+							? isKeyManagerUnlocking.data!
+							: false
+					}
+					onClick={() => {
+						if (masterPassword !== '') {
+							setMasterPassword('');
+							setSecretKey('');
+							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
+						}
+					}}
+				>
+					Unlock
+				</Button>
+				{!enterSkManually && (
+					<div className="relative flex grow">
+						<p
+							className="text-accent mt-2"
+							onClick={(e) => {
+								setEnterSkManually(true);
+							}}
+						>
+							or enter secret key manually
+						</p>
+					</div>
+				)}
+			</div>
 		);
 	} else {
 		return (
@@ -198,15 +192,15 @@ export default function KeysSettings() {
 										unmountAll.mutate(null);
 										clearMasterPassword.mutate(null);
 									}}
-									variant="outline"
+									variant="subtle"
 									className="text-ink-faint"
 								>
-									<Lock className="w-4 h-4 text-ink-faint" />
+									<Lock className="text-ink-faint h-4 w-4" />
 								</Button>
 								<KeyMounterDropdown
 									trigger={
-										<Button size="icon" variant="outline" className="text-ink-faint">
-											<Plus className="w-4 h-4 text-ink-faint" />
+										<Button size="icon" variant="subtle" className="text-ink-faint">
+											<Plus className="text-ink-faint h-4 w-4" />
 										</Button>
 									}
 								>
@@ -215,27 +209,58 @@ export default function KeysSettings() {
 							</div>
 						}
 					/>
-					<div className="grid space-y-2">
-						<ListOfKeys />
-					</div>
+
+					{isUnlocked && (
+						<div className="grid space-y-2">
+							<ListOfKeys />
+						</div>
+					)}
+
+					{keyringSk?.data && (
+						<>
+							<SettingsSubHeader title="Secret key" />
+							{!viewSecretKey && (
+								<div className="flex flex-row">
+									<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+										View Secret Key
+									</Button>
+								</div>
+							)}
+							{viewSecretKey && (
+								<div
+									className="flex flex-row"
+									onClick={() => {
+										keyringSk.data && navigator.clipboard.writeText(keyringSk.data);
+									}}
+								>
+									<>
+										<QRCode size={128} value={keyringSk.data} />
+										<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+									</>
+								</div>
+							)}
+						</>
+					)}
 
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">
-						<MasterPasswordChangeDialog
-							setAlertDialogData={setAlertDialogData}
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2">
-									Change Master Password
-								</Button>
-							}
-						/>
-						<KeyViewerDialog
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2" hidden={keys.data?.length === 0}>
-									View Key Values
-								</Button>
-							}
-						/>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							onClick={() => dialogManager.create((dp) => <MasterPasswordChangeDialog {...dp} />)}
+						>
+							Change Master Password
+						</Button>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							hidden={keys.data?.length === 0}
+							onClick={() => dialogManager.create((dp) => <KeyViewerDialog {...dp} />)}
+						>
+							View Key Values
+						</Button>
 					</div>
 
 					<SettingsSubHeader title="Data Recovery" />
@@ -248,12 +273,9 @@ export default function KeysSettings() {
 							onClick={() => {
 								if (!platform.saveFilePickerDialog) {
 									// TODO: Support opening locations on web
-									setAlertDialogData({
-										open: true,
+									showAlertDialog({
 										title: 'Error',
-										description: '',
-										value: "System dialogs aren't supported on this platform.",
-										inputBox: false
+										value: "System dialogs aren't supported on this platform."
 									});
 									return;
 								}
@@ -264,24 +286,16 @@ export default function KeysSettings() {
 						>
 							Backup
 						</Button>
-						<BackupRestoreDialog
-							setAlertDialogData={setAlertDialogData}
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2">
-									Restore
-								</Button>
-							}
-						/>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
+						>
+							Restore
+						</Button>
 					</div>
 				</SettingsContainer>
-				<AlertDialog
-					open={alertDialogData.open}
-					setOpen={setShowAlertDialog}
-					title={alertDialogData.title}
-					description={alertDialogData.description}
-					value={alertDialogData.value}
-					inputBox={alertDialogData.inputBox}
-				/>
 			</>
 		);
 	}
@@ -298,13 +312,13 @@ const table: Record<string, HashingAlgorithm> = {
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
-	return table[hashingAlgorithm];
+	return table[hashingAlgorithm] || { name: 'Argon2id', params: 'Standard' };
 };
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
 	return Object.entries(table).find(
-		([str, hashAlg], i) =>
+		([_, hashAlg]) =>
 			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
 	)![0];
 };

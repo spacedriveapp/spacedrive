@@ -1,4 +1,4 @@
-// @ts-check
+// @ts-ignore
 let fs = require('fs-extra');
 let path = require('path');
 

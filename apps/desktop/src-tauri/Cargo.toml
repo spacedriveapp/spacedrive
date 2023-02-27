@@ -10,24 +10,31 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-tauri = { version = "1.1.1", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.2.4", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
+httpz = { workspace = true, features = ["axum", "tauri"] } # TODO: The `axum` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
-tokio = { version = "1.21.2", features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.0"
 tracing = "0.1.36"
 serde = "1.0.145"
+percent-encoding = "2.2.0"
+http = "0.2.8"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+server = { path = "../../server" }
+axum = "0.6.4"
+rand = "0.8.5"
+url = "2.1.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
+swift-rs.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "1.1.1", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = [
-  "build",
-] }
+swift-rs = { workspace = true, features = ["build"] }
 
 [features]
 default = ["custom-protocol"]

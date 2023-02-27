@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-
 import { getWindow } from '../utils';
 
 const AppEmbed = () => {
@@ -60,18 +59,18 @@ const AppEmbed = () => {
 	return (
 		<div className="w-screen">
 			{renderBloom && (
-				<div className="relative max-w-full sm:w-full sm:max-w-[1400px] mx-auto">
+				<div className="relative mx-auto max-w-full sm:w-full sm:max-w-[1400px]">
 					<div className="bloom burst bloom-one" />
 					<div className="bloom burst bloom-three" />
 					<div className="bloom burst bloom-two" />
 				</div>
 			)}
-			<div className="relative z-30 h-[255px] px-1 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
+			<div className="relative z-30 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div
 					className={clsx(
-						'relative h-full m-auto border rounded-lg max-w-7xl transition-opacity border-gray-550 opacity-0',
+						'border-gray-550 relative m-auto h-full max-w-7xl rounded-lg border opacity-0 transition-opacity',
 						renderBloom && '!opacity-100',
-						renderImage && 'bg-transparent border-none'
+						renderImage && 'border-none bg-transparent'
 					)}
 				>
 					{showApp && !forceImg && (
@@ -79,8 +78,8 @@ const AppEmbed = () => {
 							ref={iFrame}
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
-								'w-full h-full z-30  rounded-lg shadow-iframe inset-center bg-gray-850',
-								iFrameAppReady ? 'fade-in-app-embed opacity-100' : 'opacity-0 -ml-[10000px]'
+								'shadow-iframe inset-center bg-gray-850  z-30 h-full w-full rounded-lg',
+								iFrameAppReady ? 'fade-in-app-embed opacity-100' : 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
 								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
@@ -88,7 +87,7 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && <div className="z-40 h-full w-auto fade-in-app-embed landing-img" />}
+					{renderImage && <div className="fade-in-app-embed landing-img z-40 h-full w-auto" />}
 				</div>
 			</div>
 		</div>
@@ -97,7 +96,7 @@ const AppEmbed = () => {
 
 export const AppEmbedPlaceholder = () => {
 	return (
-		<div className="w-screen relative z-30 h-[228px] px-5 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16" />
+		<div className="relative z-30 mt-8 h-[228px] w-screen px-5 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]" />
 	);
 };
 

@@ -1,19 +1,15 @@
-import { ExplorerItem, isVideoExt } from '@sd/client';
-import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-
-import { getExplorerStore } from '../../hooks/useExplorerStore';
-import { ObjectKind } from '../../util/kind';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
-import { FileItemContextMenu } from './ExplorerContextMenu';
-import FileThumb from './FileThumb';
-import { isObject } from './utils';
+import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
+import { cva, tw } from '@sd/ui';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerItemContextMenu } from './ExplorerContextMenu';
+import { FileThumb } from './FileThumb';
 
 const NameArea = tw.div`flex justify-center`;
 
 const nameContainerStyles = cva(
-	'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium cursor-default',
+	'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-xs font-medium',
 	{
 		variants: {
 			selected: {
@@ -27,30 +23,17 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	selected: boolean;
 	index: number;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-function FileItem({
-	data,
-	selected,
-	index,
-	setShowEncryptDialog,
-	setShowDecryptDialog,
-	setAlertDialogData,
-	...rest
-}: Props) {
-	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isVid = isVideoExt(data.extension || '');
+function FileItem({ data, selected, index, ...rest }: Props) {
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
+	const item = data.item;
+
+	const explorerStore = useExplorerStore();
 
 	return (
-		<FileItemContextMenu
-			item={data}
-			setShowEncryptDialog={setShowEncryptDialog}
-			setShowDecryptDialog={setShowDecryptDialog}
-			setAlertDialogData={setAlertDialogData}
-		>
+		<ExplorerItemContextMenu data={data}>
 			<div
 				onContextMenu={(e) => {
 					if (index != undefined) {
@@ -59,49 +42,31 @@ function FileItem({
 				}}
 				{...rest}
 				draggable
-				className={clsx('inline-block w-[100px] mb-3', rest.className)}
+				style={{ width: explorerStore.gridItemSize }}
+				className={clsx('mb-3 inline-block', rest.className)}
 			>
 				<div
 					style={{
-						width: getExplorerStore().gridItemSize,
-						height: getExplorerStore().gridItemSize
+						width: explorerStore.gridItemSize,
+						height: explorerStore.gridItemSize
 					}}
 					className={clsx(
-						'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
+						'mb-1 rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
 						{
-							'bg-app-selected/30': selected
+							'bg-app-selected/20': selected
 						}
 					)}
 				>
-					<div
-						className={clsx(
-							'flex relative items-center justify-center h-full p-1 rounded border-transparent border-2 shrink-0'
-						)}
-					>
-						<FileThumb
-							className={clsx(
-								'border-2 border-app-line rounded-sm shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
-								isVid && '!border-black rounded border-x-0 border-y-[7px]'
-							)}
-							data={data}
-							kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
-							size={getExplorerStore().gridItemSize}
-						/>
-						{data?.extension && isVid && (
-							<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
-								{data.extension}
-							</div>
-						)}
-					</div>
+					<FileThumb data={data} size={explorerStore.gridItemSize} />
 				</div>
 				<NameArea>
 					<span className={nameContainerStyles({ selected })}>
-						{data?.name}
-						{data?.extension && `.${data.extension}`}
+						{item.name}
+						{item.extension && `.${item.extension}`}
 					</span>
 				</NameArea>
 			</div>
-		</FileItemContextMenu>
+		</ExplorerItemContextMenu>
 	);
 }
 

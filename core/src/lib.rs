@@ -4,21 +4,22 @@ use library::LibraryManager;
 use location::{LocationManager, LocationManagerError};
 use node::NodeConfigManager;
 use sd_sync::CRDTOperation;
+use util::secure_temp_keystore::SecureTempKeystore;
 use uuid::Uuid;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{
-	fs::{self, File},
-	io::AsyncReadExt,
+	fs,
 	sync::{broadcast, mpsc},
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 use crate::p2p::P2PManager;
 
 pub mod api;
+pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
@@ -47,6 +48,7 @@ pub struct Node {
 	jobs: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 #[cfg(not(feature = "android"))]
@@ -62,13 +64,9 @@ const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
-		#[cfg(debug_assertions)]
-		let data_dir = data_dir.join("dev");
 
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
-
-		// dbg!(get_object_kind_from_extension("png"));
 
 		// let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
 		// 	Path::new(&data_dir).join("logs"),
@@ -81,6 +79,11 @@ impl Node {
 				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
 				.add_directive(
 					"sd_core=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"sd_core::location::manager=info"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
@@ -128,6 +131,7 @@ impl Node {
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
 		let (p2p_tx, p2p_rx) = mpsc::channel(1024);
+		let secure_temp_keystore = SecureTempKeystore::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -162,6 +166,8 @@ impl Node {
 			}
 		}
 
+		debug!("Watching locations");
+
 		// Trying to resume possible paused jobs
 		let inner_library_manager = Arc::clone(&library_manager);
 		let inner_jobs = Arc::clone(&jobs);
@@ -180,6 +186,7 @@ impl Node {
 			jobs,
 			event_bus,
 			p2p,
+			secure_temp_keystore,
 		};
 
 		info!("Spacedrive online.");
@@ -193,50 +200,7 @@ impl Node {
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
 			p2p_manager: self.p2p.clone(),
-		}
-	}
-
-	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
-	pub async fn handle_custom_uri(
-		&self,
-		path: Vec<&str>,
-	) -> (
-		u16,     /* Status Code */
-		&str,    /* Content-Type */
-		Vec<u8>, /* Body */
-	) {
-		match path.first().copied() {
-			Some("thumbnail") => {
-				if path.len() != 2 {
-					return (
-						400,
-						"text/html",
-						b"Bad Request: Invalid number of parameters".to_vec(),
-					);
-				}
-
-				let filename = Path::new(&self.config.data_directory())
-					.join("thumbnails")
-					.join(path[1] /* file_cas_id */)
-					.with_extension("webp");
-				match File::open(&filename).await {
-					Ok(mut file) => {
-						let mut buf = match fs::metadata(&filename).await {
-							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
-							Err(_) => Vec::new(),
-						};
-
-						file.read_to_end(&mut buf).await.unwrap();
-						(200, "image/webp", buf)
-					}
-					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
-				}
-			}
-			_ => (
-				400,
-				"text/html",
-				b"Bad Request: Invalid operation!".to_vec(),
-			),
+			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}
 	}
 

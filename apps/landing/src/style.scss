@@ -97,7 +97,7 @@ html {
 }
 
 .bloom {
-	@apply absolute w-[1200px] h-[1200px] -mt-[320px];
+	@apply absolute -mt-[320px] h-[1200px] w-[1200px];
 	will-change: opacity;
 	opacity: 0;
 	will-change: filter opacity;
@@ -126,7 +126,7 @@ html {
 		animation-delay: 0ms;
 	}
 	&.bloom-three {
-		@apply left-auto right-auto invisible md:visible -mt-[250px] ml-24;
+		@apply invisible left-auto right-auto -mt-[250px] ml-24 md:visible;
 		background: url('/bloom-three.png') no-repeat center center;
 		background-size: contain;
 		animation-delay: 800ms;
@@ -169,7 +169,7 @@ html {
 }
 
 .slot-block {
-	@apply bg-app-box py-3 px-4 border-l-4 border-app-line rounded mb-2;
+	@apply bg-app-box border-app-line mb-2 rounded border-l-4 py-3 px-4;
 }
 .slot-block.note {
 	@apply border-yellow-400 bg-yellow-300/20;
@@ -181,7 +181,7 @@ html {
 	@apply border-red-400 bg-red-400/20;
 }
 .slot-block-title {
-	@apply text-white font-bold text-sm m-0 uppercase;
+	@apply m-0 text-sm font-bold uppercase text-white;
 }
 .slot-block-content {
 	@apply my-1 mx-0 mb-0 text-white;
@@ -234,9 +234,9 @@ html {
 		width: 7px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
+		@apply my-[10px] rounded-[6px] bg-[#00000006] dark:bg-[#00000030];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-selected
+		@apply bg-app-selected rounded-[6px];
 	}
 }

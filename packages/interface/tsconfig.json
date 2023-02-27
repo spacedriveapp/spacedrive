@@ -4,18 +4,12 @@
 		"rootDir": "src",
 		"declarationDir": "dist",
 		"paths": {
-			"~/*": [
-				"./src/*"
-			]
+			"~/*": ["./src/*"]
 		},
-		"types": [
-			"vite-plugin-svgr/client",
-			"vite/client"
-		]
+		"types": ["vite-plugin-svgr/client", "vite/client"]
 	},
-	"include": [
-		"src"
-	],
+	"include": ["src"],
+	"exclude": ["dist"],
 	"references": [
 		{
 			"path": "../ui"

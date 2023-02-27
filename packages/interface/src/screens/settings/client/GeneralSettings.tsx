@@ -1,7 +1,6 @@
+import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
-import { Database } from 'phosphor-react';
-
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
@@ -22,16 +21,16 @@ export default function GeneralSettings() {
 				description="General settings related to this client."
 			/>
 			<Card className="px-5">
-				<div className="flex flex-col w-full my-2">
+				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
 						<span className="font-semibold">Connected Node</span>
 						<div className="flex flex-row space-x-1">
 							<NodePill>0 Peers</NodePill>
-							<NodePill className="text-white !bg-accent">Running</NodePill>
+							<NodePill className="!bg-accent text-white">Running</NodePill>
 						</div>
 					</div>
 
-					<hr className="mt-2 mb-4 border-app-line" />
+					<hr className="border-app-line mt-2 mb-4" />
 					<div className="grid grid-cols-3 gap-2">
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
@@ -42,9 +41,9 @@ export default function GeneralSettings() {
 							<Input contentEditable={false} value={node?.p2p_port || 5795} />
 						</div>
 					</div>
-					<div className="flex items-center mt-5 space-x-3">
+					<div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />
-						<span className="text-sm font-medium text-ink-dull">Run daemon when app closed</span>
+						<span className="text-ink-dull text-sm font-medium">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">
 						<div
@@ -53,10 +52,10 @@ export default function GeneralSettings() {
 									platform.openLink(node.data_path);
 								}
 							}}
-							className="text-sm font-medium text-ink-faint"
+							className="text-ink-faint text-sm font-medium"
 						>
-							<b className="inline mr-2 truncate">
-								<Database className="inline w-4 h-4 mr-1 -mt-[2px]" /> Data Folder
+							<b className="mr-2 inline truncate">
+								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder
 							</b>
 							<span className="select-text">{node?.data_path}</span>
 						</div>

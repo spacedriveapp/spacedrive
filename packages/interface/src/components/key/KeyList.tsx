@@ -1,7 +1,6 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, SelectOption } from '@sd/ui';
-import { useMemo } from 'react';
-
+import { useMemo, useRef } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, SelectOption } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { DummyKey, Key } from './Key';
 
@@ -18,10 +17,13 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => (
 		))}
 	</>
 );
+
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
+
+	const mountingQueue = useRef(new Set<string>());
 
 	const [mountedKeys, unmountedKeys] = useMemo(
 		() => [
@@ -45,6 +47,7 @@ export const ListOfKeys = () => {
 						data={{
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
+							queue: mountingQueue.current,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid,
 							memoryOnly: key.memory_only,
@@ -62,8 +65,8 @@ export const KeyList = (props: KeyListProps) => {
 	const unmountAll = useLibraryMutation(['keys.unmountAll']);
 
 	return (
-		<div className="flex flex-col h-full max-h-[360px]">
-			<div className="p-3 custom-scroll overlay-scroll">
+		<div className="flex h-full max-h-[360px] flex-col">
+			<div className="custom-scroll overlay-scroll p-3">
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
@@ -71,7 +74,7 @@ export const KeyList = (props: KeyListProps) => {
 					</div>
 				</div>
 			</div>
-			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
+			<div className="border-app-line flex w-full rounded-b-md border-t p-2">
 				<Button
 					size="sm"
 					variant="gray"
@@ -81,7 +84,7 @@ export const KeyList = (props: KeyListProps) => {
 				>
 					Unmount All
 				</Button>
-				<div className="flex-grow" />
+				<div className="grow" />
 				<Button size="sm" variant="gray">
 					Close
 				</Button>

@@ -16,10 +16,10 @@
 
 # frontend apps (Rust bridges and tech functionality -- no real visual implications)
 /apps/desktop/ @jamiepine @Brendonovich @oscartbeaumont
-/apps/web/ @jamiepine @maxichrome
+/apps/web/ @jamiepine
 
 # mobile
-/apps/mobile/ @jamiepine @Brendonovich @oscartbeaumont @utkubakir
+/apps/mobile/ @spacedriveapp/mobile
 
 # core logic
 /core/ @jamiepine @Brendonovich @oscartbeaumont @fogodev
@@ -29,20 +29,19 @@
 /apps/server/ @oscartbeaumont
 
 # landing site
-/apps/landing/ @jamiepine @maxichrome
+/apps/landing/ @spacedriveapp/frontend
 
 # UI
-/packages/interface/ @jamiepine @maxichrome @utkubakir
-/packages/ui/ @jamiepine @maxichrome
-/packages/assets/ @jamiepine @utkubakir
+/packages/interface/ @spacedriveapp/frontend @utkubakir
+/packages/ui/ @spacedriveapp/frontend
+/packages/assets/ @spacedriveapp/frontend @utkubakir
 
 # base config files
 /* @jamiepine
 
 # workspace settings
-/.vscode/.todo @jamiepine
 /.vscode/settings.json @jamiepine
-/.github/* @jamiepine @Brendonovich @maxichrome @oscartbeaumont
+/.github/* @jamiepine @Brendonovich @oscartbeaumont
 
 # CI
 /.github/actions/ @Brendonovich @oscartbeaumont

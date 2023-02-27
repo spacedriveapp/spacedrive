@@ -68,7 +68,9 @@ where
 	where
 		TConnFn: AsyncFn2<Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
 	{
-		(!application_name.chars().all(char::is_alphanumeric))
+		application_name
+			.chars()
+			.all(char::is_alphanumeric)
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 

@@ -10,6 +10,7 @@ use libp2p::{
 	swarm::{
 		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
 		ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters,
+		THandlerInEvent,
 	},
 	Multiaddr,
 };
@@ -57,7 +58,7 @@ where
 	state: Arc<SpaceTimeState<TMetadata, TConnFn>>,
 	fn_on_event: Arc<TEventFn>, // TODO: Should be able to remove arc???? Closure may need clone but it would be two clones on startup so fine.
 	pending_events: VecDeque<
-		NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, Handler<TMetadata, TConnFn>>,
+		NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, THandlerInEvent<Self>>,
 	>,
 	connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
 	addresses: HashMap<PeerId, SmallVec<[Multiaddr; 6]>>,
@@ -160,7 +161,7 @@ where
 				.push_back(NetworkBehaviourAction::NotifyHandler {
 					peer_id: peer_id.0.clone(),
 					handler: NotifyHandler::One(conns.first().unwrap().id), // TODO: Error handling
-					event: data.clone(),
+					event: todo!(),                                         // data.clone(), // TODO: Fix this
 				});
 		}
 	}
@@ -375,7 +376,7 @@ where
 		&mut self,
 		_: &mut Context<'_>,
 		_: &mut impl PollParameters,
-	) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+	) -> Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
 		// TODO
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(ev);

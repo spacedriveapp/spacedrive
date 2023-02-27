@@ -7,7 +7,10 @@ use rspc::{Config, Type};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{job::JobManager, library::LibraryManager, node::NodeConfigManager, p2p::P2PManager};
+use crate::{
+	job::JobManager, library::LibraryManager, node::NodeConfigManager, p2p::P2PManager,
+	util::secure_temp_keystore::SecureTempKeystore,
+};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -29,6 +32,7 @@ pub struct Ctx {
 	pub jobs: Arc<JobManager>,
 	pub event_bus: broadcast::Sender<CoreEvent>,
 	pub p2p_manager: Arc<P2PManager>,
+	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 mod files;
@@ -36,7 +40,7 @@ mod jobs;
 mod keys;
 mod libraries;
 mod locations;
-mod normi;
+mod nodes;
 mod p2p;
 mod tags;
 pub mod utils;
@@ -85,15 +89,14 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
-		.merge("normi.", normi::mount())
-		.merge("library.", libraries::mount())
-		.merge("volumes.", volumes::mount())
-		.merge("tags.", tags::mount())
-		.merge("keys.", keys::mount())
-		.merge("locations.", locations::mount())
-		.merge("files.", files::mount())
-		.merge("jobs.", jobs::mount())
-		.merge("p2p.", p2p::mount())
+		.yolo_merge("library.", libraries::mount())
+		.yolo_merge("volumes.", volumes::mount())
+		.yolo_merge("tags.", tags::mount())
+		.yolo_merge("keys.", keys::mount())
+		.yolo_merge("locations.", locations::mount())
+		.yolo_merge("files.", files::mount())
+		.yolo_merge("jobs.", jobs::mount())
+		.yolo_merge("p2p.", p2p::mount())
 		// TODO: Scope the invalidate queries to a specific library (filtered server side)
 		.subscription("invalidateQuery", |t| {
 			t(|ctx, _: ()| {

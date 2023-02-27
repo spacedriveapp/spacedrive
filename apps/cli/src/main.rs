@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use indoc::printdoc;
 use sd_crypto::header::file::FileHeader;
-use std::{fs::File, path::PathBuf};
+use std::path::PathBuf;
+use tokio::fs::File;
 
 #[derive(Parser)]
 struct Args {
@@ -10,17 +11,18 @@ struct Args {
 	path: PathBuf,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
 	let args = Args::parse();
 
-	let mut reader = File::open(args.path).context("unable to open file")?;
-	let (header, aad) = FileHeader::from_reader(&mut reader)?;
-	print_details(&header, &aad);
+	let mut reader = File::open(args.path).await.context("unable to open file")?;
+	let (header, aad) = FileHeader::from_reader(&mut reader).await?;
+	print_crypto_details(&header, &aad);
 
 	Ok(())
 }
 
-fn print_details(header: &FileHeader, aad: &[u8]) {
+fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
 	printdoc! {"
         Header version: {version}
         Encryption algorithm: {algorithm}
@@ -45,9 +47,9 @@ fn print_details(header: &FileHeader, aad: &[u8]) {
 			version = k.version,
 			algorithm = k.algorithm,
 			hashing_algorithm = k.hashing_algorithm,
-			salt = hex::encode(k.salt),
-			master = hex::encode(k.master_key),
-			nonce = hex::encode(k.nonce.clone())
+			salt = hex::encode(&*k.salt),
+			master = hex::encode(&*k.master_key),
+			nonce = hex::encode(k.nonce)
 		};
 	});
 
@@ -62,7 +64,7 @@ fn print_details(header: &FileHeader, aad: &[u8]) {
 			version = m.version,
 			algorithm = m.algorithm,
 			size = m.metadata.len(),
-			nonce = hex::encode(m.metadata_nonce.clone())
+			nonce = hex::encode(m.metadata_nonce)
 		}
 	});
 
@@ -77,7 +79,7 @@ fn print_details(header: &FileHeader, aad: &[u8]) {
 			version = p.version,
 			algorithm = p.algorithm,
 			size = p.media.len(),
-			nonce = hex::encode(p.media_nonce.clone())
+			nonce = hex::encode(p.media_nonce)
 		};
 	});
 }

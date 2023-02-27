@@ -1,6 +1,6 @@
 use std::{
 	fs::File,
-	io::{BufReader, Seek, SeekFrom},
+	io::{BufReader, Seek},
 	path::PathBuf,
 };
 
@@ -38,7 +38,7 @@ impl LibraryConfig {
 
 		Self::migrate_config(base_config.version, file_dir)?;
 
-		file.seek(SeekFrom::Start(0))?;
+		file.rewind()?;
 		Ok(serde_json::from_reader(BufReader::new(&mut file))?)
 	}
 

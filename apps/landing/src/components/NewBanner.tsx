@@ -10,13 +10,13 @@ const NewBanner: React.FC<NewBannerProps> = (props) => {
 	return (
 		<aside
 			onClick={() => (window.location.href = href)}
-			className="z-10 text-xs w-10/12 cursor-pointer sm:w-auto sm:text-base fade-in-whats-new px-5 py-1.5 bg-opacity-50 mb-5 flex flex-row bg-gray-800 hover:bg-gray-750 border border-gray-600 hover:border-gray-550 rounded-full transition"
+			className="fade-in-whats-new hover:border-gray-550 hover:bg-gray-750 z-10 mb-5 flex w-10/12 cursor-pointer flex-row rounded-full border border-gray-600 bg-gray-800/50 px-5 py-1.5 text-xs transition sm:w-auto sm:text-base"
 		>
-			<strong className="font-semibold truncate text-gray-350">{headline}</strong>
-			<div role="separator" className="w-[1px] mx-4 h-22 bg-gray-500" />
+			<strong className="text-gray-350 truncate font-semibold">{headline}</strong>
+			<div role="separator" className="h-22 mx-4 w-[1px] bg-gray-500" />
 			<a
 				href={href}
-				className="flex-shrink-0 text-transparent font-regular bg-clip-text bg-gradient-to-r from-primary-400 to-blue-600 decoration-primary-600"
+				className="font-regular from-primary-400 decoration-primary-600 shrink-0 bg-gradient-to-r to-blue-600 bg-clip-text text-transparent"
 			>
 				{link} <span aria-hidden="true">&rarr;</span>
 			</a>

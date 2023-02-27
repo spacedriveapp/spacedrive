@@ -1,7 +1,9 @@
+use sd_crypto::primitives::types::{Password, SecretKeyString};
+use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 use std::{path::PathBuf, str::FromStr};
 use tokio::fs::File;
 
-use sd_crypto::keys::keymanager::StoredKey;
+use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 use serde::Deserialize;
 use specta::Type;
@@ -17,28 +19,27 @@ use super::{utils::LibraryRequest, RouterBuilder};
 pub struct KeyAddArgs {
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
-	key: String,
+	key: Protected<String>,
 	library_sync: bool,
 	automount: bool,
 }
 
 #[derive(Type, Deserialize)]
-pub struct SetMasterPasswordArgs {
-	password: String,
-	secret_key: Option<String>,
+pub struct UnlockKeyManagerArgs {
+	password: Protected<String>,
+	secret_key: Protected<String>,
 }
 
 #[derive(Type, Deserialize)]
 pub struct RestoreBackupArgs {
-	password: String,
-	secret_key: Option<String>,
+	password: Protected<String>,
+	secret_key: Protected<String>,
 	path: PathBuf,
 }
 
 #[derive(Type, Deserialize)]
 pub struct MasterPasswordChangeArgs {
-	password: String,
-	secret_key: Option<String>,
+	password: Protected<String>,
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
 }
@@ -55,8 +56,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
 		})
 		// do not unlock the key manager until this route returns true
-		.library_query("hasMasterPassword", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.has_master_password()?) })
+		.library_query("isUnlocked", |t| {
+			t(|_, _: (), library| async move { Ok(library.key_manager.is_unlocked().await) })
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
@@ -64,17 +65,41 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.get_key(key_uuid)?;
-
-				Ok(String::from_utf8(key.into_inner()).map_err(Error::StringParse)?)
+				Ok(library
+					.key_manager
+					.get_key(key_uuid)
+					.await?
+					.expose()
+					.clone())
 			})
 		})
 		.library_mutation("mount", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				library.key_manager.mount(key_uuid)?;
+				library.key_manager.mount(key_uuid).await?;
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
+			})
+		})
+		.library_query("getSecretKey", |t| {
+			t(|_, _: (), library| async move {
+				if library
+					.key_manager
+					.keyring_contains_valid_secret_key(library.id)
+					.await
+					.is_ok()
+				{
+					Ok(Some(
+						library
+							.key_manager
+							.keyring_retrieve(library.id, SECRET_KEY_IDENTIFIER.to_string())
+							.await?
+							.expose()
+							.clone(),
+					))
+				} else {
+					Ok(None)
+				}
 			})
 		})
 		.library_mutation("unmount", |t| {
@@ -88,15 +113,15 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
 				// This technically clears the root key, but it means the same thing to the frontend
-				library.key_manager.clear_root_key()?;
+				library.key_manager.clear_root_key().await?;
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+				invalidate_query!(library, "keys.isUnlocked");
 				Ok(())
 			})
 		})
 		.library_mutation("syncKeyToLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.sync_to_database(key_uuid)?;
+				let key = library.key_manager.sync_to_database(key_uuid).await?;
 
 				// does not check that the key doesn't exist before writing
 				write_storedkey_to_db(&library.db, &key).await?;
@@ -107,10 +132,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("updateAutomountStatus", |t| {
 			t(|_, args: AutomountUpdateArgs, library| async move {
-				if !library.key_manager.is_memory_only(args.uuid)? {
+				if !library.key_manager.is_memory_only(args.uuid).await? {
 					library
 						.key_manager
-						.change_automount_status(args.uuid, args.status)?;
+						.change_automount_status(args.uuid, args.status)
+						.await?;
 
 					library
 						.db
@@ -130,7 +156,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				if !library.key_manager.is_memory_only(key_uuid)? {
+				if !library.key_manager.is_memory_only(key_uuid).await? {
 					library
 						.db
 						.key()
@@ -139,7 +165,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						.await?;
 				}
 
-				library.key_manager.remove_key(key_uuid)?;
+				library.key_manager.remove_key(key_uuid).await?;
 
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
@@ -148,15 +174,21 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_mutation("setMasterPassword", |t| {
-			t(|_, args: SetMasterPasswordArgs, library| async move {
-				// if this returns an error, the user MUST re-enter the correct password
-				library.key_manager.set_master_password(
-					Protected::new(args.password),
-					args.secret_key.map(Protected::new),
-				)?;
+		.library_mutation("unlockKeyManager", |t| {
+			t(|_, args: UnlockKeyManagerArgs, library| async move {
+				let secret_key = (!args.secret_key.expose().is_empty()).then_some(args.secret_key);
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+				library
+					.key_manager
+					.unlock(
+						Password(args.password),
+						secret_key.map(SecretKeyString),
+						library.id,
+						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
+					)
+					.await?;
+
+				invalidate_query!(library, "keys.isUnlocked");
 
 				let automount = library
 					.db
@@ -168,7 +200,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)?;
+						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)
+						.await?;
 
 					invalidate_query!(library, "keys.listMounted");
 				}
@@ -178,7 +211,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("setDefault", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				library.key_manager.set_default(key_uuid)?;
+				library.key_manager.set_default(key_uuid).await?;
 
 				library
 					.db
@@ -205,7 +238,10 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_query("getDefault", |t| {
-			t(|_, _: (), library| async move { library.key_manager.get_default().ok() })
+			t(|_, _: (), library| async move { library.key_manager.get_default().await.ok() })
+		})
+		.library_query("isKeyManagerUnlocking", |t| {
+			t(|_, _: (), library| async move { library.key_manager.is_unlocking().await.ok() })
 		})
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
@@ -218,18 +254,24 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
 				// register the key with the keymanager
-				let uuid = library.key_manager.add_to_keystore(
-					Protected::new(args.key.as_bytes().to_vec()),
-					args.algorithm,
-					args.hashing_algorithm,
-					!args.library_sync,
-					args.automount,
-					None,
-				)?;
+				let uuid = library
+					.key_manager
+					.add_to_keystore(
+						Password(args.key),
+						args.algorithm,
+						args.hashing_algorithm,
+						!args.library_sync,
+						args.automount,
+						None,
+					)
+					.await?;
 
 				if args.library_sync {
-					write_storedkey_to_db(&library.db, &library.key_manager.access_keystore(uuid)?)
-						.await?;
+					write_storedkey_to_db(
+						&library.db,
+						&library.key_manager.access_keystore(uuid).await?,
+					)
+					.await?;
 
 					if args.automount {
 						library
@@ -244,8 +286,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 				}
 
-				// mount the key
-				library.key_manager.mount(uuid)?;
+				library.key_manager.mount(uuid).await?;
 
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
@@ -258,7 +299,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut stored_keys = library.key_manager.dump_keystore();
 
 				// include the verification key at the time of backup
-				stored_keys.push(library.key_manager.get_verification_key()?);
+				stored_keys.push(library.key_manager.get_verification_key().await?);
 
 				// exclude all memory-only keys
 				stored_keys.retain(|k| !k.memory_only);
@@ -285,13 +326,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				let stored_keys: Vec<StoredKey> =
 					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
 
-				let secret_key = args.secret_key.map(Protected::new);
-
-				let updated_keys = library.key_manager.import_keystore_backup(
-					Protected::new(args.password),
-					secret_key,
-					&stored_keys,
-				)?;
+				let updated_keys = library
+					.key_manager
+					.import_keystore_backup(
+						args.password,
+						SecretKeyString(args.secret_key),
+						&stored_keys,
+					)
+					.await?;
 
 				for key in &updated_keys {
 					write_storedkey_to_db(&library.db, key).await?;
@@ -300,25 +342,30 @@ pub(crate) fn mount() -> RouterBuilder {
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
 
-				Ok(updated_keys.len())
+				Ok(TryInto::<u32>::try_into(updated_keys.len()).unwrap()) // We convert from `usize` (bigint type) to `u32` (number type) because rspc doesn't support bigints.
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				let secret_key = args.secret_key.map(Protected::new);
+				let verification_key = library
+					.key_manager
+					.change_master_password(
+						args.password,
+						args.algorithm,
+						args.hashing_algorithm,
+						library.id,
+					)
+					.await?;
 
-				let verification_key = library.key_manager.change_master_password(
-					Protected::new(args.password),
-					args.algorithm,
-					args.hashing_algorithm,
-					secret_key,
-				)?;
+				invalidate_query!(library, "keys.getSecretKey");
 
-				// remove old nil-id keys if they were set
+				// remove old root key if present
 				library
 					.db
 					.key()
-					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
+					.delete_many(vec![key::key_type::equals(
+						serde_json::to_string(&StoredKeyType::Root).unwrap(),
+					)])
 					.exec()
 					.await?;
 

@@ -1,7 +1,6 @@
-import { Button } from '@sd/ui';
 import { SmileyXEyes } from 'phosphor-react';
 import { Helmet } from 'react-helmet';
-
+import { Button } from '@sd/ui';
 import Markdown from '../components/Markdown';
 import { getWindow } from '../utils';
 
@@ -14,9 +13,9 @@ function Page({ is404 }: { is404: boolean }) {
 				<Helmet>
 					<title>Not Found - Spacedrive</title>
 				</Helmet>
-				<div className="flex flex-col items-center m-auto ">
+				<div className="m-auto flex flex-col items-center ">
 					<div className="h-32" />
-					<SmileyXEyes className="mb-3 w-44 h-44" />
+					<SmileyXEyes className="mb-3 h-44 w-44" />
 					<h1 className="mb-2 text-center">In the quantum realm this page potentially exists.</h1>
 					<p>In other words, thats a 404.</p>
 					<div className="flex flex-wrap justify-center">

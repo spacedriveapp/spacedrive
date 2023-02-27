@@ -24,10 +24,10 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 				<div className="relative w-full">
 					<ListboxPrimitive.Button
 						className={clsx(
-							`relative w-full py-2 pl-3 pr-10 text-left bg-white dark:bg-gray-500 
-								rounded-lg shadow-md cursor-default focus:outline-none focus-visible:ring-2 
-								focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 
-								focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm`,
+							`relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 
+								text-left shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 
+								focus-visible:ring-white/75 focus-visible:ring-offset-2 
+								focus-visible:ring-offset-orange-300 dark:bg-gray-500 sm:text-sm`,
 							props.className
 						)}
 					>
@@ -37,26 +37,24 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 							<span className="block truncate opacity-70">Nothing selected...</span>
 						)}
 
-						<span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-							<Sun className="w-5 h-5 text-gray-400" aria-hidden="true" />
+						<span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+							<Sun className="h-5 w-5 text-gray-400" aria-hidden="true" />
 						</span>
 					</ListboxPrimitive.Button>
 
 					<ListboxPrimitive.Options
 						className={`
-							absolute w-full mt-1 overflow-auto rounded-md sm:text-sm
-							text-base bg-white dark:bg-gray-500 shadow-lg max-h-60 
-							ring-1 ring-black ring-opacity-5 focus:outline-none
+							absolute mt-1 max-h-60 w-full overflow-auto
+							rounded-md bg-white text-base shadow-lg ring-1 
+							ring-black/5 focus:outline-none dark:bg-gray-500 sm:text-sm
 						`}
 					>
 						{props.options.map((option, index) => (
 							<ListboxPrimitive.Option
 								key={option.key}
 								className={({ active }) =>
-									`cursor-default select-none relative rounded m-1 py-2 pl-8 pr-4 dark:text-white focus:outline-none  ${
-										active
-											? 'text-accent bg-accent'
-											: 'text-gray-900 dark:hover:bg-gray-600 dark:hover:bg-opacity-20'
+									`relative m-1 cursor-default select-none rounded py-2 pl-8 pr-4 focus:outline-none dark:text-white  ${
+										active ? 'text-accent bg-accent' : 'text-gray-900 dark:hover:bg-gray-600/20'
 									}`
 								}
 								value={option}
@@ -68,7 +66,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 											{option.description && (
 												<span
 													className={clsx(
-														'text-gray-300 leading-5 ml-3 text-xs',
+														'ml-3 text-xs leading-5 text-gray-300',
 														selected && 'text-white'
 													)}
 												>
@@ -79,7 +77,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 
 										{selected ? (
 											<span className="absolute inset-y-0 left-0 flex items-center pl-2 text-white">
-												<Check className="w-5 h-5" aria-hidden="true" />
+												<Check className="h-5 w-5" aria-hidden="true" />
 											</span>
 										) : null}
 									</>

@@ -15,7 +15,7 @@ import {
 import React from 'react';
 import { SectionList, Text, View } from 'react-native';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
-import tw from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 type SectionType = {
@@ -108,8 +108,8 @@ const sections: SectionType[] = [
 function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
-			style={tw.style(
-				'mb-2 ml-2 text-sm font-semibold text-ink-dull',
+			style={twStyle(
+				'text-ink-dull mb-2 ml-3 text-sm font-semibold',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>
@@ -134,9 +134,9 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				)}
 				renderSectionHeader={renderSectionHeader}
 				ListFooterComponent={
-					<View style={tw`items-center mt-6 mb-4`}>
-						<Text style={tw`text-sm font-bold text-ink`}>Spacedrive</Text>
-						<Text style={tw`text-ink-dull text-xs mt-0.5`}>v0.1.0</Text>
+					<View style={tw`mt-6 mb-4 items-center`}>
+						<Text style={tw`text-ink text-sm font-bold`}>Spacedrive</Text>
+						<Text style={tw`text-ink-faint mt-0.5 text-xs`}>v0.1.0</Text>
 					</View>
 				}
 				showsVerticalScrollIndicator={false}

@@ -1,6 +1,6 @@
-import { onLibraryChange } from '@sd/client';
+import { useEffect } from 'react';
 import { proxy, useSnapshot } from 'valtio';
-
+import { useLibraryContext } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'columns' | 'media';
@@ -11,6 +11,8 @@ export enum ExplorerKind {
 	Space
 }
 
+export type CutCopyType = 'Cut' | 'Copy';
+
 const state = {
 	locationId: null as number | null,
 	layoutMode: 'grid' as ExplorerLayoutMode,
@@ -18,14 +20,18 @@ const state = {
 	listItemSize: 40,
 	selectedRowIndex: 1,
 	tagAssignMode: false,
-	showInspector: true,
+	showInspector: false,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
-	newThumbnails: {} as Record<string, boolean>
+	newThumbnails: {} as Record<string, boolean>,
+	cutCopyState: {
+		sourceLocationId: 0,
+		sourcePathId: 0,
+		actionType: 'Cut',
+		active: false
+	}
 };
-
-onLibraryChange(() => getExplorerStore().reset());
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
 const explorerStore = proxy({
@@ -46,6 +52,12 @@ const explorerStore = proxy({
 });
 
 export function useExplorerStore() {
+	// const { library } = useLibraryContext();
+
+	// useEffect(() => {
+	// 	explorerStore.reset();
+	// }, [library.uuid]);
+
 	return useSnapshot(explorerStore);
 }
 
