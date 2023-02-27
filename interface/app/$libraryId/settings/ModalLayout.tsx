@@ -2,7 +2,6 @@ import { CaretDown } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Divider, tw } from '@sd/ui';
-import DragRegion from '~/components/DragRegion';
 
 interface Props extends PropsWithChildren {
 	title: string;

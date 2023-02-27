@@ -1,5 +1,6 @@
 import { Integrations, init } from '@sentry/browser';
 import { defaultContext } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -7,7 +8,7 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter } from 'react-router-dom';
-import { QueryClientProvider, queryClient, useDebugState } from '@sd/client';
+import { queryClient, useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
 import App from './app';
@@ -45,7 +46,7 @@ const Devtools = () => {
 
 export const SpacedriveInterface = () => (
 	<ErrorBoundary FallbackComponent={ErrorFallback}>
-		<QueryClientProvider client={queryClient} contextSharing={true}>
+		<QueryClientProvider client={queryClient}>
 			<Devtools />
 			<MemoryRouter>
 				<App />

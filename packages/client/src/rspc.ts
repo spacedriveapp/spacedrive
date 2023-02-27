@@ -73,8 +73,6 @@ const libraryHooks = hooks.createHooks<
 export const queryClient = new QueryClient();
 export const rspc = hooks.createHooks<Procedures>();
 
-export { QueryClientProvider } from '@tanstack/react-query';
-
 export const useBridgeQuery = nonLibraryHooks.useQuery;
 export const useBridgeMutation = nonLibraryHooks.useMutation;
 export const useBridgeSubscription = nonLibraryHooks.useSubscription;

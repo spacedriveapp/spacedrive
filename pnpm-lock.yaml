@@ -382,7 +382,6 @@ importers:
       '@splinetool/react-spline': ^2.2.3
       '@splinetool/runtime': ^0.9.128
       '@tailwindcss/forms': ^0.5.3
-      '@tanstack/react-query': ^4.12.0
       '@tanstack/react-query-devtools': ^4.22.0
       '@tanstack/react-virtual': 3.0.0-beta.18
       '@types/babel-core': ^6.25.7
@@ -438,8 +437,7 @@ importers:
       '@splinetool/react-spline': 2.2.5_3ok4u2chf7465ntwlp4i32bwcu
       '@splinetool/runtime': 0.9.191
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
-      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
-      '@tanstack/react-query-devtools': 4.22.0_pkeil6ml7pq7xvil3imldjs2sa
+      '@tanstack/react-query-devtools': 4.22.0_biqbaboplfbrettd7655fr4n2y
       '@tanstack/react-virtual': 3.0.0-beta.18_react@18.2.0
       '@vitejs/plugin-react': 2.2.0_vite@4.0.4
       '@zxcvbn-ts/core': 2.1.0
@@ -7591,7 +7589,7 @@ packages:
     resolution: {integrity: sha512-9dqjv9eeB6VHN7lD3cLo16ZAjfjCsdXetSAD5+VyKqLUvcKTL0CklGQRJu+bWzdrS69R6Ea4UZo8obHYZnG6aA==}
     dev: false
 
-  /@tanstack/react-query-devtools/4.22.0_pkeil6ml7pq7xvil3imldjs2sa:
+  /@tanstack/react-query-devtools/4.22.0_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-YeYFBnfqvb+ZlA0IiJqiHNNSzepNhI1p2o9i8NlhQli9+Zrn230M47OBaBUs8qr3DD1dC2zGB1Dis50Ktz8gAA==}
     peerDependencies:
       '@tanstack/react-query': 4.22.0
@@ -7599,7 +7597,6 @@ packages:
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
       '@tanstack/match-sorter-utils': 8.7.6
-      '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       superjson: 1.12.2
@@ -7638,24 +7635,6 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
-
-  /@tanstack/react-query/4.24.4_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@tanstack/query-core': 4.24.4
-      react: 18.2.0
-      react-dom: 18.2.0_react@18.2.0
-      use-sync-external-store: 1.2.0_react@18.2.0
-    dev: false
 
   /@tanstack/react-query/4.24.4_tj3nonr5gneraukzjkxpsiy7yu:
     resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
