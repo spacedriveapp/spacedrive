@@ -6,12 +6,13 @@ import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
 import { getDebugState, hooks } from '@sd/client';
-import SpacedriveInterface, {
+import {
 	ErrorPage,
 	KeybindEvent,
 	OperatingSystem,
 	Platform,
-	PlatformProvider
+	PlatformProvider,
+	SpacedriveInterface
 } from '@sd/interface';
 import '@sd/ui/style';
 
