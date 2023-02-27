@@ -37,6 +37,8 @@ async function render(pageContext: PageContextBuiltIn & PageContext) {
 	    </head>
 	      <body id="outer-container" ${dangerouslySkipEscape(helmet.bodyAttributes.toString())}>
 	        <main id="page-view" class="overflow-hidden">${dangerouslySkipEscape(pageHtml)}</main>
+
+			<script defer data-domain="spacedrive.com" src="https://plausible.io/js/script.js"></script>
 	      </body>
 	    </html>
 		`;
