@@ -7,7 +7,7 @@
 	"include": ["src", "src/demoData.json"],
 	"references": [
 		{
-			"path": "../../packages/interface"
+			"path": "../../interface"
 		}
 	]
 }

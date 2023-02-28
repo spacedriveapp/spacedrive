@@ -34,7 +34,7 @@ const styles = cva(
 			},
 			size: {
 				icon: '!p-1',
-				lg: 'py-1.5 px-3 text-md font-medium',
+				lg: 'text-md py-1.5 px-3 font-medium',
 				md: 'py-1.5 px-2.5 text-sm font-medium',
 				sm: 'py-1 px-2 text-sm font-medium'
 			},
