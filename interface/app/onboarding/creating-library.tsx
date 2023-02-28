@@ -58,22 +58,21 @@ export default function OnboardingCreatingLibrary() {
 	const created = useRef(false);
 
 	useEffect(() => {
-		if (created.current == false) {
-			created.current = true;
-			create();
-			const timer = setTimeout(() => {
-				setStatus('Almost done...');
-			}, 2000);
-			const timer2 = setTimeout(() => {
-				if (debugState.enabled) {
-					setStatus(`You're running in development, this will take longer...`);
-				}
-			}, 5000);
-			return () => {
-				clearTimeout(timer);
-				clearTimeout(timer2);
-			};
-		}
+		if (created.current == true) return;
+		created.current = true;
+		create();
+		const timer = setTimeout(() => {
+			setStatus('Almost done...');
+		}, 2000);
+		const timer2 = setTimeout(() => {
+			if (debugState.enabled) {
+				setStatus(`You're running in development, this will take longer...`);
+			}
+		}, 5000);
+		return () => {
+			clearTimeout(timer);
+			clearTimeout(timer2);
+		};
 	}, []);
 
 	return (
