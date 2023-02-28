@@ -36,7 +36,7 @@ export function ErrorPage({
 			<pre className="text-ink m-2">Error: {message}</pre>
 			{debug.enabled && (
 				<pre className="text-ink-dull m-2 text-sm">
-					Check the console (CMD + OPTION + i)/(CTRL + SHIFT + i) for stack trace.
+					Check the console (CMD/CTRL + OPTION + i) for stack trace.
 				</pre>
 			)}
 			<div className="text-ink flex flex-row space-x-2">
