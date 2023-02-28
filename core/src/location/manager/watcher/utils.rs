@@ -73,7 +73,7 @@ pub(super) async fn create_dir_by_path(
 	);
 
 	let materialized_path =
-		MaterializedPath::new(location.id, &location.path, &event.paths[0], true)?;
+		MaterializedPath::new(location.id, &location.path, path, true)?;
 
 	let parent_directory = get_parent_dir(&materialized_path, &library.db).await?;
 

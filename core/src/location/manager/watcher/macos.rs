@@ -1,10 +1,10 @@
 use crate::{
 	library::Library,
-	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
+	location::{file_path_helper::get_existing_file_or_directory, location_with_indexer_rules},
 };
 
 use std::{
-	collections::{hash_map::DefaultHasher, HashMap},
+	collections::{hash_map::DefaultHasher, BTreeMap},
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	time::Duration,
@@ -22,22 +22,26 @@ use tokio::{
 	select,
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
-	time::sleep,
+	time::{sleep, Instant},
 };
 use tracing::{error, trace};
 
 use super::{
 	utils::{
-		create_dir, create_dir_by_path, create_file_by_path, file_creation_or_update,
-		get_existing_file_or_directory, remove_by_file_path, remove_event, rename,
+		create_dir, create_dir_by_path, create_file, create_file_by_path, remove_by_file_path,
+		remove_event, rename, update_file,
 	},
-	EventHandler,
+	EventHandler, LocationManagerError,
 };
+
+const ONE_SECOND: Duration = Duration::from_secs(1);
 
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler {
+	recently_created_files: BTreeMap<PathBuf, Instant>,
+	last_check: Instant,
 	latest_created_dir: Option<Event>,
-	rename_events_tx: mpsc::Sender<(indexer_job_location::Data, PathBuf, LibraryContext)>,
+	rename_events_tx: mpsc::Sender<(location_with_indexer_rules::Data, PathBuf, Library)>,
 	stop_tx: Option<oneshot::Sender<()>>,
 	handle: Option<JoinHandle<()>>,
 }
@@ -70,6 +74,8 @@ impl EventHandler for MacOsEventHandler {
 		let (rename_events_tx, rename_events_rx) = mpsc::channel(16);
 
 		Self {
+			recently_created_files: BTreeMap::new(),
+			last_check: Instant::now(),
 			latest_created_dir: None,
 			rename_events_tx,
 			stop_tx: Some(stop_tx),
@@ -103,9 +109,19 @@ impl EventHandler for MacOsEventHandler {
 				create_dir(&location, &event, library).await?;
 				self.latest_created_dir = Some(event);
 			}
+			EventKind::Create(CreateKind::File) => {
+				create_file(&location, &event, library).await?;
+				let Event { mut paths, .. } = event;
+				self.recently_created_files
+					.insert(paths.remove(0), Instant::now());
+			}
 			EventKind::Modify(ModifyKind::Data(DataChange::Content)) => {
-				// If a file had its content modified, then it was updated or created
-				file_creation_or_update(&location, &event, library).await?;
+				// NOTE: MacOS emits a Create File and then an Update Content event
+				// when a file is created. So we need to check if the file was recently
+				// created to avoid unecessary updates
+				if !self.recently_created_files.contains_key(&event.paths[0]) {
+					update_file(&location, &event, library).await?;
+				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				if self
@@ -126,16 +142,23 @@ impl EventHandler for MacOsEventHandler {
 			}
 		}
 
+		// Cleaning out recently created files that are older than 1 second
+		if self.last_check.elapsed() > ONE_SECOND {
+			self.last_check = Instant::now();
+			self.recently_created_files
+				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
+		}
+
 		Ok(())
 	}
 }
 
 async fn handle_rename_events_loop(
-	mut rename_events_rx: mpsc::Receiver<(indexer_job_location::Data, PathBuf, LibraryContext)>,
+	mut rename_events_rx: mpsc::Receiver<(location_with_indexer_rules::Data, PathBuf, Library)>,
 	mut stop_rx: oneshot::Receiver<()>,
 ) {
 	// Organizing locations, paths and library contexts by path's hash, so we can easy share
-	let mut paths_by_hash = HashMap::new();
+	let mut paths_by_hash = BTreeMap::new();
 	let mut last_path_hash = None;
 	let mut timeouts = FuturesUnordered::new();
 
@@ -171,11 +194,11 @@ async fn handle_rename_events_loop(
 				trace!("Timeout for path_hash: {path_hash}");
 				// We need this if let here because the path can already be handled by
 				// the other `select!` branch
-				if let Some((location, path, library_ctx)) = paths_by_hash.remove(&path_hash) {
+				if let Some((location, path, library)) = paths_by_hash.remove(&path_hash) {
 					last_path_hash = None;
 					trace!("Path: {}", path.display());
 
-					if let Err(e) = handle_create_or_delete(&location, path, &library_ctx).await {
+					if let Err(e) = handle_create_or_delete(&location, path, &library).await {
 						error!("Failed to handle create or delete event: {e:#?}");
 					}
 				}
@@ -190,17 +213,17 @@ async fn timeout(path_hash: u64) -> u64 {
 }
 
 async fn handle_create_or_delete(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
+	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
-	if let Some(file_path) = get_existing_file_or_directory(location, path, library_ctx).await? {
-		remove_by_file_path(location, path, &file_path, library_ctx).await?;
+	if let Some(file_path) = get_existing_file_or_directory(location, path, &library.db).await? {
+		remove_by_file_path(location, path, &file_path, library).await?;
 	} else if fs::metadata(path).await?.is_dir() {
-		create_dir_by_path(location, path, library_ctx).await?;
+		create_dir_by_path(location, path, library).await?;
 	} else {
-		create_file_by_path(location, path, library_ctx).await?;
+		create_file_by_path(location, path, library).await?;
 	}
 
 	Ok(())
