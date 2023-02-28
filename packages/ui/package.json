@@ -32,6 +32,7 @@
 		"@radix-ui/react-switch": "^1.0.1",
 		"@radix-ui/react-tabs": "^1.0.1",
 		"@sd/assets": "workspace:*",
+		"@sd/client": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",
 		"class-variance-authority": "^0.4.0",
 		"clsx": "^1.2.1",

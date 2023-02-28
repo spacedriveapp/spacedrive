@@ -489,6 +489,9 @@ importers:
       '@sd/config': workspace:*
       '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
+      '@zxcvbn-ts/core': ^2.1.0
+      '@zxcvbn-ts/language-common': ^2.0.1
+      '@zxcvbn-ts/language-en': ^2.1.0
       crypto-random-string: ^5.0.0
       scripts: '*'
       tsconfig: '*'
@@ -499,6 +502,9 @@ importers:
       '@rspc/react': 0.0.0-main-7c0a67c1_tqsbl3x6ixew47ctvte2nz2yki
       '@sd/config': link:../config
       '@tanstack/react-query': 4.22.0
+      '@zxcvbn-ts/core': 2.1.0
+      '@zxcvbn-ts/language-common': 2.0.1
+      '@zxcvbn-ts/language-en': 2.1.0
       crypto-random-string: 5.0.0
       valtio: 1.9.0
     devDependencies:
@@ -541,6 +547,7 @@ importers:
       '@radix-ui/react-switch': ^1.0.1
       '@radix-ui/react-tabs': ^1.0.1
       '@sd/assets': workspace:*
+      '@sd/client': workspace:*
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.12
       '@storybook/addon-essentials': ^6.5.12
@@ -590,6 +597,7 @@ importers:
       '@radix-ui/react-switch': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-tabs': 1.0.2_biqbaboplfbrettd7655fr4n2y
       '@sd/assets': link:../assets
+      '@sd/client': link:../client
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
       class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
@@ -8420,7 +8428,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - supports-color
 
@@ -21064,7 +21072,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -21228,6 +21236,7 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

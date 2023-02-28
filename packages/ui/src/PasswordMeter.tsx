@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { getPasswordStrength } from '@sd/client';
 
 export interface PasswordMeterProps {
 	password: string;
