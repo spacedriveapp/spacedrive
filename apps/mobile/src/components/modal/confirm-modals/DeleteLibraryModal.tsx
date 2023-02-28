@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useBridgeMutation } from '@sd/client';
 import { useRef } from 'react';
-import { ModalRef, ConfirmModal } from '~/components/layout/Modal';
+import { useBridgeMutation } from '@sd/client';
+import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
 	libraryUuid: string;

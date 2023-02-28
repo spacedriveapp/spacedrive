@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Tag, useLibraryMutation } from '@sd/client';
@@ -8,7 +9,6 @@ import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
-import { useQueryClient } from '@tanstack/react-query';
 
 type Props = {
 	tag: Tag;
