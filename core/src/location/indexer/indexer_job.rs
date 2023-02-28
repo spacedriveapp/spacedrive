@@ -1,6 +1,10 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	location::indexer::rules::RuleKind,
+	location::{
+		file_path_helper::{get_max_file_path_id, get_parent_dir, set_max_file_path_id},
+		indexer::rules::RuleKind,
+		LocationError,
+	},
 	prisma::{file_path, location},
 	sync,
 };
@@ -9,7 +13,7 @@ use std::{
 	collections::HashMap,
 	ffi::OsStr,
 	hash::{Hash, Hasher},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	time::Duration,
 };
 
@@ -17,13 +21,13 @@ use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::time::Instant;
+use tokio::{fs, time::Instant};
 use tracing::info;
 
 use super::{
-	super::file_path_helper::{get_max_file_path_id, set_max_file_path_id},
 	rules::IndexerRule,
 	walk::{walk, WalkEntry},
+	IndexerError,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
@@ -47,14 +51,20 @@ location::include!(indexer_job_location {
 });
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
+/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
+/// we want do index just a part of a location.
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobInit {
 	pub location: indexer_job_location::Data,
+	pub sub_path: Option<PathBuf>,
 }
 
 impl Hash for IndexerJobInit {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
+		if let Some(ref sub_path) = self.sub_path {
+			sub_path.hash(state);
+		}
 	}
 }
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
@@ -110,7 +120,9 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
+		let first_file_id = get_max_file_path_id(&ctx.library_ctx)
+			.await
+			.map_err(LocationError::from)?;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -123,10 +135,47 @@ impl StatefulJob for IndexerJob {
 				.push(indexer_rule);
 		}
 
+		let mut dirs_ids = HashMap::new();
+
+		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
+			if !sub_path.starts_with(&state.init.location.path) {
+				return Err(IndexerError::InvalidSubPath {
+					sub_path: sub_path.to_path_buf(),
+					location_path: PathBuf::from(&state.init.location.path),
+				}
+				.into());
+			}
+
+			if fs::metadata(sub_path).await?.is_file() {
+				return Err(IndexerError::SubPathNotDirectory(sub_path.to_path_buf()).into());
+			}
+
+			let Some(parent) = get_parent_dir(
+				state.init.location.id,
+				sub_path,
+				&ctx.library_ctx
+			).await.map_err(LocationError::from)? else {
+				return Err(IndexerError::SubPathParentNotInLocation{
+					sub_path: sub_path.to_path_buf(),
+					location_id: state.init.location.id,
+				}.into());
+			};
+
+			// If we're operating with a sub_path, then we have to put its parent on `dirs_ids` map
+			dirs_ids.insert(
+				PathBuf::from(&state.init.location.path).join(&parent.materialized_path),
+				parent.id,
+			);
+
+			sub_path
+		} else {
+			Path::new(&state.init.location.path)
+		};
+
 		let scan_start = Instant::now();
 		let inner_ctx = ctx.clone();
 		let paths = walk(
-			&state.init.location.path,
+			to_walk_path,
 			&indexer_rules_by_kind,
 			move |path, total_entries| {
 				IndexerJobData::on_scan_progress(
@@ -146,7 +195,6 @@ impl StatefulJob for IndexerJob {
 		// Setting our global state for file_path ids
 		set_max_file_path_id(last_file_id);
 
-		let mut dirs_ids = HashMap::new();
 		let paths_entries = paths
 			.into_iter()
 			.zip(first_file_id..last_file_id)

@@ -3,9 +3,13 @@ use crate::{
 	library::LibraryContext,
 	location::{
 		delete_directory,
-		file_path_helper::create_file_path,
+		file_path_helper::{
+			create_file_path, extract_materialized_path, file_path_with_object,
+			get_existing_file_or_directory, get_existing_file_path, get_parent_dir,
+			subtract_location_path,
+		},
 		indexer::indexer_job::indexer_job_location,
-		manager::{helpers::subtract_location_path, LocationId, LocationManagerError},
+		manager::LocationManagerError,
 	},
 	object::{
 		identifier_job::FileMetadata,
@@ -32,8 +36,6 @@ use sd_file_ext::extensions::ImageExtension;
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
 use uuid::Uuid;
-
-use super::file_path_with_object;
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive or is in the `ignore_paths` set, we ignore
@@ -463,92 +465,6 @@ pub(super) async fn remove_event(
 	}
 
 	Ok(())
-}
-
-fn extract_materialized_path(
-	location: &indexer_job_location::Data,
-	path: impl AsRef<Path>,
-) -> Result<PathBuf, LocationManagerError> {
-	subtract_location_path(&location.path, &path).ok_or_else(|| {
-		LocationManagerError::UnableToExtractMaterializedPath(
-			location.id,
-			path.as_ref().to_path_buf(),
-		)
-	})
-}
-
-async fn get_existing_file_path(
-	location: &indexer_job_location::Data,
-	path: impl AsRef<Path>,
-	is_dir: bool,
-	library_ctx: &LibraryContext,
-) -> Result<Option<file_path_with_object::Data>, LocationManagerError> {
-	let mut materialized_path = extract_materialized_path(location, path)?
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
-	if is_dir && !materialized_path.ends_with('/') {
-		materialized_path += "/";
-	}
-
-	library_ctx
-		.db
-		.file_path()
-		.find_first(vec![file_path::materialized_path::equals(
-			materialized_path,
-		)])
-		// include object for orphan check
-		.include(file_path_with_object::include())
-		.exec()
-		.await
-		.map_err(Into::into)
-}
-
-async fn get_existing_file_or_directory(
-	location: &indexer_job_location::Data,
-	path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
-) -> Result<Option<file_path_with_object::Data>, LocationManagerError> {
-	let mut maybe_file_path =
-		get_existing_file_path(location, path.as_ref(), false, library_ctx).await?;
-	// First we just check if this path was a file in our db, if it isn't then we check for a directory
-	if maybe_file_path.is_none() {
-		maybe_file_path =
-			get_existing_file_path(location, path.as_ref(), true, library_ctx).await?;
-	}
-
-	Ok(maybe_file_path)
-}
-
-async fn get_parent_dir(
-	location_id: LocationId,
-	path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
-) -> Result<Option<file_path::Data>, LocationManagerError> {
-	let mut parent_path_str = path
-		.as_ref()
-		.parent()
-		// We have an "/" `materialized_path` for each location_id
-		.unwrap_or_else(|| Path::new("/"))
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
-
-	// As we're looking specifically for a parent directory, it must end with '/'
-	if !parent_path_str.ends_with('/') {
-		parent_path_str += "/";
-	}
-
-	library_ctx
-		.db
-		.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::equals(parent_path_str),
-		])
-		.exec()
-		.await
-		.map_err(Into::into)
 }
 
 async fn generate_thumbnail(

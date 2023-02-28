@@ -1,15 +1,17 @@
+use std::path::PathBuf;
+
+use int_enum::IntEnumError;
+use rmp_serde::{decode, encode};
+use rspc::ErrorCode;
+use rules::RuleKind;
+use thiserror::Error;
+use tokio::io;
+
+use super::LocationId;
+
 pub mod indexer_job;
 pub mod rules;
 mod walk;
-
-use globset::Error;
-use int_enum::IntEnumError;
-use rmp_serde::{decode::Error as RMPDecodeError, encode::Error as RMPEncodeError};
-use rspc::ErrorCode;
-use rules::RuleKind;
-use serde_json::Error as SerdeJsonError;
-use std::io;
-use thiserror::Error;
 
 /// Error type for the indexer module
 #[derive(Error, Debug)]
@@ -22,7 +24,19 @@ pub enum IndexerError {
 	#[error("Invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(#[from] IntEnumError<RuleKind>),
 	#[error("Glob builder error: {0}")]
-	GlobBuilderError(#[from] Error),
+	GlobBuilderError(#[from] globset::Error),
+	#[error("Received an invalid sub path: <location_path={location_path}, sub_path={sub_path}>")]
+	InvalidSubPath {
+		location_path: PathBuf,
+		sub_path: PathBuf,
+	},
+	#[error("Sub path is not a directory: {0}")]
+	SubPathNotDirectory(PathBuf),
+	#[error("The parent directory of the received sub path isn't indexed in the location: <id={location_id}, sub_path={sub_path}>")]
+	SubPathParentNotInLocation {
+		location_id: LocationId,
+		sub_path: PathBuf,
+	},
 
 	// Internal Errors
 	#[error("Database error: {0}")]
@@ -30,11 +44,11 @@ pub enum IndexerError {
 	#[error("I/O error: {0}")]
 	IOError(#[from] io::Error),
 	#[error("Indexer rule parameters json serialization error: {0}")]
-	RuleParametersSerdeJson(#[from] SerdeJsonError),
+	RuleParametersSerdeJson(#[from] serde_json::Error),
 	#[error("Indexer rule parameters encode error: {0}")]
-	RuleParametersRMPEncode(#[from] RMPEncodeError),
+	RuleParametersRMPEncode(#[from] encode::Error),
 	#[error("Indexer rule parameters decode error: {0}")]
-	RuleParametersRMPDecode(#[from] RMPDecodeError),
+	RuleParametersRMPDecode(#[from] decode::Error),
 }
 
 impl From<IndexerError> for rspc::Error {

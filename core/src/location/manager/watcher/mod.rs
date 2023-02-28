@@ -1,6 +1,7 @@
 use crate::{
 	library::LibraryContext,
-	prisma::{file_path, location},
+	location::{fetch_location, indexer::indexer_job::indexer_job_location, LocationId},
+	prisma::location,
 };
 
 use std::{
@@ -18,10 +19,7 @@ use tokio::{
 };
 use tracing::{debug, error, warn};
 
-use super::{
-	super::{fetch_location, indexer::indexer_job::indexer_job_location},
-	LocationId, LocationManagerError,
-};
+use super::LocationManagerError;
 
 mod linux;
 mod macos;
@@ -39,8 +37,6 @@ type Handler = macos::MacOsEventHandler;
 
 #[cfg(target_os = "windows")]
 type Handler = windows::WindowsEventHandler;
-
-file_path::include!(file_path_with_object { object });
 
 pub(super) type IgnorePath = (PathBuf, bool);
 

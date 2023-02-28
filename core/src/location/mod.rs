@@ -10,15 +10,15 @@ use crate::{
 	sync,
 };
 
-use rspc::Type;
-use serde::Deserialize;
-use serde_json::json;
 use std::{
 	collections::HashSet,
 	ffi::OsStr,
 	path::{Path, PathBuf},
 };
 
+use rspc::Type;
+use serde::Deserialize;
+use serde_json::json;
 use prisma_client_rust::QueryError;
 use tokio::{fs, io};
 use tracing::{debug, info};
@@ -34,6 +34,8 @@ pub use error::LocationError;
 use indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
+
+pub type LocationId = i32;
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -291,8 +293,55 @@ pub async fn scan_location(
 	))
 	.await;
 
-	ctx.spawn_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
-		.await;
+	ctx.spawn_job(Job::new(
+		IndexerJobInit {
+			location,
+			sub_path: None,
+		},
+		IndexerJob {},
+	))
+	.await;
+
+	Ok(())
+}
+
+pub async fn scan_location_sub_path(
+	ctx: &LibraryContext,
+	location: indexer_job_location::Data,
+	sub_path: impl AsRef<Path>,
+) -> Result<(), LocationError> {
+	let sub_path = sub_path.as_ref().to_path_buf();
+	if location.node_id != ctx.node_local_id {
+		return Ok(());
+	}
+
+	ctx.queue_job(Job::new(
+		FullFileIdentifierJobInit {
+			location_id: location.id,
+			sub_path: Some(sub_path.clone()),
+		},
+		FullFileIdentifierJob {},
+	))
+	.await;
+
+	ctx.queue_job(Job::new(
+		ThumbnailJobInit {
+			location_id: location.id,
+			root_path: PathBuf::new(),
+			background: true,
+		},
+		ThumbnailJob {},
+	))
+	.await;
+
+	ctx.spawn_job(Job::new(
+		IndexerJobInit {
+			location,
+			sub_path: Some(sub_path),
+		},
+		IndexerJob {},
+	))
+	.await;
 
 	Ok(())
 }

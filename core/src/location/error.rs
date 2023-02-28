@@ -7,7 +7,7 @@ use thiserror::Error;
 use tokio::io;
 use uuid::Uuid;
 
-use super::metadata::LocationMetadataError;
+use super::{file_path_helper::FilePathError, metadata::LocationMetadataError};
 
 /// Error type for location related errors
 #[derive(Error, Debug)]
@@ -56,6 +56,8 @@ pub enum LocationError {
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Location manager error (error: {0:?})")]
 	LocationManagerError(#[from] LocationManagerError),
+	#[error("File path related error (error: {0})")]
+	FilePathError(#[from] FilePathError),
 }
 
 impl From<LocationError> for rspc::Error {

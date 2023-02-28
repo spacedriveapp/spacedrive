@@ -20,13 +20,13 @@ use tracing::{debug, error};
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
 
+use super::{file_path_helper::FilePathError, LocationId};
+
 #[cfg(feature = "location-watcher")]
 mod watcher;
 
 #[cfg(feature = "location-watcher")]
 mod helpers;
-
-pub type LocationId = i32;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -89,12 +89,12 @@ pub enum LocationManagerError {
 	LocationMissingLocalPath(LocationId),
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
-	#[error("Unable to extract materialized path from location: <id='{0}', path='{1:?}'>")]
-	UnableToExtractMaterializedPath(LocationId, PathBuf),
 	#[error("Database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("I/O error: {0}")]
 	IOError(#[from] io::Error),
+	#[error("File path related error (error: {0})")]
+	FilePathError(#[from] FilePathError),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
