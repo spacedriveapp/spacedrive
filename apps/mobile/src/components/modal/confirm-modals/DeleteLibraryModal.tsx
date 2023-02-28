@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
-import { queryClient, useBridgeMutation } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 };
 
 const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
+	const queryClient = useQueryClient();
 	const modalRef = useRef<ModalRef>(null);
 
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(

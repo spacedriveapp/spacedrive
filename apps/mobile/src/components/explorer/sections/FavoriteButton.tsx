@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Heart } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, PressableProps } from 'react-native';
-import { Object as SDObject, queryClient, useLibraryMutation } from '@sd/client';
+import { Object as SDObject, useLibraryMutation } from '@sd/client';
 
 type Props = {
 	data: SDObject;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 const FavoriteButton = (props: Props) => {
+	const queryClient = useQueryClient();
 	const [favorite, setFavorite] = useState(props.data.favorite);
 
 	const { mutate: toggleFavorite, isLoading } = useLibraryMutation('files.setFavorite', {

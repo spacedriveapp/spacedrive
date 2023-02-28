@@ -22,7 +22,7 @@ const Note = (props: Props) => {
 		2000
 	);
 
-	const debouncedNote = useCallback((note: string) => debounce(note), [props.data.id, fileSetNote]);
+	const debouncedNote = useCallback((note: string) => debounce(note), [debounce]);
 
 	return (
 		<View>

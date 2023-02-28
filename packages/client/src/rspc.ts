@@ -1,6 +1,5 @@
 import { ProcedureDef } from '@rspc/client';
 import { internal_createReactHooksFactory } from '@rspc/react';
-import { QueryClient } from '@tanstack/react-query';
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
 import { normiCustomHooks } from './normi';
@@ -70,7 +69,6 @@ const libraryHooks = hooks.createHooks<
 	}
 });
 
-export const queryClient = new QueryClient();
 export const rspc = hooks.createHooks<Procedures>();
 
 export const useBridgeQuery = nonLibraryHooks.useQuery;

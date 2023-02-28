@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { queryClient, useLibraryMutation } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { Input } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -10,6 +11,7 @@ import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 
 const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
+	const queryClient = useQueryClient();
 	const modalRef = useForwardedRef(ref);
 
 	const [tagName, setTagName] = useState('');
