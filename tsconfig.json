@@ -14,10 +14,10 @@
 			"path": "apps/landing"
 		},
 		{
-			"path": "packages/client"
+			"path": "interface"
 		},
 		{
-			"path": "packages/interface"
+			"path": "packages/client"
 		},
 		{
 			"path": "packages/ui"

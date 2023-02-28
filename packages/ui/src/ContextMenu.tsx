@@ -10,19 +10,14 @@ interface Props extends RadixCM.MenuContentProps {
 
 const MENU_CLASSES = `
   flex flex-col z-50
-  min-w-[8rem] px-1 py-0.5
+  min-w-[8rem] px-1 py-0.5 my-2
   text-left text-sm text-menu-ink
   bg-menu cool-shadow
 	border border-menu-line
   select-none cursor-default rounded-md
 `;
 
-export const ContextMenu = ({
-	trigger,
-	children,
-	className,
-	...props
-}: PropsWithChildren<Props>) => {
+export const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Props>) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
