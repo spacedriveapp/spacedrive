@@ -496,6 +496,7 @@ importers:
       '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
       crypto-random-string: ^5.0.0
+      plausible-tracker: ^0.3.8
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.8.4
@@ -506,6 +507,7 @@ importers:
       '@sd/config': link:../config
       '@tanstack/react-query': 4.22.0
       crypto-random-string: 5.0.0
+      plausible-tracker: 0.3.8
       valtio: 1.9.0
     devDependencies:
       '@types/react': 18.0.27
@@ -16717,6 +16719,11 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       find-up: 3.0.0
+
+  /plausible-tracker/0.3.8:
+    resolution: {integrity: sha512-lmOWYQ7s9KOUJ1R+YTOR3HrjdbxIS2Z4de0P/Jx2dQPteznJl2eX3tXxKClpvbfyGP59B5bbhW8ftN59HbbFSg==}
+    engines: {node: '>=10'}
+    dev: false
 
   /playwright-core/1.30.0:
     resolution: {integrity: sha512-7AnRmTCf+GVYhHbLJsGUtskWTE33SwMZkybJ0v6rqR1boxq2x36U7p1vDRV7HO2IwTZgmycracLxPEJI49wu4g==}
