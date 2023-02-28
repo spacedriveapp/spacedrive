@@ -15,6 +15,7 @@ use super::LibraryManagerError;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
 #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct LibraryConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -22,6 +23,7 @@ pub struct LibraryConfig {
 	pub name: String,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: String,
+	pub share_telemetry: bool,
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,

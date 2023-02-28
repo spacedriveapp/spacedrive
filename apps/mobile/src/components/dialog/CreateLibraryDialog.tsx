@@ -54,7 +54,8 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 						value: ''
 					},
 					algorithm: 'XChaCha20Poly1305',
-					hashing_algorithm: { name: 'Argon2id', params: 'Standard' }
+					hashing_algorithm: { name: 'Argon2id', params: 'Standard' },
+					share_telemetry: false
 				})
 			}
 			loading={createLibLoading}

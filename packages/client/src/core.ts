@@ -97,7 +97,7 @@ export type BuildInfo = { version: string, commit: string }
  */
 export type ConfigMetadata = { version: string | null }
 
-export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, share_telemetry: boolean }
 
 export type EditLibraryArgs = { id: string, name: string | null, description: string | null }
 
@@ -171,7 +171,7 @@ export type LibraryArgs<T> = { library_id: string, arg: T }
 /**
  *  LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = ({ version: string | null }) & { name: string, description: string }
+export type LibraryConfig = ({ version: string | null }) & { name: string, description: string, shareTelemetry: boolean }
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
 

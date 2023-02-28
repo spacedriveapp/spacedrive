@@ -49,7 +49,8 @@ export default function OnboardingCreatingLibrary() {
 				value: ob_store.passwordSetToken || ''
 			},
 			algorithm: ob_store.algorithm as Algorithm,
-			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
+			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm],
+			share_telemetry: ob_store.shareTelemetryDataWithDevelopers
 		});
 
 		return;
