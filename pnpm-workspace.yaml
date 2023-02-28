@@ -2,5 +2,6 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'core'
-  - 'crates/sync/example/web'
+  - 'interface'
   - 'docs'
+  - 'crates/sync/example/web'

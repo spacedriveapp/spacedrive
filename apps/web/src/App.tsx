@@ -2,7 +2,7 @@ import { createWSClient, loggerLink, wsLink } from '@rspc/client';
 import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { getDebugState, hooks } from '@sd/client';
-import SpacedriveInterface, { Platform, PlatformProvider } from '@sd/interface';
+import { Platform, PlatformProvider, SpacedriveInterface } from '@sd/interface';
 import demoData from './demoData.json';
 
 globalThis.isDev = import.meta.env.DEV;
