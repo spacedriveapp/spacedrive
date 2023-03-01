@@ -1,5 +1,6 @@
 import Plausible from 'plausible-tracker';
 import { useEffect, useMemo, useRef } from 'react';
+import { useDebugState } from '../stores';
 import { useCurrentLibraryId, useCurrentTelemetrySharing } from './useClientContext';
 
 /**
@@ -50,6 +51,7 @@ const UuidRegex = new RegExp(
 export const PlausibleTracker = (props: PlausibleProps) => {
 	const currentLibraryId = useCurrentLibraryId();
 	const shareTelemetry = useCurrentTelemetrySharing();
+	const debugState = useDebugState();
 
 	const previousPath = useRef('');
 
@@ -89,8 +91,9 @@ export const PlausibleTracker = (props: PlausibleProps) => {
 	// the current path is not the same as the previous path
 	// checks that no UUIDs are present with regex
 	useEffect(() => {
+		if (debugState.enabled === true) return;
 		if (shareTelemetry !== true) return;
-		if (previousPath.current === path) return;
+		if (path === previousPath.current) return;
 		if (UuidRegex.test(path)) return;
 
 		previousPath.current = path;
