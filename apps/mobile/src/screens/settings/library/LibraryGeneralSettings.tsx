@@ -1,24 +1,28 @@
 import { Trash } from 'phosphor-react-native';
 import React from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
-import { AnimatedButton, Button } from '~/components/primitive/Button';
+import { AnimatedButton } from '~/components/primitive/Button';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
+import { useZodForm, z } from '~/hooks/useZodForm';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+
+const schema = z.object({ name: z.string(), description: z.string() });
 
 const LibraryGeneralSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
 	const { library } = useLibraryContext();
 
-	const form = useForm({
+	const form = useZodForm({
+		schema,
 		defaultValues: { name: library.config.name, description: library.config.description }
 	});
 

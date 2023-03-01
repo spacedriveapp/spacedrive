@@ -29,7 +29,7 @@
 		"react-burger-menu": "^3.0.8",
 		"react-dom": "^18.2.0",
 		"react-helmet": "^6.1.0",
-		"react-hook-form": "^7.36.1",
+		"react-hook-form": "^7.43.0",
 		"react-tsparticles": "^2.3.3",
 		"sirv": "^2.0.2",
 		"ts-node": "^10.9.1",

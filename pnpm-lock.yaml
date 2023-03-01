@@ -119,7 +119,7 @@ importers:
       react-burger-menu: ^3.0.8
       react-dom: ^18.2.0
       react-helmet: ^6.1.0
-      react-hook-form: ^7.36.1
+      react-hook-form: ^7.43.0
       react-tsparticles: ^2.3.3
       rollup-plugin-visualizer: ^5.8.2
       sass: ^1.55.0
@@ -152,7 +152,7 @@ importers:
       react-burger-menu: 3.0.9_biqbaboplfbrettd7655fr4n2y
       react-dom: 18.2.0_react@18.2.0
       react-helmet: 6.1.0_react@18.2.0
-      react-hook-form: 7.42.1_react@18.2.0
+      react-hook-form: 7.43.0_react@18.2.0
       react-tsparticles: 2.8.0_react@18.2.0
       sirv: 2.0.2
       ts-node: 10.9.1_awa2wsr5thmg3i7jqycphctjfq
@@ -186,6 +186,7 @@ importers:
   apps/mobile:
     specifiers:
       '@gorhom/bottom-sheet': ^4.4.5
+      '@hookform/resolvers': ^2.9.10
       '@react-native-async-storage/async-storage': ~1.17.11
       '@react-native-masked-view/masked-view': 0.2.8
       '@react-navigation/bottom-tabs': ^6.5.4
@@ -235,8 +236,10 @@ importers:
       use-count-up: ^3.0.1
       use-debounce: ^9.0.2
       valtio: ^1.8.0
+      zod: ^3.20.2
     dependencies:
       '@gorhom/bottom-sheet': 4.4.5_w366bumyfs4uyicayprrehskae
+      '@hookform/resolvers': 2.9.10_react-hook-form@7.43.0
       '@react-native-async-storage/async-storage': 1.17.11_react-native@0.70.5
       '@react-native-masked-view/masked-view': 0.2.8_tj3nonr5gneraukzjkxpsiy7yu
       '@react-navigation/bottom-tabs': 6.5.4_tzhjy2gc5kvqqitykreeetpfsq
@@ -277,6 +280,7 @@ importers:
       use-count-up: 3.0.1_react@18.1.0
       use-debounce: 9.0.3_react@18.1.0
       valtio: 1.9.0_react@18.1.0
+      zod: 3.20.2
     devDependencies:
       '@rnx-kit/metro-config': 1.3.5_tj3nonr5gneraukzjkxpsiy7yu
       '@sd/config': link:../../packages/config
@@ -409,7 +413,7 @@ importers:
       react-colorful: ^5.6.1
       react-dom: ^18.2.0
       react-error-boundary: ^3.1.4
-      react-hook-form: ^7.36.1
+      react-hook-form: ^7.43.0
       react-json-view: ^1.21.3
       react-loading-skeleton: ^3.1.0
       react-qr-code: ^2.0.11
@@ -4120,7 +4124,7 @@ packages:
     peerDependencies:
       react-hook-form: ^7.0.0
     dependencies:
-      react-hook-form: 7.43.0_react@18.2.0
+      react-hook-form: 7.43.0_react@18.1.0
     dev: false
 
   /@humanwhocodes/config-array/0.11.8:
@@ -17514,15 +17518,6 @@ packages:
       react: 18.2.0
       react-fast-compare: 3.2.0
       react-side-effect: 2.1.2_react@18.2.0
-    dev: false
-
-  /react-hook-form/7.42.1_react@18.2.0:
-    resolution: {integrity: sha512-2UIGqwMZksd5HS55crTT1ATLTr0rAI4jS7yVuqTaoRVDhY2Qc4IyjskCmpnmdYqUNOYFy04vW253tb2JRVh+IQ==}
-    engines: {node: '>=12.22.0'}
-    peerDependencies:
-      react: ^16.8.0 || ^17 || ^18
-    dependencies:
-      react: 18.2.0
     dev: false
 
   /react-hook-form/7.43.0_react@18.1.0:

@@ -56,7 +56,9 @@
 		"twrnc": "^3.5.0",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.2",
-		"valtio": "^1.8.0"
+		"valtio": "^1.8.0",
+		"zod": "^3.20.2",
+		"@hookform/resolvers": "^2.9.10"
 	},
 	"devDependencies": {
 		"@rnx-kit/metro-config": "^1.3.5",

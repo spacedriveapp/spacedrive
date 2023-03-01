@@ -43,11 +43,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			</FadeInUpAnimation>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
-				<AnimatedButton
-					variant="accent"
-					size="md"
-					onPress={() => navigation.navigate('NewLibrary')}
-				>
+				<AnimatedButton variant="accent" size="md" onPress={() => navigation.push('NewLibrary')}>
 					<Text style={tw`text-ink text-center text-base font-medium`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
