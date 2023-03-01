@@ -18,19 +18,23 @@ export interface PlausibleProps {
 	platformType: 'web' | 'tauri' | 'mobile'; // web/tauri should should set this via `usePlatform().platform`
 }
 
+const UuidRegex = '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}';
+
 /**
- * These rules will be compared to a path using `string.startsWith()`.
+ * These rules will be matched as regular expressions with `.replace()`.
  *
- * If it's a match, the path will be replaced with the target path.
+ * If it's a match, the expression will be replaced with the target value.
  */
-const TrackerReplaceRules: [string, string][] = [
-	['/location/', '/explorer/locations'],
-	['/tag/', '/explorer/tags']
+const TrackerReplaceRules: [RegExp, string][] = [
+	[RegExp(`/${UuidRegex}`), ''],
+	[RegExp('/location/[0-9]+'), '/explorer/locations'],
+	[RegExp('/tag/[0-9]+'), '/explorer/tags']
 ];
 
-const UuidRegex = new RegExp(
-	'[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
-);
+const { trackEvent } = Plausible({
+	trackLocalhost: true,
+	domain: `app.spacedrive.com`
+});
 
 /**
  * Adds a Plausible Analytics tracker which monitors the router's location and sends data accordingly.
@@ -55,46 +59,37 @@ export const PlausibleTracker = (props: PlausibleProps) => {
 
 	const previousPath = useRef('');
 
-	const { trackPageview } = useMemo(
-		() =>
-			Plausible({
-				trackLocalhost: true,
-				domain: `${props.platformType == 'tauri' ? 'desktop' : props.platformType}.spacedrive.com`
-			}),
-		[props.platformType]
-	);
+	let path = props.currentPath;
 
 	// This sanitises the current path, so that our analytics aren't flooded with unique (UUID-filled) records.
 	// It also replaces certain routes - see the `TrackerReplaceRules` for more info.
-	let path =
-		currentLibraryId !== null
-			? props.currentPath.replace(`/${currentLibraryId}`, '')
-			: props.currentPath;
+	TrackerReplaceRules.forEach((e, i) => {
+		if (!e[0].test(path)) return;
 
-	TrackerReplaceRules.every((e, i) => {
-		if (!path.startsWith(e[0])) return true;
-
-		path = e[1];
-		return false;
+		path = path.replace(e[0], e[1]);
 	});
 
 	// This actually sends the network request/does the tracking
 	const track = async () => {
-		trackPageview({
-			url: path,
-			deviceWidth: window.screen.width
-		});
+		trackEvent(
+			'pageview',
+			{
+				props: {
+					app: props.platformType == 'tauri' ? 'desktop' : props.platformType,
+					version: '0.0.0'
+				}
+			},
+			{ url: path, deviceWidth: window.screen.width }
+		);
 	};
 
 	// Check that the following prerequisites are met:
 	// telemetry sharing is explicitly enabled
 	// the current path is not the same as the previous path
-	// checks that no UUIDs are present with regex
 	useEffect(() => {
 		if (debugState.enabled === true) return;
 		if (shareTelemetry !== true) return;
 		if (path === previousPath.current) return;
-		if (UuidRegex.test(path)) return;
 
 		previousPath.current = path;
 		track();
