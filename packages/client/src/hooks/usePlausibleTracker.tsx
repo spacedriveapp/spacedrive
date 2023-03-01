@@ -48,9 +48,10 @@ const UuidRegex = new RegExp(
  * ```
  */
 export const PlausibleTracker = (props: PlausibleProps) => {
-	const previousPath = useRef('');
 	const currentLibraryId = useCurrentLibraryId();
 	const shareTelemetry = useCurrentTelemetrySharing();
+
+	const previousPath = useRef('');
 
 	const { trackPageview } = useMemo(
 		() =>
@@ -63,23 +64,19 @@ export const PlausibleTracker = (props: PlausibleProps) => {
 
 	// This sanitises the current path, so that our analytics aren't flooded with unique (UUID-filled) records.
 	// It also replaces certain routes - see the `TrackerReplaceRules` for more info.
-	const path = useMemo(() => {
-		let path =
-			currentLibraryId !== null
-				? props.currentPath.replace(`/${currentLibraryId}`, '')
-				: props.currentPath;
+	let path =
+		currentLibraryId !== null
+			? props.currentPath.replace(`/${currentLibraryId}`, '')
+			: props.currentPath;
 
-		TrackerReplaceRules.every((e, i) => {
-			if (!path.startsWith(e[0])) return true;
+	TrackerReplaceRules.every((e, i) => {
+		if (!path.startsWith(e[0])) return true;
 
-			path = e[1];
-			return false;
-		});
+		path = e[1];
+		return false;
+	});
 
-		return path;
-	}, [props.currentPath, currentLibraryId]);
-
-	// This actually sends the request and does the tracking.
+	// This actually sends the network request/does the tracking
 	const track = async () => {
 		trackPageview({
 			url: path,
@@ -87,6 +84,10 @@ export const PlausibleTracker = (props: PlausibleProps) => {
 		});
 	};
 
+	// Check that the following prerequisites are met:
+	// telemetry sharing is explicitly enabled
+	// the current path is not the same as the previous path
+	// checks that no UUIDs are present with regex
 	useEffect(() => {
 		if (shareTelemetry !== true) return;
 		if (previousPath.current === path) return;
