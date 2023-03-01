@@ -3,11 +3,18 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useCurrentLibraryId, useCurrentTelemetrySharing } from './useClientContext';
 
 /**
- * These props are required by the `PlausibleTracker`.
+ * These props are required by the `PlausibleTracker`
+ *
+ * Usage:
+ *
+ * ```ts
+ * 	<PlausibleTracker currentPath={useLocation().pathname} platformType={usePlatform().platform} />
+ * ```
+ *
  */
 export interface PlausibleProps {
-	currentPath: string; // useLocation().pathname. must have leading `/` - (e.g. `/settings/keys`)
-	platformType: 'web' | 'tauri' | 'mobile'; // desktop should use `usePlatform().platform` (mobile can statically set this)
+	currentPath: string; // must have leading `/` (e.g. `/settings/keys`)
+	platformType: 'web' | 'tauri' | 'mobile'; // web/tauri should should set this via `usePlatform().platform`
 }
 
 /**
