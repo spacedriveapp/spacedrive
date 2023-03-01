@@ -20,6 +20,12 @@ const Index = () => {
 	return <Navigate to={`${libraryId}/overview`} />;
 };
 
+
+// NOTE: all route `Layout`s below should contain
+// the `PlausibleTracker` component, as early as possible (ideally within the layout itself).
+// if not, we will need more instances of the tracker to cover all of the routes
+// which would worsen code readability and result in more `useMemo` refreshes when navigating between layouts
+
 const routes = [
 	{
 		index: true,
