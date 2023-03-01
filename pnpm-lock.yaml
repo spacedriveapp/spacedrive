@@ -401,6 +401,7 @@ importers:
       byte-size: ^8.1.0
       class-variance-authority: ^0.4.0
       clsx: ^1.2.1
+      crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
@@ -447,6 +448,7 @@ importers:
       byte-size: 8.1.0
       class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
+      crypto-random-string: 5.0.0
       dayjs: 1.11.7
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
@@ -492,7 +494,6 @@ importers:
       '@zxcvbn-ts/core': ^2.1.0
       '@zxcvbn-ts/language-common': ^2.0.1
       '@zxcvbn-ts/language-en': ^2.1.0
-      crypto-random-string: ^5.0.0
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.8.4
@@ -505,7 +506,6 @@ importers:
       '@zxcvbn-ts/core': 2.1.0
       '@zxcvbn-ts/language-common': 2.0.1
       '@zxcvbn-ts/language-en': 2.1.0
-      crypto-random-string: 5.0.0
       valtio: 1.9.0
     devDependencies:
       '@types/react': 18.0.27
@@ -8428,7 +8428,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_ovmyjmuuyckt3r3gpaexj2onji
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - supports-color
 
@@ -21072,7 +21072,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_ovmyjmuuyckt3r3gpaexj2onji
+      vite: 4.0.4_sass@1.57.1
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -21236,7 +21236,6 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

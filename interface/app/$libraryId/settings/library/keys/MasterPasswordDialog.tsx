@@ -4,7 +4,6 @@ import {
 	Algorithm,
 	HASHING_ALGOS,
 	HashingAlgoSlug,
-	generatePassword,
 	hashingAlgoSlugSchema,
 	useLibraryMutation
 } from '@sd/client';
@@ -20,6 +19,7 @@ import {
 } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
+import { generatePassword } from '~/util';
 
 const schema = z.object({
 	masterPassword: z.string(),

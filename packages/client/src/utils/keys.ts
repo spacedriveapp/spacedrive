@@ -1,9 +1,5 @@
-import cryptoRandomString from 'crypto-random-string';
 import { z } from 'zod';
 import { HashingAlgorithm } from '../core';
-
-export const generatePassword = (length: number) =>
-	cryptoRandomString({ length, type: 'ascii-printable' });
 
 export const hashingAlgoSlugSchema = z.union([
 	z.literal("Argon2id-s"),

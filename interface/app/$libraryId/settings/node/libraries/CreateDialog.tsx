@@ -5,7 +5,6 @@ import {
 	Algorithm,
 	HASHING_ALGOS,
 	HashingAlgoSlug,
-	generatePassword,
 	hashingAlgoSlugSchema,
 	useBridgeMutation
 } from '@sd/client';
@@ -19,6 +18,7 @@ import {
 	useDialog
 } from '@sd/ui';
 import { forms } from '@sd/ui';
+import { generatePassword } from '~/util';
 
 const { Input, z, useZodForm } = forms;
 

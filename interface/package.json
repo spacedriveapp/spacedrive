@@ -20,6 +20,7 @@
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
 		"@hookform/resolvers": "^2.9.10",
+		"crypto-random-string": "^5.0.0",
 		"@loadable/component": "^5.15.2",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
