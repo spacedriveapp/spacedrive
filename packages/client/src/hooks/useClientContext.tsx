@@ -66,7 +66,21 @@ export const useClientContext = () => {
 	return ctx;
 };
 
-export const useCurrentLibraryId = () => useClientContext().currentLibraryId;
+export const useCurrentLibraryId = () => {
+	try {
+		return useClientContext().currentLibraryId;
+	} catch (e) {
+		return null;
+	}
+};
+
+export const useCurrentTelemetrySharing = () => {
+	try {
+		return useClientContext().library?.config.shareTelemetry ?? null;
+	} catch (e) {
+		return null;
+	}
+};
 
 export const currentLibraryCache = valtioPersist('sd-current-library', {
 	id: null as string | null
