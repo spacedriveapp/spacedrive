@@ -56,18 +56,13 @@ export const PlausibleTracker = (props: PlausibleProps) => {
 	const currentLibraryId = useCurrentLibraryId();
 	const shareTelemetry = useCurrentTelemetrySharing();
 	const debugState = useDebugState();
-
 	const previousPath = useRef('');
 
 	let path = props.currentPath;
 
 	// This sanitises the current path, so that our analytics aren't flooded with unique (UUID-filled) records.
 	// It also replaces certain routes - see the `TrackerReplaceRules` for more info.
-	TrackerReplaceRules.forEach((e, i) => {
-		if (!e[0].test(path)) return;
-
-		path = path.replace(e[0], e[1]);
-	});
+	TrackerReplaceRules.forEach((e, i) => (path = path.replace(e[0], e[1])));
 
 	// This actually sends the network request/does the tracking
 	const track = async () => {
