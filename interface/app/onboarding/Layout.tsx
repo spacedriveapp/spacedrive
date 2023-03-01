@@ -1,12 +1,11 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
 import clsx from 'clsx';
 import { useEffect } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router';
-import { PlausibleTracker, getOnboardingStore } from '@sd/client';
+import { Outlet, useNavigate } from 'react-router';
+import { getOnboardingStore } from '@sd/client';
 import { tw } from '@sd/ui';
 import DragRegion from '~/components/DragRegion';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
 import Progress from './Progress';
 
 export const OnboardingContainer = tw.div`flex flex-col items-center`;
@@ -40,10 +39,6 @@ export default () => {
 			)}
 		>
 			<DragRegion className="z-50 h-9" />
-			<PlausibleTracker
-				currentPath={useLocation().pathname}
-				platformType={usePlatform().platform}
-			/>
 			<div className="-mt-5 flex grow flex-col p-10">
 				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
