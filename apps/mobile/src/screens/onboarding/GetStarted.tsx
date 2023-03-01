@@ -1,7 +1,7 @@
-import { Image, Text, View } from 'react-native';
+import { Image, Text, TextProps, View } from 'react-native';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
@@ -22,6 +22,20 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	);
 }
 
+export const OnboardingTitle = ({ style, ...props }: TextProps) => (
+	<Text
+		style={twStyle('text-ink text-center text-4xl font-extrabold leading-tight', style as string)}
+		{...props}
+	/>
+);
+
+export const OnboardingDescription = ({ style, ...props }: TextProps) => (
+	<Text
+		style={twStyle('text-ink-dull text-center text-base leading-relaxed', style as string)}
+		{...props}
+	/>
+);
+
 const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted'>) => {
 	return (
 		<OnboardingContainer>
@@ -31,15 +45,13 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			</LogoAnimation>
 			{/* Title */}
 			<FadeInUpAnimation delay={500} style={tw`mt-8`}>
-				<Text style={tw`text-ink text-center text-4xl font-extrabold leading-tight`}>
-					The file explorer from the future.
-				</Text>
+				<OnboardingTitle>The file explorer from the future.</OnboardingTitle>
 			</FadeInUpAnimation>
 			{/* Description */}
 			<FadeInUpAnimation delay={800} style={tw`mt-8`}>
-				<Text style={tw`text-ink-dull px-6 text-center text-base leading-relaxed`}>
+				<OnboardingDescription>
 					Welcome to Spacedrive, an open source cross-platform file manager.
-				</Text>
+				</OnboardingDescription>
 			</FadeInUpAnimation>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
