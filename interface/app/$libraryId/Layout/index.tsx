@@ -1,8 +1,14 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Navigate, Outlet, useParams } from 'react-router-dom';
-import { ClientContextProvider, LibraryContextProvider, useClientContext } from '@sd/client';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
+import {
+	ClientContextProvider,
+	LibraryContextProvider,
+	PlausibleTracker,
+	useClientContext
+} from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -11,6 +17,8 @@ const Layout = () => {
 
 	const os = useOperatingSystem();
 
+	const currentPath = useLocation().pathname;
+	const platformType = usePlatform().platform;
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
@@ -33,6 +41,7 @@ const Layout = () => {
 				return false;
 			}}
 		>
+			<PlausibleTracker currentPath={currentPath} platformType={platformType} />
 			<Sidebar />
 			<div className="relative flex w-full">
 				{library ? (
