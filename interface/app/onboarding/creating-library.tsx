@@ -8,21 +8,24 @@ import {
 	resetOnboardingStore,
 	useBridgeMutation,
 	useDebugState,
-	useOnboardingStore
+	useOnboardingStore,
+	usePlausibleEvent
 } from '@sd/client';
 import { Loader } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 export default function OnboardingCreatingLibrary() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const debugState = useDebugState();
+	const platform = usePlatform();
+	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const [status, setStatus] = useState('Creating your library...');
 
 	useUnlockOnboardingScreen();
-
-	const debugState = useDebugState();
 
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
@@ -30,6 +33,14 @@ export default function OnboardingCreatingLibrary() {
 				...(libraries || []),
 				library
 			]);
+
+			createLibraryEvent({
+				event: {
+					type: 'libraryCreate',
+					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
+				}
+			});
+
 			resetOnboardingStore();
 			navigate(`/${library.uuid}/overview`);
 		},
@@ -59,7 +70,7 @@ export default function OnboardingCreatingLibrary() {
 	const created = useRef(false);
 
 	useEffect(() => {
-		if (created.current == true) return;
+		if (created.current) return;
 		created.current = true;
 		create();
 		const timer = setTimeout(() => {

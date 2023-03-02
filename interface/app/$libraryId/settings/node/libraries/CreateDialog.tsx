@@ -7,7 +7,8 @@ import {
 	HashingAlgoSlug,
 	generatePassword,
 	hashingAlgoSlugSchema,
-	useBridgeMutation
+	useBridgeMutation,
+	usePlausibleEvent
 } from '@sd/client';
 import {
 	Button,
@@ -21,6 +22,7 @@ import {
 	useDialog
 } from '@sd/ui';
 import { forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 const { Input, z, useZodForm } = forms;
 
@@ -35,6 +37,8 @@ const schema = z.object({
 
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
+	const platform = usePlatform();
+	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const form = useZodForm({
 		schema,
@@ -57,6 +61,13 @@ export default (props: UseDialogProps) => {
 				...(libraries || []),
 				library
 			]);
+
+			createLibraryEvent({
+				event: {
+					type: 'libraryCreate',
+					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
+				}
+			});
 		},
 		onError: (err: any) => {
 			console.error(err);
