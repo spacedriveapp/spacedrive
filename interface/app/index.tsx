@@ -22,7 +22,8 @@ const Index = () => {
 
 
 // NOTE: all route `Layout`s below should contain
-// the `PlausibleTracker` component, as early as possible (ideally within the layout itself).
+// the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
+// the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
 const routes = [
 	{
