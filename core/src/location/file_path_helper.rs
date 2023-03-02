@@ -9,7 +9,10 @@ use prisma_client_rust::{Direction, QueryError};
 use thiserror::Error;
 use tracing::error;
 
-use super::{indexer::indexer_job_location, LocationId};
+#[cfg(feature = "location-watcher")]
+use super::indexer::indexer_job_location;
+
+use super::LocationId;
 
 static LAST_FILE_PATH_ID: AtomicI32 = AtomicI32::new(0);
 
@@ -97,6 +100,7 @@ pub async fn create_file_path(
 	Ok(created_path)
 }
 
+#[cfg(feature = "location-watcher")]
 pub fn subtract_location_path(
 	location_path: impl AsRef<Path>,
 	current_path: impl AsRef<Path>,
@@ -116,6 +120,7 @@ pub fn subtract_location_path(
 	}
 }
 
+#[cfg(feature = "location-watcher")]
 pub fn extract_materialized_path(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
@@ -125,6 +130,7 @@ pub fn extract_materialized_path(
 	})
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_path(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
@@ -152,6 +158,7 @@ pub async fn get_existing_file_path(
 		.map_err(Into::into)
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_or_directory(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
