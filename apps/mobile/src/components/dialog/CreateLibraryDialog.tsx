@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
+import { Input } from '~/components/form/Input';
 import Dialog from '~/components/layout/Dialog';
-import { Input } from '~/components/primitive/Input';
+import { currentLibraryStore } from '~/utils/nav';
 
 type Props = {
 	onSubmit?: () => void;
@@ -11,10 +13,9 @@ type Props = {
 
 // TODO: Move to a Modal component
 const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
+	const queryClient = useQueryClient();
 	const [libName, setLibName] = useState('');
 	const [isOpen, setIsOpen] = useState(false);
-
-	const { switchLibrary } = useCurrentLibrary();
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
@@ -27,7 +28,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 				queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
 
 				// Switch to the new library
-				switchLibrary(lib.uuid);
+				currentLibraryStore.id = lib.uuid;
 
 				onSubmit?.();
 			},

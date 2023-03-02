@@ -121,7 +121,7 @@ function Page() {
 						{values.map((value, index) => (
 							<div
 								key={value.title + index}
-								className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
+								className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
 							>
 								<value.icon className="m-0 w-8" />
 								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
@@ -139,7 +139,7 @@ function Page() {
 							<div
 								key={value.title + index}
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
-								className="bg-opacity30 bg-gray-550 flex flex-col rounded-md border p-8"
+								className="bg-gray-550/30 flex flex-col rounded-md border p-8"
 							>
 								<value.icon className="m-0 w-8" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
@@ -161,7 +161,7 @@ function Page() {
 							positions.map((value, index) => (
 								<div
 									key={value.name + index}
-									className="bg-opacity/50 bg-gray-550 flex flex-col rounded-md border border-gray-500 p-10"
+									className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
 								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>

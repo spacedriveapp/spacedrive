@@ -1,11 +1,12 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import ColorPicker from 'react-native-wheel-color-picker';
-import { Tag, queryClient, useLibraryMutation } from '@sd/client';
+import { Tag, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
+import ColorPicker from '~/components/form/ColorPicker';
+import { Input } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
-import { Input } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -15,10 +16,11 @@ type Props = {
 };
 
 const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
+	const queryClient = useQueryClient();
 	const modalRef = useForwardedRef(ref);
 
-	const [tagName, setTagName] = useState(props.tag.name);
-	const [tagColor, setTagColor] = useState(props.tag.color);
+	const [tagName, setTagName] = useState(props.tag.name!);
+	const [tagColor, setTagColor] = useState(props.tag.color!);
 	const [showPicker, setShowPicker] = useState(false);
 
 	const { mutate: updateTag, isLoading } = useLibraryMutation('tags.update', {
@@ -31,12 +33,12 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 			props.onSubmit?.();
 		},
 		onSettled: () => {
-			modalRef.current.dismiss();
+			modalRef.current?.dismiss();
 		}
 	});
 
 	useEffect(() => {
-		modalRef.current.snapToIndex(showPicker ? 1 : 0);
+		modalRef.current?.snapToIndex(showPicker ? 1 : 0);
 	}, [modalRef, showPicker]);
 
 	return (
@@ -63,32 +65,12 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 						style={twStyle({ backgroundColor: tagColor }, 'h-5 w-5 rounded-full')}
 					/>
 					{/* TODO: Make this editable. Need to make sure color is a valid hexcode and update the color on picker etc. etc. */}
-					<Input editable={false} value={tagColor} style={tw`ml-2 flex-1`} />
+					<Input editable={false} value={tagColor as string} style={tw`ml-2 flex-1`} />
 				</View>
 				{showPicker && (
 					<FadeInAnimation>
 						<View style={tw`mt-4 h-64`}>
-							<ColorPicker
-								autoResetSlider
-								gapSize={0}
-								thumbSize={40}
-								sliderSize={24}
-								shadeSliderThumb
-								color={tagColor}
-								onColorChangeComplete={(color) => setTagColor(color)}
-								swatchesLast={false}
-								palette={[
-									tw.color('blue-500'),
-									tw.color('red-500'),
-									tw.color('green-500'),
-									tw.color('yellow-500'),
-									tw.color('purple-500'),
-									tw.color('pink-500'),
-									tw.color('gray-500'),
-									tw.color('black'),
-									tw.color('white')
-								]}
-							/>
+							<ColorPicker color={tagColor} onColorChangeComplete={(color) => setTagColor(color)} />
 						</View>
 					</FadeInAnimation>
 				)}

@@ -17,6 +17,11 @@ export default defineConfig({
 		md({ mode: [Mode.REACT] }),
 		visualizer()
 	],
+	css: {
+		modules: {
+			localsConvention: 'camelCaseOnly'
+		}
+	},
 	resolve: {
 		alias: [
 			{

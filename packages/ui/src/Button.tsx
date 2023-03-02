@@ -34,7 +34,8 @@ const styles = cva(
 			},
 			size: {
 				icon: '!p-1',
-				md: 'text-md py-1 px-3 font-medium',
+				lg: 'text-md py-1.5 px-3 font-medium',
+				md: 'py-1.5 px-2.5 text-sm font-medium',
 				sm: 'py-1 px-2 text-sm font-medium'
 			},
 			variant: {
@@ -55,12 +56,12 @@ const styles = cva(
 				accent: [
 					'bg-accent active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-app-shade/10 text-white shadow-md'
 				],
-				colored: ['hover:bg-opacity/90 active:bg-opacity/100 text-white shadow-sm'],
+				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
 			}
 		},
 		defaultVariants: {
-			size: 'md',
+			size: 'sm',
 			variant: 'default'
 		}
 	}

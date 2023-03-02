@@ -11,7 +11,7 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 		'locations.getExplorerData',
 		{
 			location_id: id,
-			path: path || '',
+			path: path ?? '',
 			limit: 100,
 			cursor: null
 		}
@@ -26,14 +26,14 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			});
 		} else {
 			navigation.setOptions({
-				title: data?.context.name
+				title: data?.context.name ?? 'Location'
 			});
 		}
 	}, [data, navigation, path]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;
-		getExplorerStore().path = path;
+		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
 	return <Explorer data={data} />;

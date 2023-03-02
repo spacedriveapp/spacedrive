@@ -1,9 +1,9 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useBridgeQuery } from '@sd/client';
+import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
 import Divider from '~/components/primitive/Divider';
-import { Input } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 

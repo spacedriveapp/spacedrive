@@ -1,6 +1,6 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash } from 'phosphor-react';
+import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
 import { PropsWithChildren, forwardRef, useState } from 'react';
 import { Button } from './Button';
 
@@ -12,7 +12,8 @@ export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 const styles = cva(
 	[
-		'rounded-md border px-3 py-1 text-sm leading-7',
+		'w-full',
+		'rounded-md border px-3 text-sm leading-7',
 		'shadow-sm outline-none transition-all focus:ring-2'
 	],
 	{
@@ -24,8 +25,8 @@ const styles = cva(
 				]
 			},
 			size: {
-				sm: 'text-sm',
-				md: 'text-base'
+				sm: 'py-0.5 text-sm',
+				md: 'py-1 text-sm'
 			}
 		},
 		defaultVariants: {
@@ -37,6 +38,19 @@ const styles = cva(
 export const Input = forwardRef<HTMLInputElement, InputProps>(
 	({ variant, size, className, ...props }, ref) => (
 		<input {...props} ref={ref} className={styles({ variant, size, className })} />
+	)
+);
+
+export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClassnames?: string }>(
+	({ variant, size, className, outerClassnames, ...props }, ref) => (
+		<div className={clsx('relative', outerClassnames)}>
+			<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
+			<Input
+				{...props}
+				ref={ref}
+				className={clsx(styles({ variant, size, className }), '!p-0.5 !pl-9')}
+			/>
+		</div>
 	)
 );
 
@@ -52,33 +66,28 @@ export function Label(props: PropsWithChildren<{ slug?: string }>) {
 	);
 }
 
-interface PasswordShowHideInputProps extends InputProps {
+interface PasswordInputProps extends InputProps {
 	buttonClassnames?: string;
 }
 
-export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHideInputProps>(
-	({ variant, size, className, ...props }, ref) => {
-		const [showPassword, setShowPassword] = useState(false);
-		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
-		return (
-			<span className="relative grow">
-				<Button
-					onClick={() => setShowPassword(!showPassword)}
-					size="icon"
-					className={clsx(
-						'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
-						props.buttonClassnames
-					)}
-				>
-					<CurrentEyeIcon className="h-4 w-4" />
-				</Button>
-				<input
-					{...props}
-					type={showPassword ? 'text' : 'password'}
-					ref={ref}
-					className={styles({ variant, size, className })}
-				/>
-			</span>
-		);
-	}
-);
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((props, ref) => {
+	const [showPassword, setShowPassword] = useState(false);
+
+	const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
+
+	return (
+		<div className="relative grow">
+			<Button
+				onClick={() => setShowPassword(!showPassword)}
+				size="icon"
+				className={clsx(
+					'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
+					props.buttonClassnames
+				)}
+			>
+				<CurrentEyeIcon className="h-4 w-4" />
+			</Button>
+			<Input {...props} type={showPassword ? 'text' : 'password'} ref={ref} />
+		</div>
+	);
+});

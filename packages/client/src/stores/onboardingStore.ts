@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+import { HashingAlgoSlug } from '../utils';
 import { valtioPersist } from './util';
 
 export enum UseCase {
@@ -15,7 +16,7 @@ const onboardingStoreDefaults = {
 	lastActiveScreen: null as string | null,
 	shouldEncryptLibrary: false,
 	algorithm: 'XChaCha20Poly1305',
-	hashingAlgorithm: 'Argon2id-s',
+	hashingAlgorithm: 'Argon2id-s' as HashingAlgoSlug,
 	passwordSetToken: null as string | null,
 	shareTelemetryDataWithDevelopers: true,
 	useCases: [] as UseCase[],

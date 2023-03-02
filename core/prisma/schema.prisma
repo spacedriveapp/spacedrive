@@ -174,7 +174,7 @@ model FilePath {
     // the name and extension
     // Must have 'COLLATE NOCASE' in migration
     name              String
-    extension         String?
+    extension         String
 
     // the unique Object for this file path
     object_id Int?

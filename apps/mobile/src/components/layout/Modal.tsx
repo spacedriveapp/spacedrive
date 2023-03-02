@@ -31,7 +31,7 @@ const ModalHandle = (props: ModalHandle) => (
 	>
 		{props.showCloseButton && (
 			<Pressable
-				onPress={() => props.modalRef.current.close()}
+				onPress={() => props.modalRef.current?.close()}
 				style={tw`bg-app-button absolute top-5 right-4 h-7 w-7 items-center justify-center rounded-full`}
 			>
 				<X size={16} color="white" weight="bold" />
@@ -101,7 +101,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 	return (
 		<>
 			{props.trigger && (
-				<Pressable onPress={() => modalRef.current.present()}>{props.trigger}</Pressable>
+				<Pressable onPress={() => modalRef.current?.present()}>{props.trigger}</Pressable>
 			)}
 			<BottomSheetModal
 				ref={modalRef}
@@ -126,7 +126,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 							style={tw`flex-1`}
 							size="lg"
 							disabled={props.loading} // Disables Close button if loading
-							onPress={() => modalRef.current.close()}
+							onPress={() => modalRef.current?.close()}
 						>
 							<Text style={tw`text-ink text-sm font-medium`}>Close</Text>
 						</Button>

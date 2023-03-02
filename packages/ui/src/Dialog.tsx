@@ -60,8 +60,7 @@ class DialogManager {
 		if (state.open === false) {
 			delete this.dialogs[id];
 			delete this.state[id];
-			console.log(`Successfully removed state ${id}`);
-		} else console.log(`Tried to remove state ${id} but wasn't pending!`);
+		}
 	}
 }
 
@@ -82,9 +81,13 @@ function Remover({ id }: { id: number }) {
 }
 
 export function useDialog(props: UseDialogProps) {
+	const state = dialogManager.getState(props.id);
+
+	if (!state) throw new Error(`Dialog ${props.id} does not exist!`);
+
 	return {
 		...props,
-		state: dialogManager.getState(props.id)
+		state
 	};
 }
 
@@ -144,7 +147,7 @@ export function Dialog<S extends FieldValues>({
 					<DialogPrimitive.Portal forceMount>
 						<DialogPrimitive.Overlay asChild forceMount>
 							<animated.div
-								className="z-49 bg-app bg-opacity/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
+								className="z-49 bg-app/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
 								style={{
 									opacity: styles.opacity
 								}}
@@ -159,7 +162,7 @@ export function Dialog<S extends FieldValues>({
 								<Form
 									form={form}
 									onSubmit={async (e) => {
-										await onSubmit(e);
+										await onSubmit?.(e);
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}

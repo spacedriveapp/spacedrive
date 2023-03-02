@@ -118,18 +118,6 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.exec()
 					.await?;
 
-				// library
-				// 	.queue_job(Job::new(
-				// 		ThumbnailJobInit {
-				// 			location_id: location.id,
-				// 			// recursive: false, // TODO: do this
-				// 			root_path: PathBuf::from(&directory.materialized_path),
-				// 			background: true,
-				// 		},
-				// 		ThumbnailJob {},
-				// 	))
-				// 	.await;
-
 				let mut items = Vec::with_capacity(file_paths.len());
 
 				for file_path in file_paths {
@@ -223,7 +211,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 
 				async_stream::stream! {
 					let online = location_manager.get_online().await;
-					dbg!(&online);
+					// dbg!(&online);
 					yield online;
 
 					while let Ok(locations) = rx.recv().await {

@@ -107,9 +107,9 @@ export function HomeCTA() {
 							{(waitlistError || waitlistSubmitted) && (
 								<div
 									className={clsx({
-										'bg-opacity/20 my-2 flex flex-row items-center rounded-md border-2 px-2': true,
-										'border-red-900 bg-red-800': waitlistError,
-										'border-green-900 bg-green-800': !waitlistError,
+										'my-2 flex flex-row items-center rounded-md border-2 px-2': true,
+										'border-red-900 bg-red-800/20': waitlistError,
+										'border-green-900 bg-green-800/20': !waitlistError,
 										'-mt-2': waitlistSubmitted
 									})}
 								>

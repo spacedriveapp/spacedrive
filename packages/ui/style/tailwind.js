@@ -12,6 +12,7 @@ module.exports = function (app, options) {
 	let config = {
 		content: [
 			!options?.ignorePackages && '../../packages/*/src/**/*.{ts,tsx,html}',
+			'../../interface/**/*.{ts,tsx,html}',
 			app ? `../../apps/${app}/src/**/*.{ts,tsx,html}` : `./src/**/*.{ts,tsx,html}`
 		],
 		darkMode: app == 'landing' ? 'class' : 'media',

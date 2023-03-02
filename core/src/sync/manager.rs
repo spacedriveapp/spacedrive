@@ -226,6 +226,12 @@ impl SyncManager {
 										.unwrap(),
 										serde_json::from_value(data.remove("name").unwrap())
 											.unwrap(),
+										serde_json::from_value(
+											data.remove("extension").unwrap_or_else(|| {
+												serde_json::Value::String("".to_string())
+											}),
+										)
+										.unwrap(),
 										data.into_iter()
 											.flat_map(|(k, v)| {
 												file_path::SetParam::deserialize(&k, v)
@@ -283,6 +289,12 @@ impl SyncManager {
 												.unwrap(),
 												serde_json::from_value(
 													data.remove("name").unwrap(),
+												)
+												.unwrap(),
+												serde_json::from_value(
+													data.remove("extension").unwrap_or_else(|| {
+														serde_json::Value::String("".to_string())
+													}),
 												)
 												.unwrap(),
 												data.into_iter()

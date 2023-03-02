@@ -58,7 +58,7 @@ if (Platform.OS === 'ios') {
 const App = lazy(async () => {
 	const keys = await AsyncStorage.getAllKeys();
 	const values = await AsyncStorage.multiGet(keys);
-	values.forEach(([key, value]) => _localStorage.set(key, value));
+	values.forEach(([key, value]) => _localStorage.set(key, value!));
 
 	return await import('./App');
 });

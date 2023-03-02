@@ -98,6 +98,8 @@ impl LocationCreateArgs {
 		)
 		.await?;
 
+		ctx.location_manager().add(location.id, ctx.clone()).await?;
+
 		info!("Created location: {location:?}");
 
 		Ok(location)
@@ -132,6 +134,8 @@ impl LocationCreateArgs {
 		metadata
 			.add_library(ctx.id, uuid, &self.path, location.name.clone())
 			.await?;
+
+		ctx.location_manager().add(location.id, ctx.clone()).await?;
 
 		info!(
 			"Added library (library_id = {}) to location: {location:?}",
@@ -408,8 +412,6 @@ async fn create_location(
 		.ok_or(LocationError::IdNotFound(location.id))?;
 
 	invalidate_query!(ctx, "locations.list");
-
-	ctx.location_manager().add(location.id, ctx.clone()).await?;
 
 	Ok(location)
 }

@@ -71,14 +71,14 @@ export const ActionsModal = () => {
 					<View style={tw`flex-1 px-4`}>
 						<View style={tw`flex flex-row items-center`}>
 							{/* Thumbnail/Icon */}
-							<Pressable onPress={() => fileInfoRef.current.present()}>
+							<Pressable onPress={() => fileInfoRef.current?.present()}>
 								<FileThumb data={data} size={1} />
 							</Pressable>
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text style={tw`text-base font-bold text-gray-200`} numberOfLines={1}>
-									{item.name}
-									{item.extension && `.${item.extension}`}
+									{item?.name}
+									{item?.extension && `.${item?.extension}`}
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-ink-faint text-xs`}>
@@ -86,12 +86,12 @@ export const ActionsModal = () => {
 									</Text>
 									<Text style={tw`text-ink-faint text-xs`}>
 										{' '}
-										{dayjs(item.date_created).format('MMM Do YYYY')}
+										{dayjs(item?.date_created).format('MMM Do YYYY')}
 									</Text>
 								</View>
 								<InfoTagPills data={data} />
 							</View>
-							<FavoriteButton style={tw`mr-4`} data={objectData} />
+							{objectData && <FavoriteButton style={tw`mr-4`} data={objectData} />}
 						</View>
 						<View style={tw`my-3`} />
 						{/* Actions */}
@@ -99,7 +99,7 @@ export const ActionsModal = () => {
 							<ActionsItem
 								icon={Info}
 								title="Show Info"
-								onPress={() => fileInfoRef.current.present()}
+								onPress={() => fileInfoRef.current?.present()}
 							/>
 						</ActionsContainer>
 						<ActionsContainer style={tw`mt-2`}>
