@@ -1,10 +1,7 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	location::indexer::rules::RuleKind,
-	prisma::{
-		file_path,
-		location,
-	},
+	prisma::{file_path, location},
 	sync,
 };
 

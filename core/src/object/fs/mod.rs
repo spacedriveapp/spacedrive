@@ -30,7 +30,6 @@ pub enum ObjectType {
 	Directory,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FsInfo {
 	pub path_data: file_path_with_object::Data,

@@ -42,7 +42,7 @@ impl EventHandler for MacOsEventHandler {
 			EventKind::Create(CreateKind::Folder) => {
 				if let Some(latest_created_dir) = self.latest_created_dir.take() {
 					if event.paths[0] == latest_created_dir.paths[0] {
-						// NOTE: This is a MacOS specific event that happens when a folder is created 
+						// NOTE: This is a MacOS specific event that happens when a folder is created
 						// trough Finder. It creates a folder but 2 events are triggered in
 						// FSEvents. So we store and check the latest created folder to avoid
 						// hiting a unique constraint in the database
