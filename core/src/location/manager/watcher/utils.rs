@@ -36,22 +36,19 @@ use uuid::Uuid;
 use super::file_path_with_object;
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
-	// if first path includes .DS_Store, ignore
-	if event.paths.iter().any(|p| {
-		p.to_str()
-			.expect("Found non-UTF-8 path")
-			.contains(".DS_Store")
-			|| ignore_paths.contains(p)
-	}) {
-		return false;
-	}
+	// if path includes .DS_Store, .spacedrive or is in the `ignore_paths` set, we ignore
+	!event.paths.iter().any(|p| {
+		let path_str = p.to_str().expect("Found non-UTF-8 path");
 
-	true
+		path_str.contains(".DS_Store")
+			|| path_str.contains(".spacedrive")
+			|| ignore_paths.contains(p)
+	})
 }
 
 pub(super) async fn create_dir(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id != library_ctx.node_local_id {
@@ -89,7 +86,7 @@ pub(super) async fn create_dir(
 			.and_then(OsStr::to_str)
 			.map(str::to_string)
 			.expect("Found non-UTF-8 path"),
-		None,
+		"".to_string(),
 		Some(parent_directory.id),
 		true,
 	)
@@ -104,7 +101,7 @@ pub(super) async fn create_dir(
 
 pub(super) async fn create_file(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id != library_ctx.node_local_id {
@@ -141,13 +138,10 @@ pub(super) async fn create_file(
 			.to_str()
 			.expect("Found non-UTF-8 path")
 			.to_string(),
-		materialized_path.extension().and_then(|ext| {
-			if ext.is_empty() {
-				None
-			} else {
-				Some(ext.to_str().expect("Found non-UTF-8 path").to_string())
-			}
-		}),
+		materialized_path
+			.extension()
+			.map(|ext| ext.to_str().expect("Found non-UTF-8 path").to_string())
+			.unwrap_or_default(),
 		Some(parent_directory.id),
 		false,
 	)
@@ -214,10 +208,14 @@ pub(super) async fn create_file(
 		.await?;
 
 	trace!("object: {:#?}", object);
-	if !object.has_thumbnail {
-		if let Some(ref extension) = created_file.extension {
-			generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
-		}
+	if !object.has_thumbnail && !created_file.extension.is_empty() {
+		generate_thumbnail(
+			&created_file.extension,
+			&cas_id,
+			&event.paths[0],
+			library_ctx,
+		)
+		.await;
 	}
 
 	invalidate_query!(library_ctx, "locations.getExplorerData");
@@ -227,7 +225,7 @@ pub(super) async fn create_file(
 
 pub(super) async fn file_creation_or_update(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if let Some(ref file_path) =
@@ -242,7 +240,7 @@ pub(super) async fn file_creation_or_update(
 
 pub(super) async fn update_file(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library_ctx.node_local_id {
@@ -265,7 +263,7 @@ pub(super) async fn update_file(
 async fn inner_update_file(
 	location: &indexer_job_location::Data,
 	file_path: &file_path_with_object::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	trace!(
@@ -315,8 +313,9 @@ async fn inner_update_file(
 				.unwrap_or_default()
 			{
 				// if this file had a thumbnail previously, we update it to match the new content
-				if let Some(extension) = &file_path.extension {
-					generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
+				if !file_path.extension.is_empty() {
+					generate_thumbnail(&file_path.extension, &cas_id, &event.paths[0], library_ctx)
+						.await;
 				}
 			}
 		}
@@ -329,7 +328,7 @@ async fn inner_update_file(
 
 pub(super) async fn rename_both_event(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	rename(&event.paths[1], &event.paths[0], location, library_ctx).await
@@ -396,7 +395,12 @@ pub(super) async fn rename(
 					file_path::extension::set(
 						new_path_materialized
 							.extension()
-							.map(|s| s.to_str().expect("Found non-UTF-8 path").to_string()),
+							.map(|s| {
+								s.to_str()
+									.expect("Found non-UTF-8 extension in path")
+									.to_string()
+							})
+							.unwrap_or_default(),
 					),
 				],
 			)
@@ -410,7 +414,7 @@ pub(super) async fn rename(
 
 pub(super) async fn remove_event(
 	location: &indexer_job_location::Data,
-	event: Event,
+	event: &Event,
 	remove_kind: RemoveKind,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {

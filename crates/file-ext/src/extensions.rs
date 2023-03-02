@@ -265,8 +265,6 @@ extension_category_enum! {
 
 #[cfg(test)]
 mod test {
-	use std::path::PathBuf;
-	use tokio::fs::File;
 
 	use super::*;
 
