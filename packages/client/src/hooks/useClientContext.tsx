@@ -66,14 +66,19 @@ export const useClientContext = () => {
 	return ctx;
 };
 
-export const useCurrentLibraryId = () => {
-	try {
-		return useClientContext().currentLibraryId;
-	} catch (e) {
-		return null;
-	}
-};
+export const useCurrentLibraryId = () => useClientContext().currentLibraryId;
 
+/**
+ * @privateRemarks
+ * This should **not** throw an error at all.
+ *
+ * It may be used in contexts where a library or `ClientContextProvider` aren't available,
+ * such as during onboarding.
+ *
+ * We shouldn't throw an error if the user hasn't selected a telemetry sharing option,
+ * and this shouldn't be used for anything other than validating that we can send usage data. It is
+ * more of an optional query than anything else, and telemetry will not be shared unless this explicitly returns `true`.
+ */
 export const useCurrentTelemetrySharing = () => {
 	try {
 		return useClientContext().library?.config.shareTelemetry ?? null;
