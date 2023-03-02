@@ -22,7 +22,7 @@ const plausible = Plausible({
  */
 interface PlausibleOptions extends PlausibleTrackerOptions {
 	/**
-	 * This should **only** be used in contexts where usage sharing
+	 * This should **only** be used in contexts where telemetry sharing
 	 * must be allowed via external means (such as during onboarding,
 	 * where we can't source it from the library configuration).
 	 */
@@ -93,10 +93,10 @@ interface SubmitEventProps {
 	 */
 	screenWidth?: number;
 	/**
-	 * Whether or not usage sharing is enabled for the current library.
+	 * Whether or not telemetry sharing is enabled for the current library.
 	 *
 	 * It is **crucial** that this is the direct output of `useCurrentTelemetrySharing()`,
-	 * regardless of other conditions that may affect whether we share usage (such as event overrides).
+	 * regardless of other conditions that may affect whether we share it (such as event overrides).
 	 */
 	shareTelemetry: boolean | null;
 	/**
@@ -179,7 +179,7 @@ interface EventSubmissionCallbackProps {
  *
  * Certain events provide functionality to override the library's telemetry sharing configuration.
  * This is not to ignore the user's choice, but because it should **only** be used in contexts where
- * usage sharing must be allowed via external means (such as during onboarding, where we can't
+ * telemetry sharing must be allowed via external means (such as during onboarding, where we can't
  * source it from the library configuration).
  *
  * @remarks
