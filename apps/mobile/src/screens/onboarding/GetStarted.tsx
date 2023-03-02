@@ -1,7 +1,7 @@
-import { Image, Text, TextProps, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
-import { tw, twStyle } from '~/lib/tailwind';
+import { styled, tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
@@ -22,18 +22,14 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	);
 }
 
-export const OnboardingTitle = ({ style, ...props }: TextProps) => (
-	<Text
-		style={twStyle('text-ink text-center text-4xl font-extrabold leading-tight', style as string)}
-		{...props}
-	/>
+export const OnboardingTitle = styled(
+	Text,
+	'text-ink text-center text-4xl font-extrabold leading-tight'
 );
 
-export const OnboardingDescription = ({ style, ...props }: TextProps) => (
-	<Text
-		style={twStyle('text-ink-dull text-center text-base leading-relaxed', style as string)}
-		{...props}
-	/>
+export const OnboardingDescription = styled(
+	Text,
+	'text-ink-dull text-center text-base leading-relaxed'
 );
 
 const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted'>) => {

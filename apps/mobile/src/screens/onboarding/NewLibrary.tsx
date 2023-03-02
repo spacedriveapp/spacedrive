@@ -32,7 +32,6 @@ const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary
 		<OnboardingContainer>
 			<Image source={require('@sd/assets/images/Database.png')} style={tw`h-25 w-25`} />
 			<OnboardingTitle>Create a Library</OnboardingTitle>
-			<Test />
 			<OnboardingDescription>
 				Libraries are a secure, on-device database. Your files remain where they are, the Library
 				catalogs them and stores all Spacedrive related data.

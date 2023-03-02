@@ -17,6 +17,7 @@
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.5",
+		"@hookform/resolvers": "^2.9.10",
 		"@react-native-async-storage/async-storage": "~1.17.11",
 		"@react-native-masked-view/masked-view": "0.2.8",
 		"@react-navigation/bottom-tabs": "^6.5.4",
@@ -53,12 +54,11 @@
 		"react-native-screens": "~3.19.0",
 		"react-native-svg": "13.8.0",
 		"react-native-wheel-color-picker": "^1.2.0",
-		"twrnc": "^3.5.0",
+		"twrnc": "^3.6.0",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.2",
 		"valtio": "^1.8.0",
-		"zod": "^3.20.2",
-		"@hookform/resolvers": "^2.9.10"
+		"zod": "^3.20.2"
 	},
 	"devDependencies": {
 		"@rnx-kit/metro-config": "^1.3.5",

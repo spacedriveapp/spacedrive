@@ -38,12 +38,12 @@
 	"rust-analyzer.procMacro.enable": true,
 	"rust-analyzer.diagnostics.experimental.enable": false,
 	"tailwindCSS.experimental.classRegex": [
-		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
-		"tw`([^`]*)",
-		"tw\\.[^`]+`([^`]*)`",
-		"tw\\(.*?\\).*?`([^`]*)",
-		"tw\\.style\\(([^)]*)\\)",
-		"twStyle\\(([^)]*)\\)"
+		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"], // cva(....)`...`
+		"tw\\.[^`]+`([^`]*)`", // tw.xxx`...`
+		"tw\\(.*?\\).*?`([^`]*)", // tw(....)`...`
+		"tw`([^`]*)", // tw`...` (mobile)
+		"twStyle\\(([^)]*)\\)", // twStyle(....) (mobile)
+		["styled\\([^,)]+,([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"] // styled(....)`...` (mobile)
 	],
 	"search.exclude": {
 		"**/node_modules": true,
