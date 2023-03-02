@@ -48,6 +48,8 @@ impl Ord for WalkEntry {
 	}
 }
 
+type ToWalkEntry = (PathBuf, Option<bool>);
+
 /// This function walks through the filesystem, applying the rules to each entry and then returning
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
@@ -75,190 +77,222 @@ pub(super) async fn walk(
 			}
 		};
 
-		// Marking with a loop label here in case of rejection or erros, to continue with next entry
-		'entries: loop {
-			let entry = match read_dir.next_entry().await {
-				Ok(Some(entry)) => entry,
-				Ok(None) => break,
-				Err(e) => {
-					error!(
-						"Error reading entry in {}: {:#?}",
-						current_path.display(),
-						e
-					);
-					continue;
-				}
-			};
+		inner_walk_single_dir(
+			&root,
+			(current_path, parent_dir_accepted_by_its_children),
+			&mut read_dir,
+			rules_per_kind,
+			&update_notifier,
+			&mut indexed_paths,
+			Some(&mut to_walk),
+		)
+		.await?;
+	}
 
-			// Accept by children has three states,
-			// None if we don't now yet or if this check doesn't apply
-			// Some(true) if this check applies and it passes
-			// Some(false) if this check applies and it was rejected
-			// and we pass the current parent state to its children
-			let mut accept_by_children_dir = parent_dir_accepted_by_its_children;
+	prepared_indexed_paths(root, indexed_paths).await
+}
 
-			let current_path = entry.path();
+async fn inner_walk_single_dir(
+	root: impl AsRef<Path>,
+	(current_path, parent_dir_accepted_by_its_children): ToWalkEntry,
+	read_dir: &mut fs::ReadDir,
+	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	update_notifier: &impl Fn(&Path, usize),
+	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
+	mut maybe_to_walk: Option<&mut VecDeque<(PathBuf, Option<bool>)>>,
+) -> Result<(), IndexerError> {
+	let root = root.as_ref();
 
-			update_notifier(&current_path, indexed_paths.len());
-
-			debug!(
-				"Current filesystem path: {}, accept_by_children_dir: {:#?}",
-				current_path.display(),
-				accept_by_children_dir
-			);
-			if let Some(reject_rules) = rules_per_kind.get(&RuleKind::RejectFilesByGlob) {
-				for reject_rule in reject_rules {
-					// It's ok to unwrap here, reject rules are infallible
-					if !reject_rule.apply(&current_path).await.unwrap() {
-						debug!(
-							"Path {} rejected by rule {}",
-							current_path.display(),
-							reject_rule.name
-						);
-						continue 'entries;
-					}
-				}
+	// Marking with a loop label here in case of rejection or erros, to continue with next entry
+	'entries: loop {
+		let entry = match read_dir.next_entry().await {
+			Ok(Some(entry)) => entry,
+			Ok(None) => break,
+			Err(e) => {
+				error!(
+					"Error reading entry in {}: {:#?}",
+					current_path.display(),
+					e
+				);
+				continue;
 			}
+		};
 
-			let metadata = entry.metadata().await?;
+		// Accept by children has three states,
+		// None if we don't now yet or if this check doesn't apply
+		// Some(true) if this check applies and it passes
+		// Some(false) if this check applies and it was rejected
+		// and we pass the current parent state to its children
+		let mut accept_by_children_dir = parent_dir_accepted_by_its_children;
 
-			// TODO: Hard ignoring symlinks for now, but this should be configurable
-			if metadata.is_symlink() {
-				continue 'entries;
-			}
+		let current_path = entry.path();
 
-			let is_dir = metadata.is_dir();
+		update_notifier(&current_path, indexed_paths.len());
 
-			if is_dir {
-				// If it is a directory, first we check if we must reject it and its children entirely
-				if let Some(reject_by_children_rules) =
-					rules_per_kind.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
-				{
-					for reject_by_children_rule in reject_by_children_rules {
-						match reject_by_children_rule.apply(&current_path).await {
-							Ok(false) => {
-								debug!(
-									"Path {} rejected by rule {}",
-									current_path.display(),
-									reject_by_children_rule.name
-								);
-								continue 'entries;
-							}
-							Ok(true) => {}
-							Err(e) => {
-								error!(
-									"Error applying rule {} to path {}: {:#?}",
-									reject_by_children_rule.name,
-									current_path.display(),
-									e
-								);
-								continue 'entries;
-							}
-						}
-					}
-				}
-
-				// Then we check if we must accept it and its children
-				if let Some(accept_by_children_rules) =
-					rules_per_kind.get(&RuleKind::AcceptIfChildrenDirectoriesArePresent)
-				{
-					for accept_by_children_rule in accept_by_children_rules {
-						match accept_by_children_rule.apply(&current_path).await {
-							Ok(true) => {
-								accept_by_children_dir = Some(true);
-								break;
-							}
-							Ok(false) => {}
-							Err(e) => {
-								error!(
-									"Error applying rule {} to path {}: {:#?}",
-									accept_by_children_rule.name,
-									current_path.display(),
-									e
-								);
-								continue 'entries;
-							}
-						}
-					}
-
-					// If it wasn't accepted then we mark as rejected
-					if accept_by_children_dir.is_none() {
-						debug!(
-							"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
-							current_path.display()
-						);
-						accept_by_children_dir = Some(false);
-					}
-				}
-
-				// Then we mark this directory the be walked in too
-				to_walk.push_back((entry.path(), accept_by_children_dir));
-			}
-
-			let mut accept_by_glob = false;
-			if let Some(accept_rules) = rules_per_kind.get(&RuleKind::AcceptFilesByGlob) {
-				for accept_rule in accept_rules {
-					// It's ok to unwrap here, accept rules are infallible
-					if accept_rule.apply(&current_path).await.unwrap() {
-						debug!(
-							"Path {} accepted by rule {}",
-							current_path.display(),
-							accept_rule.name
-						);
-						accept_by_glob = true;
-						break;
-					}
-				}
-				if !accept_by_glob {
+		debug!(
+			"Current filesystem path: {}, accept_by_children_dir: {:#?}",
+			current_path.display(),
+			accept_by_children_dir
+		);
+		if let Some(reject_rules) = rules_per_kind.get(&RuleKind::RejectFilesByGlob) {
+			for reject_rule in reject_rules {
+				// It's ok to unwrap here, reject rules are infallible
+				if !reject_rule.apply(&current_path).await.unwrap() {
 					debug!(
-						"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
-						current_path.display()
+						"Path {} rejected by rule {}",
+						current_path.display(),
+						reject_rule.name
 					);
 					continue 'entries;
 				}
-			} else {
-				// If there are no accept rules, then accept all paths
-				accept_by_glob = true;
+			}
+		}
+
+		let metadata = entry.metadata().await?;
+
+		// TODO: Hard ignoring symlinks for now, but this should be configurable
+		if metadata.is_symlink() {
+			continue 'entries;
+		}
+
+		let is_dir = metadata.is_dir();
+
+		if is_dir {
+			// If it is a directory, first we check if we must reject it and its children entirely
+			if let Some(reject_by_children_rules) =
+				rules_per_kind.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
+			{
+				for reject_by_children_rule in reject_by_children_rules {
+					match reject_by_children_rule.apply(&current_path).await {
+						Ok(false) => {
+							debug!(
+								"Path {} rejected by rule {}",
+								current_path.display(),
+								reject_by_children_rule.name
+							);
+							continue 'entries;
+						}
+						Ok(true) => {}
+						Err(e) => {
+							error!(
+								"Error applying rule {} to path {}: {:#?}",
+								reject_by_children_rule.name,
+								current_path.display(),
+								e
+							);
+							continue 'entries;
+						}
+					}
+				}
 			}
 
-			if accept_by_glob
-				&& (accept_by_children_dir.is_none() || accept_by_children_dir.unwrap())
+			// Then we check if we must accept it and its children
+			if let Some(accept_by_children_rules) =
+				rules_per_kind.get(&RuleKind::AcceptIfChildrenDirectoriesArePresent)
 			{
-				indexed_paths.insert(
-					current_path.clone(),
-					WalkEntry {
-						path: current_path.clone(),
-						is_dir,
-						created_at: metadata.created()?.into(),
-					},
-				);
-
-				// If the ancestors directories wasn't indexed before, now we do
-				for ancestor in current_path
-					.ancestors()
-					.skip(1) // Skip the current directory as it was already indexed
-					.take_while(|&ancestor| ancestor != root)
-				{
-					debug!("Indexing ancestor {}", ancestor.display());
-					if !indexed_paths.contains_key(ancestor) {
-						indexed_paths.insert(
-							ancestor.to_path_buf(),
-							WalkEntry {
-								path: ancestor.to_path_buf(),
-								is_dir: true,
-								created_at: fs::metadata(ancestor).await?.created()?.into(),
-							},
-						);
-					} else {
-						// If indexed_paths contains the current ancestors, then it will contain
-						// also all if its ancestors too, so we can stop here
-						break;
+				for accept_by_children_rule in accept_by_children_rules {
+					match accept_by_children_rule.apply(&current_path).await {
+						Ok(true) => {
+							accept_by_children_dir = Some(true);
+							break;
+						}
+						Ok(false) => {}
+						Err(e) => {
+							error!(
+								"Error applying rule {} to path {}: {:#?}",
+								accept_by_children_rule.name,
+								current_path.display(),
+								e
+							);
+							continue 'entries;
+						}
 					}
+				}
+
+				// If it wasn't accepted then we mark as rejected
+				if accept_by_children_dir.is_none() {
+					debug!(
+							"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
+							current_path.display()
+						);
+					accept_by_children_dir = Some(false);
+				}
+			}
+
+			// Then we mark this directory the be walked in too
+			if let Some(ref mut to_walk) = maybe_to_walk {
+				to_walk.push_back((entry.path(), accept_by_children_dir));
+			}
+		}
+
+		let mut accept_by_glob = false;
+		if let Some(accept_rules) = rules_per_kind.get(&RuleKind::AcceptFilesByGlob) {
+			for accept_rule in accept_rules {
+				// It's ok to unwrap here, accept rules are infallible
+				if accept_rule.apply(&current_path).await.unwrap() {
+					debug!(
+						"Path {} accepted by rule {}",
+						current_path.display(),
+						accept_rule.name
+					);
+					accept_by_glob = true;
+					break;
+				}
+			}
+			if !accept_by_glob {
+				debug!(
+					"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
+					current_path.display()
+				);
+				continue 'entries;
+			}
+		} else {
+			// If there are no accept rules, then accept all paths
+			accept_by_glob = true;
+		}
+
+		if accept_by_glob && (accept_by_children_dir.is_none() || accept_by_children_dir.unwrap()) {
+			indexed_paths.insert(
+				current_path.clone(),
+				WalkEntry {
+					path: current_path.clone(),
+					is_dir,
+					created_at: metadata.created()?.into(),
+				},
+			);
+
+			// If the ancestors directories wasn't indexed before, now we do
+			for ancestor in current_path
+				.ancestors()
+				.skip(1) // Skip the current directory as it was already indexed
+				.take_while(|&ancestor| ancestor != root)
+			{
+				debug!("Indexing ancestor {}", ancestor.display());
+				if !indexed_paths.contains_key(ancestor) {
+					indexed_paths.insert(
+						ancestor.to_path_buf(),
+						WalkEntry {
+							path: ancestor.to_path_buf(),
+							is_dir: true,
+							created_at: fs::metadata(ancestor).await?.created()?.into(),
+						},
+					);
+				} else {
+					// If indexed_paths contains the current ancestors, then it will contain
+					// also all if its ancestors too, so we can stop here
+					break;
 				}
 			}
 		}
 	}
 
+	Ok(())
+}
+
+async fn prepared_indexed_paths(
+	root: PathBuf,
+	indexed_paths: HashMap<PathBuf, WalkEntry>,
+) -> Result<Vec<WalkEntry>, IndexerError> {
 	let mut indexed_paths = indexed_paths.into_values().collect::<Vec<_>>();
 	// Also adding the root location path
 	let root_created_at = fs::metadata(&root).await?.created()?.into();
@@ -271,6 +305,30 @@ pub(super) async fn walk(
 	indexed_paths.sort();
 
 	Ok(indexed_paths)
+}
+
+pub(super) async fn walk_single_dir(
+	root: impl AsRef<Path>,
+	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	update_notifier: impl Fn(&Path, usize),
+) -> Result<Vec<WalkEntry>, IndexerError> {
+	let root = root.as_ref().to_path_buf();
+
+	let mut read_dir = fs::read_dir(&root).await?;
+	let mut indexed_paths = HashMap::new();
+
+	inner_walk_single_dir(
+		&root,
+		(root.clone(), None),
+		&mut read_dir,
+		rules_per_kind,
+		&update_notifier,
+		&mut indexed_paths,
+		None,
+	)
+	.await?;
+
+	prepared_indexed_paths(root, indexed_paths).await
 }
 
 #[cfg(test)]

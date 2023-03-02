@@ -9,7 +9,7 @@ use prisma_client_rust::{Direction, QueryError};
 use thiserror::Error;
 use tracing::error;
 
-use super::{indexer_job_location, LocationId};
+use super::{indexer::indexer_job_location, LocationId};
 
 static LAST_FILE_PATH_ID: AtomicI32 = AtomicI32::new(0);
 

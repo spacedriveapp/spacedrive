@@ -1,6 +1,6 @@
 use crate::{
 	library::LibraryContext,
-	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
+	location::{indexer::indexer_job_location, manager::LocationManagerError},
 };
 
 use async_trait::async_trait;

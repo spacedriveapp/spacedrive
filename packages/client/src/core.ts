@@ -66,7 +66,7 @@ export type Procedures = {
         { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: IndexerRule } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.quickRescan", input: LibraryArgs<null>, result: null } | 
+        { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
@@ -174,6 +174,8 @@ export type LibraryArgs<T> = { library_id: string, arg: T }
 export type LibraryConfig = ({ version: string | null }) & { name: string, description: string }
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
+
+export type LightScanArgs = { location_id: number, sub_path: string }
 
 export type Location = { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string }
 

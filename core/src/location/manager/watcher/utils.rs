@@ -8,7 +8,7 @@ use crate::{
 			get_existing_file_or_directory, get_existing_file_path, get_parent_dir,
 			subtract_location_path,
 		},
-		indexer::indexer_job::indexer_job_location,
+		indexer::indexer_job_location,
 		manager::LocationManagerError,
 	},
 	object::{

@@ -1,13 +1,14 @@
 use crate::{
 	location::{
 		delete_location, fetch_location,
-		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
-		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
+		indexer::{indexer_job_location, rules::IndexerRuleCreateArgs},
+		light_scan_location, relink_location, scan_location, LocationCreateArgs, LocationError,
+		LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
@@ -43,7 +44,6 @@ pub struct ExplorerData {
 
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
-indexer_rules_in_location::include!(indexer_rules_in_location_with_rules { indexer_rule });
 
 pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 	<RouterBuilder>::new()
@@ -79,15 +79,22 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, mut args: LocationExplorerArgs, library| async move {
-				let location = library
-					.db
-					.location()
-					.find_unique(location::id::equals(args.location_id))
+				let location = fetch_location(&library, args.location_id)
+					.include(indexer_job_location::include())
 					.exec()
 					.await?
-					.ok_or_else(|| {
-						rspc::Error::new(ErrorCode::NotFound, "Location not found".into())
-					})?;
+					.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+				light_scan_location(
+					&library,
+					location.clone(),
+					if !args.path.is_empty() {
+						Some(Path::new(&location.path).join(&args.path))
+					} else {
+						None
+					},
+				)
+				.await?;
 
 				if !args.path.ends_with('/') {
 					args.path += "/";
@@ -137,7 +144,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 				}
 
 				Ok(ExplorerData {
-					context: ExplorerContext::Location(location),
+					context: ExplorerContext::Location(location.into()),
 					items,
 				})
 			})
@@ -198,9 +205,30 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			})
 		})
 		.library_mutation("quickRescan", |t| {
-			t(|_, _: (), _| async move {
-				#[allow(unreachable_code)]
-				Ok(todo!())
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct LightScanArgs {
+				pub location_id: i32,
+				pub sub_path: String,
+			}
+
+			t(|_, args: LightScanArgs, library| async move {
+				let location = fetch_location(&library, args.location_id)
+					.include(indexer_job_location::include())
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(args.location_id))?;
+				
+
+				let sub_path = if !args.sub_path.is_empty() {
+					Some(Path::new(&location.path).join(&args.sub_path))
+				} else {
+					None
+				};
+
+				// light rescan location
+				light_scan_location(&library, location, sub_path)
+					.await
+					.map_err(Into::into)
 			})
 		})
 		.subscription("online", |t| {

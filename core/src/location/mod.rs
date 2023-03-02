@@ -16,10 +16,10 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
 use serde_json::json;
-use prisma_client_rust::QueryError;
 use tokio::{fs, io};
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -31,7 +31,11 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
-use indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit};
+use indexer::{
+	indexer_job::IndexerJob,
+	shallow_indexer_job::ShallowIndexerJob,
+	{indexer_job_location, IndexerJobInit},
+};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -305,6 +309,7 @@ pub async fn scan_location(
 	Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn scan_location_sub_path(
 	ctx: &LibraryContext,
 	location: indexer_job_location::Data,
@@ -340,6 +345,44 @@ pub async fn scan_location_sub_path(
 			sub_path: Some(sub_path),
 		},
 		IndexerJob {},
+	))
+	.await;
+
+	Ok(())
+}
+
+pub async fn light_scan_location(
+	ctx: &LibraryContext,
+	location: indexer_job_location::Data,
+	sub_path: Option<impl AsRef<Path>>,
+) -> Result<(), LocationError> {
+	let sub_path = sub_path.map(|path| path.as_ref().to_path_buf());
+	if location.node_id != ctx.node_local_id {
+		return Ok(());
+	}
+
+	// ctx.queue_job(Job::new(
+	// 	FullFileIdentifierJobInit {
+	// 		location_id: location.id,
+	// 		sub_path: sub_path.clone(),
+	// 	},
+	// 	FullFileIdentifierJob {},
+	// ))
+	// .await;
+
+	// ctx.queue_job(Job::new(
+	// 	ThumbnailJobInit {
+	// 		location_id: location.id,
+	// 		root_path: PathBuf::new(),
+	// 		background: true,
+	// 	},
+	// 	ThumbnailJob {},
+	// ))
+	// .await;
+
+	ctx.spawn_job(Job::new(
+		IndexerJobInit { location, sub_path },
+		ShallowIndexerJob {},
 	))
 	.await;
 

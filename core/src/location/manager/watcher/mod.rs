@@ -1,6 +1,6 @@
 use crate::{
 	library::LibraryContext,
-	location::{fetch_location, indexer::indexer_job::indexer_job_location, LocationId},
+	location::{fetch_location, indexer::indexer_job_location, LocationId},
 	prisma::location,
 };
 

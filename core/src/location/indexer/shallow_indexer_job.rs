@@ -4,10 +4,7 @@ use crate::{
 	location::file_path_helper::{get_max_file_path_id, set_max_file_path_id},
 };
 
-use std::{
-	collections::HashMap,
-	path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
 use chrono::Utc;
 use itertools::Itertools;
@@ -17,28 +14,28 @@ use super::{
 	ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	ensure_sub_path_parent_is_in_location, execute_indexer_step,
 	rules::{IndexerRule, RuleKind},
-	walk::{walk, WalkEntry},
+	walk::{walk_single_dir, WalkEntry},
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
 	ScanProgress,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
-pub const INDEXER_JOB_NAME: &str = "indexer";
+pub const SHALLOW_INDEXER_JOB_NAME: &str = "shallow_indexer";
 
-/// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
-/// First it walks the directory and generates a list of files to index, chunked into
+/// A `ShallowIndexerJob` is a stateful job that indexes all files in a directory, without checking inner directories.
+/// First it checks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
-pub struct IndexerJob;
+pub struct ShallowIndexerJob;
 
 #[async_trait::async_trait]
-impl StatefulJob for IndexerJob {
+impl StatefulJob for ShallowIndexerJob {
 	type Init = IndexerJobInit;
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
 	fn name(&self) -> &'static str {
-		INDEXER_JOB_NAME
+		SHALLOW_INDEXER_JOB_NAME
 	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
@@ -59,8 +56,7 @@ impl StatefulJob for IndexerJob {
 				.push(indexer_rule);
 		}
 
-		let mut dirs_ids = HashMap::new();
-
+		let sub_path_parent_id;
 		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
 			ensure_sub_path_is_in_location(&state.init.location.path, sub_path)?;
 			ensure_sub_path_is_directory(sub_path).await?;
@@ -72,20 +68,16 @@ impl StatefulJob for IndexerJob {
 			)
 			.await?;
 
-			// If we're operating with a sub_path, then we have to put its parent on `dirs_ids` map
-			dirs_ids.insert(
-				PathBuf::from(&state.init.location.path).join(&parent.materialized_path),
-				parent.id,
-			);
+			sub_path_parent_id = Some(parent.id);
 
 			sub_path
 		} else {
+			sub_path_parent_id = None;
 			Path::new(&state.init.location.path)
 		};
 
 		let scan_start = Instant::now();
-
-		let paths = walk(
+		let paths = walk_single_dir(
 			to_walk_path,
 			&indexer_rules_by_kind,
 			|path, total_entries| {
@@ -106,6 +98,8 @@ impl StatefulJob for IndexerJob {
 		// Setting our global state for file_path ids
 		set_max_file_path_id(last_file_id);
 
+		let mut parent_id = None;
+
 		let paths_entries = paths
 			.into_iter()
 			.zip(first_file_id..last_file_id)
@@ -118,19 +112,26 @@ impl StatefulJob for IndexerJob {
 					},
 					file_id,
 				)| {
-					let parent_id = if let Some(parent_dir) = path.parent() {
-						dirs_ids.get(parent_dir).copied()
-					} else {
-						None
-					};
+					// if the current path is our starting point, then it will be the parent for
+					// all the other files
+					if path == to_walk_path {
+						parent_id = Some(file_id);
+					}
 
-					dirs_ids.insert(path.clone(), file_id);
+					let current_parent_id = if Some(&path) == state.init.sub_path.as_ref() {
+						// if we're currently dealing with the sub_path, then we use its parent_id
+						sub_path_parent_id
+					} else {
+						// otherwise we use the id from the starting walking point that
+						// we prepared before
+						parent_id
+					};
 
 					IndexerJobStepEntry {
 						path,
 						created_at,
 						file_id,
-						parent_id,
+						parent_id: current_parent_id,
 						is_dir,
 					}
 				},
