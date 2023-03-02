@@ -44,4 +44,5 @@ rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d242
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
 
-mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd.git", rev = "a7e0c301f2a453f4b62d81273ce2c78103b7b966" } # TODO: Do upstream PR
+mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd.git", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
+tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "d20a728892eee1858ab525ab6216cd721f473ab5" } # TODO: https://github.com/tauri-apps/tauri/commit/d20a728892eee1858ab525ab6216cd721f473ab5

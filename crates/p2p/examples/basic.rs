@@ -44,7 +44,7 @@ async fn main() {
 	let keypair = Keypair::generate();
 
 	let manager = Manager::new(
-		"p2p3-demo",
+		"p2p-demo",
 		&keypair,
 		|| async move {
 			PeerMetadata {

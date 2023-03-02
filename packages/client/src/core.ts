@@ -126,7 +126,7 @@ export type EncryptedKey = number[]
  *  This is useful for updating your UI when stuff changes on the backend.
  *  You can also interact with some events to cause an event.
  */
-export type Event<TMetadata> = { AddListenAddr: string } | { RemoveListenAddr: string } | { PeerDiscovered: DiscoveredPeer<TMetadata> } | { PeerExpired: { id: string, metadata: TMetadata | null } } | { PeerConnected: ConnectedPeer } | { PeerDisconnected: string } | "EmitDiscoveredClients"
+export type Event<TMetadata> = ({ type:  "AddListenAddr" } & string) | ({ type:  "RemoveListenAddr" } & string) | ({ type:  "PeerDiscovered" } & DiscoveredPeer<TMetadata>) | { type: "PeerExpired", id: string, metadata: TMetadata | null } | ({ type:  "PeerConnected" } & ConnectedPeer) | ({ type:  "PeerDisconnected" } & string) | { type: "EmitDiscoveredClients" }
 
 export type ExplorerContext = ({ type:  "Location" } & Location) | ({ type:  "Tag" } & Tag)
 
@@ -239,7 +239,7 @@ export type ObjectValidatorArgs = { id: number, path: string }
  *  Represents the operating system which the remote peer is running.
  *  This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
  */
-export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "IOS" | "Android" | { Other: string }
+export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
 /**
  *  These parameters define the password-hashing level.

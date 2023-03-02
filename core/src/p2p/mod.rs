@@ -67,12 +67,9 @@ impl P2PManager {
 			{
 				let tx = tx.clone();
 				move |_manager, event: Event<PeerMetadata>| {
-					match tx.send(event.clone()) {
-						Ok(_) => {}
-						Err(e) => {
-							println!("Error sending event: {:?}", e);
-						}
-					}
+					tx.send(event.clone())
+						.map_err(|e| println!("Error sending event: {:?}", e))
+						.ok();
 
 					async move {
 						// TODO: Send all these events to frontend through rspc

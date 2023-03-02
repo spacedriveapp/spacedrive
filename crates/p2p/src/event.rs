@@ -12,6 +12,7 @@ use super::PeerId;
 /// You can also interact with some events to cause an event.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Event<TMetadata>
 where

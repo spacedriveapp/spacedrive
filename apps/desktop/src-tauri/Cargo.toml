@@ -31,7 +31,7 @@ url = "2.1.1"
 swift-rs.workspace = true
 
 [build-dependencies]
-tauri-build = { version = "1.1.1", features = [] }
+tauri-build = { version = "1.2.1", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }

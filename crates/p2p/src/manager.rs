@@ -70,7 +70,7 @@ where
 	{
 		application_name
 			.chars()
-			.all(char::is_alphanumeric)
+			.all(|c| char::is_alphanumeric(c) || c == '-')
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
@@ -218,7 +218,7 @@ where
 											// Prevent discovery of the current peer.
 											if peer_id == this.state.peer_id  { continue }
 
-											match TMetadata::from_hashmap(info.get_properties()) {
+											match TMetadata::from_hashmap(&info.get_properties().iter().map(|v| (v.key().to_owned(), v.val().to_owned())).collect()) {
 												Ok(metadata) => {
 													let peer = {
 														let mut discovered_peers = this.state.discovered_peers.write().await;
@@ -314,7 +314,7 @@ where
 	async fn advertise(self: Arc<Self>) {
 		let peer_id = self.state.peer_id.0.to_base58();
 
-		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vev<Ip>, port)>`
+		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vec<Ip>, port)>`
 		let mut services = HashMap::<u16, ServiceInfo>::new();
 		for addr in self.state.listen_addrs.read().await.iter() {
 			let addr = match addr {

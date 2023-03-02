@@ -3,7 +3,8 @@ import Mega from '@sd/assets/images/Mega.png';
 import iCloud from '@sd/assets/images/iCloud.png';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Heart, Icon, Laptop, PhoneX, Star, User } from 'phosphor-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { DiscoveredPeer, PeerMetadata, useBridgeSubscription } from '@sd/client';
 import { Button, tw } from '@sd/ui';
 import { SearchBar } from '../components/explorer/ExplorerTopBar';
 import { SubtleButton, SubtleButtonContainer } from '../components/primitive/SubtleButton';
@@ -85,6 +86,21 @@ function DropItem(props: DropItemProps) {
 
 export default function SpacedropScreen() {
 	const searchRef = useRef<HTMLInputElement>(null);
+	const [discoveredPeers, setDiscoveredPeers] = useState<
+		Record<string, DiscoveredPeer<PeerMetadata>>
+	>({}); // TODO: Also handle demo mode
+	useBridgeSubscription(['p2p.discovery'], {
+		onData: (data) => {
+			if (data.type === 'PeerDiscovered') {
+				setDiscoveredPeers((prev) => {
+					prev[data.id] = data;
+					return prev;
+				});
+			} else {
+				console.warn('Unhandled p2p.discovery event', data);
+			}
+		}
+	});
 
 	return (
 		<ScreenContainer
@@ -97,7 +113,7 @@ export default function SpacedropScreen() {
 			className={classes.honeycombOuter}
 		>
 			<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-				<DropItem
+				{/* <DropItem
 					name="Jamie's MacBook Pro"
 					receivingNodeOsType="macOs"
 					connectionType="lan"
@@ -123,8 +139,8 @@ export default function SpacedropScreen() {
 				/>
 				<DropItem name="Jamie's Google Drive" brandIcon="google-drive" connectionType="cloud" />
 				<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
-				<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
-				<DropItem
+				<DropItem name="Mega" brandIcon="mega" connectionType="cloud" /> */}
+				{/* <DropItem
 					name="maxichrome"
 					image="https://github.com/maxichrome.png"
 					connectionType="p2p"
@@ -144,7 +160,15 @@ export default function SpacedropScreen() {
 					name="Andrew Haskell"
 					image="https://github.com/andrewtechx.png"
 					connectionType="p2p"
-				/>
+				/> */}
+				{Object.values(discoveredPeers).map((peer) => (
+					<DropItem
+						key={peer.id}
+						name={peer.metadata.name}
+						image="https://github.com/oscartbeaumont.png"
+						connectionType="p2p"
+					/>
+				))}
 			</div>
 		</ScreenContainer>
 	);

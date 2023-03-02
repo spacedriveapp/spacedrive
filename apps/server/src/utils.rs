@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{process, sync::Arc};
 
 use sd_core::Node;
 use tokio::signal;
+use tracing::info;
 
 /// shutdown_signal will inform axum to gracefully shutdown when the process is asked to shutdown.
 pub async fn axum_shutdown_signal(node: Arc<Node>) {
@@ -27,6 +28,8 @@ pub async fn axum_shutdown_signal(node: Arc<Node>) {
 		_ = terminate => {},
 	}
 
-	println!("signal received, starting graceful shutdown");
+	info!("signal received, starting graceful shutdown");
 	node.shutdown().await;
+
+	process::exit(0); // This is required for the process to exit properly
 }

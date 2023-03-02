@@ -64,5 +64,6 @@ examples/*/*.lock
 prisma*.rs
 
 /sdserver_data
+/sdserver_data2
 .spacedrive
 dev.db-journal

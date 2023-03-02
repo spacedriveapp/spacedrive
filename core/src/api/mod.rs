@@ -55,9 +55,14 @@ pub(crate) fn mount() -> Arc<Router> {
 	let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
 
 	#[cfg(all(debug_assertions, not(feature = "mobile")))]
-	let config = config.export_ts_bindings(
-		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
-	);
+	let config = if std::env::var("SKIP_TS_BINDINGS") != Ok("true".to_string()) {
+		config.export_ts_bindings(
+			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+				.join("../packages/client/src/core.ts"),
+		)
+	} else {
+		config
+	};
 
 	// TODO: Protect a library from being used while it is being boostraped by the P2P layer -> Maybe a rspc middleware style thing
 	// TODO: Implement the frontend progress page for during the boostrap process + show a symbol in library switcher if actively switching
