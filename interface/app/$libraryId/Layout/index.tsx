@@ -4,8 +4,8 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
-	PlausibleTracker,
-	useClientContext
+	useClientContext,
+	usePlausiblePageViewMonitor
 } from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -17,8 +17,11 @@ const Layout = () => {
 
 	const os = useOperatingSystem();
 
-	const currentPath = useLocation().pathname;
-	const platformType = usePlatform().platform;
+	usePlausiblePageViewMonitor({
+		currentPath: useLocation().pathname,
+		platformType: usePlatform().platform
+	});
+
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
@@ -41,7 +44,6 @@ const Layout = () => {
 				return false;
 			}}
 		>
-			<PlausibleTracker currentPath={currentPath} platformType={platformType} />
 			<Sidebar />
 			<div className="relative flex w-full">
 				{library ? (
