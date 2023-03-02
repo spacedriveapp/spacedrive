@@ -41,7 +41,7 @@ pub async fn create_file_path(
 	location_id: i32,
 	mut materialized_path: String,
 	name: String,
-	extension: Option<String>,
+	extension: String,
 	parent_id: Option<i32>,
 	is_dir: bool,
 ) -> Result<file_path::Data, QueryError> {
@@ -67,10 +67,10 @@ pub async fn create_file_path(
 			location::id::equals(location_id),
 			materialized_path,
 			name,
+			extension,
 			vec![
 				file_path::parent_id::set(parent_id),
 				file_path::is_dir::set(is_dir),
-				file_path::extension::set(extension),
 			],
 		)
 		.exec()

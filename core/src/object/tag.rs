@@ -13,9 +13,12 @@ pub struct Tag {
 }
 
 impl Tag {
+	#[allow(dead_code)]
 	pub fn new(name: String, color: String) -> Self {
 		Self { name, color }
 	}
+
+	#[allow(dead_code)]
 	pub async fn save(self, db: &PrismaClient) -> Result<(), QueryError> {
 		db.tag()
 			.create(
