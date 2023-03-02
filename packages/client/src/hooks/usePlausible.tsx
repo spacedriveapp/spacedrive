@@ -236,15 +236,15 @@ export const usePlausibleEvent = (props: UsePlausibleEventProps) => {
  */
 const PageViewRegexRules: [RegExp, string][] = [
 	/**
-	 * This is for removing the library UUID from the the URL
+	 * This is for removing the library UUID from the current path
 	 */
 	[RegExp('/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'), ''],
 	/**
-	 * This is for removing tag IDs from the URL
+	 * This is for removing location IDs from the current path
 	 */
 	[RegExp('/location/[0-9]+'), '/location'],
 	/**
-	 * This is for removing tag IDs from the URL
+	 * This is for removing tag IDs from the current path
 	 */
 	[RegExp('/tag/[0-9]+'), '/tag']
 ];
@@ -252,7 +252,7 @@ const PageViewRegexRules: [RegExp, string][] = [
 export interface PageViewMonitorProps {
 	/**
 	 * This should be unsanitized, and should still contain
-	 * all dynamically-set URL parameters (such as the library UUID).
+	 * all dynamic parameters (such as the library UUID).
 	 *
 	 * Ideally, this should be the output of `useLocation().pathname`
 	 *
