@@ -28,7 +28,7 @@ public class SDCore extends ReactContextBaseJavaModule {
     }
 
     static {
-        System.loadLibrary("sd_core_android");
+        System.loadLibrary("sd_mobile_android");
     }
 
     // is exposed by Rust and is used to register the subscription
