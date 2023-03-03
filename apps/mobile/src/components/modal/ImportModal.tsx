@@ -132,13 +132,13 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	return (
 		<Modal ref={modalRef} snapPoints={['25%']}>
 			<View style={tw`flex-1 px-8 pt-8 pb-2`}>
-				{/* <Button size="md" variant="accent" style={tw`my-2`} onPress={testFN}>
+				{/* <Button variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}
-				<Button size="md" variant="accent" style={tw`my-2`} onPress={handleFilesButton}>
+				<Button variant="accent" style={tw`my-2`} onPress={handleFilesButton}>
 					<Text>Import from Files</Text>
 				</Button>
-				<Button size="md" variant="accent" onPress={handlePhotosButton}>
+				<Button variant="accent" onPress={handlePhotosButton}>
 					<Text>Import from Photos</Text>
 				</Button>
 				<Text style={tw`mt-4 text-center text-white`}>TODO</Text>

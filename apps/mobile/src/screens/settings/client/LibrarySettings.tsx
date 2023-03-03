@@ -31,13 +31,13 @@ function LibraryItem({
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<AnimatedButton size="md" onPress={() => navigation.replace('LibraryGeneralSettings')}>
+				<AnimatedButton onPress={() => navigation.replace('LibraryGeneralSettings')}>
 					<Pen size={18} color="white" />
 				</AnimatedButton>
 				<DeleteLibraryModal
 					libraryUuid={library.uuid}
 					trigger={
-						<AnimatedButton size="md" style={tw`mx-2`}>
+						<AnimatedButton style={tw`mx-2`}>
 							<Trash size={18} color="white" />
 						</AnimatedButton>
 					}

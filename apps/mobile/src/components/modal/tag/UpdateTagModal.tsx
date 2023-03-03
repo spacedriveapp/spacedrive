@@ -77,7 +77,6 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 				{/* TODO: Add loading to button */}
 				<Button
 					variant="accent"
-					size="md"
 					onPress={() => updateTag({ id: props.tag.id, color: tagColor, name: tagName })}
 					style={tw`mt-6`}
 					disabled={tagName.length === 0}

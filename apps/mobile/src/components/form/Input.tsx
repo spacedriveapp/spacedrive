@@ -9,7 +9,8 @@ const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 			default: 'border-app-line bg-app text-ink'
 		},
 		size: {
-			default: ['py-2', 'px-3']
+			default: ['py-2', 'px-3'],
+			md: ['py-2.5', 'px-3.5']
 		}
 	},
 	defaultVariants: {
@@ -20,12 +21,12 @@ const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 
 type InputProps = VariantProps<typeof input> & RNTextInputProps;
 
-export const Input: FC<InputProps> = ({ variant, ...props }) => {
+export const Input: FC<InputProps> = ({ variant, size, ...props }) => {
 	const { style, ...otherProps } = props;
 	return (
 		<TextInput
 			placeholderTextColor={tw.color('ink-dull')}
-			style={twStyle(input({ variant }), style as string)}
+			style={twStyle(input({ variant, size }), style as string)}
 			{...otherProps}
 		/>
 	);

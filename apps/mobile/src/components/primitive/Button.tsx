@@ -9,13 +9,13 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 		variant: {
 			danger: ['border-red-800 bg-red-600'],
 			gray: ['border-app-line bg-app-button'],
-			dark_gray: ['border-app-box bg-app'],
-			accent: ['border-accent-deep bg-accent shadow-app-shade/10 shadow-md']
+			darkGray: ['border-app-box bg-app'],
+			accent: ['border-accent-deep bg-accent shadow-app-shade/10 shadow-md'],
+			outline: ['border-sidebar-line/60 ']
 		},
 		size: {
-			default: ['py-1', 'px-3'],
+			default: ['py-1.5', 'px-3'],
 			sm: ['py-1', 'px-2'],
-			md: ['py-1.5', 'px-3'],
 			lg: ['py-2', 'px-4']
 		},
 		disabled: {

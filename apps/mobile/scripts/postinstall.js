@@ -2,6 +2,7 @@
 let fs = require('fs-extra');
 let path = require('path');
 
+// Not used atm, keeping it here in case we need it in the future
 async function copyReactNativeCodegen() {
 	const paths = [
 		['../../../node_modules/react-native-codegen', '../node_modules/react-native-codegen'],

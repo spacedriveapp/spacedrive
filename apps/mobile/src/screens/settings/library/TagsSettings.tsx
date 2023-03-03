@@ -29,13 +29,13 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
 				<UpdateTagModal tag={tag} ref={updateTagModalRef} onSubmit={() => swipeable.close()} />
-				<AnimatedButton size="md" onPress={() => updateTagModalRef.current?.present()}>
+				<AnimatedButton onPress={() => updateTagModalRef.current?.present()}>
 					<Pen size={18} color="white" />
 				</AnimatedButton>
 				<DeleteTagModal
 					tagId={tag.id}
 					trigger={
-						<AnimatedButton size="md" style={tw`mx-2`}>
+						<AnimatedButton style={tw`mx-2`}>
 							<Trash size={18} color="white" />
 						</AnimatedButton>
 					}

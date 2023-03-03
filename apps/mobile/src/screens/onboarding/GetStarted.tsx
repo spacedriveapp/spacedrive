@@ -1,12 +1,28 @@
-import { Image, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { CaretLeft } from 'phosphor-react-native';
+import { Image, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
-import { styled, tw } from '~/lib/tailwind';
+import { styled, tw, twStyle } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
+	const navigation = useNavigation();
+
+	const { top } = useSafeAreaInsets();
+
 	return (
 		<View style={tw`flex-1`}>
+			{/* NOTE: Might be buggy, this doesn't re-render when result changes. Works fine atm though. */}
+			{navigation.canGoBack() && (
+				<Pressable
+					style={twStyle('absolute left-6 z-50', { top: top + 16 })}
+					onPress={() => navigation.goBack()}
+				>
+					<CaretLeft size={24} weight="bold" color="white" />
+				</Pressable>
+			)}
 			<View style={tw`z-10 flex-1 items-center justify-center px-4`}>
 				{children}
 				<Text style={tw`text-ink-dull/50 absolute bottom-8 text-xs`}>
@@ -45,13 +61,13 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			</FadeInUpAnimation>
 			{/* Description */}
 			<FadeInUpAnimation delay={800} style={tw`mt-8`}>
-				<OnboardingDescription>
+				<OnboardingDescription style={tw`px-4`}>
 					Welcome to Spacedrive, an open source cross-platform file manager.
 				</OnboardingDescription>
 			</FadeInUpAnimation>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
-				<AnimatedButton variant="accent" size="md" onPress={() => navigation.push('NewLibrary')}>
+				<AnimatedButton variant="accent" onPress={() => navigation.push('NewLibrary')}>
 					<Text style={tw`text-ink text-center text-base font-medium`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
