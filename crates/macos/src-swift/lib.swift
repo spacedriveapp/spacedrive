@@ -3,8 +3,8 @@ import AppKit
 import SwiftRs
 
 @_cdecl("get_file_thumbnail_base64")
-public func getFileThumbnailBase64(path: UnsafePointer<SRString>) -> SRString {
-    let path = path.to_string();
+public func getFileThumbnailBase64(path: SRString) -> SRString {
+    let path = path.toString();
     
     let image = NSWorkspace.shared.icon(forFile: path)
     let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!.representation(using: .png, properties: [:])!
@@ -13,6 +13,14 @@ public func getFileThumbnailBase64(path: UnsafePointer<SRString>) -> SRString {
 }
 
 class Volume: NSObject {
+    var name: SRString
+    var path: SRString
+    var total_capacity: Int
+    var available_capacity: Int
+    var is_removable: Bool
+    var is_ejectable: Bool
+    var is_root_filesystem: Bool
+
     internal init(name: String, path: String, total_capacity: Int, available_capacity: Int, is_removable: Bool, is_ejectable: Bool, is_root_filesystem: Bool) {
         self.name = SRString(name)
         self.path = SRString(path)
@@ -22,14 +30,6 @@ class Volume: NSObject {
         self.is_ejectable = is_ejectable
         self.is_root_filesystem = is_root_filesystem
     }
-    
-    var name: SRString
-    var path: SRString
-    var total_capacity: Int
-    var available_capacity: Int
-    var is_removable: Bool
-    var is_ejectable: Bool
-    var is_root_filesystem: Bool
 }
 
 @_cdecl("get_mounts")
@@ -69,8 +69,5 @@ public func getMounts() -> SRObjectArray {
         }
     }
     
-    return toRust(SRObjectArray(validMounts))
+    return SRObjectArray(validMounts)
 }
-
-
-

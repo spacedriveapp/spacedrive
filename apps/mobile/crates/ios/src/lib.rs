@@ -10,7 +10,7 @@ use objc::{msg_send, runtime::Object, sel, sel_impl};
 use objc_foundation::{INSString, NSString};
 use objc_id::Id;
 
-use sd_core_mobile::*;
+use sd_mobile_core::*;
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;

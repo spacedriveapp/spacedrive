@@ -1,5 +1,5 @@
 [package]
-name = "sd-core-android"
+name = "sd-mobile-android"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.64.0"
@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 jni = "0.19.0"
 
 # Core mobile handling stuff
-sd-core-mobile = { path = "../mobile", features = ["android"] }
+sd-mobile-core = { path = "../core", features = ["android"] }
 
 # Other 
 tracing = "0.1.37"

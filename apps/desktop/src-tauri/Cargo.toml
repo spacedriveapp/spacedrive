@@ -7,7 +7,6 @@ license = ""
 repository = "https://github.com/spacedriveapp/spacedrive"
 default-run = "spacedrive"
 edition = "2021"
-build = "build.rs"
 
 [dependencies]
 tauri = { version = "1.2.4", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
@@ -28,13 +27,10 @@ rand = "0.8.5"
 url = "2.1.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-swift-rs.workspace = true
+sd-desktop-macos.path = "../crates/macos"
 
 [build-dependencies]
 tauri-build = { version = "1.1.1", features = [] }
-
-[target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { workspace = true, features = ["build"] }
 
 [features]
 default = ["custom-protocol"]
