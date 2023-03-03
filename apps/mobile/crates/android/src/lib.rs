@@ -5,7 +5,7 @@ use jni::{
 	JNIEnv,
 };
 
-use sd_core_mobile::*;
+use sd_mobile_core::*;
 
 use tracing::error;
 

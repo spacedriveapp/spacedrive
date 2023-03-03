@@ -7,7 +7,8 @@ members = [
   # "crates/p2p/tunnel/utils",
   "apps/cli",
   "apps/desktop/src-tauri",
-  "apps/mobile/rust/*",
+  "apps/desktop/crates/*",
+  "apps/mobile/crates/*",
   "apps/server",
 ]
 
@@ -32,7 +33,7 @@ rspc = { version = "0.1.2" }
 specta = { version = "0.0.6" }
 httpz = { version = "0.0.3" }
 
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
+swift-rs = { version = "1.0" }
 
 tokio = { version = "1.25.0" }
 

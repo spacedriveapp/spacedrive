@@ -5636,40 +5636,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-core-android"
-version = "0.1.0"
-dependencies = [
- "jni 0.19.0",
- "sd-core-mobile",
- "tracing",
-]
-
-[[package]]
-name = "sd-core-ios"
-version = "0.1.0"
-dependencies = [
- "objc",
- "objc-foundation",
- "objc_id",
- "sd-core-mobile",
-]
-
-[[package]]
-name = "sd-core-mobile"
-version = "0.1.0"
-dependencies = [
- "futures",
- "once_cell",
- "openssl",
- "openssl-sys",
- "rspc",
- "sd-core",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "sd-crypto"
 version = "0.0.0"
 dependencies = [
@@ -5696,6 +5662,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-desktop-macos"
+version = "0.1.0"
+dependencies = [
+ "swift-rs",
+]
+
+[[package]]
 name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
@@ -5716,6 +5689,47 @@ dependencies = [
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tokio",
+]
+
+[[package]]
+name = "sd-macos"
+version = "0.1.0"
+dependencies = [
+ "swift-rs",
+]
+
+[[package]]
+name = "sd-mobile-android"
+version = "0.1.0"
+dependencies = [
+ "jni 0.19.0",
+ "sd-mobile-core",
+ "tracing",
+]
+
+[[package]]
+name = "sd-mobile-core"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "once_cell",
+ "openssl",
+ "openssl-sys",
+ "rspc",
+ "sd-core",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "sd-mobile-ios"
+version = "0.1.0"
+dependencies = [
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "sd-mobile-core",
 ]
 
 [[package]]
@@ -6223,9 +6237,9 @@ dependencies = [
  "rand 0.8.5",
  "rspc",
  "sd-core",
+ "sd-desktop-macos",
  "serde",
  "server",
- "swift-rs",
  "tauri",
  "tauri-build",
  "tokio",
@@ -6540,10 +6554,11 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "swift-rs"
-version = "0.3.0"
-source = "git+https://github.com/Brendonovich/swift-rs.git?rev=833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff#833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc903dccb086f72f6e93a12e149d84aceda2ad4b08647e14e0330a3bfea61e2b"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.0",
  "serde",
  "serde_json",
 ]

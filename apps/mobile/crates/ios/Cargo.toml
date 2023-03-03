@@ -1,5 +1,5 @@
 [package]
-name = "sd-core-ios"
+name = "sd-mobile-ios"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,13 +11,12 @@ rust-version = "1.64.0"
 # which are only available when linking against the app's ObjC
 crate-type = ["staticlib"]
 
+[dependencies]
+# Core mobile handling stuff
+sd-mobile-core = { path = "../core" }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 # FFI
 objc = "0.2.7"
 objc_id = "0.1.1"
 objc-foundation = "0.1.1"
-
-[dependencies]
-# Core mobile handling stuff
-sd-core-mobile = { path = "../mobile" }
