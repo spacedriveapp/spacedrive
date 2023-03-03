@@ -179,7 +179,7 @@ impl LocationWatcher {
 			.await?
 		else {
 			warn!("Tried to handle event for unknown location: <id='{location_id}'>");
-            return Ok(())
+            return Ok(());
         };
 
 		if !library_ctx

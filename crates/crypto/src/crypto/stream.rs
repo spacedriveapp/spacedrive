@@ -370,7 +370,7 @@ mod tests {
 				.await
 				.unwrap();
 
-		assert_eq!(AES_BYTES_EXPECTED[0].to_vec(), ciphertext)
+		assert_eq!(AES_BYTES_EXPECTED[0].to_vec(), ciphertext);
 	}
 
 	#[tokio::test]
@@ -380,7 +380,7 @@ mod tests {
 				.await
 				.unwrap();
 
-		assert_eq!(AES_BYTES_EXPECTED[1].to_vec(), ciphertext)
+		assert_eq!(AES_BYTES_EXPECTED[1].to_vec(), ciphertext);
 	}
 
 	#[tokio::test]
@@ -395,7 +395,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
 	#[tokio::test]
@@ -410,7 +410,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
 	#[tokio::test]
@@ -497,7 +497,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext)
+		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext);
 	}
 
 	#[tokio::test]
@@ -512,7 +512,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(XCHACHA_BYTES_EXPECTED[1].to_vec(), ciphertext)
+		assert_eq!(XCHACHA_BYTES_EXPECTED[1].to_vec(), ciphertext);
 	}
 
 	#[tokio::test]
@@ -527,7 +527,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
 	#[tokio::test]
@@ -542,7 +542,7 @@ mod tests {
 		.await
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().to_vec())
+		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
 	#[tokio::test]

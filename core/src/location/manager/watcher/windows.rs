@@ -45,16 +45,16 @@ impl EventHandler for WindowsEventHandler {
 				if metadata.is_file() {
 					self.create_file_stack = Some(event);
 				} else {
-					create_dir(&location, event, library_ctx).await?;
+					create_dir(&location, &event, library_ctx).await?;
 				}
 			}
 			EventKind::Modify(ModifyKind::Any) => {
 				let metadata = fs::metadata(&event.paths[0]).await?;
 				if metadata.is_file() {
 					if let Some(create_file_event) = self.create_file_stack.take() {
-						create_file(&location, create_file_event, library_ctx).await?;
+						create_file(&location, &create_file_event, library_ctx).await?;
 					} else {
-						update_file(&location, event, library_ctx).await?;
+						update_file(&location, &event, library_ctx).await?;
 					}
 				} else {
 					warn!("Unexpected Windows modify event on a directory");
@@ -77,7 +77,7 @@ impl EventHandler for WindowsEventHandler {
 				.await?;
 			}
 			EventKind::Remove(remove_kind) => {
-				remove_event(&location, event, remove_kind, library_ctx).await?;
+				remove_event(&location, &event, remove_kind, library_ctx).await?;
 			}
 
 			other_event_kind => {

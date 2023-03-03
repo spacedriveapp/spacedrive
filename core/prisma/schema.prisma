@@ -155,7 +155,7 @@ model Object {
     @@map("object")
 }
 
-/// @shared(id: [location, id])
+/// @owned(id: [location, id])
 model FilePath {
     id     Int
     is_dir Boolean @default(false)
@@ -174,7 +174,7 @@ model FilePath {
     // the name and extension
     // Must have 'COLLATE NOCASE' in migration
     name              String
-    extension         String?
+    extension         String
 
     // the unique Object for this file path
     object_id Int?
