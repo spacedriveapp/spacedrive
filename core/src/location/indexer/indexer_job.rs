@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	library::LibraryContext,
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 	sync,
@@ -217,7 +218,7 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let db = &ctx.library_ctx.db;
+		let LibraryContext { sync, db, .. } = &ctx.library_ctx;
 
 		let location = &state.init.location;
 
@@ -284,12 +285,10 @@ impl StatefulJob for IndexerJob {
 			})
 			.unzip();
 
-		let count = ctx
-			.library_ctx
-			.sync
+		let count = sync
 			.write_op(
 				db,
-				ctx.library_ctx.sync.owned_create_many(sync_stuff, true),
+				sync.owned_create_many(sync_stuff, true),
 				db.file_path().create_many(paths).skip_duplicates(),
 			)
 			.await?;
