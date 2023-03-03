@@ -103,14 +103,15 @@ async fn identifier_job_step(
 			.iter()
 			.map(|(id, (meta, _))| {
 				(
-					sync.owned_update(
+					sync.shared_update(
 						sync::file_path::SyncId {
 							id: *id,
 							location: sync::location::SyncId {
 								pub_id: location.pub_id.clone(),
 							},
 						},
-						[("cas_id", json!(&meta.cas_id))],
+						"cas_id",
+						json!(&meta.cas_id),
 					),
 					db.file_path().update(
 						file_path::location_id_id(location.id, *id),
@@ -292,14 +293,15 @@ fn file_path_object_connect_ops<'db>(
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	(
-		sync.owned_update(
+		sync.shared_update(
 			sync::file_path::SyncId {
 				id: file_path_id,
 				location: sync::location::SyncId {
 					pub_id: location.pub_id.clone(),
 				},
 			},
-			[("object", json!({ "pub_id": object_id }))],
+			"object",
+			json!({ "pub_id": object_id }),
 		),
 		db.file_path()
 			.update(

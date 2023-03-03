@@ -197,16 +197,24 @@ impl LocationUpdateArgs {
 		.unzip();
 
 		if !sync_params.is_empty() {
-			sync.write_op(
+			sync.write_ops(
 				db,
-				sync.owned_update(
-					sync::location::SyncId {
-						pub_id: location.pub_id,
-					},
-					sync_params,
+				(
+					sync_params
+						.into_iter()
+						.map(|p| {
+							sync.shared_update(
+								sync::location::SyncId {
+									pub_id: location.pub_id.clone(),
+								},
+								p.0,
+								p.1,
+							)
+						})
+						.collect(),
+					db.location()
+						.update(location::id::equals(self.id), db_params),
 				),
-				db.location()
-					.update(location::id::equals(self.id), db_params),
 			)
 			.await?;
 
@@ -336,11 +344,12 @@ pub async fn relink_location(
 
 	sync.write_op(
 		db,
-		sync.owned_update(
+		sync.shared_update(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			[("path", json!(path))],
+			"path",
+			json!(path),
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id),
@@ -376,7 +385,7 @@ async fn create_location(
 	let location = sync
 		.write_op(
 			db,
-			sync.owned_create(
+			sync.unique_shared_create(
 				sync::location::SyncId {
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},

@@ -111,14 +111,15 @@ impl StatefulJob for ObjectValidatorJob {
 
 			sync.write_op(
 				db,
-				sync.owned_update(
+				sync.shared_update(
 					sync::file_path::SyncId {
 						id: file_path.id,
 						location: sync::location::SyncId {
 							pub_id: file_path.location.pub_id.clone(),
 						},
 					},
-					[("integrity_checksum", json!(Some(&checksum)))],
+					"integrity_checksum",
+					json!(&checksum),
 				),
 				db.file_path().update(
 					file_path::location_id_id(file_path.location.id, file_path.id),

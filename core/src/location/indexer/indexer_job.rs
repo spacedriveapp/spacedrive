@@ -238,6 +238,7 @@ impl StatefulJob for IndexerJob {
 					extension = extract_name(entry.path.extension()).to_lowercase();
 					name = extract_name(entry.path.file_stem());
 				}
+
 				let mut materialized_path = entry
 					.path
 					.strip_prefix(&location.path)
@@ -253,7 +254,7 @@ impl StatefulJob for IndexerJob {
 				use file_path::*;
 
 				(
-					(
+					sync.unique_shared_create(
 						sync::file_path::SyncId {
 							id: entry.file_id,
 							location: sync::location::SyncId {
@@ -286,10 +287,12 @@ impl StatefulJob for IndexerJob {
 			.unzip();
 
 		let count = sync
-			.write_op(
+			.write_ops(
 				db,
-				sync.owned_create_many(sync_stuff, true),
-				db.file_path().create_many(paths).skip_duplicates(),
+				(
+					sync_stuff,
+					db.file_path().create_many(paths).skip_duplicates(),
+				),
 			)
 			.await?;
 
