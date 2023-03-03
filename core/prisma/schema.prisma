@@ -90,10 +90,11 @@ model Volume {
     @@map("volume")
 }
 
-/// @owned(id: pub_id)
+/// @shared(id: pub_id)
 model Location {
-    id                     Int      @id @default(autoincrement())
-    pub_id                 Bytes    @unique
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+
     node_id                Int
     name                   String
     path                   String
@@ -112,50 +113,7 @@ model Location {
     @@map("location")
 }
 
-/// @shared(id: pub_id)
-model Object {
-    id                Int      @id @default(autoincrement())
-    pub_id            Bytes    @unique
-    // basic metadata
-    name              String?
-    // Must have 'COLLATE NOCASE' in migration
-    extension         String?
-    kind              Int      @default(0)
-    size_in_bytes     String   @default("0")
-    key_id            Int?
-    // handy ways to mark an object
-    hidden            Boolean  @default(false)
-    favorite          Boolean  @default(false)
-    important         Boolean  @default(false)
-    // if we have generated preview media for this object
-    has_thumbnail     Boolean  @default(false)
-    has_thumbstrip    Boolean  @default(false)
-    has_video_preview Boolean  @default(false)
-    // integration with ipfs
-    ipfs_id           String?
-    // plain text note
-    note              String?
-    // the original known creation date of this object
-    date_created      DateTime @default(now())
-    // the last time this object was modified
-    date_modified     DateTime @default(now())
-    // when this object was first indexed
-    date_indexed      DateTime @default(now())
-
-    tags       TagOnObject[]
-    labels     LabelOnObject[]
-    albums     ObjectInAlbum[]
-    spaces     ObjectInSpace[]
-    file_paths FilePath[]
-    comments   Comment[]
-    media_data MediaData?
-
-    key Key? @relation(fields: [key_id], references: [id])
-
-    @@map("object")
-}
-
-/// @owned(id: [location, id])
+/// @shared(id: [location, id])
 model FilePath {
     id     Int
     is_dir Boolean @default(false)
@@ -199,6 +157,49 @@ model FilePath {
     @@unique([location_id, materialized_path, name, extension])
     @@index([location_id])
     @@map("file_path")
+}
+
+/// @shared(id: pub_id)
+model Object {
+    id                Int      @id @default(autoincrement())
+    pub_id            Bytes    @unique
+    // basic metadata
+    name              String?
+    // Must have 'COLLATE NOCASE' in migration
+    extension         String?
+    kind              Int      @default(0)
+    size_in_bytes     String   @default("0")
+    key_id            Int?
+    // handy ways to mark an object
+    hidden            Boolean  @default(false)
+    favorite          Boolean  @default(false)
+    important         Boolean  @default(false)
+    // if we have generated preview media for this object
+    has_thumbnail     Boolean  @default(false)
+    has_thumbstrip    Boolean  @default(false)
+    has_video_preview Boolean  @default(false)
+    // integration with ipfs
+    ipfs_id           String?
+    // plain text note
+    note              String?
+    // the original known creation date of this object
+    date_created      DateTime @default(now())
+    // the last time this object was modified
+    date_modified     DateTime @default(now())
+    // when this object was first indexed
+    date_indexed      DateTime @default(now())
+
+    tags       TagOnObject[]
+    labels     LabelOnObject[]
+    albums     ObjectInAlbum[]
+    spaces     ObjectInSpace[]
+    file_paths FilePath[]
+    comments   Comment[]
+    media_data MediaData?
+
+    key Key? @relation(fields: [key_id], references: [id])
+
+    @@map("object")
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
