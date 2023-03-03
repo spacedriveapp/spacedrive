@@ -155,7 +155,7 @@ model Object {
     @@map("object")
 }
 
-/// @shared(id: [location, id])
+/// @owned(id: [location, id])
 model FilePath {
     id     Int
     is_dir Boolean @default(false)

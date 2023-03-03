@@ -164,33 +164,51 @@ pub struct LocationUpdateArgs {
 
 impl LocationUpdateArgs {
 	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
+		let LibraryContext { sync, db, .. } = &ctx;
+
 		let location = fetch_location(ctx, self.id)
 			.include(location::include!({ indexer_rules }))
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
-		let params = [
+		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
 				.clone()
 				.filter(|name| &location.name != name)
-				.map(location::name::set),
-			self.generate_preview_media
-				.map(location::generate_preview_media::set),
-			self.sync_preview_media
-				.map(location::sync_preview_media::set),
-			self.hidden.map(location::hidden::set),
+				.map(|v| (("name", json!(v)), location::name::set(v))),
+			self.generate_preview_media.map(|v| {
+				(
+					("generate_preview_media", json!(v)),
+					location::generate_preview_media::set(v),
+				)
+			}),
+			self.sync_preview_media.map(|v| {
+				(
+					("sync_preview_media", json!(v)),
+					location::sync_preview_media::set(v),
+				)
+			}),
+			self.hidden
+				.map(|v| (("hidden", json!(v)), location::hidden::set(v))),
 		]
 		.into_iter()
 		.flatten()
-		.collect::<Vec<_>>();
+		.unzip();
 
-		if !params.is_empty() {
-			ctx.db
-				.location()
-				.update(location::id::equals(self.id), params)
-				.exec()
-				.await?;
+		if !sync_params.is_empty() {
+			sync.write_op(
+				db,
+				sync.owned_update(
+					sync::location::SyncId {
+						pub_id: location.pub_id,
+					},
+					sync_params,
+				),
+				db.location()
+					.update(location::id::equals(self.id), db_params),
+			)
+			.await?;
 
 			if location.node_id == ctx.node_local_id {
 				if let Some(mut metadata) =
@@ -301,26 +319,35 @@ pub async fn relink_location(
 	ctx: &LibraryContext,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
+	let LibraryContext { db, id, sync, .. } = &ctx;
+
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
 		.ok_or_else(|| LocationError::MissingMetadataFile(location_path.as_ref().to_path_buf()))?;
 
-	metadata.relink(ctx.id, &location_path).await?;
+	metadata.relink(*id, &location_path).await?;
 
-	ctx.db
-		.location()
-		.update(
-			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
-			vec![location::path::set(
-				location_path
-					.as_ref()
-					.to_str()
-					.expect("Found non-UTF-8 path")
-					.to_string(),
-			)],
-		)
-		.exec()
-		.await?;
+	let pub_id = metadata.location_pub_id(ctx.id)?.as_ref().to_vec();
+	let path = location_path
+		.as_ref()
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	sync.write_op(
+		db,
+		sync.owned_update(
+			sync::location::SyncId {
+				pub_id: pub_id.clone(),
+			},
+			[("path", json!(path))],
+		),
+		db.location().update(
+			location::pub_id::equals(pub_id),
+			vec![location::path::set(path)],
+		),
+	)
+	.await?;
 
 	Ok(())
 }
