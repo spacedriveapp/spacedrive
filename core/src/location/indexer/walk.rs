@@ -57,6 +57,7 @@ pub(super) async fn walk(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: impl Fn(&Path, usize),
+	include_root: bool,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
 
@@ -89,7 +90,7 @@ pub(super) async fn walk(
 		.await?;
 	}
 
-	prepared_indexed_paths(root, indexed_paths).await
+	prepared_indexed_paths(root, indexed_paths, include_root).await
 }
 
 async fn inner_walk_single_dir(
@@ -292,15 +293,20 @@ async fn inner_walk_single_dir(
 async fn prepared_indexed_paths(
 	root: PathBuf,
 	indexed_paths: HashMap<PathBuf, WalkEntry>,
+	include_root: bool,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let mut indexed_paths = indexed_paths.into_values().collect::<Vec<_>>();
-	// Also adding the root location path
-	let root_created_at = fs::metadata(&root).await?.created()?.into();
-	indexed_paths.push(WalkEntry {
-		path: root,
-		is_dir: true,
-		created_at: root_created_at,
-	});
+
+	if include_root {
+		// Also adding the root location path
+		let root_created_at = fs::metadata(&root).await?.created()?.into();
+		indexed_paths.push(WalkEntry {
+			path: root,
+			is_dir: true,
+			created_at: root_created_at,
+		});
+	}
+
 	// Sorting so we can give each path a crescent id given the filesystem hierarchy
 	indexed_paths.sort();
 
@@ -328,7 +334,7 @@ pub(super) async fn walk_single_dir(
 	)
 	.await?;
 
-	prepared_indexed_paths(root, indexed_paths).await
+	prepared_indexed_paths(root, indexed_paths, false).await
 }
 
 #[cfg(test)]
@@ -435,7 +441,7 @@ mod tests {
 		.into_iter()
 		.collect::<BTreeSet<_>>();
 
-		let actual = walk(root_path.to_path_buf(), &HashMap::new(), |_, _| {})
+		let actual = walk(root_path.to_path_buf(), &HashMap::new(), |_, _| {}, true)
 			.await
 			.unwrap()
 			.into_iter()
@@ -474,7 +480,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashMap<_, _>>();
 
-		let actual = walk(root_path.to_path_buf(), &only_photos_rule, |_, _| {})
+		let actual = walk(root_path.to_path_buf(), &only_photos_rule, |_, _| {}, true)
 			.await
 			.unwrap()
 			.into_iter()
@@ -528,7 +534,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashMap<_, _>>();
 
-		let actual = walk(root_path.to_path_buf(), &git_repos, |_, _| {})
+		let actual = walk(root_path.to_path_buf(), &git_repos, |_, _| {}, true)
 			.await
 			.unwrap()
 			.into_iter()
@@ -601,6 +607,7 @@ mod tests {
 			root_path.to_path_buf(),
 			&git_repos_no_deps_no_build_dirs,
 			|_, _| {},
+			true,
 		)
 		.await
 		.unwrap()

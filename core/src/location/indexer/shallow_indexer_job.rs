@@ -1,27 +1,52 @@
 use crate::{
 	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{get_max_file_path_id, set_max_file_path_id},
+	location::file_path_helper::{
+		get_existing_file_path, get_many_file_paths_by_full_path, get_max_file_path_id,
+		set_max_file_path_id, MaterializedPath,
+	},
+	prisma::file_path,
 };
 
-use std::{collections::HashMap, path::Path};
+use std::{
+	collections::HashMap,
+	hash::{Hash, Hasher},
+	path::{Path, PathBuf},
+};
 
 use chrono::Utc;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
+use tracing::error;
 
 use super::{
-	ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	ensure_sub_path_parent_is_in_location, execute_indexer_step,
+	ensure_sub_path_is_directory, ensure_sub_path_is_in_location, execute_indexer_step,
+	indexer_job_location,
 	rules::{IndexerRule, RuleKind},
-	walk::{walk_single_dir, WalkEntry},
-	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
-	ScanProgress,
+	walk::walk_single_dir,
+	IndexerError, IndexerJobData, IndexerJobStep, IndexerJobStepEntry, ScanProgress,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
 pub const SHALLOW_INDEXER_JOB_NAME: &str = "shallow_indexer";
+
+/// `ShallowIndexerJobInit` receives a `location::Data` object to be indexed
+/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
+/// we want do index just a part of a location.
+#[derive(Serialize, Deserialize)]
+pub struct ShallowIndexerJobInit {
+	pub location: indexer_job_location::Data,
+	pub sub_path: PathBuf,
+}
+
+impl Hash for ShallowIndexerJobInit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+		self.sub_path.hash(state);
+	}
+}
 
 /// A `ShallowIndexerJob` is a stateful job that indexes all files in a directory, without checking inner directories.
 /// First it checks the directory and generates a list of files to index, chunked into
@@ -30,7 +55,7 @@ pub struct ShallowIndexerJob;
 
 #[async_trait::async_trait]
 impl StatefulJob for ShallowIndexerJob {
-	type Init = IndexerJobInit;
+	type Init = ShallowIndexerJobInit;
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
@@ -43,7 +68,8 @@ impl StatefulJob for ShallowIndexerJob {
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = get_max_file_path_id(&ctx.library_ctx)
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(IndexerError::from)?
+			+ 1;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -56,28 +82,49 @@ impl StatefulJob for ShallowIndexerJob {
 				.push(indexer_rule);
 		}
 
-		let sub_path_parent_id;
-		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
-			ensure_sub_path_is_in_location(&state.init.location.path, sub_path)?;
-			ensure_sub_path_is_directory(sub_path).await?;
+		let (to_walk_path, parent_id) = if state.init.sub_path != Path::new("") {
+			let full_path =
+				ensure_sub_path_is_in_location(&state.init.location.path, &state.init.sub_path)
+					.await?;
+			ensure_sub_path_is_directory(&state.init.location.path, &state.init.sub_path).await?;
 
-			let parent = ensure_sub_path_parent_is_in_location(
-				state.init.location.id,
-				sub_path,
-				&ctx.library_ctx,
+			(
+				Path::new(&state.init.sub_path).join(&state.init.sub_path),
+				get_existing_file_path(
+					state.init.location.id,
+					MaterializedPath::new(
+						state.init.location.id,
+						&state.init.location.path,
+						&full_path,
+						true,
+					)
+					.map_err(IndexerError::from)?,
+					&ctx.library_ctx,
+				)
+				.await
+				.map_err(IndexerError::from)?
+				.expect("Sub path should already exist in the database")
+				.id,
 			)
-			.await?;
-
-			sub_path_parent_id = Some(parent.id);
-
-			sub_path
 		} else {
-			sub_path_parent_id = None;
-			Path::new(&state.init.location.path)
+			(
+				PathBuf::from(&state.init.location.path),
+				ctx.library_ctx
+					.db
+					.file_path()
+					.find_first(vec![
+						file_path::location_id::equals(state.init.location.id),
+						file_path::materialized_path::equals("/".to_string()),
+					])
+					.exec()
+					.await?
+					.expect("Location root path should already exist in the database")
+					.id,
+			)
 		};
 
 		let scan_start = Instant::now();
-		let paths = walk_single_dir(
+		let found_paths = walk_single_dir(
 			to_walk_path,
 			&indexer_rules_by_kind,
 			|path, total_entries| {
@@ -92,53 +139,67 @@ impl StatefulJob for ShallowIndexerJob {
 		)
 		.await?;
 
-		let total_paths = paths.len();
+		let already_existing_file_paths_by_path = get_many_file_paths_by_full_path(
+			&state.init.location,
+			&found_paths
+				.iter()
+				.map(|entry| &entry.path)
+				.collect::<Vec<_>>(),
+			&ctx.library_ctx,
+		)
+		.await
+		.map_err(IndexerError::from)?
+		.into_iter()
+		.map(|file_path| (file_path.materialized_path.clone(), file_path))
+		.collect::<HashMap<_, _>>();
+
+		// Filter out paths that are already in the databases
+		let mut found_paths = found_paths
+			.into_iter()
+			.filter_map(|entry| {
+				MaterializedPath::new(
+					state.init.location.id,
+					&state.init.location.path,
+					&entry.path,
+					entry.is_dir,
+				)
+				.map_or_else(
+					|e| {
+						error!("Failed to create materialized path: {e}");
+						None
+					},
+					|materialized_path| {
+						(!already_existing_file_paths_by_path
+							.contains_key(materialized_path.as_ref()))
+						.then_some(IndexerJobStepEntry {
+							full_path: entry.path,
+							materialized_path,
+							created_at: entry.created_at,
+							file_id: 0, // To be set later
+							parent_id: Some(parent_id),
+							is_dir: entry.is_dir,
+						})
+					},
+				)
+			})
+			// Sadly we have to collect here to be able to check the length so we can set
+			// the max file path id later
+			.collect::<Vec<_>>();
+
+		let total_paths = found_paths.len();
 		let last_file_id = first_file_id + total_paths as i32;
 
 		// Setting our global state for file_path ids
 		set_max_file_path_id(last_file_id);
 
-		let mut parent_id = None;
-
-		let paths_entries = paths
-			.into_iter()
+		found_paths
+			.iter_mut()
 			.zip(first_file_id..last_file_id)
-			.map(
-				|(
-					WalkEntry {
-						path,
-						is_dir,
-						created_at,
-					},
-					file_id,
-				)| {
-					// if the current path is our starting point, then it will be the parent for
-					// all the other files
-					if path == to_walk_path {
-						parent_id = Some(file_id);
-					}
+			.for_each(|(entry, file_id)| {
+				entry.file_id = file_id;
+			});
 
-					let current_parent_id = if Some(&path) == state.init.sub_path.as_ref() {
-						// if we're currently dealing with the sub_path, then we use its parent_id
-						sub_path_parent_id
-					} else {
-						// otherwise we use the id from the starting walking point that
-						// we prepared before
-						parent_id
-					};
-
-					IndexerJobStepEntry {
-						path,
-						created_at,
-						file_id,
-						parent_id: current_parent_id,
-						is_dir,
-					}
-				},
-			)
-			.collect::<Vec<_>>();
-
-		let total_entries = paths_entries.len();
+		let total_entries = found_paths.len();
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),
@@ -147,7 +208,7 @@ impl StatefulJob for ShallowIndexerJob {
 			indexed_paths: 0,
 		});
 
-		state.steps = paths_entries
+		state.steps = found_paths
 			.into_iter()
 			.chunks(BATCH_SIZE)
 			.into_iter()

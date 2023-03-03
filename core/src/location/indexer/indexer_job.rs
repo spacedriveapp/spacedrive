@@ -1,21 +1,19 @@
 use crate::{
 	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{get_max_file_path_id, set_max_file_path_id},
+	location::file_path_helper::{
+		get_existing_file_path, get_max_file_path_id, set_max_file_path_id, MaterializedPath,
+	},
 };
 
-use std::{
-	collections::HashMap,
-	path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use chrono::Utc;
 use itertools::Itertools;
 use tokio::time::Instant;
 
 use super::{
-	ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	ensure_sub_path_parent_is_in_location, execute_indexer_step,
+	ensure_sub_path_is_directory, ensure_sub_path_is_in_location, execute_indexer_step,
 	rules::{IndexerRule, RuleKind},
 	walk::{walk, WalkEntry},
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
@@ -46,7 +44,8 @@ impl StatefulJob for IndexerJob {
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = get_max_file_path_id(&ctx.library_ctx)
 			.await
-			.map_err(IndexerError::from)?;
+			.map_err(IndexerError::from)?
+			+ 1;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -62,25 +61,34 @@ impl StatefulJob for IndexerJob {
 		let mut dirs_ids = HashMap::new();
 
 		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
-			ensure_sub_path_is_in_location(&state.init.location.path, sub_path)?;
-			ensure_sub_path_is_directory(sub_path).await?;
+			let full_path =
+				ensure_sub_path_is_in_location(&state.init.location.path, sub_path).await?;
+			ensure_sub_path_is_directory(&state.init.location.path, sub_path).await?;
 
-			let parent = ensure_sub_path_parent_is_in_location(
+			let parent = get_existing_file_path(
 				state.init.location.id,
-				sub_path,
+				MaterializedPath::new(
+					state.init.location.id,
+					&state.init.location.path,
+					&full_path,
+					true,
+				)
+				.map_err(IndexerError::from)?,
 				&ctx.library_ctx,
 			)
-			.await?;
+			.await
+			.map_err(IndexerError::from)?
+			.expect("Sub path should already exist in the database");
 
-			// If we're operating with a sub_path, then we have to put its parent on `dirs_ids` map
+			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
 			dirs_ids.insert(
 				PathBuf::from(&state.init.location.path).join(&parent.materialized_path),
 				parent.id,
 			);
 
-			sub_path
+			full_path
 		} else {
-			Path::new(&state.init.location.path)
+			PathBuf::from(&state.init.location.path)
 		};
 
 		let scan_start = Instant::now();
@@ -97,6 +105,8 @@ impl StatefulJob for IndexerJob {
 					],
 				);
 			},
+			// if we're not using a sub_path, then its a full indexing and we must include root dir
+			state.init.sub_path.is_none(),
 		)
 		.await?;
 
@@ -126,16 +136,24 @@ impl StatefulJob for IndexerJob {
 
 					dirs_ids.insert(path.clone(), file_id);
 
-					IndexerJobStepEntry {
-						path,
+					MaterializedPath::new(
+						state.init.location.id,
+						&state.init.location.path,
+						&path,
+						is_dir,
+					)
+					.map(|materialized_path| IndexerJobStepEntry {
+						full_path: path,
+						materialized_path,
 						created_at,
 						file_id,
 						parent_id,
 						is_dir,
-					}
+					})
 				},
 			)
-			.collect::<Vec<_>>();
+			.collect::<Result<Vec<_>, _>>()
+			.map_err(IndexerError::from)?;
 
 		let total_entries = paths_entries.len();
 

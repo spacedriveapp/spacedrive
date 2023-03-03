@@ -8,7 +8,7 @@ use crate::{
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
@@ -85,16 +85,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				light_scan_location(
-					&library,
-					location.clone(),
-					if !args.path.is_empty() {
-						Some(Path::new(&location.path).join(&args.path))
-					} else {
-						None
-					},
-				)
-				.await?;
+				light_scan_location(&library, location.clone(), &args.path).await?;
 
 				if !args.path.ends_with('/') {
 					args.path += "/";
@@ -217,16 +208,9 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.exec()
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
-				
-
-				let sub_path = if !args.sub_path.is_empty() {
-					Some(Path::new(&location.path).join(&args.sub_path))
-				} else {
-					None
-				};
 
 				// light rescan location
-				light_scan_location(&library, location, sub_path)
+				light_scan_location(&library, location, &args.sub_path)
 					.await
 					.map_err(Into::into)
 			})

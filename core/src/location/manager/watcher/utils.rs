@@ -6,7 +6,7 @@ use crate::{
 		file_path_helper::{
 			create_file_path, extract_materialized_path, file_path_with_object,
 			get_existing_file_or_directory, get_existing_file_path, get_parent_dir,
-			subtract_location_path,
+			subtract_location_path, MaterializedPath,
 		},
 		indexer::indexer_job_location,
 		manager::LocationManagerError,
@@ -230,8 +230,12 @@ pub(super) async fn file_creation_or_update(
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref file_path) =
-		get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
+	if let Some(ref file_path) = get_existing_file_path(
+		location.id,
+		MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
+		library_ctx,
+	)
+	.await?
 	{
 		inner_update_file(location, file_path, event, library_ctx).await
 	} else {
@@ -246,8 +250,12 @@ pub(super) async fn update_file(
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library_ctx.node_local_id {
-		if let Some(ref file_path) =
-			get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
+		if let Some(ref file_path) = get_existing_file_path(
+			location.id,
+			MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
+			library_ctx,
+		)
+		.await?
 		{
 			let ret = inner_update_file(location, file_path, event, library_ctx).await;
 			invalidate_query!(library_ctx, "locations.getExplorerData");
@@ -342,12 +350,14 @@ pub(super) async fn rename(
 	location: &indexer_job_location::Data,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	let mut old_path_materialized = extract_materialized_path(location, old_path.as_ref())?
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
+	let mut old_path_materialized =
+		extract_materialized_path(location.id, &location.path, old_path.as_ref())?
+			.to_str()
+			.expect("Found non-UTF-8 path")
+			.to_string();
 
-	let new_path_materialized = extract_materialized_path(location, new_path.as_ref())?;
+	let new_path_materialized =
+		extract_materialized_path(location.id, &location.path, new_path.as_ref())?;
 	let mut new_path_materialized_str = new_path_materialized
 		.to_str()
 		.expect("Found non-UTF-8 path")

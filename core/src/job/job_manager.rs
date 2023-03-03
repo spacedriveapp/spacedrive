@@ -2,7 +2,10 @@ use crate::{
 	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
-	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
+	location::indexer::{
+		indexer_job::{IndexerJob, INDEXER_JOB_NAME},
+		shallow_indexer_job::{ShallowIndexerJob, SHALLOW_INDEXER_JOB_NAME},
+	},
 	object::{
 		fs::{
 			copy::{FileCopierJob, COPY_JOB_NAME},
@@ -213,6 +216,11 @@ impl JobManager {
 				INDEXER_JOB_NAME => {
 					Arc::clone(&self)
 						.dispatch_job(ctx, Job::resume(paused_job, IndexerJob {})?)
+						.await;
+				}
+				SHALLOW_INDEXER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, ShallowIndexerJob {})?)
 						.await;
 				}
 				FULL_IDENTIFIER_JOB_NAME => {

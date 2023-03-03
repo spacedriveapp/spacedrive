@@ -1,6 +1,5 @@
 use crate::{
 	job::{JobError, JobReportUpdate, WorkerContext},
-	library::LibraryContext,
 	prisma::{file_path, location},
 	sync,
 };
@@ -24,7 +23,7 @@ use tokio::{fs, io};
 use tracing::info;
 
 use super::{
-	file_path_helper::{get_parent_dir, FilePathError},
+	file_path_helper::{FilePathError, MaterializedPath},
 	LocationId,
 };
 
@@ -73,7 +72,8 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 /// on the `file_path` table in the database
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
-	path: PathBuf,
+	full_path: PathBuf,
+	materialized_path: MaterializedPath,
 	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
@@ -167,45 +167,65 @@ fn extract_name(os_string: Option<&OsStr>) -> String {
 		.to_owned()
 }
 
-fn ensure_sub_path_is_in_location(
+async fn ensure_sub_path_is_in_location(
+	location_path: impl AsRef<Path>,
+	sub_path: impl AsRef<Path>,
+) -> Result<PathBuf, IndexerError> {
+	let sub_path = sub_path.as_ref();
+	let location_path = location_path.as_ref();
+
+	if !sub_path.starts_with(location_path) {
+		// If the sub_path doesn't start with the location_path, we have to check if it's a
+		// materialized path received from the frontend, then we check if the full path exists
+		let full_path = location_path.join(sub_path);
+		match fs::metadata(&full_path).await {
+			Ok(_) => Ok(full_path),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Err(IndexerError::InvalidSubPath {
+				sub_path: sub_path.to_path_buf(),
+				location_path: location_path.to_path_buf(),
+			}),
+			Err(e) => Err(e.into()),
+		}
+	} else {
+		Ok(sub_path.to_path_buf())
+	}
+}
+
+async fn ensure_sub_path_is_directory(
 	location_path: impl AsRef<Path>,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), IndexerError> {
 	let sub_path = sub_path.as_ref();
 	let location_path = location_path.as_ref();
 
-	if !sub_path.starts_with(location_path) {
-		Err(IndexerError::InvalidSubPath {
-			sub_path: sub_path.to_path_buf(),
-			location_path: location_path.to_path_buf(),
-		})
-	} else {
-		Ok(())
+	match fs::metadata(sub_path).await {
+		Ok(meta) => {
+			if meta.is_file() {
+				Err(IndexerError::SubPathNotDirectory(sub_path.to_path_buf()))
+			} else {
+				Ok(())
+			}
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			match fs::metadata(location_path.join(sub_path)).await {
+				Ok(meta) => {
+					if meta.is_file() {
+						Err(IndexerError::SubPathNotDirectory(sub_path.to_path_buf()))
+					} else {
+						Ok(())
+					}
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					Err(IndexerError::InvalidSubPath {
+						sub_path: sub_path.to_path_buf(),
+						location_path: location_path.to_path_buf(),
+					})
+				}
+				Err(e) => Err(e.into()),
+			}
+		}
+		Err(e) => Err(e.into()),
 	}
-}
-
-async fn ensure_sub_path_is_directory(sub_path: impl AsRef<Path>) -> Result<(), IndexerError> {
-	let sub_path = sub_path.as_ref();
-
-	if fs::metadata(sub_path).await?.is_file() {
-		Err(IndexerError::SubPathNotDirectory(sub_path.to_path_buf()))
-	} else {
-		Ok(())
-	}
-}
-
-async fn ensure_sub_path_parent_is_in_location(
-	location_id: LocationId,
-	sub_path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
-) -> Result<file_path::Data, IndexerError> {
-	let sub_path = sub_path.as_ref();
-	get_parent_dir(location_id, sub_path, library_ctx)
-		.await?
-		.ok_or_else(|| IndexerError::SubPathParentNotInLocation {
-			sub_path: sub_path.to_path_buf(),
-			location_id,
-		})
 }
 
 async fn execute_indexer_step(
@@ -225,23 +245,14 @@ async fn execute_indexer_step(
 			// avoid periods in folder names being interpreted as file extensions
 			if entry.is_dir {
 				extension = "".to_string();
-				name = extract_name(entry.path.file_name());
+				name = extract_name(entry.full_path.file_name());
 			} else {
 				// if the 'entry.path' is not a directory, then get the extension and name.
-				extension = extract_name(entry.path.extension()).to_lowercase();
-				name = extract_name(entry.path.file_stem());
+				extension = extract_name(entry.full_path.extension()).to_lowercase();
+				name = extract_name(entry.full_path.file_stem());
 			}
-			let mut materialized_path = entry
-				.path
-				.strip_prefix(&location.path)
-				.unwrap()
-				.to_str()
-				.expect("Found non-UTF-8 path")
-				.to_string();
 
-			if entry.is_dir && !materialized_path.ends_with('/') {
-				materialized_path += "/";
-			}
+			let materialized_path: String = entry.materialized_path.as_ref().to_string();
 
 			use file_path::*;
 
@@ -312,11 +323,9 @@ macro_rules! finalize_indexer {
 				.expect("critical error: non-negative duration"),
 		);
 
-		// TODO: Currently there is a problem in file_path table, where unique constraints aren't 
-		// being respected due to `extension` being nullable, when fixed uncomment this if
-		// if data.indexed_paths > 0 {
-		// 	crate::invalidate_query!($ctx.library_ctx, "locations.getExplorerData");
-		// }
+		if data.indexed_paths > 0 {
+			crate::invalidate_query!($ctx.library_ctx, "locations.getExplorerData");
+		}
 
 		Ok(Some(serde_json::to_value($state)?))
 	}};

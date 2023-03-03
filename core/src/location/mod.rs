@@ -33,7 +33,7 @@ mod metadata;
 pub use error::LocationError;
 use indexer::{
 	indexer_job::IndexerJob,
-	shallow_indexer_job::ShallowIndexerJob,
+	shallow_indexer_job::{ShallowIndexerJob, ShallowIndexerJobInit},
 	{indexer_job_location, IndexerJobInit},
 };
 pub use manager::{LocationManager, LocationManagerError};
@@ -354,9 +354,9 @@ pub async fn scan_location_sub_path(
 pub async fn light_scan_location(
 	ctx: &LibraryContext,
 	location: indexer_job_location::Data,
-	sub_path: Option<impl AsRef<Path>>,
+	sub_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let sub_path = sub_path.map(|path| path.as_ref().to_path_buf());
+	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != ctx.node_local_id {
 		return Ok(());
 	}
@@ -381,7 +381,7 @@ pub async fn light_scan_location(
 	// .await;
 
 	ctx.spawn_job(Job::new(
-		IndexerJobInit { location, sub_path },
+		ShallowIndexerJobInit { location, sub_path },
 		ShallowIndexerJob {},
 	))
 	.await;
