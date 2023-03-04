@@ -1,3 +1,5 @@
+#![cfg(target_os = "android")]
+
 use std::panic;
 
 use jni::{
