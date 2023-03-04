@@ -1,5 +1,6 @@
 use crate::{
 	invalidate_query,
+	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
 	prisma::{node, PrismaClient},
 	sync::SyncManager,
@@ -346,6 +347,7 @@ impl LibraryManager {
 			key_manager,
 			sync: Arc::new(sync_manager),
 			db,
+			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
 			node_local_id: node_data.id,
 			node_context,
 		})

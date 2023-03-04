@@ -2,8 +2,7 @@ use crate::{
 	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
-		get_existing_file_path, get_many_file_paths_by_full_path, get_max_file_path_id,
-		set_max_file_path_id, MaterializedPath,
+		get_existing_file_path, get_many_file_paths_by_full_path, MaterializedPath,
 	},
 	prisma::file_path,
 };
@@ -12,6 +11,7 @@ use std::{
 	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use chrono::Utc;
@@ -65,8 +65,14 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+		let (last_file_path_id_manager, db, ..) = (
+			Arc::clone(&ctx.library_ctx.last_file_path_id_manager),
+			Arc::clone(&ctx.library_ctx.db),
+		);
+
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx)
+		let first_file_id = last_file_path_id_manager
+			.get_max_file_path_id(state.init.location.id, &db)
 			.await
 			.map_err(IndexerError::from)?
 			+ 1;
@@ -99,7 +105,7 @@ impl StatefulJob for ShallowIndexerJob {
 						true,
 					)
 					.map_err(IndexerError::from)?,
-					&ctx.library_ctx,
+					&db,
 				)
 				.await
 				.map_err(IndexerError::from)?
@@ -145,7 +151,7 @@ impl StatefulJob for ShallowIndexerJob {
 				.iter()
 				.map(|entry| &entry.path)
 				.collect::<Vec<_>>(),
-			&ctx.library_ctx,
+			&db,
 		)
 		.await
 		.map_err(IndexerError::from)?
@@ -172,12 +178,10 @@ impl StatefulJob for ShallowIndexerJob {
 						(!already_existing_file_paths_by_path
 							.contains_key(materialized_path.as_ref()))
 						.then_some(IndexerJobStepEntry {
-							full_path: entry.path,
 							materialized_path,
 							created_at: entry.created_at,
 							file_id: 0, // To be set later
 							parent_id: Some(parent_id),
-							is_dir: entry.is_dir,
 						})
 					},
 				)
@@ -190,7 +194,9 @@ impl StatefulJob for ShallowIndexerJob {
 		let last_file_id = first_file_id + total_paths as i32;
 
 		// Setting our global state for file_path ids
-		set_max_file_path_id(last_file_id);
+		last_file_path_id_manager
+			.set_max_file_path_id(state.init.location.id, last_file_id)
+			.await;
 
 		found_paths
 			.iter_mut()

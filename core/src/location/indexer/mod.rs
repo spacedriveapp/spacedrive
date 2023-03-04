@@ -5,7 +5,6 @@ use crate::{
 };
 
 use std::{
-	ffi::OsStr,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	time::Duration,
@@ -72,12 +71,10 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 /// on the `file_path` table in the database
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
-	full_path: PathBuf,
 	materialized_path: MaterializedPath,
 	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
-	is_dir: bool,
 }
 
 impl IndexerJobData {
@@ -158,15 +155,6 @@ impl From<IndexerError> for rspc::Error {
 	}
 }
 
-/// Extract name from OsStr returned by PathBuff
-fn extract_name(os_string: Option<&OsStr>) -> String {
-	os_string
-		.unwrap_or_default()
-		.to_str()
-		.unwrap_or_default()
-		.to_owned()
-}
-
 async fn ensure_sub_path_is_in_location(
 	location_path: impl AsRef<Path>,
 	sub_path: impl AsRef<Path>,
@@ -238,21 +226,13 @@ async fn execute_indexer_step(
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = step
 		.iter()
 		.map(|entry| {
-			let name;
-			let extension;
-
-			// if 'entry.path' is a directory, set extension to an empty string to
-			// avoid periods in folder names being interpreted as file extensions
-			if entry.is_dir {
-				extension = "".to_string();
-				name = extract_name(entry.full_path.file_name());
-			} else {
-				// if the 'entry.path' is not a directory, then get the extension and name.
-				extension = extract_name(entry.full_path.extension()).to_lowercase();
-				name = extract_name(entry.full_path.file_stem());
-			}
-
-			let materialized_path: String = entry.materialized_path.as_ref().to_string();
+			let MaterializedPath {
+				materialized_path,
+				is_dir,
+				name,
+				extension,
+				..
+			} = entry.materialized_path.clone();
 
 			use file_path::*;
 
@@ -267,7 +247,7 @@ async fn execute_indexer_step(
 					[
 						("materialized_path", json!(materialized_path.clone())),
 						("name", json!(name.clone())),
-						("is_dir", json!(entry.is_dir)),
+						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
 						("parent_id", json!(entry.parent_id)),
 						("date_created", json!(entry.created_at)),
@@ -280,7 +260,7 @@ async fn execute_indexer_step(
 					name,
 					extension,
 					vec![
-						is_dir::set(entry.is_dir),
+						is_dir::set(is_dir),
 						parent_id::set(entry.parent_id),
 						date_created::set(entry.created_at.into()),
 					],

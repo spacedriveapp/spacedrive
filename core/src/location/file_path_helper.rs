@@ -1,10 +1,8 @@
-use crate::{library::LibraryContext, prisma::file_path};
+use crate::prisma::{file_path, PrismaClient};
 
-use std::{
-	path::{Path, PathBuf},
-	sync::atomic::{AtomicI32, Ordering},
-};
+use std::path::{Path, PathBuf};
 
+use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
 use prisma_client_rust::{Direction, QueryError};
 use serde::{Deserialize, Serialize};
@@ -14,14 +12,17 @@ use tracing::error;
 
 use super::{indexer::indexer_job_location, LocationId};
 
-static LAST_FILE_PATH_ID: AtomicI32 = AtomicI32::new(0);
-
 file_path::select!(file_path_id_only { id });
 file_path::include!(file_path_with_object { object });
 
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct MaterializedPath(String);
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MaterializedPath {
+	pub(super) materialized_path: String,
+	pub(super) is_dir: bool,
+	pub(super) location_id: LocationId,
+	pub(super) name: String,
+	pub(super) extension: String,
+}
 
 impl MaterializedPath {
 	pub fn new(
@@ -30,6 +31,7 @@ impl MaterializedPath {
 		full_path: impl AsRef<Path>,
 		is_dir: bool,
 	) -> Result<Self, FilePathError> {
+		let full_path = full_path.as_ref();
 		let mut materialized_path =
 			extract_materialized_path(location_id, location_path, full_path)?
 				.to_str()
@@ -39,19 +41,53 @@ impl MaterializedPath {
 		if is_dir && !materialized_path.ends_with('/') {
 			materialized_path += "/";
 		}
-		Ok(Self(materialized_path))
+
+		let extension = if !is_dir {
+			let extension = full_path
+				.extension()
+				.unwrap_or_default()
+				.to_str()
+				.unwrap_or_default();
+
+			#[cfg(debug_assertions)]
+			{
+				// In dev mode, we lowercase the extension as we don't use the SQL migration,
+				// and using prisma.schema directly we can't set `COLLATE NOCASE` in the
+				// `extension` column at `file_path` table
+				extension.to_lowercase()
+			}
+			#[cfg(not(debug_assertions))]
+			{
+				extension.to_string()
+			}
+		} else {
+			String::new()
+		};
+
+		Ok(Self {
+			materialized_path,
+			is_dir,
+			location_id,
+			name: full_path
+				.file_name()
+				.unwrap_or_default()
+				.to_str()
+				.unwrap_or_default()
+				.to_string(),
+			extension,
+		})
 	}
 }
 
 impl From<MaterializedPath> for String {
 	fn from(path: MaterializedPath) -> Self {
-		path.0
+		path.materialized_path
 	}
 }
 
 impl AsRef<str> for MaterializedPath {
 	fn as_ref(&self) -> &str {
-		self.0.as_ref()
+		self.materialized_path.as_ref()
 	}
 }
 
@@ -65,77 +101,106 @@ pub enum FilePathError {
 	IOError(#[from] io::Error),
 }
 
-pub async fn get_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, FilePathError> {
-	let mut last_id = LAST_FILE_PATH_ID.load(Ordering::Acquire);
-	if last_id == 0 {
-		last_id = fetch_max_file_path_id(library_ctx).await?;
-		LAST_FILE_PATH_ID.store(last_id, Ordering::Release);
-	}
-
-	Ok(last_id)
+#[derive(Debug)]
+pub struct LastFilePathIdManager {
+	last_id_by_location: DashMap<LocationId, i32>,
 }
 
-pub fn set_max_file_path_id(id: i32) {
-	LAST_FILE_PATH_ID.store(id, Ordering::Relaxed);
+impl Default for LastFilePathIdManager {
+	fn default() -> Self {
+		Self {
+			last_id_by_location: DashMap::with_capacity(4),
+		}
+	}
 }
 
-async fn fetch_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, FilePathError> {
-	Ok(library_ctx
-		.db
-		.file_path()
-		.find_first(vec![])
-		.order_by(file_path::id::order(Direction::Desc))
-		.select(file_path_id_only::select())
-		.exec()
-		.await?
-		.map(|r| r.id)
-		.unwrap_or(0))
-}
-
-#[cfg(feature = "location-watcher")]
-pub async fn create_file_path(
-	library_ctx: &LibraryContext,
-	location_id: i32,
-	mut materialized_path: String,
-	name: String,
-	extension: String,
-	parent_id: Option<i32>,
-	is_dir: bool,
-) -> Result<file_path::Data, FilePathError> {
-	use crate::prisma::location;
-
-	let mut last_id = LAST_FILE_PATH_ID.load(Ordering::Acquire);
-	if last_id == 0 {
-		last_id = fetch_max_file_path_id(library_ctx).await?;
+impl LastFilePathIdManager {
+	pub fn new() -> Self {
+		Default::default()
 	}
 
-	// If this new file_path is a directory, materialized_path must end with "/"
-	if is_dir && !materialized_path.ends_with('/') {
-		materialized_path += "/";
+	pub async fn get_max_file_path_id(
+		&self,
+		location_id: LocationId,
+		db: &PrismaClient,
+	) -> Result<i32, FilePathError> {
+		Ok(match self.last_id_by_location.entry(location_id) {
+			Entry::Occupied(entry) => *entry.get(),
+			Entry::Vacant(entry) => {
+				// I wish I could use `or_try_insert_with` method instead of this crappy match,
+				// but we don't have async closures yet ):
+				let id = Self::fetch_max_file_path_id(location_id, db).await?;
+				entry.insert(id);
+				id
+			}
+		})
 	}
 
-	let next_id = last_id + 1;
+	pub async fn set_max_file_path_id(&self, location_id: LocationId, id: i32) {
+		self.last_id_by_location.insert(location_id, id);
+	}
 
-	let created_path = library_ctx
-		.db
-		.file_path()
-		.create(
-			next_id,
-			location::id::equals(location_id),
+	async fn fetch_max_file_path_id(
+		location_id: LocationId,
+		db: &PrismaClient,
+	) -> Result<i32, FilePathError> {
+		Ok(db
+			.file_path()
+			.find_first(vec![file_path::location_id::equals(location_id)])
+			.order_by(file_path::id::order(Direction::Desc))
+			.select(file_path_id_only::select())
+			.exec()
+			.await?
+			.map(|r| r.id)
+			.unwrap_or(0))
+	}
+
+	#[cfg(feature = "location-watcher")]
+	pub async fn create_file_path(
+		&self,
+		db: &PrismaClient,
+		MaterializedPath {
 			materialized_path,
+			is_dir,
+			location_id,
 			name,
 			extension,
-			vec![
-				file_path::parent_id::set(parent_id),
-				file_path::is_dir::set(is_dir),
-			],
-		)
-		.exec()
-		.await?;
+		}: MaterializedPath,
+		parent_id: Option<i32>,
+	) -> Result<file_path::Data, FilePathError> {
+		use crate::prisma::location;
 
-	LAST_FILE_PATH_ID.store(next_id, Ordering::Release);
+		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
+		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
+			Entry::Occupied(ocupied) => ocupied.into_ref(),
+			Entry::Vacant(vacant) => {
+				let id = Self::fetch_max_file_path_id(location_id, db).await?;
+				vacant.insert(id)
+			}
+		};
 
-	Ok(created_path)
+		let next_id = *last_id_ref + 1;
+
+		let created_path = db
+			.file_path()
+			.create(
+				next_id,
+				location::id::equals(location_id),
+				materialized_path,
+				name,
+				extension,
+				vec![
+					file_path::parent_id::set(parent_id),
+					file_path::is_dir::set(is_dir),
+				],
+			)
+			.exec()
+			.await?;
+
+		*last_id_ref = next_id;
+
+		Ok(created_path)
+	}
 }
 
 pub fn subtract_location_path(
@@ -170,7 +235,7 @@ pub fn extract_materialized_path(
 pub async fn get_many_file_paths_by_full_path(
 	location: &indexer_job_location::Data,
 	full_paths: &[impl AsRef<Path>],
-	library_ctx: &LibraryContext,
+	db: &PrismaClient,
 ) -> Result<Vec<file_path::Data>, FilePathError> {
 	let is_dirs = try_join_all(
 		full_paths
@@ -188,9 +253,7 @@ pub async fn get_many_file_paths_by_full_path(
 		// Collecting in a Result, so we stop on the first error
 		.collect::<Result<Vec<_>, _>>()?;
 
-	library_ctx
-		.db
-		.file_path()
+	db.file_path()
 		.find_many(vec![file_path::materialized_path::in_vec(
 			materialized_paths,
 		)])
@@ -202,11 +265,9 @@ pub async fn get_many_file_paths_by_full_path(
 pub async fn get_existing_file_path(
 	location_id: LocationId,
 	materialized_path: MaterializedPath,
-	library_ctx: &LibraryContext,
+	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
-	library_ctx
-		.db
-		.file_path()
+	db.file_path()
 		.find_first(vec![
 			file_path::location_id::equals(location_id),
 			file_path::materialized_path::equals(materialized_path.into()),
@@ -222,12 +283,12 @@ pub async fn get_existing_file_path(
 pub async fn get_existing_file_or_directory(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
+	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
 	let mut maybe_file_path = get_existing_file_path(
 		location.id,
 		MaterializedPath::new(location.id, &location.path, path.as_ref(), false)?,
-		library_ctx,
+		db,
 	)
 	.await?;
 	// First we just check if this path was a file in our db, if it isn't then we check for a directory
@@ -235,7 +296,7 @@ pub async fn get_existing_file_or_directory(
 		maybe_file_path = get_existing_file_path(
 			location.id,
 			MaterializedPath::new(location.id, &location.path, path.as_ref(), true)?,
-			library_ctx,
+			db,
 		)
 		.await?;
 	}
@@ -246,7 +307,7 @@ pub async fn get_existing_file_or_directory(
 pub async fn get_parent_dir(
 	location_id: LocationId,
 	path: impl AsRef<Path>,
-	library_ctx: &LibraryContext,
+	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
 	let mut parent_path_str = path
 		.as_ref()
@@ -262,9 +323,7 @@ pub async fn get_parent_dir(
 		parent_path_str += "/";
 	}
 
-	library_ctx
-		.db
-		.file_path()
+	db.file_path()
 		.find_first(vec![
 			file_path::location_id::equals(location_id),
 			file_path::materialized_path::equals(parent_path_str),

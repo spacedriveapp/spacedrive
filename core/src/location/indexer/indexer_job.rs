@@ -1,12 +1,10 @@
 use crate::{
 	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{
-		get_existing_file_path, get_max_file_path_id, set_max_file_path_id, MaterializedPath,
-	},
+	location::file_path_helper::{get_existing_file_path, MaterializedPath},
 };
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use chrono::Utc;
 use itertools::Itertools;
@@ -41,8 +39,14 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+		let (last_file_path_id_manager, db, ..) = (
+			Arc::clone(&ctx.library_ctx.last_file_path_id_manager),
+			Arc::clone(&ctx.library_ctx.db),
+		);
+
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx)
+		let first_file_id = last_file_path_id_manager
+			.get_max_file_path_id(state.init.location.id, &db)
 			.await
 			.map_err(IndexerError::from)?
 			+ 1;
@@ -74,7 +78,7 @@ impl StatefulJob for IndexerJob {
 					true,
 				)
 				.map_err(IndexerError::from)?,
-				&ctx.library_ctx,
+				&db,
 			)
 			.await
 			.map_err(IndexerError::from)?
@@ -114,7 +118,9 @@ impl StatefulJob for IndexerJob {
 		let last_file_id = first_file_id + total_paths as i32;
 
 		// Setting our global state for file_path ids
-		set_max_file_path_id(last_file_id);
+		last_file_path_id_manager
+			.set_max_file_path_id(state.init.location.id, last_file_id)
+			.await;
 
 		let paths_entries = paths
 			.into_iter()
@@ -143,12 +149,10 @@ impl StatefulJob for IndexerJob {
 						is_dir,
 					)
 					.map(|materialized_path| IndexerJobStepEntry {
-						full_path: path,
 						materialized_path,
 						created_at,
 						file_id,
 						parent_id,
-						is_dir,
 					})
 				},
 			)

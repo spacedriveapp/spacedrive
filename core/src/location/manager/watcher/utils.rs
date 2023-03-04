@@ -4,9 +4,8 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			create_file_path, extract_materialized_path, file_path_with_object,
-			get_existing_file_or_directory, get_existing_file_path, get_parent_dir,
-			subtract_location_path, MaterializedPath,
+			extract_materialized_path, file_path_with_object, get_existing_file_or_directory,
+			get_existing_file_path, get_parent_dir, MaterializedPath,
 		},
 		indexer::indexer_job_location,
 		manager::LocationManagerError,
@@ -23,7 +22,6 @@ use crate::{
 
 use std::{
 	collections::HashSet,
-	ffi::OsStr,
 	path::{Path, PathBuf},
 	str::FromStr,
 };
@@ -63,11 +61,11 @@ pub(super) async fn create_dir(
 		event.paths[0].display()
 	);
 
-	let Some(subpath) = subtract_location_path(&location.path, &event.paths[0]) else {
-        return Ok(());
-    };
+	let materialized_path =
+		MaterializedPath::new(location.id, &location.path, &event.paths[0], true)?;
 
-	let parent_directory = get_parent_dir(location.id, &subpath, library_ctx).await?;
+	let parent_directory =
+		get_parent_dir(location.id, materialized_path.as_ref(), &library_ctx.db).await?;
 
 	trace!("parent_directory: {:?}", parent_directory);
 
@@ -76,23 +74,14 @@ pub(super) async fn create_dir(
         return Ok(())
 	};
 
-	let created_path = create_file_path(
-		library_ctx,
-		location.id,
-		subpath
-			.to_str()
-			.map(str::to_string)
-			.expect("Found non-UTF-8 path"),
-		subpath
-			.file_stem()
-			.and_then(OsStr::to_str)
-			.map(str::to_string)
-			.expect("Found non-UTF-8 path"),
-		"".to_string(),
-		Some(parent_directory.id),
-		true,
-	)
-	.await?;
+	let created_path = library_ctx
+		.last_file_path_id_manager
+		.create_file_path(
+			&library_ctx.db,
+			materialized_path,
+			Some(parent_directory.id),
+		)
+		.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
 
@@ -110,44 +99,33 @@ pub(super) async fn create_file(
 		return Ok(());
 	}
 
+	let full_path = &event.paths[0];
+
 	trace!(
 		"Location: <root_path ='{}'> creating file: {}",
 		&location.path,
-		event.paths[0].display()
+		full_path.display()
 	);
 
 	let db = &library_ctx.db;
 
-	let Some(materialized_path) = subtract_location_path(&location.path, &event.paths[0]) else { return Ok(()) };
+	let materialized_path = MaterializedPath::new(location.id, &location.path, full_path, false)?;
 
 	let Some(parent_directory) =
-		get_parent_dir(location.id, &materialized_path, library_ctx).await?
+		get_parent_dir(location.id, materialized_path.as_ref(), &library_ctx.db).await?
     else {
 		warn!("Watcher found a path without parent");
         return Ok(())
     };
 
-	let created_file = create_file_path(
-		library_ctx,
-		location.id,
-		materialized_path
-			.to_str()
-			.expect("Found non-UTF-8 path")
-			.to_string(),
-		materialized_path
-			.file_stem()
-			.unwrap_or_default()
-			.to_str()
-			.expect("Found non-UTF-8 path")
-			.to_string(),
-		materialized_path
-			.extension()
-			.map(|ext| ext.to_str().expect("Found non-UTF-8 path").to_string())
-			.unwrap_or_default(),
-		Some(parent_directory.id),
-		false,
-	)
-	.await?;
+	let created_file = library_ctx
+		.last_file_path_id_manager
+		.create_file_path(
+			&library_ctx.db,
+			materialized_path,
+			Some(parent_directory.id),
+		)
+		.await?;
 
 	info!("Created path: {}", created_file.materialized_path);
 
@@ -233,7 +211,7 @@ pub(super) async fn file_creation_or_update(
 	if let Some(ref file_path) = get_existing_file_path(
 		location.id,
 		MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
-		library_ctx,
+		&library_ctx.db,
 	)
 	.await?
 	{
@@ -253,7 +231,7 @@ pub(super) async fn update_file(
 		if let Some(ref file_path) = get_existing_file_path(
 			location.id,
 			MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
-			library_ctx,
+			&library_ctx.db,
 		)
 		.await?
 		{
@@ -363,7 +341,8 @@ pub(super) async fn rename(
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	if let Some(file_path) = get_existing_file_or_directory(location, old_path, library_ctx).await?
+	if let Some(file_path) =
+		get_existing_file_or_directory(location, old_path, &library_ctx.db).await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
@@ -434,7 +413,7 @@ pub(super) async fn remove_event(
 
 	// if it doesn't either way, then we don't care
 	if let Some(file_path) =
-		get_existing_file_or_directory(location, &event.paths[0], library_ctx).await?
+		get_existing_file_or_directory(location, &event.paths[0], &library_ctx.db).await?
 	{
 		// check file still exists on disk
 		match fs::metadata(&event.paths[0]).await {
