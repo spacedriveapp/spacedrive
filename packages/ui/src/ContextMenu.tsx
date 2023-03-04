@@ -10,19 +10,14 @@ interface Props extends RadixCM.MenuContentProps {
 
 const MENU_CLASSES = `
   flex flex-col z-50
-  min-w-[8rem] px-1 py-0.5
+  min-w-[8rem] px-1 py-0.5 my-2
   text-left text-sm text-menu-ink
   bg-menu cool-shadow
 	border border-menu-line
   select-none cursor-default rounded-md
 `;
 
-export const ContextMenu = ({
-	trigger,
-	children,
-	className,
-	...props
-}: PropsWithChildren<Props>) => {
+export const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Props>) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
@@ -36,7 +31,7 @@ export const ContextMenu = ({
 };
 
 export const Separator = () => (
-	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-menu-line" />
+	<RadixCM.Separator className="border-b-menu-line pointer-events-none mx-2 border-0 border-b" />
 );
 
 export const SubMenu = ({
@@ -47,7 +42,7 @@ export const SubMenu = ({
 }: RadixCM.MenuSubContentProps & ItemProps) => {
 	return (
 		<RadixCM.Sub>
-			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-accent [&[data-state='open']_div]:text-white focus:outline-none  text-menu-ink py-[3px]">
+			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-accent text-menu-ink py-[3px]  focus:outline-none [&[data-state='open']_div]:text-white">
 				<DivItem rightArrow {...{ label, icon }} />
 			</RadixCM.SubTrigger>
 			<RadixCM.Portal>
@@ -61,8 +56,8 @@ export const SubMenu = ({
 
 const itemStyles = cva(
 	[
-		'flex flex-row items-center justify-start flex-1',
-		'px-2 py-[3px] space-x-2',
+		'flex flex-1 flex-row items-center justify-start',
+		'space-x-2 px-2 py-[3px]',
 		'cursor-default rounded',
 		'focus:outline-none'
 	],
@@ -103,7 +98,7 @@ export const Item = ({
 	return (
 		<RadixCM.Item
 			{...props}
-			className="!cursor-default select-none group  text-menu-ink focus:outline-none py-0.5 active:opacity-80"
+			className="text-menu-ink group !cursor-default  select-none py-0.5 focus:outline-none active:opacity-80"
 		>
 			<div className={itemStyles({ variant })}>
 				{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
@@ -126,7 +121,7 @@ const ItemInternals = ({ icon, label, rightArrow, keybind }: ItemProps) => {
 			{label && <p>{label}</p>}
 
 			{keybind && (
-				<span className="absolute text-xs font-medium right-3 flex-end text-menu-faint group-hover:text-white">
+				<span className="flex-end text-menu-faint absolute right-3 text-xs font-medium group-hover:text-white">
 					{keybind}
 				</span>
 			)}

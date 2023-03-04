@@ -19,6 +19,7 @@ use crate::{
 
 use std::{
 	collections::HashSet,
+	ffi::OsStr,
 	path::{Path, PathBuf},
 	str::FromStr,
 };
@@ -35,93 +36,90 @@ use uuid::Uuid;
 use super::file_path_with_object;
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
-	// if first path includes .DS_Store, ignore
-	if event.paths.iter().any(|p| {
-		p.to_str()
-			.expect("Found non-UTF-8 path")
-			.contains(".DS_Store")
-			|| ignore_paths.contains(p)
-	}) {
-		return false;
-	}
+	// if path includes .DS_Store, .spacedrive or is in the `ignore_paths` set, we ignore
+	!event.paths.iter().any(|p| {
+		let path_str = p.to_str().expect("Found non-UTF-8 path");
 
-	true
+		path_str.contains(".DS_Store")
+			|| path_str.contains(".spacedrive")
+			|| ignore_paths.contains(p)
+	})
 }
 
 pub(super) async fn create_dir(
-	location: indexer_job_location::Data,
-	event: Event,
-	library_ctx: LibraryContext,
+	location: &indexer_job_location::Data,
+	event: &Event,
+	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref location_local_path) = location.local_path {
-		trace!(
-			"Location: <root_path ='{location_local_path}'> creating directory: {}",
-			event.paths[0].display()
-		);
-
-		if let Some(subpath) = subtract_location_path(location_local_path, &event.paths[0]) {
-			let parent_directory = get_parent_dir(location.id, &subpath, &library_ctx).await?;
-
-			trace!("parent_directory: {:?}", parent_directory);
-
-			if let Some(parent_directory) = parent_directory {
-				let created_path = create_file_path(
-					&library_ctx,
-					location.id,
-					subpath.to_str().expect("Found non-UTF-8 path").to_string(),
-					subpath
-						.file_stem()
-						.unwrap()
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-					None,
-					Some(parent_directory.id),
-					true,
-				)
-				.await?;
-
-				info!("Created path: {}", created_path.materialized_path);
-
-				invalidate_query!(library_ctx, "locations.getExplorerData");
-			} else {
-				warn!("Watcher found a path without parent");
-			}
-		}
+	if location.node_id != library_ctx.node_local_id {
+		return Ok(());
 	}
+
+	trace!(
+		"Location: <root_path ='{}'> creating directory: {}",
+		location.path,
+		event.paths[0].display()
+	);
+
+	let Some(subpath) = subtract_location_path(&location.path, &event.paths[0]) else {
+        return Ok(());
+    };
+
+	let parent_directory = get_parent_dir(location.id, &subpath, library_ctx).await?;
+
+	trace!("parent_directory: {:?}", parent_directory);
+
+	let Some(parent_directory) = parent_directory else {
+		warn!("Watcher found a path without parent");
+        return Ok(())
+	};
+
+	let created_path = create_file_path(
+		library_ctx,
+		location.id,
+		subpath
+			.to_str()
+			.map(str::to_string)
+			.expect("Found non-UTF-8 path"),
+		subpath
+			.file_stem()
+			.and_then(OsStr::to_str)
+			.map(str::to_string)
+			.expect("Found non-UTF-8 path"),
+		"".to_string(),
+		Some(parent_directory.id),
+		true,
+	)
+	.await?;
+
+	info!("Created path: {}", created_path.materialized_path);
+
+	invalidate_query!(library_ctx, "locations.getExplorerData");
 
 	Ok(())
 }
 
 pub(super) async fn create_file(
-	location: indexer_job_location::Data,
-	event: Event,
-	library_ctx: LibraryContext,
-) -> Result<(), LocationManagerError> {
-	if let Some(ref location_local_path) = location.local_path {
-		inner_create_file(location.id, location_local_path, event, &library_ctx).await
-	} else {
-		Err(LocationManagerError::LocationMissingLocalPath(location.id))
-	}
-}
-
-async fn inner_create_file(
-	location_id: LocationId,
-	location_local_path: &str,
-	event: Event,
+	location: &indexer_job_location::Data,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
+	if location.node_id != library_ctx.node_local_id {
+		return Ok(());
+	}
+
 	trace!(
-		"Location: <root_path ='{location_local_path}'> creating file: {}",
+		"Location: <root_path ='{}'> creating file: {}",
+		&location.path,
 		event.paths[0].display()
 	);
 
 	let db = &library_ctx.db;
 
-	let Some(materialized_path) = subtract_location_path(location_local_path, &event.paths[0]) else { return Ok(()) };
+	let Some(materialized_path) = subtract_location_path(&location.path, &event.paths[0]) else { return Ok(()) };
 
 	let Some(parent_directory) =
-		get_parent_dir(location_id, &materialized_path, library_ctx).await?
+		get_parent_dir(location.id, &materialized_path, library_ctx).await?
     else {
 		warn!("Watcher found a path without parent");
         return Ok(())
@@ -129,7 +127,7 @@ async fn inner_create_file(
 
 	let created_file = create_file_path(
 		library_ctx,
-		location_id,
+		location.id,
 		materialized_path
 			.to_str()
 			.expect("Found non-UTF-8 path")
@@ -140,13 +138,10 @@ async fn inner_create_file(
 			.to_str()
 			.expect("Found non-UTF-8 path")
 			.to_string(),
-		materialized_path.extension().and_then(|ext| {
-			if ext.is_empty() {
-				None
-			} else {
-				Some(ext.to_str().expect("Found non-UTF-8 path").to_string())
-			}
-		}),
+		materialized_path
+			.extension()
+			.map(|ext| ext.to_str().expect("Found non-UTF-8 path").to_string())
+			.unwrap_or_default(),
 		Some(parent_directory.id),
 		false,
 	)
@@ -159,7 +154,7 @@ async fn inner_create_file(
 		cas_id,
 		kind,
 		fs_metadata,
-	} = FileMetadata::new(location_local_path, &created_file.materialized_path).await?;
+	} = FileMetadata::new(&location.path, &created_file.materialized_path).await?;
 
 	let existing_object = db
 		.object()
@@ -206,17 +201,21 @@ async fn inner_create_file(
 
 	db.file_path()
 		.update(
-			file_path::location_id_id(location_id, created_file.id),
+			file_path::location_id_id(location.id, created_file.id),
 			vec![file_path::object_id::set(Some(object.id))],
 		)
 		.exec()
 		.await?;
 
 	trace!("object: {:#?}", object);
-	if !object.has_thumbnail {
-		if let Some(ref extension) = created_file.extension {
-			generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
-		}
+	if !object.has_thumbnail && !created_file.extension.is_empty() {
+		generate_thumbnail(
+			&created_file.extension,
+			&cas_id,
+			&event.paths[0],
+			library_ctx,
+		)
+		.await;
 	}
 
 	invalidate_query!(library_ctx, "locations.getExplorerData");
@@ -225,48 +224,30 @@ async fn inner_create_file(
 }
 
 pub(super) async fn file_creation_or_update(
-	location: indexer_job_location::Data,
-	event: Event,
+	location: &indexer_job_location::Data,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref location_local_path) = location.local_path {
-		if let Some(file_path) =
-			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
-		{
-			inner_update_file(
-				&location,
-				location_local_path,
-				file_path,
-				event,
-				library_ctx,
-			)
-			.await
-		} else {
-			// We received None because it is a new file
-			inner_create_file(location.id, location_local_path, event, library_ctx).await
-		}
+	if let Some(ref file_path) =
+		get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
+	{
+		inner_update_file(location, file_path, event, library_ctx).await
 	} else {
-		Err(LocationManagerError::LocationMissingLocalPath(location.id))
+		// We received None because it is a new file
+		create_file(location, event, library_ctx).await
 	}
 }
 
 pub(super) async fn update_file(
-	location: indexer_job_location::Data,
-	event: Event,
+	location: &indexer_job_location::Data,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref location_local_path) = location.local_path {
-		if let Some(file_path) =
-			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
+	if location.node_id == library_ctx.node_local_id {
+		if let Some(ref file_path) =
+			get_existing_file_path(location, &event.paths[0], false, library_ctx).await?
 		{
-			let ret = inner_update_file(
-				&location,
-				location_local_path,
-				file_path,
-				event,
-				library_ctx,
-			)
-			.await;
+			let ret = inner_update_file(location, file_path, event, library_ctx).await;
 			invalidate_query!(library_ctx, "locations.getExplorerData");
 			ret
 		} else {
@@ -281,21 +262,21 @@ pub(super) async fn update_file(
 
 async fn inner_update_file(
 	location: &indexer_job_location::Data,
-	location_local_path: &str,
-	file_path: file_path_with_object::Data,
-	event: Event,
+	file_path: &file_path_with_object::Data,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	trace!(
-		"Location: <root_path ='{location_local_path}'> updating file: {}",
+		"Location: <root_path ='{}'> updating file: {}",
+		&location.path,
 		event.paths[0].display()
 	);
 
 	let FileMetadata {
 		cas_id,
-		kind: _,
 		fs_metadata,
-	} = FileMetadata::new(location_local_path, &file_path.materialized_path).await?;
+		..
+	} = FileMetadata::new(&location.path, &file_path.materialized_path).await?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
@@ -327,12 +308,14 @@ async fn inner_update_file(
 
 			if file_path
 				.object
+				.as_ref()
 				.map(|o| o.has_thumbnail)
 				.unwrap_or_default()
 			{
 				// if this file had a thumbnail previously, we update it to match the new content
-				if let Some(extension) = &file_path.extension {
-					generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
+				if !file_path.extension.is_empty() {
+					generate_thumbnail(&file_path.extension, &cas_id, &event.paths[0], library_ctx)
+						.await;
 				}
 			}
 		}
@@ -344,8 +327,8 @@ async fn inner_update_file(
 }
 
 pub(super) async fn rename_both_event(
-	location: indexer_job_location::Data,
-	event: Event,
+	location: &indexer_job_location::Data,
+	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	rename(&event.paths[1], &event.paths[0], location, library_ctx).await
@@ -354,22 +337,21 @@ pub(super) async fn rename_both_event(
 pub(super) async fn rename(
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
-	location: indexer_job_location::Data,
+	location: &indexer_job_location::Data,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	let mut old_path_materialized = extract_materialized_path(&location, old_path.as_ref())?
+	let mut old_path_materialized = extract_materialized_path(location, old_path.as_ref())?
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	let new_path_materialized = extract_materialized_path(&location, new_path.as_ref())?;
+	let new_path_materialized = extract_materialized_path(location, new_path.as_ref())?;
 	let mut new_path_materialized_str = new_path_materialized
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	if let Some(file_path) =
-		get_existing_file_or_directory(&location, old_path, library_ctx).await?
+	if let Some(file_path) = get_existing_file_or_directory(location, old_path, library_ctx).await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
@@ -413,7 +395,12 @@ pub(super) async fn rename(
 					file_path::extension::set(
 						new_path_materialized
 							.extension()
-							.map(|s| s.to_str().expect("Found non-UTF-8 path").to_string()),
+							.map(|s| {
+								s.to_str()
+									.expect("Found non-UTF-8 extension in path")
+									.to_string()
+							})
+							.unwrap_or_default(),
 					),
 				],
 			)
@@ -426,8 +413,8 @@ pub(super) async fn rename(
 }
 
 pub(super) async fn remove_event(
-	location: indexer_job_location::Data,
-	event: Event,
+	location: &indexer_job_location::Data,
+	event: &Event,
 	remove_kind: RemoveKind,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -435,7 +422,7 @@ pub(super) async fn remove_event(
 
 	// if it doesn't either way, then we don't care
 	if let Some(file_path) =
-		get_existing_file_or_directory(&location, &event.paths[0], library_ctx).await?
+		get_existing_file_or_directory(location, &event.paths[0], library_ctx).await?
 	{
 		// check file still exists on disk
 		match fs::metadata(&event.paths[0]).await {
@@ -482,14 +469,7 @@ fn extract_materialized_path(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
 ) -> Result<PathBuf, LocationManagerError> {
-	subtract_location_path(
-		location
-			.local_path
-			.as_ref()
-			.ok_or(LocationManagerError::LocationMissingLocalPath(location.id))?,
-		&path,
-	)
-	.ok_or_else(|| {
+	subtract_location_path(&location.path, &path).ok_or_else(|| {
 		LocationManagerError::UnableToExtractMaterializedPath(
 			location.id,
 			path.as_ref().to_path_buf(),

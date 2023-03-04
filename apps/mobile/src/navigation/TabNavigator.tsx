@@ -2,7 +2,7 @@ import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigatio
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
 import React from 'react';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import NodesStack, { NodesStackParamList } from './tabs/NodesStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
@@ -36,7 +36,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Overview',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
 			<Tab.Screen
@@ -51,7 +51,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Nodes',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
 			<Tab.Screen
@@ -66,7 +66,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Spaces',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
 		</Tab.Navigator>

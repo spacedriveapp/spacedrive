@@ -61,7 +61,6 @@ trait EventHandler {
 #[derive(Debug)]
 pub(super) struct LocationWatcher {
 	location: location::Data,
-	path: PathBuf,
 	watcher: RecommendedWatcher,
 	ignore_path_tx: mpsc::UnboundedSender<IgnorePath>,
 	handle: Option<JoinHandle<()>>,
@@ -96,13 +95,6 @@ impl LocationWatcher {
 			Config::default(),
 		)?;
 
-		let path = PathBuf::from(
-			location
-				.local_path
-				.as_ref()
-				.ok_or(LocationManagerError::LocationMissingLocalPath(location.id))?,
-		);
-
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
 			library_ctx,
@@ -113,7 +105,6 @@ impl LocationWatcher {
 
 		Ok(Self {
 			location,
-			path,
 			watcher,
 			ignore_path_tx,
 			handle: Some(handle),
@@ -188,7 +179,7 @@ impl LocationWatcher {
 			.await?
 		else {
 			warn!("Tried to handle event for unknown location: <id='{location_id}'>");
-            return Ok(())
+            return Ok(());
         };
 
 		if !library_ctx
@@ -214,56 +205,49 @@ impl LocationWatcher {
 	}
 
 	pub(super) fn check_path(&self, path: impl AsRef<Path>) -> bool {
-		self.path == path.as_ref()
+		(self.location.path.as_ref() as &Path) == path.as_ref()
 	}
 
 	pub(super) fn watch(&mut self) {
-		if let Err(e) = self.watcher.watch(&self.path, RecursiveMode::Recursive) {
-			error!(
-				"Unable to watch location: (path: {}, error: {e:#?})",
-				self.path.display()
-			);
+		let path = &self.location.path;
+		if let Err(e) = self.watcher.watch(path.as_ref(), RecursiveMode::Recursive) {
+			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
-			debug!("Now watching location: (path: {})", self.path.display());
+			debug!("Now watching location: (path: {path})");
 		}
 	}
 
 	pub(super) fn unwatch(&mut self) {
-		if let Err(e) = self.watcher.unwatch(&self.path) {
+		let path = &self.location.path;
+		if let Err(e) = self.watcher.unwatch(path.as_ref()) {
 			/**************************************** TODO: ****************************************
 			 * According to an unit test, this error may occur when a subdirectory is removed	   *
 			 * and we try to unwatch the parent directory then we have to check the implications   *
 			 * of unwatch error for this case.   												   *
 			 **************************************************************************************/
-			error!(
-				"Unable to unwatch location: (path: {}, error: {e:#?})",
-				self.path.display()
-			);
+			error!("Unable to unwatch location: (path: {path}, error: {e:#?})",);
 		} else {
-			debug!("Stop watching location: (path: {})", self.path.display());
+			debug!("Stop watching location: (path: {path})");
 		}
 	}
 
-	pub(super) fn update_data(&mut self, location: location::Data, to_watch: bool) {
+	pub(super) fn update_data(&mut self, new_location: location::Data, to_watch: bool) {
 		assert_eq!(
-			self.location.id, location.id,
+			self.location.id, new_location.id,
 			"Updated location data must have the same id"
 		);
-		let path = PathBuf::from(location.local_path.as_ref().unwrap_or_else(|| {
-			panic!(
-				"Tried to watch a location without local_path: <id='{}'>",
-				location.id
-			)
-		}));
 
-		if self.path != path {
+		let new_path = self.location.path != new_location.path;
+
+		if new_path {
 			self.unwatch();
-			self.path = path;
-			if to_watch {
-				self.watch();
-			}
 		}
-		self.location = location;
+
+		self.location = new_location;
+
+		if new_path && to_watch {
+			self.watch();
+		}
 	}
 }
 

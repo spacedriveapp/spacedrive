@@ -52,10 +52,12 @@ impl Ord for WalkEntry {
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
 pub(super) async fn walk(
-	root: PathBuf,
+	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: impl Fn(&Path, usize),
 ) -> Result<Vec<WalkEntry>, IndexerError> {
+	let root = root.as_ref().to_path_buf();
+
 	let mut to_walk = VecDeque::with_capacity(1);
 	to_walk.push_back((root.clone(), None));
 	let mut indexed_paths = HashMap::new();
@@ -348,28 +350,28 @@ mod tests {
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at: any_datetime.clone() },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at: any_datetime },
 			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, created_at: any_datetime },
 		]
 		.into_iter()
@@ -394,10 +396,10 @@ mod tests {
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime.clone() },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime },
 			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at: any_datetime },
 		]
 		.into_iter()
@@ -433,23 +435,23 @@ mod tests {
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime.clone() },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime },
 			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at: any_datetime },
 		]
 		.into_iter()
@@ -487,17 +489,17 @@ mod tests {
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime.clone() },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime.clone() },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
 			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
 		]
 		.into_iter()

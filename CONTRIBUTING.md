@@ -61,6 +61,8 @@ If you are having issues ensure you are using the following versions of Rust and
 - Rust version: **1.67.0**
 - Node version: **18**
 
+Be sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to make sure your code is a similar style to ours.
+
 ##### Mobile app
 
 To run mobile app

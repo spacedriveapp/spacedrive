@@ -48,10 +48,12 @@ sharma
 skippable
 spacedrive
 spacedriveapp
+spacetunnel
 specta
 storedkey
 stringly
 tobiaslutke
+typecheck
 vdfs
 vijay
 zacharysmith

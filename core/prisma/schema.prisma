@@ -90,13 +90,14 @@ model Volume {
     @@map("volume")
 }
 
-/// @owned(id: pub_id)
+/// @shared(id: pub_id)
 model Location {
-    id                     Int      @id @default(autoincrement())
-    pub_id                 Bytes    @unique
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+
     node_id                Int
-    name                   String?
-    local_path             String?
+    name                   String
+    path                   String
     total_capacity         Int?
     available_capacity     Int?
     is_archived            Boolean  @default(false)
@@ -110,6 +111,52 @@ model Location {
     indexer_rules IndexerRulesInLocation[]
 
     @@map("location")
+}
+
+/// @shared(id: [location, id])
+model FilePath {
+    id     Int
+    is_dir Boolean @default(false)
+
+    // content addressable storage id - blake3 sampled checksum
+    cas_id             String?
+    // full byte contents digested into blake3 checksum
+    integrity_checksum String? @unique
+
+    // location that owns this path
+    location_id Int
+    location    Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    // a path generated from local file_path ids eg: "34/45/67/890"
+    materialized_path String
+    // the name and extension
+    // Must have 'COLLATE NOCASE' in migration
+    name              String
+    extension         String
+
+    // the unique Object for this file path
+    object_id Int?
+    object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
+
+    // the parent in the file tree
+    parent_id Int?
+    key_id    Int? // replacement for encryption
+    // permissions       String?
+
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    date_indexed  DateTime @default(now())
+
+    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
+    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    // children FilePath[] @relation("directory_file_paths")
+
+    key Key? @relation(fields: [key_id], references: [id])
+
+    @@id([location_id, id])
+    @@unique([location_id, materialized_path, name, extension])
+    @@index([location_id])
+    @@map("file_path")
 }
 
 /// @shared(id: pub_id)
@@ -153,52 +200,6 @@ model Object {
     key Key? @relation(fields: [key_id], references: [id])
 
     @@map("object")
-}
-
-/// @shared(id: [location, id])
-model FilePath {
-    id     Int
-    is_dir Boolean @default(false)
-
-    // content addressable storage id - blake3 sampled checksum
-    cas_id             String?
-    // full byte contents digested into blake3 checksum
-    integrity_checksum String? @unique
-
-    // location that owns this path
-    location_id Int
-    location    Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-    // a path generated from local file_path ids eg: "34/45/67/890"
-    materialized_path String
-    // the name and extension
-    // Must have 'COLLATE NOCASE' in migration
-    name              String
-    extension         String?
-
-    // the unique Object for this file path
-    object_id Int?
-    object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
-
-    // the parent in the file tree
-    parent_id Int?
-    key_id    Int? // replacement for encryption
-    // permissions       String?
-
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    date_indexed  DateTime @default(now())
-
-    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
-    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    // children FilePath[] @relation("directory_file_paths")
-
-    key Key? @relation(fields: [key_id], references: [id])
-
-    @@id([location_id, id])
-    @@unique([location_id, materialized_path, name, extension])
-    @@index([location_id])
-    @@map("file_path")
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.

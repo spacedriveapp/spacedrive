@@ -1,3 +1,5 @@
+//! This is Spacedrive's `crypto` crate. It handles cryptographic operations
+//! such as key hashing, encryption/decryption, key management and much more.
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::correctness)]

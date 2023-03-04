@@ -63,6 +63,10 @@ examples/*/*.lock
 /target
 prisma*.rs
 
+playwright-report
+
 /sdserver_data
 .spacedrive
 dev.db-journal
+.build/
+.swiftpm

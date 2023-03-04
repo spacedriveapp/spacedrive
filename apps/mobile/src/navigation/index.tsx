@@ -1,6 +1,6 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
-import tw from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import NotFoundScreen from '~/screens/NotFound';
 import SearchScreen from '~/screens/Search';
 import type { DrawerNavParamList } from './DrawerNavigator';

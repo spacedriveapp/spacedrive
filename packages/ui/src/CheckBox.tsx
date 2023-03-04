@@ -3,8 +3,8 @@ import { ComponentProps, forwardRef } from 'react';
 
 const styles = cva(
 	[
-		'form-check-input appearance-none h-4 w-4 border border-gray-300 rounded-sm bg-white transition duration-200 mt-1 align-top bg-no-repeat bg-center bg-contain float-left mr-2',
-		'checked:bg-blue-600 checked:border-blue-600 focus:outline-none '
+		'form-check-input float-left mt-1 mr-2 h-4 w-4 appearance-none rounded-sm border border-gray-300 bg-white bg-contain bg-center bg-no-repeat align-top transition duration-200',
+		'checked:border-blue-600 checked:bg-blue-600 focus:outline-none '
 	],
 	{ variants: {} }
 );

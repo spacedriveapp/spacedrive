@@ -452,6 +452,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
 
 [[package]]
+name = "base64"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
+
+[[package]]
 name = "base64ct"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,6 +736,20 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.15.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08a1ec454bc3eead8719cb56e15dbbfecdbc14e4b3a3ae4936cc6e31f5fc0d07"
+dependencies = [
+ "camino",
+ "cargo-platform",
+ "semver 1.0.14",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1451,6 +1471,18 @@ dependencies = [
  "libc",
  "libdbus-sys",
  "winapi",
+]
+
+[[package]]
+name = "deps-generator"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata 0.15.3",
+ "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5219,11 +5251,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.12"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "431949c384f4e2ae07605ccaa56d1d9d2ecdb5cadd4f9577ccfab29f2e5149fc"
+checksum = "21eed90ec8570952d53b772ecf8f206aa1ec9a3d76b2521c56c42973f2d91ee9"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.0",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -5590,6 +5622,7 @@ dependencies = [
  "serde_json",
  "serde_with 2.2.0",
  "specta 0.0.6",
+ "swift-rs 0.3.0",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -5601,40 +5634,6 @@ dependencies = [
  "uhlc",
  "uuid 1.2.1",
  "webp",
-]
-
-[[package]]
-name = "sd-core-android"
-version = "0.1.0"
-dependencies = [
- "jni 0.19.0",
- "sd-core-mobile",
- "tracing",
-]
-
-[[package]]
-name = "sd-core-ios"
-version = "0.1.0"
-dependencies = [
- "objc",
- "objc-foundation",
- "objc_id",
- "sd-core-mobile",
-]
-
-[[package]]
-name = "sd-core-mobile"
-version = "0.1.0"
-dependencies = [
- "futures",
- "once_cell",
- "openssl",
- "openssl-sys",
- "rspc",
- "sd-core",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -5664,6 +5663,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-desktop-macos"
+version = "0.1.0"
+dependencies = [
+ "swift-rs 1.0.0",
+]
+
+[[package]]
 name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
@@ -5684,6 +5690,47 @@ dependencies = [
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tokio",
+]
+
+[[package]]
+name = "sd-macos"
+version = "0.1.0"
+dependencies = [
+ "swift-rs 1.0.0",
+]
+
+[[package]]
+name = "sd-mobile-android"
+version = "0.1.0"
+dependencies = [
+ "jni 0.19.0",
+ "sd-mobile-core",
+ "tracing",
+]
+
+[[package]]
+name = "sd-mobile-core"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "once_cell",
+ "openssl",
+ "openssl-sys",
+ "rspc",
+ "sd-core",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "sd-mobile-ios"
+version = "0.1.0"
+dependencies = [
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "sd-mobile-core",
 ]
 
 [[package]]
@@ -6104,7 +6151,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16d23b015676c90a0f01c197bfdc786c20342c73a0afdda9025adb0bc42940a8"
 dependencies = [
  "bytecount",
- "cargo_metadata",
+ "cargo_metadata 0.14.2",
  "error-chain",
  "glob",
  "pulldown-cmark",
@@ -6191,8 +6238,9 @@ dependencies = [
  "rand 0.8.5",
  "rspc",
  "sd-core",
+ "sd-desktop-macos",
  "serde",
- "swift-rs 0.3.0 (git+https://github.com/Brendonovich/swift-rs.git?rev=c3003bc0c28a6742d3da341b61887d8e072fda0a)",
+ "server",
  "tauri",
  "tauri-build",
  "tokio",
@@ -6518,10 +6566,11 @@ dependencies = [
 
 [[package]]
 name = "swift-rs"
-version = "0.3.0"
-source = "git+https://github.com/Brendonovich/swift-rs.git?rev=c3003bc0c28a6742d3da341b61887d8e072fda0a#c3003bc0c28a6742d3da341b61887d8e072fda0a"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc903dccb086f72f6e93a12e149d84aceda2ad4b08647e14e0330a3bfea61e2b"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.0",
  "serde",
  "serde_json",
 ]

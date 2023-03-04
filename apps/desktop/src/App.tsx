@@ -1,12 +1,19 @@
 import { loggerLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
-import { getDebugState, hooks, queryClient } from '@sd/client';
-import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
-import { KeybindEvent } from '@sd/interface';
+import { getDebugState, hooks } from '@sd/client';
+import {
+	ErrorPage,
+	KeybindEvent,
+	OperatingSystem,
+	Platform,
+	PlatformProvider,
+	SpacedriveInterface
+} from '@sd/interface';
 import '@sd/ui/style';
 
 const client = hooks.createClient({
@@ -33,6 +40,7 @@ async function getOs(): Promise<OperatingSystem> {
 
 let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
 const customUriAuthToken = (window as any).__SD_CUSTOM_URI_TOKEN__ as string | undefined;
+const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 	customUriServerUrl += '/';
@@ -63,6 +71,8 @@ const platform: Platform = {
 	openPath: (path) => shell.open(path)
 };
 
+const queryClient = new QueryClient();
+
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
@@ -79,10 +89,17 @@ export default function App() {
 		};
 	}, []);
 
+	if (startupError) {
+		return <ErrorPage message={startupError} />;
+	}
+
 	return (
+		// @ts-expect-error: Just a version mismatch
 		<hooks.Provider client={client} queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
-				<SpacedriveInterface />
+				<QueryClientProvider client={queryClient}>
+					<SpacedriveInterface router="memory" />
+				</QueryClientProvider>
 			</PlatformProvider>
 		</hooks.Provider>
 	);

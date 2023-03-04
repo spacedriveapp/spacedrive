@@ -1,14 +1,18 @@
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
+import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
+import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteTagDialog from '~/containers/dialog/tag/DeleteTagDialog';
-import UpdateTagDialog from '~/containers/dialog/tag/UpdateTagDialog';
-import tw from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
+	const updateTagModalRef = useRef<ModalRef>(null);
+
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,
 		_dragX: Animated.AnimatedInterpolation<number>,
@@ -24,24 +28,26 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<UpdateTagDialog tag={tag} onSubmit={() => swipeable.close()}>
-					<AnimatedButton size="md">
-						<Pen size={18} color="white" />
-					</AnimatedButton>
-				</UpdateTagDialog>
-				<DeleteTagDialog tagId={tag.id}>
-					<AnimatedButton size="md" style={tw`mx-2`}>
-						<Trash size={18} color="white" />
-					</AnimatedButton>
-				</DeleteTagDialog>
+				<UpdateTagModal tag={tag} ref={updateTagModalRef} onSubmit={() => swipeable.close()} />
+				<AnimatedButton size="md" onPress={() => updateTagModalRef.current?.present()}>
+					<Pen size={18} color="white" />
+				</AnimatedButton>
+				<DeleteTagModal
+					tagId={tag.id}
+					trigger={
+						<AnimatedButton size="md" style={tw`mx-2`}>
+							<Trash size={18} color="white" />
+						</AnimatedButton>
+					}
+				/>
 			</Animated.View>
 		);
 	};
 
 	return (
 		<Swipeable
-			containerStyle={tw.style(
-				'bg-app-overlay border border-app-line rounded-lg px-4 py-3',
+			containerStyle={twStyle(
+				'border-app-line bg-app-overlay rounded-lg border px-4 py-3',
 				index !== 0 && 'mt-2'
 			)}
 			enableTrackpadTwoFingerGesture
@@ -49,8 +55,8 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View style={tw`flex flex-row`}>
-					<View style={tw.style({ backgroundColor: tag.color }, 'w-4 h-4 rounded-full')} />
-					<Text style={tw`ml-3 text-ink`}>{tag.name}</Text>
+					<View style={twStyle({ backgroundColor: tag.color! }, 'h-4 w-4 rounded-full')} />
+					<Text style={tw`text-ink ml-3`}>{tag.name}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>

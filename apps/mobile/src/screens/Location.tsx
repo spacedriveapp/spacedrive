@@ -11,16 +11,30 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 		'locations.getExplorerData',
 		{
 			location_id: id,
-			path: path || '',
+			path: path ?? '',
 			limit: 100,
 			cursor: null
 		}
 	]);
 
 	useEffect(() => {
-		// Not sure why we do this.
+		// Set screen title to location.
+		if (path && path !== '') {
+			// Nested location.
+			navigation.setOptions({
+				title: path.split('/')[0]
+			});
+		} else {
+			navigation.setOptions({
+				title: data?.context.name ?? 'Location'
+			});
+		}
+	}, [data, navigation, path]);
+
+	useEffect(() => {
 		getExplorerStore().locationId = id;
-	}, [id]);
+		getExplorerStore().path = path ?? '';
+	}, [id, path]);
 
 	return <Explorer data={data} />;
 }

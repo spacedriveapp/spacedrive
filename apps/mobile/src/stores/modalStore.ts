@@ -1,16 +1,16 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createRef } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
 import { ExplorerItem } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
 
-export const fileModalStore = proxy({
-	fileRef: ref(createRef<BottomSheetModal>()),
+export const actionsModalStore = proxy({
+	modalRef: ref(createRef<ModalRef>()),
 	data: null as ExplorerItem | null,
 	setData: (data: ExplorerItem) => {
-		fileModalStore.data = data;
+		actionsModalStore.data = data;
 	}
 });
 
-export function useFileModalStore() {
-	return useSnapshot(fileModalStore);
+export function useActionsModalStore() {
+	return useSnapshot(actionsModalStore);
 }

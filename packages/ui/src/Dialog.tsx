@@ -60,8 +60,7 @@ class DialogManager {
 		if (state.open === false) {
 			delete this.dialogs[id];
 			delete this.state[id];
-			console.log(`Successfully removed state ${id}`);
-		} else console.log(`Tried to remove state ${id} but wasn't pending!`);
+		}
 	}
 }
 
@@ -82,9 +81,13 @@ function Remover({ id }: { id: number }) {
 }
 
 export function useDialog(props: UseDialogProps) {
+	const state = dialogManager.getState(props.id);
+
+	if (!state) throw new Error(`Dialog ${props.id} does not exist!`);
+
 	return {
 		...props,
-		state: dialogManager.getState(props.id)
+		state
 	};
 }
 
@@ -144,7 +147,7 @@ export function Dialog<S extends FieldValues>({
 					<DialogPrimitive.Portal forceMount>
 						<DialogPrimitive.Overlay asChild forceMount>
 							<animated.div
-								className="fixed top-0 bottom-0 left-0 right-0 z-49 grid overflow-y-auto bg-app bg-opacity-50 rounded-xl place-items-center m-[1px]"
+								className="z-49 bg-app/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
 								style={{
 									opacity: styles.opacity
 								}}
@@ -153,30 +156,30 @@ export function Dialog<S extends FieldValues>({
 
 						<DialogPrimitive.Content asChild forceMount>
 							<animated.div
-								className="z-50 fixed top-0 bottom-0 left-0 right-0 grid place-items-center !pointer-events-none"
+								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center"
 								style={styles}
 							>
 								<Form
 									form={form}
 									onSubmit={async (e) => {
-										await onSubmit(e);
+										await onSubmit?.(e);
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}
-									className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-app-shade !pointer-events-auto"
+									className="bg-app-box border-app-line text-ink shadow-app-shade !pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border"
 								>
 									<div className="p-5">
 										<DialogPrimitive.Title className="mb-2 font-bold">
 											{props.title}
 										</DialogPrimitive.Title>
-										<DialogPrimitive.Description className="text-sm text-ink-dull">
+										<DialogPrimitive.Description className="text-ink-dull text-sm">
 											{props.description}
 										</DialogPrimitive.Description>
 										{props.children}
 									</div>
-									<div className="flex flex-row justify-end px-3 py-3 space-x-2 border-t bg-app-selected border-app-line">
+									<div className="bg-app-selected border-app-line flex flex-row justify-end space-x-2 border-t p-3">
 										{form.formState.isSubmitting && <Loader />}
-										<div className="flex-grow" />
+										<div className="grow" />
 										<DialogPrimitive.Close asChild>
 											<Button disabled={props.loading} size="sm" variant="gray">
 												Close
@@ -187,7 +190,7 @@ export function Dialog<S extends FieldValues>({
 											size="sm"
 											disabled={form.formState.isSubmitting || props.submitDisabled}
 											variant={props.ctaDanger ? 'colored' : 'accent'}
-											className={clsx(props.ctaDanger && 'bg-red-500 border-red-500')}
+											className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
 										>
 											{props.ctaLabel}
 										</Button>

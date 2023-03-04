@@ -33,8 +33,6 @@ pub enum IdentifierJobError {
 	MissingLocation(i32),
 	#[error("Root file path not found: <path = '{0}'>")]
 	MissingRootFilePath(PathBuf),
-	#[error("Location without local path: <id = '{0}'>")]
-	LocationLocalPath(i32),
 }
 
 #[derive(Debug, Clone)]
@@ -80,13 +78,10 @@ impl FileMetadata {
 async fn identifier_job_step(
 	LibraryContext { db, sync, .. }: &LibraryContext,
 	location: &location::Data,
-	location_path: impl AsRef<Path>,
 	file_paths: &[file_path::Data],
 ) -> Result<(usize, usize), JobError> {
-	let location_path = location_path.as_ref();
-
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
-		FileMetadata::new(location_path, &file_path.materialized_path)
+		FileMetadata::new(&location.path, &file_path.materialized_path)
 			.await
 			.map(|params| (file_path.id, (params, file_path)))
 	}))
@@ -108,14 +103,15 @@ async fn identifier_job_step(
 			.iter()
 			.map(|(id, (meta, _))| {
 				(
-					sync.owned_update(
+					sync.shared_update(
 						sync::file_path::SyncId {
 							id: *id,
 							location: sync::location::SyncId {
 								pub_id: location.pub_id.clone(),
 							},
 						},
-						[("cas_id", json!(&meta.cas_id))],
+						"cas_id",
+						json!(&meta.cas_id),
 					),
 					db.file_path().update(
 						file_path::location_id_id(location.id, *id),
@@ -297,14 +293,15 @@ fn file_path_object_connect_ops<'db>(
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	(
-		sync.owned_update(
+		sync.shared_update(
 			sync::file_path::SyncId {
 				id: file_path_id,
 				location: sync::location::SyncId {
 					pub_id: location.pub_id.clone(),
 				},
 			},
-			[("object", json!({ "pub_id": object_id }))],
+			"object",
+			json!({ "pub_id": object_id }),
 		),
 		db.file_path()
 			.update(

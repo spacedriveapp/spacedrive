@@ -48,6 +48,9 @@
 		},
 		"allowlist": {
 			"all": true,
+			"notification": {
+				"all": false
+			},
 			"protocol": {
 				"assetScope": ["*"]
 			},

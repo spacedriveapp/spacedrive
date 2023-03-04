@@ -83,7 +83,7 @@ impl StatefulJob for ObjectValidatorJob {
 			.unwrap();
 
 		state.data = Some(ObjectValidatorJobState {
-			root_path: location.local_path.as_ref().map(PathBuf::from).unwrap(),
+			root_path: location.path.into(),
 			task_count: state.steps.len(),
 		});
 
@@ -111,14 +111,15 @@ impl StatefulJob for ObjectValidatorJob {
 
 			sync.write_op(
 				db,
-				sync.owned_update(
+				sync.shared_update(
 					sync::file_path::SyncId {
 						id: file_path.id,
 						location: sync::location::SyncId {
 							pub_id: file_path.location.pub_id.clone(),
 						},
 					},
-					[("integrity_checksum", json!(Some(&checksum)))],
+					"integrity_checksum",
+					json!(&checksum),
 				),
 				db.file_path().update(
 					file_path::location_id_id(file_path.location.id, file_path.id),

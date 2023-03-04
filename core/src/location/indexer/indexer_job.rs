@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	library::LibraryContext,
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 	sync,
@@ -45,7 +46,6 @@ pub struct IndexerJob;
 location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
-file_path::select!(file_path_id_only { id });
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 #[derive(Serialize, Deserialize)]
@@ -63,7 +63,6 @@ impl Hash for IndexerJobInit {
 /// contains some metadata for logging purposes.
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
-	location_path: PathBuf,
 	db_write_start: DateTime<Utc>,
 	scan_read_time: Duration,
 	total_paths: usize,
@@ -111,14 +110,6 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let location_path = state
-			.init
-			.location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.unwrap();
-
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
 
@@ -136,7 +127,7 @@ impl StatefulJob for IndexerJob {
 		let scan_start = Instant::now();
 		let inner_ctx = ctx.clone();
 		let paths = walk(
-			location_path.clone(),
+			&state.init.location.path,
 			&indexer_rules_by_kind,
 			move |path, total_entries| {
 				IndexerJobData::on_scan_progress(
@@ -191,7 +182,6 @@ impl StatefulJob for IndexerJob {
 		let total_entries = paths_entries.len();
 
 		state.data = Some(IndexerJobData {
-			location_path,
 			db_write_start: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
 			total_paths: total_entries,
@@ -228,14 +218,9 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let data = &state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
-		let db = &ctx.library_ctx.db;
+		let LibraryContext { sync, db, .. } = &ctx.library_ctx;
 
-		let location_path = &data.location_path;
-		let location_id = state.init.location.id;
+		let location = &state.init.location;
 
 		let (sync_stuff, paths): (Vec<_>, Vec<_>) = state.steps[0]
 			.iter()
@@ -246,16 +231,17 @@ impl StatefulJob for IndexerJob {
 				// if 'entry.path' is a directory, set extension to an empty string to
 				// avoid periods in folder names being interpreted as file extensions
 				if entry.is_dir {
-					extension = None;
+					extension = "".to_string();
 					name = extract_name(entry.path.file_name());
 				} else {
 					// if the 'entry.path' is not a directory, then get the extension and name.
-					extension = Some(extract_name(entry.path.extension()).to_lowercase());
+					extension = extract_name(entry.path.extension()).to_lowercase();
 					name = extract_name(entry.path.file_stem());
 				}
+
 				let mut materialized_path = entry
 					.path
-					.strip_prefix(location_path)
+					.strip_prefix(&location.path)
 					.unwrap()
 					.to_str()
 					.expect("Found non-UTF-8 path")
@@ -268,7 +254,7 @@ impl StatefulJob for IndexerJob {
 				use file_path::*;
 
 				(
-					(
+					sync.unique_shared_create(
 						sync::file_path::SyncId {
 							id: entry.file_id,
 							location: sync::location::SyncId {
@@ -286,12 +272,12 @@ impl StatefulJob for IndexerJob {
 					),
 					file_path::create_unchecked(
 						entry.file_id,
-						location_id,
+						location.id,
 						materialized_path,
 						name,
+						extension,
 						vec![
 							is_dir::set(entry.is_dir),
-							extension::set(extension),
 							parent_id::set(entry.parent_id),
 							date_created::set(entry.created_at.into()),
 						],
@@ -300,13 +286,13 @@ impl StatefulJob for IndexerJob {
 			})
 			.unzip();
 
-		let count = ctx
-			.library_ctx
-			.sync
-			.write_op(
+		let count = sync
+			.write_ops(
 				db,
-				ctx.library_ctx.sync.owned_create_many(sync_stuff, true),
-				db.file_path().create_many(paths).skip_duplicates(),
+				(
+					sync_stuff,
+					db.file_path().create_many(paths).skip_duplicates(),
+				),
 			)
 			.await?;
 
@@ -323,7 +309,7 @@ impl StatefulJob for IndexerJob {
 			.expect("critical error: missing data on job state");
 		info!(
 			"scan of {} completed in {:?}. {:?} files found. db write completed in {:?}",
-			state.init.location.local_path.as_ref().unwrap(),
+			state.init.location.path,
 			data.scan_read_time,
 			data.total_paths,
 			(Utc::now() - data.db_write_start)

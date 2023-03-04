@@ -1,6 +1,12 @@
 use crate::{prisma::file_path, Node};
 
-use std::{cmp::min, io, path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+	cmp::min,
+	io,
+	path::{Path, PathBuf},
+	str::FromStr,
+	sync::Arc,
+};
 
 use http_range::HttpRange;
 use httpz::{
@@ -15,13 +21,14 @@ use tokio::{
 	fs::{self, File},
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
-use tracing::{error, warn};
+use tracing::error;
 use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 type MetadataCacheKey = (Uuid, i32, i32);
-static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, (PathBuf, Option<String>)>> =
+type NameAndExtension = (PathBuf, String);
+static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
 
 // TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
@@ -118,14 +125,7 @@ async fn handle_file(
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 			let lru_entry = (
-				PathBuf::from(file_path.location.local_path.ok_or_else(|| {
-					warn!(
-						"Location '{}' doesn't have local path set",
-						file_path.location_id
-					);
-					HandleCustomUriError::BadRequest("Location doesn't have `local_path` set!")
-				})?)
-				.join(&file_path.materialized_path),
+				Path::new(&file_path.location.path).join(&file_path.materialized_path),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
@@ -146,18 +146,18 @@ async fn handle_file(
 	let metadata = file.metadata().await?;
 
 	// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
-	let (mime_type, is_video) = match extension.as_deref() {
-		Some("mp4") => ("video/mp4", true),
-		Some("webm") => ("video/webm", true),
-		Some("mkv") => ("video/x-matroska", true),
-		Some("avi") => ("video/x-msvideo", true),
-		Some("mov") => ("video/quicktime", true),
-		Some("png") => ("image/png", false),
-		Some("jpg") => ("image/jpeg", false),
-		Some("jpeg") => ("image/jpeg", false),
-		Some("gif") => ("image/gif", false),
-		Some("webp") => ("image/webp", false),
-		Some("svg") => ("image/svg+xml", false),
+	let (mime_type, is_video) = match extension.as_str() {
+		"mp4" => ("video/mp4", true),
+		"webm" => ("video/webm", true),
+		"mkv" => ("video/x-matroska", true),
+		"avi" => ("video/x-msvideo", true),
+		"mov" => ("video/quicktime", true),
+		"png" => ("image/png", false),
+		"jpg" => ("image/jpeg", false),
+		"jpeg" => ("image/jpeg", false),
+		"gif" => ("image/gif", false),
+		"webp" => ("image/webp", false),
+		"svg" => ("image/svg+xml", false),
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
 				"TODO: This filetype is not supported because of the missing mime type!",
