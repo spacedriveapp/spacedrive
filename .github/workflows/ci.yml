@@ -130,20 +130,17 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
 
-      - name: Cargo fetch
-        run: cargo fetch
+      - name: Check core
+        run: cargo check -p sd-core
 
       - name: Cargo test core
         run: cargo test -p sd-core -F location-watcher
 
-      - name: Check core
-        run: cargo check -p sd-core --release
-
       - name: Cargo test sd-crypto
-        run: cargo test -p sd-crypto --release --lib --all-features
+        run: cargo test -p sd-crypto --lib --all-features
 
       - name: Bundle Desktop
-        run: pnpm desktop tauri build
+        run: pnpm desktop build --debug
 
       - name: Publish server Docker image
         if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
