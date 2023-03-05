@@ -1,16 +1,12 @@
-use crate::{
-	prisma::{
-		file_path, location, node, object, owned_operation, shared_operation, tag, PrismaClient,
-	},
-	sync,
-};
-use prisma_client_rust::ModelTypes;
+use crate::prisma::*;
 use sd_sync::*;
 use serde_json::{from_value, json, to_vec, Value};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
+
+use super::ModelSyncData;
 
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
@@ -195,218 +191,132 @@ impl SyncManager {
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
 
-		match op.typ {
-			CRDTOperationType::Shared(shared_op) => match shared_op.model.as_str() {
-				file_path::Types::MODEL => {
-					let id: sync::file_path::SyncId = from_value(shared_op.record_id).unwrap();
+		match ModelSyncData::from_op(op.typ).unwrap() {
+			ModelSyncData::FilePath(id, shared_op) => {
+				let location = db
+					.location()
+					.find_unique(location::pub_id::equals(id.location.pub_id))
+					.select(location::select!({ id }))
+					.exec()
+					.await?
+					.unwrap();
 
-					let location = db
-						.location()
-						.find_unique(location::pub_id::equals(id.location.pub_id))
-						.select(location::select!({ id }))
+				match shared_op {
+					SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
+						db.file_path()
+							.create(
+								id.id,
+								location::id::equals(location.id),
+								serde_json::from_value(data.remove("materialized_path").unwrap())
+									.unwrap(),
+								serde_json::from_value(data.remove("name").unwrap()).unwrap(),
+								serde_json::from_value(
+									data.remove("extension").unwrap_or_else(|| {
+										serde_json::Value::String("".to_string())
+									}),
+								)
+								.unwrap(),
+								data.into_iter()
+									.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
+									.collect(),
+							)
+							.exec()
+							.await?;
+					}
+					SharedOperationData::Update { field, value } => {
+						self.db
+							.file_path()
+							.update(
+								file_path::location_id_id(location.id, id.id),
+								vec![file_path::SetParam::deserialize(&field, value).unwrap()],
+							)
+							.exec()
+							.await?;
+					}
+					_ => todo!(),
+				}
+			}
+			ModelSyncData::Location(id, shared_op) => match shared_op {
+				SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
+					db.location()
+						.create(
+							id.pub_id,
+							serde_json::from_value(data.remove("name").unwrap()).unwrap(),
+							serde_json::from_value(data.remove("path").unwrap()).unwrap(),
+							{
+								let val: std::collections::HashMap<String, Value> =
+									from_value(data.remove("node").unwrap()).unwrap();
+								let val = val.into_iter().next().unwrap();
+
+								node::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
+							},
+							data.into_iter()
+								.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
+								.collect(),
+						)
 						.exec()
-						.await?
-						.unwrap();
-
-					match shared_op.data {
-						SharedOperationData::Create(SharedOperationCreateData::Unique(
-							mut data,
-						)) => {
-							db.file_path()
-								.create(
-									id.id,
-									location::id::equals(location.id),
-									serde_json::from_value(
-										data.remove("materialized_path").unwrap(),
-									)
-									.unwrap(),
-									serde_json::from_value(data.remove("name").unwrap()).unwrap(),
-									serde_json::from_value(
-										data.remove("extension").unwrap_or_else(|| {
-											serde_json::Value::String("".to_string())
-										}),
-									)
-									.unwrap(),
-									data.into_iter()
-										.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
-										.collect(),
-								)
-								.exec()
-								.await?;
-						}
-						// SharedOperationData::CreateMany {
-						// 	values,
-						// 	skip_duplicates,
-						// } => {
-						// 	let location_ids = values
-						// 		.iter()
-						// 		.map(|(id, _)| {
-						// 			serde_json::from_value::<sync::file_path::SyncId>(id.clone())
-						// 				.unwrap()
-						// 				.location
-						// 				.pub_id
-						// 		})
-						// 		.collect::<HashSet<_>>();
-
-						// 	let location_id_mappings =
-						// 		join_all(location_ids.iter().map(|id| async move {
-						// 			db.location()
-						// 				.find_unique(location::pub_id::equals(id.clone()))
-						// 				.exec()
-						// 				.await
-						// 				.map(|o| o.map(|v| (id, v.id)))
-						// 		}))
-						// 		.await
-						// 		.into_iter()
-						// 		.flatten()
-						// 		.flatten()
-						// 		.collect::<HashMap<_, _>>();
-
-						// 	let mut q = db.file_path().create_many(
-						// 		values
-						// 			.into_iter()
-						// 			.map(|(id, mut data)| {
-						// 				let id: sync::file_path::SyncId =
-						// 					serde_json::from_value(id).unwrap();
-
-						// 				file_path::create_unchecked(
-						// 					id.id,
-						// 					*location_id_mappings.get(&id.location.pub_id).unwrap(),
-						// 					serde_json::from_value(
-						// 						data.remove("materialized_path").unwrap(),
-						// 					)
-						// 					.unwrap(),
-						// 					serde_json::from_value(data.remove("name").unwrap())
-						// 						.unwrap(),
-						// 					serde_json::from_value(
-						// 						data.remove("extension").unwrap_or_else(|| {
-						// 							serde_json::Value::String("".to_string())
-						// 						}),
-						// 					)
-						// 					.unwrap(),
-						// 					data.into_iter()
-						// 						.flat_map(|(k, v)| {
-						// 							file_path::SetParam::deserialize(&k, v)
-						// 						})
-						// 						.collect(),
-						// 				)
-						// 			})
-						// 			.collect(),
-						// 	);
-
-						// 	if skip_duplicates {
-						// 		q = q.skip_duplicates()
-						// 	}
-
-						// 	q.exec().await?;
-						// }
-						SharedOperationData::Update { field, value } => {
-							self.db
-								.file_path()
-								.update(
-									file_path::location_id_id(location.id, id.id),
-									vec![file_path::SetParam::deserialize(&field, value).unwrap()],
-								)
-								.exec()
-								.await?;
-						}
-						_ => todo!(),
-					}
-				}
-				location::Types::MODEL => {
-					let id: sync::location::SyncId = from_value(shared_op.record_id).unwrap();
-
-					match shared_op.data {
-						SharedOperationData::Create(SharedOperationCreateData::Unique(
-							mut data,
-						)) => {
-							db.location()
-								.create(
-									id.pub_id,
-									serde_json::from_value(data.remove("name").unwrap()).unwrap(),
-									serde_json::from_value(data.remove("path").unwrap()).unwrap(),
-									{
-										let val: std::collections::HashMap<String, Value> =
-											from_value(data.remove("node").unwrap()).unwrap();
-										let val = val.into_iter().next().unwrap();
-
-										node::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
-									},
-									data.into_iter()
-										.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
-										.collect(),
-								)
-								.exec()
-								.await?;
-						}
-						_ => todo!(),
-					}
-				}
-				object::Types::MODEL => {
-					let id: sync::object::SyncId = from_value(shared_op.record_id).unwrap();
-
-					match shared_op.data {
-						SharedOperationData::Create(_) => {
-							db.object()
-								.upsert(
-									object::pub_id::equals(id.pub_id.clone()),
-									(id.pub_id, vec![]),
-									vec![],
-								)
-								.exec()
-								.await
-								.ok();
-						}
-						SharedOperationData::Update { field, value } => {
-							db.object()
-								.update(
-									object::pub_id::equals(id.pub_id),
-									vec![object::SetParam::deserialize(&field, value).unwrap()],
-								)
-								.exec()
-								.await?;
-						}
-						_ => todo!(),
-					}
-				}
-				tag::Types::MODEL => {
-					let sync::tag::SyncId { pub_id } = from_value(shared_op.record_id).unwrap();
-
-					match shared_op.data {
-						SharedOperationData::Create(create_data) => match create_data {
-							SharedOperationCreateData::Unique(create_data) => {
-								db.tag()
-									.create(
-										pub_id,
-										create_data
-											.into_iter()
-											.flat_map(|(field, value)| {
-												tag::SetParam::deserialize(&field, value)
-											})
-											.collect(),
-									)
-									.exec()
-									.await?;
-							}
-							_ => unreachable!(),
-						},
-						SharedOperationData::Update { field, value } => {
-							db.tag()
-								.update(
-									tag::pub_id::equals(pub_id),
-									vec![tag::SetParam::deserialize(&field, value).unwrap()],
-								)
-								.exec()
-								.await?;
-						}
-						SharedOperationData::Delete => {
-							db.tag().delete(tag::pub_id::equals(pub_id)).exec().await?;
-						}
-					}
+						.await?;
 				}
 				_ => todo!(),
 			},
-			_ => {}
+			ModelSyncData::Object(id, shared_op) => match shared_op {
+				SharedOperationData::Create(_) => {
+					db.object()
+						.upsert(
+							object::pub_id::equals(id.pub_id.clone()),
+							(id.pub_id, vec![]),
+							vec![],
+						)
+						.exec()
+						.await
+						.ok();
+				}
+				SharedOperationData::Update { field, value } => {
+					db.object()
+						.update(
+							object::pub_id::equals(id.pub_id),
+							vec![object::SetParam::deserialize(&field, value).unwrap()],
+						)
+						.exec()
+						.await?;
+				}
+				_ => todo!(),
+			},
+			ModelSyncData::Tag(id, shared_op) => match shared_op {
+				SharedOperationData::Create(create_data) => match create_data {
+					SharedOperationCreateData::Unique(create_data) => {
+						db.tag()
+							.create(
+								id.pub_id,
+								create_data
+									.into_iter()
+									.flat_map(|(field, value)| {
+										tag::SetParam::deserialize(&field, value)
+									})
+									.collect(),
+							)
+							.exec()
+							.await?;
+					}
+					_ => unreachable!(),
+				},
+				SharedOperationData::Update { field, value } => {
+					db.tag()
+						.update(
+							tag::pub_id::equals(id.pub_id),
+							vec![tag::SetParam::deserialize(&field, value).unwrap()],
+						)
+						.exec()
+						.await?;
+				}
+				SharedOperationData::Delete => {
+					db.tag()
+						.delete(tag::pub_id::equals(id.pub_id))
+						.exec()
+						.await?;
+				}
+			},
+			_ => todo!(),
 		}
 
 		Ok(())
