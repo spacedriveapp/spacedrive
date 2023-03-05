@@ -1,0 +1,31 @@
+name: Setup
+description: Sets up runner, Rust and pnpm
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust stable
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 7.x.x
+
+    - name: Cache Rust deps
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run 'setup-system.sh' script
+      shell: bash
+      if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
+      run: ./.github/scripts/setup-system.sh
+
+    - name: Run 'setup-system.ps1' script
+      shell: bash
+      if: matrix.platform == 'windows-latest'
+      run: ./.github/scripts/setup-system.ps1 -ci
+
+    - name: Generate Prisma client
+      uses: ./.github/actions/generate-prisma-client

@@ -1,0 +1,27 @@
+# This workflow _produces_ caches which are used to speed up pull request builds.
+# Originally from https://github.com/libp2p/rust-libp2p/blob/master/.github/workflows/cache-factory.yml
+
+name: Cache Factory
+
+on:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  make_cache:
+    name: 'Make Cache'
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/setup
+
+      - name: Compile workspace with stable Rust
+        run: cargo test --workspace --no-run

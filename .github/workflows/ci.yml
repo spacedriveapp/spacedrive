@@ -74,8 +74,8 @@ jobs:
           toolchain: stable
           components: rustfmt
 
-      - name: Cache Rust dependencies
-        uses: ./.github/actions/cache-rust-deps
+      - name: Cache Rust deps
+        uses: Swatinem/rust-cache@v2
 
       - name: Generate Prisma client
         uses: ./.github/actions/generate-prisma-client
@@ -90,33 +90,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: clippy
-
-      - name: Cache Rust dependencies
-        uses: ./.github/actions/cache-rust-deps
-
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.0.1
-        with:
-          version: 7
-          run_install: false
-
-      - name: Run 'setup-system.sh' script
-        run: ./.github/scripts/setup-system.sh
-
-      - name: Generate Prisma client
-        uses: ./.github/actions/generate-prisma-client
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1
@@ -143,21 +118,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
-
-      - name: Cache Rust dependencies
-        uses: ./.github/actions/cache-rust-deps
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.2
-        with:
-          version: 7.x.x
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Install Node.js
         uses: actions/setup-node@v3
@@ -167,17 +129,6 @@ jobs:
 
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
-
-      - name: Run 'setup-system.sh' script
-        if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
-        run: ./.github/scripts/setup-system.sh
-
-      - name: Run 'setup-system.ps1' script
-        if: matrix.platform == 'windows-latest'
-        run: ./.github/scripts/setup-system.ps1 -ci
-
-      - name: Generate Prisma client
-        uses: ./.github/actions/generate-prisma-client
 
       - name: Cargo fetch
         run: cargo fetch
