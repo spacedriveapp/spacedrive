@@ -1,14 +1,13 @@
 use crate::{
-	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
-		get_existing_file_path, get_many_file_paths_by_full_path, MaterializedPath,
+		find_many_file_paths_by_full_path, get_existing_file_path, MaterializedPath,
 	},
 	prisma::file_path,
 };
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -22,7 +21,7 @@ use tracing::error;
 
 use super::{
 	ensure_sub_path_is_directory, ensure_sub_path_is_in_location, execute_indexer_step,
-	indexer_job_location,
+	file_path_id_and_materialized_path, finalize_indexer, indexer_job_location,
 	rules::{IndexerRule, RuleKind},
 	walk::walk_single_dir,
 	IndexerError, IndexerJobData, IndexerJobStep, IndexerJobStepEntry, ScanProgress,
@@ -65,7 +64,7 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let (last_file_path_id_manager, db, ..) = (
+		let (last_file_path_id_manager, db) = (
 			Arc::clone(&ctx.library_ctx.last_file_path_id_manager),
 			Arc::clone(&ctx.library_ctx.db),
 		);
@@ -145,7 +144,7 @@ impl StatefulJob for ShallowIndexerJob {
 		)
 		.await?;
 
-		let already_existing_file_paths_by_path = get_many_file_paths_by_full_path(
+		let already_existing_file_paths_by_path = find_many_file_paths_by_full_path(
 			&state.init.location,
 			&found_paths
 				.iter()
@@ -155,12 +154,15 @@ impl StatefulJob for ShallowIndexerJob {
 		)
 		.await
 		.map_err(IndexerError::from)?
+		.select(file_path_id_and_materialized_path::select())
+		.exec()
+		.await?
 		.into_iter()
-		.map(|file_path| (file_path.materialized_path.clone(), file_path))
-		.collect::<HashMap<_, _>>();
+		.map(|file_path| file_path.materialized_path)
+		.collect::<HashSet<_>>();
 
 		// Filter out paths that are already in the databases
-		let mut found_paths = found_paths
+		let mut new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(
@@ -175,14 +177,14 @@ impl StatefulJob for ShallowIndexerJob {
 						None
 					},
 					|materialized_path| {
-						(!already_existing_file_paths_by_path
-							.contains_key(materialized_path.as_ref()))
-						.then_some(IndexerJobStepEntry {
-							materialized_path,
-							created_at: entry.created_at,
-							file_id: 0, // To be set later
-							parent_id: Some(parent_id),
-						})
+						(!already_existing_file_paths_by_path.contains(materialized_path.as_ref()))
+							.then_some(IndexerJobStepEntry {
+								full_path: entry.path,
+								materialized_path,
+								created_at: entry.created_at,
+								file_id: 0, // To be set later
+								parent_id: Some(parent_id),
+							})
 					},
 				)
 			})
@@ -190,7 +192,7 @@ impl StatefulJob for ShallowIndexerJob {
 			// the max file path id later
 			.collect::<Vec<_>>();
 
-		let total_paths = found_paths.len();
+		let total_paths = new_paths.len();
 		let last_file_id = first_file_id + total_paths as i32;
 
 		// Setting our global state for file_path ids
@@ -198,23 +200,23 @@ impl StatefulJob for ShallowIndexerJob {
 			.set_max_file_path_id(state.init.location.id, last_file_id)
 			.await;
 
-		found_paths
+		new_paths
 			.iter_mut()
 			.zip(first_file_id..last_file_id)
 			.for_each(|(entry, file_id)| {
 				entry.file_id = file_id;
 			});
 
-		let total_entries = found_paths.len();
+		let total_paths = new_paths.len();
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
-			total_paths: total_entries,
+			total_paths,
 			indexed_paths: 0,
 		});
 
-		state.steps = found_paths
+		state.steps = new_paths
 			.into_iter()
 			.chunks(BATCH_SIZE)
 			.into_iter()
@@ -228,7 +230,7 @@ impl StatefulJob for ShallowIndexerJob {
 						ScanProgress::Message(format!(
 							"Writing {} of {} to db",
 							i * chunk_steps.len(),
-							total_entries,
+							total_paths,
 						)),
 					],
 				);
@@ -258,6 +260,6 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Logs some metadata about the indexer job
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_indexer!(state, ctx)
+		finalize_indexer(&state.init.location.path, state, ctx)
 	}
 }

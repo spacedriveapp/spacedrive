@@ -1,4 +1,7 @@
-use crate::prisma::{file_path, PrismaClient};
+use crate::prisma::{
+	file_path::{self, FindMany},
+	PrismaClient,
+};
 
 use std::path::{Path, PathBuf};
 
@@ -232,11 +235,11 @@ pub fn extract_materialized_path(
 	})
 }
 
-pub async fn get_many_file_paths_by_full_path(
+pub async fn find_many_file_paths_by_full_path<'db>(
 	location: &indexer_job_location::Data,
 	full_paths: &[impl AsRef<Path>],
-	db: &PrismaClient,
-) -> Result<Vec<file_path::Data>, FilePathError> {
+	db: &'db PrismaClient,
+) -> Result<FindMany<'db>, FilePathError> {
 	let is_dirs = try_join_all(
 		full_paths
 			.iter()
@@ -253,13 +256,10 @@ pub async fn get_many_file_paths_by_full_path(
 		// Collecting in a Result, so we stop on the first error
 		.collect::<Result<Vec<_>, _>>()?;
 
-	db.file_path()
-		.find_many(vec![file_path::materialized_path::in_vec(
-			materialized_paths,
-		)])
-		.exec()
-		.await
-		.map_err(Into::into)
+	Ok(db.file_path().find_many(vec![
+		file_path::location_id::equals(location.id),
+		file_path::materialized_path::in_vec(materialized_paths),
+	]))
 }
 
 pub async fn get_existing_file_path(
@@ -304,6 +304,7 @@ pub async fn get_existing_file_or_directory(
 	Ok(maybe_file_path)
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
 	location_id: LocationId,
 	path: impl AsRef<Path>,

@@ -1,19 +1,22 @@
 use crate::{
-	finalize_indexer,
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{get_existing_file_path, MaterializedPath},
+	location::file_path_helper::{
+		find_many_file_paths_by_full_path, get_existing_file_path, MaterializedPath,
+	},
 };
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use chrono::Utc;
 use itertools::Itertools;
 use tokio::time::Instant;
+use tracing::error;
 
 use super::{
 	ensure_sub_path_is_directory, ensure_sub_path_is_in_location, execute_indexer_step,
+	file_path_id_and_materialized_path, finalize_indexer,
 	rules::{IndexerRule, RuleKind},
-	walk::{walk, WalkEntry},
+	walk::walk,
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
 	ScanProgress,
 };
@@ -39,10 +42,12 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let (last_file_path_id_manager, db, ..) = (
+		let (last_file_path_id_manager, db) = (
 			Arc::clone(&ctx.library_ctx.last_file_path_id_manager),
 			Arc::clone(&ctx.library_ctx.db),
 		);
+
+		let location_path = Path::new(&state.init.location.path);
 
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = last_file_path_id_manager
@@ -69,7 +74,7 @@ impl StatefulJob for IndexerJob {
 				ensure_sub_path_is_in_location(&state.init.location.path, sub_path).await?;
 			ensure_sub_path_is_directory(&state.init.location.path, sub_path).await?;
 
-			let parent = get_existing_file_path(
+			let sub_path_file_path = get_existing_file_path(
 				state.init.location.id,
 				MaterializedPath::new(
 					state.init.location.id,
@@ -85,19 +90,16 @@ impl StatefulJob for IndexerJob {
 			.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(
-				PathBuf::from(&state.init.location.path).join(&parent.materialized_path),
-				parent.id,
-			);
+			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
 
 			full_path
 		} else {
-			PathBuf::from(&state.init.location.path)
+			location_path.to_path_buf()
 		};
 
 		let scan_start = Instant::now();
 
-		let paths = walk(
+		let found_paths = walk(
 			to_walk_path,
 			&indexer_rules_by_kind,
 			|path, total_entries| {
@@ -114,61 +116,96 @@ impl StatefulJob for IndexerJob {
 		)
 		.await?;
 
-		let total_paths = paths.len();
+		dirs_ids.extend(
+			find_many_file_paths_by_full_path(
+				&state.init.location,
+				&found_paths
+					.iter()
+					.map(|entry| &entry.path)
+					.collect::<Vec<_>>(),
+				&db,
+			)
+			.await
+			.map_err(IndexerError::from)?
+			.select(file_path_id_and_materialized_path::select())
+			.exec()
+			.await?
+			.into_iter()
+			.map(|file_path| {
+				(
+					location_path.join(file_path.materialized_path),
+					file_path.id,
+				)
+			}),
+		);
+
+		let mut new_paths = found_paths
+			.into_iter()
+			.filter_map(|entry| {
+				MaterializedPath::new(
+					state.init.location.id,
+					&state.init.location.path,
+					&entry.path,
+					entry.is_dir,
+				)
+				.map_or_else(
+					|e| {
+						error!("Failed to create materialized path: {e}");
+						None
+					},
+					|materialized_path| {
+						(!dirs_ids.contains_key(&entry.path)).then(|| {
+							IndexerJobStepEntry {
+								materialized_path,
+								created_at: entry.created_at,
+								file_id: 0, // To be set later
+								parent_id: entry.path.parent().and_then(|parent_dir| {
+									/***************************************************************
+									 * If we're dealing with a new path which its parent already   *
+									 * exist, we fetch its parent id from our `dirs_ids` map       *
+									 **************************************************************/
+									dirs_ids.get(parent_dir).copied()
+								}),
+								full_path: entry.path,
+							}
+						})
+					},
+				)
+			})
+			.collect::<Vec<_>>();
+
+		let total_paths = new_paths.len();
 		let last_file_id = first_file_id + total_paths as i32;
 
-		// Setting our global state for file_path ids
+		// Setting our global state for `file_path` ids
 		last_file_path_id_manager
 			.set_max_file_path_id(state.init.location.id, last_file_id)
 			.await;
 
-		let paths_entries = paths
-			.into_iter()
+		new_paths
+			.iter_mut()
 			.zip(first_file_id..last_file_id)
-			.map(
-				|(
-					WalkEntry {
-						path,
-						is_dir,
-						created_at,
-					},
-					file_id,
-				)| {
-					let parent_id = if let Some(parent_dir) = path.parent() {
-						dirs_ids.get(parent_dir).copied()
-					} else {
-						None
-					};
-
-					dirs_ids.insert(path.clone(), file_id);
-
-					MaterializedPath::new(
-						state.init.location.id,
-						&state.init.location.path,
-						&path,
-						is_dir,
-					)
-					.map(|materialized_path| IndexerJobStepEntry {
-						materialized_path,
-						created_at,
-						file_id,
-						parent_id,
-					})
-				},
-			)
-			.collect::<Result<Vec<_>, _>>()
-			.map_err(IndexerError::from)?;
-
-		let total_entries = paths_entries.len();
+			.for_each(|(entry, file_id)| {
+				// If the `parent_id` is still none here, is because the parent of this entry is also
+				// a new one in the DB
+				if entry.parent_id.is_none() {
+					entry.parent_id = entry
+						.full_path
+						.parent()
+						.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
+				}
+				entry.file_id = file_id;
+				dirs_ids.insert(entry.full_path.clone(), file_id);
+			});
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
-			total_paths: total_entries,
+			total_paths,
 			indexed_paths: 0,
 		});
 
-		state.steps = paths_entries
+		state.steps = new_paths
 			.into_iter()
 			.chunks(BATCH_SIZE)
 			.into_iter()
@@ -182,7 +219,7 @@ impl StatefulJob for IndexerJob {
 						ScanProgress::Message(format!(
 							"Writing {} of {} to db",
 							i * chunk_steps.len(),
-							total_entries,
+							total_paths,
 						)),
 					],
 				);
@@ -212,6 +249,6 @@ impl StatefulJob for IndexerJob {
 
 	/// Logs some metadata about the indexer job
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_indexer!(state, ctx)
+		finalize_indexer(&state.init.location.path, state, ctx)
 	}
 }

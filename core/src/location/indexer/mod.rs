@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobError, JobReportUpdate, WorkerContext},
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	prisma::{file_path, location},
 	sync,
 };
@@ -15,7 +15,7 @@ use int_enum::IntEnumError;
 use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
 use rules::RuleKind;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
@@ -34,7 +34,10 @@ mod walk;
 location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
-
+file_path::select!(file_path_id_and_materialized_path {
+	id
+	materialized_path
+});
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
 /// we want do index just a part of a location.
@@ -71,6 +74,7 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 /// on the `file_path` table in the database
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
+	full_path: PathBuf,
 	materialized_path: MaterializedPath,
 	created_at: DateTime<Utc>,
 	file_id: i32,
@@ -284,31 +288,37 @@ async fn execute_indexer_step(
 	Ok(count)
 }
 
-#[macro_export]
-#[allow(clippy::crate_in_macro_def)]
-macro_rules! finalize_indexer {
-	($state:ident, $ctx:ident) => {{
-		let data = $state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+fn finalize_indexer<SJob, Init>(
+	location_path: impl AsRef<Path>,
+	state: &JobState<SJob>,
+	ctx: WorkerContext,
+) -> JobResult
+where
+	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = IndexerJobStep>,
+	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
+{
+	let data = state
+		.data
+		.as_ref()
+		.expect("critical error: missing data on job state");
 
-		tracing::info!(
-			"scan of {} completed in {:?}. {} files found. db write completed in {:?}",
-			$state.init.location.path,
-			data.scan_read_time,
-			data.total_paths,
-			(Utc::now() - data.db_write_start)
-				.to_std()
-				.expect("critical error: non-negative duration"),
-		);
+	tracing::info!(
+		"scan of {} completed in {:?}. {} new files found, \
+			indexed {} files in db. db write completed in {:?}",
+		location_path.as_ref().display(),
+		data.scan_read_time,
+		data.total_paths,
+		data.indexed_paths,
+		(Utc::now() - data.db_write_start)
+			.to_std()
+			.expect("critical error: non-negative duration"),
+	);
 
-		if data.indexed_paths > 0 {
-			crate::invalidate_query!($ctx.library_ctx, "locations.getExplorerData");
-		}
+	if data.indexed_paths > 0 {
+		crate::invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+	}
 
-		Ok(Some(serde_json::to_value($state)?))
-	}};
+	Ok(Some(serde_json::to_value(state)?))
 }
 
 impl From<indexer_job_location::Data> for location::Data {
