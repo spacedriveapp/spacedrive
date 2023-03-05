@@ -31,7 +31,7 @@ enum ModelSyncType<'a> {
 }
 
 impl<'a> ModelSyncType<'a> {
-	fn from_attribute(attr: &'a Attribute, model: &'a dml::Model) -> Option<Self> {
+	fn from_attribute(attr: Attribute, model: &'a dml::Model) -> Option<Self> {
 		let id = attr
 			.field("id")
 			.map(|field| match field {
@@ -70,6 +70,19 @@ impl<'a> ModelSyncType<'a> {
 	}
 }
 
+impl ToTokens for ModelSyncType<'_> {
+	fn to_tokens(&self, tokens: &mut TokenStream) {
+		let variant = match self {
+			Self::Local { .. } => "Local",
+			Self::Owned { .. } => "Owned",
+			Self::Shared { .. } => "Shared",
+			Self::Relation { .. } => "Relation",
+		};
+
+		tokens.append(format_ident!("{variant}SyncType"));
+	}
+}
+
 impl PrismaGenerator for SDSyncGenerator {
 	const NAME: &'static str = "SD Sync Generator";
 	const DEFAULT_OUTPUT: &'static str = "prisma-sync.rs";
@@ -77,14 +90,23 @@ impl PrismaGenerator for SDSyncGenerator {
 	type Error = Error;
 
 	fn generate(self, args: GenerateArgs) -> Result<String, Self::Error> {
-		let model_modules = args.dml.models().map(|model| {
-            let model_name_snake = snake_ident(&model.name);
+		let models_with_attributes = args
+			.dml
+			.models()
+			.map(|model| (model, model_attributes(model)));
 
-            let attributes = model_attributes(model);
+		let models_with_sync_types = models_with_attributes.map(|(model, attributes)| {
+			let sync_type = attributes
+				.into_iter()
+				.find_map(|a| ModelSyncType::from_attribute(a, model));
 
-            let sync_id = attributes
-                .iter()
-                .find_map(|a| ModelSyncType::from_attribute(a, model))
+			(model, sync_type)
+		});
+
+		let model_modules = models_with_sync_types.clone().map(|(model, sync_type)| {
+			let model_name_snake = snake_ident(&model.name);
+
+            let sync_id = sync_type.as_ref()
                 .map(|sync_type| {
                     let fields = sync_type.sync_id();
                     let fields = fields.iter().flat_map(|field| {
@@ -104,13 +126,6 @@ impl PrismaGenerator for SDSyncGenerator {
                         Some(quote!(pub #name_snake: #typ))
                     });
 
-                    let sync_type_marker = match &sync_type {
-                        ModelSyncType::Local { .. } => quote!(LocalSyncType),
-                        ModelSyncType::Owned { .. } => quote!(OwnedSyncType),
-                        ModelSyncType::Shared { .. } => quote!(SharedSyncType),
-                        ModelSyncType::Relation { .. } => quote!(RelationSyncType),
-                    };
-
                     quote! {
                         #[derive(serde::Serialize, serde::Deserialize)]
                         pub struct SyncId {
@@ -123,7 +138,7 @@ impl PrismaGenerator for SDSyncGenerator {
 
                         impl sd_sync::SyncType for #model_name_snake::Types {
                             type SyncId = SyncId;
-                            type Marker = sd_sync::#sync_type_marker;
+                            type Marker = sd_sync::#sync_type;
                         }
                     }
                 });
@@ -225,8 +240,76 @@ impl PrismaGenerator for SDSyncGenerator {
             }
         });
 
+		let model_sync_data = {
+			let (variants, matches): (Vec<_>, Vec<_>) = models_with_sync_types
+				.filter_map(|(model, sync_type)| {
+					let model_name_snake = snake_ident(&model.name);
+					let model_name_pascal = pascal_ident(&model.name);
+					let model_name_str = &model.name;
+
+					sync_type.and_then(|a| {
+						let data_type = match a {
+							ModelSyncType::Owned { .. } => quote!(OwnedOperationData),
+							ModelSyncType::Shared { .. } => quote!(SharedOperationData),
+							ModelSyncType::Relation { .. } => {
+								quote!(RelationOperationData)
+							}
+							_ => return None,
+						};
+
+						let variant = quote! {
+							#model_name_pascal(#model_name_snake::SyncId, sd_sync::#data_type)
+						};
+
+						let op_type_enum = quote!(sd_sync::CRDTOperationType);
+
+						let match_case = match a {
+							ModelSyncType::Owned { .. } => {
+								quote! {
+									#op_type_enum::Owned(op) if op.model == #model_name_str =>
+										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
+								}
+							}
+							ModelSyncType::Shared { .. } => {
+								quote! {
+									#op_type_enum::Shared(op) if op.model == #model_name_str =>
+										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
+								}
+							}
+							// ModelSyncType::Relation { .. } => {
+							// 	quote! {
+							// 		(#model_name_str, sd_sync::CRDTOperation::Relation(op)) =>
+							// 			Self::#model_name_pascal()
+							// 	}
+							// }
+							_ => return None,
+						};
+
+						Some((variant, match_case))
+					})
+				})
+				.unzip();
+
+			quote! {
+				pub enum ModelSyncData {
+					#(#variants),*
+				}
+
+				impl ModelSyncData {
+					pub fn from_op(op: sd_sync::CRDTOperationType) -> Option<Self> {
+						Some(match op {
+							#(#matches),*,
+							_ => return None
+						})
+					}
+				}
+			}
+		};
+
 		Ok(quote! {
 			use crate::prisma;
+
+			#model_sync_data
 
 			#(#model_modules)*
 		}
