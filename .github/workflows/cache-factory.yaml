@@ -5,6 +5,8 @@ name: Cache Factory
 
 on:
   push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
