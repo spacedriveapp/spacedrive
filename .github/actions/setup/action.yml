@@ -19,12 +19,12 @@ runs:
 
     - name: Run 'setup-system.sh' script
       shell: bash
-      if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
+      if: runner.os == 'Linux' || runner.os == 'macOS'
       run: ./.github/scripts/setup-system.sh
 
     - name: Run 'setup-system.ps1' script
       shell: powershell
-      if: matrix.platform == 'windows-latest'
+      if: runner.os == 'Windows'
       run: ./.github/scripts/setup-system.ps1
 
     - name: Generate Prisma client
