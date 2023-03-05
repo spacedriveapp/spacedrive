@@ -21,9 +21,7 @@ public func lockAppTheme(themeType: AppThemeType) {
 }
 
 @_cdecl("blur_window_background")
-public func blurWindowBackground(windowPtr: UnsafePointer<NSWindow>) {
-    let window = windowPtr.pointee;
-    
+public func blurWindowBackground(window: NSWindow) {
     let windowContent = window.contentView!;
     let blurryView = NSVisualEffectView();
 
@@ -51,9 +49,7 @@ func setInvisibleToolbar(windowPtr: NSWindow, hasToolbar: Bool) {
 }
 
 @_cdecl("set_titlebar_style")
-public func setTitlebarStyle(windowPtr: UnsafePointer<NSWindow>, transparent: Bool, large: Bool) {
-    let window = windowPtr.pointee;
-
+public func setTitlebarStyle(window: NSWindow, transparent: Bool, large: Bool) {
     var styleMask = window.styleMask;
     
     if transparent && large {
