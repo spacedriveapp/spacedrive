@@ -23,9 +23,9 @@ runs:
       run: ./.github/scripts/setup-system.sh
 
     - name: Run 'setup-system.ps1' script
-      shell: bash
+      shell: powershell
       if: matrix.platform == 'windows-latest'
-      run: ./.github/scripts/setup-system.ps1 -ci
+      run: ./.github/scripts/setup-system.ps1
 
     - name: Generate Prisma client
       uses: ./.github/actions/generate-prisma-client
