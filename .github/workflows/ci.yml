@@ -140,7 +140,7 @@ jobs:
         run: cargo test -p sd-crypto --lib --all-features
 
       - name: Bundle Desktop
-        run: pnpm desktop build --debug
+        run: pnpm desktop tauri build --debug
 
       - name: Publish server Docker image
         if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'

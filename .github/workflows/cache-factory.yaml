@@ -24,6 +24,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: ./.github/actions/setup
+        with:
+          save-cache: "true"
 
       - name: Compile workspace with stable Rust
         run: cargo test --workspace --no-run
