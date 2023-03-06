@@ -28,4 +28,4 @@ jobs:
           save-cache: "true"
 
       - name: Compile workspace with stable Rust
-        run: cargo build --workspace --all-features
+        run: cargo test --workspace --all-features --no-run
