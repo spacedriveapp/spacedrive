@@ -5,8 +5,8 @@ name: Cache Factory
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,4 +28,4 @@ jobs:
           save-cache: "true"
 
       - name: Compile workspace with stable Rust
-        run: cargo test --workspace --no-run
+        run: cargo build --workspace --all-features
