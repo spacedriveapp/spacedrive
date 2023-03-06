@@ -21,7 +21,7 @@ export default function OnboardingCreatingLibrary() {
 	const queryClient = useQueryClient();
 	const debugState = useDebugState();
 	const platform = usePlatform();
-	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const [status, setStatus] = useState('Creating your library...');
 
@@ -34,7 +34,7 @@ export default function OnboardingCreatingLibrary() {
 				library
 			]);
 
-			createLibraryEvent({
+			submitPlausibleEvent({
 				event: {
 					type: 'libraryCreate',
 					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
