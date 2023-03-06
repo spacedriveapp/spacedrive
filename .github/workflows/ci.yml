@@ -99,25 +99,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
 
-  gather_published_crates:
-    runs-on: ubuntu-latest
-    outputs:
-      members: ${{ steps.cargo-metadata.outputs.members }}
-    steps:
-      - uses: actions/checkout@v3
-
-      - id: cargo-metadata
-        run: |
-          WORKSPACE_MEMBERS=$(cargo metadata --format-version=1 --no-deps | jq -c '.packages | .[] | select(.publish == null) | .name' | jq -s '.' | jq -c '.')
-          echo "members=${WORKSPACE_MEMBERS}" >> $GITHUB_OUTPUT
-
   test:
+    name: Test (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     needs: gather_published_crates
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
-        crate: ${{ fromJSON(needs.gather_published_crates.outputs.members) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -125,5 +113,5 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Test ${{ matrix.platform }}
-        run: cargo test -p ${{ matrix.crate }} --all-features
+      - name: Test
+        run: cargo test --workspace --all-features
