@@ -14,4 +14,4 @@ runs:
       working-directory: core
       if: steps.cache-prisma.outputs.cache-hit != 'true'
       shell: bash
-      run: cargo run -p prisma-cli --bin prisma --release -- generate
+      run: cargo run -p prisma-cli --bin prisma -- generate

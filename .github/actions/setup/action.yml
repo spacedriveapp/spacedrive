@@ -1,0 +1,38 @@
+name: Setup
+description: Sets up runner, Rust and pnpm
+inputs:
+  save-cache:
+    description: Whether to save the Rust cache
+    required: false
+    default: "false"
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust stable
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 7.x.x
+
+    - name: Cache Rust deps
+      uses: Swatinem/rust-cache@v2
+      with:
+        save-if: ${{ inputs.save-cache }} == "true"
+
+    - name: Run 'setup-system.sh' script
+      shell: bash
+      if: runner.os == 'Linux' || runner.os == 'macOS'
+      run: ./.github/scripts/setup-system.sh
+
+    - name: Run 'setup-system.ps1' script
+      shell: powershell
+      if: runner.os == 'Windows'
+      run: ./.github/scripts/setup-system.ps1
+
+    - name: Generate Prisma client
+      uses: ./.github/actions/generate-prisma-client
