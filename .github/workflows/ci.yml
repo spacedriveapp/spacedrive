@@ -83,7 +83,7 @@ jobs:
       - name: Run rustfmt
         run: cargo fmt --all -- --check
 
-  clippy_check:
+  clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
@@ -97,56 +97,33 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --release
+          args: --all-features
 
-  build-and-publish:
-    name: Build and Publish (${{ matrix.platform }})
+  gather_published_crates:
+    runs-on: ubuntu-latest
+    outputs:
+      members: ${{ steps.cargo-metadata.outputs.members }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - id: cargo-metadata
+        run: |
+          WORKSPACE_MEMBERS=$(cargo metadata --format-version=1 --no-deps | jq -c '.packages | .[] | select(.publish == null) | .name' | jq -s '.' | jq -c '.')
+          echo "members=${WORKSPACE_MEMBERS}" >> $GITHUB_OUTPUT
+
+  test:
     runs-on: ${{ matrix.platform }}
+    needs: gather_published_crates
     strategy:
-      fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
+        crate: ${{ fromJSON(needs.gather_published_crates.outputs.members) }}
     steps:
-      - name: Log in to the Container registry
-        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
-
-      - name: Check core
-        run: cargo check -p sd-core
-
-      - name: Cargo test core
-        run: cargo test -p sd-core -F location-watcher
-
-      - name: Cargo test sd-crypto
-        run: cargo test -p sd-crypto --lib --all-features
-
-      - name: Bundle Desktop
-        run: pnpm desktop tauri build --debug
-
-      - name: Publish server Docker image
-        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
-        uses: ./.github/actions/publish-server-image
-
-      - name: Publish artifacts
-        uses: ./.github/actions/publish-artifacts
-        with:
-          profile: "debug"
+      - name: Test ${{ matrix.platform }}
+        run: cargo test -p ${{ matrix.crate }} --all-features
