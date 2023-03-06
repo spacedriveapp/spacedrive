@@ -74,6 +74,12 @@ jobs:
           toolchain: stable
           components: rustfmt
 
+      - name: Cache Rust deps
+        uses: Swatinem/rust-cache@v2
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
+
       - name: Run rustfmt
         run: cargo fmt --all -- --check
 
