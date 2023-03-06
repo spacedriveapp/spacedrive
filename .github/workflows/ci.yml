@@ -62,7 +62,7 @@ jobs:
         run: pnpm lint
 
   rustfmt:
-    name: rustfmt
+    name: Rust Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -74,18 +74,15 @@ jobs:
           toolchain: stable
           components: rustfmt
 
-      - name: Cache Rust deps
-        uses: Swatinem/rust-cache@v2
-
-      - name: Generate Prisma client
-        uses: ./.github/actions/generate-prisma-client
-
       - name: Run rustfmt
         run: cargo fmt --all -- --check
 
   clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
+    name: Clippy (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -97,7 +94,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          args: --workspace --all-features
 
   test:
     name: Test (${{ matrix.platform }})
