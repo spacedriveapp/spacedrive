@@ -1,5 +1,8 @@
 name: Publish artifacts
 description: Publishes artifacts after CI process
+inputs:
+  profile:
+    description: "'debug' or 'release'"
 runs:
   using: 'composite'
   steps:
@@ -13,8 +16,8 @@ runs:
       if: matrix.platform == 'ubuntu-latest'
       shell: bash
       run: |
-        chmod +x ./target/release/bundle/appimage/spacedrive*.AppImage
-        tar -czvf ./Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}.tar.gz ./target/release/bundle/appimage/spacedrive*.AppImage
+        chmod +x ./target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
+        tar -czvf ./Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}.tar.gz ./target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
 
     - name: Publish artifacts (AppImage)
       if: matrix.platform == 'ubuntu-latest'
@@ -28,25 +31,25 @@ runs:
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-deb-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/release/bundle/deb/spacedrive*.deb
+        path: ./target/${{ inputs.profile }}/bundle/deb/spacedrive*.deb
 
     - name: Publish artifacts (server)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-server-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/release/server
+        path: ./target/${{ inputs.profile }}/server
 
     - name: Publish artifacts (Windows)
       if: matrix.platform == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-${{ env.GITHUB_SHA_SHORT }}
-        path: .\target\release\bundle\msi\*.msi
+        path: .\target\${{ inputs.profile }}\bundle\msi\*.msi
 
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/release/bundle/macos/*.app
+        path: ./target/${{ inputs.profile }}/bundle/macos/*.app

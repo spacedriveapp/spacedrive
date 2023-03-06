@@ -41,7 +41,7 @@ pub struct Node {
 	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
-#[cfg(not(feature = "android"))]
+#[cfg(not(target_os = "android"))]
 const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
 	use tracing_subscriber::filter::LevelFilter;
 
@@ -99,9 +99,9 @@ impl Node {
 			    // 		.expect("Error invalid tracing directive!"),
 			    // ),
 		);
-		#[cfg(not(feature = "android"))]
+		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		#[cfg(feature = "android")]
+		#[cfg(target_os = "android")]
 		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber
 			// .with(
