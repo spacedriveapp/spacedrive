@@ -87,6 +87,25 @@ export const useCurrentTelemetrySharing = () => {
 	}
 };
 
+/**
+ * Used for finding the telemetry sharing settings for a specific library
+ *
+ * @privateRemarks
+ * We shouldn't throw an error if the user hasn't selected a telemetry sharing option,
+ * and this shouldn't be used for anything other than validating that we can send usage data. It is
+ * more of an optional query than anything else, and telemetry will not be shared unless this explicitly returns `true`.
+ */
+export const useTelemetrySharing = (props: { libraryUuid: string }) => {
+	try {
+		return (
+			useCachedLibraries().data?.find((l) => l.uuid === props.libraryUuid)?.config.shareTelemetry ??
+			null
+		);
+	} catch (e) {
+		return null;
+	}
+};
+
 export const currentLibraryCache = valtioPersist('sd-current-library', {
 	id: null as string | null
 });
