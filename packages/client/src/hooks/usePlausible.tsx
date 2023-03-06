@@ -33,12 +33,22 @@ interface PlausibleOptions extends PlausibleTrackerOptions {
  * The base Plausible event, that all other events must be derived
  * from in an effort to keep things type-safe.
  */
-type BasePlausibleEvent<T, O extends keyof PlausibleOptions> = {
+type BasePlausibleEventWithOptions<T, O extends keyof PlausibleOptions> = {
 	type: T;
 	plausibleOptions: Required<{
 		[K in O]: PlausibleOptions[O];
 	}>;
 };
+
+type BasePlausibleEventWithoutOptions<T> = {
+	type: T;
+};
+
+export type BasePlausibleEvent<T, O = void> = O extends void
+	? BasePlausibleEventWithoutOptions<T>
+	: O extends keyof PlausibleOptions
+	? BasePlausibleEventWithOptions<T, O>
+	: void;
 
 /**
  * The Plausible `pageview` event.
@@ -46,7 +56,7 @@ type BasePlausibleEvent<T, O extends keyof PlausibleOptions> = {
  * **Do not use this directly. Instead, use the
  * {@link usePlausiblePageViewMonitor `usePlausiblePageViewMonitor`} hook**.
  */
-type PageViewEvent = BasePlausibleEvent<'pageview', 'url'>;
+type PageViewEvent = BasePlausibleEventWithOptions<'pageview', 'url'>;
 
 /**
  * The custom Plausible `libraryCreate` event.
@@ -69,11 +79,25 @@ type PageViewEvent = BasePlausibleEvent<'pageview', 'url'>;
  * ```
  */
 type LibraryCreateEvent = BasePlausibleEvent<'libraryCreate', 'telemetryOverride'>;
+type LibraryDeleteEvent = BasePlausibleEvent<'libraryDelete', 'telemetryOverride'>;
+
+type LocationCreateEvent = BasePlausibleEvent<'locationCreate'>;
+type LocationDeleteEvent = BasePlausibleEvent<'locationDelete'>;
+
+type TagCreateEvent = BasePlausibleEvent<'tagCreate'>;
+type TagDeleteEvent = BasePlausibleEvent<'tagDelete'>;
 
 /**
  * All union of available, ready-to-use events.
  */
-type PlausibleEvent = PageViewEvent | LibraryCreateEvent;
+type PlausibleEvent =
+	| PageViewEvent
+	| LibraryCreateEvent
+	| LibraryDeleteEvent
+	| LocationCreateEvent
+	| LocationDeleteEvent
+	| TagCreateEvent
+	| TagDeleteEvent;
 
 interface SubmitEventProps {
 	/**
@@ -136,9 +160,21 @@ const submitPlausibleEvent = async (props: SubmitEventProps) => {
 
 	if (props.debug === true) return;
 	if (
-		'telemetryOverride' in event ? event.telemetryOverride !== true : props.shareTelemetry !== true
+		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
+			? event.plausibleOptions.telemetryOverride !== true
+			: props.shareTelemetry !== true
 	)
 		return;
+
+	let additionalOptions = undefined;
+
+	// this removes `telemetryOverride` from our event if it's present (artifact of generics)
+	if ('plausibleOptions' in event && !('telemetryOverride' in event.plausibleOptions)) {
+		additionalOptions = event.plausibleOptions;
+	} else if ('plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions) {
+		const { telemetryOverride, ...options } = event.plausibleOptions;
+		additionalOptions = options;
+	}
 
 	plausible.trackEvent(
 		event.type,
@@ -149,7 +185,10 @@ const submitPlausibleEvent = async (props: SubmitEventProps) => {
 			},
 			...props.onSuccess
 		},
-		{ deviceWidth: props.screenWidth ?? window.screen.width, ...event.plausibleOptions }
+		{
+			deviceWidth: props.screenWidth ?? window.screen.width,
+			...additionalOptions
+		}
 	);
 };
 
