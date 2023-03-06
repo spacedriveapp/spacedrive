@@ -118,7 +118,9 @@ export default function OnboardingNewLibrary() {
 								disabled={form.formState.isSubmitting}
 								variant="outline"
 								size="sm"
-								onClick={() => {
+								onClick={(event: any) => {
+									// Without this, form is submitted before token gets removed
+									event.preventDefault();
 									getOnboardingStore().passwordSetToken = null;
 									form.reset();
 								}}
