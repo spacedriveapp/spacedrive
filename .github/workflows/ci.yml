@@ -148,3 +148,5 @@ jobs:
 
       - name: Publish artifacts
         uses: ./.github/actions/publish-artifacts
+        with:
+          profile: "debug"

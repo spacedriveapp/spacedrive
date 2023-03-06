@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.64.0"
 
-[features]
-android = ["sd-core/android"]
-
 [dependencies]
 once_cell = "1.15.0"
 sd-core = { path = "../../../../core", features = [
