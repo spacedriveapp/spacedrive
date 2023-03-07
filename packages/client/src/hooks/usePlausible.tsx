@@ -129,14 +129,17 @@ interface SubmitEventProps {
 	/**
 	 * Whether or not telemetry sharing is enabled for the current client.
 	 *
-	 * It is **crucial** that this is the direct output of `useCurrentTelemetrySharing()`,
+	 * It is **crucial** that this is the direct output of `useTelemetryState().shareTelemetry`,
 	 * regardless of other conditions that may affect whether we share it (such as event overrides).
 	 */
-	shareTelemetry: boolean | null;
+	shareTelemetry: boolean;
 	/**
-	 * It is **crucial** that this is the direct output of `useDebugState().enabled`
+	 * It is **crucial** that this is sourced from the output of `useDebugState()`
 	 */
-	debug: boolean;
+	debugState: {
+		enabled: boolean;
+		shareTelemetry: boolean;
+	};
 	/**
 	 * A function to be executed if/when the event has been successfully submitted.
 	 */
@@ -165,10 +168,8 @@ interface SubmitEventProps {
  * @see {@link https://plausible.io/docs/custom-event-goals Custom events}
  * @see {@link https://plausible-tracker.netlify.app/#tracking-custom-events-and-goals Tracking custom events}
  */
-const submitPlausibleEvent = async (props: SubmitEventProps) => {
-	const { event } = props;
-
-	if (props.debug === true) return;
+const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
+	if (debugState.enabled === true && debugState.shareTelemetry !== true) return;
 	if (
 		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
 			? event.plausibleOptions.telemetryOverride !== true
@@ -192,7 +193,7 @@ const submitPlausibleEvent = async (props: SubmitEventProps) => {
 			props: {
 				platform: props.platformType == 'tauri' ? 'desktop' : props.platformType,
 				version: Version,
-				debug: props.debug
+				debug: debugState.enabled
 			},
 			...props.onSuccess
 		},
@@ -256,16 +257,15 @@ interface EventSubmissionCallbackProps {
  * });
  * ```
  */
-export const usePlausibleEvent = (props: UsePlausibleEventProps) => {
-	const { platformType } = props;
-	const debug = useDebugState().enabled;
+export const usePlausibleEvent = ({ platformType }: UsePlausibleEventProps) => {
+	const debugState = useDebugState();
 	const shareTelemetry = useTelemetryState().shareTelemetry;
 
 	return useCallback(
 		async (props: EventSubmissionCallbackProps) => {
-			submitPlausibleEvent({ debug, shareTelemetry, platformType, ...props });
+			submitPlausibleEvent({ debugState, shareTelemetry, platformType, ...props });
 		},
-		[debug, platformType, shareTelemetry]
+		[debugState, platformType, shareTelemetry]
 	);
 };
 
@@ -278,7 +278,7 @@ export const usePlausibleEvent = (props: UsePlausibleEventProps) => {
  * @example
  * ```ts
  * let path = "/ed0c715c-d095-4f6a-b83c-1d0b25cc89e7/location/1";
- * PageViewRegexRules.forEach((e, i) => (path = path.replace(e[0], e[1])));
+ * PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
  * assert(path === "/location");
  * ```
  */
@@ -343,7 +343,7 @@ export const usePlausiblePageViewMonitor = (props: PageViewMonitorProps) => {
 	const plausibleEvent = usePlausibleEvent({ platformType: props.platformType });
 
 	let path = props.currentPath;
-	PageViewRegexRules.forEach((e, i) => (path = path.replace(e[0], e[1])));
+	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
 
 	useEffect(() => {
 		plausibleEvent({
