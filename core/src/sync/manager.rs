@@ -140,31 +140,16 @@ impl SyncManager {
 	}
 
 	pub async fn get_ops(&self) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
-		let db = &self.db;
-
-		let owned = db
-			.owned_operation()
-			.find_many(vec![])
-			.include(owned_operation::include!({ node }))
-			.exec()
-			.await?
-			.into_iter()
-			.flat_map(|op| {
-				Some(CRDTOperation {
-					id: Uuid::from_slice(&op.id).ok()?,
-					node: Uuid::from_slice(&op.node.pub_id).ok()?,
-					timestamp: NTP64(op.timestamp as u64),
-					typ: CRDTOperationType::Owned(OwnedOperation {
-						model: op.model,
-						items: serde_json::from_slice(&op.data).ok()?,
-					}),
-				})
-			});
-
-		let shared = db
+		Ok(self
+			.db
 			.shared_operation()
 			.find_many(vec![])
-			.include(shared_operation::include!({ node }))
+			.order_by(shared_operation::timestamp::order(
+				prisma_client_rust::Direction::Asc,
+			))
+			.include(shared_operation::include!({ node: select {
+                pub_id
+            } }))
 			.exec()
 			.await?
 			.into_iter()
@@ -179,13 +164,8 @@ impl SyncManager {
 						data: serde_json::from_slice(&op.data).ok()?,
 					}),
 				})
-			});
-
-		let mut result: Vec<CRDTOperation> = owned.chain(shared).collect();
-
-		result.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-
-		Ok(result)
+			})
+			.collect())
 	}
 
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {

@@ -1,5 +1,5 @@
 use crate::{
-	library::LibraryContext,
+	library::Library,
 	location::{
 		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
@@ -80,7 +80,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, mut args: LocationExplorerArgs, library| async move {
-				let LibraryContext { db, .. } = &library;
+				let Library { db, .. } = &library;
 
 				let location = db
 					.location()
