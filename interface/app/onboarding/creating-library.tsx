@@ -5,13 +5,12 @@ import { useNavigate } from 'react-router';
 import {
 	Algorithm,
 	HASHING_ALGOS,
-	getTelemetryState,
 	resetOnboardingStore,
+	telemetryStore,
 	useBridgeMutation,
 	useDebugState,
 	useOnboardingStore,
-	usePlausibleEvent,
-	useTelemetryState
+	usePlausibleEvent
 } from '@sd/client';
 import { Loader } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
@@ -25,9 +24,6 @@ export default function OnboardingCreatingLibrary() {
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
-	const shareTelemetry = useTelemetryState().shareTelemetry;
-	const telemetryState = getTelemetryState();
-
 	const [status, setStatus] = useState('Creating your library...');
 
 	useUnlockOnboardingScreen();
@@ -39,11 +35,7 @@ export default function OnboardingCreatingLibrary() {
 				library
 			]);
 
-			submitPlausibleEvent({
-				event: {
-					type: 'libraryCreate'
-				}
-			});
+			submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 
 			resetOnboardingStore();
 			navigate(`/${library.uuid}/overview`);
@@ -67,7 +59,7 @@ export default function OnboardingCreatingLibrary() {
 			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
 		});
 
-		telemetryState.shareTelemetry = ob_store.shareTelemetryDataWithDevelopers;
+		telemetryStore.shareTelemetry = ob_store.shareTelemetryDataWithDevelopers;
 
 		return;
 	};
