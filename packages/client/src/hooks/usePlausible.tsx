@@ -199,6 +199,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		},
 		options: {
 			deviceWidth: props.screenWidth ?? window.screen.width,
+			// referrer: '', // TODO(brxken128): see if we could have this blank to prevent accidental IP logging
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
 		},
 		callback: debugState.telemetryLogger
@@ -212,7 +213,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 	PlausibleProvider.trackEvent(
 		fullEvent.eventName,
 		{
-			...fullEvent.props,
+			props: fullEvent.props,
 			callback: fullEvent.callback
 		},
 		fullEvent.options
@@ -313,7 +314,11 @@ const PageViewRegexRules: [RegExp, string][] = [
 	/**
 	 * This is for removing tag IDs from the current path
 	 */
-	[RegExp('/tag/[0-9]+'), '/tag']
+	[RegExp('/tag/[0-9]+'), '/tag'],
+	/**
+	 * This is for removing location IDs from the current path, when in library settings (e.g. `/settings/library/locations/12`)
+	 */
+	[RegExp('/locations/[0-9]+'), '/locations']
 ];
 
 export interface PageViewMonitorProps {
