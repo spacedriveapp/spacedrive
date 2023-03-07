@@ -31,6 +31,16 @@ export default () => {
 						onClick={() => (getDebugState().rspcLogger = !debugState.rspcLogger)}
 					/>
 				</Setting>
+				<Setting
+					mini
+					title="Send telemetry"
+					description="Send telemetry, even in debug mode (telemetry sharing must also be enabled in your client settings)"
+				>
+					<Switch
+						checked={debugState.sendTelemetry}
+						onClick={() => (getDebugState().sendTelemetry = !debugState.sendTelemetry)}
+					/>
+				</Setting>
 				{platform.openPath && (
 					<Setting
 						mini
