@@ -44,11 +44,9 @@ type BasePlausibleEventWithoutOptions<T> = {
 	type: T;
 };
 
-export type BasePlausibleEvent<T, O = void> = O extends void
-	? BasePlausibleEventWithoutOptions<T>
-	: O extends keyof PlausibleOptions
+export type BasePlausibleEvent<T, O = never> = O extends keyof PlausibleOptions
 	? BasePlausibleEventWithOptions<T, O>
-	: void;
+	: BasePlausibleEventWithoutOptions<T>;
 
 /**
  * The Plausible `pageview` event.
