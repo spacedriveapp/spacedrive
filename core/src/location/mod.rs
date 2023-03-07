@@ -3,7 +3,10 @@ use crate::{
 	job::Job,
 	library::LibraryContext,
 	object::{
-		file_identifier::{file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit}, shallow_file_identifier_job::{ShallowFileIdentifierJobInit, ShallowFileIdentifierJob}},
+		file_identifier::{
+			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+			shallow_file_identifier_job::{ShallowFileIdentifierJob, ShallowFileIdentifierJobInit},
+		},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
