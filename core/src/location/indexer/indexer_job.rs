@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	library::Library,
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 	sync,
@@ -110,7 +111,7 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
+		let first_file_id = get_max_file_path_id(&ctx.library).await?;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -217,7 +218,7 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let db = &ctx.library_ctx.db;
+		let Library { sync, db, .. } = &ctx.library;
 
 		let location = &state.init.location;
 
@@ -230,13 +231,14 @@ impl StatefulJob for IndexerJob {
 				// if 'entry.path' is a directory, set extension to an empty string to
 				// avoid periods in folder names being interpreted as file extensions
 				if entry.is_dir {
-					extension = None;
+					extension = "".to_string();
 					name = extract_name(entry.path.file_name());
 				} else {
 					// if the 'entry.path' is not a directory, then get the extension and name.
-					extension = Some(extract_name(entry.path.extension()).to_lowercase());
+					extension = extract_name(entry.path.extension()).to_lowercase();
 					name = extract_name(entry.path.file_stem());
 				}
+
 				let mut materialized_path = entry
 					.path
 					.strip_prefix(&location.path)
@@ -252,7 +254,7 @@ impl StatefulJob for IndexerJob {
 				use file_path::*;
 
 				(
-					(
+					sync.unique_shared_create(
 						sync::file_path::SyncId {
 							id: entry.file_id,
 							location: sync::location::SyncId {
@@ -273,9 +275,9 @@ impl StatefulJob for IndexerJob {
 						location.id,
 						materialized_path,
 						name,
+						extension,
 						vec![
 							is_dir::set(entry.is_dir),
-							extension::set(extension),
 							parent_id::set(entry.parent_id),
 							date_created::set(entry.created_at.into()),
 						],
@@ -284,13 +286,13 @@ impl StatefulJob for IndexerJob {
 			})
 			.unzip();
 
-		let count = ctx
-			.library_ctx
-			.sync
-			.write_op(
+		let count = sync
+			.write_ops(
 				db,
-				ctx.library_ctx.sync.owned_create_many(sync_stuff, true),
-				db.file_path().create_many(paths).skip_duplicates(),
+				(
+					sync_stuff,
+					db.file_path().create_many(paths).skip_duplicates(),
+				),
 			)
 			.await?;
 

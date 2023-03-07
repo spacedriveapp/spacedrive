@@ -1,6 +1,6 @@
 use crate::invalidate_query;
 use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
-use crate::library::LibraryContext;
+use crate::library::Library;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tokio::{
@@ -29,7 +29,7 @@ pub enum WorkerEvent {
 
 #[derive(Clone)]
 pub struct WorkerContext {
-	pub library_ctx: LibraryContext,
+	pub library: Library,
 	events_tx: UnboundedSender<WorkerEvent>,
 	shutdown_tx: Arc<broadcast::Sender<()>>,
 }
@@ -85,7 +85,7 @@ impl Worker {
 	pub async fn spawn(
 		job_manager: Arc<JobManager>,
 		worker_mutex: Arc<Mutex<Self>>,
-		ctx: LibraryContext,
+		library: Library,
 	) -> Result<(), JobError> {
 		let mut worker = worker_mutex.lock().await;
 		// we capture the worker receiver channel so state can be updated from inside the worker
@@ -107,26 +107,25 @@ impl Worker {
 		worker.report.status = JobStatus::Running;
 
 		if matches!(old_status, JobStatus::Queued) {
-			worker.report.create(&ctx).await?;
+			worker.report.create(&library).await?;
 		} else {
-			worker.report.update(&ctx).await?;
+			worker.report.update(&library).await?;
 		}
 		drop(worker);
 
-		invalidate_query!(ctx, "jobs.isRunning");
+		invalidate_query!(library, "jobs.isRunning");
 
-		let library_ctx = ctx.clone();
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			Arc::clone(&worker_mutex),
 			worker_events_rx,
-			library_ctx.clone(),
+			library.clone(),
 		));
 
 		// spawn task to handle running the job
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
-				library_ctx,
+				library: library.clone(),
 				events_tx: worker_events_tx,
 				shutdown_tx: job_manager.shutdown_tx(),
 			};
@@ -180,7 +179,7 @@ impl Worker {
 			if let Err(e) = done_rx.await {
 				error!("failed to wait for worker completion: {:#?}", e);
 			}
-			job_manager.complete(&ctx, job_id, job_hash).await;
+			job_manager.complete(&library, job_id, job_hash).await;
 		});
 
 		Ok(())
@@ -189,7 +188,7 @@ impl Worker {
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
 		mut worker_events_rx: UnboundedReceiver<WorkerEvent>,
-		library: LibraryContext,
+		library: Library,
 	) {
 		let mut last = Instant::now();
 

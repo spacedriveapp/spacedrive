@@ -1,4 +1,4 @@
-use crate::{library::LibraryContext, prisma::volume::*};
+use crate::{library::Library, prisma::volume::*};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ impl From<VolumeError> for rspc::Error {
 	}
 }
 
-pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
+pub async fn save_volume(ctx: &Library) -> Result<(), VolumeError> {
 	let volumes = get_volumes()?;
 
 	// enter all volumes associate with this client add to db

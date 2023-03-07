@@ -5,7 +5,7 @@ use std::{collections::VecDeque, path::PathBuf};
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	prisma::{file_path, location},
 	sync,
 };
@@ -60,7 +60,7 @@ impl StatefulJob for ObjectValidatorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let db = &ctx.library_ctx.db;
+		let db = &ctx.library.db;
 
 		state.steps = db
 			.file_path()
@@ -97,7 +97,7 @@ impl StatefulJob for ObjectValidatorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let LibraryContext { db, sync, .. } = &ctx.library_ctx;
+		let Library { db, sync, .. } = &ctx.library;
 
 		let file_path = &state.steps[0];
 		let data = state.data.as_ref().expect("fatal: missing job state");
@@ -111,14 +111,15 @@ impl StatefulJob for ObjectValidatorJob {
 
 			sync.write_op(
 				db,
-				sync.owned_update(
+				sync.shared_update(
 					sync::file_path::SyncId {
 						id: file_path.id,
 						location: sync::location::SyncId {
 							pub_id: file_path.location.pub_id.clone(),
 						},
 					},
-					[("integrity_checksum", json!(Some(&checksum)))],
+					"integrity_checksum",
+					json!(&checksum),
 				),
 				db.file_path().update(
 					file_path::location_id_id(file_path.location.id, file_path.id),

@@ -31,12 +31,9 @@ impl StatefulJob for FileDeleterJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let fs_info = context_menu_fs_info(
-			&ctx.library_ctx.db,
-			state.init.location_id,
-			state.init.path_id,
-		)
-		.await?;
+		let fs_info =
+			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
+				.await?;
 
 		state.steps = [fs_info].into_iter().collect();
 

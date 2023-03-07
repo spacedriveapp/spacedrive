@@ -11,7 +11,7 @@ use rspc::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{api::Ctx, library::LibraryContext};
+use crate::{api::Ctx, library::Library};
 
 /// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
 #[derive(Clone, Serialize, Deserialize, Type)]
@@ -30,8 +30,8 @@ pub trait LibraryRequest {
 		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
-		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send + Sync + 'static,
 		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static;
 
@@ -49,8 +49,8 @@ pub trait LibraryRequest {
 		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
-		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send + Sync + 'static,
 		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static;
 
@@ -79,8 +79,8 @@ where
 		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
-		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send + Sync + 'static,
 		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
 	{
@@ -125,8 +125,8 @@ where
 		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
-		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, Library) -> TUnbuiltResult + Send + Sync + 'static,
 		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
 	{

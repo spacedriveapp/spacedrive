@@ -108,7 +108,7 @@ CREATE TABLE "file_path" (
     "location_id" INTEGER NOT NULL,
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "extension" TEXT COLLATE NOCASE,
+    "extension" TEXT COLLATE NOCASE NOT NULL,
     "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,

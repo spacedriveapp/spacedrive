@@ -91,8 +91,8 @@ impl InvalidRequests {
 #[macro_export]
 #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
-	($ctx:expr, $key:literal) => {{
-		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
+	($library:expr, $key:literal) => {{
+		let library: &crate::library::Library = &$library; // Assert the library is the correct type
 
 		#[cfg(debug_assertions)]
 		{
@@ -111,13 +111,13 @@ macro_rules! invalidate_query {
 		}
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
+		library.emit(crate::api::CoreEvent::InvalidateOperation(
 			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null)
 		))
 	}};
-	($ctx:expr, $key:literal: $input_ty:ty, $input:expr $(,)?) => {{
+	($library:expr, $key:literal: $input_ty:ty, $input:expr $(,)?) => {{
 		let _: $input_ty = $input; // Assert the type the user provided is correct
-		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
+		let library: &crate::library::Library = &$library; // Assert the library is the correct type
 
 		#[cfg(debug_assertions)]
 		{
@@ -141,7 +141,7 @@ macro_rules! invalidate_query {
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($input)
 			.map(|v|
-				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
+				library.emit(crate::api::CoreEvent::InvalidateOperation(
 					crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v),
 				))
 			)

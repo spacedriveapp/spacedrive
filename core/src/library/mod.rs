@@ -1,7 +1,7 @@
-mod library_config;
-mod library_ctx;
-mod library_manager;
+mod config;
+mod library;
+mod manager;
 
-pub use library_config::*;
-pub use library_ctx::*;
-pub use library_manager::*;
+pub use config::*;
+pub use library::*;
+pub use manager::*;

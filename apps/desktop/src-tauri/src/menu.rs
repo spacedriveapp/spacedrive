@@ -108,9 +108,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 				event
 					.window()
 					.with_webview(|webview| {
-						use crate::macos::reload_webview;
-
-						unsafe { reload_webview(&(webview.inner() as _)) };
+						unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) };
 					})
 					.unwrap();
 			}

@@ -41,7 +41,7 @@ pub struct Node {
 	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
-#[cfg(not(feature = "android"))]
+#[cfg(not(target_os = "android"))]
 const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
 	use tracing_subscriber::filter::LevelFilter;
 
@@ -99,9 +99,9 @@ impl Node {
 			    // 		.expect("Error invalid tracing directive!"),
 			    // ),
 		);
-		#[cfg(not(feature = "android"))]
+		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		#[cfg(feature = "android")]
+		#[cfg(target_os = "android")]
 		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber
 			// .with(
@@ -130,8 +130,8 @@ impl Node {
 		.await?;
 
 		// Adding already existing locations for location management
-		for library_ctx in library_manager.get_all_libraries_ctx().await {
-			for location in library_ctx
+		for library in library_manager.get_all_libraries().await {
+			for location in library
 				.db
 				.location()
 				.find_many(vec![])
@@ -144,7 +144,7 @@ impl Node {
 					);
 					vec![]
 				}) {
-				if let Err(e) = location_manager.add(location.id, library_ctx.clone()).await {
+				if let Err(e) = location_manager.add(location.id, library.clone()).await {
 					error!("Failed to add location to location manager: {:#?}", e);
 				}
 			}
@@ -156,8 +156,8 @@ impl Node {
 		let inner_library_manager = Arc::clone(&library_manager);
 		let inner_jobs = Arc::clone(&jobs);
 		tokio::spawn(async move {
-			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
-				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
+			for library in inner_library_manager.get_all_libraries().await {
+				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library).await {
 					error!("Failed to resume jobs for library. {:#?}", e);
 				}
 			}

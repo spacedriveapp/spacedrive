@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError},
-	library::LibraryContext,
+	library::Library,
 	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
 	object::{
 		fs::{
@@ -40,7 +40,7 @@ use uuid::Uuid;
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
-	IngestJob(LibraryContext, Box<dyn DynJob>),
+	IngestJob(Library, Box<dyn DynJob>),
 }
 
 /// JobManager handles queueing and executing jobs using the `DynJob`
@@ -83,7 +83,7 @@ impl JobManager {
 		this
 	}
 
-	pub async fn ingest(self: Arc<Self>, ctx: &LibraryContext, job: Box<dyn DynJob>) {
+	pub async fn ingest(self: Arc<Self>, ctx: &Library, job: Box<dyn DynJob>) {
 		let job_hash = job.hash();
 		debug!(
 			"Ingesting job: <name='{}', hash='{}'>",
@@ -119,7 +119,7 @@ impl JobManager {
 		}
 	}
 
-	pub async fn complete(self: Arc<Self>, ctx: &LibraryContext, job_id: Uuid, job_hash: u64) {
+	pub async fn complete(self: Arc<Self>, ctx: &Library, job_id: Uuid, job_hash: u64) {
 		// remove worker from running workers and from current jobs hashes
 		self.current_jobs_hashes.write().await.remove(&job_hash);
 		self.running_workers.write().await.remove(&job_id);
@@ -146,7 +146,7 @@ impl JobManager {
 	}
 
 	pub async fn get_history(
-		ctx: &LibraryContext,
+		ctx: &Library,
 	) -> Result<Vec<JobReport>, prisma_client_rust::QueryError> {
 		Ok(ctx
 			.db
@@ -161,9 +161,7 @@ impl JobManager {
 			.collect())
 	}
 
-	pub async fn clear_all_jobs(
-		ctx: &LibraryContext,
-	) -> Result<(), prisma_client_rust::QueryError> {
+	pub async fn clear_all_jobs(ctx: &Library) -> Result<(), prisma_client_rust::QueryError> {
 		ctx.db.job().delete_many(vec![]).exec().await?;
 
 		invalidate_query!(ctx, "jobs.getHistory");
@@ -192,7 +190,7 @@ impl JobManager {
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, ctx: &LibraryContext) -> Result<(), JobError> {
+	pub async fn resume_jobs(self: Arc<Self>, ctx: &Library) -> Result<(), JobError> {
 		let paused_jobs = ctx
 			.db
 			.job()
@@ -261,7 +259,7 @@ impl JobManager {
 		Ok(())
 	}
 
-	async fn dispatch_job(self: Arc<Self>, ctx: &LibraryContext, mut job: Box<dyn DynJob>) {
+	async fn dispatch_job(self: Arc<Self>, ctx: &Library, mut job: Box<dyn DynJob>) {
 		// create worker to process job
 		let mut running_workers = self.running_workers.write().await;
 		if running_workers.len() < MAX_WORKERS {
@@ -377,7 +375,7 @@ impl JobReport {
 		}
 	}
 
-	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+	pub async fn create(&self, ctx: &Library) -> Result<(), JobError> {
 		ctx.db
 			.job()
 			.create(
@@ -391,7 +389,7 @@ impl JobReport {
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+	pub async fn update(&self, ctx: &Library) -> Result<(), JobError> {
 		ctx.db
 			.job()
 			.update(
