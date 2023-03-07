@@ -8,6 +8,12 @@ import { useDebugState, useTelemetryState } from '../stores';
  */
 const Version = '0.1.0';
 
+/**
+ * Possible Platform types that can be sourced from `usePlatform().platform` or even hardcoded.
+ *
+ * @remarks
+ * The `tauri` platform is renamed to `desktop` for analytic purposes.
+ */
 type PlatformType = 'web' | 'mobile' | 'tauri';
 
 const Domain = 'app.spacedrive.com';
@@ -184,8 +190,9 @@ const submitPlausibleEvent = async (props: SubmitEventProps) => {
 		event.type,
 		{
 			props: {
-				app: props.platformType == 'tauri' ? 'desktop' : props.platformType,
-				version: Version
+				platform: props.platformType == 'tauri' ? 'desktop' : props.platformType,
+				version: Version,
+				debug: props.debug
 			},
 			...props.onSuccess
 		},
