@@ -6,7 +6,7 @@ export interface DebugState {
 	rspcLogger: boolean;
 	reactQueryDevtools: 'enabled' | 'disabled' | 'invisible';
 	shareTelemetry: boolean; // used for sending telemetry even if the app is in debug mode, and ONLY if client settings also allow telemetry sharing
-	telemetryLogger: boolean;
+	telemetryLogging: boolean;
 }
 
 export const debugState: DebugState = valtioPersist('sd-debugState', {
@@ -14,7 +14,7 @@ export const debugState: DebugState = valtioPersist('sd-debugState', {
 	rspcLogger: false,
 	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
 	shareTelemetry: false,
-	telemetryLogger: false
+	telemetryLogging: false
 });
 
 export function useDebugState() {

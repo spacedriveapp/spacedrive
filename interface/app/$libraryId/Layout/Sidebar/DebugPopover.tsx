@@ -41,8 +41,8 @@ export default () => {
 						onClick={() => {
 							// if debug telemetry sharing is about to be disabled, but telemetry logging is enabled
 							// then disable it
-							if (!debugState.shareTelemetry === false && debugState.telemetryLogger)
-								getDebugState().telemetryLogger = false;
+							if (!debugState.shareTelemetry === false && debugState.telemetryLogging)
+								getDebugState().telemetryLogging = false;
 							getDebugState().shareTelemetry = !debugState.shareTelemetry;
 						}}
 					/>
@@ -53,13 +53,13 @@ export default () => {
 					description="Enable the telemetry logger so you can see what's going on in the browser logs"
 				>
 					<Switch
-						checked={debugState.telemetryLogger}
+						checked={debugState.telemetryLogging}
 						onClick={() => {
 							// if telemetry logging is about to be enabled, but debug telemetry sharing is disabled
 							// then enable it
-							if (!debugState.telemetryLogger && debugState.shareTelemetry === false)
+							if (!debugState.telemetryLogging && debugState.shareTelemetry === false)
 								getDebugState().shareTelemetry = true;
-							getDebugState().telemetryLogger = !debugState.telemetryLogger;
+							getDebugState().telemetryLogging = !debugState.telemetryLogging;
 						}}
 					/>
 				</Setting>

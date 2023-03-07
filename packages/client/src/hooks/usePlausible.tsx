@@ -155,7 +155,7 @@ interface SubmitEventProps {
 	debugState: {
 		enabled: boolean;
 		shareTelemetry: boolean;
-		telemetryLogger: boolean;
+		telemetryLogging: boolean;
 	};
 }
 
@@ -202,7 +202,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			// referrer: '', // TODO(brxken128): see if we could have this blank to prevent accidental IP logging
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
 		},
-		callback: debugState.telemetryLogger
+		callback: debugState.telemetryLogging
 			? () => {
 					const { callback: _, ...event } = fullEvent;
 					console.log(event);
