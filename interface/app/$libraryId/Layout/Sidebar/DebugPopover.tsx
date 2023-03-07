@@ -24,7 +24,7 @@ export default () => {
 				<Setting
 					mini
 					title="rspc Logger"
-					description="Enable the logger link so you can see what's going on in the browser logs."
+					description="Enable the RSPC logger so you can see what's going on in the browser logs."
 				>
 					<Switch
 						checked={debugState.rspcLogger}
@@ -33,12 +33,34 @@ export default () => {
 				</Setting>
 				<Setting
 					mini
-					title="Send telemetry"
-					description="Send telemetry, even in debug mode (telemetry sharing must also be enabled in your client settings)"
+					title="Share telemetry"
+					description="Share telemetry, even in debug mode (telemetry sharing must also be enabled in your client settings)"
 				>
 					<Switch
 						checked={debugState.shareTelemetry}
-						onClick={() => (getDebugState().shareTelemetry = !debugState.shareTelemetry)}
+						onClick={() => {
+							// if debug telemetry sharing is about to be disabled, but telemetry logging is enabled
+							// then disable it
+							if (!debugState.shareTelemetry === false && debugState.telemetryLogger)
+								getDebugState().telemetryLogger = false;
+							getDebugState().shareTelemetry = !debugState.shareTelemetry;
+						}}
+					/>
+				</Setting>
+				<Setting
+					mini
+					title="Telemetry logger"
+					description="Enable the telemetry logger so you can see what's going on in the browser logs"
+				>
+					<Switch
+						checked={debugState.telemetryLogger}
+						onClick={() => {
+							// if telemetry logging is about to be enabled, but debug telemetry sharing is disabled
+							// then enable it
+							if (!debugState.telemetryLogger && debugState.shareTelemetry === false)
+								getDebugState().shareTelemetry = true;
+							getDebugState().telemetryLogger = !debugState.telemetryLogger;
+						}}
 					/>
 				</Setting>
 				{platform.openPath && (

@@ -1,6 +1,6 @@
 import Plausible from 'plausible-tracker';
 import { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useDebugState, useTelemetryState } from '../stores';
 
 /**
@@ -109,6 +109,22 @@ type PlausibleEvent =
 	| TagDeleteEvent
 	| TagAssignEvent;
 
+/**
+ * An event information wrapper for internal use only.
+ *
+ * It means that events can both be logged to the console (if enabled) and submitted to Plausible with ease.
+ */
+interface PlausibleTrackerEvent {
+	eventName: string;
+	props: {
+		platform: 'web' | 'desktop' | 'mobile';
+		version: string;
+		debug: boolean;
+	};
+	options: PlausibleTrackerOptions;
+	callback?: () => void;
+}
+
 interface SubmitEventProps {
 	/**
 	 * The Plausible event to submit.
@@ -139,11 +155,8 @@ interface SubmitEventProps {
 	debugState: {
 		enabled: boolean;
 		shareTelemetry: boolean;
+		telemetryLogger: boolean;
 	};
-	/**
-	 * A function to be executed if/when the event has been successfully submitted.
-	 */
-	onSuccess?: () => void;
 }
 
 /**
@@ -169,7 +182,7 @@ interface SubmitEventProps {
  * @see {@link https://plausible-tracker.netlify.app/#tracking-custom-events-and-goals Tracking custom events}
  */
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
-	if (debugState.enabled === true && debugState.shareTelemetry !== true) return;
+	if (debugState.enabled && debugState.shareTelemetry !== true) return;
 	if (
 		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
 			? event.plausibleOptions.telemetryOverride !== true
@@ -177,30 +190,32 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 	)
 		return;
 
-	let additionalOptions = undefined;
-
-	// this removes `telemetryOverride` from our event if it's present (artifact of generics)
-	if ('plausibleOptions' in event && !('telemetryOverride' in event.plausibleOptions)) {
-		additionalOptions = event.plausibleOptions;
-	} else if ('plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions) {
-		const { telemetryOverride, ...options } = event.plausibleOptions;
-		additionalOptions = options;
-	}
+	const fullEvent: PlausibleTrackerEvent = {
+		eventName: event.type,
+		props: {
+			platform: props.platformType === 'tauri' ? 'desktop' : props.platformType,
+			version: Version,
+			debug: debugState.enabled
+		},
+		options: {
+			deviceWidth: props.screenWidth ?? window.screen.width,
+			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
+		},
+		callback: debugState.telemetryLogger
+			? () => {
+					const { callback: _, ...event } = fullEvent;
+					console.log(event);
+			  }
+			: undefined
+	};
 
 	PlausibleProvider.trackEvent(
-		event.type,
+		fullEvent.eventName,
 		{
-			props: {
-				platform: props.platformType == 'tauri' ? 'desktop' : props.platformType,
-				version: Version,
-				debug: debugState.enabled
-			},
-			...props.onSuccess
+			...fullEvent.props,
+			callback: fullEvent.callback
 		},
-		{
-			deviceWidth: props.screenWidth ?? window.screen.width,
-			...additionalOptions
-		}
+		fullEvent.options
 	);
 };
 
@@ -260,9 +275,13 @@ interface EventSubmissionCallbackProps {
 export const usePlausibleEvent = ({ platformType }: UsePlausibleEventProps) => {
 	const debugState = useDebugState();
 	const shareTelemetry = useTelemetryState().shareTelemetry;
+	const previousEvent = useRef({} as BasePlausibleEvent<string>);
 
 	return useCallback(
 		async (props: EventSubmissionCallbackProps) => {
+			if (previousEvent.current === props.event) return;
+			else previousEvent.current = props.event;
+
 			submitPlausibleEvent({ debugState, shareTelemetry, platformType, ...props });
 		},
 		[debugState, platformType, shareTelemetry]
