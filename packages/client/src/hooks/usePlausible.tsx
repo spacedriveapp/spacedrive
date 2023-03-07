@@ -42,20 +42,20 @@ interface PlausibleOptions extends PlausibleTrackerOptions {
  * The base Plausible event, that all other events must be derived
  * from in an effort to keep things type-safe.
  */
-type BasePlausibleEventWithOptions<T, O extends keyof PlausibleOptions> = {
+type BasePlausibleEventWithOption<T, O extends keyof PlausibleOptions> = {
 	type: T;
 	plausibleOptions: Required<{
 		[K in O]: PlausibleOptions[O];
 	}>;
 };
 
-type BasePlausibleEventWithoutOptions<T> = {
+type BasePlausibleEventWithoutOption<T> = {
 	type: T;
 };
 
 export type BasePlausibleEvent<T, O = void> = O extends keyof PlausibleOptions
-	? BasePlausibleEventWithOptions<T, O>
-	: BasePlausibleEventWithoutOptions<T>;
+	? BasePlausibleEventWithOption<T, O>
+	: BasePlausibleEventWithoutOption<T>;
 
 /**
  * The Plausible `pageview` event.
@@ -63,7 +63,7 @@ export type BasePlausibleEvent<T, O = void> = O extends keyof PlausibleOptions
  * **Do not use this directly. Instead, use the
  * {@link usePlausiblePageViewMonitor `usePlausiblePageViewMonitor`} hook**.
  */
-type PageViewEvent = BasePlausibleEventWithOptions<'pageview', 'url'>;
+type PageViewEvent = BasePlausibleEvent<'pageview', 'url'>;
 
 /**
  * The custom Plausible `libraryCreate` event.
