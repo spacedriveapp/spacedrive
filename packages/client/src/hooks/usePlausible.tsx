@@ -82,6 +82,7 @@ type LocationDeleteEvent = BasePlausibleEvent<'locationDelete'>;
 
 type TagCreateEvent = BasePlausibleEvent<'tagCreate'>;
 type TagDeleteEvent = BasePlausibleEvent<'tagDelete'>;
+type TagAssignEvent = BasePlausibleEvent<'tagAssign'>;
 
 /**
  * All union of available, ready-to-use events.
@@ -93,7 +94,8 @@ type PlausibleEvent =
 	| LocationCreateEvent
 	| LocationDeleteEvent
 	| TagCreateEvent
-	| TagDeleteEvent;
+	| TagDeleteEvent
+	| TagAssignEvent;
 
 interface SubmitEventProps {
 	/**
