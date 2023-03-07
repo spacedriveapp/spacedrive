@@ -1,4 +1,5 @@
 use crate::{
+	location::location_just_id,
 	prisma::{file_path, location, node, object, owned_operation, shared_operation, PrismaClient},
 	prisma_sync,
 };
@@ -207,7 +208,7 @@ impl SyncManager {
 							.db
 							.location()
 							.find_unique(location::pub_id::equals(id.location.pub_id))
-							.select(location::select!({ id }))
+							.select(location_just_id::select())
 							.exec()
 							.await?
 							.unwrap();

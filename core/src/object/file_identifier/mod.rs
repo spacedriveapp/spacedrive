@@ -1,7 +1,11 @@
 use crate::{
-	job::JobError,
+	invalidate_query,
+	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	library::LibraryContext,
-	object::cas::generate_cas_id,
+	location::file_path_helper::{
+		file_path_just_id, file_path_just_id_materialized_path_date_created, FilePathError,
+	},
+	object::{cas::generate_cas_id, object_just_pub_id_with_file_paths_just_id_cas_id},
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
 	sync::SyncManager,
@@ -12,6 +16,7 @@ use sd_sync::CRDTOperation;
 
 use futures::future::join_all;
 use int_enum::IntEnum;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
@@ -22,17 +27,19 @@ use tokio::{fs, io};
 use tracing::{error, info};
 use uuid::Uuid;
 
-pub mod full_identifier_job;
+pub mod file_identifier_job;
+pub mod shallow_file_identifier_job;
 
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
 
 #[derive(Error, Debug)]
-pub enum IdentifierJobError {
-	#[error("Location not found: <id = '{0}'>")]
-	MissingLocation(i32),
-	#[error("Root file path not found: <path = '{0}'>")]
-	MissingRootFilePath(PathBuf),
+pub enum FileIdentifierJobError {
+	#[error("File path related error (error: {0})")]
+	FilePathError(#[from] FilePathError),
+
+	#[error("Missing file_paths for a location")]
+	MissingFilePaths,
 }
 
 #[derive(Debug, Clone)]
@@ -75,10 +82,31 @@ impl FileMetadata {
 	}
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct FilePathIdAndLocationIdCursor {
+	file_path_id: i32,
+	location_id: i32,
+}
+
+impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
+	fn from(cursor: &FilePathIdAndLocationIdCursor) -> Self {
+		file_path::location_id_id(cursor.location_id, cursor.file_path_id)
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct FileIdentifierReport {
+	location_path: PathBuf,
+	total_orphan_paths: usize,
+	total_objects_created: usize,
+	total_objects_linked: usize,
+	total_objects_ignored: usize,
+}
+
 async fn identifier_job_step(
 	LibraryContext { db, sync, .. }: &LibraryContext,
 	location: &location::Data,
-	file_paths: &[file_path::Data],
+	file_paths: &[file_path_just_id_materialized_path_date_created::Data],
 ) -> Result<(usize, usize), JobError> {
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
 		FileMetadata::new(&location.path, &file_path.materialized_path)
@@ -89,7 +117,7 @@ async fn identifier_job_step(
 	.into_iter()
 	.flat_map(|data| {
 		if let Err(e) = &data {
-			error!("Error assembling Object metadata: {:#?}", e);
+			error!("Error assembling Object metadata: {e}");
 		}
 
 		data
@@ -135,10 +163,7 @@ async fn identifier_job_step(
 		.find_many(vec![object::file_paths::some(vec![
 			file_path::cas_id::in_vec(unique_cas_ids),
 		])])
-		.select(object::select!({
-			pub_id
-			file_paths: select { id cas_id }
-		}))
+		.select(object_just_pub_id_with_file_paths_just_id_cas_id::select())
 		.exec()
 		.await?;
 
@@ -277,8 +302,6 @@ async fn identifier_job_step(
 	Ok((total_created, updated_file_paths.len()))
 }
 
-file_path::select!(file_path_only_id { id });
-
 fn file_path_object_connect_ops<'db>(
 	file_path_id: i32,
 	object_id: Uuid,
@@ -287,7 +310,7 @@ fn file_path_object_connect_ops<'db>(
 	db: &'db PrismaClient,
 ) -> (
 	CRDTOperation,
-	prisma_client_rust::Select<'db, file_path_only_id::Data>,
+	prisma_client_rust::Select<'db, file_path_just_id::Data>,
 ) {
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
@@ -308,6 +331,63 @@ fn file_path_object_connect_ops<'db>(
 					object_id.as_bytes().to_vec(),
 				))],
 			)
-			.select(file_path_only_id::select()),
+			.select(file_path_just_id::select()),
 	)
+}
+
+async fn process_identifier_file_paths(
+	job_name: &str,
+	location: &location::Data,
+	file_paths: &[file_path_just_id_materialized_path_date_created::Data],
+	step_number: usize,
+	cursor: &mut FilePathIdAndLocationIdCursor,
+	report: &mut FileIdentifierReport,
+	ctx: WorkerContext,
+) -> Result<(), JobError> {
+	// if no file paths found, abort entire job early, there is nothing to do
+	// if we hit this error, there is something wrong with the data/query
+	if file_paths.is_empty() {
+		return Err(JobError::EarlyFinish {
+			name: job_name.to_string(),
+			reason: "Expected orphan Paths not returned from database query for this chunk"
+				.to_string(),
+		});
+	}
+
+	info!(
+		"Processing {:?} orphan Paths. ({} completed of {})",
+		file_paths.len(),
+		step_number,
+		report.total_orphan_paths
+	);
+
+	let (total_objects_created, total_objects_linked) =
+		identifier_job_step(&ctx.library_ctx, location, file_paths).await?;
+
+	report.total_objects_created += total_objects_created;
+	report.total_objects_linked += total_objects_linked;
+
+	// set the step data cursor to the last row of this chunk
+	if let Some(last_row) = file_paths.last() {
+		cursor.file_path_id = last_row.id;
+	}
+
+	ctx.progress(vec![
+		JobReportUpdate::CompletedTaskCount(step_number),
+		JobReportUpdate::Message(format!(
+			"Processed {} of {} orphan Paths",
+			step_number * CHUNK_SIZE,
+			report.total_orphan_paths
+		)),
+	]);
+
+	Ok(())
+}
+
+fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -> JobResult {
+	info!("Finalizing identifier job: {report:#?}");
+
+	invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+
+	Ok(Some(serde_json::to_value(report)?))
 }

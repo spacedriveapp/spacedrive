@@ -3,6 +3,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
+	location::file_path_helper::file_path_just_id,
 	prisma::{file_path, location},
 };
 
@@ -109,7 +110,7 @@ impl StatefulJob for ThumbnailJob {
 				}),
 				file_path::is_dir::equals(true),
 			])
-			.select(file_path::select!({ id }))
+			.select(file_path_just_id::select())
 			.exec()
 			.await?
 			.ok_or_else(|| ThumbnailError::MissingRootFilePath(state.init.root_path.clone()))?

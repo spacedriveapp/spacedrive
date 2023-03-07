@@ -7,13 +7,18 @@ use crate::{
 		shallow_indexer_job::{ShallowIndexerJob, SHALLOW_INDEXER_JOB_NAME},
 	},
 	object::{
+		file_identifier::{
+			file_identifier_job::{FileIdentifierJob, FILE_IDENTIFIER_JOB_NAME},
+			shallow_file_identifier_job::{
+				ShallowFileIdentifierJob, SHALLOW_FILE_IDENTIFIER_JOB_NAME,
+			},
+		},
 		fs::{
 			copy::{FileCopierJob, COPY_JOB_NAME},
 			cut::{FileCutterJob, CUT_JOB_NAME},
 			delete::{FileDeleterJob, DELETE_JOB_NAME},
 			erase::{FileEraserJob, ERASE_JOB_NAME},
 		},
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FULL_IDENTIFIER_JOB_NAME},
 		preview::{ThumbnailJob, THUMBNAIL_JOB_NAME},
 		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
 	},
@@ -223,9 +228,14 @@ impl JobManager {
 						.dispatch_job(ctx, Job::resume(paused_job, ShallowIndexerJob {})?)
 						.await;
 				}
-				FULL_IDENTIFIER_JOB_NAME => {
+				FILE_IDENTIFIER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FullFileIdentifierJob {})?)
+						.dispatch_job(ctx, Job::resume(paused_job, FileIdentifierJob {})?)
+						.await;
+				}
+				SHALLOW_FILE_IDENTIFIER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, ShallowFileIdentifierJob {})?)
 						.await;
 				}
 				VALIDATOR_JOB_NAME => {

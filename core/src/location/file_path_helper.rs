@@ -1,6 +1,6 @@
 use crate::prisma::{
 	file_path::{self, FindMany},
-	PrismaClient,
+	location, PrismaClient,
 };
 
 use std::path::{Path, PathBuf};
@@ -13,9 +13,31 @@ use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
 
-use super::{indexer::indexer_job_location, LocationId};
+use super::{location_with_indexer_rules, LocationId};
 
-file_path::select!(file_path_id_only { id });
+// File Path selectables!
+file_path::select!(file_path_just_id { id });
+file_path::select!(file_path_just_id_materialized_path {
+	id
+	materialized_path
+});
+file_path::select!(file_path_just_id_materialized_path_date_created {
+	id
+	materialized_path
+	date_created
+});
+file_path::select!(file_path_just_object_id { object_id });
+file_path::select!(file_path_just_id_materialized_path_integrity_checksum_with_location_just_id_pub_id {
+	id
+	materialized_path
+	integrity_checksum
+	location: select {
+		id
+		pub_id
+	}
+});
+
+// File Path includes!
 file_path::include!(file_path_with_object { object });
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -71,20 +93,59 @@ impl MaterializedPath {
 			materialized_path,
 			is_dir,
 			location_id,
-			name: full_path
-				.file_name()
-				.unwrap_or_default()
-				.to_str()
-				.unwrap_or_default()
-				.to_string(),
+			name: Self::prepare_name(full_path),
 			extension,
 		})
+	}
+
+	pub fn location_id(&self) -> LocationId {
+		self.location_id
+	}
+
+	fn prepare_name(path: &Path) -> String {
+		// Not using `impl AsRef<Path>` here because it's an private method
+		path.file_name()
+			.unwrap_or_default()
+			.to_str()
+			.unwrap_or_default()
+			.to_string()
+	}
+
+	pub fn parent(&self) -> Self {
+		let parent_path = Path::new(&self.materialized_path)
+			.parent()
+			.unwrap_or_else(|| Path::new("/"));
+
+		let mut parent_path_str = parent_path
+			.to_str()
+			.unwrap() // SAFETY: This unwrap is ok because this path was a valid UTF-8 String before
+			.to_string();
+
+		if !parent_path_str.ends_with('/') {
+			parent_path_str += "/";
+		}
+
+		Self {
+			materialized_path: parent_path_str,
+			is_dir: true,
+			location_id: self.location_id,
+			// NOTE: This way we don't use the same name for "/" `file_path`, that uses the location
+			// name in the database, check later if this is a problem
+			name: Self::prepare_name(parent_path),
+			extension: String::new(),
+		}
 	}
 }
 
 impl From<MaterializedPath> for String {
 	fn from(path: MaterializedPath) -> Self {
 		path.materialized_path
+	}
+}
+
+impl From<&MaterializedPath> for String {
+	fn from(path: &MaterializedPath) -> Self {
+		path.materialized_path.clone()
 	}
 }
 
@@ -96,6 +157,18 @@ impl AsRef<str> for MaterializedPath {
 
 #[derive(Error, Debug)]
 pub enum FilePathError {
+	#[error("Received an invalid sub path: <location_path={location_path}, sub_path={sub_path}>")]
+	InvalidSubPath {
+		location_path: PathBuf,
+		sub_path: PathBuf,
+	},
+	#[error("Sub path is not a directory: {0}")]
+	SubPathNotDirectory(PathBuf),
+	#[error("The parent directory of the received sub path isn't indexed in the location: <id={location_id}, sub_path={sub_path}>")]
+	SubPathParentNotInLocation {
+		location_id: LocationId,
+		sub_path: PathBuf,
+	},
 	#[error("Unable to extract materialized path from location: <id='{0}', path='{1:?}'>")]
 	UnableToExtractMaterializedPath(LocationId, PathBuf),
 	#[error("Database error (error: {0:?})")]
@@ -151,7 +224,7 @@ impl LastFilePathIdManager {
 			.file_path()
 			.find_first(vec![file_path::location_id::equals(location_id)])
 			.order_by(file_path::id::order(Direction::Desc))
-			.select(file_path_id_only::select())
+			.select(file_path_just_id::select())
 			.exec()
 			.await?
 			.map(|r| r.id)
@@ -171,8 +244,6 @@ impl LastFilePathIdManager {
 		}: MaterializedPath,
 		parent_id: Option<i32>,
 	) -> Result<file_path::Data, FilePathError> {
-		use crate::prisma::location;
-
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
 			Entry::Occupied(ocupied) => ocupied.into_ref(),
@@ -236,7 +307,7 @@ pub fn extract_materialized_path(
 }
 
 pub async fn find_many_file_paths_by_full_path<'db>(
-	location: &indexer_job_location::Data,
+	location: &location::Data,
 	full_paths: &[impl AsRef<Path>],
 	db: &'db PrismaClient,
 ) -> Result<FindMany<'db>, FilePathError> {
@@ -262,14 +333,42 @@ pub async fn find_many_file_paths_by_full_path<'db>(
 	]))
 }
 
+pub async fn get_existing_file_path_id(
+	materialized_path: MaterializedPath,
+	db: &PrismaClient,
+) -> Result<Option<i32>, FilePathError> {
+	db.file_path()
+		.find_first(vec![
+			file_path::location_id::equals(materialized_path.location_id),
+			file_path::materialized_path::equals(materialized_path.into()),
+		])
+		.select(file_path_just_id::select())
+		.exec()
+		.await
+		.map_or_else(|e| Err(e.into()), |r| Ok(r.map(|r| r.id)))
+}
+
 pub async fn get_existing_file_path(
-	location_id: LocationId,
+	materialized_path: MaterializedPath,
+	db: &PrismaClient,
+) -> Result<Option<file_path::Data>, FilePathError> {
+	db.file_path()
+		.find_first(vec![
+			file_path::location_id::equals(materialized_path.location_id),
+			file_path::materialized_path::equals(materialized_path.into()),
+		])
+		.exec()
+		.await
+		.map_err(Into::into)
+}
+
+pub async fn get_existing_file_path_with_object(
 	materialized_path: MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
 	db.file_path()
 		.find_first(vec![
-			file_path::location_id::equals(location_id),
+			file_path::location_id::equals(materialized_path.location_id),
 			file_path::materialized_path::equals(materialized_path.into()),
 		])
 		// include object for orphan check
@@ -281,20 +380,18 @@ pub async fn get_existing_file_path(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_or_directory(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
 	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
-	let mut maybe_file_path = get_existing_file_path(
-		location.id,
+	let mut maybe_file_path = get_existing_file_path_with_object(
 		MaterializedPath::new(location.id, &location.path, path.as_ref(), false)?,
 		db,
 	)
 	.await?;
 	// First we just check if this path was a file in our db, if it isn't then we check for a directory
 	if maybe_file_path.is_none() {
-		maybe_file_path = get_existing_file_path(
-			location.id,
+		maybe_file_path = get_existing_file_path_with_object(
 			MaterializedPath::new(location.id, &location.path, path.as_ref(), true)?,
 			db,
 		)
@@ -306,30 +403,69 @@ pub async fn get_existing_file_or_directory(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
-	location_id: LocationId,
-	path: impl AsRef<Path>,
+	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
-	let mut parent_path_str = path
-		.as_ref()
-		.parent()
-		// We have an "/" `materialized_path` for each location_id
-		.unwrap_or_else(|| Path::new("/"))
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
+	get_existing_file_path(materialized_path.parent(), db).await
+}
 
-	// As we're looking specifically for a parent directory, it must end with '/'
-	if !parent_path_str.ends_with('/') {
-		parent_path_str += "/";
+pub async fn ensure_sub_path_is_in_location(
+	location_path: impl AsRef<Path>,
+	sub_path: impl AsRef<Path>,
+) -> Result<PathBuf, FilePathError> {
+	let sub_path = sub_path.as_ref();
+	let location_path = location_path.as_ref();
+
+	if !sub_path.starts_with(location_path) {
+		// If the sub_path doesn't start with the location_path, we have to check if it's a
+		// materialized path received from the frontend, then we check if the full path exists
+		let full_path = location_path.join(sub_path);
+		match fs::metadata(&full_path).await {
+			Ok(_) => Ok(full_path),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Err(FilePathError::InvalidSubPath {
+				sub_path: sub_path.to_path_buf(),
+				location_path: location_path.to_path_buf(),
+			}),
+			Err(e) => Err(e.into()),
+		}
+	} else {
+		Ok(sub_path.to_path_buf())
 	}
+}
 
-	db.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::equals(parent_path_str),
-		])
-		.exec()
-		.await
-		.map_err(Into::into)
+pub async fn ensure_sub_path_is_directory(
+	location_path: impl AsRef<Path>,
+	sub_path: impl AsRef<Path>,
+) -> Result<(), FilePathError> {
+	let sub_path = sub_path.as_ref();
+	let location_path = location_path.as_ref();
+
+	match fs::metadata(sub_path).await {
+		Ok(meta) => {
+			if meta.is_file() {
+				Err(FilePathError::SubPathNotDirectory(sub_path.to_path_buf()))
+			} else {
+				Ok(())
+			}
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			match fs::metadata(location_path.join(sub_path)).await {
+				Ok(meta) => {
+					if meta.is_file() {
+						Err(FilePathError::SubPathNotDirectory(sub_path.to_path_buf()))
+					} else {
+						Ok(())
+					}
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					Err(FilePathError::InvalidSubPath {
+						sub_path: sub_path.to_path_buf(),
+						location_path: location_path.to_path_buf(),
+					})
+				}
+				Err(e) => Err(e.into()),
+			}
+		}
+		Err(e) => Err(e.into()),
+	}
 }

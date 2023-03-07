@@ -5,13 +5,14 @@ use crate::{
 		delete_directory,
 		file_path_helper::{
 			extract_materialized_path, file_path_with_object, get_existing_file_or_directory,
-			get_existing_file_path, get_parent_dir, MaterializedPath,
+			get_existing_file_path_with_object, get_parent_dir, MaterializedPath,
 		},
-		indexer::indexer_job_location,
+		location_with_indexer_rules,
 		manager::LocationManagerError,
 	},
 	object::{
-		identifier_job::FileMetadata,
+		file_identifier::FileMetadata,
+		object_just_id_has_thumbnail,
 		preview::{
 			can_generate_thumbnail_for_image, generate_image_thumbnail, THUMBNAIL_CACHE_DIR_NAME,
 		},
@@ -47,7 +48,7 @@ pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> boo
 }
 
 pub(super) async fn create_dir(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -64,8 +65,7 @@ pub(super) async fn create_dir(
 	let materialized_path =
 		MaterializedPath::new(location.id, &location.path, &event.paths[0], true)?;
 
-	let parent_directory =
-		get_parent_dir(location.id, materialized_path.as_ref(), &library_ctx.db).await?;
+	let parent_directory = get_parent_dir(&materialized_path, &library_ctx.db).await?;
 
 	trace!("parent_directory: {:?}", parent_directory);
 
@@ -91,7 +91,7 @@ pub(super) async fn create_dir(
 }
 
 pub(super) async fn create_file(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -112,7 +112,7 @@ pub(super) async fn create_file(
 	let materialized_path = MaterializedPath::new(location.id, &location.path, full_path, false)?;
 
 	let Some(parent_directory) =
-		get_parent_dir(location.id, materialized_path.as_ref(), &library_ctx.db).await?
+		get_parent_dir(&materialized_path, &library_ctx.db).await?
     else {
 		warn!("Watcher found a path without parent");
         return Ok(())
@@ -144,8 +144,6 @@ pub(super) async fn create_file(
 		.exec()
 		.await?;
 
-	object::select!(object_id { id has_thumbnail });
-
 	let size_str = fs_metadata.len().to_string();
 
 	let object = if let Some(object) = existing_object {
@@ -159,7 +157,7 @@ pub(super) async fn create_file(
 					),
 				],
 			)
-			.select(object_id::select())
+			.select(object_just_id_has_thumbnail::select())
 			.exec()
 			.await?
 	} else {
@@ -174,7 +172,7 @@ pub(super) async fn create_file(
 					object::size_in_bytes::set(size_str.clone()),
 				],
 			)
-			.select(object_id::select())
+			.select(object_just_id_has_thumbnail::select())
 			.exec()
 			.await?
 	};
@@ -204,12 +202,11 @@ pub(super) async fn create_file(
 }
 
 pub(super) async fn file_creation_or_update(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref file_path) = get_existing_file_path(
-		location.id,
+	if let Some(ref file_path) = get_existing_file_path_with_object(
 		MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
 		&library_ctx.db,
 	)
@@ -223,13 +220,12 @@ pub(super) async fn file_creation_or_update(
 }
 
 pub(super) async fn update_file(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library_ctx.node_local_id {
-		if let Some(ref file_path) = get_existing_file_path(
-			location.id,
+		if let Some(ref file_path) = get_existing_file_path_with_object(
 			MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
 			&library_ctx.db,
 		)
@@ -249,7 +245,7 @@ pub(super) async fn update_file(
 }
 
 async fn inner_update_file(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	file_path: &file_path_with_object::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
@@ -315,7 +311,7 @@ async fn inner_update_file(
 }
 
 pub(super) async fn rename_both_event(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
@@ -325,7 +321,7 @@ pub(super) async fn rename_both_event(
 pub(super) async fn rename(
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	let mut old_path_materialized =
@@ -404,7 +400,7 @@ pub(super) async fn rename(
 }
 
 pub(super) async fn remove_event(
-	location: &indexer_job_location::Data,
+	location: &location_with_indexer_rules::Data,
 	event: &Event,
 	remove_kind: RemoveKind,
 	library_ctx: &LibraryContext,

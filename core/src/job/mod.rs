@@ -1,6 +1,6 @@
 use crate::{
 	location::{indexer::IndexerError, LocationError, LocationManagerError},
-	object::{identifier_job::IdentifierJobError, preview::ThumbnailError},
+	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailError},
 };
 
 use std::{
@@ -60,7 +60,7 @@ pub enum JobError {
 	#[error("Thumbnail error: {0}")]
 	ThumbnailError(#[from] ThumbnailError),
 	#[error("Identifier error: {0}")]
-	IdentifierError(#[from] IdentifierJobError),
+	IdentifierError(#[from] FileIdentifierJobError),
 	#[error("Crypto error: {0}")]
 	CryptoError(#[from] CryptoError),
 

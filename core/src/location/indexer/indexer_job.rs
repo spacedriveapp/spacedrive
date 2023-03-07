@@ -1,8 +1,11 @@
 use crate::{
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
-		find_many_file_paths_by_full_path, get_existing_file_path, MaterializedPath,
+		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
+		get_existing_file_path_id, MaterializedPath,
 	},
+	prisma::location,
 };
 
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -13,8 +16,7 @@ use tokio::time::Instant;
 use tracing::error;
 
 use super::{
-	ensure_sub_path_is_directory, ensure_sub_path_is_in_location, execute_indexer_step,
-	file_path_id_and_materialized_path, finalize_indexer,
+	execute_indexer_step, finalize_indexer,
 	rules::{IndexerRule, RuleKind},
 	walk::walk,
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
@@ -47,11 +49,12 @@ impl StatefulJob for IndexerJob {
 			Arc::clone(&ctx.library_ctx.db),
 		);
 
+		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = last_file_path_id_manager
-			.get_max_file_path_id(state.init.location.id, &db)
+			.get_max_file_path_id(location_id, &db)
 			.await
 			.map_err(IndexerError::from)?
 			+ 1;
@@ -70,19 +73,16 @@ impl StatefulJob for IndexerJob {
 		let mut dirs_ids = HashMap::new();
 
 		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
-			let full_path =
-				ensure_sub_path_is_in_location(&state.init.location.path, sub_path).await?;
-			ensure_sub_path_is_directory(&state.init.location.path, sub_path).await?;
+			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
+				.await
+				.map_err(IndexerError::from)?;
+			ensure_sub_path_is_directory(location_path, sub_path)
+				.await
+				.map_err(IndexerError::from)?;
 
-			let sub_path_file_path = get_existing_file_path(
-				state.init.location.id,
-				MaterializedPath::new(
-					state.init.location.id,
-					&state.init.location.path,
-					&full_path,
-					true,
-				)
-				.map_err(IndexerError::from)?,
+			let sub_path_file_path_id = get_existing_file_path_id(
+				MaterializedPath::new(location_id, location_path, &full_path, true)
+					.map_err(IndexerError::from)?,
 				&db,
 			)
 			.await
@@ -90,7 +90,7 @@ impl StatefulJob for IndexerJob {
 			.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
+			dirs_ids.insert(full_path.clone(), sub_path_file_path_id);
 
 			full_path
 		} else {
@@ -118,7 +118,7 @@ impl StatefulJob for IndexerJob {
 
 		dirs_ids.extend(
 			find_many_file_paths_by_full_path(
-				&state.init.location,
+				&location::Data::from(&state.init.location),
 				&found_paths
 					.iter()
 					.map(|entry| &entry.path)
@@ -127,7 +127,7 @@ impl StatefulJob for IndexerJob {
 			)
 			.await
 			.map_err(IndexerError::from)?
-			.select(file_path_id_and_materialized_path::select())
+			.select(file_path_just_id_materialized_path::select())
 			.exec()
 			.await?
 			.into_iter()
@@ -143,7 +143,7 @@ impl StatefulJob for IndexerJob {
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(
-					state.init.location.id,
+					location_id,
 					&state.init.location.path,
 					&entry.path,
 					entry.is_dir,
@@ -179,7 +179,7 @@ impl StatefulJob for IndexerJob {
 
 		// Setting our global state for `file_path` ids
 		last_file_path_id_manager
-			.set_max_file_path_id(state.init.location.id, last_file_id)
+			.set_max_file_path_id(location_id, last_file_id)
 			.await;
 
 		new_paths

@@ -1,9 +1,8 @@
 use crate::{
 	location::{
-		delete_location, fetch_location,
-		indexer::{indexer_job_location, rules::IndexerRuleCreateArgs},
-		light_scan_location, relink_location, scan_location, LocationCreateArgs, LocationError,
-		LocationUpdateArgs,
+		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
+		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
+		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
@@ -79,8 +78,8 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, mut args: LocationExplorerArgs, library| async move {
-				let location = fetch_location(&library, args.location_id)
-					.include(indexer_job_location::include())
+				let location = find_location(&library, args.location_id)
+					.include(location_with_indexer_rules::include())
 					.exec()
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
@@ -185,8 +184,8 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 				// rescan location
 				scan_location(
 					&library,
-					fetch_location(&library, location_id)
-						.include(indexer_job_location::include())
+					find_location(&library, location_id)
+						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?
 						.ok_or(LocationError::IdNotFound(location_id))?,
@@ -203,8 +202,8 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, args: LightScanArgs, library| async move {
-				let location = fetch_location(&library, args.location_id)
-					.include(indexer_job_location::include())
+				let location = find_location(&library, args.location_id)
+					.include(location_with_indexer_rules::include())
 					.exec()
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;

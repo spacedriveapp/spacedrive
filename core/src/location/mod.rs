@@ -3,7 +3,7 @@ use crate::{
 	job::Job,
 	library::LibraryContext,
 	object::{
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
+		file_identifier::{file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit}, shallow_file_identifier_job::{ShallowFileIdentifierJobInit, ShallowFileIdentifierJob}},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
@@ -31,15 +31,24 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
+use file_path_helper::file_path_just_object_id;
 use indexer::{
 	indexer_job::IndexerJob,
 	shallow_indexer_job::{ShallowIndexerJob, ShallowIndexerJobInit},
-	{indexer_job_location, IndexerJobInit},
+	IndexerJobInit,
 };
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationId = i32;
+
+// Location selectables!
+location::select!(location_just_id { id });
+
+// Location includes!
+location::include!(location_with_indexer_rules {
+	indexer_rules: select { indexer_rule }
+});
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -54,7 +63,7 @@ impl LocationCreateArgs {
 	pub async fn create(
 		self,
 		ctx: &LibraryContext,
-	) -> Result<indexer_job_location::Data, LocationError> {
+	) -> Result<location_with_indexer_rules::Data, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -114,7 +123,7 @@ impl LocationCreateArgs {
 	pub async fn add_library(
 		self,
 		ctx: &LibraryContext,
-	) -> Result<indexer_job_location::Data, LocationError> {
+	) -> Result<location_with_indexer_rules::Data, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
@@ -170,7 +179,7 @@ pub struct LocationUpdateArgs {
 
 impl LocationUpdateArgs {
 	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
-		let location = fetch_location(ctx, self.id)
+		let location = find_location(ctx, self.id)
 			.include(location::include!({ indexer_rules }))
 			.exec()
 			.await?
@@ -245,7 +254,7 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
+pub fn find_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
 	ctx.db
 		.location()
 		.find_unique(location::id::equals(location_id))
@@ -272,18 +281,18 @@ async fn link_location_and_indexer_rules(
 
 pub async fn scan_location(
 	ctx: &LibraryContext,
-	location: indexer_job_location::Data,
+	location: location_with_indexer_rules::Data,
 ) -> Result<(), LocationError> {
 	if location.node_id != ctx.node_local_id {
 		return Ok(());
 	}
 
 	ctx.queue_job(Job::new(
-		FullFileIdentifierJobInit {
-			location_id: location.id,
+		FileIdentifierJobInit {
+			location: location::Data::from(&location),
 			sub_path: None,
 		},
-		FullFileIdentifierJob {},
+		FileIdentifierJob {},
 	))
 	.await;
 
@@ -312,7 +321,7 @@ pub async fn scan_location(
 #[allow(dead_code)]
 pub async fn scan_location_sub_path(
 	ctx: &LibraryContext,
-	location: indexer_job_location::Data,
+	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
@@ -321,11 +330,11 @@ pub async fn scan_location_sub_path(
 	}
 
 	ctx.queue_job(Job::new(
-		FullFileIdentifierJobInit {
-			location_id: location.id,
+		FileIdentifierJobInit {
+			location: location::Data::from(&location),
 			sub_path: Some(sub_path.clone()),
 		},
-		FullFileIdentifierJob {},
+		FileIdentifierJob {},
 	))
 	.await;
 
@@ -353,7 +362,7 @@ pub async fn scan_location_sub_path(
 
 pub async fn light_scan_location(
 	ctx: &LibraryContext,
-	location: indexer_job_location::Data,
+	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
@@ -361,14 +370,14 @@ pub async fn light_scan_location(
 		return Ok(());
 	}
 
-	// ctx.queue_job(Job::new(
-	// 	FullFileIdentifierJobInit {
-	// 		location_id: location.id,
-	// 		sub_path: sub_path.clone(),
-	// 	},
-	// 	FullFileIdentifierJob {},
-	// ))
-	// .await;
+	ctx.queue_job(Job::new(
+		ShallowFileIdentifierJobInit {
+			location: location::Data::from(&location),
+			sub_path: sub_path.clone(),
+		},
+		ShallowFileIdentifierJob {},
+	))
+	.await;
 
 	// ctx.queue_job(Job::new(
 	// 	ThumbnailJobInit {
@@ -422,7 +431,7 @@ async fn create_location(
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
-) -> Result<indexer_job_location::Data, LocationError> {
+) -> Result<location_with_indexer_rules::Data, LocationError> {
 	let LibraryContext { db, sync, .. } = &ctx;
 
 	let location_path = location_path.as_ref();
@@ -459,7 +468,7 @@ async fn create_location(
 					node::id::equals(ctx.node_local_id),
 					vec![],
 				)
-				.include(indexer_job_location::include()),
+				.include(location_with_indexer_rules::include()),
 		)
 		.await?;
 
@@ -470,8 +479,8 @@ async fn create_location(
 	}
 
 	// Updating our location variable to include information about the indexer rules
-	let location = fetch_location(ctx, location.id)
-		.include(indexer_job_location::include())
+	let location = find_location(ctx, location.id)
+		.include(location_with_indexer_rules::include())
 		.exec()
 		.await?
 		.ok_or(LocationError::IdNotFound(location.id))?;
@@ -517,8 +526,6 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 	Ok(())
 }
 
-file_path::select!(file_path_object_id_only { object_id });
-
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
@@ -540,7 +547,7 @@ pub async fn delete_directory(
 		.db
 		.file_path()
 		.find_many(children_params.clone())
-		.select(file_path_object_id_only::select())
+		.select(file_path_just_object_id::select())
 		.exec()
 		.await?
 		.into_iter()
@@ -569,6 +576,50 @@ pub async fn delete_directory(
 	invalidate_query!(ctx, "locations.getExplorerData");
 
 	Ok(())
+}
+
+impl From<location_with_indexer_rules::Data> for location::Data {
+	fn from(data: location_with_indexer_rules::Data) -> Self {
+		Self {
+			id: data.id,
+			pub_id: data.pub_id,
+			path: data.path,
+			node_id: data.node_id,
+			name: data.name,
+			total_capacity: data.total_capacity,
+			available_capacity: data.available_capacity,
+			is_archived: data.is_archived,
+			generate_preview_media: data.generate_preview_media,
+			sync_preview_media: data.sync_preview_media,
+			hidden: data.hidden,
+			date_created: data.date_created,
+			node: None,
+			file_paths: None,
+			indexer_rules: None,
+		}
+	}
+}
+
+impl From<&location_with_indexer_rules::Data> for location::Data {
+	fn from(data: &location_with_indexer_rules::Data) -> Self {
+		Self {
+			id: data.id,
+			pub_id: data.pub_id.clone(),
+			path: data.path.clone(),
+			node_id: data.node_id,
+			name: data.name.clone(),
+			total_capacity: data.total_capacity,
+			available_capacity: data.available_capacity,
+			is_archived: data.is_archived,
+			generate_preview_media: data.generate_preview_media,
+			sync_preview_media: data.sync_preview_media,
+			hidden: data.hidden,
+			date_created: data.date_created,
+			node: None,
+			file_paths: None,
+			indexer_rules: None,
+		}
+	}
 }
 
 // check if a path exists in our database at that location

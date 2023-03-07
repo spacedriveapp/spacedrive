@@ -1,6 +1,6 @@
 use crate::{
 	library::LibraryContext,
-	location::{fetch_location, indexer::indexer_job_location, LocationId},
+	location::{find_location, location_with_indexer_rules, LocationId},
 	prisma::location,
 };
 
@@ -48,7 +48,7 @@ trait EventHandler {
 
 	async fn handle_event(
 		&mut self,
-		location: indexer_job_location::Data,
+		location: location_with_indexer_rules::Data,
 		library_ctx: &LibraryContext,
 		event: Event,
 	) -> Result<(), LocationManagerError>;
@@ -169,8 +169,8 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
-		let Some(location) = fetch_location(library_ctx, location_id)
-			.include(indexer_job_location::include())
+		let Some(location) = find_location(library_ctx, location_id)
+			.include(location_with_indexer_rules::include())
 			.exec()
 			.await?
 		else {
