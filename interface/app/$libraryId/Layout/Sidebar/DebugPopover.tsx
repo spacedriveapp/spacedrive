@@ -37,8 +37,8 @@ export default () => {
 					description="Send telemetry, even in debug mode (telemetry sharing must also be enabled in your client settings)"
 				>
 					<Switch
-						checked={debugState.sendTelemetry}
-						onClick={() => (getDebugState().sendTelemetry = !debugState.sendTelemetry)}
+						checked={debugState.shareTelemetry}
+						onClick={() => (getDebugState().shareTelemetry = !debugState.shareTelemetry)}
 					/>
 				</Setting>
 				{platform.openPath && (
