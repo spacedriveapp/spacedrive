@@ -3,12 +3,16 @@ import { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect } from 'react';
 import { useDebugState, useTelemetryState } from '../stores';
 
+/**
+ * This should be in sync with the Core's version.
+ */
 const Version = '0.1.0';
+
 type PlatformType = 'web' | 'mobile' | 'tauri';
 
 const Domain = 'app.spacedrive.com';
 
-const plausible = Plausible({
+const PlausibleProvider = Plausible({
 	trackLocalhost: true,
 	domain: Domain
 });
@@ -86,6 +90,8 @@ type TagAssignEvent = BasePlausibleEvent<'tagAssign'>;
 
 /**
  * All union of available, ready-to-use events.
+ *
+ * Every possible event must also be added as a "goal" in Plausible's settings (on their site) for the currently active {@link Domain domain}.
  */
 type PlausibleEvent =
 	| PageViewEvent
@@ -174,7 +180,7 @@ const submitPlausibleEvent = async (props: SubmitEventProps) => {
 		additionalOptions = options;
 	}
 
-	plausible.trackEvent(
+	PlausibleProvider.trackEvent(
 		event.type,
 		{
 			props: {

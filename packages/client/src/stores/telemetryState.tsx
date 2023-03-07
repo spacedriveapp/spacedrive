@@ -5,10 +5,10 @@ const telemetryState = valtioPersist('sd-telemetryState', {
 	shareTelemetry: null as boolean | null
 });
 
-export const useTelemetryState = () => {
+export function useTelemetryState() {
 	return useSnapshot(telemetryState);
-};
+}
 
-export const getTelemetryState = () => {
+export function getTelemetryState() {
 	return telemetryState;
-};
+}
