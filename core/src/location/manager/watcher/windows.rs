@@ -1,5 +1,5 @@
 use crate::{
-	library::LibraryContext,
+	library::Library,
 	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
 };
 
@@ -34,7 +34,7 @@ impl EventHandler for WindowsEventHandler {
 	async fn handle_event(
 		&mut self,
 		location: indexer_job_location::Data,
-		library_ctx: &LibraryContext,
+		library: &Library,
 		event: Event,
 	) -> Result<(), LocationManagerError> {
 		trace!("Received Windows event: {:#?}", event);
@@ -45,16 +45,16 @@ impl EventHandler for WindowsEventHandler {
 				if metadata.is_file() {
 					self.create_file_stack = Some(event);
 				} else {
-					create_dir(&location, &event, library_ctx).await?;
+					create_dir(&location, &event, library).await?;
 				}
 			}
 			EventKind::Modify(ModifyKind::Any) => {
 				let metadata = fs::metadata(&event.paths[0]).await?;
 				if metadata.is_file() {
 					if let Some(create_file_event) = self.create_file_stack.take() {
-						create_file(&location, &create_file_event, library_ctx).await?;
+						create_file(&location, &create_file_event, library).await?;
 					} else {
-						update_file(&location, &event, library_ctx).await?;
+						update_file(&location, &event, library).await?;
 					}
 				} else {
 					warn!("Unexpected Windows modify event on a directory");
@@ -68,16 +68,10 @@ impl EventHandler for WindowsEventHandler {
 					.rename_stack
 					.take()
 					.expect("Unexpectedly missing rename from windows event");
-				rename(
-					&event.paths[0],
-					&from_event.paths[0],
-					&location,
-					library_ctx,
-				)
-				.await?;
+				rename(&event.paths[0], &from_event.paths[0], &location, library).await?;
 			}
 			EventKind::Remove(remove_kind) => {
-				remove_event(&location, &event, remove_kind, library_ctx).await?;
+				remove_event(&location, &event, remove_kind, library).await?;
 			}
 
 			other_event_kind => {

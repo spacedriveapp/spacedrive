@@ -2,7 +2,7 @@ use crate::{
 	api::CoreEvent,
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	prisma::{file_path, location},
 };
 
@@ -76,10 +76,10 @@ impl StatefulJob for ThumbnailJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let LibraryContext { db, .. } = &ctx.library_ctx;
+		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = ctx
-			.library_ctx
+			.library
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME);
@@ -126,7 +126,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
-			&ctx.library_ctx,
+			&ctx.library,
 			state.init.location_id,
 			parent_directory_id,
 			&sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
@@ -144,7 +144,7 @@ impl StatefulJob for ThumbnailJob {
 		let all_files = {
 			// query database for all video files in this location that need thumbnails
 			let video_files = get_files_by_extensions(
-				&ctx.library_ctx,
+				&ctx.library,
 				state.init.location_id,
 				parent_directory_id,
 				&sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
@@ -253,7 +253,7 @@ impl StatefulJob for ThumbnailJob {
 					// 		// media_data::pixel_height::set(Some(media_data.height)),
 					// 	];
 					// 	let _ = ctx
-					// 		.library_ctx()
+					// 		.library()
 					// 		.db
 					// 		.media_data()
 					// 		.upsert(
@@ -268,13 +268,13 @@ impl StatefulJob for ThumbnailJob {
 			}
 
 			if !state.init.background {
-				ctx.library_ctx.emit(CoreEvent::NewThumbnail {
+				ctx.library.emit(CoreEvent::NewThumbnail {
 					cas_id: cas_id.clone(),
 				});
 			};
 
 			// With this invalidate query, we update the user interface to show each new thumbnail
-			invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+			invalidate_query!(ctx.library, "locations.getExplorerData");
 		} else {
 			info!("Thumb exists, skipping... {}", output_path.display());
 		}
@@ -346,7 +346,7 @@ pub async fn generate_video_thumbnail<P: AsRef<Path>>(
 }
 
 async fn get_files_by_extensions(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_id: i32,
 	_parent_file_path_id: i32,
 	extensions: &[Extension],

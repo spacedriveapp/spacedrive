@@ -1,5 +1,5 @@
 use crate::{
-	library::LibraryContext,
+	library::Library,
 	prisma::{file_path, location},
 };
 
@@ -53,7 +53,7 @@ trait EventHandler {
 	async fn handle_event(
 		&mut self,
 		location: indexer_job_location::Data,
-		library_ctx: &LibraryContext,
+		library: &Library,
 		event: Event,
 	) -> Result<(), LocationManagerError>;
 }
@@ -70,7 +70,7 @@ pub(super) struct LocationWatcher {
 impl LocationWatcher {
 	pub(super) async fn new(
 		location: location::Data,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
@@ -97,7 +97,7 @@ impl LocationWatcher {
 
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
-			library_ctx,
+			library,
 			events_rx,
 			ignore_path_rx,
 			stop_rx,
@@ -114,7 +114,7 @@ impl LocationWatcher {
 
 	async fn handle_watch_events(
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
@@ -132,7 +132,7 @@ impl LocationWatcher {
 								location_id,
 								event,
 								&mut event_handler,
-								&library_ctx,
+								&library,
 								&paths_to_ignore,
 							).await {
 								error!("Failed to handle location file system event: \
@@ -166,14 +166,14 @@ impl LocationWatcher {
 		location_id: LocationId,
 		event: Event,
 		event_handler: &mut impl EventHandler,
-		library_ctx: &LibraryContext,
+		library: &Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
 
-		let Some(location) = fetch_location(library_ctx, location_id)
+		let Some(location) = fetch_location(library, location_id)
 			.include(indexer_job_location::include())
 			.exec()
 			.await?
@@ -182,18 +182,12 @@ impl LocationWatcher {
             return Ok(());
         };
 
-		if !library_ctx
-			.location_manager()
-			.is_online(&location.pub_id)
-			.await
-		{
+		if !library.location_manager().is_online(&location.pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());
 		}
 
-		event_handler
-			.handle_event(location, library_ctx, event)
-			.await
+		event_handler.handle_event(location, library, event).await
 	}
 
 	pub(super) fn ignore_path(

@@ -25,14 +25,14 @@ use tokio::sync::RwLock;
 use tracing::debug;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
+use super::{Library, LibraryConfig, LibraryConfigWrapped};
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<Vec<LibraryContext>>,
+	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
 	pub node_context: NodeContext,
 }
@@ -227,7 +227,7 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_libraries_ctx(&self) -> Vec<LibraryContext> {
+	pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
 		self.libraries.read().await.clone()
 	}
 
@@ -282,7 +282,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<LibraryContext> {
+	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<Library> {
 		self.libraries
 			.read()
 			.await
@@ -297,7 +297,7 @@ impl LibraryManager {
 		db_path: impl AsRef<Path>,
 		config: LibraryConfig,
 		node_context: NodeContext,
-	) -> Result<LibraryContext, LibraryManagerError> {
+	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db = Arc::new(
 			load_and_migrate(&format!(
@@ -339,7 +339,7 @@ impl LibraryManager {
 
 		let (sync_manager, _) = SyncManager::new(&db, id);
 
-		Ok(LibraryContext {
+		Ok(Library {
 			id,
 			local_id: node_data.id,
 			config,

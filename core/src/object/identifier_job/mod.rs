@@ -1,6 +1,6 @@
 use crate::{
 	job::JobError,
-	library::LibraryContext,
+	library::Library,
 	object::cas::generate_cas_id,
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
@@ -76,7 +76,7 @@ impl FileMetadata {
 }
 
 async fn identifier_job_step(
-	LibraryContext { db, sync, .. }: &LibraryContext,
+	Library { db, sync, .. }: &Library,
 	location: &location::Data,
 	file_paths: &[file_path::Data],
 ) -> Result<(usize, usize), JobError> {
