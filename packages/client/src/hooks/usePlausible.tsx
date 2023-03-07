@@ -115,7 +115,7 @@ interface SubmitEventProps {
 	 */
 	screenWidth?: number;
 	/**
-	 * Whether or not telemetry sharing is enabled for the current library.
+	 * Whether or not telemetry sharing is enabled for the current client.
 	 *
 	 * It is **crucial** that this is the direct output of `useCurrentTelemetrySharing()`,
 	 * regardless of other conditions that may affect whether we share it (such as event overrides).
@@ -214,7 +214,7 @@ interface EventSubmissionCallbackProps {
  * The returned callback should only be fired once,
  * in order to prevent our analytics from being flooded.
  *
- * Certain events provide functionality to override the library's telemetry sharing configuration.
+ * Certain events provide functionality to override the clients's telemetry sharing configuration.
  * This is not to ignore the user's choice, but because it should **only** be used in contexts where
  * telemetry sharing must be allowed/denied via external means.
  *
@@ -313,12 +313,10 @@ export interface PageViewMonitorProps {
  * entire app (excluding onboarding, which should not be monitored).
  *
  * @remarks
- * Do **not** attempt to track pages that do not have a `ClientContext` - it's useless.
- *
  * If any of the following conditions are met, this will return and no data will be submitted:
  *
  * * If the app is in debug/development mode
- * * If telemetry sharing (sourced from the library configuration) is not true
+ * * If telemetry sharing (sourced from the client configuration) is not true
  *
  * @example
  * ```ts
