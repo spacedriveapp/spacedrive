@@ -46,20 +46,22 @@ export default function OnboardingCreatingLibrary() {
 		}
 	});
 
-	const ob_store = useOnboardingStore();
+	const obStore = useOnboardingStore();
 
 	const create = async () => {
+		// opted to place this here as users could change their mind before library creation/onboarding finalization
+		// it feels more fitting to configure it here (once)
+		telemetryStore.shareTelemetry = obStore.shareTelemetry;
+
 		createLibrary.mutate({
-			name: ob_store.newLibraryName,
+			name: obStore.newLibraryName,
 			auth: {
 				type: 'TokenizedPassword',
-				value: ob_store.passwordSetToken || ''
+				value: obStore.passwordSetToken || ''
 			},
-			algorithm: ob_store.algorithm as Algorithm,
-			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
+			algorithm: obStore.algorithm as Algorithm,
+			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
 		});
-
-		telemetryStore.shareTelemetry = ob_store.shareTelemetryDataWithDevelopers;
 
 		return;
 	};

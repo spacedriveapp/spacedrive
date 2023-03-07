@@ -24,7 +24,7 @@ export function useUnlockOnboardingScreen() {
 }
 
 export default function OnboardingProgress() {
-	const ob_store = useOnboardingStore();
+	const obStore = useOnboardingStore();
 	const navigate = useNavigate();
 	const currentScreenKey = useCurrentOnboardingScreenKey();
 
@@ -37,7 +37,7 @@ export default function OnboardingProgress() {
 					return (
 						<button
 							key={path}
-							disabled={!ob_store.unlockedScreens.includes(path)}
+							disabled={!obStore.unlockedScreens.includes(path)}
 							onClick={() => navigate(`/onboarding/${path}`)}
 							className={clsx(
 								'hover:bg-ink h-2 w-2 rounded-full transition disabled:opacity-10',
