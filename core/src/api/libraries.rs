@@ -104,7 +104,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				auth: AuthOption,
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
-				share_telemetry: bool,
 			}
 
 			t(|ctx: Ctx, args: CreateLibraryArgs| async move {
@@ -135,7 +134,6 @@ pub(crate) fn mount() -> RouterBuilder {
 					.create(
 						LibraryConfig {
 							name: args.name.to_string(),
-							share_telemetry: args.share_telemetry,
 							..Default::default()
 						},
 						OnboardingConfig {
