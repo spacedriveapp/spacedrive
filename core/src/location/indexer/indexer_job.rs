@@ -1,6 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 	sync,
@@ -111,7 +111,7 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
+		let first_file_id = get_max_file_path_id(&ctx.library).await?;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -218,7 +218,7 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let LibraryContext { sync, db, .. } = &ctx.library_ctx;
+		let Library { sync, db, .. } = &ctx.library;
 
 		let location = &state.init.location;
 

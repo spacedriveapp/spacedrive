@@ -17,7 +17,7 @@ use super::LibraryConfig;
 
 /// LibraryContext holds context for a library which can be passed around the application.
 #[derive(Clone)]
-pub struct LibraryContext {
+pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// local_id holds the local ID of the current library.
@@ -35,7 +35,7 @@ pub struct LibraryContext {
 	pub(super) node_context: NodeContext,
 }
 
-impl Debug for LibraryContext {
+impl Debug for Library {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
@@ -48,7 +48,7 @@ impl Debug for LibraryContext {
 	}
 }
 
-impl LibraryContext {
+impl Library {
 	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.clone().ingest(self, job).await;
 	}
