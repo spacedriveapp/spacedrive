@@ -1,8 +1,7 @@
 import Plausible from 'plausible-tracker';
 import { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect } from 'react';
-import { useDebugState } from '../stores';
-import { useCurrentTelemetrySharing } from './useClientContext';
+import { useDebugState, useTelemetryState } from '../stores';
 
 const Version = '0.1.0';
 type PlatformType = 'web' | 'mobile' | 'tauri';
@@ -248,7 +247,7 @@ interface EventSubmissionCallbackProps {
 export const usePlausibleEvent = (props: UsePlausibleEventProps) => {
 	const { platformType } = props;
 	const debug = useDebugState().enabled;
-	const shareTelemetry = useCurrentTelemetrySharing();
+	const shareTelemetry = useTelemetryState().shareTelemetry;
 
 	return useCallback(
 		async (props: EventSubmissionCallbackProps) => {

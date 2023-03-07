@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
-import { useBridgeMutation, usePlausibleEvent, useTelemetrySharing } from '@sd/client';
+import { useBridgeMutation, usePlausibleEvent, useTelemetryState } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
@@ -15,7 +14,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
-	const telemetrySharingSetting = useTelemetrySharing({ libraryUuid: props.libraryUuid });
+	const shareTelemetry = useTelemetryState().shareTelemetry;
 
 	const queryClient = useQueryClient();
 	const deleteLib = useBridgeMutation('library.delete', {
@@ -25,7 +24,7 @@ export default function DeleteLibraryDialog(props: Props) {
 			submitPlausibleEvent({
 				event: {
 					type: 'libraryDelete',
-					plausibleOptions: { telemetryOverride: telemetrySharingSetting ?? undefined }
+					plausibleOptions: { telemetryOverride: shareTelemetry ?? false }
 				}
 			});
 		}
