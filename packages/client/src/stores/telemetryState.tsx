@@ -1,14 +1,10 @@
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '.';
 
-const telemetryState = valtioPersist('sd-telemetryState', {
-	shareTelemetry: null as boolean | null
+export const telemetryStore = valtioPersist('sd-telemetryStore', {
+	shareTelemetry: false // false by default, so functions cannot accidentally send data if the user has not decided. could also be undefined?
 });
 
 export function useTelemetryState() {
-	return useSnapshot(telemetryState);
-}
-
-export function getTelemetryState() {
-	return telemetryState;
+	return useSnapshot(telemetryStore);
 }
