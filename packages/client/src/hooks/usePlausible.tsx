@@ -22,8 +22,8 @@ const plausible = Plausible({
 interface PlausibleOptions extends PlausibleTrackerOptions {
 	/**
 	 * This should **only** be used in contexts where telemetry sharing
-	 * must be allowed via external means (such as during onboarding,
-	 * where we can't source it from the library configuration).
+	 * must be allowed/denied via external means. Currently it is not used by anything,
+	 * but probably will be in the future.
 	 */
 	telemetryOverride?: boolean;
 }
@@ -43,7 +43,7 @@ type BasePlausibleEventWithoutOptions<T> = {
 	type: T;
 };
 
-export type BasePlausibleEvent<T, O = never> = O extends keyof PlausibleOptions
+export type BasePlausibleEvent<T, O = void> = O extends keyof PlausibleOptions
 	? BasePlausibleEventWithOptions<T, O>
 	: BasePlausibleEventWithoutOptions<T>;
 
@@ -61,22 +61,21 @@ type PageViewEvent = BasePlausibleEventWithOptions<'pageview', 'url'>;
  * @example
  * ```ts
  * const platform = usePlatform();
- * const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
+ * const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
  *
  * const createLibrary = useBridgeMutation('library.create', {
  *		onSuccess: (library) => {
- *			createLibraryEvent({
+ *			submitPlausibleEvent({
  *				event: {
- *					type: 'libraryCreate',
- *					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
+ *					type: 'libraryCreate'
  *				}
  *			});
  *		}
  * });
  * ```
  */
-type LibraryCreateEvent = BasePlausibleEvent<'libraryCreate', 'telemetryOverride'>;
-type LibraryDeleteEvent = BasePlausibleEvent<'libraryDelete', 'telemetryOverride'>;
+type LibraryCreateEvent = BasePlausibleEvent<'libraryCreate'>;
+type LibraryDeleteEvent = BasePlausibleEvent<'libraryDelete'>;
 
 type LocationCreateEvent = BasePlausibleEvent<'locationCreate'>;
 type LocationDeleteEvent = BasePlausibleEvent<'locationDelete'>;
@@ -215,8 +214,7 @@ interface EventSubmissionCallbackProps {
  *
  * Certain events provide functionality to override the library's telemetry sharing configuration.
  * This is not to ignore the user's choice, but because it should **only** be used in contexts where
- * telemetry sharing must be allowed via external means (such as during onboarding, where we can't
- * source it from the library configuration).
+ * telemetry sharing must be allowed/denied via external means.
  *
  * @remarks
  * If any of the following conditions are met, this will return and no data will be submitted:
@@ -230,14 +228,13 @@ interface EventSubmissionCallbackProps {
  * @example
  * ```ts
  * const platform = usePlatform();
- * const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
+ * const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
  *
  * const createLibrary = useBridgeMutation('library.create', {
  *		onSuccess: (library) => {
- *			createLibraryEvent({
+ *			submitPlausibleEvent({
  *				event: {
- *					type: 'libraryCreate',
- *					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
+ *					type: 'libraryCreate'
  *				}
  *			});
  *		}

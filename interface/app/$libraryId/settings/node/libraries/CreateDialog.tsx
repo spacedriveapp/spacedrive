@@ -64,8 +64,7 @@ export default (props: UseDialogProps) => {
 
 			createLibraryEvent({
 				event: {
-					type: 'libraryCreate',
-					plausibleOptions: { telemetryOverride: library.config.shareTelemetry }
+					type: 'libraryCreate'
 				}
 			});
 		},

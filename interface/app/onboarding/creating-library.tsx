@@ -41,8 +41,7 @@ export default function OnboardingCreatingLibrary() {
 
 			submitPlausibleEvent({
 				event: {
-					type: 'libraryCreate',
-					plausibleOptions: { telemetryOverride: shareTelemetry ?? false }
+					type: 'libraryCreate'
 				}
 			});
 

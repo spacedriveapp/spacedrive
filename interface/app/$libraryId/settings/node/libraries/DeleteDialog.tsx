@@ -23,8 +23,7 @@ export default function DeleteLibraryDialog(props: Props) {
 
 			submitPlausibleEvent({
 				event: {
-					type: 'libraryDelete',
-					plausibleOptions: { telemetryOverride: shareTelemetry ?? false }
+					type: 'libraryDelete'
 				}
 			});
 		}
