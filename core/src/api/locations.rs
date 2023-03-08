@@ -84,8 +84,6 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				light_scan_location(&library, location.clone(), &args.path).await?;
-
 				if !args.path.ends_with('/') {
 					args.path += "/";
 				}
