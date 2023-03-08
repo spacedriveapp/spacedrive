@@ -14,7 +14,14 @@ export default function OnboardingNavigator() {
 			<OnboardingStack.Screen name="NewLibrary" component={NewLibraryScreen} />
 			<OnboardingStack.Screen name="MasterPassword" component={MasterPasswordScreen} />
 			<OnboardingStack.Screen name="Privacy" component={PrivacyScreen} />
-			<OnboardingStack.Screen name="CreatingLibrary" component={CreatingLibraryScreen} />
+			<OnboardingStack.Screen
+				name="CreatingLibrary"
+				component={CreatingLibraryScreen}
+				options={{
+					// Disable swipe back gesture
+					gestureEnabled: false
+				}}
+			/>
 		</OnboardingStack.Navigator>
 	);
 }

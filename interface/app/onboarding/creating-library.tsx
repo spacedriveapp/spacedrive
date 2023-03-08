@@ -46,9 +46,9 @@ export default function OnboardingCreatingLibrary() {
 			name: ob_store.newLibraryName,
 			auth: {
 				type: 'TokenizedPassword',
-				value: ob_store.passwordSetToken || ''
+				value: ob_store.passwordSetToken ?? ''
 			},
-			algorithm: ob_store.algorithm as Algorithm,
+			algorithm: ob_store.algorithm,
 			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
 		});
 

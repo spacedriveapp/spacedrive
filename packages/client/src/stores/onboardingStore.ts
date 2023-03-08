@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+import { Algorithm } from '../core';
 import { HashingAlgoSlug } from '../utils';
 import { valtioPersist } from './util';
 
@@ -15,7 +16,7 @@ const onboardingStoreDefaults = {
 	unlockedScreens: ['start'],
 	lastActiveScreen: null as string | null,
 	shouldEncryptLibrary: false,
-	algorithm: 'XChaCha20Poly1305',
+	algorithm: 'XChaCha20Poly1305' as Algorithm,
 	hashingAlgorithm: 'Argon2id-s' as HashingAlgoSlug,
 	passwordSetToken: null as string | null,
 	shareTelemetryDataWithDevelopers: true,

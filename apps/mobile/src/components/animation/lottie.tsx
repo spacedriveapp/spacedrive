@@ -1,19 +1,14 @@
-import AnimatedLottieView from 'lottie-react-native';
-import { StyleProp, View, ViewStyle } from 'react-native';
+import AnimatedLottieView, { AnimatedLottieViewProps } from 'lottie-react-native';
 
-type Props = {
-	style?: StyleProp<ViewStyle>;
-};
+type AnimationProps = Omit<AnimatedLottieViewProps, 'source'>;
 
-export const PulseAnimation = ({ style }: Props) => {
+export const PulseAnimation = ({ style }: AnimationProps) => {
 	return (
-		<View>
-			<AnimatedLottieView
-				autoPlay
-				loop
-				source={require('@sd/assets/lottie/loading-pulse.json')}
-				style={style}
-			/>
-		</View>
+		<AnimatedLottieView
+			autoPlay
+			loop
+			source={require('@sd/assets/lottie/loading-pulse.json')}
+			style={style}
+		/>
 	);
 };

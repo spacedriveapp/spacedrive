@@ -30,7 +30,7 @@ const LibraryGeneralSettingsScreen = ({
 
 	useAutoForm(form, (value) => {
 		editLibrary({ description: value.description, name: value.name, id: library.uuid });
-		console.log('Updated', value);
+		// console.log('Updated', value);
 		// TODO: Show toast
 	});
 

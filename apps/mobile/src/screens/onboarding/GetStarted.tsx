@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { CaretLeft } from 'phosphor-react-native';
 import { Image, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +9,13 @@ import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	const navigation = useNavigation();
+	const route = useRoute();
 
 	const { top } = useSafeAreaInsets();
 
 	return (
 		<View style={tw`flex-1`}>
-			{/* NOTE: Might be buggy, this doesn't re-render when result changes. Works fine atm though. */}
-			{navigation.canGoBack() && (
+			{route.name !== 'GetStarted' && route.name !== 'CreatingLibrary' && (
 				<Pressable
 					style={twStyle('absolute left-6 z-50', { top: top + 16 })}
 					onPress={() => navigation.goBack()}
