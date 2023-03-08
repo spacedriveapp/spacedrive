@@ -173,7 +173,7 @@ impl Node {
 			}
 		});
 
-		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await;
+		let p2p = P2PManager::new(config.clone()).await;
 
 		let router = api::mount();
 		let node = Node {
