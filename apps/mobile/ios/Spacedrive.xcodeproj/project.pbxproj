@@ -420,13 +420,13 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_ios-ios",
+					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_ios-iossim",
+					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
@@ -515,13 +515,13 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_ios-ios",
+					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_ios-iossim",
+					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;

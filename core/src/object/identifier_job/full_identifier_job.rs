@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	prisma::{file_path, location},
 };
 
@@ -68,7 +68,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location_id;
-		let db = &ctx.library_ctx.db;
+		let db = &ctx.library.db;
 
 		let location = db
 			.location()
@@ -77,7 +77,7 @@ impl StatefulJob for FullFileIdentifierJob {
 			.await?
 			.ok_or(IdentifierJobError::MissingLocation(state.init.location_id))?;
 
-		let orphan_count = count_orphan_file_paths(&ctx.library_ctx, location_id).await?;
+		let orphan_count = count_orphan_file_paths(&ctx.library, location_id).await?;
 		info!("Found {} orphan file paths", orphan_count);
 
 		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -127,7 +127,7 @@ impl StatefulJob for FullFileIdentifierJob {
 
 		// get chunk of orphans to process
 		let file_paths =
-			get_orphan_file_paths(&ctx.library_ctx, &data.cursor, data.location.id).await?;
+			get_orphan_file_paths(&ctx.library, &data.cursor, data.location.id).await?;
 
 		// if no file paths found, abort entire job early, there is nothing to do
 		// if we hit this error, there is something wrong with the data/query
@@ -147,7 +147,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		);
 
 		let (total_objects_created, total_objects_linked) =
-			identifier_job_step(&ctx.library_ctx, &data.location, &file_paths).await?;
+			identifier_job_step(&ctx.library, &data.location, &file_paths).await?;
 
 		data.report.total_objects_created += total_objects_created;
 		data.report.total_objects_linked += total_objects_linked;
@@ -166,7 +166,7 @@ impl StatefulJob for FullFileIdentifierJob {
 			)),
 		]);
 
-		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 
 		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
 		Ok(())
@@ -198,7 +198,7 @@ fn orphan_path_filters(location_id: i32, file_path_id: Option<i32>) -> Vec<file_
 }
 
 async fn count_orphan_file_paths(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_id: i32,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	Ok(ctx
@@ -214,7 +214,7 @@ async fn count_orphan_file_paths(
 }
 
 async fn get_orphan_file_paths(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	cursor: &FilePathIdAndLocationIdCursor,
 	location_id: i32,
 ) -> Result<Vec<file_path::Data>, prisma_client_rust::QueryError> {

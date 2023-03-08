@@ -1,7 +1,7 @@
 use crate::{
 	api::Ctx,
 	invalidate_query,
-	library::{LibraryConfig, LibraryContext},
+	library::{Library, LibraryConfig},
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
 };
@@ -28,7 +28,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|ctx: Ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
 		})
 		.library_query("getStatistics", |t| {
-			t(|_, _: (), library: LibraryContext| async move {
+			t(|_, _: (), library: Library| async move {
 				let _statistics = library
 					.db
 					.statistics()

@@ -45,12 +45,9 @@ impl StatefulJob for FileDecryptorJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to decrypt
 		// populate the steps with them (local file paths)
-		let fs_info = context_menu_fs_info(
-			&ctx.library_ctx.db,
-			state.init.location_id,
-			state.init.path_id,
-		)
-		.await?;
+		let fs_info =
+			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
+				.await?;
 
 		state.steps = VecDeque::new();
 		state.steps.push_back(FileDecryptorJobStep { fs_info });
@@ -67,7 +64,7 @@ impl StatefulJob for FileDecryptorJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let info = &step.fs_info;
-		let key_manager = &ctx.library_ctx.key_manager;
+		let key_manager = &ctx.library.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
 		let output_path = state.init.output_path.clone().map_or_else(

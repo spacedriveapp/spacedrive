@@ -11,9 +11,6 @@ use tauri::{api::path, async_runtime::block_on, plugin::TauriPlugin, Manager, Ru
 use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
 
-#[cfg(target_os = "macos")]
-mod macos;
-
 #[cfg(target_os = "linux")]
 mod app_linux;
 
@@ -92,7 +89,7 @@ async fn main() -> tauri::Result<()> {
 
 				#[cfg(target_os = "macos")]
 				{
-					use macos::*;
+					use sd_desktop_macos::*;
 
 					let window = window.ns_window().unwrap();
 

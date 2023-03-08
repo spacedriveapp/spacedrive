@@ -13,16 +13,16 @@
 // 	location_id: i32,
 // 	path: &str,
 // 	name: Option<&str>,
-// 	library_ctx: &LibraryContext,
+// 	library: &LibraryContext,
 // ) -> Result<(), VirtualFSError> {
-// 	let location = fetch_location(library_ctx, location_id)
+// 	let location = fetch_location(library, location_id)
 // 		.exec()
 // 		.await?
 // 		.ok_or(LocationError::IdNotFound(location_id))?;
 
 // 	let name = name.unwrap_or("Untitled Folder");
 
-// 	let exists = check_virtual_path_exists(library_ctx, location_id, subpath).await?;
+// 	let exists = check_virtual_path_exists(library, location_id, subpath).await?;
 
 // 	std::fs::create_dir_all(&obj_path)?;
 

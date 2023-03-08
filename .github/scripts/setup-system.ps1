@@ -1,9 +1,3 @@
-# Get ci parameter to check if running with ci
-param(
-    [Parameter()]
-    [Switch]$ci
-)
-
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
@@ -68,8 +62,10 @@ else {
    Write-Host "Cargo is installed."
 }
 
-Write-Host "Installing Rust tools" -ForegroundColor Yellow
-cargo install cargo-watch
+if ($env:CI -ne $True) {
+	Write-Host "Installing Rust tools" -ForegroundColor Yellow
+	cargo install cargo-watch
+}
 
 Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
@@ -94,7 +90,7 @@ else {
 }
 
 # A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
-if ($ci -eq $True) {
+if ($env:CI -eq $True) {
    Write-Host
    Write-Host "Running with Ci, skipping Node install." -ForegroundColor Yellow
 }
@@ -111,7 +107,7 @@ else {
 
 
 # The ci has LLVM installed already, so we instead just set the env variables.
-if ($ci -eq $True) {
+if ($env:CI -eq $True) {
    Write-Host
    Write-Host "Running with Ci, skipping LLVM install." -ForegroundColor Yellow
 
@@ -161,7 +157,7 @@ Remove-Item "$temp\ffmpeg.zip"
 Write-Host
 Write-Host "Setting environment variables..." -ForegroundColor Yellow
 
-if ($ci -eq $True) {
+if ($env:CI -eq $True) {
    # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 

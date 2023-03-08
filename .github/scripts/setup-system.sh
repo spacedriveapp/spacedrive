@@ -37,8 +37,10 @@ else
 	echo "Skipping pnpm check."
 fi
 
-echo "Installing Rust tools"
-cargo install cargo-watch
+if [ "$CI" != "true" ]; then
+	echo "Installing Rust tools"
+	cargo install cargo-watch
+fi
 
 echo
 

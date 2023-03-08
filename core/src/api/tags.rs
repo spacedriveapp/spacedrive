@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
 	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
-	library::LibraryContext,
+	library::Library,
 	prisma::{object, tag, tag_on_object},
 	sync,
 };
@@ -26,7 +26,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, tag_id: i32, library| async move {
 				info!("Getting files for tag {}", tag_id);
 
-				let LibraryContext { db, .. } = &library;
+				let Library { db, .. } = &library;
 
 				let tag = db
 					.tag()
@@ -140,7 +140,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: TagCreateArgs, library| async move {
-				let LibraryContext { db, sync, .. } = &library;
+				let Library { db, sync, .. } = &library;
 
 				let pub_id = Uuid::new_v4().as_bytes().to_vec();
 
@@ -211,7 +211,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: TagUpdateArgs, library| async move {
-				let LibraryContext { sync, db, .. } = &library;
+				let Library { sync, db, .. } = &library;
 
 				let tag = db
 					.tag()

@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::Job,
-	library::LibraryContext,
+	library::Library,
 	object::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
@@ -45,10 +45,7 @@ pub struct LocationCreateArgs {
 }
 
 impl LocationCreateArgs {
-	pub async fn create(
-		self,
-		ctx: &LibraryContext,
-	) -> Result<indexer_job_location::Data, LocationError> {
+	pub async fn create(self, ctx: &Library) -> Result<indexer_job_location::Data, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -107,7 +104,7 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
-		ctx: &LibraryContext,
+		ctx: &Library,
 	) -> Result<indexer_job_location::Data, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
@@ -163,8 +160,8 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
-		let LibraryContext { sync, db, .. } = &ctx;
+	pub async fn update(self, ctx: &Library) -> Result<(), LocationError> {
+		let Library { sync, db, .. } = &ctx;
 
 		let location = fetch_location(ctx, self.id)
 			.include(location::include!({ indexer_rules }))
@@ -197,16 +194,24 @@ impl LocationUpdateArgs {
 		.unzip();
 
 		if !sync_params.is_empty() {
-			sync.write_op(
+			sync.write_ops(
 				db,
-				sync.owned_update(
-					sync::location::SyncId {
-						pub_id: location.pub_id,
-					},
-					sync_params,
+				(
+					sync_params
+						.into_iter()
+						.map(|p| {
+							sync.shared_update(
+								sync::location::SyncId {
+									pub_id: location.pub_id.clone(),
+								},
+								p.0,
+								p.1,
+							)
+						})
+						.collect(),
+					db.location()
+						.update(location::id::equals(self.id), db_params),
 				),
-				db.location()
-					.update(location::id::equals(self.id), db_params),
 			)
 			.await?;
 
@@ -257,14 +262,14 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
+pub fn fetch_location(ctx: &Library, location_id: i32) -> location::FindUnique {
 	ctx.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_id: i32,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
@@ -283,7 +288,7 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location: indexer_job_location::Data,
 ) -> Result<(), LocationError> {
 	if location.node_id != ctx.node_local_id {
@@ -316,10 +321,10 @@ pub async fn scan_location(
 }
 
 pub async fn relink_location(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let LibraryContext { db, id, sync, .. } = &ctx;
+	let Library { db, id, sync, .. } = &ctx;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -336,11 +341,12 @@ pub async fn relink_location(
 
 	sync.write_op(
 		db,
-		sync.owned_update(
+		sync.shared_update(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			[("path", json!(path))],
+			"path",
+			json!(path),
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id),
@@ -353,12 +359,12 @@ pub async fn relink_location(
 }
 
 async fn create_location(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 ) -> Result<indexer_job_location::Data, LocationError> {
-	let LibraryContext { db, sync, .. } = &ctx;
+	let Library { db, sync, .. } = &ctx;
 
 	let location_path = location_path.as_ref();
 
@@ -376,7 +382,7 @@ async fn create_location(
 	let location = sync
 		.write_op(
 			db,
-			sync.owned_create(
+			sync.unique_shared_create(
 				sync::location::SyncId {
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
@@ -416,8 +422,8 @@ async fn create_location(
 	Ok(location)
 }
 
-pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
-	let LibraryContext { db, .. } = ctx;
+pub async fn delete_location(ctx: &Library, location_id: i32) -> Result<(), LocationError> {
+	let Library { db, .. } = ctx;
 
 	ctx.location_manager()
 		.remove(location_id, ctx.clone())
@@ -457,7 +463,7 @@ file_path::select!(file_path_object_id_only { object_id });
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
-	ctx: &LibraryContext,
+	ctx: &Library,
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
@@ -508,13 +514,13 @@ pub async fn delete_directory(
 
 // check if a path exists in our database at that location
 // pub async fn check_virtual_path_exists(
-// 	library_ctx: &LibraryContext,
+// 	library: &Library,
 // 	location_id: i32,
 // 	subpath: impl AsRef<Path>,
 // ) -> Result<bool, LocationError> {
 // 	let path = subpath.as_ref().to_str().unwrap().to_string();
 
-// 	let file_path = library_ctx
+// 	let file_path = library
 // 		.db
 // 		.file_path()
 // 		.find_first(vec![

@@ -8,10 +8,10 @@ runs:
       uses: actions/cache@v3
       with:
         path: ./core/src/prisma*.rs
-        key: prisma-0-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
+        key: prisma-0-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './crates/sync-generator/*', './Cargo.toml') }}
 
     - name: Generate Prisma client
       working-directory: core
       if: steps.cache-prisma.outputs.cache-hit != 'true'
       shell: bash
-      run: cargo run -p prisma-cli --bin prisma --release -- generate
+      run: cargo run -p prisma-cli --bin prisma -- generate
