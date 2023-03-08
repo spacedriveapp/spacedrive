@@ -1,17 +1,17 @@
-mod discovery;
-mod network_manager;
-mod p2p_manager;
+//! Rust Peer to Peer Networking Library
+
+mod event;
+mod manager;
+mod manager_stream;
+mod mdns;
 mod peer;
+pub(crate) mod spaceblock;
+pub mod spacetime;
 mod utils;
 
-pub(crate) use discovery::*;
-pub use network_manager::*;
-pub use p2p_manager::*;
+pub use event::*;
+pub use manager::*;
+pub use manager_stream::*;
+pub use mdns::*;
 pub use peer::*;
-pub use sd_tunnel_utils::{read_value, write_value, PeerId};
 pub use utils::*;
-
-/// We reexport some types from `quinn` to avoid the user needing to add `quinn` and keep its version in sync with the p2p library.
-pub mod quinn {
-	pub use quinn::{RecvStream, SendStream};
-}
