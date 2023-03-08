@@ -27,8 +27,7 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 
 	fn upgrade_inbound(self, io: NegotiatedSubstream, _: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			Ok(self
-				.manager
+			self.manager
 				.emit(ManagerStreamAction::Event(
 					PeerMessageEvent {
 						peer_id: self.peer_id,
@@ -38,7 +37,9 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 					}
 					.into(),
 				))
-				.await)
+				.await;
+
+			Ok(())
 		})
 	}
 }

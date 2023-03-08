@@ -21,6 +21,7 @@ use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRI
 // TODO: Probs change this based on the ConnectionEstablishmentPayload
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
+#[allow(clippy::type_complexity)]
 pub struct SpaceTimeConnection<TMetadata: Metadata> {
 	peer_id: PeerId,
 	manager: Arc<Manager<TMetadata>>,
@@ -74,7 +75,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		self.pending_events
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
-					OutboundProtocol(self.manager.application_name.clone(), req),
+					OutboundProtocol(self.manager.application_name, req),
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?
 				.with_timeout(SUBSTREAM_TIMEOUT),

@@ -16,7 +16,7 @@ pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, S
 				proto
 			))
 		}
-		None => return Err(format!("Invalid multiaddr. Segment 1 missing")),
+		None => return Err("Invalid multiaddr. Segment 1 missing".to_string()),
 	};
 
 	let port = match addr_parts.next() {
@@ -27,7 +27,7 @@ pub(crate) fn quic_multiaddr_to_socketaddr(m: Multiaddr) -> Result<SocketAddr, S
 				proto
 			))
 		}
-		None => return Err(format!("Invalid multiaddr. Segment 2 missing")),
+		None => return Err("Invalid multiaddr. Segment 2 missing".to_string()),
 	};
 
 	Ok(SocketAddr::new(addr, port))

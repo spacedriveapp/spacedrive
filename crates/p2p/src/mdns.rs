@@ -164,14 +164,14 @@ where
 											} else {
 												DiscoveredPeer {
 													manager: self.manager.clone(),
-													peer_id: peer_id,
+													peer_id,
 													metadata,
 													addresses: info
 														.get_addresses()
 														.iter()
 														.map(|addr| {
 															SocketAddr::new(
-																IpAddr::V4(addr.clone()),
+																IpAddr::V4(*addr),
 																info.get_port(),
 															)
 														})

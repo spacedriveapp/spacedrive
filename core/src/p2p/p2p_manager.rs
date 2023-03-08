@@ -32,7 +32,7 @@ impl P2PManager {
 					email: config.p2p_email.clone(),
 					img_url: config.p2p_img_url.clone(),
 				},
-				config.keypair.clone(),
+				config.keypair,
 			)
 		}; // TODO: Update this throughout the application lifecycle
 
@@ -93,7 +93,7 @@ impl P2PManager {
 								Header::Sync(library_id) => {
 									let buf_len = event.stream.read_u8().await.unwrap();
 
-									let mut buf = Vec::with_capacity(buf_len as usize); // TODO: Designed for easily being able to be DOS the current Node
+									let mut buf = vec![0; buf_len as usize]; // TODO: Designed for easily being able to be DOS the current Node
 									event.stream.read_exact(&mut buf).await.unwrap();
 
 									let mut buf: &[u8] = &buf;
@@ -156,6 +156,7 @@ impl P2PManager {
 		this
 	}
 
+	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
 		let mut head_buf = Header::Sync(library_id).to_bytes();
 		let mut buf = rmp_serde::to_vec_named(&event).unwrap(); // TODO: Error handling

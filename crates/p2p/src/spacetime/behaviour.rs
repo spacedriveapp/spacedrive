@@ -81,6 +81,8 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 		if let Some(peer_id) = maybe_peer {
 			let mut addresses = Vec::new();
 			if let Some(connection) = self.connected_peers.get(&PeerId(peer_id)) {
+				#[allow(clippy::unnecessary_filter_map)]
+				// TODO: Clippy is getting annoyed cause of the `todo!()`. Remove this once that is fixed.
 				addresses.extend(
 					connection
 						.connections
@@ -189,7 +191,7 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 							tokio::spawn(async move {
 								manager
 									.emit(ManagerStreamAction::Event(Event::PeerDisconnected(
-										conn.peer_id.clone(),
+										conn.peer_id,
 									)))
 									.await;
 							});

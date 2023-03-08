@@ -75,7 +75,7 @@ where
 					match event? {
 						ManagerStreamAction::Event(event) => return Some(event),
 						ManagerStreamAction::GetConnectedPeers(response) => {
-							response.send(self.swarm.behaviour().connected_peers.values().map(|p| p.peer_id.clone()).collect::<Vec<_>>()).map_err(|_| error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")).ok();
+							response.send(self.swarm.behaviour().connected_peers.values().map(|p| p.peer_id).collect::<Vec<_>>()).map_err(|_| error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")).ok();
 						},
 						ManagerStreamAction::Dial { peer_id, addresses } => {
 							match self.swarm.dial(
@@ -84,7 +84,7 @@ where
 									.addresses(
 										addresses
 											.iter()
-											.map(|addr| socketaddr_to_quic_multiaddr(addr))
+											.map(socketaddr_to_quic_multiaddr)
 											.collect(),
 									)
 									.extend_addresses_through_behaviour()

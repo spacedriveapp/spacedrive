@@ -41,6 +41,7 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
+	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	secure_temp_keystore: Arc<SecureTempKeystore>,

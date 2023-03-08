@@ -110,7 +110,6 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		self.emit(ManagerStreamAction::GetConnectedPeers(tx)).await;
 		rx.await.map_err(|_| {
 			warn!("failed to get connected peers 3 times, returning error");
-			()
 		})
 	}
 
@@ -121,7 +120,6 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.await;
 		rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
-			()
 		})
 	}
 

@@ -1,4 +1,5 @@
 mod config;
+#[allow(clippy::module_inception)]
 mod library;
 mod manager;
 
