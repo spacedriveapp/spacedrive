@@ -1,4 +1,5 @@
 use rspc::Type;
+use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::File,
@@ -40,12 +41,18 @@ pub struct NodeConfig {
 	pub name: String,
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
-	// /// The P2P identity public key
-	// pub p2p_cert: Vec<u8>,
-	// /// The P2P identity private key
-	// pub p2p_key: Vec<u8>,
-	// /// The address of the Spacetunnel discovery service being used.
-	// pub spacetunnel_addr: Option<String>,
+	/// The p2p identity keypair for this node. This is used to identify the node on the network.
+	#[serde(default = "default_keypair")]
+	#[specta(skip)]
+	pub keypair: Keypair,
+	// TODO: These will probs be replaced by your Spacedrive account in the near future.
+	pub p2p_email: Option<String>,
+	pub p2p_img_url: Option<String>,
+}
+
+// TODO: Probs remove this in future. It's just to prevent breaking changes.
+fn default_keypair() -> Keypair {
+	Keypair::generate()
 }
 
 #[derive(Error, Debug)]
@@ -74,6 +81,9 @@ impl NodeConfig {
 			metadata: ConfigMetadata {
 				version: Some(env!("CARGO_PKG_VERSION").into()),
 			},
+			keypair: Keypair::generate(),
+			p2p_email: None,
+			p2p_img_url: None,
 		}
 	}
 }

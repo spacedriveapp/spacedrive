@@ -205,9 +205,9 @@ export type Node = { id: number, pub_id: number[], name: string, platform: numbe
 /**
  *  NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
  */
-export type NodeConfig = ({ version: string | null }) & { id: string, name: string, p2p_port: number | null }
+export type NodeConfig = ({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }
 
-export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null }) & { data_path: string }
+export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }) & { data_path: string }
 
 /**
  *  This should be used for providing a nonce to encrypt/decrypt functions.
