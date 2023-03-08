@@ -106,39 +106,42 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 				)}
 				<PasswordMeter containerStyle={tw`mt-3 px-2`} password={form.watch('password')} />
 				<View style={tw`mt-6`}>
-					{obStore.passwordSetToken ? (
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={form.formState.isSubmitting}
-							onPress={() => {
-								getOnboardingStore().passwordSetToken = null;
-								form.reset();
-							}}
-						>
-							<Text style={tw`text-ink text-center font-medium`}>Remove password</Text>
-						</Button>
-					) : (
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={form.formState.isSubmitting}
-							onPress={handleNoPassword}
-						>
-							<Text style={tw`text-ink text-center font-medium`}>Continue without password →</Text>
-						</Button>
-					)}
 					{password.length > 0 && (
 						<Button
 							variant="outline"
 							size="sm"
 							disabled={form.formState.isSubmitting}
 							onPress={handleSetPassword}
-							style={tw`mt-4`}
 						>
-							<Text style={tw`text-ink text-center font-medium`}>Set password</Text>
+							<Text style={tw`text-ink text-center font-medium`}>
+								{!showPasswordValidate ? 'Set password' : 'Confirm Password'}
+							</Text>
 						</Button>
 					)}
+					<View style={tw`mt-4`}>
+						{obStore.passwordSetToken ? (
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={form.formState.isSubmitting}
+								onPress={() => {
+									getOnboardingStore().passwordSetToken = null;
+									form.reset();
+								}}
+							>
+								<Text style={tw`text-ink text-center font-medium`}>Remove password</Text>
+							</Button>
+						) : (
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={form.formState.isSubmitting}
+								onPress={handleNoPassword}
+							>
+								<Text style={tw`text-ink text-center font-medium`}>Continue without password</Text>
+							</Button>
+						)}
+					</View>
 				</View>
 			</View>
 		</OnboardingContainer>
