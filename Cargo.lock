@@ -6617,6 +6617,7 @@ dependencies = [
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
+ "sd-p2p",
  "sd-sync",
  "serde",
  "serde_json",

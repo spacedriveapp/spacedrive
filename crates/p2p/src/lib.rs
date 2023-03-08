@@ -6,7 +6,7 @@ mod manager_stream;
 mod mdns;
 mod peer;
 pub(crate) mod spaceblock;
-pub(crate) mod spacetime;
+pub mod spacetime;
 mod utils;
 
 pub use event::*;
