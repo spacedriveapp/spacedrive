@@ -99,6 +99,21 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 		let orphan_count =
 			count_orphan_file_paths(&ctx.library_ctx, location_id, sub_path_id).await?;
+
+		// Initializing `state.data` here because we need a complete state in case of early finish
+		state.data = Some(ShallowFileIdentifierJobState {
+			report: FileIdentifierReport {
+				location_path: location_path.to_path_buf(),
+				total_orphan_paths: orphan_count,
+				..Default::default()
+			},
+			cursor: FilePathIdAndLocationIdCursor {
+				file_path_id: -1,
+				location_id,
+			},
+			sub_path_id,
+		});
+
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
 				name: self.name().to_string(),
@@ -127,18 +142,8 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			.map(|d| d.id)
 			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
 
-		state.data = Some(ShallowFileIdentifierJobState {
-			report: FileIdentifierReport {
-				location_path: location_path.to_path_buf(),
-				total_orphan_paths: orphan_count,
-				..Default::default()
-			},
-			cursor: FilePathIdAndLocationIdCursor {
-				file_path_id: first_path_id,
-				location_id,
-			},
-			sub_path_id,
-		});
+		// SAFETY: We just initialized `state.data` above
+		state.data.as_mut().unwrap().cursor.file_path_id = first_path_id;
 
 		state.steps = (0..task_count).map(|_| ()).collect();
 
@@ -162,8 +167,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let location = &state.init.location;
 
 		// get chunk of orphans to process
-		let file_paths =
-			get_orphan_file_paths(&ctx.library_ctx, cursor, location.id, *sub_path_id).await?;
+		let file_paths = get_orphan_file_paths(&ctx.library_ctx, cursor, *sub_path_id).await?;
 
 		process_identifier_file_paths(
 			self.name(),
@@ -224,7 +228,6 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
 	cursor: &FilePathIdAndLocationIdCursor,
-	location_id: i32,
 	sub_path_id: i32,
 ) -> Result<
 	Vec<file_path_just_id_materialized_path_date_created::Data>,
@@ -237,7 +240,7 @@ async fn get_orphan_file_paths(
 	ctx.db
 		.file_path()
 		.find_many(orphan_path_filters(
-			location_id,
+			cursor.location_id,
 			Some(cursor.file_path_id),
 			sub_path_id,
 		))

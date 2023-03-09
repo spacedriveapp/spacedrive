@@ -385,7 +385,7 @@ async fn process_identifier_file_paths(
 }
 
 fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -> JobResult {
-	info!("Finalizing identifier job: {report:#?}");
+	info!("Finalizing identifier job: {report:?}");
 
 	invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
 
