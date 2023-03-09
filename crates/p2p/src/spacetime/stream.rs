@@ -1,7 +1,7 @@
 use std::{
-    io,
-    pin::Pin,
-    task::{Context, Poll},
+	io,
+	pin::Pin,
+	task::{Context, Poll},
 };
 
 use libp2p::{futures::AsyncWriteExt, swarm::NegotiatedSubstream};
@@ -14,23 +14,23 @@ pub struct SpaceTimeStream(Compat<NegotiatedSubstream>);
 // TODO: Utils for sending msgpack and stuff over the stream. -> Have a max size of reading buffers so we are less susceptible to DoS attacks.
 
 impl SpaceTimeStream {
-    pub fn new(io: NegotiatedSubstream) -> Self {
-        Self(io.compat())
-    }
+	pub fn new(io: NegotiatedSubstream) -> Self {
+		Self(io.compat())
+	}
 
-    pub async fn close(self) -> Result<(), io::Error> {
-        self.0.into_inner().close().await
-    }
+	pub async fn close(self) -> Result<(), io::Error> {
+		self.0.into_inner().close().await
+	}
 }
 
 impl AsyncRead for SpaceTimeStream {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
-    }
+	fn poll_read(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &mut ReadBuf<'_>,
+	) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
+	}
 }
 
 // impl AsyncBufRead for SpaceTimeStream {
@@ -44,19 +44,19 @@ impl AsyncRead for SpaceTimeStream {
 // }
 
 impl AsyncWrite for SpaceTimeStream {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
-    }
+	fn poll_write(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &[u8],
+	) -> Poll<io::Result<usize>> {
+		Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
+	}
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().0).poll_flush(cx)
-    }
+	fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.get_mut().0).poll_flush(cx)
+	}
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().0).poll_shutdown(cx)
-    }
+	fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.get_mut().0).poll_shutdown(cx)
+	}
 }

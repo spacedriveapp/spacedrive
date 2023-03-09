@@ -41,6 +41,7 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
+	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	secure_temp_keystore: Arc<SecureTempKeystore>,
@@ -173,7 +174,7 @@ impl Node {
 			}
 		});
 
-		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await;
+		let p2p = P2PManager::new(config.clone()).await;
 
 		let router = api::mount();
 		let node = Node {

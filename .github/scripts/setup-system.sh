@@ -95,9 +95,10 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev" # Tauri dependencies
 		DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg" # FFmpeg dependencies
 		DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+		PROTOBUF="protobuf-compiler" # Protobuf compiler
 
 		sudo apt-get -y update
-		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $PROTOBUF
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
@@ -144,6 +145,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 			brew extract -q --force --version $FFMPEG_VERSION ffmpeg spacedriveapp/deps
 			brew unlink -q ffmpeg || true
 			brew install -q "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION"
+
+			brew install protobuf
 
 			echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
 		fi

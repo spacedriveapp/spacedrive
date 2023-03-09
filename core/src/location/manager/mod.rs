@@ -164,7 +164,7 @@ impl LocationManager {
 			self.location_management_tx
 				.send(LocationManagementMessage {
 					location_id,
-					library: library,
+					library,
 					action,
 					response_tx: tx,
 				})
@@ -192,7 +192,7 @@ impl LocationManager {
 			self.watcher_management_tx
 				.send(WatcherManagementMessage {
 					location_id,
-					library: library,
+					library,
 					action,
 					response_tx: tx,
 				})
