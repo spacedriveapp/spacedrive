@@ -108,12 +108,8 @@ export function FileThumbImg({
 
 	if (isDir) {
 		icon = iconsMap['Folder'];
-	} else if (kind === 'Unknown') {
-		icon = iconsMap['Document'];
 	} else if (kind && iconsMap[kind]) {
 		icon = iconsMap[kind] as string;
-	} else {
-		icon = iconsMap['Document'];
 	}
 
 	return <img src={icon} className={clsx('h-full overflow-hidden')} />;
