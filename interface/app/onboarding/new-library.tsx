@@ -1,4 +1,4 @@
-import Database from '@sd/assets/images/Database.png';
+import Database from '@sd/assets/icons/Database.png';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useOnboardingStore } from '@sd/client';

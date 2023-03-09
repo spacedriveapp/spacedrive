@@ -5,7 +5,7 @@ import { usePlatform } from '~/util/Platform';
 import { getExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
 
-const icons = import.meta.glob('../../../../../packages/assets/images/*.png', { eager: true });
+const icons = import.meta.glob('../../../../../packages/assets/icons/*.png', { eager: true });
 // extract icons by their name
 const iconsMap: Record<string, string> = {};
 for (const [key, value] of Object.entries(icons)) {
@@ -108,8 +108,10 @@ export function FileThumbImg({
 
 	if (isDir) {
 		icon = iconsMap['Folder'];
-	} else if (kind && iconsMap[kind]) {
-		icon = iconsMap[kind] as string;
+	} else if (kind && extension && iconsMap[`${kind}_${extension.toLowerCase()}`]) {
+		icon = iconsMap[`${kind}_${extension.toLowerCase()}`];
+	} else if (kind && iconsMap[kind] && kind !== 'Unknown') {
+		icon = iconsMap[kind];
 	}
 
 	return <img src={icon} className={clsx('h-full overflow-hidden')} />;

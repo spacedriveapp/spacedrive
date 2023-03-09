@@ -1,8 +1,8 @@
-import Laptop from '@sd/assets/images/Laptop.png';
-import Mobile from '@sd/assets/images/Mobile.png';
-import Node from '@sd/assets/images/Node.png';
-import Server from '@sd/assets/images/Server.png';
-import Tablet from '@sd/assets/images/Tablet.png';
+import Laptop from '@sd/assets/icons/Laptop.png';
+import Mobile from '@sd/assets/icons/Mobile.png';
+import Node from '@sd/assets/icons/Node.png';
+import Server from '@sd/assets/icons/Server.png';
+import Tablet from '@sd/assets/icons/Tablet.png';
 import clsx from 'clsx';
 import {
 	ArchiveBox,
