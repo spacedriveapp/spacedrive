@@ -1,8 +1,3 @@
-import Laptop from '@sd/assets/icons/Laptop.png';
-import Mobile from '@sd/assets/icons/Mobile.png';
-import Node from '@sd/assets/icons/Node.png';
-import Server from '@sd/assets/icons/Server.png';
-import Tablet from '@sd/assets/icons/Tablet.png';
 import clsx from 'clsx';
 import {
 	ArchiveBox,
@@ -92,39 +87,6 @@ const LibrarySection = () => {
 
 	return (
 		<>
-			<Section
-				name="Nodes"
-				actionArea={
-					<Link to="settings/library/nodes">
-						<SubtleButton />
-					</Link>
-				}
-			>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff1`}>
-					<img className="mr-1" src={Laptop} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">JAM-M2-MBP</span>
-				</SidebarLink>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff2`}>
-					<img className="mr-1" src={Mobile} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">JAM-FONE-13</span>
-				</SidebarLink>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff3`}>
-					<img className="mr-1" src={Server} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">Titan NAS</span>
-				</SidebarLink>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff4`}>
-					<img className="mr-1" src={Tablet} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">JAM-PAD</span>
-				</SidebarLink>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff5`}>
-					<img className="mr-1" src={Node} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">JAM-PC</span>
-				</SidebarLink>
-				<SidebarLink className="group relative flex w-full" to={`location/jeff6`}>
-					<img className="mr-1" src={Node} width={18} height={18} alt="Node icon" />
-					<span className="shrink-0 grow">Local Dev Node</span>
-				</SidebarLink>
-			</Section>
 			<Section
 				name="Locations"
 				actionArea={
