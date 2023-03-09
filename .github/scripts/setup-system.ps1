@@ -133,6 +133,9 @@ if ($env:CI -eq $True) {
 }
 
 
+Write-Host
+Write-Host "Install protobuf compiler..." -ForegroundColor Yellow
+choco install protoc
 
 Write-Host
 Write-Host "Downloading the latest ffmpeg build..." -ForegroundColor Yellow
