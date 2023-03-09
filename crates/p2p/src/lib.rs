@@ -5,7 +5,7 @@ mod manager;
 mod manager_stream;
 mod mdns;
 mod peer;
-pub(crate) mod spaceblock;
+pub mod spaceblock;
 pub mod spacetime;
 mod utils;
 

@@ -24,6 +24,11 @@ export default defineConfig({
 			brotliSize: true
 		})
 	],
+	css: {
+		modules: {
+			localsConvention: 'camelCaseOnly'
+		}
+	},
 	resolve: {
 		alias: [relativeAliasResolver]
 	},

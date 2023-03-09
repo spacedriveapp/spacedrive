@@ -1,13 +1,13 @@
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
-use sd_p2p::spacetime::SpaceTimeStream;
+use sd_p2p::{spaceblock::TransferRequest, spacetime::SpaceTimeStream};
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
 	Ping,
-	Spacedrop,
+	Spacedrop(TransferRequest),
 	Sync(Uuid),
 }
 
@@ -16,7 +16,7 @@ impl Header {
 		let discriminator = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		match discriminator {
-			0 => Ok(Self::Spacedrop),
+			0 => Ok(Self::Spacedrop(TransferRequest::from_stream(stream).await?)),
 			1 => Ok(Self::Ping),
 			2 => {
 				let mut uuid = [0u8; 16];
@@ -29,7 +29,11 @@ impl Header {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
-			Self::Spacedrop => vec![0],
+			Self::Spacedrop(transfer_request) => {
+				let mut bytes = vec![0];
+				bytes.extend_from_slice(&transfer_request.to_bytes());
+				bytes
+			}
 			Self::Ping => vec![1],
 			Self::Sync(uuid) => {
 				let mut bytes = vec![2];
