@@ -387,7 +387,9 @@ async fn process_identifier_file_paths(
 fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -> JobResult {
 	info!("Finalizing identifier job: {report:?}");
 
-	invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+	if report.total_orphan_paths > 0 {
+		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+	}
 
 	Ok(Some(serde_json::to_value(report)?))
 }
