@@ -18,7 +18,8 @@ import {
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	usePlausibleEvent
 } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
@@ -248,9 +249,16 @@ export default ({ data, ...props }: Props) => {
 };
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
+	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
-	const assignTag = useLibraryMutation('tags.assign');
+	const assignTag = useLibraryMutation('tags.assign', {
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagAssign' } });
+		}
+	});
 
 	return (
 		<>

@@ -20,12 +20,12 @@ export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
 	const [importMode, setImportMode] = useState(false);
 
-	const ob_store = useOnboardingStore();
+	const obStore = useOnboardingStore();
 
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			name: ob_store.newLibraryName
+			name: obStore.newLibraryName
 		}
 	});
 

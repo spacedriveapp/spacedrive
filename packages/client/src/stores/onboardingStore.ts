@@ -18,7 +18,7 @@ const onboardingStoreDefaults = {
 	algorithm: 'XChaCha20Poly1305',
 	hashingAlgorithm: 'Argon2id-s' as HashingAlgoSlug,
 	passwordSetToken: null as string | null,
-	shareTelemetryDataWithDevelopers: true,
+	shareTelemetry: true,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false
 };

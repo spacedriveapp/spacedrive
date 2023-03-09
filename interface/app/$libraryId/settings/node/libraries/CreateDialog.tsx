@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
+import { ArrowsClockwise, Clipboard, Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
 import {
 	Algorithm,
@@ -7,18 +7,22 @@ import {
 	HashingAlgoSlug,
 	generatePassword,
 	hashingAlgoSlugSchema,
-	useBridgeMutation
+	useBridgeMutation,
+	usePlausibleEvent
 } from '@sd/client';
 import {
 	Button,
+	CheckBox,
 	Dialog,
 	PasswordMeter,
 	Select,
 	SelectOption,
+	Tooltip,
 	UseDialogProps,
 	useDialog
 } from '@sd/ui';
 import { forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 const { Input, z, useZodForm } = forms;
 
@@ -27,11 +31,14 @@ const schema = z.object({
 	password: z.string(),
 	password_validate: z.string(),
 	algorithm: z.string(),
-	hashing_algorithm: hashingAlgoSlugSchema
+	hashing_algorithm: hashingAlgoSlugSchema,
+	share_telemetry: z.boolean()
 });
 
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
+	const platform = usePlatform();
+	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const form = useZodForm({
 		schema,
@@ -54,6 +61,12 @@ export default (props: UseDialogProps) => {
 				...(libraries || []),
 				library
 			]);
+
+			createLibraryEvent({
+				event: {
+					type: 'libraryCreate'
+				}
+			});
 		},
 		onError: (err: any) => {
 			console.error(err);
@@ -93,6 +106,20 @@ export default (props: UseDialogProps) => {
 					placeholder="My Cool Library"
 					{...form.register('name', { required: true })}
 				/>
+			</div>
+
+			<div className="mt-3 mb-1 flex flex-row items-center">
+				<div className="space-x-2">
+					<CheckBox
+						className="bg-app-selected"
+						defaultChecked={true}
+						{...form.register('share_telemetry', { required: true })}
+					/>
+				</div>
+				<span className="mt-1 text-xs font-medium">Share anonymous usage</span>
+				<Tooltip label="Share completely anonymous telemetry data to help the developers improve the app">
+					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
+				</Tooltip>
 			</div>
 
 			{/* TODO: Proper UI for this. Maybe checkbox for encrypted or not and then reveal these fields. Select encrypted by default. */}
