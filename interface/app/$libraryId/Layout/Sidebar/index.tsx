@@ -1,3 +1,8 @@
+import Laptop from '@sd/assets/images/Laptop.png';
+import Mobile from '@sd/assets/images/Mobile.png';
+import Node from '@sd/assets/images/Node.png';
+import Server from '@sd/assets/images/Server.png';
+import Tablet from '@sd/assets/images/Tablet.png';
 import clsx from 'clsx';
 import {
 	ArchiveBox,
@@ -51,7 +56,7 @@ export default () => {
 		<div
 			className={clsx(
 				'border-sidebar-divider bg-sidebar relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2 border-r px-2.5 pb-2',
-				macOnly(os, 'bg-opacity-[0.75]')
+				macOnly(os, 'bg-opacity-[0.65]')
 			)}
 		>
 			<WindowControls />
@@ -87,6 +92,39 @@ const LibrarySection = () => {
 
 	return (
 		<>
+			<Section
+				name="Nodes"
+				actionArea={
+					<Link to="settings/library/nodes">
+						<SubtleButton />
+					</Link>
+				}
+			>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff1`}>
+					<img className="mr-1" src={Laptop} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">JAM-M2-MBP</span>
+				</SidebarLink>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff2`}>
+					<img className="mr-1" src={Mobile} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">JAM-FONE-13</span>
+				</SidebarLink>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff3`}>
+					<img className="mr-1" src={Server} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">Titan NAS</span>
+				</SidebarLink>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff4`}>
+					<img className="mr-1" src={Tablet} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">JAM-PAD</span>
+				</SidebarLink>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff5`}>
+					<img className="mr-1" src={Node} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">JAM-PC</span>
+				</SidebarLink>
+				<SidebarLink className="group relative flex w-full" to={`location/jeff6`}>
+					<img className="mr-1" src={Node} width={18} height={18} alt="Node icon" />
+					<span className="shrink-0 grow">Local Dev Node</span>
+				</SidebarLink>
+			</Section>
 			<Section
 				name="Locations"
 				actionArea={

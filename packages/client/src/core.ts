@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[], media_data: MediaData | null } | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[], media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
@@ -198,7 +198,7 @@ export type LocationUpdateArgs = { id: number, name: string | null, generate_pre
 
 export type MasterPasswordChangeArgs = { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
-export type MediaData = { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
+export type MediaData = { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null, has_livephoto: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean }
 
 export type Node = { id: number, pub_id: number[], name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string }
 
@@ -216,7 +216,7 @@ export type NodeState = (({ version: string | null }) & { id: string, name: stri
  */
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
-export type Object = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+export type Object = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
 
 export type ObjectValidatorArgs = { id: number, path: string }
 
@@ -279,4 +279,4 @@ export type Volume = { name: string, mount_point: string, total_capacity: string
 
 export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
 
-export type object_with_file_paths = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[] }
+export type object_with_file_paths = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[] }
