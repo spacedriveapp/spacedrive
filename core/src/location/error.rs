@@ -30,7 +30,9 @@ pub enum LocationError {
 		old_path: PathBuf,
 		new_path: PathBuf,
 	},
-	#[error("Exist a different library in the location metadata file, must add a new library: (path: {0:?})")]
+	#[error(
+		"This location belongs to another library, must update .spacedrive file: (path: {0:?})"
+	)]
 	AddLibraryToMetadata(PathBuf),
 	#[error("Location metadata file not found: (path: {0:?})")]
 	MetadataNotFound(PathBuf),
