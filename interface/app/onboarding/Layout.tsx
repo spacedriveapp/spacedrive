@@ -2,10 +2,11 @@ import BloomOne from '@sd/assets/images/bloom-one.png';
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
-import { getOnboardingStore } from '@sd/client';
+import { getOnboardingStore, useDebugState } from '@sd/client';
 import { tw } from '@sd/ui';
 import DragRegion from '~/components/DragRegion';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import DebugPopover from '../$libraryId/Layout/Sidebar/DebugPopover';
 import Progress from './Progress';
 
 export const OnboardingContainer = tw.div`flex flex-col items-center`;
@@ -15,6 +16,7 @@ export const OnboardingImg = tw.img`w-20 h-20 mb-2`;
 
 export default () => {
 	const os = useOperatingSystem();
+	const debugState = useDebugState();
 	const navigate = useNavigate();
 
 	useEffect(
@@ -39,7 +41,6 @@ export default () => {
 			)}
 		>
 			<DragRegion className="z-50 h-9" />
-
 			<div className="-mt-5 flex grow flex-col p-10">
 				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
@@ -55,6 +56,7 @@ export default () => {
 					{/* <img src={BloomThree} className="absolute w-[2000px] h-[2000px] -right-[200px]" /> */}
 				</div>
 			</div>
+			{debugState.enabled && <DebugPopover />}
 		</div>
 	);
 };
