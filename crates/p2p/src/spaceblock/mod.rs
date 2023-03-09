@@ -8,7 +8,12 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use tokio::io::AsyncReadExt;
+
+use crate::spacetime::SpaceTimeStream;
+
 /// TODO
+#[derive(Debug, PartialEq, Eq)]
 pub struct BlockSize(i64);
 
 impl BlockSize {
@@ -21,19 +26,47 @@ impl BlockSize {
 }
 
 /// TODO
-pub struct TransferRequest<'a> {
-	name: &'a str,
-	size: u64,
+#[derive(Debug, PartialEq, Eq)]
+pub struct TransferRequest {
+	pub name: String,
+	pub size: u64,
 	// TODO: Include file permissions
-	block_size: u64,
+	pub block_size: BlockSize,
+}
+
+impl TransferRequest {
+	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, ()> {
+		let name_len = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
+		let mut name = vec![0u8; name_len as usize];
+		stream.read_exact(&mut name).await.map_err(|_| ())?; // TODO: Error handling
+		let name = String::from_utf8(name).map_err(|_| ())?; // TODO: Error handling
+
+		let size = stream.read_u8().await.map_err(|_| ())? as u64; // TODO: Error handling
+		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
+
+		Ok(Self {
+			name,
+			size,
+			block_size,
+		})
+	}
+
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let mut buf = Vec::new();
+		buf.push(self.name.len() as u8); // TODO: This being a `u8` isn't going to scale to a name bigger than 255 bytes lmao
+		buf.extend(self.name.as_bytes());
+		buf.push(self.size as u8); // TODO: This being a `u8` isn't going to scale to files bigger than 255 bytes lmao
+						   // buf.push(&self.block_size.to_be_bytes()); // TODO: Do this as well
+		buf
+	}
 }
 
 /// TODO
 pub struct Block<'a> {
 	// TODO: File content, checksum, source location so it can be resent!
-	offset: i64,
-	size: i64,
-	data: &'a [u8],
+	pub offset: i64,
+	pub size: i64,
+	pub data: &'a [u8],
 	// TODO: Checksum?
 }
 
