@@ -3,10 +3,9 @@ use crate::{
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		preview::thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
-	prisma::location,
 };
 
 use rspc::Type;
@@ -41,24 +40,18 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			t(
 				|_, args: GenerateThumbsForLocationArgs, library| async move {
-					if library
-						.db
-						.location()
-						.count(vec![location::id::equals(args.id)])
-						.exec()
-						.await? == 0
-					{
+					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
-					}
+					};
 
 					library
 						.spawn_job(Job::new(
-							ThumbnailJobInit {
-								location_id: args.id,
-								root_path: PathBuf::new(),
+							ThumbnailerJobInit {
+								location,
+								sub_path: Some(args.path),
 								background: false,
 							},
-							ThumbnailJob {},
+							ThumbnailerJob {},
 						))
 						.await;
 

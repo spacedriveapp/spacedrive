@@ -37,9 +37,6 @@ const CHUNK_SIZE: usize = 100;
 pub enum FileIdentifierJobError {
 	#[error("File path related error (error: {0})")]
 	FilePathError(#[from] FilePathError),
-
-	#[error("Missing file_paths for a location")]
-	MissingFilePaths,
 }
 
 #[derive(Debug, Clone)]

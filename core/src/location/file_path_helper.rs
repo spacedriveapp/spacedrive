@@ -3,7 +3,10 @@ use crate::prisma::{
 	location, PrismaClient,
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+	fmt::{Display, Formatter},
+	path::{Path, PathBuf},
+};
 
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
@@ -35,6 +38,10 @@ file_path::select!(file_path_just_id_materialized_path_integrity_checksum_with_l
 		id
 		pub_id
 	}
+});
+file_path::select!(file_path_just_materialized_path_cas_id {
+	materialized_path
+	cas_id
 });
 
 // File Path includes!
@@ -152,6 +159,18 @@ impl From<&MaterializedPath> for String {
 impl AsRef<str> for MaterializedPath {
 	fn as_ref(&self) -> &str {
 		self.materialized_path.as_ref()
+	}
+}
+
+impl AsRef<Path> for MaterializedPath {
+	fn as_ref(&self) -> &Path {
+		Path::new(&self.materialized_path)
+	}
+}
+
+impl Display for MaterializedPath {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.materialized_path)
 	}
 }
 

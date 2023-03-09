@@ -19,7 +19,10 @@ use crate::{
 			delete::{FileDeleterJob, DELETE_JOB_NAME},
 			erase::{FileEraserJob, ERASE_JOB_NAME},
 		},
-		preview::{ThumbnailJob, THUMBNAIL_JOB_NAME},
+		preview::{
+			shallow_thumbnailer_job::{ShallowThumbnailerJob, SHALLOW_THUMBNAILER_JOB_NAME},
+			thumbnailer_job::{ThumbnailerJob, THUMBNAILER_JOB_NAME},
+		},
 		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
 	},
 	prisma::{job, node},
@@ -213,9 +216,14 @@ impl JobManager {
 
 			info!("Resuming job: {}, id: {}", paused_job.name, paused_job.id);
 			match paused_job.name.as_str() {
-				THUMBNAIL_JOB_NAME => {
+				THUMBNAILER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, ThumbnailJob {})?)
+						.dispatch_job(ctx, Job::resume(paused_job, ThumbnailerJob {})?)
+						.await;
+				}
+				SHALLOW_THUMBNAILER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(ctx, Job::resume(paused_job, ShallowThumbnailerJob {})?)
 						.await;
 				}
 				INDEXER_JOB_NAME => {

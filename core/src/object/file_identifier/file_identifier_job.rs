@@ -64,13 +64,12 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+		let LibraryContext { db, .. } = &ctx.library_ctx;
+
 		info!("Identifying orphan File Paths...");
 
-		let location_path = Path::new(&state.init.location.path);
-
 		let location_id = state.init.location.id;
-
-		let db = &ctx.library_ctx.db;
+		let location_path = Path::new(&state.init.location.path);
 
 		let maybe_sub_materialized_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)

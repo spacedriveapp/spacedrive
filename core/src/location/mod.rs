@@ -7,7 +7,10 @@ use crate::{
 			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
 			shallow_file_identifier_job::{ShallowFileIdentifierJob, ShallowFileIdentifierJobInit},
 		},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		preview::{
+			shallow_thumbnailer_job::{ShallowThumbnailerJob, ShallowThumbnailerJobInit},
+			thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
+		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
 	sync,
@@ -300,12 +303,12 @@ pub async fn scan_location(
 	.await;
 
 	ctx.queue_job(Job::new(
-		ThumbnailJobInit {
-			location_id: location.id,
-			root_path: PathBuf::new(),
+		ThumbnailerJobInit {
+			location: location::Data::from(&location),
+			sub_path: None,
 			background: true,
 		},
-		ThumbnailJob {},
+		ThumbnailerJob {},
 	))
 	.await;
 
@@ -342,12 +345,12 @@ pub async fn scan_location_sub_path(
 	.await;
 
 	ctx.queue_job(Job::new(
-		ThumbnailJobInit {
-			location_id: location.id,
-			root_path: PathBuf::new(),
+		ThumbnailerJobInit {
+			location: location::Data::from(&location),
+			sub_path: Some(sub_path.clone()),
 			background: true,
 		},
-		ThumbnailJob {},
+		ThumbnailerJob {},
 	))
 	.await;
 
@@ -382,15 +385,14 @@ pub async fn light_scan_location(
 	))
 	.await;
 
-	// ctx.queue_job(Job::new(
-	// 	ThumbnailJobInit {
-	// 		location_id: location.id,
-	// 		root_path: PathBuf::new(),
-	// 		background: true,
-	// 	},
-	// 	ThumbnailJob {},
-	// ))
-	// .await;
+	ctx.queue_job(Job::new(
+		ShallowThumbnailerJobInit {
+			location: location::Data::from(&location),
+			sub_path: sub_path.clone(),
+		},
+		ShallowThumbnailerJob {},
+	))
+	.await;
 
 	ctx.spawn_job(Job::new(
 		ShallowIndexerJobInit { location, sub_path },

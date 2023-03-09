@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
+	library::LibraryContext,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
@@ -12,7 +13,6 @@ use std::{
 	collections::{HashMap, HashSet},
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
-	sync::Arc,
 };
 
 use chrono::Utc;
@@ -65,17 +65,18 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let (last_file_path_id_manager, db) = (
-			Arc::clone(&ctx.library_ctx.last_file_path_id_manager),
-			Arc::clone(&ctx.library_ctx.db),
-		);
+		let LibraryContext {
+			last_file_path_id_manager,
+			db,
+			..
+		} = &ctx.library_ctx;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = last_file_path_id_manager
-			.get_max_file_path_id(location_id, &db)
+			.get_max_file_path_id(location_id, db)
 			.await
 			.map_err(IndexerError::from)?
 			+ 1;
@@ -104,7 +105,7 @@ impl StatefulJob for ShallowIndexerJob {
 				get_existing_file_path_id(
 					MaterializedPath::new(location_id, location_path, &full_path, true)
 						.map_err(IndexerError::from)?,
-					&db,
+					db,
 				)
 				.await
 				.map_err(IndexerError::from)?
@@ -116,7 +117,7 @@ impl StatefulJob for ShallowIndexerJob {
 				get_existing_file_path_id(
 					MaterializedPath::new(location_id, location_path, location_path, true)
 						.map_err(IndexerError::from)?,
-					&db,
+					db,
 				)
 				.await
 				.map_err(IndexerError::from)?
@@ -146,7 +147,7 @@ impl StatefulJob for ShallowIndexerJob {
 				.iter()
 				.map(|entry| &entry.path)
 				.collect::<Vec<_>>(),
-			&db,
+			db,
 		)
 		.await
 		.map_err(IndexerError::from)?
@@ -168,14 +169,15 @@ impl StatefulJob for ShallowIndexerJob {
 							None
 						},
 						|materialized_path| {
-							(!already_existing_file_paths.contains(materialized_path.as_ref()))
-								.then_some(IndexerJobStepEntry {
-									full_path: entry.path,
-									materialized_path,
-									created_at: entry.created_at,
-									file_id: 0, // To be set later
-									parent_id: Some(parent_id),
-								})
+							(!already_existing_file_paths
+								.contains::<str>(materialized_path.as_ref()))
+							.then_some(IndexerJobStepEntry {
+								full_path: entry.path,
+								materialized_path,
+								created_at: entry.created_at,
+								file_id: 0, // To be set later
+								parent_id: Some(parent_id),
+							})
 						},
 					)
 			})
