@@ -41,7 +41,7 @@ export default function OnboardingNewLibrary() {
 		}
 	});
 
-	const ob_store = useOnboardingStore();
+	const obStore = useOnboardingStore();
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		if (data.password !== data.password_validate) {
@@ -104,7 +104,7 @@ export default function OnboardingNewLibrary() {
 						<PasswordMeter password={form.watch('password')} />
 					</div>
 					<div className="mt-7 flex w-full justify-between">
-						{!ob_store.passwordSetToken ? (
+						{!obStore.passwordSetToken ? (
 							<Button
 								disabled={form.formState.isSubmitting}
 								type="submit"

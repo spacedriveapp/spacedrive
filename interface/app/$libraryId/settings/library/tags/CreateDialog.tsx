@@ -1,10 +1,13 @@
-import { useLibraryMutation } from '@sd/client';
+import { useClientContext, useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import ColorPicker from '~/components/ColorPicker';
+import { usePlatform } from '~/util/Platform';
 
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
+	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const form = useZodForm({
 		schema: z.object({
@@ -17,6 +20,9 @@ export default (props: UseDialogProps) => {
 	});
 
 	const createTag = useLibraryMutation('tags.create', {
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagCreate' } });
+		},
 		onError: (e) => {
 			console.error('error', e);
 		}

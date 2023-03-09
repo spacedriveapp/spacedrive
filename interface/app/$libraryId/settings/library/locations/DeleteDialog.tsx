@@ -1,6 +1,7 @@
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
+import { usePlatform } from '~/util/Platform';
 
 interface Props extends UseDialogProps {
 	onSuccess: () => void;
@@ -9,11 +10,16 @@ interface Props extends UseDialogProps {
 
 export default (props: Props) => {
 	const dialog = useDialog(props);
+	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const form = useZodForm();
 
 	const deleteLocation = useLibraryMutation('locations.delete', {
-		onSuccess: props.onSuccess
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'locationDelete' } });
+			props.onSuccess();
+		}
 	});
 
 	return (
