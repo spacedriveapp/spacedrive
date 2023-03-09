@@ -195,6 +195,7 @@ impl Node {
 			library_manager: Arc::clone(&self.library_manager),
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
+			p2p: Arc::clone(&self.p2p),
 			event_bus: self.event_bus.0.clone(),
 			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}

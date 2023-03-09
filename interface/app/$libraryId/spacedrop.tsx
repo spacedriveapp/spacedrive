@@ -3,8 +3,9 @@ import Mega from '@sd/assets/images/Mega.png';
 import iCloud from '@sd/assets/images/iCloud.png';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, Star, User } from 'phosphor-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { tw } from '@sd/ui';
+import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
 import { SearchBar } from './Explorer/TopBar';
@@ -83,11 +84,66 @@ function DropItem(props: DropItemProps) {
 	);
 }
 
+// TODO: This will be removed and properly hooked up to the UI in the future
+function TemporarySpacedropDemo() {
+	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
+	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
+
+	useBridgeSubscription(['p2p.events'], {
+		onData(data) {
+			if (data.type === 'DiscoveredPeer') {
+				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
+			}
+		}
+	});
+
+	console.log(discoveredPeers);
+
+	// TODO: Input select
+	return (
+		<form
+			onSubmit={(e) => {
+				e.preventDefault();
+				doSpacedrop.mutate({
+					peer_id: e.currentTarget.targetPeer.value,
+					file_path: e.currentTarget.filePath.value
+				});
+			}}
+		>
+			<h1 className="mt-4 text-4xl">Spacedrop Demo</h1>
+			<p>
+				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
+				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
+			</p>
+			<select id="targetPeer" name="targetPeer" className="my-2 w-full text-black">
+				{[...discoveredPeers.entries()].map(([peerId, metdata]) => (
+					<option key={peerId} value={peerId}>
+						{metdata.name}
+					</option>
+				))}
+			</select>
+			<input
+				name="filePath"
+				placeholder="file path"
+				value="/Users/oscar/Desktop/sd/demo.txt"
+				onChange={() => {}}
+				className="my-2 w-full p-2 text-black"
+			/>
+			<input
+				type="submit"
+				value="Full send it!"
+				className="mt-4 h-10 w-32 rounded-full bg-red-500"
+			/>
+		</form>
+	);
+}
+
 export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);
 
 	return (
 		<>
+			<TemporarySpacedropDemo />
 			<PageLayout.DragChildren>
 				<div className="flex h-8 w-full flex-row items-center justify-center pt-3">
 					<SearchBar className="ml-[13px]" ref={searchRef} />

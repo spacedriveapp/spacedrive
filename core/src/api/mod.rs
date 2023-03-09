@@ -11,6 +11,7 @@ use crate::{
 	job::JobManager,
 	library::LibraryManager,
 	node::{NodeConfig, NodeConfigManager},
+	p2p::P2PManager,
 	util::secure_temp_keystore::SecureTempKeystore,
 };
 
@@ -33,6 +34,7 @@ pub struct Ctx {
 	pub config: Arc<NodeConfigManager>,
 	pub jobs: Arc<JobManager>,
 	pub event_bus: broadcast::Sender<CoreEvent>,
+	pub p2p: Arc<P2PManager>,
 	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
@@ -42,6 +44,7 @@ mod keys;
 mod libraries;
 mod locations;
 mod nodes;
+mod p2p;
 mod tags;
 pub mod utils;
 pub mod volumes;
@@ -97,6 +100,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.yolo_merge("locations.", locations::mount())
 		.yolo_merge("files.", files::mount())
 		.yolo_merge("jobs.", jobs::mount())
+		.yolo_merge("p2p.", p2p::mount())
 		// TODO: Scope the invalidate queries to a specific library (filtered server side)
 		.subscription("invalidateQuery", |t| {
 			t(|ctx, _: ()| {

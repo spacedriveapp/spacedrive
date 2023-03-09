@@ -70,6 +70,7 @@ export type Procedures = {
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
+        { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -77,7 +78,8 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
-        { key: "locations.online", input: never, result: number[][] }
+        { key: "locations.online", input: never, result: number[][] } | 
+        { key: "p2p.events", input: never, result: P2PEvent }
 };
 
 /**
@@ -221,11 +223,24 @@ export type Object = { id: number, pub_id: number[], name: string | null, extens
 export type ObjectValidatorArgs = { id: number, path: string }
 
 /**
+ *  Represents the operating system which the remote peer is running.
+ *  This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
+ */
+export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
+
+/**
+ *  TODO: P2P event for the frontend
+ */
+export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: PeerMetadata }
+
+/**
  *  These parameters define the password-hashing level.
  * 
  *  The greater the parameter, the longer the password will take to hash.
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
+
+export type PeerMetadata = { name: string, operating_system: OperatingSystem | null, version: string | null, email: string | null, img_url: string | null }
 
 export type RestoreBackupArgs = { password: string, secret_key: string, path: string }
 
@@ -241,6 +256,8 @@ export type Salt = number[]
 export type SetFavoriteArgs = { id: number, favorite: boolean }
 
 export type SetNoteArgs = { id: number, note: string | null }
+
+export type SpacedropArgs = { peer_id: string, file_path: string }
 
 export type Statistics = { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 

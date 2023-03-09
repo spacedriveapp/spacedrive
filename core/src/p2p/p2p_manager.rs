@@ -1,10 +1,16 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use sd_p2p::{Event, Manager, PeerId};
+use rspc::Type;
+use sd_p2p::{
+	spaceblock::{BlockSize, TransferRequest},
+	Event, Manager, PeerId,
+};
 use sd_sync::CRDTOperation;
+use serde::Serialize;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+	sync::broadcast,
 };
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -16,8 +22,20 @@ use crate::{
 
 use super::{Header, PeerMetadata};
 
+/// TODO: P2P event for the frontend
+#[derive(Debug, Clone, Type, Serialize)]
+#[serde(tag = "type")]
+pub enum P2PEvent {
+	DiscoveredPeer {
+		peer_id: PeerId,
+		metadata: PeerMetadata,
+	},
+	// TODO: Expire peer + connection/disconnect
+}
+
 pub struct P2PManager {
-	manager: Arc<Manager<PeerMetadata>>,
+	events: broadcast::Sender<P2PEvent>,
+	pub manager: Arc<Manager<PeerMetadata>>,
 }
 
 impl P2PManager {
@@ -51,6 +69,8 @@ impl P2PManager {
 			manager.listen_addrs().await
 		);
 
+		let (events_tx, _) = broadcast::channel(100);
+		let events = events_tx.clone();
 		tokio::spawn(async move {
 			while let Some(event) = stream.next().await {
 				match event {
@@ -59,7 +79,17 @@ impl P2PManager {
 							"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
 							event.peer_id, event.addresses, event.metadata
 						);
-						event.dial().await; // We connect to everyone we find on the network. Your app will probs wanna restrict this!
+
+						events_tx
+							.send(P2PEvent::DiscoveredPeer {
+								peer_id: event.peer_id.clone(),
+								metadata: event.metadata.clone(),
+							})
+							.map_err(|_| error!("Failed to send event to p2p event stream!"))
+							.ok();
+
+						// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
+						event.dial().await;
 					}
 					Event::PeerMessage(mut event) => {
 						tokio::spawn(async move {
@@ -69,26 +99,21 @@ impl P2PManager {
 								Header::Ping => {
 									debug!("Received ping from peer '{}'", event.peer_id);
 								}
-								Header::Spacedrop => {
-									let file_length = event.stream.read_u8().await.unwrap();
+								Header::Spacedrop(req) => {
+									info!("Received Spacedrop from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
 
 									// TODO: Ask the user if they wanna reject/accept it
 
-									info!("Received Spacedrop from peer '{}' with file length '{file_length}'", event.peer_id);
-
+									// TODO: Deal with binary data. Deal with blocking based on `req.block_size`, etc
 									let mut s = String::new();
 									event.stream.read_to_string(&mut s).await.unwrap();
 
-									// let mut buf = Vec::with_capacity(file_length as usize); // TODO: DOS attack
-									// loop {
-									// 	let n = event.stream.read(&mut buf).await.unwrap();;
-									// }
-
-									// // TODO: Store this to a file on disk.
 									println!(
-										"Recieved file content '{}' through Spacedrop!",
-										s // String::from_utf8(buf).unwrap()
+										"Recieved file '{}' with content '{}' through Spacedrop!",
+										req.name, s
 									);
+
+									// TODO: Save to the filesystem
 								}
 								Header::Sync(library_id) => {
 									let buf_len = event.stream.read_u8().await.unwrap();
@@ -119,7 +144,7 @@ impl P2PManager {
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
-		let this = Arc::new(Self { manager });
+		let this = Arc::new(Self { events, manager });
 
 		// TODO: Probs remove this
 		tokio::spawn({
@@ -156,6 +181,10 @@ impl P2PManager {
 		this
 	}
 
+	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
+		self.events.subscribe()
+	}
+
 	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
 		let mut head_buf = Header::Sync(library_id).to_bytes();
@@ -173,30 +202,30 @@ impl P2PManager {
 	pub async fn big_bad_spacedrop(&self, peer_id: PeerId, path: PathBuf) {
 		let mut stream = self.manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 
-		let file = File::open(path).await.unwrap();
-		let file_length = file.metadata().await.unwrap().len();
+		let file = File::open(&path).await.unwrap();
+		let metadata = file.metadata().await.unwrap();
 		let mut reader = BufReader::new(file);
 
 		stream
-			.write_all(&Header::Spacedrop.to_bytes()) // TODO: Proper Spaceblock Header
-			.await
-			.unwrap();
-
-		stream
-			.write_u8(file_length as u8) // TODO: This is obviously gonna be an int overflow. Fix that. Use `u64` in proper Spaceblock Header
+			.write_all(
+				&Header::Spacedrop(TransferRequest {
+					name: path.file_name().unwrap().to_str().unwrap().to_string(), // TODO: Encode this as bytes instead
+					size: metadata.len(),
+					block_size: BlockSize::from_size(metadata.len()),
+				})
+				.to_bytes(),
+			)
 			.await
 			.unwrap();
 
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
+		// TODO: Replace this with the Spaceblock `Block` system
 		let mut buffer = Vec::new();
 		reader.read_to_end(&mut buffer).await.unwrap();
 		println!("READ {:?}", buffer);
-
 		stream.write_all(&buffer).await.unwrap();
-
-		// io::copy(&mut reader, &mut stream).await.unwrap(); // TODO: Use Spaceblock protocol!
 
 		debug!(
 			"Finished Spacedrop to peer '{peer_id}' after '{:?}",
