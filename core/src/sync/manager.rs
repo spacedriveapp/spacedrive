@@ -1,5 +1,4 @@
 use crate::{
-	location::location_just_id,
 	prisma::{file_path, location, node, object, owned_operation, shared_operation, PrismaClient},
 	prisma_sync,
 };

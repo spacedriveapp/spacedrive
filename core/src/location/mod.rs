@@ -222,7 +222,7 @@ impl LocationUpdateArgs {
 		let current_rules_ids = location
 			.indexer_rules
 			.iter()
-			.map(|r| r.indexer_rule_id)
+			.map(|r| r.indexer_rule.id)
 			.collect::<HashSet<_>>();
 
 		let new_rules_ids = self.indexer_rules_ids.into_iter().collect::<HashSet<_>>();
