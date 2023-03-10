@@ -172,13 +172,6 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 		})
 		.library_mutation("fullRescan", |t| {
 			t(|_, location_id: i32, library| async move {
-				// remove existing paths
-				library
-					.db
-					.file_path()
-					.delete_many(vec![file_path::location_id::equals(location_id)])
-					.exec()
-					.await?;
 				// rescan location
 				scan_location(
 					&library,
@@ -200,16 +193,18 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, args: LightScanArgs, library| async move {
-				let location = find_location(&library, args.location_id)
-					.include(location_with_indexer_rules::include())
-					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(args.location_id))?;
-
 				// light rescan location
-				light_scan_location(&library, location, &args.sub_path)
-					.await
-					.map_err(Into::into)
+				light_scan_location(
+					&library,
+					find_location(&library, args.location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?,
+					&args.sub_path,
+				)
+				.await
+				.map_err(Into::into)
 			})
 		})
 		.subscription("online", |t| {
