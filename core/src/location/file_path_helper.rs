@@ -19,7 +19,6 @@ use tracing::error;
 use super::LocationId;
 
 // File Path selectables!
-file_path::select!(file_path_just_id { id });
 file_path::select!(file_path_just_id_materialized_path {
 	id
 	materialized_path
