@@ -63,7 +63,7 @@ pub fn handle_core_msg(
 				let mut resp = Sender::ResponseAndChannel(None, &mut channel);
 
 				handle_json_rpc(
-					node.get_request_context(),
+					node.clone(),
 					request,
 					&router,
 					&mut resp,

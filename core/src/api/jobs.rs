@@ -127,7 +127,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|ctx, _: (), _| {
 				// TODO: Only return event for the library that was subscribed to
 
-				let mut event_bus_rx = ctx.event_bus.subscribe();
+				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				async_stream::stream! {
 					while let Ok(event) = event_bus_rx.recv().await {
 						match event {

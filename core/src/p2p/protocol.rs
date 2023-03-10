@@ -13,7 +13,7 @@ pub enum Header {
 
 impl Header {
 	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, ()> {
-		let discriminator = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
+		let discriminator = stream.read_u8().await.map_err(|e| {dbg!(e);()})?; // TODO: Error handling
 
 		match discriminator {
 			0 => Ok(Self::Spacedrop(TransferRequest::from_stream(stream).await?)),

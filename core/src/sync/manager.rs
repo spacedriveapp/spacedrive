@@ -2,23 +2,29 @@ use crate::prisma::*;
 use sd_sync::*;
 use serde_json::{from_value, json, to_vec, Value};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
 
 use super::ModelSyncData;
+
+#[derive(Clone)]
+pub enum SyncMessage {
+	Ingested(CRDTOperation),
+	Created(CRDTOperation),
+}
 
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
 	node: Uuid,
 	_clocks: HashMap<Uuid, NTP64>,
 	clock: HLC,
-	tx: Sender<CRDTOperation>,
+	pub tx: Sender<SyncMessage>,
 }
 
 impl SyncManager {
-	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<CRDTOperation>) {
-		let (tx, rx) = mpsc::channel(64);
+	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<SyncMessage>) {
+		let (tx, rx) = broadcast::channel(64);
 
 		(
 			Self {
@@ -80,7 +86,7 @@ impl SyncManager {
 		let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
 		for op in ops {
-			self.tx.send(op).await.ok();
+			self.tx.send(SyncMessage::Created(op)).ok();
 		}
 
 		Ok(res)
@@ -134,7 +140,7 @@ impl SyncManager {
 			_ => todo!(),
 		};
 
-		self.tx.send(op).await.ok();
+		self.tx.send(SyncMessage::Created(op)).ok();
 
 		Ok(ret)
 	}
@@ -170,6 +176,8 @@ impl SyncManager {
 
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
+
+		let msg = SyncMessage::Ingested(op.clone());
 
 		match ModelSyncData::from_op(op.typ).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => {
@@ -298,6 +306,8 @@ impl SyncManager {
 			},
 			_ => todo!(),
 		}
+
+		self.tx.send(msg).ok();
 
 		Ok(())
 	}

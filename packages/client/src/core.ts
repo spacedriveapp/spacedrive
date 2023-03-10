@@ -79,7 +79,8 @@ export type Procedures = {
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
-        { key: "p2p.events", input: never, result: P2PEvent }
+        { key: "p2p.events", input: never, result: P2PEvent } | 
+        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation }
 };
 
 /**
@@ -92,6 +93,10 @@ export type AuthOption = { type: "Password", value: string } | { type: "Tokenize
 export type AutomountUpdateArgs = { uuid: string, status: boolean }
 
 export type BuildInfo = { version: string, commit: string }
+
+export type CRDTOperation = { node: string, timestamp: number, id: string, typ: CRDTOperationType }
+
+export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
 /**
  *  ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
@@ -228,10 +233,16 @@ export type ObjectValidatorArgs = { id: number, path: string }
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
+export type OwnedOperation = { model: string, items: OwnedOperationItem[] }
+
+export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: [any, { [key: string]: any }][], skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
+
+export type OwnedOperationItem = { id: any, data: OwnedOperationData }
+
 /**
  *  TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: PeerMetadata }
+export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: PeerMetadata } | { type: "SyncOperation", library_id: string, operations: CRDTOperation[] }
 
 /**
  *  These parameters define the password-hashing level.
@@ -241,6 +252,10 @@ export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: Peer
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
 export type PeerMetadata = { name: string, operating_system: OperatingSystem | null, version: string | null, email: string | null, img_url: string | null }
+
+export type RelationOperation = { relation_item: string, relation_group: string, relation: string, data: RelationOperationData }
+
+export type RelationOperationData = "Create" | { Update: { field: string, value: any } } | "Delete"
 
 export type RestoreBackupArgs = { password: string, secret_key: string, path: string }
 
@@ -256,6 +271,12 @@ export type Salt = number[]
 export type SetFavoriteArgs = { id: number, favorite: boolean }
 
 export type SetNoteArgs = { id: number, note: string | null }
+
+export type SharedOperation = { record_id: any, model: string, data: SharedOperationData }
+
+export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
+
+export type SharedOperationData = SharedOperationCreateData | { field: string, value: any } | null
 
 export type SpacedropArgs = { peer_id: string, file_path: string }
 

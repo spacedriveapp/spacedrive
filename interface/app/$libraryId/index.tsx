@@ -15,6 +15,7 @@ export default [
 			{ path: 'spaces', element: lazyEl(() => import('./spaces')) },
 			{ path: 'debug', element: lazyEl(() => import('./debug')) },
 			{ path: 'spacedrop', element: lazyEl(() => import('./spacedrop')) },
+			{ path: 'sync', element: lazyEl(() => import("./sync")) }
 		]
 	},
 	{ path: 'location/:id', element: lazyEl(() => import('./location/$id')) },

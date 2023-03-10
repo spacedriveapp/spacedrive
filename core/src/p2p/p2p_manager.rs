@@ -31,15 +31,21 @@ pub enum P2PEvent {
 		metadata: PeerMetadata,
 	},
 	// TODO: Expire peer + connection/disconnect
+	SyncOperation {
+		library_id: Uuid,
+		operations: Vec<CRDTOperation>,
+	},
 }
 
 pub struct P2PManager {
-	events: broadcast::Sender<P2PEvent>,
+	pub events: broadcast::Sender<P2PEvent>,
 	pub manager: Arc<Manager<PeerMetadata>>,
 }
 
 impl P2PManager {
-	pub async fn new(node_config: Arc<NodeConfigManager>) -> Arc<Self> {
+	pub async fn new(
+		node_config: Arc<NodeConfigManager>,
+	) -> (Arc<Self>, broadcast::Receiver<P2PEvent>) {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(
@@ -69,82 +75,100 @@ impl P2PManager {
 			manager.listen_addrs().await
 		);
 
-		let (events_tx, _) = broadcast::channel(100);
-		let events = events_tx.clone();
-		tokio::spawn(async move {
-			while let Some(event) = stream.next().await {
-				match event {
-					Event::PeerDiscovered(event) => {
-						debug!(
-							"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-							event.peer_id, event.addresses, event.metadata
-						);
+		let (tx, rx) = broadcast::channel(100);
 
-						events_tx
-							.send(P2PEvent::DiscoveredPeer {
-								peer_id: event.peer_id.clone(),
-								metadata: event.metadata.clone(),
-							})
-							.map_err(|_| error!("Failed to send event to p2p event stream!"))
-							.ok();
+		tokio::spawn({
+			let events = tx.clone();
 
-						// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
-						event.dial().await;
-					}
-					Event::PeerMessage(mut event) => {
-						tokio::spawn(async move {
-							let header = Header::from_stream(&mut event.stream).await.unwrap();
+			async move {
+				while let Some(event) = stream.next().await {
+					match event {
+						Event::PeerDiscovered(event) => {
+							debug!(
+								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+								event.peer_id, event.addresses, event.metadata
+							);
 
-							match header {
-								Header::Ping => {
-									debug!("Received ping from peer '{}'", event.peer_id);
-								}
-								Header::Spacedrop(req) => {
-									info!("Received Spacedrop from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
+							events
+								.send(P2PEvent::DiscoveredPeer {
+									peer_id: event.peer_id.clone(),
+									metadata: event.metadata.clone(),
+								})
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
 
-									// TODO: Ask the user if they wanna reject/accept it
+							// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
+							event.dial().await;
+						}
+						Event::PeerMessage(mut event) => {
+							let events = events.clone();
 
-									// TODO: Deal with binary data. Deal with blocking based on `req.block_size`, etc
-									let mut s = String::new();
-									event.stream.read_to_string(&mut s).await.unwrap();
+							tokio::spawn(async move {
+								let header = Header::from_stream(&mut event.stream).await.unwrap();
 
-									println!(
+								match header {
+									Header::Ping => {
+										debug!("Received ping from peer '{}'", event.peer_id);
+									}
+									Header::Spacedrop(req) => {
+										info!("Received Spacedrop from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
+
+										// TODO: Ask the user if they wanna reject/accept it
+
+										// TODO: Deal with binary data. Deal with blocking based on `req.block_size`, etc
+										let mut s = String::new();
+										event.stream.read_to_string(&mut s).await.unwrap();
+
+										println!(
 										"Recieved file '{}' with content '{}' through Spacedrop!",
 										req.name, s
 									);
 
-									// TODO: Save to the filesystem
+										// TODO: Save to the filesystem
+									}
+									Header::Sync(library_id) => {
+										let buf_len = event.stream.read_u8().await.unwrap();
+
+										let mut buf = vec![0; buf_len as usize]; // TODO: Designed for easily being able to be DOS the current Node
+										event.stream.read_exact(&mut buf).await.unwrap();
+
+										let mut buf: &[u8] = &buf;
+										let operations = rmp_serde::from_read(&mut buf).unwrap();
+
+										println!("sync received");
+
+										events
+											.send(P2PEvent::SyncOperation {
+												library_id,
+												operations,
+											})
+											.ok();
+
+										// TODO: Handle this @Brendan
+
+										// TODO(@Oscar): Remember we can't do a response here cause it's a broadcast. Encode that into type system!
+									}
 								}
-								Header::Sync(library_id) => {
-									let buf_len = event.stream.read_u8().await.unwrap();
-
-									let mut buf = vec![0; buf_len as usize]; // TODO: Designed for easily being able to be DOS the current Node
-									event.stream.read_exact(&mut buf).await.unwrap();
-
-									let mut buf: &[u8] = &buf;
-									let output: Vec<CRDTOperation> =
-										rmp_serde::from_read(&mut buf).unwrap();
-
-									// TODO: Handle this @Brendan
-									println!("Received sync events for library '{library_id}': {output:?}");
-
-									// TODO(@Oscar): Remember we can't do a response here cause it's a broadcast. Encode that into type system!
-								}
-							}
-						});
+							});
+						}
+						_ => debug!("event: {:?}", event),
 					}
-					_ => debug!("event: {:?}", event),
 				}
-			}
 
-			error!("Manager event stream closed! The core is unstable from this point forward!");
+				error!(
+					"Manager event stream closed! The core is unstable from this point forward!"
+				);
+			}
 		});
 
 		// TODO: proper shutdown
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
-		let this = Arc::new(Self { events, manager });
+		let this = Arc::new(Self {
+			events: tx,
+			manager,
+		});
 
 		// TODO: Probs remove this
 		tokio::spawn({
@@ -178,7 +202,7 @@ impl P2PManager {
 			}
 		});
 
-		this
+		(this, rx)
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
@@ -192,7 +216,7 @@ impl P2PManager {
 		head_buf.push(buf.len() as u8); // TODO: This is going to overflow quickly so deal with it properly!
 		head_buf.append(&mut buf);
 
-		self.manager.broadcast(buf).await;
+		self.manager.broadcast(head_buf).await;
 	}
 
 	pub async fn ping(&self) {

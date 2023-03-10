@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	node::Platform,
 	prisma::{node, PrismaClient},
-	sync::SyncManager,
+	sync::{SyncManager, SyncMessage},
 	util::{
 		db::{load_and_migrate, write_storedkey_to_db},
 		seeder::{indexer_rules_seeder, SeederError},
@@ -337,7 +337,19 @@ impl LibraryManager {
 		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		seed_keymanager(&db, &key_manager).await?;
 
-		let (sync_manager, _) = SyncManager::new(&db, id);
+		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
+
+		tokio::spawn({
+			let node_context = node_context.clone();
+
+			async move {
+				while let Ok(op) = sync_rx.recv().await {
+					let SyncMessage::Created(op) = op else { continue; };
+
+					node_context.p2p.broadcast_sync_events(id, vec![op]).await;
+				}
+			}
+		});
 
 		Ok(Library {
 			id,
