@@ -9,38 +9,58 @@ use crate::{
 	prisma::location,
 };
 
-use std::{collections::HashMap, path::Path};
+use std::{
+	collections::{HashMap, HashSet},
+	hash::{Hash, Hasher},
+	path::{Path, PathBuf},
+};
 
 use chrono::Utc;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::error;
 
 use super::{
-	execute_indexer_step, finalize_indexer,
+	execute_indexer_step, finalize_indexer, location_with_indexer_rules,
 	rules::{IndexerRule, RuleKind},
-	walk::walk,
-	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobStep, IndexerJobStepEntry,
-	ScanProgress,
+	walk::walk_single_dir,
+	IndexerError, IndexerJobData, IndexerJobStep, IndexerJobStepEntry, ScanProgress,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
-pub const INDEXER_JOB_NAME: &str = "indexer";
+pub const SHALLOW_INDEXER_JOB_NAME: &str = "shallow_indexer";
 
-/// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
-/// First it walks the directory and generates a list of files to index, chunked into
+/// `ShallowIndexerJobInit` receives a `location::Data` object to be indexed
+/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
+/// we want do index just a part of a location.
+#[derive(Serialize, Deserialize)]
+pub struct ShallowIndexerJobInit {
+	pub location: location_with_indexer_rules::Data,
+	pub sub_path: PathBuf,
+}
+
+impl Hash for ShallowIndexerJobInit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+		self.sub_path.hash(state);
+	}
+}
+
+/// A `ShallowIndexerJob` is a stateful job that indexes all files in a directory, without checking inner directories.
+/// First it checks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
-pub struct IndexerJob;
+pub struct ShallowIndexerJob;
 
 #[async_trait::async_trait]
-impl StatefulJob for IndexerJob {
-	type Init = IndexerJobInit;
+impl StatefulJob for ShallowIndexerJob {
+	type Init = ShallowIndexerJobInit;
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
 	fn name(&self) -> &'static str {
-		INDEXER_JOB_NAME
+		SHALLOW_INDEXER_JOB_NAME
 	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
@@ -72,36 +92,41 @@ impl StatefulJob for IndexerJob {
 				.push(indexer_rule);
 		}
 
-		let mut dirs_ids = HashMap::new();
-
-		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
-			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
+		let (to_walk_path, parent_id) = if state.init.sub_path != Path::new("") {
+			let full_path = ensure_sub_path_is_in_location(location_path, &state.init.sub_path)
 				.await
 				.map_err(IndexerError::from)?;
-			ensure_sub_path_is_directory(location_path, sub_path)
+			ensure_sub_path_is_directory(location_path, &state.init.sub_path)
 				.await
 				.map_err(IndexerError::from)?;
 
-			let sub_path_file_path_id = get_existing_file_path_id(
-				MaterializedPath::new(location_id, location_path, &full_path, true)
-					.map_err(IndexerError::from)?,
-				db,
+			(
+				location_path.join(&state.init.sub_path),
+				get_existing_file_path_id(
+					MaterializedPath::new(location_id, location_path, &full_path, true)
+						.map_err(IndexerError::from)?,
+					db,
+				)
+				.await
+				.map_err(IndexerError::from)?
+				.expect("Sub path should already exist in the database"),
 			)
-			.await
-			.map_err(IndexerError::from)?
-			.expect("Sub path should already exist in the database");
-
-			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(full_path.clone(), sub_path_file_path_id);
-
-			full_path
 		} else {
-			location_path.to_path_buf()
+			(
+				location_path.to_path_buf(),
+				get_existing_file_path_id(
+					MaterializedPath::new(location_id, location_path, location_path, true)
+						.map_err(IndexerError::from)?,
+					db,
+				)
+				.await
+				.map_err(IndexerError::from)?
+				.expect("Location root path should already exist in the database"),
+			)
 		};
 
 		let scan_start = Instant::now();
-
-		let found_paths = walk(
+		let found_paths = walk_single_dir(
 			to_walk_path,
 			&indexer_rules_by_kind,
 			|path, total_entries| {
@@ -113,73 +138,57 @@ impl StatefulJob for IndexerJob {
 					],
 				);
 			},
-			// if we're not using a sub_path, then its a full indexing and we must include root dir
-			state.init.sub_path.is_none(),
 		)
 		.await?;
 
-		dirs_ids.extend(
-			find_many_file_paths_by_full_path(
-				&location::Data::from(&state.init.location),
-				&found_paths
-					.iter()
-					.map(|entry| &entry.path)
-					.collect::<Vec<_>>(),
-				db,
-			)
-			.await
-			.map_err(IndexerError::from)?
-			.select(file_path_just_id_materialized_path::select())
-			.exec()
-			.await?
-			.into_iter()
-			.map(|file_path| {
-				(
-					location_path.join(file_path.materialized_path),
-					file_path.id,
-				)
-			}),
-		);
+		let already_existing_file_paths = find_many_file_paths_by_full_path(
+			&location::Data::from(&state.init.location),
+			&found_paths
+				.iter()
+				.map(|entry| &entry.path)
+				.collect::<Vec<_>>(),
+			db,
+		)
+		.await
+		.map_err(IndexerError::from)?
+		.select(file_path_just_id_materialized_path::select())
+		.exec()
+		.await?
+		.into_iter()
+		.map(|file_path| file_path.materialized_path)
+		.collect::<HashSet<_>>();
 
+		// Filter out paths that are already in the databases
 		let mut new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
-				MaterializedPath::new(
-					location_id,
-					&state.init.location.path,
-					&entry.path,
-					entry.is_dir,
-				)
-				.map_or_else(
-					|e| {
-						error!("Failed to create materialized path: {e}");
-						None
-					},
-					|materialized_path| {
-						(!dirs_ids.contains_key(&entry.path)).then(|| {
-							IndexerJobStepEntry {
+				MaterializedPath::new(location_id, location_path, &entry.path, entry.is_dir)
+					.map_or_else(
+						|e| {
+							error!("Failed to create materialized path: {e}");
+							None
+						},
+						|materialized_path| {
+							(!already_existing_file_paths
+								.contains::<str>(materialized_path.as_ref()))
+							.then_some(IndexerJobStepEntry {
+								full_path: entry.path,
 								materialized_path,
 								created_at: entry.created_at,
 								file_id: 0, // To be set later
-								parent_id: entry.path.parent().and_then(|parent_dir| {
-									/***************************************************************
-									 * If we're dealing with a new path which its parent already   *
-									 * exist, we fetch its parent id from our `dirs_ids` map       *
-									 **************************************************************/
-									dirs_ids.get(parent_dir).copied()
-								}),
-								full_path: entry.path,
-							}
-						})
-					},
-				)
+								parent_id: Some(parent_id),
+							})
+						},
+					)
 			})
+			// Sadly we have to collect here to be able to check the length so we can set
+			// the max file path id later
 			.collect::<Vec<_>>();
 
 		let total_paths = new_paths.len();
 		let last_file_id = first_file_id + total_paths as i32;
 
-		// Setting our global state for `file_path` ids
+		// Setting our global state for file_path ids
 		last_file_path_id_manager
 			.set_max_file_path_id(location_id, last_file_id)
 			.await;
@@ -188,17 +197,10 @@ impl StatefulJob for IndexerJob {
 			.iter_mut()
 			.zip(first_file_id..last_file_id)
 			.for_each(|(entry, file_id)| {
-				// If the `parent_id` is still none here, is because the parent of this entry is also
-				// a new one in the DB
-				if entry.parent_id.is_none() {
-					entry.parent_id = entry
-						.full_path
-						.parent()
-						.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
-				}
 				entry.file_id = file_id;
-				dirs_ids.insert(entry.full_path.clone(), file_id);
 			});
+
+		let total_paths = new_paths.len();
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),

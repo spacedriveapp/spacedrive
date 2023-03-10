@@ -195,7 +195,6 @@ impl From<SecretKey> for SecretKeyString {
 					c.to_string()
 				}
 			})
-			.into_iter()
 			.collect();
 
 		Self::new(hex_string)

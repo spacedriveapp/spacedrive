@@ -1,6 +1,6 @@
 use crate::{
 	library::Library,
-	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
+	location::{location_with_indexer_rules, manager::LocationManagerError},
 };
 
 use async_trait::async_trait;
@@ -26,7 +26,7 @@ impl EventHandler for LinuxEventHandler {
 
 	async fn handle_event(
 		&mut self,
-		location: indexer_job_location::Data,
+		location: location_with_indexer_rules::Data,
 		library: &Library,
 		event: Event,
 	) -> Result<(), LocationManagerError> {

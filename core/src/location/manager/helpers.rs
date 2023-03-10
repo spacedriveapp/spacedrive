@@ -2,7 +2,7 @@ use crate::{library::Library, prisma::location};
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::{Path, PathBuf},
+	path::PathBuf,
 	time::Duration,
 };
 
@@ -112,25 +112,6 @@ pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<
 			error!("Failed to get location data from location_id: {:#?}", err);
 			None
 		})
-}
-
-pub(super) fn subtract_location_path(
-	location_path: impl AsRef<Path>,
-	current_path: impl AsRef<Path>,
-) -> Option<PathBuf> {
-	let location_path = location_path.as_ref();
-	let current_path = current_path.as_ref();
-
-	if let Ok(stripped) = current_path.strip_prefix(location_path) {
-		Some(stripped.to_path_buf())
-	} else {
-		error!(
-			"Failed to strip location root path ({}) from current path ({})",
-			location_path.display(),
-			current_path.display()
-		);
-		None
-	}
 }
 
 pub(super) async fn handle_remove_location_request(

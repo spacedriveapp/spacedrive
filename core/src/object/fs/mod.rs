@@ -1,7 +1,6 @@
-pub mod create;
-
 use crate::{
 	job::JobError,
+	location::file_path_helper::file_path_with_object,
 	prisma::{file_path, location, PrismaClient},
 };
 
@@ -9,7 +8,7 @@ use std::{ffi::OsStr, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::preview::file_path_with_object;
+pub mod create;
 
 pub mod copy;
 pub mod cut;
