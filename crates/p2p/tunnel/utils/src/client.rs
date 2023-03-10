@@ -61,7 +61,6 @@ impl Client {
 				)?)),
 				self.backend_url
 					.to_socket_addrs()? // TODO: Make this only lookup IPv4 -> Filter IPV6's
-					.into_iter()
 					.next()
 					.ok_or(ClientError::MissingServerAddr)?,
 				"todo",

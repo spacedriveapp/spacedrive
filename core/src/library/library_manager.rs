@@ -132,7 +132,6 @@ impl LibraryManager {
 
 		let mut libraries = Vec::new();
 		for entry in fs::read_dir(&libraries_dir)?
-			.into_iter()
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| {
 				entry.path().is_file()
