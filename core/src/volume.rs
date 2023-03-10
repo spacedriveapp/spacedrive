@@ -43,7 +43,8 @@ pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 
 	// enter all volumes associate with this client add to db
 	for volume in volumes {
-		library.db
+		library
+			.db
 			.volume()
 			.upsert(
 				node_id_mount_point_name(

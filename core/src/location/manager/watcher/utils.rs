@@ -76,11 +76,7 @@ pub(super) async fn create_dir(
 
 	let created_path = library
 		.last_file_path_id_manager
-		.create_file_path(
-			&library.db,
-			materialized_path,
-			Some(parent_directory.id),
-		)
+		.create_file_path(&library.db, materialized_path, Some(parent_directory.id))
 		.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
@@ -120,11 +116,7 @@ pub(super) async fn create_file(
 
 	let created_file = library
 		.last_file_path_id_manager
-		.create_file_path(
-			&library.db,
-			materialized_path,
-			Some(parent_directory.id),
-		)
+		.create_file_path(&library.db, materialized_path, Some(parent_directory.id))
 		.await?;
 
 	info!("Created path: {}", created_file.materialized_path);
@@ -331,8 +323,8 @@ pub(super) async fn rename(
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	if let Some(file_path) =
-		get_existing_file_or_directory(location, old_path, &library.db).await? {
+	if let Some(file_path) = get_existing_file_or_directory(location, old_path, &library.db).await?
+	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
 			if !old_path_materialized.ends_with('/') {

@@ -41,7 +41,8 @@ impl IndexerRuleCreateArgs {
 			}
 		};
 
-		library.db
+		library
+			.db
 			.indexer_rule()
 			.create(self.kind as i32, self.name, parameters, vec![])
 			.exec()

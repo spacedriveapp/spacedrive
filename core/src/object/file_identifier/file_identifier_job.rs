@@ -88,8 +88,7 @@ impl StatefulJob for FileIdentifierJob {
 		};
 
 		let orphan_count =
-			count_orphan_file_paths(db, location_id, &maybe_sub_materialized_path)
-				.await?;
+			count_orphan_file_paths(db, location_id, &maybe_sub_materialized_path).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
 		state.data = Some(FileIdentifierJobState {

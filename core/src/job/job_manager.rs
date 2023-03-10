@@ -241,7 +241,10 @@ impl JobManager {
 				}
 				SHALLOW_FILE_IDENTIFIER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, ShallowFileIdentifierJob {})?)
+						.dispatch_job(
+							library,
+							Job::resume(paused_job, ShallowFileIdentifierJob {})?,
+						)
 						.await;
 				}
 				VALIDATOR_JOB_NAME => {
@@ -302,8 +305,12 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			if let Err(e) =
-				Worker::spawn(Arc::clone(&self), Arc::clone(&wrapped_worker), library.clone()).await
+			if let Err(e) = Worker::spawn(
+				Arc::clone(&self),
+				Arc::clone(&wrapped_worker),
+				library.clone(),
+			)
+			.await
 			{
 				error!("Error spawning worker: {:?}", e);
 			} else {
@@ -402,7 +409,8 @@ impl JobReport {
 	}
 
 	pub async fn create(&self, library: &Library) -> Result<(), JobError> {
-		library.db
+		library
+			.db
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
@@ -416,7 +424,8 @@ impl JobReport {
 		Ok(())
 	}
 	pub async fn update(&self, library: &Library) -> Result<(), JobError> {
-		library.db
+		library
+			.db
 			.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),

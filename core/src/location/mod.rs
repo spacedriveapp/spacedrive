@@ -116,7 +116,10 @@ impl LocationCreateArgs {
 		)
 		.await?;
 
-		library.location_manager().add(location.id, library.clone()).await?;
+		library
+			.location_manager()
+			.add(location.id, library.clone())
+			.await?;
 
 		info!("Created location: {location:?}");
 
@@ -153,7 +156,10 @@ impl LocationCreateArgs {
 			.add_library(library.id, uuid, &self.path, location.name.clone())
 			.await?;
 
-		library.location_manager().add(location.id, library.clone()).await?;
+		library
+			.location_manager()
+			.add(location.id, library.clone())
+			.await?;
 
 		info!(
 			"Added library (library_id = {}) to location: {location:?}",
@@ -264,7 +270,8 @@ impl LocationUpdateArgs {
 				.collect::<Vec<_>>();
 
 			if !rule_ids_to_remove.is_empty() {
-				library.db
+				library
+					.db
 					.indexer_rules_in_location()
 					.delete_many(vec![
 						indexer_rules_in_location::location_id::equals(self.id),
@@ -284,7 +291,8 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(library: &Library, location_id: i32) -> location::FindUnique {
-	library.db
+	library
+		.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 }
@@ -294,7 +302,8 @@ async fn link_location_and_indexer_rules(
 	location_id: i32,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
-	library.db
+	library
+		.db
 		.indexer_rules_in_location()
 		.create_many(
 			rules_ids
@@ -316,33 +325,36 @@ pub async fn scan_location(
 		return Ok(());
 	}
 
-	library.queue_job(Job::new(
-		FileIdentifierJobInit {
-			location: location::Data::from(&location),
-			sub_path: None,
-		},
-		FileIdentifierJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			FileIdentifierJobInit {
+				location: location::Data::from(&location),
+				sub_path: None,
+			},
+			FileIdentifierJob {},
+		))
+		.await;
 
-	library.queue_job(Job::new(
-		ThumbnailerJobInit {
-			location: location::Data::from(&location),
-			sub_path: None,
-			background: true,
-		},
-		ThumbnailerJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			ThumbnailerJobInit {
+				location: location::Data::from(&location),
+				sub_path: None,
+				background: true,
+			},
+			ThumbnailerJob {},
+		))
+		.await;
 
-	library.spawn_job(Job::new(
-		IndexerJobInit {
-			location,
-			sub_path: None,
-		},
-		IndexerJob {},
-	))
-	.await;
+	library
+		.spawn_job(Job::new(
+			IndexerJobInit {
+				location,
+				sub_path: None,
+			},
+			IndexerJob {},
+		))
+		.await;
 
 	Ok(())
 }
@@ -358,33 +370,36 @@ pub async fn scan_location_sub_path(
 		return Ok(());
 	}
 
-	library.queue_job(Job::new(
-		FileIdentifierJobInit {
-			location: location::Data::from(&location),
-			sub_path: Some(sub_path.clone()),
-		},
-		FileIdentifierJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			FileIdentifierJobInit {
+				location: location::Data::from(&location),
+				sub_path: Some(sub_path.clone()),
+			},
+			FileIdentifierJob {},
+		))
+		.await;
 
-	library.queue_job(Job::new(
-		ThumbnailerJobInit {
-			location: location::Data::from(&location),
-			sub_path: Some(sub_path.clone()),
-			background: true,
-		},
-		ThumbnailerJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			ThumbnailerJobInit {
+				location: location::Data::from(&location),
+				sub_path: Some(sub_path.clone()),
+				background: true,
+			},
+			ThumbnailerJob {},
+		))
+		.await;
 
-	library.spawn_job(Job::new(
-		IndexerJobInit {
-			location,
-			sub_path: Some(sub_path),
-		},
-		IndexerJob {},
-	))
-	.await;
+	library
+		.spawn_job(Job::new(
+			IndexerJobInit {
+				location,
+				sub_path: Some(sub_path),
+			},
+			IndexerJob {},
+		))
+		.await;
 
 	Ok(())
 }
@@ -399,29 +414,32 @@ pub async fn light_scan_location(
 		return Ok(());
 	}
 
-	library.queue_job(Job::new(
-		ShallowFileIdentifierJobInit {
-			location: location::Data::from(&location),
-			sub_path: sub_path.clone(),
-		},
-		ShallowFileIdentifierJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			ShallowFileIdentifierJobInit {
+				location: location::Data::from(&location),
+				sub_path: sub_path.clone(),
+			},
+			ShallowFileIdentifierJob {},
+		))
+		.await;
 
-	library.queue_job(Job::new(
-		ShallowThumbnailerJobInit {
-			location: location::Data::from(&location),
-			sub_path: sub_path.clone(),
-		},
-		ShallowThumbnailerJob {},
-	))
-	.await;
+	library
+		.queue_job(Job::new(
+			ShallowThumbnailerJobInit {
+				location: location::Data::from(&location),
+				sub_path: sub_path.clone(),
+			},
+			ShallowThumbnailerJob {},
+		))
+		.await;
 
-	library.spawn_job(Job::new(
-		ShallowIndexerJobInit { location, sub_path },
-		ShallowIndexerJob {},
-	))
-	.await;
+	library
+		.spawn_job(Job::new(
+			ShallowIndexerJobInit { location, sub_path },
+			ShallowIndexerJob {},
+		))
+		.await;
 
 	Ok(())
 }
@@ -531,7 +549,8 @@ async fn create_location(
 pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
 	let Library { db, .. } = library;
 
-	library.location_manager()
+	library
+		.location_manager()
 		.remove(location_id, library.clone())
 		.await?;
 
@@ -594,14 +613,16 @@ pub async fn delete_directory(
 
 	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
-	library.db
+	library
+		.db
 		.file_path()
 		.delete_many(children_params)
 		.exec()
 		.await?;
 
 	// delete all children objects
-	library.db
+	library
+		.db
 		.object()
 		.delete_many(vec![
 			object::id::in_vec(object_ids),

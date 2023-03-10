@@ -95,8 +95,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			.expect("Location root path should already exist in the database")
 		};
 
-		let orphan_count =
-			count_orphan_file_paths(db, location_id, sub_path_id).await?;
+		let orphan_count = count_orphan_file_paths(db, location_id, sub_path_id).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
 		state.data = Some(ShallowFileIdentifierJobState {
