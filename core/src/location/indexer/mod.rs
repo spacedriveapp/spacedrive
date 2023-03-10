@@ -1,6 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	library::Library,
 	prisma::file_path,
 	sync,
 };
@@ -146,7 +147,7 @@ async fn execute_indexer_step(
 	step: &[IndexerJobStepEntry],
 	ctx: WorkerContext,
 ) -> Result<i64, JobError> {
-	let db = &ctx.library_ctx.db;
+	let Library { sync, db, .. } = &ctx.library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = step
 		.iter()
@@ -162,7 +163,7 @@ async fn execute_indexer_step(
 			use file_path::*;
 
 			(
-				(
+				sync.unique_shared_create(
 					sync::file_path::SyncId {
 						id: entry.file_id,
 						location: sync::location::SyncId {
@@ -194,13 +195,13 @@ async fn execute_indexer_step(
 		})
 		.unzip();
 
-	let count = ctx
-		.library_ctx
-		.sync
-		.write_op(
+	let count = sync
+		.write_ops(
 			db,
-			ctx.library_ctx.sync.owned_create_many(sync_stuff, true),
-			db.file_path().create_many(paths).skip_duplicates(),
+			(
+				sync_stuff,
+				db.file_path().create_many(paths).skip_duplicates(),
+			),
 		)
 		.await?;
 
@@ -236,7 +237,7 @@ where
 	);
 
 	if data.indexed_paths > 0 {
-		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 
 	Ok(Some(serde_json::to_value(state)?))

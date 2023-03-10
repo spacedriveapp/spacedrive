@@ -1,4 +1,4 @@
-use crate::library::LibraryContext;
+use crate::library::Library;
 
 use std::{
 	collections::BTreeSet,
@@ -39,7 +39,7 @@ enum ManagementMessageAction {
 #[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: LocationId,
-	library_ctx: LibraryContext,
+	library: Library,
 	action: ManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -56,7 +56,7 @@ enum WatcherManagementMessageAction {
 #[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: LocationId,
-	library_ctx: LibraryContext,
+	library: Library,
 	action: WatcherManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -154,7 +154,7 @@ impl LocationManager {
 	async fn location_management_message(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -164,7 +164,7 @@ impl LocationManager {
 			self.location_management_tx
 				.send(LocationManagementMessage {
 					location_id,
-					library_ctx,
+					library,
 					action,
 					response_tx: tx,
 				})
@@ -182,7 +182,7 @@ impl LocationManager {
 	async fn watcher_management_message(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -192,7 +192,7 @@ impl LocationManager {
 			self.watcher_management_tx
 				.send(WatcherManagementMessage {
 					location_id,
-					library_ctx,
+					library,
 					action,
 					response_tx: tx,
 				})
@@ -208,42 +208,38 @@ impl LocationManager {
 	pub async fn add(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<(), LocationManagerError> {
-		self.location_management_message(location_id, library_ctx, ManagementMessageAction::Add)
+		self.location_management_message(location_id, library, ManagementMessageAction::Add)
 			.await
 	}
 
 	pub async fn remove(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<(), LocationManagerError> {
-		self.location_management_message(location_id, library_ctx, ManagementMessageAction::Remove)
+		self.location_management_message(location_id, library, ManagementMessageAction::Remove)
 			.await
 	}
 
 	pub async fn stop_watcher(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<(), LocationManagerError> {
-		self.watcher_management_message(
-			location_id,
-			library_ctx,
-			WatcherManagementMessageAction::Stop,
-		)
-		.await
+		self.watcher_management_message(location_id, library, WatcherManagementMessageAction::Stop)
+			.await
 	}
 
 	pub async fn reinit_watcher(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(
 			location_id,
-			library_ctx,
+			library,
 			WatcherManagementMessageAction::Reinit,
 		)
 		.await
@@ -252,13 +248,13 @@ impl LocationManager {
 	pub async fn temporary_stop(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 	) -> Result<StopWatcherGuard, LocationManagerError> {
-		self.stop_watcher(location_id, library_ctx.clone()).await?;
+		self.stop_watcher(location_id, library.clone()).await?;
 
 		Ok(StopWatcherGuard {
 			location_id,
-			library_ctx: Some(library_ctx),
+			library: Some(library),
 			manager: self,
 		})
 	}
@@ -266,14 +262,14 @@ impl LocationManager {
 	pub async fn temporary_ignore_events_for_path(
 		&self,
 		location_id: LocationId,
-		library_ctx: LibraryContext,
+		library: Library,
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
 		let path = path.as_ref().to_path_buf();
 
 		self.watcher_management_message(
 			location_id,
-			library_ctx.clone(),
+			library.clone(),
 			WatcherManagementMessageAction::IgnoreEventsForPath {
 				path: path.clone(),
 				ignore: true,
@@ -283,7 +279,7 @@ impl LocationManager {
 
 		Ok(IgnoreEventsForPathGuard {
 			location_id,
-			library_ctx: Some(library_ctx),
+			library: Some(library),
 			manager: self,
 			path: Some(path),
 		})
@@ -319,7 +315,7 @@ impl LocationManager {
 				// Location management messages
 				Some(LocationManagementMessage{
 					location_id,
-					library_ctx,
+					library,
 					action,
 					response_tx
 				}) = location_management_rx.recv() => {
@@ -327,27 +323,27 @@ impl LocationManager {
 
 						// To add a new location
 						ManagementMessageAction::Add => {
-							if let Some(location) = get_location(location_id, &library_ctx).await {
-								let is_online = check_online(&location, &library_ctx).await;
+							if let Some(location) = get_location(location_id, &library).await {
+								let is_online = check_online(&location, &library).await;
 								let _ = response_tx.send(
-									LocationWatcher::new(location, library_ctx.clone())
+									LocationWatcher::new(location, library.clone())
 										.await
 										.map(|mut watcher| {
 											if is_online {
 												watcher.watch();
 												locations_watched.insert(
-													(location_id, library_ctx.id),
+													(location_id, library.id),
 													watcher
 												);
 											} else {
 												locations_unwatched.insert(
-													(location_id, library_ctx.id),
+													(location_id, library.id),
 													watcher
 												);
 											}
 
 											to_check_futures.push(
-												location_check_sleep(location_id, library_ctx)
+												location_check_sleep(location_id, library)
 											);
 										}
 									)
@@ -364,7 +360,7 @@ impl LocationManager {
 						ManagementMessageAction::Remove => {
 							handle_remove_location_request(
 								location_id,
-								library_ctx,
+								library,
 								response_tx,
 								&mut forced_unwatch,
 								&mut locations_watched,
@@ -378,7 +374,7 @@ impl LocationManager {
 				// Watcher management messages
 				Some(WatcherManagementMessage{
 					location_id,
-					library_ctx,
+					library,
 					action,
 					response_tx,
 				}) = watcher_management_rx.recv() => {
@@ -387,7 +383,7 @@ impl LocationManager {
 						WatcherManagementMessageAction::Stop => {
 							handle_stop_watcher_request(
 								location_id,
-								library_ctx,
+								library,
 								response_tx,
 								&mut forced_unwatch,
 								&mut locations_watched,
@@ -399,7 +395,7 @@ impl LocationManager {
 						WatcherManagementMessageAction::Reinit => {
 							handle_reinit_watcher_request(
 								location_id,
-								library_ctx,
+								library,
 								response_tx,
 								&mut forced_unwatch,
 								&mut locations_watched,
@@ -411,7 +407,7 @@ impl LocationManager {
 						WatcherManagementMessageAction::IgnoreEventsForPath { path, ignore } => {
 							handle_ignore_path_request(
 								location_id,
-								library_ctx,
+								library,
 								path,
 								ignore,
 								response_tx,
@@ -422,36 +418,36 @@ impl LocationManager {
 				}
 
 				// Periodically checking locations
-				Some((location_id, library_ctx)) = to_check_futures.next() => {
-					let key = (location_id, library_ctx.id);
+				Some((location_id, library)) = to_check_futures.next() => {
+					let key = (location_id, library.id);
 
 					if to_remove.contains(&key) {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
-					} else if let Some(location) = get_location(location_id, &library_ctx).await {
-						if location.node_id == library_ctx.node_local_id {
-							if check_online(&location, &library_ctx).await
+					} else if let Some(location) = get_location(location_id, &library).await {
+						if location.node_id == library.node_local_id {
+							if check_online(&location, &library).await
 								&& !forced_unwatch.contains(&key)
 							{
 								watch_location(
 									location,
-									library_ctx.id,
+									library.id,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);
 							} else {
 								unwatch_location(
 									location,
-									library_ctx.id,
+									library.id,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);
 							}
-							to_check_futures.push(location_check_sleep(location_id, library_ctx));
+							to_check_futures.push(location_check_sleep(location_id, library));
 						} else {
 							drop_location(
 								location_id,
-								library_ctx.id,
+								library.id,
 								"Dropping location from location manager, because \
 								we don't have a `local_path` anymore",
 								&mut locations_watched,
@@ -462,7 +458,7 @@ impl LocationManager {
 					} else {
 						drop_location(
 							location_id,
-							library_ctx.id,
+							library.id,
 							"Removing location from manager, as we failed to fetch from db",
 							&mut locations_watched,
 							&mut locations_unwatched,
@@ -524,7 +520,7 @@ impl Drop for LocationManager {
 pub struct StopWatcherGuard<'m> {
 	manager: &'m LocationManager,
 	location_id: LocationId,
-	library_ctx: Option<LibraryContext>,
+	library: Option<Library>,
 }
 
 impl Drop for StopWatcherGuard<'_> {
@@ -533,7 +529,7 @@ impl Drop for StopWatcherGuard<'_> {
 			// FIXME: change this Drop to async drop in the future
 			if let Err(e) = block_on(
 				self.manager
-					.reinit_watcher(self.location_id, self.library_ctx.take().unwrap()),
+					.reinit_watcher(self.location_id, self.library.take().unwrap()),
 			) {
 				error!("Failed to reinit watcher on stop watcher guard drop: {e}");
 			}
@@ -546,7 +542,7 @@ pub struct IgnoreEventsForPathGuard<'m> {
 	manager: &'m LocationManager,
 	path: Option<PathBuf>,
 	location_id: LocationId,
-	library_ctx: Option<LibraryContext>,
+	library: Option<Library>,
 }
 
 impl Drop for IgnoreEventsForPathGuard<'_> {
@@ -555,7 +551,7 @@ impl Drop for IgnoreEventsForPathGuard<'_> {
 			// FIXME: change this Drop to async drop in the future
 			if let Err(e) = block_on(self.manager.watcher_management_message(
 				self.location_id,
-				self.library_ctx.take().unwrap(),
+				self.library.take().unwrap(),
 				WatcherManagementMessageAction::IgnoreEventsForPath {
 					path: self.path.take().unwrap(),
 					ignore: false,

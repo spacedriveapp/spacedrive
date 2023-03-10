@@ -1,8 +1,11 @@
-use api::{CoreEvent, Ctx, Router};
-use job::JobManager;
-use library::LibraryManager;
-use location::{LocationManager, LocationManagerError};
-use node::NodeConfigManager;
+use crate::{
+	api::{CoreEvent, Ctx, Router},
+	job::JobManager,
+	library::LibraryManager,
+	location::{LocationManager, LocationManagerError},
+	node::NodeConfigManager,
+	p2p::P2PManager,
+};
 use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
@@ -18,6 +21,7 @@ pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
+pub(crate) mod p2p;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
@@ -37,11 +41,13 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
+	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
+	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
-#[cfg(not(feature = "android"))]
+#[cfg(not(target_os = "android"))]
 const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
 	use tracing_subscriber::filter::LevelFilter;
 
@@ -85,6 +91,11 @@ impl Node {
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
+					"sd-p2p=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
 					"server=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
@@ -99,9 +110,9 @@ impl Node {
 			    // 		.expect("Error invalid tracing directive!"),
 			    // ),
 		);
-		#[cfg(not(feature = "android"))]
+		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		#[cfg(feature = "android")]
+		#[cfg(target_os = "android")]
 		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber
 			// .with(
@@ -130,8 +141,8 @@ impl Node {
 		.await?;
 
 		// Adding already existing locations for location management
-		for library_ctx in library_manager.get_all_libraries_ctx().await {
-			for location in library_ctx
+		for library in library_manager.get_all_libraries().await {
+			for location in library
 				.db
 				.location()
 				.find_many(vec![])
@@ -144,7 +155,7 @@ impl Node {
 					);
 					vec![]
 				}) {
-				if let Err(e) = location_manager.add(location.id, library_ctx.clone()).await {
+				if let Err(e) = location_manager.add(location.id, library.clone()).await {
 					error!("Failed to add location to location manager: {:#?}", e);
 				}
 			}
@@ -156,18 +167,21 @@ impl Node {
 		let inner_library_manager = Arc::clone(&library_manager);
 		let inner_jobs = Arc::clone(&jobs);
 		tokio::spawn(async move {
-			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
-				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
+			for library in inner_library_manager.get_all_libraries().await {
+				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library).await {
 					error!("Failed to resume jobs for library. {:#?}", e);
 				}
 			}
 		});
+
+		let p2p = P2PManager::new(config.clone()).await;
 
 		let router = api::mount();
 		let node = Node {
 			config,
 			library_manager,
 			jobs,
+			p2p,
 			event_bus,
 			secure_temp_keystore,
 		};
@@ -181,6 +195,7 @@ impl Node {
 			library_manager: Arc::clone(&self.library_manager),
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
+			p2p: Arc::clone(&self.p2p),
 			event_bus: self.event_bus.0.clone(),
 			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}

@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	location::file_path_helper::{file_path_for_file_identifier, file_path_just_id, FilePathError},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
@@ -99,7 +99,7 @@ pub struct FileIdentifierReport {
 }
 
 async fn identifier_job_step(
-	LibraryContext { db, sync, .. }: &LibraryContext,
+	Library { db, sync, .. }: &Library,
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
@@ -126,14 +126,15 @@ async fn identifier_job_step(
 			.iter()
 			.map(|(id, (meta, _))| {
 				(
-					sync.owned_update(
+					sync.shared_update(
 						sync::file_path::SyncId {
 							id: *id,
 							location: sync::location::SyncId {
 								pub_id: location.pub_id.clone(),
 							},
 						},
-						[("cas_id", json!(&meta.cas_id))],
+						"cas_id",
+						json!(&meta.cas_id),
 					),
 					db.file_path().update(
 						file_path::location_id_id(location.id, *id),
@@ -310,14 +311,15 @@ fn file_path_object_connect_ops<'db>(
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	(
-		sync.owned_update(
+		sync.shared_update(
 			sync::file_path::SyncId {
 				id: file_path_id,
 				location: sync::location::SyncId {
 					pub_id: location.pub_id.clone(),
 				},
 			},
-			[("object", json!({ "pub_id": object_id }))],
+			"object",
+			json!({ "pub_id": object_id }),
 		),
 		db.file_path()
 			.update(
@@ -357,7 +359,7 @@ async fn process_identifier_file_paths(
 	);
 
 	let (total_objects_created, total_objects_linked) =
-		identifier_job_step(&ctx.library_ctx, location, file_paths).await?;
+		identifier_job_step(&ctx.library, location, file_paths).await?;
 
 	report.total_objects_created += total_objects_created;
 	report.total_objects_linked += total_objects_linked;
@@ -383,7 +385,7 @@ fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -
 	info!("Finalizing identifier job: {report:?}");
 
 	if report.total_orphan_paths > 0 {
-		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 
 	Ok(Some(serde_json::to_value(report)?))

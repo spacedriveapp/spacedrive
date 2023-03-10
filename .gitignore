@@ -68,3 +68,5 @@ playwright-report
 /sdserver_data
 .spacedrive
 dev.db-journal
+.build/
+.swiftpm

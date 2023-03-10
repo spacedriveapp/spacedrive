@@ -1,6 +1,6 @@
 use crate::{
 	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
@@ -45,11 +45,11 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let LibraryContext {
+		let Library {
 			last_file_path_id_manager,
 			db,
 			..
-		} = &ctx.library_ctx;
+		} = &ctx.library;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);

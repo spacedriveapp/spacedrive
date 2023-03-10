@@ -36,8 +36,7 @@ export default function OnboardingPrivacy() {
 	});
 
 	const onSubmit = form.handleSubmit(async (data) => {
-		getOnboardingStore().shareTelemetryDataWithDevelopers =
-			data.shareTelemetry === 'share-telemetry';
+		getOnboardingStore().shareTelemetry = data.shareTelemetry === 'share-telemetry';
 
 		navigate('/onboarding/creating-library');
 	});

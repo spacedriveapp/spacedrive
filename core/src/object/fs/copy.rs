@@ -62,14 +62,14 @@ impl StatefulJob for FileCopierJob {
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let source_fs_info = context_menu_fs_info(
-			&ctx.library_ctx.db,
+			&ctx.library.db,
 			state.init.source_location_id,
 			state.init.source_path_id,
 		)
 		.await?;
 
 		let mut full_target_path =
-			get_path_from_location_id(&ctx.library_ctx.db, state.init.target_location_id).await?;
+			get_path_from_location_id(&ctx.library.db, state.init.target_location_id).await?;
 
 		// add the currently viewed subdirectory to the location root
 		full_target_path.push(&state.init.target_path);

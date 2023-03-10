@@ -1,11 +1,11 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, MaterializedPath,
 	},
-	prisma::{file_path, location},
+	prisma::{file_path, location, PrismaClient},
 };
 
 use std::{
@@ -64,7 +64,7 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let LibraryContext { db, .. } = &ctx.library_ctx;
+		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
 
@@ -88,7 +88,7 @@ impl StatefulJob for FileIdentifierJob {
 		};
 
 		let orphan_count =
-			count_orphan_file_paths(&ctx.library_ctx, location_id, &maybe_sub_materialized_path)
+			count_orphan_file_paths(db, location_id, &maybe_sub_materialized_path)
 				.await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
@@ -164,7 +164,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		// get chunk of orphans to process
 		let file_paths =
-			get_orphan_file_paths(&ctx.library_ctx, cursor, maybe_sub_materialized_path).await?;
+			get_orphan_file_paths(&ctx.library.db, cursor, maybe_sub_materialized_path).await?;
 
 		process_identifier_file_paths(
 			self.name(),
@@ -215,12 +215,11 @@ fn orphan_path_filters(
 }
 
 async fn count_orphan_file_paths(
-	ctx: &LibraryContext,
+	db: &PrismaClient,
 	location_id: i32,
 	maybe_sub_materialized_path: &Option<MaterializedPath>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
-	ctx.db
-		.file_path()
+	db.file_path()
 		.count(orphan_path_filters(
 			location_id,
 			None,
@@ -232,7 +231,7 @@ async fn count_orphan_file_paths(
 }
 
 async fn get_orphan_file_paths(
-	ctx: &LibraryContext,
+	db: &PrismaClient,
 	cursor: &FilePathIdAndLocationIdCursor,
 	maybe_sub_materialized_path: &Option<MaterializedPath>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
@@ -240,8 +239,7 @@ async fn get_orphan_file_paths(
 		"Querying {} orphan Paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
 	);
-	ctx.db
-		.file_path()
+	db.file_path()
 		.find_many(orphan_path_filters(
 			cursor.location_id,
 			Some(cursor.file_path_id),

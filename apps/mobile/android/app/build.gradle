@@ -6,8 +6,8 @@ import org.apache.tools.ant.taskdefs.condition.Os
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 
 cargo {
-    module  = "../../rust/android"
-    libname = "sd_core_android"
+    module  = "../../crates/android"
+    libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release'
     targets = ["arm", "arm64", "x86", "x86_64"]

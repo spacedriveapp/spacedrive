@@ -1,5 +1,5 @@
 use crate::{
-	library::LibraryContext,
+	library::Library,
 	location::{location_with_indexer_rules, manager::LocationManagerError},
 };
 
@@ -33,7 +33,7 @@ impl EventHandler for MacOsEventHandler {
 	async fn handle_event(
 		&mut self,
 		location: location_with_indexer_rules::Data,
-		library_ctx: &LibraryContext,
+		library: &Library,
 		event: Event,
 	) -> Result<(), LocationManagerError> {
 		trace!("Received MacOS event: {:#?}", event);
@@ -50,12 +50,12 @@ impl EventHandler for MacOsEventHandler {
 					}
 				}
 
-				create_dir(&location, &event, library_ctx).await?;
+				create_dir(&location, &event, library).await?;
 				self.latest_created_dir = Some(event);
 			}
 			EventKind::Modify(ModifyKind::Data(DataChange::Content)) => {
 				// If a file had its content modified, then it was updated or created
-				file_creation_or_update(&location, &event, library_ctx).await?;
+				file_creation_or_update(&location, &event, library).await?;
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				match self.rename_stack.take() {
@@ -63,19 +63,13 @@ impl EventHandler for MacOsEventHandler {
 						self.rename_stack = Some(event);
 					}
 					Some(from_event) => {
-						rename(
-							&event.paths[0],
-							&from_event.paths[0],
-							&location,
-							library_ctx,
-						)
-						.await?;
+						rename(&event.paths[0], &from_event.paths[0], &location, library).await?;
 					}
 				}
 			}
 
 			EventKind::Remove(remove_kind) => {
-				remove_event(&location, &event, remove_kind, library_ctx).await?;
+				remove_event(&location, &event, remove_kind, library).await?;
 			}
 			other_event_kind => {
 				trace!("Other MacOS event that we don't handle for now: {other_event_kind:#?}");

@@ -1,4 +1,4 @@
-use crate::{job::*, library::LibraryContext};
+use crate::{job::*, library::Library};
 
 use std::path::PathBuf;
 
@@ -58,15 +58,12 @@ impl StatefulJob for FileEncryptorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let step = context_menu_fs_info(
-			&ctx.library_ctx.db,
-			state.init.location_id,
-			state.init.path_id,
-		)
-		.await
-		.map_err(|_| JobError::MissingData {
-			value: String::from("file_path that matches both location id and path id"),
-		})?;
+		let step =
+			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
+				.await
+				.map_err(|_| JobError::MissingData {
+					value: String::from("file_path that matches both location id and path id"),
+				})?;
 
 		state.steps = [step].into_iter().collect();
 
@@ -82,7 +79,7 @@ impl StatefulJob for FileEncryptorJob {
 	) -> Result<(), JobError> {
 		let info = &state.steps[0];
 
-		let LibraryContext { key_manager, .. } = &ctx.library_ctx;
+		let Library { key_manager, .. } = &ctx.library;
 
 		if !info.path_data.is_dir {
 			// handle overwriting checks, and making sure there's enough available space
@@ -120,11 +117,11 @@ impl StatefulJob for FileEncryptorJob {
 			)?;
 
 			let _guard = ctx
-				.library_ctx
+				.library
 				.location_manager()
 				.temporary_ignore_events_for_path(
 					state.init.location_id,
-					ctx.library_ctx.clone(),
+					ctx.library.clone(),
 					&output_path,
 				)
 				.await?;
@@ -181,7 +178,7 @@ impl StatefulJob for FileEncryptorJob {
 
 					// may not be the best - pvm isn't guaranteed to be webp
 					let pvm_path = ctx
-						.library_ctx
+						.library
 						.config()
 						.data_directory()
 						.join("thumbnails")

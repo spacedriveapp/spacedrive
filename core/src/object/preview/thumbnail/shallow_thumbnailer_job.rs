@@ -1,6 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	library::LibraryContext,
+	library::Library,
 	location::{
 		file_path_helper::{
 			ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -8,7 +8,7 @@ use crate::{
 		},
 		LocationId,
 	},
-	prisma::{file_path, location},
+	prisma::{file_path, location, PrismaClient},
 };
 
 use std::{
@@ -57,10 +57,10 @@ impl StatefulJob for ShallowThumbnailerJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let LibraryContext { db, .. } = &ctx.library_ctx;
+		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = ctx
-			.library_ctx
+			.library
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME);
@@ -102,7 +102,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
-			&ctx.library_ctx,
+			db,
 			location_id,
 			sub_path_id,
 			&FILTERED_IMAGE_EXTENSIONS,
@@ -115,7 +115,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let all_files = {
 			// query database for all video files in this location that need thumbnails
 			let video_files = get_files_by_extensions(
-				&ctx.library_ctx,
+				db,
 				location_id,
 				sub_path_id,
 				&FILTERED_VIDEO_EXTENSIONS,
@@ -186,14 +186,13 @@ impl StatefulJob for ShallowThumbnailerJob {
 }
 
 async fn get_files_by_extensions(
-	ctx: &LibraryContext,
+	db: &PrismaClient,
 	location_id: LocationId,
 	parent_id: i32,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {
-	Ok(ctx
-		.db
+	Ok(db
 		.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(location_id),

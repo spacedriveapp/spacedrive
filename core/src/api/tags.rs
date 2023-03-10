@@ -1,14 +1,16 @@
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 
+use serde_json::json;
 use tracing::info;
 use uuid::Uuid;
 
 use crate::{
 	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
-	library::LibraryContext,
+	library::Library,
 	prisma::{object, tag, tag_on_object},
+	sync,
 };
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -24,7 +26,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, tag_id: i32, library| async move {
 				info!("Getting files for tag {}", tag_id);
 
-				let LibraryContext { db, .. } = &library;
+				let Library { db, .. } = &library;
 
 				let tag = db
 					.tag()
@@ -138,17 +140,27 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: TagCreateArgs, library| async move {
-				let created_tag = library
-					.db
-					.tag()
-					.create(
-						Uuid::new_v4().as_bytes().to_vec(),
-						vec![
-							tag::name::set(Some(args.name)),
-							tag::color::set(Some(args.color)),
-						],
+				let Library { db, sync, .. } = &library;
+
+				let pub_id = Uuid::new_v4().as_bytes().to_vec();
+
+				let created_tag = sync
+					.write_op(
+						db,
+						sync.unique_shared_create(
+							sync::tag::SyncId {
+								pub_id: pub_id.clone(),
+							},
+							[("name", json!(args.name)), ("color", json!(args.color))],
+						),
+						db.tag().create(
+							pub_id,
+							vec![
+								tag::name::set(Some(args.name)),
+								tag::color::set(Some(args.color)),
+							],
+						),
 					)
-					.exec()
 					.await?;
 
 				invalidate_query!(library, "tags.list");
@@ -199,15 +211,42 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: TagUpdateArgs, library| async move {
-				library
-					.db
+				let Library { sync, db, .. } = &library;
+
+				let tag = db
 					.tag()
-					.update(
-						tag::id::equals(args.id),
-						vec![tag::name::set(args.name), tag::color::set(args.color)],
-					)
+					.find_unique(tag::id::equals(args.id))
+					.select(tag::select!({ pub_id }))
 					.exec()
-					.await?;
+					.await?
+					.unwrap();
+
+				sync.write_ops(
+					db,
+					(
+						[
+							args.name.as_ref().map(|v| ("name", json!(v))),
+							args.color.as_ref().map(|v| ("color", json!(v))),
+						]
+						.into_iter()
+						.flatten()
+						.map(|(k, v)| {
+							sync.shared_update(
+								sync::tag::SyncId {
+									pub_id: tag.pub_id.clone(),
+								},
+								k,
+								v,
+							)
+						})
+						.collect(),
+						db.tag().update(
+							tag::id::equals(args.id),
+							vec![tag::name::set(args.name), tag::color::set(args.color)],
+						),
+					),
+				)
+				.await?;
 
 				invalidate_query!(library, "tags.list");
 

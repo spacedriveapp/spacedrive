@@ -1,4 +1,5 @@
 use crate::{
+	library::Library,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
@@ -78,8 +79,9 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			}
 
 			t(|_, mut args: LocationExplorerArgs, library| async move {
+				let Library { db, .. } = &library;
+
 				let location = find_location(&library, args.location_id)
-					.include(location_with_indexer_rules::include())
 					.exec()
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
@@ -88,8 +90,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					args.path += "/";
 				}
 
-				let directory = library
-					.db
+				let directory = db
 					.file_path()
 					.find_first(vec![
 						file_path::location_id::equals(location.id),
@@ -102,8 +103,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 						rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
 					})?;
 
-				let file_paths = library
-					.db
+				let file_paths = db
 					.file_path()
 					.find_many(vec![
 						file_path::location_id::equals(location.id),
@@ -132,7 +132,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 				}
 
 				Ok(ExplorerData {
-					context: ExplorerContext::Location(location.into()),
+					context: ExplorerContext::Location(location),
 					items,
 				})
 			})

@@ -19,6 +19,7 @@
 		"@sd/config": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",
 		"crypto-random-string": "^5.0.0",
+		"plausible-tracker": "^0.3.8",
 		"valtio": "^1.7.4"
 	},
 	"devDependencies": {

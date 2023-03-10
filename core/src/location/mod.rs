@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::Job,
-	library::LibraryContext,
+	library::Library,
 	object::{
 		file_identifier::{
 			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
@@ -65,7 +65,7 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
-		ctx: &LibraryContext,
+		library: &Library,
 	) -> Result<location_with_indexer_rules::Data, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
@@ -88,10 +88,10 @@ impl LocationCreateArgs {
 		}
 
 		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if metadata.has_library(ctx.id) {
+			return if metadata.has_library(library.id) {
 				Err(LocationError::NeedRelink {
 					// SAFETY: This unwrap is ok as we checked that we have this library_id
-					old_path: metadata.location_path(ctx.id).unwrap().to_path_buf(),
+					old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
 					new_path: self.path,
 				})
 			} else {
@@ -105,18 +105,18 @@ impl LocationCreateArgs {
 		);
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
+		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
 
 		// Write a location metadata on a .spacedrive file
 		SpacedriveLocationMetadataFile::create_and_save(
-			ctx.id,
+			library.id,
 			uuid,
 			&self.path,
 			location.name.clone(),
 		)
 		.await?;
 
-		ctx.location_manager().add(location.id, ctx.clone()).await?;
+		library.location_manager().add(location.id, library.clone()).await?;
 
 		info!("Created location: {location:?}");
 
@@ -125,39 +125,39 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
-		ctx: &LibraryContext,
+		library: &Library,
 	) -> Result<location_with_indexer_rules::Data, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
 
-		if metadata.has_library(ctx.id) {
+		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
 				// SAFETY: This unwrap is ok as we checked that we have this library_id
-				old_path: metadata.location_path(ctx.id).unwrap().to_path_buf(),
+				old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
 				new_path: self.path,
 			});
 		}
 
 		debug!(
 			"Trying to add a new library (library_id = {}) to an already existing location '{}'",
-			ctx.id,
+			library.id,
 			self.path.display()
 		);
 
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
+		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
 
 		metadata
-			.add_library(ctx.id, uuid, &self.path, location.name.clone())
+			.add_library(library.id, uuid, &self.path, location.name.clone())
 			.await?;
 
-		ctx.location_manager().add(location.id, ctx.clone()).await?;
+		library.location_manager().add(location.id, library.clone()).await?;
 
 		info!(
 			"Added library (library_id = {}) to location: {location:?}",
-			ctx.id
+			library.id
 		);
 
 		Ok(location)
@@ -181,40 +181,66 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
-		let location = find_location(ctx, self.id)
+	pub async fn update(self, library: &Library) -> Result<(), LocationError> {
+		let Library { sync, db, .. } = &library;
+
+		let location = find_location(library, self.id)
 			.include(location_with_indexer_rules::include())
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
-		let params = [
+		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
 				.clone()
 				.filter(|name| &location.name != name)
-				.map(location::name::set),
-			self.generate_preview_media
-				.map(location::generate_preview_media::set),
-			self.sync_preview_media
-				.map(location::sync_preview_media::set),
-			self.hidden.map(location::hidden::set),
+				.map(|v| (("name", json!(v)), location::name::set(v))),
+			self.generate_preview_media.map(|v| {
+				(
+					("generate_preview_media", json!(v)),
+					location::generate_preview_media::set(v),
+				)
+			}),
+			self.sync_preview_media.map(|v| {
+				(
+					("sync_preview_media", json!(v)),
+					location::sync_preview_media::set(v),
+				)
+			}),
+			self.hidden
+				.map(|v| (("hidden", json!(v)), location::hidden::set(v))),
 		]
 		.into_iter()
 		.flatten()
-		.collect::<Vec<_>>();
+		.unzip();
 
-		if !params.is_empty() {
-			ctx.db
-				.location()
-				.update(location::id::equals(self.id), params)
-				.exec()
-				.await?;
+		if !sync_params.is_empty() {
+			sync.write_ops(
+				db,
+				(
+					sync_params
+						.into_iter()
+						.map(|p| {
+							sync.shared_update(
+								sync::location::SyncId {
+									pub_id: location.pub_id.clone(),
+								},
+								p.0,
+								p.1,
+							)
+						})
+						.collect(),
+					db.location()
+						.update(location::id::equals(self.id), db_params),
+				),
+			)
+			.await?;
 
-			if location.node_id == ctx.node_local_id {
+			if location.node_id == library.node_local_id {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(&location.path).await?
 				{
-					metadata.update(ctx.id, self.name.unwrap()).await?;
+					metadata.update(library.id, self.name.unwrap()).await?;
 				}
 			}
 		}
@@ -238,7 +264,7 @@ impl LocationUpdateArgs {
 				.collect::<Vec<_>>();
 
 			if !rule_ids_to_remove.is_empty() {
-				ctx.db
+				library.db
 					.indexer_rules_in_location()
 					.delete_many(vec![
 						indexer_rules_in_location::location_id::equals(self.id),
@@ -249,7 +275,7 @@ impl LocationUpdateArgs {
 			}
 
 			if !rule_ids_to_add.is_empty() {
-				link_location_and_indexer_rules(ctx, self.id, &rule_ids_to_add).await?;
+				link_location_and_indexer_rules(library, self.id, &rule_ids_to_add).await?;
 			}
 		}
 
@@ -257,18 +283,18 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
-	ctx.db
+pub fn find_location(library: &Library, location_id: i32) -> location::FindUnique {
+	library.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
-	ctx: &LibraryContext,
+	library: &Library,
 	location_id: i32,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
-	ctx.db
+	library.db
 		.indexer_rules_in_location()
 		.create_many(
 			rules_ids
@@ -283,14 +309,14 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
-	ctx: &LibraryContext,
+	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), LocationError> {
-	if location.node_id != ctx.node_local_id {
+	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		FileIdentifierJobInit {
 			location: location::Data::from(&location),
 			sub_path: None,
@@ -299,7 +325,7 @@ pub async fn scan_location(
 	))
 	.await;
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		ThumbnailerJobInit {
 			location: location::Data::from(&location),
 			sub_path: None,
@@ -309,7 +335,7 @@ pub async fn scan_location(
 	))
 	.await;
 
-	ctx.spawn_job(Job::new(
+	library.spawn_job(Job::new(
 		IndexerJobInit {
 			location,
 			sub_path: None,
@@ -323,16 +349,16 @@ pub async fn scan_location(
 
 #[allow(dead_code)]
 pub async fn scan_location_sub_path(
-	ctx: &LibraryContext,
+	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != ctx.node_local_id {
+	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		FileIdentifierJobInit {
 			location: location::Data::from(&location),
 			sub_path: Some(sub_path.clone()),
@@ -341,7 +367,7 @@ pub async fn scan_location_sub_path(
 	))
 	.await;
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		ThumbnailerJobInit {
 			location: location::Data::from(&location),
 			sub_path: Some(sub_path.clone()),
@@ -351,7 +377,7 @@ pub async fn scan_location_sub_path(
 	))
 	.await;
 
-	ctx.spawn_job(Job::new(
+	library.spawn_job(Job::new(
 		IndexerJobInit {
 			location,
 			sub_path: Some(sub_path),
@@ -364,16 +390,16 @@ pub async fn scan_location_sub_path(
 }
 
 pub async fn light_scan_location(
-	ctx: &LibraryContext,
+	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != ctx.node_local_id {
+	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		ShallowFileIdentifierJobInit {
 			location: location::Data::from(&location),
 			sub_path: sub_path.clone(),
@@ -382,7 +408,7 @@ pub async fn light_scan_location(
 	))
 	.await;
 
-	ctx.queue_job(Job::new(
+	library.queue_job(Job::new(
 		ShallowThumbnailerJobInit {
 			location: location::Data::from(&location),
 			sub_path: sub_path.clone(),
@@ -391,7 +417,7 @@ pub async fn light_scan_location(
 	))
 	.await;
 
-	ctx.spawn_job(Job::new(
+	library.spawn_job(Job::new(
 		ShallowIndexerJobInit { location, sub_path },
 		ShallowIndexerJob {},
 	))
@@ -401,40 +427,50 @@ pub async fn light_scan_location(
 }
 
 pub async fn relink_location(
-	ctx: &LibraryContext,
+	library: &Library,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
+	let Library { db, id, sync, .. } = &library;
+
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
 		.ok_or_else(|| LocationError::MissingMetadataFile(location_path.as_ref().to_path_buf()))?;
 
-	metadata.relink(ctx.id, &location_path).await?;
+	metadata.relink(*id, &location_path).await?;
 
-	ctx.db
-		.location()
-		.update(
-			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
-			vec![location::path::set(
-				location_path
-					.as_ref()
-					.to_str()
-					.expect("Found non-UTF-8 path")
-					.to_string(),
-			)],
-		)
-		.exec()
-		.await?;
+	let pub_id = metadata.location_pub_id(library.id)?.as_ref().to_vec();
+	let path = location_path
+		.as_ref()
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	sync.write_op(
+		db,
+		sync.shared_update(
+			sync::location::SyncId {
+				pub_id: pub_id.clone(),
+			},
+			"path",
+			json!(path),
+		),
+		db.location().update(
+			location::pub_id::equals(pub_id),
+			vec![location::path::set(path)],
+		),
+	)
+	.await?;
 
 	Ok(())
 }
 
 async fn create_location(
-	ctx: &LibraryContext,
+	library: &Library,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 ) -> Result<location_with_indexer_rules::Data, LocationError> {
-	let LibraryContext { db, sync, .. } = &ctx;
+	let Library { db, sync, .. } = &library;
 
 	let location_path = location_path.as_ref();
 
@@ -452,12 +488,12 @@ async fn create_location(
 	let location = sync
 		.write_op(
 			db,
-			sync.owned_create(
+			sync.unique_shared_create(
 				sync::location::SyncId {
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[
-					("node", json!({ "pub_id": ctx.id.as_bytes() })),
+					("node", json!({ "pub_id": library.id.as_bytes() })),
 					("name", json!(&name)),
 					("path", json!(&path)),
 				],
@@ -467,7 +503,7 @@ async fn create_location(
 					location_pub_id.as_bytes().to_vec(),
 					name,
 					path,
-					node::id::equals(ctx.node_local_id),
+					node::id::equals(library.node_local_id),
 					vec![],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -477,29 +513,29 @@ async fn create_location(
 	debug!("created in db");
 
 	if !indexer_rules_ids.is_empty() {
-		link_location_and_indexer_rules(ctx, location.id, indexer_rules_ids).await?;
+		link_location_and_indexer_rules(library, location.id, indexer_rules_ids).await?;
 	}
 
 	// Updating our location variable to include information about the indexer rules
-	let location = find_location(ctx, location.id)
+	let location = find_location(library, location.id)
 		.include(location_with_indexer_rules::include())
 		.exec()
 		.await?
 		.ok_or(LocationError::IdNotFound(location.id))?;
 
-	invalidate_query!(ctx, "locations.list");
+	invalidate_query!(library, "locations.list");
 
 	Ok(location)
 }
 
-pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
-	let LibraryContext { db, .. } = ctx;
+pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
+	let Library { db, .. } = library;
 
-	ctx.location_manager()
-		.remove(location_id, ctx.clone())
+	library.location_manager()
+		.remove(location_id, library.clone())
 		.await?;
 
-	delete_directory(ctx, location_id, None).await?;
+	delete_directory(library, location_id, None).await?;
 
 	db.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
@@ -514,16 +550,16 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	if location.node_id == ctx.node_local_id {
+	if location.node_id == library.node_local_id {
 		if let Ok(Some(mut metadata)) =
 			SpacedriveLocationMetadataFile::try_load(&location.path).await
 		{
-			metadata.remove_library(ctx.id).await?;
+			metadata.remove_library(library.id).await?;
 		}
 	}
 
 	info!("Location {} deleted", location_id);
-	invalidate_query!(ctx, "locations.list");
+	invalidate_query!(library, "locations.list");
 
 	Ok(())
 }
@@ -531,7 +567,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
-	ctx: &LibraryContext,
+	library: &Library,
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
@@ -545,7 +581,7 @@ pub async fn delete_directory(
 	};
 
 	// Fetching all object_ids from all children file_paths
-	let object_ids = ctx
+	let object_ids = library
 		.db
 		.file_path()
 		.find_many(children_params.clone())
@@ -558,14 +594,14 @@ pub async fn delete_directory(
 
 	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
-	ctx.db
+	library.db
 		.file_path()
 		.delete_many(children_params)
 		.exec()
 		.await?;
 
 	// delete all children objects
-	ctx.db
+	library.db
 		.object()
 		.delete_many(vec![
 			object::id::in_vec(object_ids),
@@ -575,7 +611,7 @@ pub async fn delete_directory(
 		.exec()
 		.await?;
 
-	invalidate_query!(ctx, "locations.getExplorerData");
+	invalidate_query!(library, "locations.getExplorerData");
 
 	Ok(())
 }
@@ -626,13 +662,13 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 
 // check if a path exists in our database at that location
 // pub async fn check_virtual_path_exists(
-// 	library_ctx: &LibraryContext,
+// 	library: &Library,
 // 	location_id: i32,
 // 	subpath: impl AsRef<Path>,
 // ) -> Result<bool, LocationError> {
 // 	let path = subpath.as_ref().to_str().unwrap().to_string();
 
-// 	let file_path = library_ctx
+// 	let file_path = library
 // 		.db
 // 		.file_path()
 // 		.find_first(vec![

@@ -150,7 +150,7 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 	);
 
 	if data.report.thumbnails_created > 0 {
-		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 
 	Ok(Some(serde_json::to_value(&data.report)?))
@@ -220,12 +220,11 @@ async fn inner_process_step(
 			}
 
 			if !is_background {
-				ctx.library_ctx.emit(CoreEvent::NewThumbnail {
+				ctx.library.emit(CoreEvent::NewThumbnail {
 					cas_id: cas_id.clone(),
 				});
-				// TODO: Check if this invalidate is still necessary
 				// With this invalidate query, we update the user interface to show each new thumbnail
-				invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
+				invalidate_query!(ctx.library, "locations.getExplorerData");
 			};
 
 			data.report.thumbnails_created += 1;

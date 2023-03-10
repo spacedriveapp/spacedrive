@@ -1,5 +1,5 @@
 use crate::{
-	library::LibraryContext,
+	library::Library,
 	location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
 };
@@ -29,7 +29,7 @@ pub struct IndexerRuleCreateArgs {
 }
 
 impl IndexerRuleCreateArgs {
-	pub async fn create(self, ctx: &LibraryContext) -> Result<indexer_rule::Data, IndexerError> {
+	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerError> {
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
 				&Glob::new(&serde_json::from_slice::<String>(&self.parameters)?)?,
@@ -41,7 +41,7 @@ impl IndexerRuleCreateArgs {
 			}
 		};
 
-		ctx.db
+		library.db
 			.indexer_rule()
 			.create(self.kind as i32, self.name, parameters, vec![])
 			.exec()
