@@ -6,7 +6,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 use tokio::fs;
-use tracing::{debug, error};
+use tracing::{error, trace};
 
 use super::{
 	rules::{IndexerRule, RuleKind},
@@ -130,7 +130,7 @@ async fn inner_walk_single_dir(
 
 		update_notifier(&current_path, indexed_paths.len());
 
-		debug!(
+		trace!(
 			"Current filesystem path: {}, accept_by_children_dir: {:#?}",
 			current_path.display(),
 			accept_by_children_dir
@@ -139,7 +139,7 @@ async fn inner_walk_single_dir(
 			for reject_rule in reject_rules {
 				// It's ok to unwrap here, reject rules are infallible
 				if !reject_rule.apply(&current_path).await.unwrap() {
-					debug!(
+					trace!(
 						"Path {} rejected by rule {}",
 						current_path.display(),
 						reject_rule.name
@@ -166,7 +166,7 @@ async fn inner_walk_single_dir(
 				for reject_by_children_rule in reject_by_children_rules {
 					match reject_by_children_rule.apply(&current_path).await {
 						Ok(false) => {
-							debug!(
+							trace!(
 								"Path {} rejected by rule {}",
 								current_path.display(),
 								reject_by_children_rule.name
@@ -175,7 +175,7 @@ async fn inner_walk_single_dir(
 						}
 						Ok(true) => {}
 						Err(e) => {
-							error!(
+							trace!(
 								"Error applying rule {} to path {}: {:#?}",
 								reject_by_children_rule.name,
 								current_path.display(),
@@ -212,7 +212,7 @@ async fn inner_walk_single_dir(
 
 				// If it wasn't accepted then we mark as rejected
 				if accept_by_children_dir.is_none() {
-					debug!(
+					trace!(
 							"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
 							current_path.display()
 						);
@@ -231,7 +231,7 @@ async fn inner_walk_single_dir(
 			for accept_rule in accept_rules {
 				// It's ok to unwrap here, accept rules are infallible
 				if accept_rule.apply(&current_path).await.unwrap() {
-					debug!(
+					trace!(
 						"Path {} accepted by rule {}",
 						current_path.display(),
 						accept_rule.name
@@ -241,7 +241,7 @@ async fn inner_walk_single_dir(
 				}
 			}
 			if !accept_by_glob {
-				debug!(
+				trace!(
 					"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
 					current_path.display()
 				);
@@ -268,7 +268,7 @@ async fn inner_walk_single_dir(
 				.skip(1) // Skip the current directory as it was already indexed
 				.take_while(|&ancestor| ancestor != root)
 			{
-				debug!("Indexing ancestor {}", ancestor.display());
+				trace!("Indexing ancestor {}", ancestor.display());
 				if !indexed_paths.contains_key(ancestor) {
 					indexed_paths.insert(
 						ancestor.to_path_buf(),

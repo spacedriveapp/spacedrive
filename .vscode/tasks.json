@@ -23,20 +23,11 @@
 			"type": "shell",
 			"label": "ui:dev",
 			"problemMatcher": {
-				"owner": "vite",
-				"fileLocation": "autoDetect",
-				"pattern": {
-					"regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
-					"file": 1,
-					"location": 2,
-					"severity": 3,
-					"code": 4,
-					"message": 5
-				},
+				"base": "$tsc-watch",
 				"background": {
 					"activeOnStart": true,
-					"beginsPattern": "^> @sd\\/root@\\d\\.\\d\\.\\d desktop",
-					"endsPattern": "to show help$"
+					"beginsPattern": "VITE v",
+					"endsPattern": "http://localhost:8001/"
 				}
 			},
 			"isBackground": true,
