@@ -48,9 +48,6 @@ use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationId = i32;
 
-// Location selectables!
-location::select!(location_just_id { id });
-
 // Location includes!
 location::include!(location_with_indexer_rules {
 	indexer_rules: select { indexer_rule }
@@ -186,7 +183,7 @@ pub struct LocationUpdateArgs {
 impl LocationUpdateArgs {
 	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
 		let location = find_location(ctx, self.id)
-			.include(location::include!({ indexer_rules }))
+			.include(location_with_indexer_rules::include())
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;

@@ -63,7 +63,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.db
 					.location()
 					.find_unique(location::id::equals(location_id))
-					.include(location::include!({ indexer_rules }))
+					.include(location_with_indexer_rules::include())
 					.exec()
 					.await?)
 			})

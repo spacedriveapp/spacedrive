@@ -24,13 +24,13 @@ file_path::select!(file_path_just_id_materialized_path {
 	id
 	materialized_path
 });
-file_path::select!(file_path_just_id_materialized_path_date_created {
+file_path::select!(file_path_for_file_identifier {
 	id
 	materialized_path
 	date_created
 });
 file_path::select!(file_path_just_object_id { object_id });
-file_path::select!(file_path_just_id_materialized_path_integrity_checksum_with_location_just_id_pub_id {
+file_path::select!(file_path_for_object_validator {
 	id
 	materialized_path
 	integrity_checksum
@@ -243,7 +243,7 @@ impl LastFilePathIdManager {
 			.file_path()
 			.find_first(vec![file_path::location_id::equals(location_id)])
 			.order_by(file_path::id::order(Direction::Desc))
-			.select(file_path_just_id::select())
+			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.map(|r| r.id)
@@ -361,7 +361,7 @@ pub async fn get_existing_file_path_id(
 			file_path::location_id::equals(materialized_path.location_id),
 			file_path::materialized_path::equals(materialized_path.into()),
 		])
-		.select(file_path_just_id::select())
+		.select(file_path::select!({ id }))
 		.exec()
 		.await
 		.map_or_else(|e| Err(e.into()), |r| Ok(r.map(|r| r.id)))

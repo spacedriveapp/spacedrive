@@ -16,7 +16,7 @@ pub mod validation;
 
 // Object selectables!
 object::select!(object_just_id_has_thumbnail { id has_thumbnail });
-object::select!(object_just_pub_id_with_file_paths_just_id_cas_id {
+object::select!(object_for_file_identifier {
 	pub_id
 	file_paths: select { id cas_id }
 });

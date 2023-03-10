@@ -208,7 +208,7 @@ impl SyncManager {
 							.db
 							.location()
 							.find_unique(location::pub_id::equals(id.location.pub_id))
-							.select(location_just_id::select())
+							.select(location::select!({ id }))
 							.exec()
 							.await?
 							.unwrap();

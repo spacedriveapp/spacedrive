@@ -1,7 +1,7 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	location::file_path_helper::file_path_just_id_materialized_path_integrity_checksum_with_location_just_id_pub_id,
+	location::file_path_helper::file_path_for_object_validator,
 	prisma::{file_path, location},
 	sync,
 };
@@ -40,8 +40,7 @@ pub struct ObjectValidatorJobInit {
 impl StatefulJob for ObjectValidatorJob {
 	type Init = ObjectValidatorJobInit;
 	type Data = ObjectValidatorJobState;
-	type Step =
-		file_path_just_id_materialized_path_integrity_checksum_with_location_just_id_pub_id::Data;
+	type Step = file_path_for_object_validator::Data;
 
 	fn name(&self) -> &'static str {
 		VALIDATOR_JOB_NAME
@@ -57,7 +56,7 @@ impl StatefulJob for ObjectValidatorJob {
 				file_path::is_dir::equals(false),
 				file_path::integrity_checksum::equals(None),
 			])
-			.select(file_path_just_id_materialized_path_integrity_checksum_with_location_just_id_pub_id::select())
+			.select(file_path_for_object_validator::select())
 			.exec()
 			.await?
 			.into_iter()

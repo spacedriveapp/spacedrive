@@ -2,9 +2,8 @@ use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location, file_path_just_id,
-		file_path_just_id_materialized_path_date_created, get_existing_file_path_id,
-		MaterializedPath,
+		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
 	},
 	prisma::{file_path, location},
 };
@@ -135,7 +134,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			.file_path()
 			.find_first(orphan_path_filters(location_id, None, sub_path_id))
 			.order_by(file_path::id::order(Direction::Asc))
-			.select(file_path_just_id::select())
+			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.map(|d| d.id)
@@ -228,10 +227,7 @@ async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
 	cursor: &FilePathIdAndLocationIdCursor,
 	sub_path_id: i32,
-) -> Result<
-	Vec<file_path_just_id_materialized_path_date_created::Data>,
-	prisma_client_rust::QueryError,
-> {
+) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
@@ -247,7 +243,7 @@ async fn get_orphan_file_paths(
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)
-		.select(file_path_just_id_materialized_path_date_created::select())
+		.select(file_path_for_file_identifier::select())
 		.exec()
 		.await
 }

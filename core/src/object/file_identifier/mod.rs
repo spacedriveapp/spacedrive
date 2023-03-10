@@ -2,10 +2,8 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	library::LibraryContext,
-	location::file_path_helper::{
-		file_path_just_id, file_path_just_id_materialized_path_date_created, FilePathError,
-	},
-	object::{cas::generate_cas_id, object_just_pub_id_with_file_paths_just_id_cas_id},
+	location::file_path_helper::{file_path_for_file_identifier, file_path_just_id, FilePathError},
+	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
 	sync::SyncManager,
@@ -103,7 +101,7 @@ pub struct FileIdentifierReport {
 async fn identifier_job_step(
 	LibraryContext { db, sync, .. }: &LibraryContext,
 	location: &location::Data,
-	file_paths: &[file_path_just_id_materialized_path_date_created::Data],
+	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
 		FileMetadata::new(&location.path, &file_path.materialized_path)
@@ -160,7 +158,7 @@ async fn identifier_job_step(
 		.find_many(vec![object::file_paths::some(vec![
 			file_path::cas_id::in_vec(unique_cas_ids),
 		])])
-		.select(object_just_pub_id_with_file_paths_just_id_cas_id::select())
+		.select(object_for_file_identifier::select())
 		.exec()
 		.await?;
 
@@ -335,7 +333,7 @@ fn file_path_object_connect_ops<'db>(
 async fn process_identifier_file_paths(
 	job_name: &str,
 	location: &location::Data,
-	file_paths: &[file_path_just_id_materialized_path_date_created::Data],
+	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
 	cursor: &mut FilePathIdAndLocationIdCursor,
 	report: &mut FileIdentifierReport,
