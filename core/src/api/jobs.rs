@@ -1,15 +1,14 @@
 use crate::{
 	job::{Job, JobManager},
-	location::{fetch_location, LocationError},
+	location::{find_location, LocationError},
 	object::{
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		file_identifier::file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		preview::thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
-	prisma::location,
 };
 
-use rspc::{ErrorCode, Type};
+use rspc::Type;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -41,24 +40,18 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			t(
 				|_, args: GenerateThumbsForLocationArgs, library| async move {
-					if library
-						.db
-						.location()
-						.count(vec![location::id::equals(args.id)])
-						.exec()
-						.await? == 0
-					{
+					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
-					}
+					};
 
 					library
 						.spawn_job(Job::new(
-							ThumbnailJobInit {
-								location_id: args.id,
-								root_path: PathBuf::new(),
+							ThumbnailerJobInit {
+								location,
+								sub_path: Some(args.path),
 								background: false,
 							},
-							ThumbnailJob {},
+							ThumbnailerJob {},
 						))
 						.await;
 
@@ -74,11 +67,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: ObjectValidatorArgs, library| async move {
-				if fetch_location(&library, args.id).exec().await?.is_none() {
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Location not found".into(),
-					));
+				if find_location(&library, args.id).exec().await?.is_none() {
+					return Err(LocationError::IdNotFound(args.id).into());
 				}
 
 				library
@@ -103,20 +93,17 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: IdentifyUniqueFilesArgs, library| async move {
-				if fetch_location(&library, args.id).exec().await?.is_none() {
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Location not found".into(),
-					));
-				}
+				let Some(location) = find_location(&library, args.id).exec().await? else {
+					return Err(LocationError::IdNotFound(args.id).into());
+				};
 
 				library
 					.spawn_job(Job::new(
-						FullFileIdentifierJobInit {
-							location_id: args.id,
+						FileIdentifierJobInit {
+							location,
 							sub_path: Some(args.path),
 						},
-						FullFileIdentifierJob {},
+						FileIdentifierJob {},
 					))
 					.await;
 

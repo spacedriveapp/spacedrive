@@ -82,7 +82,7 @@ impl P2PManager {
 
 						events_tx
 							.send(P2PEvent::DiscoveredPeer {
-								peer_id: event.peer_id.clone(),
+								peer_id: event.peer_id,
 								metadata: event.metadata.clone(),
 							})
 							.map_err(|_| error!("Failed to send event to p2p event stream!"))

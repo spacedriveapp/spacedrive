@@ -36,7 +36,7 @@ export default function EditLocation() {
 				form.reset({
 					displayName: data.name,
 					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule_id.toString()),
+					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule.id.toString()),
 					generatePreviewMedia: data.generate_preview_media,
 					syncPreviewMedia: data.sync_preview_media,
 					hidden: data.hidden

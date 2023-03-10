@@ -2,16 +2,27 @@ use crate::{
 	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::Library,
-	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
+	location::indexer::{
+		indexer_job::{IndexerJob, INDEXER_JOB_NAME},
+		shallow_indexer_job::{ShallowIndexerJob, SHALLOW_INDEXER_JOB_NAME},
+	},
 	object::{
+		file_identifier::{
+			file_identifier_job::{FileIdentifierJob, FILE_IDENTIFIER_JOB_NAME},
+			shallow_file_identifier_job::{
+				ShallowFileIdentifierJob, SHALLOW_FILE_IDENTIFIER_JOB_NAME,
+			},
+		},
 		fs::{
 			copy::{FileCopierJob, COPY_JOB_NAME},
 			cut::{FileCutterJob, CUT_JOB_NAME},
 			delete::{FileDeleterJob, DELETE_JOB_NAME},
 			erase::{FileEraserJob, ERASE_JOB_NAME},
 		},
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FULL_IDENTIFIER_JOB_NAME},
-		preview::{ThumbnailJob, THUMBNAIL_JOB_NAME},
+		preview::{
+			shallow_thumbnailer_job::{ShallowThumbnailerJob, SHALLOW_THUMBNAILER_JOB_NAME},
+			thumbnailer_job::{ThumbnailerJob, THUMBNAILER_JOB_NAME},
+		},
 		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
 	},
 	prisma::{job, node},
@@ -71,8 +82,8 @@ impl JobManager {
 			// FIXME: if this task crashes, the entire application is unusable
 			while let Some(event) = internal_receiver.recv().await {
 				match event {
-					JobManagerEvent::IngestJob(ctx, job) => {
-						this2.clone().dispatch_job(&ctx, job).await
+					JobManagerEvent::IngestJob(library, job) => {
+						this2.clone().dispatch_job(&library, job).await
 					}
 				}
 			}
@@ -83,7 +94,7 @@ impl JobManager {
 		this
 	}
 
-	pub async fn ingest(self: Arc<Self>, ctx: &Library, job: Box<dyn DynJob>) {
+	pub async fn ingest(self: Arc<Self>, library: &Library, job: Box<dyn DynJob>) {
 		let job_hash = job.hash();
 		debug!(
 			"Ingesting job: <name='{}', hash='{}'>",
@@ -93,7 +104,7 @@ impl JobManager {
 
 		if !self.current_jobs_hashes.read().await.contains(&job_hash) {
 			self.current_jobs_hashes.write().await.insert(job_hash);
-			self.dispatch_job(ctx, job).await;
+			self.dispatch_job(library, job).await;
 		} else {
 			debug!(
 				"Job already in queue: <name='{}', hash='{}'>",
@@ -119,7 +130,7 @@ impl JobManager {
 		}
 	}
 
-	pub async fn complete(self: Arc<Self>, ctx: &Library, job_id: Uuid, job_hash: u64) {
+	pub async fn complete(self: Arc<Self>, library: &Library, job_id: Uuid, job_hash: u64) {
 		// remove worker from running workers and from current jobs hashes
 		self.current_jobs_hashes.write().await.remove(&job_hash);
 		self.running_workers.write().await.remove(&job_id);
@@ -128,7 +139,7 @@ impl JobManager {
 		if let Some(job) = job {
 			// We can't directly execute `self.ingest` here because it would cause an async cycle.
 			self.internal_sender
-				.send(JobManagerEvent::IngestJob(ctx.clone(), job))
+				.send(JobManagerEvent::IngestJob(library.clone(), job))
 				.unwrap_or_else(|_| {
 					error!("Failed to ingest job!");
 				});
@@ -146,9 +157,9 @@ impl JobManager {
 	}
 
 	pub async fn get_history(
-		ctx: &Library,
+		library: &Library,
 	) -> Result<Vec<JobReport>, prisma_client_rust::QueryError> {
-		Ok(ctx
+		Ok(library
 			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
@@ -161,10 +172,10 @@ impl JobManager {
 			.collect())
 	}
 
-	pub async fn clear_all_jobs(ctx: &Library) -> Result<(), prisma_client_rust::QueryError> {
-		ctx.db.job().delete_many(vec![]).exec().await?;
+	pub async fn clear_all_jobs(library: &Library) -> Result<(), prisma_client_rust::QueryError> {
+		library.db.job().delete_many(vec![]).exec().await?;
 
-		invalidate_query!(ctx, "jobs.getHistory");
+		invalidate_query!(library, "jobs.getHistory");
 		Ok(())
 	}
 
@@ -190,8 +201,8 @@ impl JobManager {
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, ctx: &Library) -> Result<(), JobError> {
-		let paused_jobs = ctx
+	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobError> {
+		let paused_jobs = library
 			.db
 			.job()
 			.find_many(vec![job::status::equals(JobStatus::Paused.int_value())])
@@ -203,47 +214,65 @@ impl JobManager {
 
 			info!("Resuming job: {}, id: {}", paused_job.name, paused_job.id);
 			match paused_job.name.as_str() {
-				THUMBNAIL_JOB_NAME => {
+				THUMBNAILER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, ThumbnailJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, ThumbnailerJob {})?)
+						.await;
+				}
+				SHALLOW_THUMBNAILER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(library, Job::resume(paused_job, ShallowThumbnailerJob {})?)
 						.await;
 				}
 				INDEXER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, IndexerJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, IndexerJob {})?)
 						.await;
 				}
-				FULL_IDENTIFIER_JOB_NAME => {
+				SHALLOW_INDEXER_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FullFileIdentifierJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, ShallowIndexerJob {})?)
+						.await;
+				}
+				FILE_IDENTIFIER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(library, Job::resume(paused_job, FileIdentifierJob {})?)
+						.await;
+				}
+				SHALLOW_FILE_IDENTIFIER_JOB_NAME => {
+					Arc::clone(&self)
+						.dispatch_job(
+							library,
+							Job::resume(paused_job, ShallowFileIdentifierJob {})?,
+						)
 						.await;
 				}
 				VALIDATOR_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, ObjectValidatorJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, ObjectValidatorJob {})?)
 						.await;
 				}
 				CUT_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FileCutterJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, FileCutterJob {})?)
 						.await;
 				}
 				COPY_JOB_NAME => {
 					Arc::clone(&self)
 						.dispatch_job(
-							ctx,
+							library,
 							Job::resume(paused_job, FileCopierJob { done_tx: None })?,
 						)
 						.await;
 				}
 				DELETE_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FileDeleterJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, FileDeleterJob {})?)
 						.await;
 				}
 				ERASE_JOB_NAME => {
 					Arc::clone(&self)
-						.dispatch_job(ctx, Job::resume(paused_job, FileEraserJob {})?)
+						.dispatch_job(library, Job::resume(paused_job, FileEraserJob {})?)
 						.await;
 				}
 				_ => {
@@ -259,7 +288,7 @@ impl JobManager {
 		Ok(())
 	}
 
-	async fn dispatch_job(self: Arc<Self>, ctx: &Library, mut job: Box<dyn DynJob>) {
+	async fn dispatch_job(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
 		// create worker to process job
 		let mut running_workers = self.running_workers.write().await;
 		if running_workers.len() < MAX_WORKERS {
@@ -276,8 +305,12 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			if let Err(e) =
-				Worker::spawn(Arc::clone(&self), Arc::clone(&wrapped_worker), ctx.clone()).await
+			if let Err(e) = Worker::spawn(
+				Arc::clone(&self),
+				Arc::clone(&wrapped_worker),
+				library.clone(),
+			)
+			.await
 			{
 				error!("Error spawning worker: {:?}", e);
 			} else {
@@ -375,22 +408,24 @@ impl JobReport {
 		}
 	}
 
-	pub async fn create(&self, ctx: &Library) -> Result<(), JobError> {
-		ctx.db
+	pub async fn create(&self, library: &Library) -> Result<(), JobError> {
+		library
+			.db
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
 				self.name.clone(),
 				JobStatus::Running as i32,
-				node::id::equals(ctx.node_local_id),
+				node::id::equals(library.node_local_id),
 				vec![job::data::set(self.data.clone())],
 			)
 			.exec()
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &Library) -> Result<(), JobError> {
-		ctx.db
+	pub async fn update(&self, library: &Library) -> Result<(), JobError> {
+		library
+			.db
 			.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),

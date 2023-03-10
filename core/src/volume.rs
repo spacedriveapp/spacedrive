@@ -38,21 +38,22 @@ impl From<VolumeError> for rspc::Error {
 	}
 }
 
-pub async fn save_volume(ctx: &Library) -> Result<(), VolumeError> {
+pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 	let volumes = get_volumes()?;
 
 	// enter all volumes associate with this client add to db
 	for volume in volumes {
-		ctx.db
+		library
+			.db
 			.volume()
 			.upsert(
 				node_id_mount_point_name(
-					ctx.node_local_id,
+					library.node_local_id,
 					volume.mount_point.to_string(),
 					volume.name.to_string(),
 				),
 				(
-					ctx.node_local_id,
+					library.node_local_id,
 					volume.name,
 					volume.mount_point,
 					vec![
