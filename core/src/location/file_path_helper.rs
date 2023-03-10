@@ -16,7 +16,7 @@ use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
 
-use super::{location_with_indexer_rules, LocationId};
+use super::LocationId;
 
 // File Path selectables!
 file_path::select!(file_path_just_id { id });
@@ -367,6 +367,7 @@ pub async fn get_existing_file_path_id(
 		.map_or_else(|e| Err(e.into()), |r| Ok(r.map(|r| r.id)))
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_path(
 	materialized_path: MaterializedPath,
 	db: &PrismaClient,
@@ -381,6 +382,7 @@ pub async fn get_existing_file_path(
 		.map_err(Into::into)
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_path_with_object(
 	materialized_path: MaterializedPath,
 	db: &PrismaClient,
@@ -399,7 +401,7 @@ pub async fn get_existing_file_path_with_object(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_or_directory(
-	location: &location_with_indexer_rules::Data,
+	location: &super::location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
 	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {

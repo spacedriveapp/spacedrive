@@ -26,8 +26,11 @@ use tracing::info;
 use super::{
 	finalize_thumbnailer, process_step, ThumbnailerError, ThumbnailerJobReport,
 	ThumbnailerJobState, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
-	FILTERED_VIDEO_EXTENSIONS, THUMBNAIL_CACHE_DIR_NAME,
+	 THUMBNAIL_CACHE_DIR_NAME,
 };
+
+#[cfg(feature = "ffmpeg")]
+use super::FILTERED_VIDEO_EXTENSIONS;
 
 pub const SHALLOW_THUMBNAILER_JOB_NAME: &str = "shallow_thumbnailer";
 

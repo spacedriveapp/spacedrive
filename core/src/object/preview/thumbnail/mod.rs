@@ -14,7 +14,10 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
+use sd_file_ext::extensions::{Extension, ImageExtension};
+
+#[cfg(feature = "ffmpeg")]
+use sd_file_ext::extensions::VideoExtension;
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;

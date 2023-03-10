@@ -17,7 +17,7 @@ export type Procedures = {
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: IndexerRulesInLocation[] } | null } | 
+        { key: "locations.getById", input: LibraryArgs<number>, result: location_with_indexer_rules | null } | 
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
@@ -154,8 +154,6 @@ export type IndexerRule = { id: number, kind: number, name: string, parameters: 
  *  `parameters` field must be a vector of strings containing the names of the directories.
  */
 export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
-
-export type IndexerRulesInLocation = { date_created: string, location_id: number, indexer_rule_id: number }
 
 export type InvalidateOperationEvent = { key: string, arg: any }
 
@@ -297,5 +295,7 @@ export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 export type Volume = { name: string, mount_point: string, total_capacity: string, available_capacity: string, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
 export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
+
+export type location_with_indexer_rules = { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type object_with_file_paths = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[] }
