@@ -223,13 +223,12 @@ async fn inner_process_step(
 				ctx.library_ctx.emit(CoreEvent::NewThumbnail {
 					cas_id: cas_id.clone(),
 				});
+				// TODO: Check if this invalidate is still necessary
+				// With this invalidate query, we update the user interface to show each new thumbnail
+				invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
 			};
 
 			data.report.thumbnails_created += 1;
-
-			// TODO: Check if this invalidate is still necessary
-			// With this invalidate query, we update the user interface to show each new thumbnail
-			// invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
 		}
 		Err(e) => return Err(ThumbnailerError::from(e).into()),
 	}
