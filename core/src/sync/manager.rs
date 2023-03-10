@@ -177,6 +177,15 @@ impl SyncManager {
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
 
+		db.node()
+			.upsert(
+				node::pub_id::equals(op.node.as_bytes().to_vec()),
+				node::create_unchecked(op.node.as_bytes().to_vec(), "TEMP".to_string(), vec![]),
+				vec![],
+			)
+			.exec()
+			.await?;
+
 		let msg = SyncMessage::Ingested(op.clone());
 
 		match ModelSyncData::from_op(op.typ).unwrap() {

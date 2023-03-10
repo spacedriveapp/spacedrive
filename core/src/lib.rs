@@ -183,6 +183,7 @@ impl Node {
 
 		tokio::spawn({
 			let library_manager = library_manager.clone();
+
 			async move {
 				while let Ok(ops) = p2p_rx.recv().await {
 					match ops {
@@ -190,12 +191,15 @@ impl Node {
 							library_id,
 							operations,
 						} => {
-							let Some(library) = library_manager.get_ctx(library_id).await else {
+							let libraries = library_manager.libraries.read().await;
+
+							let Some(library) = libraries.first() else {
                                 continue;
                             };
 
 							for op in operations {
-								library.sync.ingest_op(op).await.ok();
+								println!("ingest lib id: {}", library.id);
+								library.sync.ingest_op(op).await.unwrap();
 							}
 						}
 						_ => {}

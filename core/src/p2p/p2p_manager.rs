@@ -127,15 +127,13 @@ impl P2PManager {
 										// TODO: Save to the filesystem
 									}
 									Header::Sync(library_id) => {
-										let buf_len = event.stream.read_u8().await.unwrap();
+										let buf_len = event.stream.read_u64().await.unwrap();
 
 										let mut buf = vec![0; buf_len as usize]; // TODO: Designed for easily being able to be DOS the current Node
 										event.stream.read_exact(&mut buf).await.unwrap();
 
 										let mut buf: &[u8] = &buf;
 										let operations = rmp_serde::from_read(&mut buf).unwrap();
-
-										println!("sync received");
 
 										events
 											.send(P2PEvent::SyncOperation {
@@ -181,27 +179,6 @@ impl P2PManager {
 			}
 		});
 
-		// TODO: Probs remove this
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-				let mut connected = this
-					.manager
-					.get_connected_peers()
-					.await
-					.unwrap()
-					.into_iter();
-				if let Some(peer_id) = connected.next() {
-					info!("Starting Spacedrop to peer '{}'", peer_id);
-					this.big_bad_spacedrop(peer_id, PathBuf::from("./demo.txt"))
-						.await;
-				} else {
-					info!("No clients found so skipping Spacedrop demo!");
-				}
-			}
-		});
-
 		(this, rx)
 	}
 
@@ -213,8 +190,8 @@ impl P2PManager {
 	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
 		let mut head_buf = Header::Sync(library_id).to_bytes();
 		let mut buf = rmp_serde::to_vec_named(&event).unwrap(); // TODO: Error handling
-		head_buf.push(buf.len() as u8); // TODO: This is going to overflow quickly so deal with it properly!
-		head_buf.append(&mut buf);
+		head_buf.extend(buf.len().to_be_bytes()); // TODO: This is going to overflow quickly so deal with it properly!
+		head_buf.extend(buf);
 
 		self.manager.broadcast(head_buf).await;
 	}
