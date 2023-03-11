@@ -127,6 +127,12 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		echo "Detected dnf!"
 		echo "Installing dependencies with dnf..."
 
+		# `webkit2gtk4.0-devel` also provides `webkit2gtk3-devel`, it's just under a different package in fedora versions >= 37.
+		# https://koji.fedoraproject.org/koji/packageinfo?tagOrder=-blocked&packageID=26162#taglist
+		# https://packages.fedoraproject.org/pkgs/webkitgtk/webkit2gtk4.0-devel/fedora-38.html#provides
+		FEDORA_37_TAURI_WEBKIT="webkit2gtk4.0-devel.x86_64"
+		FEDORA_36_TAURI_WEBKIT="webkit2gtk3-devel.x86_64"
+
 		# Tauri dependencies
 		FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
 
@@ -140,6 +146,12 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		PROTOBUF="protobuf-compiler"
 
 		sudo dnf check-update
+
+		if ! sudo dnf install $FEDORA_37_TAURI_WEBKIT && ! sudo dnf install $FEDORA_36_TAURI_WEBKIT; then
+			log_err "We were unable to install the webkit2gtk3-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
+			exit 1
+		fi
+
 		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS $PROTOBUF
 		sudo dnf group install "C Development Tools and Libraries"
 	else
