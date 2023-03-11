@@ -130,11 +130,19 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		# `webkit2gtk4.0-devel` also provides `webkit2gtk3-devel`, it's just under a different package in fedora versions >= 37.
 		# https://koji.fedoraproject.org/koji/packageinfo?tagOrder=-blocked&packageID=26162#taglist
 		# https://packages.fedoraproject.org/pkgs/webkitgtk/webkit2gtk4.0-devel/fedora-38.html#provides
-		FEDORA_37_TAURI_WEBKIT="webkit2gtk4.0-devel.x86_64"
-		FEDORA_36_TAURI_WEBKIT="webkit2gtk3-devel.x86_64"
+		FEDORA_37_TAURI_WEBKIT="webkit2gtk4.0-devel"
+		FEDORA_36_TAURI_WEBKIT="webkit2gtk3-devel"
 
 		# Tauri dependencies
+		# openssl is manually declared here as i don't think openssl and openssl-devel are actually dependant on eachother
+		# openssl also has a habit of being missing from some of my fresh Fedora installs - i've had to install it at least twice
+		# TODO(brxken128): check if the lack of the plain `openssl` package breaks building
 		FEDORA_TAURI_DEPS="openssl openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
+
+		# the perl package/dependencies are required for building the openssl-sys rust crate
+		# TODO(brxken128): test whether or not it's easier to manage the perl deps individually, there's not *too* many,
+		# and it'd be a lot lighter than the entire perl collection
+		FEDORA_OPENSSL_SYS_DEPS="perl"
 
 		# FFmpeg dependencies
 		FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
@@ -153,7 +161,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		fi
 
 		if ! sudo dnf install $FEDORA_FFMPEG_DEPS; then
-			log_err "We were unable to install FFmpeg and FFmpeg-development packages. This is likely because the RPMFusion free repository is not enabled. https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion/"
+			log_err "We were unable to install the FFmpeg and FFmpeg-devel packages. This is likely because the RPM Fusion free repository is not enabled. https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion/"
 			exit 1
 		fi
 
