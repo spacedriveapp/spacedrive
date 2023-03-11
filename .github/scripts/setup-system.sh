@@ -106,9 +106,10 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips" # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
 		ARCH_FFMPEG_DEPS="ffmpeg" # FFmpeg dependencies
 		ARCH_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+		PROTOBUF="protobuf" # Protobuf compiler - https://github.com/archlinux/svntogit-packages/blob/packages/protobuf/trunk/PKGBUILD provides `libprotoc`
 
 		sudo pacman -Syu
-		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
+		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $PROTOBUF
 	elif command -v dnf >/dev/null; then
 		echo "Detected dnf!"
 		echo "Installing dependencies with dnf..."
@@ -116,9 +117,10 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel" # Tauri dependencies
 		FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel" # FFmpeg dependencies
 		FEDORA_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+		PROTOBUF="protobuf-compiler" # Protobuf compiler
 
 		sudo dnf check-update
-		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
+		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS $PROTOBUF
 		sudo dnf group install "C Development Tools and Libraries"
 	else
 		log_err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
