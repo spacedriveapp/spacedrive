@@ -134,7 +134,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		FEDORA_36_TAURI_WEBKIT="webkit2gtk3-devel.x86_64"
 
 		# Tauri dependencies
-		FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
+		FEDORA_TAURI_DEPS="openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
 
 		# FFmpeg dependencies
 		FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
