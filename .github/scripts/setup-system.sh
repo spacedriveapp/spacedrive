@@ -148,7 +148,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		sudo dnf check-update
 
 		if ! sudo dnf install $FEDORA_37_TAURI_WEBKIT && ! sudo dnf install $FEDORA_36_TAURI_WEBKIT; then
-			log_err "We were unable to install the webkit2gtk3-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
+			log_err "We were unable to install the webkit2gtk3-devel/webkit2gtk4.0-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
 			exit 1
 		fi
 
@@ -166,23 +166,19 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	echo "Installing Homebrew dependencies..."
 
-	if ! brew tap -q | grep -qx "spacedriveapp/deps" >/dev/null; then
-		echo "Creating Homebrew tap \`spacedriveapp/deps\`..."
-		brew tap-new spacedriveapp/deps
-	fi
+	FFMPEG_VERSION="5.1.0"
+	PROTOBUF="protobuf"
 
-	FFMPEG_VERSION="5.0.1"
+	brew install $PROTOBUF
 
-	if ! brew list --full-name -1 | grep -x "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION" >/dev/null; then
-		echo "Extracting FFmpeg version $FFMPEG_VERSION..."
+	if ! brew list ffmpeg | grep -q "/ffmpeg/$FFMPEG_VERSION/"; then
+		echo "Installing FFmpeg version $FFMPEG_VERSION..."
 
-		brew extract -q --force --version $FFMPEG_VERSION ffmpeg spacedriveapp/deps
-		brew unlink -q ffmpeg || true
-		brew install -q "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION"
-
-		brew install protobuf
+		brew install -q "ffmpeg@$FFMPEG_VERSION"
 
 		echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
+	else
+		echo "FFmpeg version $FFMPEG_VERSION is already installed."
 	fi
 else
 	log_err "Your OS ($OSTYPE) is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
