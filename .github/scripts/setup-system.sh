@@ -166,19 +166,18 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	echo "Installing Homebrew dependencies..."
 
-	FFMPEG_VERSION="5.1.0"
 	PROTOBUF="protobuf"
 
 	brew install $PROTOBUF
 
-	if ! brew list ffmpeg | grep -q "/ffmpeg/$FFMPEG_VERSION/"; then
-		echo "Installing FFmpeg version $FFMPEG_VERSION..."
+	if ! brew list | grep -q "ffmpeg"; then
+		echo "Installing FFmpeg..."
 
-		brew install -q "ffmpeg@$FFMPEG_VERSION"
+		brew install -q ffmpeg
 
-		echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
+		echo "FFmpeg has been installed and is now being used on your system."
 	else
-		echo "FFmpeg version $FFMPEG_VERSION is already installed."
+		echo "FFmpeg is already installed."
 	fi
 else
 	log_err "Your OS ($OSTYPE) is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
