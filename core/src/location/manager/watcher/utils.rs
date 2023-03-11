@@ -5,7 +5,8 @@ use crate::{
 		delete_directory,
 		file_path_helper::{
 			extract_materialized_path, file_path_with_object, get_existing_file_or_directory,
-			get_existing_file_path_with_object, get_parent_dir, MaterializedPath,
+			get_existing_file_path_with_object, get_parent_dir, get_parent_dir_id,
+			MaterializedPath,
 		},
 		location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -330,27 +331,54 @@ pub(super) async fn rename(
 	location: &location_with_indexer_rules::Data,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	let mut old_path_materialized =
-		extract_materialized_path(location.id, &location.path, old_path.as_ref())?
-			.to_str()
-			.expect("Found non-UTF-8 path")
-			.to_string();
+	let location_path = Path::new(&location.path);
+
+	let old_path_materialized =
+		extract_materialized_path(location.id, location_path, old_path.as_ref())?;
+	let mut old_path_materialized_str = old_path_materialized
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
 
 	let new_path_materialized =
-		extract_materialized_path(location.id, &location.path, new_path.as_ref())?;
+		extract_materialized_path(location.id, location_path, new_path.as_ref())?;
 	let mut new_path_materialized_str = new_path_materialized
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
 
-	// TODO handle the case where a rename means a move to another directory in this location or outside the location which is actually a delete
+	let old_materialized_path_parent = old_path_materialized
+		.parent()
+		.unwrap_or_else(|| Path::new("/"));
+	let new_materialized_path_parent = new_path_materialized
+		.parent()
+		.unwrap_or_else(|| Path::new("/"));
+
+	// Renaming a file could potentially be a move to another directory, so we check if our parent changed
+	let changed_parent_id = if old_materialized_path_parent != new_materialized_path_parent {
+		Some(
+			get_parent_dir_id(
+				&MaterializedPath::new(
+					location.id,
+					location_path,
+					new_path,
+					true,
+				)?,
+				&library.db,
+			)
+			.await?
+			.expect("CRITICAL ERROR: If we're puting a file in a directory inside our location, then this directory must exist"),
+		)
+	} else {
+		None
+	};
 
 	if let Some(file_path) = get_existing_file_or_directory(location, old_path, &library.db).await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
-			if !old_path_materialized.ends_with('/') {
-				old_path_materialized += "/";
+			if !old_path_materialized_str.ends_with('/') {
+				old_path_materialized_str += "/";
 			}
 			if !new_path_materialized_str.ends_with('/') {
 				new_path_materialized_str += "/";
@@ -358,17 +386,44 @@ pub(super) async fn rename(
 
 			let updated = library
 				.db
-				._execute_raw(
-					raw!(
-						"UPDATE file_path SET materialized_path = REPLACE(materialized_path, {}, {}) WHERE location_id = {}",
-						PrismaValue::String(old_path_materialized),
-						PrismaValue::String(new_path_materialized_str.clone()),
-						PrismaValue::Int(location.id as i64)
-					)
-				)
+				._execute_raw(raw!(
+					"UPDATE file_path \
+						SET materialized_path = REPLACE(materialized_path, {}, {}) \
+						WHERE location_id = {} AND parent_id = {}",
+					PrismaValue::String(old_path_materialized_str),
+					PrismaValue::String(new_path_materialized_str.clone()),
+					PrismaValue::Int(location.id as i64),
+					PrismaValue::Int(file_path.id as i64)
+				))
 				.exec()
 				.await?;
 			trace!("Updated {updated} file_paths");
+		}
+
+		let mut update_params = vec![
+			file_path::materialized_path::set(new_path_materialized_str),
+			file_path::name::set(
+				new_path_materialized
+					.file_stem()
+					.unwrap()
+					.to_str()
+					.expect("Found non-UTF-8 path")
+					.to_string(),
+			),
+			file_path::extension::set(
+				new_path_materialized
+					.extension()
+					.map(|s| {
+						s.to_str()
+							.expect("Found non-UTF-8 extension in path")
+							.to_string()
+					})
+					.unwrap_or_default(),
+			),
+		];
+
+		if changed_parent_id.is_some() {
+			update_params.push(file_path::parent_id::set(changed_parent_id));
 		}
 
 		library
@@ -376,27 +431,7 @@ pub(super) async fn rename(
 			.file_path()
 			.update(
 				file_path::location_id_id(file_path.location_id, file_path.id),
-				vec![
-					file_path::materialized_path::set(new_path_materialized_str),
-					file_path::name::set(
-						new_path_materialized
-							.file_stem()
-							.unwrap()
-							.to_str()
-							.expect("Found non-UTF-8 path")
-							.to_string(),
-					),
-					file_path::extension::set(
-						new_path_materialized
-							.extension()
-							.map(|s| {
-								s.to_str()
-									.expect("Found non-UTF-8 extension in path")
-									.to_string()
-							})
-							.unwrap_or_default(),
-					),
-				],
+				update_params,
 			)
 			.exec()
 			.await?;

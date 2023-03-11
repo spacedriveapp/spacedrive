@@ -429,6 +429,14 @@ pub async fn get_parent_dir(
 	get_existing_file_path(materialized_path.parent(), db).await
 }
 
+#[cfg(feature = "location-watcher")]
+pub async fn get_parent_dir_id(
+	materialized_path: &MaterializedPath,
+	db: &PrismaClient,
+) -> Result<Option<i32>, FilePathError> {
+	get_existing_file_path_id(materialized_path.parent(), db).await
+}
+
 pub async fn ensure_sub_path_is_in_location(
 	location_path: impl AsRef<Path>,
 	sub_path: impl AsRef<Path>,
