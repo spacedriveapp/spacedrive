@@ -4,7 +4,8 @@ use crate::{
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
-		get_existing_file_path_id, MaterializedPath,
+		get_existing_file_path_just_id_materialized_path, retain_file_paths_in_location,
+		MaterializedPath,
 	},
 	prisma::location,
 };
@@ -74,7 +75,8 @@ impl StatefulJob for IndexerJob {
 
 		let mut dirs_ids = HashMap::new();
 
-		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
+		let (to_walk_path, maybe_parent_file_path) = if let Some(ref sub_path) = state.init.sub_path
+		{
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 				.await
 				.map_err(IndexerError::from)?;
@@ -82,8 +84,8 @@ impl StatefulJob for IndexerJob {
 				.await
 				.map_err(IndexerError::from)?;
 
-			let sub_path_file_path_id = get_existing_file_path_id(
-				MaterializedPath::new(location_id, location_path, &full_path, true)
+			let sub_path_file_path = get_existing_file_path_just_id_materialized_path(
+				&MaterializedPath::new(location_id, location_path, &full_path, true)
 					.map_err(IndexerError::from)?,
 				db,
 			)
@@ -92,11 +94,11 @@ impl StatefulJob for IndexerJob {
 			.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(full_path.clone(), sub_path_file_path_id);
+			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
 
-			full_path
+			(full_path, Some(sub_path_file_path))
 		} else {
-			location_path.to_path_buf()
+			(location_path.to_path_buf(), None)
 		};
 
 		let scan_start = Instant::now();
@@ -118,6 +120,9 @@ impl StatefulJob for IndexerJob {
 		)
 		.await?;
 
+		// NOTE:
+		// As we're passing the list of currently existing file paths to the `find_many_file_paths_by_full_path` query,
+		// it means that `dirs_ids` contains just paths that still exists on the filesystem.
 		dirs_ids.extend(
 			find_many_file_paths_by_full_path(
 				&location::Data::from(&state.init.location),
@@ -140,6 +145,16 @@ impl StatefulJob for IndexerJob {
 				)
 			}),
 		);
+
+		// Removing all other file paths that are not in the filesystem anymore
+		let removed_paths = retain_file_paths_in_location(
+			location_id,
+			dirs_ids.values().copied().collect(),
+			maybe_parent_file_path,
+			db,
+		)
+		.await
+		.map_err(IndexerError::from)?;
 
 		let mut new_paths = found_paths
 			.into_iter()
@@ -205,6 +220,7 @@ impl StatefulJob for IndexerJob {
 			scan_read_time: scan_start.elapsed(),
 			total_paths,
 			indexed_paths: 0,
+			removed_paths,
 		});
 
 		state.steps = new_paths

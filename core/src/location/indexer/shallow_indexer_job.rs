@@ -4,7 +4,8 @@ use crate::{
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
-		get_existing_file_path_id, MaterializedPath,
+		get_existing_file_path_just_id_materialized_path, retain_file_paths_in_location,
+		MaterializedPath,
 	},
 	prisma::location,
 };
@@ -92,7 +93,7 @@ impl StatefulJob for ShallowIndexerJob {
 				.push(indexer_rule);
 		}
 
-		let (to_walk_path, parent_id) = if state.init.sub_path != Path::new("") {
+		let (to_walk_path, parent_file_path) = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(location_path, &state.init.sub_path)
 				.await
 				.map_err(IndexerError::from)?;
@@ -102,8 +103,8 @@ impl StatefulJob for ShallowIndexerJob {
 
 			(
 				location_path.join(&state.init.sub_path),
-				get_existing_file_path_id(
-					MaterializedPath::new(location_id, location_path, &full_path, true)
+				get_existing_file_path_just_id_materialized_path(
+					&MaterializedPath::new(location_id, location_path, &full_path, true)
 						.map_err(IndexerError::from)?,
 					db,
 				)
@@ -114,8 +115,8 @@ impl StatefulJob for ShallowIndexerJob {
 		} else {
 			(
 				location_path.to_path_buf(),
-				get_existing_file_path_id(
-					MaterializedPath::new(location_id, location_path, location_path, true)
+				get_existing_file_path_just_id_materialized_path(
+					&MaterializedPath::new(location_id, location_path, location_path, true)
 						.map_err(IndexerError::from)?,
 					db,
 				)
@@ -141,7 +142,7 @@ impl StatefulJob for ShallowIndexerJob {
 		)
 		.await?;
 
-		let already_existing_file_paths = find_many_file_paths_by_full_path(
+		let (already_existing_file_paths, mut to_retain) = find_many_file_paths_by_full_path(
 			&location::Data::from(&state.init.location),
 			&found_paths
 				.iter()
@@ -155,8 +156,19 @@ impl StatefulJob for ShallowIndexerJob {
 		.exec()
 		.await?
 		.into_iter()
-		.map(|file_path| file_path.materialized_path)
-		.collect::<HashSet<_>>();
+		.map(|file_path| (file_path.materialized_path, file_path.id))
+		.unzip::<_, _, HashSet<_>, Vec<_>>();
+
+		let parent_id = parent_file_path.id;
+
+		// Adding our parent path id
+		to_retain.push(parent_id);
+
+		// Removing all other file paths that are not in the filesystem anymore
+		let removed_paths =
+			retain_file_paths_in_location(location_id, to_retain, Some(parent_file_path), db)
+				.await
+				.map_err(IndexerError::from)?;
 
 		// Filter out paths that are already in the databases
 		let mut new_paths = found_paths
@@ -207,6 +219,7 @@ impl StatefulJob for ShallowIndexerJob {
 			scan_read_time: scan_start.elapsed(),
 			total_paths,
 			indexed_paths: 0,
+			removed_paths,
 		});
 
 		state.steps = new_paths

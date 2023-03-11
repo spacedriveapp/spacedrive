@@ -214,7 +214,7 @@ pub(super) async fn file_creation_or_update(
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	if let Some(ref file_path) = get_existing_file_path_with_object(
-		MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
+		&MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
 		&library.db,
 	)
 	.await?
@@ -233,7 +233,7 @@ pub(super) async fn update_file(
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library.node_local_id {
 		if let Some(ref file_path) = get_existing_file_path_with_object(
-			MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
+			&MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
 			&library.db,
 		)
 		.await?

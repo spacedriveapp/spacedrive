@@ -59,6 +59,7 @@ pub struct IndexerJobData {
 	scan_read_time: Duration,
 	total_paths: usize,
 	indexed_paths: i64,
+	removed_paths: i64,
 }
 
 /// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
@@ -236,7 +237,7 @@ where
 			.expect("critical error: non-negative duration"),
 	);
 
-	if data.indexed_paths > 0 {
+	if data.indexed_paths > 0 || data.removed_paths > 0 {
 		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 

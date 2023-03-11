@@ -351,31 +351,44 @@ pub async fn find_many_file_paths_by_full_path<'db>(
 	]))
 }
 
+fn find_existing_file_path<'db>(
+	materialized_path: &MaterializedPath,
+	db: &'db PrismaClient,
+) -> file_path::FindFirst<'db> {
+	db.file_path().find_first(vec![
+		file_path::location_id::equals(materialized_path.location_id),
+		file_path::materialized_path::equals(materialized_path.into()),
+	])
+}
+
 pub async fn get_existing_file_path_id(
-	materialized_path: MaterializedPath,
+	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<i32>, FilePathError> {
-	db.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(materialized_path.location_id),
-			file_path::materialized_path::equals(materialized_path.into()),
-		])
+	find_existing_file_path(materialized_path, db)
 		.select(file_path::select!({ id }))
 		.exec()
 		.await
 		.map_or_else(|e| Err(e.into()), |r| Ok(r.map(|r| r.id)))
 }
 
+pub async fn get_existing_file_path_just_id_materialized_path(
+	materialized_path: &MaterializedPath,
+	db: &PrismaClient,
+) -> Result<Option<file_path_just_id_materialized_path::Data>, FilePathError> {
+	find_existing_file_path(materialized_path, db)
+		.select(file_path_just_id_materialized_path::select())
+		.exec()
+		.await
+		.map_err(Into::into)
+}
+
 #[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_path(
-	materialized_path: MaterializedPath,
+	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
-	db.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(materialized_path.location_id),
-			file_path::materialized_path::equals(materialized_path.into()),
-		])
+	find_existing_file_path(materialized_path, db)
 		.exec()
 		.await
 		.map_err(Into::into)
@@ -383,14 +396,10 @@ pub async fn get_existing_file_path(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_existing_file_path_with_object(
-	materialized_path: MaterializedPath,
+	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
-	db.file_path()
-		.find_first(vec![
-			file_path::location_id::equals(materialized_path.location_id),
-			file_path::materialized_path::equals(materialized_path.into()),
-		])
+	find_existing_file_path(materialized_path, db)
 		// include object for orphan check
 		.include(file_path_with_object::include())
 		.exec()
@@ -405,14 +414,14 @@ pub async fn get_existing_file_or_directory(
 	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
 	let mut maybe_file_path = get_existing_file_path_with_object(
-		MaterializedPath::new(location.id, &location.path, path.as_ref(), false)?,
+		&MaterializedPath::new(location.id, &location.path, path.as_ref(), false)?,
 		db,
 	)
 	.await?;
 	// First we just check if this path was a file in our db, if it isn't then we check for a directory
 	if maybe_file_path.is_none() {
 		maybe_file_path = get_existing_file_path_with_object(
-			MaterializedPath::new(location.id, &location.path, path.as_ref(), true)?,
+			&MaterializedPath::new(location.id, &location.path, path.as_ref(), true)?,
 			db,
 		)
 		.await?;
@@ -426,7 +435,7 @@ pub async fn get_parent_dir(
 	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
-	get_existing_file_path(materialized_path.parent(), db).await
+	get_existing_file_path(&materialized_path.parent(), db).await
 }
 
 #[cfg(feature = "location-watcher")]
@@ -434,7 +443,7 @@ pub async fn get_parent_dir_id(
 	materialized_path: &MaterializedPath,
 	db: &PrismaClient,
 ) -> Result<Option<i32>, FilePathError> {
-	get_existing_file_path_id(materialized_path.parent(), db).await
+	get_existing_file_path_id(&materialized_path.parent(), db).await
 }
 
 pub async fn ensure_sub_path_is_in_location(
@@ -496,4 +505,34 @@ pub async fn ensure_sub_path_is_directory(
 		}
 		Err(e) => Err(e.into()),
 	}
+}
+
+pub async fn retain_file_paths_in_location(
+	location_id: LocationId,
+	to_retain: Vec<i32>,
+	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
+	db: &PrismaClient,
+) -> Result<i64, FilePathError> {
+	let mut to_delete_params = vec![
+		file_path::location_id::equals(location_id),
+		file_path::id::not_in_vec(to_retain),
+	];
+
+	if let Some(parent_file_path) = maybe_parent_file_path {
+		// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
+		if &parent_file_path.materialized_path != "/" {
+			to_delete_params.push(file_path::materialized_path::starts_with(
+				parent_file_path.materialized_path,
+			));
+		} else {
+			// If the parent_materialized_path is the root path, we fetch children using the parent id
+			to_delete_params.push(file_path::parent_id::equals(Some(parent_file_path.id)));
+		}
+	}
+
+	db.file_path()
+		.delete_many(to_delete_params)
+		.exec()
+		.await
+		.map_err(Into::into)
 }
