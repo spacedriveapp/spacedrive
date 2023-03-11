@@ -9,6 +9,7 @@ use crate::{
 		},
 		location_with_indexer_rules,
 		manager::LocationManagerError,
+		scan_location_sub_path,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -29,7 +30,7 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use int_enum::IntEnum;
-use notify::{event::RemoveKind, Event};
+use notify::{event::RemoveKind, Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use sd_file_ext::extensions::ImageExtension;
 use tokio::{fs, io::ErrorKind};
@@ -37,12 +38,12 @@ use tracing::{error, info, trace, warn};
 use uuid::Uuid;
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
-	// if path includes .DS_Store, .spacedrive or is in the `ignore_paths` set, we ignore
+	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
 	!event.paths.iter().any(|p| {
 		let path_str = p.to_str().expect("Found non-UTF-8 path");
 
 		path_str.contains(".DS_Store")
-			|| path_str.contains(".spacedrive")
+			|| (path_str.contains(".spacedrive") && matches!(event.kind, EventKind::Create(_)))
 			|| ignore_paths.contains(p)
 	})
 }
@@ -72,8 +73,7 @@ pub(super) async fn create_dir_by_path(
 		path.display()
 	);
 
-	let materialized_path =
-		MaterializedPath::new(location.id, &location.path, path, true)?;
+	let materialized_path = MaterializedPath::new(location.id, &location.path, path, true)?;
 
 	let parent_directory = get_parent_dir(&materialized_path, &library.db).await?;
 
@@ -90,6 +90,9 @@ pub(super) async fn create_dir_by_path(
 		.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
+
+	// scan the new directory
+	scan_location_sub_path(library, location.clone(), &created_path.materialized_path).await;
 
 	invalidate_query!(library, "locations.getExplorerData");
 
