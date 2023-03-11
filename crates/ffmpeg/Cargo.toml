@@ -12,7 +12,6 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# if this updates, the system setup script needs updating too
 ffmpeg-sys-next = "5.1.1"
 
 thiserror = "1.0.37"

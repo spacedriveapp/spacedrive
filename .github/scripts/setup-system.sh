@@ -101,10 +101,10 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		DEBIAN_BINDGEN_DEPS="pkg-config clang"
 
 		# Protobuf compiler
-		PROTOBUF="protobuf-compiler"
+		DEBIAN_LIBP2P_DEPS="protobuf-compiler"
 
 		sudo apt-get -y update
-		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $PROTOBUF
+		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $DEBIAN_LIBP2P_DEPS
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
@@ -119,10 +119,10 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		ARCH_BINDGEN_DEPS="clang"
 
 		# Protobuf compiler - https://github.com/archlinux/svntogit-packages/blob/packages/protobuf/trunk/PKGBUILD provides `libprotoc`
-		PROTOBUF="protobuf"
+		ARCH_LIBP2P_DEPS="protobuf"
 
 		sudo pacman -Syu
-		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $PROTOBUF
+		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS
 	elif command -v dnf >/dev/null; then
 		echo "Detected dnf!"
 		echo "Installing dependencies with dnf..."
@@ -143,7 +143,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		FEDORA_BINDGEN_DEPS="clang"
 
 		# Protobuf compiler
-		PROTOBUF="protobuf-compiler"
+		FEDORA_LIBP2P_DEPS="protobuf-compiler"
 
 		sudo dnf check-update
 
@@ -157,7 +157,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 			exit 1
 		fi
 
-		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $PROTOBUF
+		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS
 		sudo dnf group install "C Development Tools and Libraries"
 	else
 		log_err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
@@ -171,9 +171,9 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	echo "Installing Homebrew dependencies..."
 
-	PROTOBUF="protobuf"
+	BREW_LIBP2P_DEPS="protobuf"
 
-	brew install $PROTOBUF
+	brew install $BREW_LIBP2P_DEPS
 
 	if ! brew list | grep -q "ffmpeg"; then
 		echo "Installing FFmpeg..."
