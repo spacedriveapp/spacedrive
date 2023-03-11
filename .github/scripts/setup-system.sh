@@ -134,7 +134,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		FEDORA_36_TAURI_WEBKIT="webkit2gtk3-devel.x86_64"
 
 		# Tauri dependencies
-		FEDORA_TAURI_DEPS="openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
+		FEDORA_TAURI_DEPS="openssl openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
 
 		# FFmpeg dependencies
 		FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
@@ -148,11 +148,16 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		sudo dnf check-update
 
 		if ! sudo dnf install $FEDORA_37_TAURI_WEBKIT && ! sudo dnf install $FEDORA_36_TAURI_WEBKIT; then
-			log_err "We were unable to install the webkit2gtk3-devel/webkit2gtk4.0-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
+			log_err "We were unable to install the webkit2gtk4.0-devel/webkit2gtk3-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
 			exit 1
 		fi
 
-		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS $PROTOBUF
+		if ! sudo dnf install $FEDORA_FFMPEG_DEPS; then
+			log_err "We were unable to install FFmpeg and FFmpeg-development packages. This is likely because the RPMFusion free repository is not enabled. https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion/"
+			exit 1
+		fi
+
+		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $PROTOBUF
 		sudo dnf group install "C Development Tools and Libraries"
 	else
 		log_err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
