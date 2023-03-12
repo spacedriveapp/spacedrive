@@ -4,7 +4,7 @@ use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+use crate::{crypto::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 
 use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 

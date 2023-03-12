@@ -40,7 +40,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	crypto::{Algorithm, StreamDecryption, StreamEncryption},
 	primitives::{
 		types::{
 			EncryptedKey, Key, Nonce, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString,
