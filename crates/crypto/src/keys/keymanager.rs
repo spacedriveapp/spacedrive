@@ -35,8 +35,6 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
-#![cfg(feature = "keymanager")]
-
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -56,10 +54,7 @@ use crate::{
 use dashmap::{DashMap, DashSet};
 use uuid::Uuid;
 
-use super::{
-	hashing::HashingAlgorithm,
-	keyring::{Identifier, KeyringInterface},
-};
+use super::hashing::HashingAlgorithm;
 
 /// This is a stored key, and can be freely written to the database.
 ///
