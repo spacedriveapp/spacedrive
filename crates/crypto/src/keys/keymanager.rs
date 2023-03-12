@@ -54,7 +54,10 @@ use crate::{
 use dashmap::{DashMap, DashSet};
 use uuid::Uuid;
 
-use super::hashing::HashingAlgorithm;
+use super::{
+	hashing::HashingAlgorithm,
+	keyring::{Identifier, KeyringInterface},
+};
 
 /// This is a stored key, and can be freely written to the database.
 ///
