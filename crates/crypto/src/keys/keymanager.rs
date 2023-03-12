@@ -35,6 +35,8 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
+#![cfg(feature = "keymanager")]
+
 use std::sync::Arc;
 
 use tokio::sync::Mutex;

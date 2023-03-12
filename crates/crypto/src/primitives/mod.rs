@@ -9,9 +9,11 @@ use crate::{
 		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
 		preview_media::PreviewMediaVersion,
 	},
-	keys::keymanager::StoredKeyVersion,
 	Error, Result,
 };
+
+#[cfg(feature = "keymanager")]
+use crate::keys::keymanager::StoredKeyVersion;
 
 pub mod types;
 
@@ -54,6 +56,7 @@ pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
 pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
 /// Defines the latest `StoredKeyVersion`
+#[cfg(feature = "keymanager")]
 pub const LATEST_STORED_KEY: StoredKeyVersion = StoredKeyVersion::V1;
 
 /// Defines the context string for BLAKE3-KDF in regards to root key derivation

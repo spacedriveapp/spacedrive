@@ -10,6 +10,7 @@ rust-version = "1.67.0"
 [features]
 rspc = ["dep:rspc"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
+keymanager = ["dep:dashmap"]
 
 [dependencies]
 # rng
@@ -41,7 +42,7 @@ serde-big-array = { version = "0.4.1", optional = true }
 uuid = { version = "1.1.2", features = ["v4"] }
 
 # better/faster keymanager
-dashmap = "5.4.0"
+dashmap = { version = "5.4.0", optional = true }
 
 # optional, for support with rspc
 rspc = { workspace = true, features = ["uuid"], optional = true }
