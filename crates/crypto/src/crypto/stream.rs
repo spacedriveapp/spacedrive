@@ -42,6 +42,31 @@ impl Algorithm {
 	}
 }
 
+/// This is used to exhaustively read from an asynchronous reader into a buffer.
+///
+/// This function returns on three possible conditions, and they are:
+///
+/// - when the reader has been exhausted (reaches EOF)
+/// - when the buffer has been entirely populated
+/// - when an error has been generated
+///
+/// It returns the amount of total bytes read, which will be <= the buffer's size.
+async fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+where
+	R: AsyncReadExt + Unpin + Send,
+{
+	let mut read_count = 0;
+
+	loop {
+		let i = reader.read(&mut buffer[read_count..]).await?;
+		read_count += i;
+		if i == 0 || read_count == buffer.len() {
+			// if we're EOF or the buffer is filled
+			break Ok(read_count);
+		}
+	}
+}
+
 pub enum StreamEncryption {
 	XChaCha20Poly1305(Box<EncryptorLE31<XChaCha20Poly1305>>),
 	Aes256Gcm(Box<EncryptorLE31<Aes256Gcm>>),
@@ -122,15 +147,7 @@ impl StreamEncryption {
 		let mut read_buffer = vec![0u8; BLOCK_LEN].into_boxed_slice();
 
 		loop {
-			let mut read_count = 0;
-			loop {
-				let i = reader.read(&mut read_buffer[read_count..]).await?;
-				read_count += i;
-				if i == 0 || read_count == BLOCK_LEN {
-					// if we're EOF or the buffer is filled
-					break;
-				}
-			}
+			let read_count = exhaustive_read(&mut reader, &mut read_buffer).await?;
 
 			if read_count == BLOCK_LEN {
 				let payload = Payload {
@@ -249,15 +266,7 @@ impl StreamDecryption {
 		let mut read_buffer = vec![0u8; BLOCK_LEN + AEAD_TAG_LEN].into_boxed_slice();
 
 		loop {
-			let mut read_count = 0;
-			loop {
-				let i = reader.read(&mut read_buffer[read_count..]).await?;
-				read_count += i;
-				if i == 0 || read_count == (BLOCK_LEN + AEAD_TAG_LEN) {
-					// if we're EOF or the buffer is filled
-					break;
-				}
-			}
+			let read_count = exhaustive_read(&mut reader, &mut read_buffer).await?;
 
 			if read_count == (BLOCK_LEN + AEAD_TAG_LEN) {
 				let payload = Payload {
