@@ -153,7 +153,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		# Protobuf compiler
 		FEDORA_LIBP2P_DEPS="protobuf-compiler"
 
-		sudo dnf check-update
+		sudo dnf update
 
 		if ! sudo dnf install $FEDORA_37_TAURI_WEBKIT && ! sudo dnf install $FEDORA_36_TAURI_WEBKIT; then
 			log_err "We were unable to install the webkit2gtk4.0-devel/webkit2gtk3-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
@@ -179,19 +179,10 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	echo "Installing Homebrew dependencies..."
 
+	BREW_DEPS="ffmpeg"
 	BREW_LIBP2P_DEPS="protobuf"
 
-	brew install $BREW_LIBP2P_DEPS
-
-	if ! brew list | grep -q "ffmpeg"; then
-		echo "Installing FFmpeg..."
-
-		brew install -q ffmpeg
-
-		echo "FFmpeg has been installed and is now being used on your system."
-	else
-		echo "FFmpeg is already installed."
-	fi
+	brew install -q $BREW_DEPS $BREW_LIBP2P_DEPS
 else
 	log_err "Your OS ($OSTYPE) is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
 	exit 1
