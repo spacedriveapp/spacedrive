@@ -16,7 +16,7 @@ use super::exhaustive_read;
 
 macro_rules! impl_stream {
 	(
-	$name:ident, // "StreamDecryptor", "StreamEncryptor"
+	$name:ident, // "Decryptor", "Encryptor"
 	$error:expr,
 	$next_fn:ident, // "encrypt_next"
 	$last_fn:ident, // "encrypt_last"
@@ -140,7 +140,7 @@ macro_rules! impl_stream {
 }
 
 impl_stream!(
-	StreamEncryptor,
+	Encryptor,
 	Error::Encrypt,
 	encrypt_next,
 	encrypt_last,
@@ -154,7 +154,7 @@ impl_stream!(
 );
 
 impl_stream!(
-	StreamDecryptor,
+	Decryptor,
 	Error::Decrypt,
 	decrypt_next,
 	decrypt_last,

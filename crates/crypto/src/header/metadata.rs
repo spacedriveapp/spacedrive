@@ -30,7 +30,7 @@
 
 #[cfg(feature = "serde")]
 use crate::{
-	crypto::{StreamDecryptor, StreamEncryptor},
+	crypto::{Decryptor, Encryptor},
 	primitives::Key,
 	Protected,
 };
@@ -84,7 +84,7 @@ impl FileHeader {
 	{
 		let metadata_nonce = Nonce::generate(algorithm)?;
 
-		let encrypted_metadata = StreamEncryptor::encrypt_bytes(
+		let encrypted_metadata = Encryptor::encrypt_bytes(
 			master_key,
 			metadata_nonce,
 			algorithm,
@@ -116,7 +116,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
-			let metadata = StreamDecryptor::decrypt_bytes(
+			let metadata = Decryptor::decrypt_bytes(
 				master_key,
 				metadata.metadata_nonce,
 				metadata.algorithm,
@@ -144,7 +144,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
-			let metadata = StreamDecryptor::decrypt_bytes(
+			let metadata = Decryptor::decrypt_bytes(
 				master_key,
 				metadata.metadata_nonce,
 				metadata.algorithm,

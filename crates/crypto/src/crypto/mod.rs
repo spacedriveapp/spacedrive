@@ -5,7 +5,7 @@ use tokio::io::AsyncReadExt;
 
 mod stream;
 
-pub use self::stream::{StreamDecryptor, StreamEncryptor};
+pub use self::stream::{Decryptor, Encryptor};
 
 /// This is used to exhaustively read from an asynchronous reader into a buffer.
 ///
@@ -97,7 +97,7 @@ mod tests {
 	#[tokio::test]
 	async fn aes_encrypt_bytes() {
 		let ciphertext =
-			StreamEncryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &[])
+			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &[])
 				.await
 				.unwrap();
 
@@ -107,7 +107,7 @@ mod tests {
 	#[tokio::test]
 	async fn aes_encrypt_bytes_with_aad() {
 		let ciphertext =
-			StreamEncryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &AAD)
+			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &AAD)
 				.await
 				.unwrap();
 
@@ -116,7 +116,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn aes_decrypt_bytes() {
-		let plaintext = StreamDecryptor::decrypt_bytes(
+		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -131,7 +131,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn aes_decrypt_bytes_with_aad() {
-		let plaintext = StreamDecryptor::decrypt_bytes(
+		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -147,7 +147,7 @@ mod tests {
 	#[tokio::test]
 	#[should_panic(expected = "Decrypt")]
 	async fn aes_decrypt_bytes_missing_aad() {
-		StreamDecryptor::decrypt_bytes(
+		Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -165,7 +165,7 @@ mod tests {
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = StreamEncryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &[])
@@ -175,7 +175,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = StreamDecryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &[])
@@ -194,7 +194,7 @@ mod tests {
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = StreamEncryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &AAD)
@@ -204,7 +204,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = StreamDecryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &AAD)
@@ -218,7 +218,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_encrypt_bytes() {
-		let ciphertext = StreamEncryptor::encrypt_bytes(
+		let ciphertext = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -233,7 +233,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_encrypt_bytes_with_aad() {
-		let ciphertext = StreamEncryptor::encrypt_bytes(
+		let ciphertext = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -248,7 +248,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_decrypt_bytes() {
-		let plaintext = StreamDecryptor::decrypt_bytes(
+		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -263,7 +263,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn xchacha_decrypt_bytes_with_aad() {
-		let plaintext = StreamDecryptor::decrypt_bytes(
+		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -279,7 +279,7 @@ mod tests {
 	#[tokio::test]
 	#[should_panic(expected = "Decrypt")]
 	async fn xchacha_decrypt_bytes_missing_aad() {
-		StreamDecryptor::decrypt_bytes(
+		Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -297,8 +297,7 @@ mod tests {
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			StreamEncryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &[])
@@ -308,8 +307,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			StreamDecryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &[])
@@ -328,8 +326,7 @@ mod tests {
 		let mut reader = Cursor::new(buf.clone());
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			StreamEncryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &AAD)
@@ -339,8 +336,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			StreamDecryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &AAD)
@@ -355,7 +351,7 @@ mod tests {
 	#[tokio::test]
 	#[should_panic(expected = "NonceLengthMismatch")]
 	async fn encrypt_with_invalid_nonce() {
-		StreamEncryptor::encrypt_bytes(
+		Encryptor::encrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -369,7 +365,7 @@ mod tests {
 	#[tokio::test]
 	#[should_panic(expected = "NonceLengthMismatch")]
 	async fn decrypt_with_invalid_nonce() {
-		StreamDecryptor::decrypt_bytes(
+		Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::XChaCha20Poly1305,

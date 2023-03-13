@@ -24,7 +24,7 @@
 use std::io::Read;
 
 use crate::{
-	crypto::{StreamDecryptor, StreamEncryptor},
+	crypto::{Decryptor, Encryptor},
 	primitives::{
 		Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt, ENCRYPTED_KEY_LEN,
 		FILE_KEY_CONTEXT, SALT_LEN,
@@ -76,7 +76,7 @@ impl Keyslot {
 		let salt = Salt::generate();
 
 		let encrypted_master_key = EncryptedKey::try_from(
-			StreamEncryptor::encrypt_bytes(
+			Encryptor::encrypt_bytes(
 				Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
 				nonce,
 				algorithm,
@@ -110,7 +110,7 @@ impl Keyslot {
 			.map_err(|_| Error::PasswordHash)?;
 
 		Key::try_from(
-			StreamDecryptor::decrypt_bytes(
+			Decryptor::decrypt_bytes(
 				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
 				self.nonce,
 				self.algorithm,
@@ -130,7 +130,7 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub async fn decrypt_master_key_from_prehashed(&self, key: Key) -> Result<Key> {
 		Key::try_from(
-			StreamDecryptor::decrypt_bytes(
+			Decryptor::decrypt_bytes(
 				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
 				self.nonce,
 				self.algorithm,
