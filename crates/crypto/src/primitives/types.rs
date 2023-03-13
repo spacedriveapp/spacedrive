@@ -47,14 +47,14 @@ impl Nonce {
 	}
 }
 
-impl<T> Into<&GenericArray<u8, T>> for Nonce
+impl<I> From<Nonce> for GenericArray<u8, I>
 where
-	T: ArrayLength<u8>,
+	I: ArrayLength<u8>,
 {
-	fn into(self) -> &'static GenericArray<u8, T> {
-		match self {
-			Self::Aes256Gcm(x) => GenericArray::from_slice(x.as_ref()),
-			Self::XChaCha20Poly1305(x) => GenericArray::from_slice(x.as_ref()),
+	fn from(value: Nonce) -> Self {
+		match value {
+			Nonce::Aes256Gcm(x) => Self::from_slice(x.as_ref()).clone(),
+			Nonce::XChaCha20Poly1305(x) => Self::from_slice(x.as_ref()).clone(),
 		}
 	}
 }
