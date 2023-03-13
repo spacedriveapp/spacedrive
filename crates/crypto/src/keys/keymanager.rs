@@ -42,9 +42,12 @@ use tokio::sync::Mutex;
 use crate::{
 	crypto::{Decryptor, Encryptor},
 	primitives::{
+		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+		SECRET_KEY_IDENTIFIER,
+	},
+	types::{
 		Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, OnboardingConfig, Salt, SecretKey,
-		SecretKeyString, APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT,
-		ROOT_KEY_CONTEXT, SECRET_KEY_IDENTIFIER,
+		SecretKeyString,
 	},
 	Error, Protected, Result,
 };

@@ -20,6 +20,7 @@ pub mod header;
 pub mod keys;
 pub mod primitives;
 pub mod protected;
+pub mod types;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};

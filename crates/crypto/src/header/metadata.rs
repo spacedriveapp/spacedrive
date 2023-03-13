@@ -31,14 +31,14 @@
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	primitives::Key,
+	types::Key,
 	Protected,
 };
 
 use tokio::io::AsyncReadExt;
 
 use crate::{
-	primitives::{Algorithm, Nonce},
+	types::{Algorithm, Nonce},
 	Error, Result,
 };
 

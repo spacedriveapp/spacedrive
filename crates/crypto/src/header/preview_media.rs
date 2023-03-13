@@ -24,7 +24,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	primitives::{Algorithm, Key, Nonce},
+	types::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
 

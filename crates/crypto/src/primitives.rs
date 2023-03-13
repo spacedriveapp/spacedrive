@@ -15,10 +15,6 @@ use crate::{
 #[cfg(feature = "keymanager")]
 use crate::keys::keymanager::StoredKeyVersion;
 
-mod types;
-
-pub use types::*;
-
 /// This is the salt size.
 pub const SALT_LEN: usize = 16;
 
@@ -73,7 +69,7 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 
 /// This is used for converting a `&[u8]` to an array of bytes.
 ///
-/// It does `Clone`, with `to_vec()`.
+/// It calls `Clone`, via `to_vec()`.
 ///
 /// This function calls `zeroize` on any data it can
 pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {

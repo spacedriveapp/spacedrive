@@ -39,7 +39,10 @@ mod tests {
 	use rand::{RngCore, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
 
-	use crate::primitives::{Algorithm, Key, Nonce, BLOCK_LEN};
+	use crate::{
+		primitives::BLOCK_LEN,
+		types::{Algorithm, Key, Nonce},
+	};
 
 	use super::*;
 

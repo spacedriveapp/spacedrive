@@ -25,10 +25,8 @@ use std::io::Read;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	primitives::{
-		Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt, ENCRYPTED_KEY_LEN,
-		FILE_KEY_CONTEXT, SALT_LEN,
-	},
+	primitives::{ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN},
+	types::{Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
 	Error, Protected, Result,
 };
 

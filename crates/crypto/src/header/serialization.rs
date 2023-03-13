@@ -4,7 +4,7 @@
 use std::fmt::Display;
 
 use crate::{
-	primitives::{Algorithm, HashingAlgorithm, Params},
+	types::{Algorithm, HashingAlgorithm, Params},
 	Error, Result,
 };
 

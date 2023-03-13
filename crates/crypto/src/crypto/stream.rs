@@ -1,7 +1,8 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{Algorithm, Key, Nonce, AEAD_TAG_LEN, BLOCK_LEN},
+	primitives::{AEAD_TAG_LEN, BLOCK_LEN},
+	types::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
 use aead::{

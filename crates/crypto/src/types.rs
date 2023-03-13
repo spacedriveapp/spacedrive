@@ -7,7 +7,7 @@ use zeroize::Zeroize;
 
 use crate::{Error, Protected};
 
-use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+use crate::primitives::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;

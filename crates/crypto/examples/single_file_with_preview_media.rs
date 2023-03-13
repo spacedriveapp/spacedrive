@@ -3,9 +3,8 @@ use tokio::fs::File;
 use sd_crypto::{
 	crypto::Encryptor,
 	header::{file::FileHeader, keyslot::Keyslot, preview_media::PreviewMediaVersion},
-	primitives::{
-		Algorithm, HashingAlgorithm, Key, Params, Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT,
-	},
+	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	Protected,
 };
 

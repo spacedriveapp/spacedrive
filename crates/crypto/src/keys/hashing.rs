@@ -12,7 +12,8 @@
 //! ```
 
 use crate::{
-	primitives::{HashingAlgorithm, Key, Params, Salt, SecretKey, KEY_LEN},
+	primitives::KEY_LEN,
+	types::{HashingAlgorithm, Key, Params, Salt, SecretKey},
 	Error, Protected, Result,
 };
 use argon2::Argon2;

@@ -34,7 +34,7 @@ use std::io::{Cursor, SeekFrom};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
-	primitives::{Algorithm, Key, Nonce},
+	types::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
 
@@ -352,8 +352,9 @@ impl FileHeader {
 mod tests {
 	use std::io::Cursor;
 
-	use crate::primitives::{
-		HashingAlgorithm, Params, Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_PREVIEW_MEDIA,
+	use crate::{
+		primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_PREVIEW_MEDIA},
+		types::{HashingAlgorithm, Params, Salt},
 	};
 
 	use super::*;
