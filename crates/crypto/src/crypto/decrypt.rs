@@ -7,19 +7,19 @@ use crate::{
 	},
 	Error, Protected, Result,
 };
-use aead::{stream::DecryptorLE31, KeyInit, Payload};
+use aead::{stream::DecryptorLE31, Payload};
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use super::{exhaustive_read, Algorithm};
+use super::{exhaustive_read, new_cipher, Algorithm};
 
-pub enum StreamDecryption {
+pub enum StreamDecryptor {
 	Aes256Gcm(Box<DecryptorLE31<Aes256Gcm>>),
 	XChaCha20Poly1305(Box<DecryptorLE31<XChaCha20Poly1305>>),
 }
 
-impl StreamDecryption {
+impl StreamDecryptor {
 	/// This should be used to initialize a stream decryption object.
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
@@ -29,44 +29,36 @@ impl StreamDecryption {
 			return Err(Error::NonceLengthMismatch);
 		}
 
-		let decryption_object = match algorithm {
-			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
-					.map_err(|_| Error::StreamModeInit)?;
-
-				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
-				Self::XChaCha20Poly1305(Box::new(stream))
-			}
-			Algorithm::Aes256Gcm => {
-				let cipher =
-					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
-
-				let stream = DecryptorLE31::from_aead(cipher, (&*nonce).into());
-				Self::Aes256Gcm(Box::new(stream))
-			}
+		let stream = match algorithm {
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(Box::new(
+				DecryptorLE31::from_aead(new_cipher(key)?, (&*nonce).into()),
+			)),
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(Box::new(DecryptorLE31::from_aead(
+				new_cipher(key)?,
+				(&*nonce).into(),
+			))),
 		};
 
-		Ok(decryption_object)
+		Ok(stream)
 	}
 
 	fn decrypt_next<'msg, 'aad>(
 		&mut self,
 		payload: impl Into<Payload<'msg, 'aad>>,
-	) -> aead::Result<Vec<u8>> {
+	) -> Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(s) => s.decrypt_next(payload),
 			Self::Aes256Gcm(s) => s.decrypt_next(payload),
 		}
+		.map_err(|_| Error::Decrypt)
 	}
 
-	fn decrypt_last<'msg, 'aad>(
-		self,
-		payload: impl Into<Payload<'msg, 'aad>>,
-	) -> aead::Result<Vec<u8>> {
+	fn decrypt_last<'msg, 'aad>(self, payload: impl Into<Payload<'msg, 'aad>>) -> Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(s) => s.decrypt_last(payload),
 			Self::Aes256Gcm(s) => s.decrypt_last(payload),
 		}
+		.map_err(|_| Error::Decrypt)
 	}
 
 	/// This function should be used for decrypting large amounts of data.
@@ -97,7 +89,7 @@ impl StreamDecryption {
 					msg: &read_buffer,
 				};
 
-				let decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
+				let decrypted_data = self.decrypt_next(payload)?;
 				writer.write_all(&decrypted_data).await?;
 			} else {
 				let payload = Payload {
@@ -105,7 +97,7 @@ impl StreamDecryption {
 					msg: &read_buffer[..read_count],
 				};
 
-				let decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
+				let decrypted_data = self.decrypt_last(payload)?;
 				writer.write_all(&decrypted_data).await?;
 				break;
 			}
@@ -127,7 +119,7 @@ impl StreamDecryption {
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Protected<Vec<u8>>> {
-		let mut writer = Cursor::new(Vec::<u8>::new());
+		let mut writer = Cursor::new(Vec::new());
 		let decryptor = Self::new(key, nonce, algorithm)?;
 
 		decryptor
