@@ -227,7 +227,7 @@ impl P2PManager {
 		let mut len_buf = len.to_le_bytes();
 		debug_assert_eq!(len_buf.len(), 4);
 
-		head_buf.extend_from_slice(&mut len_buf);
+		head_buf.extend_from_slice(&len_buf);
 		head_buf.append(&mut buf);
 
 		self.manager.broadcast(head_buf).await;
