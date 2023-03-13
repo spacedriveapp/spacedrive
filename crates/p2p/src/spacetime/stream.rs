@@ -36,8 +36,9 @@ impl SpaceTimeStream {
 			Self::Broadcast(mut stream) => {
 				if let Some(stream) = stream.0.take() {
 					BroadcastStream::close_inner(stream).await
+				} else if cfg!(debug_assertions) {
+					panic!("'BroadcastStream' should never be 'None' here!");
 				} else {
-					debug_assert!(true, "'BroadcastStream' should never be 'None' here!");
 					error!("'BroadcastStream' should never be 'None' here!");
 					Ok(())
 				}
