@@ -1,6 +1,11 @@
+use crate::prisma::{file_path, object};
+
+use rspc::Type;
+use serde::{Deserialize, Serialize};
+
 pub mod cas;
+pub mod file_identifier;
 pub mod fs;
-pub mod identifier_job;
 pub mod preview;
 pub mod tag;
 pub mod validation;
@@ -9,10 +14,12 @@ pub mod validation;
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location
 // Objects are what can be added to Spaces
 
-use rspc::Type;
-use serde::{Deserialize, Serialize};
-
-use crate::prisma;
+// Object selectables!
+object::select!(object_just_id_has_thumbnail { id has_thumbnail });
+object::select!(object_for_file_identifier {
+	pub_id
+	file_paths: select { id cas_id }
+});
 
 // The response to provide the Explorer when looking at Objects
 #[derive(Debug, Serialize, Deserialize, Type)]
@@ -23,14 +30,14 @@ pub struct ObjectsForExplorer {
 
 // #[derive(Debug, Serialize, Deserialize, Type)]
 // pub enum ExplorerContext {
-// 	Location(Box<prisma::file_path::Data>),
-// 	Space(Box<prisma::file::Data>),
-// 	Tag(Box<prisma::file::Data>),
-// 	// Search(Box<prisma::file_path::Data>),
+// 	Location(Box<file_path::Data>),
+// 	Space(Box<space::Data>),
+// 	Tag(Box<tag::Data>),
+// 	// Search(Box<file_path::Data>),
 // }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectData {
-	Object(Box<prisma::object::Data>),
-	Path(Box<prisma::file_path::Data>),
+	Object(Box<object::Data>),
+	Path(Box<file_path::Data>),
 }

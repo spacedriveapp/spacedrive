@@ -1,6 +1,7 @@
 use crate::{
 	library::Library,
-	prisma::{file_path, location},
+	location::{find_location, location_with_indexer_rules, LocationId},
+	prisma::location,
 };
 
 use std::{
@@ -18,10 +19,7 @@ use tokio::{
 };
 use tracing::{debug, error, warn};
 
-use super::{
-	super::{fetch_location, indexer::indexer_job::indexer_job_location},
-	LocationId, LocationManagerError,
-};
+use super::LocationManagerError;
 
 mod linux;
 mod macos;
@@ -40,8 +38,6 @@ type Handler = macos::MacOsEventHandler;
 #[cfg(target_os = "windows")]
 type Handler = windows::WindowsEventHandler;
 
-file_path::include!(file_path_with_object { object });
-
 pub(super) type IgnorePath = (PathBuf, bool);
 
 #[async_trait]
@@ -52,7 +48,7 @@ trait EventHandler {
 
 	async fn handle_event(
 		&mut self,
-		location: indexer_job_location::Data,
+		location: location_with_indexer_rules::Data,
 		library: &Library,
 		event: Event,
 	) -> Result<(), LocationManagerError>;
@@ -173,8 +169,8 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
-		let Some(location) = fetch_location(library, location_id)
-			.include(indexer_job_location::include())
+		let Some(location) = find_location(library, location_id)
+			.include(location_with_indexer_rules::include())
 			.exec()
 			.await?
 		else {

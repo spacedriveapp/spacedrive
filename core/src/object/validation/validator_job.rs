@@ -1,15 +1,15 @@
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-
-use std::{collections::VecDeque, path::PathBuf};
-
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
+	location::file_path_helper::file_path_for_object_validator,
 	prisma::{file_path, location},
 	sync,
 };
 
+use std::{collections::VecDeque, path::PathBuf};
+
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tracing::info;
 
 use super::hash::file_checksum;
@@ -36,31 +36,18 @@ pub struct ObjectValidatorJobInit {
 	pub background: bool,
 }
 
-file_path::select!(file_path_and_object {
-	id
-	materialized_path
-	integrity_checksum
-	location: select {
-		id
-		pub_id
-	}
-	object: select {
-		id
-	}
-});
-
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJob {
 	type Init = ObjectValidatorJobInit;
 	type Data = ObjectValidatorJobState;
-	type Step = file_path_and_object::Data;
+	type Step = file_path_for_object_validator::Data;
 
 	fn name(&self) -> &'static str {
 		VALIDATOR_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let db = &ctx.library.db;
+		let Library { db, .. } = &ctx.library;
 
 		state.steps = db
 			.file_path()
@@ -69,7 +56,7 @@ impl StatefulJob for ObjectValidatorJob {
 				file_path::is_dir::equals(false),
 				file_path::integrity_checksum::equals(None),
 			])
-			.select(file_path_and_object::select())
+			.select(file_path_for_object_validator::select())
 			.exec()
 			.await?
 			.into_iter()

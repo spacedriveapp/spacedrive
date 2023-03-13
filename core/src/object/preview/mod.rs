@@ -1,5 +1,5 @@
 mod media_data;
-mod thumb;
+mod thumbnail;
 
 pub use media_data::*;
-pub use thumb::*;
+pub use thumbnail::*;

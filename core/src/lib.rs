@@ -191,6 +191,8 @@ impl Node {
 							library_id,
 							operations,
 						} => {
+							debug!("going to ingest {} operations", operations.len());
+
 							let libraries = library_manager.libraries.read().await;
 
 							let Some(library) = libraries.first() else {
