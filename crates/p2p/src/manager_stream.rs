@@ -75,7 +75,7 @@ where
 					match event? {
 						ManagerStreamAction::Event(event) => return Some(event),
 						ManagerStreamAction::GetConnectedPeers(response) => {
-							response.send(self.swarm.behaviour().connected_peers.values().map(|p| p.peer_id).collect::<Vec<_>>()).map_err(|_| error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")).ok();
+							response.send(self.swarm.connected_peers().map(|v| PeerId(*v)).collect::<Vec<_>>()).map_err(|_| error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")).ok();
 						},
 						ManagerStreamAction::Dial { peer_id, addresses } => {
 							match self.swarm.dial(
@@ -87,7 +87,6 @@ where
 											.map(socketaddr_to_quic_multiaddr)
 											.collect(),
 									)
-									.extend_addresses_through_behaviour()
 									.build(),
 							) {
 								Ok(_) => {}
@@ -106,11 +105,12 @@ where
 								});
 						}
 						ManagerStreamAction::BroadcastData(data) => {
-							let swarm = self.swarm.behaviour_mut();
-							for peer in swarm.connected_peers.values() {
-								swarm.pending_events
+							let connected_peers = self.swarm.connected_peers().map(|v| *v).collect::<Vec<_>>();
+							let behaviour = self.swarm.behaviour_mut();
+							for peer_id in connected_peers {
+								behaviour.pending_events
 									.push_back(NetworkBehaviourAction::NotifyHandler {
-										peer_id: peer.peer_id.0,
+										peer_id: peer_id,
 										handler: NotifyHandler::Any,
 										event: OutboundRequest::Broadcast(data.clone()),
 									});
