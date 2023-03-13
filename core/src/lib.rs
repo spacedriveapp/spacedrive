@@ -1,8 +1,11 @@
-use api::{CoreEvent, Ctx, Router};
-use job::JobManager;
-use library::LibraryManager;
-use location::{LocationManager, LocationManagerError};
-use node::NodeConfigManager;
+use crate::{
+	api::{CoreEvent, Ctx, Router},
+	job::JobManager,
+	library::LibraryManager,
+	location::{LocationManager, LocationManagerError},
+	node::NodeConfigManager,
+	p2p::P2PManager,
+};
 use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
@@ -18,6 +21,7 @@ pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
+pub(crate) mod p2p;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
@@ -37,6 +41,8 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
+	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
+	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
@@ -81,6 +87,11 @@ impl Node {
 				)
 				.add_directive(
 					"sd_core_mobile=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"sd-p2p=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
@@ -163,11 +174,14 @@ impl Node {
 			}
 		});
 
+		let p2p = P2PManager::new(config.clone()).await;
+
 		let router = api::mount();
 		let node = Node {
 			config,
 			library_manager,
 			jobs,
+			p2p,
 			event_bus,
 			secure_temp_keystore,
 		};
@@ -181,6 +195,7 @@ impl Node {
 			library_manager: Arc::clone(&self.library_manager),
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
+			p2p: Arc::clone(&self.p2p),
 			event_bus: self.event_bus.0.clone(),
 			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}

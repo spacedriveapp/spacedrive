@@ -1,18 +1,19 @@
-import Archive from '@sd/assets/images/Archive.png';
-import Compressed from '@sd/assets/images/Compressed.png';
-import DocumentPdf from '@sd/assets/images/Document_pdf.png';
-import Encrypted from '@sd/assets/images/Encrypted.png';
-import Executable from '@sd/assets/images/Executable.png';
-import File from '@sd/assets/images/File.png';
-import Video from '@sd/assets/images/Video.png';
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
 import { ExplorerItem } from '@sd/client';
-import { Folder } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { getExplorerItemData } from '../util';
+import classes from './Thumb.module.scss';
 
-// const icons = import.meta.glob('../../../../assets/icons/*.svg');
+const icons = import.meta.glob('../../../../../packages/assets/icons/*.png', { eager: true });
+// extract icons by their name
+const iconsMap: Record<string, string> = {};
+for (const [key, value] of Object.entries(icons)) {
+	const split = key.split('/');
+	const iconName = split[split.length - 1]?.replace('.png', '');
+	if (iconName) iconsMap[iconName] = (value as { default: string }).default;
+}
+
 interface Props {
 	data: ExplorerItem;
 	size: number;
@@ -45,6 +46,7 @@ export default ({ data, size, className }: Props) => {
 				imgClassName={clsx(
 					hasThumbnail &&
 						'max-h-full w-auto max-w-full rounded-sm object-cover shadow shadow-black/30',
+					kind === 'Image' && classes.checkers,
 					kind === 'Image' && size > 60 && 'border-app-line border-2',
 					kind === 'Video' && 'rounded border-x-0 !border-black'
 				)}
@@ -90,30 +92,27 @@ export function FileThumbImg({
 }: FileThumbImgProps) {
 	const platform = usePlatform();
 
-	if (isDir) return <Folder size={size * 0.7} />;
-
-	if (!cas_id) return <div></div>;
-	const url = platform.getThumbnailUrlById(cas_id);
-
-	if (url && hasThumbnail) {
+	if (hasThumbnail && cas_id) {
 		return (
 			<img
 				style={{ ...imgStyle, maxWidth: size, width: size - 10 }}
 				decoding="async"
-				className={clsx('z-90 pointer-events-none bg-black', imgClassName)}
-				src={url}
+				className={clsx('z-90 pointer-events-none', imgClassName)}
+				src={platform.getThumbnailUrlById(cas_id)}
 			/>
 		);
 	}
 
-	let icon = File;
-	// Hacky (and temporary) way to integrate thumbnails
-	if (kind === 'Archive') icon = Archive;
-	else if (kind === 'Video') icon = Video;
-	else if (kind === 'Document' && extension === 'pdf') icon = DocumentPdf;
-	else if (kind === 'Executable') icon = Executable;
-	else if (kind === 'Encrypted') icon = Encrypted;
-	else if (kind === 'Compressed') icon = Compressed;
+	// Render an img component with an image based on kind
+	let icon = iconsMap['Document'];
+
+	if (isDir) {
+		icon = iconsMap['Folder'];
+	} else if (kind && extension && iconsMap[`${kind}_${extension.toLowerCase()}`]) {
+		icon = iconsMap[`${kind}_${extension.toLowerCase()}`];
+	} else if (kind && iconsMap[kind] && kind !== 'Unknown') {
+		icon = iconsMap[kind];
+	}
 
 	return <img src={icon} className={clsx('h-full overflow-hidden')} />;
 }

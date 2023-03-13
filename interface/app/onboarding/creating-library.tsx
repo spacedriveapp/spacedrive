@@ -6,23 +6,27 @@ import {
 	Algorithm,
 	HASHING_ALGOS,
 	resetOnboardingStore,
+	telemetryStore,
 	useBridgeMutation,
 	useDebugState,
-	useOnboardingStore
+	useOnboardingStore,
+	usePlausibleEvent
 } from '@sd/client';
 import { Loader } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
 export default function OnboardingCreatingLibrary() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const debugState = useDebugState();
+	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const [status, setStatus] = useState('Creating your library...');
 
 	useUnlockOnboardingScreen();
-
-	const debugState = useDebugState();
 
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
@@ -30,6 +34,9 @@ export default function OnboardingCreatingLibrary() {
 				...(libraries || []),
 				library
 			]);
+
+			submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+
 			resetOnboardingStore();
 			navigate(`/${library.uuid}/overview`);
 		},
@@ -39,17 +46,21 @@ export default function OnboardingCreatingLibrary() {
 		}
 	});
 
-	const ob_store = useOnboardingStore();
+	const obStore = useOnboardingStore();
 
 	const create = async () => {
+		// opted to place this here as users could change their mind before library creation/onboarding finalization
+		// it feels more fitting to configure it here (once)
+		telemetryStore.shareTelemetry = obStore.shareTelemetry;
+
 		createLibrary.mutate({
-			name: ob_store.newLibraryName,
+			name: obStore.newLibraryName,
 			auth: {
 				type: 'TokenizedPassword',
-				value: ob_store.passwordSetToken ?? ''
+				value: obStore.passwordSetToken || ''
 			},
-			algorithm: ob_store.algorithm,
-			hashing_algorithm: HASHING_ALGOS[ob_store.hashingAlgorithm]
+			algorithm: obStore.algorithm as Algorithm,
+			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
 		});
 
 		return;
@@ -58,7 +69,7 @@ export default function OnboardingCreatingLibrary() {
 	const created = useRef(false);
 
 	useEffect(() => {
-		if (created.current == true) return;
+		if (created.current) return;
 		created.current = true;
 		create();
 		const timer = setTimeout(() => {

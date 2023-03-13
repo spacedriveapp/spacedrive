@@ -1,1 +1,1 @@
-module.exports = require('../../packages/ui/tailwind.config.js')('web');
+module.exports = require('@sd/ui/tailwind')('web');

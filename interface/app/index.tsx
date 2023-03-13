@@ -20,6 +20,11 @@ const Index = () => {
 	return <Navigate to={`${libraryId}/overview`} />;
 };
 
+
+// NOTE: all route `Layout`s below should contain
+// the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
+// the hook should only be included if there's a valid `ClientContext` (so not onboarding)
+
 const routes = [
 	{
 		index: true,

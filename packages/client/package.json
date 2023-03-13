@@ -21,6 +21,7 @@
 		"@zxcvbn-ts/core": "^2.1.0",
 		"@zxcvbn-ts/language-common": "^2.0.1",
 		"@zxcvbn-ts/language-en": "^2.1.0",
+		"plausible-tracker": "^0.3.8",
 		"valtio": "^1.7.4"
 	},
 	"devDependencies": {

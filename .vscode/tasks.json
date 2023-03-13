@@ -23,20 +23,11 @@
 			"type": "shell",
 			"label": "ui:dev",
 			"problemMatcher": {
-				"owner": "vite",
-				"fileLocation": "autoDetect",
-				"pattern": {
-					"regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
-					"file": 1,
-					"location": 2,
-					"severity": 3,
-					"code": 4,
-					"message": 5
-				},
+				"base": "$tsc-watch",
 				"background": {
 					"activeOnStart": true,
-					"beginsPattern": "^> @sd\\/root@\\d\\.\\d\\.\\d desktop",
-					"endsPattern": "to show help$"
+					"beginsPattern": "VITE v",
+					"endsPattern": "http://localhost:8001/"
 				}
 			},
 			"isBackground": true,
@@ -56,7 +47,7 @@
 		{
 			"type": "cargo",
 			"command": "run",
-			"args": ["--package", "spacedrive", "--bin", "spacedrive"],
+			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--no-default-features"],
 			"env": {
 				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
 			},
@@ -68,7 +59,7 @@
 		{
 			"type": "cargo",
 			"command": "run",
-			"args": ["--package", "spacedrive", "--bin", "spacedrive", "--release"],
+			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--release"],
 			"env": {
 				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
 			},
