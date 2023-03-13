@@ -7,19 +7,19 @@ use crate::{
 	},
 	Error, Result,
 };
-use aead::{stream::EncryptorLE31, KeyInit, Payload};
+use aead::{stream::EncryptorLE31, Payload};
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use super::{exhaustive_read, Algorithm};
+use super::{exhaustive_read, new_cipher, Algorithm};
 
-pub enum StreamEncryption {
+pub enum StreamEncryptor {
 	XChaCha20Poly1305(Box<EncryptorLE31<XChaCha20Poly1305>>),
 	Aes256Gcm(Box<EncryptorLE31<Aes256Gcm>>),
 }
 
-impl StreamEncryption {
+impl StreamEncryptor {
 	/// This should be used to initialize a stream encryption object.
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
@@ -29,44 +29,36 @@ impl StreamEncryption {
 			return Err(Error::NonceLengthMismatch);
 		}
 
-		let encryption_object = match algorithm {
-			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
-					.map_err(|_| Error::StreamModeInit)?;
-
-				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
-				Self::XChaCha20Poly1305(Box::new(stream))
-			}
-			Algorithm::Aes256Gcm => {
-				let cipher =
-					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
-
-				let stream = EncryptorLE31::from_aead(cipher, (&*nonce).into());
-				Self::Aes256Gcm(Box::new(stream))
-			}
+		let stream = match algorithm {
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(Box::new(
+				EncryptorLE31::from_aead(new_cipher(key)?, (&*nonce).into()),
+			)),
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(Box::new(EncryptorLE31::from_aead(
+				new_cipher(key)?,
+				(&*nonce).into(),
+			))),
 		};
 
-		Ok(encryption_object)
+		Ok(stream)
 	}
 
 	fn encrypt_next<'msg, 'aad>(
 		&mut self,
 		payload: impl Into<Payload<'msg, 'aad>>,
-	) -> aead::Result<Vec<u8>> {
+	) -> Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(s) => s.encrypt_next(payload),
 			Self::Aes256Gcm(s) => s.encrypt_next(payload),
 		}
+		.map_err(|_| Error::Encrypt)
 	}
 
-	fn encrypt_last<'msg, 'aad>(
-		self,
-		payload: impl Into<Payload<'msg, 'aad>>,
-	) -> aead::Result<Vec<u8>> {
+	fn encrypt_last<'msg, 'aad>(self, payload: impl Into<Payload<'msg, 'aad>>) -> Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(s) => s.encrypt_last(payload),
 			Self::Aes256Gcm(s) => s.encrypt_last(payload),
 		}
+		.map_err(|_| Error::Encrypt)
 	}
 
 	/// This function should be used for encrypting large amounts of data.
@@ -86,28 +78,22 @@ impl StreamEncryption {
 		R: AsyncReadExt + Unpin + Send,
 		W: AsyncWriteExt + Unpin + Send,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_LEN].into_boxed_slice();
+		let mut buffer = vec![0u8; BLOCK_LEN].into_boxed_slice();
 
 		loop {
-			let read_count = exhaustive_read(&mut reader, &mut read_buffer).await?;
+			let count = exhaustive_read(&mut reader, &mut buffer).await?;
 
-			if read_count == BLOCK_LEN {
-				let payload = Payload {
-					aad,
-					msg: &read_buffer,
-				};
+			let payload = Payload {
+				aad,
+				msg: &buffer[..count],
+			};
 
-				let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
-				writer.write_all(&encrypted_data).await?;
+			if count == BLOCK_LEN {
+				let ciphertext = self.encrypt_next(payload)?;
+				writer.write_all(&ciphertext).await?;
 			} else {
-				// we use `..read_count` in order to only use the read data, and not zeroes also
-				let payload = Payload {
-					aad,
-					msg: &read_buffer[..read_count],
-				};
-
-				let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
-				writer.write_all(&encrypted_data).await?;
+				let ciphertext = self.encrypt_last(payload)?;
+				writer.write_all(&ciphertext).await?;
 				break;
 			}
 		}
@@ -128,7 +114,7 @@ impl StreamEncryption {
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Vec<u8>> {
-		let mut writer = Cursor::new(Vec::<u8>::new());
+		let mut writer = Cursor::new(Vec::new());
 		let encryptor = Self::new(key, nonce, algorithm)?;
 
 		encryptor

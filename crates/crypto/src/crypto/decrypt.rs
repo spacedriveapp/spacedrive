@@ -78,27 +78,22 @@ impl StreamDecryptor {
 		R: AsyncReadExt + Unpin + Send,
 		W: AsyncWriteExt + Unpin + Send,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_LEN + AEAD_TAG_LEN].into_boxed_slice();
+		let mut buffer = vec![0u8; BLOCK_LEN + AEAD_TAG_LEN].into_boxed_slice();
 
 		loop {
-			let read_count = exhaustive_read(&mut reader, &mut read_buffer).await?;
+			let count = exhaustive_read(&mut reader, &mut buffer).await?;
 
-			if read_count == (BLOCK_LEN + AEAD_TAG_LEN) {
-				let payload = Payload {
-					aad,
-					msg: &read_buffer,
-				};
+			let payload = Payload {
+				aad,
+				msg: &buffer[..count],
+			};
 
-				let decrypted_data = self.decrypt_next(payload)?;
-				writer.write_all(&decrypted_data).await?;
+			if count == (BLOCK_LEN + AEAD_TAG_LEN) {
+				let plaintext = self.decrypt_next(payload)?;
+				writer.write_all(&plaintext).await?;
 			} else {
-				let payload = Payload {
-					aad,
-					msg: &read_buffer[..read_count],
-				};
-
-				let decrypted_data = self.decrypt_last(payload)?;
-				writer.write_all(&decrypted_data).await?;
+				let plaintext = self.decrypt_last(payload)?;
+				writer.write_all(&plaintext).await?;
 				break;
 			}
 		}
