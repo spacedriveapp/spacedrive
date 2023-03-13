@@ -32,30 +32,6 @@ where
 	}
 }
 
-/// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize)
-)]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub enum Algorithm {
-	XChaCha20Poly1305,
-	Aes256Gcm,
-}
-
-impl Algorithm {
-	/// This function allows us to get the nonce length for a given encryption algorithm
-	#[must_use]
-	pub const fn nonce_len(&self) -> usize {
-		match self {
-			Self::XChaCha20Poly1305 => 20,
-			Self::Aes256Gcm => 8,
-		}
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use std::io::Cursor;
@@ -63,7 +39,7 @@ mod tests {
 	use rand::{RngCore, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
 
-	use crate::primitives::{Key, Nonce, BLOCK_LEN};
+	use crate::primitives::{Algorithm, Key, Nonce, BLOCK_LEN};
 
 	use super::*;
 

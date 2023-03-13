@@ -23,8 +23,8 @@
 use tokio::io::AsyncReadExt;
 
 use crate::{
-	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
-	primitives::{Key, Nonce},
+	crypto::{StreamDecryptor, StreamEncryptor},
+	primitives::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
 

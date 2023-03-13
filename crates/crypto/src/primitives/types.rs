@@ -5,7 +5,7 @@ use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 use zeroize::Zeroize;
 
-use crate::{crypto::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+use crate::{Error, Protected};
 
 use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 
@@ -21,6 +21,36 @@ use serde_big_array::BigArray;
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
 	Aes256Gcm([u8; 8]),
+}
+
+/// These parameters define the password-hashing level.
+///
+/// The greater the parameter, the longer the password will take to hash.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum Params {
+	Standard,
+	Hardened,
+	Paranoid,
+}
+
+/// This defines all available password hashing algorithms.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize),
+	serde(tag = "name", content = "params")
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum HashingAlgorithm {
+	Argon2id(Params),
+	BalloonBlake3(Params),
 }
 
 impl Nonce {
@@ -86,6 +116,30 @@ impl Deref for Nonce {
 		match self {
 			Self::Aes256Gcm(x) => x,
 			Self::XChaCha20Poly1305(x) => x,
+		}
+	}
+}
+
+/// These are all possible algorithms that can be used for encryption and decryption
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum Algorithm {
+	XChaCha20Poly1305,
+	Aes256Gcm,
+}
+
+impl Algorithm {
+	/// This function allows us to get the nonce length for a given encryption algorithm
+	#[must_use]
+	pub const fn nonce_len(&self) -> usize {
+		match self {
+			Self::XChaCha20Poly1305 => 20,
+			Self::Aes256Gcm => 8,
 		}
 	}
 }

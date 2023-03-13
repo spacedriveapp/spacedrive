@@ -24,9 +24,11 @@
 use std::io::Read;
 
 use crate::{
-	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
-	keys::hashing::HashingAlgorithm,
-	primitives::{EncryptedKey, Key, Nonce, Salt, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT, SALT_LEN},
+	crypto::{StreamDecryptor, StreamEncryptor},
+	primitives::{
+		Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt, ENCRYPTED_KEY_LEN,
+		FILE_KEY_CONTEXT, SALT_LEN,
+	},
 	Error, Protected, Result,
 };
 

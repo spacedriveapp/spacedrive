@@ -12,41 +12,11 @@
 //! ```
 
 use crate::{
-	primitives::{Key, Salt, SecretKey, KEY_LEN},
+	primitives::{HashingAlgorithm, Key, Params, Salt, SecretKey, KEY_LEN},
 	Error, Protected, Result,
 };
 use argon2::Argon2;
 use balloon_hash::Balloon;
-
-/// These parameters define the password-hashing level.
-///
-/// The greater the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize)
-)]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub enum Params {
-	Standard,
-	Hardened,
-	Paranoid,
-}
-
-/// This defines all available password hashing algorithms.
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize),
-	serde(tag = "name", content = "params")
-)]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub enum HashingAlgorithm {
-	Argon2id(Params),
-	BalloonBlake3(Params),
-}
 
 impl HashingAlgorithm {
 	/// This function should be used to hash passwords. It handles all appropriate parameters, and uses hashing with a secret key (if provided).

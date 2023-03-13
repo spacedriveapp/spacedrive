@@ -40,11 +40,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
+	crypto::{StreamDecryptor, StreamEncryptor},
 	primitives::{
-		EncryptedKey, Key, Nonce, OnboardingConfig, Salt, SecretKey, SecretKeyString,
-		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
-		SECRET_KEY_IDENTIFIER,
+		Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, OnboardingConfig, Salt, SecretKey,
+		SecretKeyString, APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT,
+		ROOT_KEY_CONTEXT, SECRET_KEY_IDENTIFIER,
 	},
 	Error, Protected, Result,
 };
@@ -52,10 +52,7 @@ use crate::{
 use dashmap::{DashMap, DashSet};
 use uuid::Uuid;
 
-use super::{
-	hashing::HashingAlgorithm,
-	keyring::{Identifier, KeyringInterface},
-};
+use super::keyring::{Identifier, KeyringInterface};
 
 /// This is a stored key, and can be freely written to the database.
 ///

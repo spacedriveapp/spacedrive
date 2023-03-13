@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{Key, Nonce, AEAD_TAG_LEN, BLOCK_LEN},
+	primitives::{Algorithm, Key, Nonce, AEAD_TAG_LEN, BLOCK_LEN},
 	Error, Protected, Result,
 };
 use aead::{
@@ -12,7 +12,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use super::{exhaustive_read, Algorithm};
+use super::exhaustive_read;
 
 macro_rules! impl_stream {
 	(

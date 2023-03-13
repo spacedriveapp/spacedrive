@@ -4,8 +4,7 @@
 use std::fmt::Display;
 
 use crate::{
-	crypto::Algorithm,
-	keys::hashing::{HashingAlgorithm, Params},
+	primitives::{Algorithm, HashingAlgorithm, Params},
 	Error, Result,
 };
 

@@ -1,10 +1,11 @@
 use tokio::fs::File;
 
 use sd_crypto::{
-	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
+	crypto::{StreamDecryptor, StreamEncryptor},
 	header::{file::FileHeader, keyslot::Keyslot},
-	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{Key, Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	primitives::{
+		Algorithm, HashingAlgorithm, Key, Params, Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT,
+	},
 	Protected,
 };
 
