@@ -54,7 +54,7 @@ impl<TMetadata: Metadata> SpaceTime<TMetadata> {
 
 impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 	type ConnectionHandler = SpaceTimeConnection<TMetadata>;
-	type OutEvent = Event<TMetadata>;
+	type OutEvent = ManagerStreamAction<TMetadata>;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -118,7 +118,9 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 					if other_established == 0 {
 						self.pending_events
 							.push_back(NetworkBehaviourAction::GenerateEvent(
-								Event::PeerConnected(ConnectedPeer { peer_id }),
+								ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
+									peer_id,
+								})),
 							));
 					}
 				}
@@ -133,7 +135,7 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 					debug!("Disconnected from peer '{}'", peer_id);
 					self.pending_events
 						.push_back(NetworkBehaviourAction::GenerateEvent(
-							Event::PeerDisconnected(peer_id),
+							ManagerStreamAction::Event(Event::PeerDisconnected(peer_id)),
 						));
 				}
 			}
@@ -183,9 +185,10 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 		&mut self,
 		_peer_id: libp2p::PeerId,
 		_connection: ConnectionId,
-		_event: <SpaceTimeConnection<TMetadata> as ConnectionHandler>::OutEvent,
+		event: <SpaceTimeConnection<TMetadata> as ConnectionHandler>::OutEvent,
 	) {
-		todo!();
+		self.pending_events
+			.push_back(NetworkBehaviourAction::GenerateEvent(event));
 	}
 
 	fn poll(

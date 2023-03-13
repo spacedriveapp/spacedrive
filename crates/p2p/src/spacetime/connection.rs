@@ -1,7 +1,7 @@
 use libp2p::swarm::{
 	handler::{
 		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, ConnectionHandlerUpgrErr,
-		KeepAlive,
+		FullyNegotiatedInbound, KeepAlive,
 	},
 	SubstreamProtocol,
 };
@@ -14,7 +14,7 @@ use std::{
 };
 use tracing::error;
 
-use crate::{Manager, Metadata, PeerId};
+use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 
 use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRINK_THRESHOLD};
 
@@ -49,7 +49,7 @@ impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
 
 impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 	type InEvent = OutboundRequest;
-	type OutEvent = ();
+	type OutEvent = ManagerStreamAction<TMetadata>;
 	type Error = ConnectionHandlerUpgrErr<io::Error>;
 	type InboundProtocol = InboundProtocol<TMetadata>;
 	type OutboundProtocol = OutboundProtocol;
@@ -117,7 +117,12 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		>,
 	) {
 		match event {
-			ConnectionEvent::FullyNegotiatedInbound(_) => {}
+			ConnectionEvent::FullyNegotiatedInbound(FullyNegotiatedInbound {
+				protocol, ..
+			}) => {
+				self.pending_events
+					.push_back(ConnectionHandlerEvent::Custom(protocol));
+			}
 			ConnectionEvent::FullyNegotiatedOutbound(_) => {}
 			ConnectionEvent::DialUpgradeError(event) => {
 				error!("DialUpgradeError: {:#?}", event.error);
