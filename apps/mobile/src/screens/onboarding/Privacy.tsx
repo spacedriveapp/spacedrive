@@ -24,13 +24,13 @@ const RadioButton = ({ title, description, isSelected, style }: RadioButtonProps
 		>
 			<View
 				style={twStyle(
-					'mr-3 h-5 w-5 items-center justify-center rounded-full',
+					'mr-2.5 h-5 w-5 items-center justify-center rounded-full',
 					isSelected ? 'bg-accent' : 'bg-gray-900'
 				)}
 			>
 				{isSelected && <View style={tw`h-1.5 w-1.5 rounded-full bg-white`} />}
 			</View>
-			<View>
+			<View style={tw`flex-1`}>
 				<Text style={tw`text-ink text-base font-bold`}>{title}</Text>
 				<Text style={tw`text-ink-faint text-sm`}>{description}</Text>
 			</View>

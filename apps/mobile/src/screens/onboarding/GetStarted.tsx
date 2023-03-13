@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { CaretLeft } from 'phosphor-react-native';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
@@ -11,7 +11,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 	const navigation = useNavigation();
 	const route = useRoute();
 
-	const { top } = useSafeAreaInsets();
+	const { top, bottom } = useSafeAreaInsets();
 
 	return (
 		<View style={tw`flex-1`}>
@@ -23,8 +23,14 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 					<CaretLeft size={24} weight="bold" color="white" />
 				</Pressable>
 			)}
-			<View style={tw`z-10 flex-1 items-center justify-center px-4`}>
-				{children}
+			<View style={tw`z-10 flex-1 items-center justify-center`}>
+				<KeyboardAvoidingView
+					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+					keyboardVerticalOffset={bottom}
+					style={tw`w-full flex-1 items-center justify-center px-4`}
+				>
+					{children}
+				</KeyboardAvoidingView>
 				<Text style={tw`text-ink-dull/50 absolute bottom-8 text-xs`}>
 					&copy; 2022 Spacedrive Technology Inc.
 				</Text>
