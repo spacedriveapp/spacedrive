@@ -129,6 +129,15 @@ impl Key {
 	}
 }
 
+impl<I> From<Key> for GenericArray<u8, I>
+where
+	I: ArrayLength<u8>,
+{
+	fn from(value: Key) -> Self {
+		Self::clone_from_slice(value.expose())
+	}
+}
+
 impl TryFrom<Protected<Vec<u8>>> for Key {
 	type Error = Error;
 
