@@ -120,7 +120,9 @@ where
 				}
 				event = self.swarm.select_next_some() => {
 					match event {
-						SwarmEvent::Behaviour(()) => {},
+						SwarmEvent::Behaviour(event) => {
+							return Some(event);
+						},
 						SwarmEvent::ConnectionEstablished { .. } => {},
 						SwarmEvent::ConnectionClosed { .. } => {},
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),

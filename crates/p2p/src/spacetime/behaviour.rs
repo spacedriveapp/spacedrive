@@ -54,7 +54,7 @@ impl<TMetadata: Metadata> SpaceTime<TMetadata> {
 
 impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 	type ConnectionHandler = SpaceTimeConnection<TMetadata>;
-	type OutEvent = ();
+	type OutEvent = Event<TMetadata>;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -116,14 +116,10 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 				{
 					debug!("sending establishment request to peer '{}'", peer_id);
 					if other_established == 0 {
-						let manager = self.manager.clone();
-						tokio::spawn(async move {
-							manager
-								.emit(ManagerStreamAction::Event(Event::PeerConnected(
-									ConnectedPeer { peer_id },
-								)))
-								.await;
-						});
+						self.pending_events
+							.push_back(NetworkBehaviourAction::GenerateEvent(
+								Event::PeerConnected(ConnectedPeer { peer_id }),
+							));
 					}
 				}
 			}
@@ -135,12 +131,10 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 				let peer_id = PeerId(peer_id);
 				if remaining_established == 0 {
 					debug!("Disconnected from peer '{}'", peer_id);
-					let manager = self.manager.clone();
-					tokio::spawn(async move {
-						manager
-							.emit(ManagerStreamAction::Event(Event::PeerDisconnected(peer_id)))
-							.await;
-					});
+					self.pending_events
+						.push_back(NetworkBehaviourAction::GenerateEvent(
+							Event::PeerDisconnected(peer_id),
+						));
 				}
 			}
 			FromSwarm::AddressChange(event) => {
