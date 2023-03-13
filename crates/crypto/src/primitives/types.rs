@@ -232,24 +232,6 @@ impl From<SecretKeyString> for SecretKey {
 	}
 }
 
-/// This should be used for passing a password around.
-///
-/// It can be a string of any length.
-#[derive(Clone)]
-pub struct Password(pub Protected<String>);
-
-impl Password {
-	#[must_use]
-	pub const fn new(v: String) -> Self {
-		Self(Protected::new(v))
-	}
-
-	#[must_use]
-	pub const fn expose(&self) -> &String {
-		self.0.expose()
-	}
-}
-
 /// This should be used for passing an encrypted key around.
 ///
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)

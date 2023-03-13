@@ -42,7 +42,7 @@ use tokio::sync::Mutex;
 use crate::{
 	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
 	primitives::{
-		EncryptedKey, Key, Nonce, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString,
+		EncryptedKey, Key, Nonce, OnboardingConfig, Salt, SecretKey, SecretKeyString,
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 		SECRET_KEY_IDENTIFIER,
 	},
@@ -256,7 +256,7 @@ impl KeyManager {
 
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
-			Protected::new(config.password.expose().as_bytes().to_vec()),
+			config.password.into(),
 			content_salt,
 			Some(secret_key.clone()),
 		)?;
@@ -385,7 +385,7 @@ impl KeyManager {
 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
 		let hashed_password = hashing_algorithm.hash(
-			Protected::new(master_password.expose().as_bytes().to_vec()),
+			master_password.into(),
 			content_salt,
 			Some(secret_key.clone()),
 		)?;
@@ -484,7 +484,7 @@ impl KeyManager {
 		let old_root_key = match old_verification_key.version {
 			StoredKeyVersion::V1 => {
 				let hashed_password = old_verification_key.hashing_algorithm.hash(
-					Protected::new(master_password.expose().as_bytes().to_vec()),
+					master_password.into(),
 					old_verification_key.content_salt,
 					Some(secret_key),
 				)?;
@@ -582,7 +582,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn unlock<F>(
 		&self,
-		master_password: Password,
+		master_password: Protected<String>,
 		provided_secret_key: Option<SecretKeyString>,
 		library_uuid: Uuid,
 		invalidate: F,
@@ -619,7 +619,7 @@ impl KeyManager {
 				let hashed_password = verification_key
 					.hashing_algorithm
 					.hash(
-						Protected::new(master_password.expose().as_bytes().to_vec()),
+						master_password.into(),
 						verification_key.content_salt,
 						Some(secret_key),
 					)
@@ -756,7 +756,7 @@ impl KeyManager {
 	}
 
 	/// This function is used for getting the key value itself, from a given UUID.
-	pub async fn get_key(&self, uuid: Uuid) -> Result<Password> {
+	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<String>> {
 		self.ensure_unlocked().await?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
@@ -784,7 +784,7 @@ impl KeyManager {
 			)
 			.await?;
 
-			Ok(Password::new(String::from_utf8(key.expose().clone())?))
+			Ok(Protected::new(String::from_utf8(key.expose().clone())?))
 		} else {
 			Err(Error::KeyNotFound)
 		}
@@ -804,7 +804,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub async fn add_to_keystore(
 		&self,
-		key: Password,
+		key: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
