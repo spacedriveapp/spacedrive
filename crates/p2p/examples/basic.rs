@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{Event, Keypair, Manager, Metadata};
+use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
@@ -73,17 +73,24 @@ async fn main() {
 					debug!("Peer '{}' established stream", event.peer_id);
 
 					tokio::spawn(async move {
-						let mut stream = event.stream;
-
-						let mut buf = [0; 100];
-						let n = stream.read(&mut buf).await.unwrap();
-						println!("GOT: {:?}", std::str::from_utf8(&buf[..n]).unwrap());
-
-						// TODO: Allow differentiating whether this is Spacedrop or Sync message here
-
-						// TODO
-						// event.stream.write_all(response.as_bytes()).await.unwrap();
-						// event.stream.flush().await.unwrap();
+						match event.stream {
+							SpaceTimeStream::Broadcast(mut stream) => {
+								let mut buf = [0; 100];
+								let n = stream.read(&mut buf).await.unwrap();
+								println!(
+									"GOT BROADCAST: {:?}",
+									std::str::from_utf8(&buf[..n]).unwrap()
+								);
+							}
+							SpaceTimeStream::Unicast(mut stream) => {
+								let mut buf = [0; 100];
+								let n = stream.read(&mut buf).await.unwrap();
+								println!(
+									"GOT UNICAST: {:?}",
+									std::str::from_utf8(&buf[..n]).unwrap()
+								);
+							}
+						}
 					});
 				}
 				_ => debug!("event: {:?}", event),

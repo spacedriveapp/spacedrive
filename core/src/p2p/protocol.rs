@@ -16,7 +16,12 @@ impl Header {
 		let discriminator = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		match discriminator {
-			0 => Ok(Self::Spacedrop(TransferRequest::from_stream(stream).await?)),
+			0 => match stream {
+				SpaceTimeStream::Unicast(stream) => {
+					Ok(Self::Spacedrop(TransferRequest::from_stream(stream).await?))
+				}
+				_ => todo!(),
+			},
 			1 => Ok(Self::Ping),
 			2 => {
 				let mut uuid = [0u8; 16];

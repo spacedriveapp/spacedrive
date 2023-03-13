@@ -1,15 +1,17 @@
 use std::future::{ready, Ready};
 
-use libp2p::{core::UpgradeInfo, swarm::NegotiatedSubstream, OutboundUpgrade};
-use tokio::{io::AsyncWriteExt, sync::oneshot};
+use libp2p::{
+	core::UpgradeInfo, futures::AsyncWriteExt, swarm::NegotiatedSubstream, OutboundUpgrade,
+};
+use tokio::sync::oneshot;
 use tracing::error;
 
-use super::{SpaceTimeProtocolName, SpaceTimeStream};
+use super::{SpaceTimeProtocolName, UnicastStream, BROADCAST_DISCRIMINATOR};
 
 #[derive(Debug)]
 pub enum OutboundRequest {
-	Data(Vec<u8>),
-	Stream(oneshot::Sender<SpaceTimeStream>),
+	Broadcast(Vec<u8>),
+	Unicast(oneshot::Sender<UnicastStream>),
 }
 
 pub struct OutboundProtocol(pub(crate) &'static [u8], pub(crate) OutboundRequest);
@@ -28,24 +30,22 @@ impl OutboundUpgrade<NegotiatedSubstream> for OutboundProtocol {
 	type Error = ();
 	type Future = Ready<Result<(), ()>>;
 
-	fn upgrade_outbound(self, io: NegotiatedSubstream, _protocol: Self::Info) -> Self::Future {
-		let mut stream = SpaceTimeStream::new(io);
+	fn upgrade_outbound(self, mut io: NegotiatedSubstream, _protocol: Self::Info) -> Self::Future {
 		match self.1 {
-			OutboundRequest::Data(data) => {
+			OutboundRequest::Broadcast(data) => {
 				tokio::spawn(async move {
-					if let Err(err) = stream.write_all(&data).await {
+					io.write_all(&[BROADCAST_DISCRIMINATOR]).await.unwrap();
+					if let Err(err) = io.write_all(&data).await {
 						// TODO: Print the peer which we failed to send to here
 						error!("Error sending broadcast: {:?}", err);
 					}
-					stream.flush().await.unwrap();
-					stream.close().await.unwrap();
-					// TODO: We close the connection here without waiting for a response.
-					// TODO: If the other side's user-code doesn't account for that on this specific message they will error.
-					// TODO: Add an abstraction so the user can't respond to fixed size messages.
+					io.flush().await.unwrap();
+					io.close().await.unwrap();
 				});
 			}
-			OutboundRequest::Stream(sender) => {
-				sender.send(stream).unwrap();
+			OutboundRequest::Unicast(sender) => {
+				// We write the discriminator to the stream in the `Manager::stream` method before returning the stream to the user to make async a tad nicer.
+				sender.send(UnicastStream::new(io)).unwrap();
 			}
 		}
 

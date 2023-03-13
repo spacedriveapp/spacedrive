@@ -19,7 +19,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
-	spacetime::{OutboundRequest, SpaceTime, SpaceTimeStream},
+	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
 	AsyncFn, Event, Manager, Mdns, Metadata, PeerId,
 };
 
@@ -35,7 +35,7 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 		addresses: Vec<SocketAddr>,
 	},
 	/// TODO
-	StartStream(PeerId, oneshot::Sender<SpaceTimeStream>),
+	StartStream(PeerId, oneshot::Sender<UnicastStream>),
 	/// TODO
 	BroadcastData(Vec<u8>),
 }
@@ -102,7 +102,7 @@ where
 								.push_back(NetworkBehaviourAction::NotifyHandler {
 									peer_id: peer_id.0,
 									handler: NotifyHandler::Any,
-									event: OutboundRequest::Stream(rx),
+									event: OutboundRequest::Unicast(rx),
 								});
 						}
 						ManagerStreamAction::BroadcastData(data) => {
@@ -112,7 +112,7 @@ where
 									.push_back(NetworkBehaviourAction::NotifyHandler {
 										peer_id: peer.peer_id.0,
 										handler: NotifyHandler::Any,
-										event: OutboundRequest::Data(data.clone()),
+										event: OutboundRequest::Broadcast(data.clone()),
 									});
 							}
 						}

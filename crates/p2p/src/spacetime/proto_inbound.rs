@@ -32,7 +32,7 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 					PeerMessageEvent {
 						peer_id: self.peer_id,
 						manager: self.manager.clone(),
-						stream: SpaceTimeStream::new(io),
+						stream: SpaceTimeStream::from_stream(io).await,
 						_priv: (),
 					}
 					.into(),
