@@ -1,18 +1,12 @@
 //! This module contains all encryption and decryption items. These are used throughout the crate for all encryption/decryption needs.
 
-use crate::{primitives::types::Key, Error, Result};
-use aead::KeyInit;
+use crate::Result;
 use tokio::io::AsyncReadExt;
 
 mod decrypt;
 mod encrypt;
 
 pub use self::{decrypt::StreamDecryptor, encrypt::StreamEncryptor};
-
-pub(in crate::crypto) fn new_cipher<T: KeyInit>(key: Key) -> Result<T> {
-	let cipher = T::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
-	Ok(cipher)
-}
 
 /// This is used to exhaustively read from an asynchronous reader into a buffer.
 ///
@@ -70,10 +64,7 @@ mod tests {
 	use rand::{RngCore, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
 
-	use crate::primitives::{
-		types::{Key, Nonce},
-		BLOCK_LEN,
-	};
+	use crate::primitives::{Key, Nonce, BLOCK_LEN};
 
 	use super::*;
 

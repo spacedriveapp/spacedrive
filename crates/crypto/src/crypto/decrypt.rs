@@ -1,10 +1,7 @@
 use std::io::Cursor;
 
 use crate::{
-	primitives::{
-		types::{Key, Nonce},
-		AEAD_TAG_LEN, BLOCK_LEN,
-	},
+	primitives::{Key, Nonce, AEAD_TAG_LEN, BLOCK_LEN},
 	Error, Protected, Result,
 };
 use aead::{stream::DecryptorLE31, Payload};
@@ -12,7 +9,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use super::{exhaustive_read, new_cipher, Algorithm};
+use super::{exhaustive_read, Algorithm};
 
 pub enum StreamDecryptor {
 	Aes256Gcm(Box<DecryptorLE31<Aes256Gcm>>),
@@ -30,12 +27,13 @@ impl StreamDecryptor {
 		}
 
 		let stream = match algorithm {
-			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(Box::new(
-				DecryptorLE31::from_aead(new_cipher(key)?, (&*nonce).into()),
-			)),
-			Algorithm::Aes256Gcm => Self::Aes256Gcm(Box::new(DecryptorLE31::from_aead(
-				new_cipher(key)?,
-				(&*nonce).into(),
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(Box::new(DecryptorLE31::new(
+				key.expose().into(),
+				nonce.into(),
+			))),
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(Box::new(DecryptorLE31::new(
+				key.expose().into(),
+				nonce.into(),
 			))),
 		};
 

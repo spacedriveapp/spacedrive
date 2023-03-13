@@ -15,7 +15,9 @@ use crate::{
 #[cfg(feature = "keymanager")]
 use crate::keys::keymanager::StoredKeyVersion;
 
-pub mod types;
+mod types;
+
+pub use types::*;
 
 /// This is the salt size.
 pub const SALT_LEN: usize = 16;
