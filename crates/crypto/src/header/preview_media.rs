@@ -23,8 +23,8 @@
 use tokio::io::AsyncReadExt;
 
 use crate::{
-	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	primitives::types::{Key, Nonce},
+	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
+	primitives::{Key, Nonce},
 	Error, Protected, Result,
 };
 
@@ -67,7 +67,7 @@ impl FileHeader {
 		let media_nonce = Nonce::generate(algorithm)?;
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, media_nonce, algorithm, media, &[]).await?;
+			StreamEncryptor::encrypt_bytes(master_key, media_nonce, algorithm, media, &[]).await?;
 
 		self.preview_media = Some(PreviewMedia {
 			version,
@@ -91,7 +91,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
-			let pvm = StreamDecryption::decrypt_bytes(
+			let pvm = StreamDecryptor::decrypt_bytes(
 				master_key,
 				pvm.media_nonce,
 				pvm.algorithm,
@@ -118,7 +118,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(pvm) = self.preview_media.as_ref() {
-			let pvm = StreamDecryption::decrypt_bytes(
+			let pvm = StreamDecryptor::decrypt_bytes(
 				master_key,
 				pvm.media_nonce,
 				pvm.algorithm,

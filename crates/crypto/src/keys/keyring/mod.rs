@@ -1,4 +1,4 @@
-use crate::{primitives::types::SecretKeyString, Protected, Result};
+use crate::{primitives::SecretKeyString, Protected, Result};
 
 #[cfg(target_os = "linux")]
 pub mod linux;

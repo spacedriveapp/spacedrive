@@ -3,7 +3,7 @@
 //! This has been tested on macOS, but should work just the same for iOS (according to the `security_framework` documentation)
 
 use super::{Identifier, Keyring};
-use crate::{primitives::types::SecretKeyString, Error, Protected, Result};
+use crate::{primitives::SecretKeyString, Error, Protected, Result};
 use security_framework::passwords::{
 	delete_generic_password, get_generic_password, set_generic_password,
 };

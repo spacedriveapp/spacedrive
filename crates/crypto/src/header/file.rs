@@ -34,8 +34,8 @@ use std::io::{Cursor, SeekFrom};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
-	crypto::stream::Algorithm,
-	primitives::types::{Key, Nonce},
+	crypto::Algorithm,
+	primitives::{Key, Nonce},
 	Error, Protected, Result,
 };
 
@@ -355,7 +355,7 @@ mod tests {
 
 	use crate::{
 		keys::hashing::{HashingAlgorithm, Params},
-		primitives::{types::Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_PREVIEW_MEDIA},
+		primitives::{Salt, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_PREVIEW_MEDIA},
 	};
 
 	use super::*;

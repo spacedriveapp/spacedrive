@@ -30,14 +30,14 @@
 
 #[cfg(feature = "serde")]
 use crate::{
-	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::types::Key,
+	crypto::{StreamDecryptor, StreamEncryptor},
+	primitives::Key,
 	Protected,
 };
 
 use tokio::io::AsyncReadExt;
 
-use crate::{crypto::stream::Algorithm, primitives::types::Nonce, Error, Result};
+use crate::{crypto::Algorithm, primitives::Nonce, Error, Result};
 
 use super::file::FileHeader;
 
@@ -81,7 +81,7 @@ impl FileHeader {
 	{
 		let metadata_nonce = Nonce::generate(algorithm)?;
 
-		let encrypted_metadata = StreamEncryption::encrypt_bytes(
+		let encrypted_metadata = StreamEncryptor::encrypt_bytes(
 			master_key,
 			metadata_nonce,
 			algorithm,
@@ -113,7 +113,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key(password).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
-			let metadata = StreamDecryption::decrypt_bytes(
+			let metadata = StreamDecryptor::decrypt_bytes(
 				master_key,
 				metadata.metadata_nonce,
 				metadata.algorithm,
@@ -141,7 +141,7 @@ impl FileHeader {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).await?;
 
 		if let Some(metadata) = self.metadata.as_ref() {
-			let metadata = StreamDecryption::decrypt_bytes(
+			let metadata = StreamDecryptor::decrypt_bytes(
 				master_key,
 				metadata.metadata_nonce,
 				metadata.algorithm,

@@ -3,10 +3,10 @@
 use crate::Result;
 use tokio::io::AsyncReadExt;
 
-mod decrypt;
-mod encrypt;
+// mod encrypt;
+mod stream;
 
-pub use self::{decrypt::StreamDecryptor, encrypt::StreamEncryptor};
+pub use self::stream::{StreamDecryptor, StreamEncryptor};
 
 /// This is used to exhaustively read from an asynchronous reader into a buffer.
 ///

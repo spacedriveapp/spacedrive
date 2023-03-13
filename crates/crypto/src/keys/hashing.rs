@@ -12,10 +12,7 @@
 //! ```
 
 use crate::{
-	primitives::{
-		types::{Key, Salt, SecretKey},
-		KEY_LEN,
-	},
+	primitives::{Key, Salt, SecretKey, KEY_LEN},
 	Error, Protected, Result,
 };
 use argon2::Argon2;

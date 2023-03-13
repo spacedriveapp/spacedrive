@@ -40,11 +40,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-	crypto::{Algorithm, StreamDecryption, StreamEncryption},
+	crypto::{Algorithm, StreamDecryptor, StreamEncryptor},
 	primitives::{
-		types::{
-			EncryptedKey, Key, Nonce, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString,
-		},
+		EncryptedKey, Key, Nonce, OnboardingConfig, Password, Salt, SecretKey, SecretKeyString,
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 		SECRET_KEY_IDENTIFIER,
 	},
@@ -274,7 +272,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = EncryptedKey::try_from(
-			StreamEncryption::encrypt_bytes(
+			StreamEncryptor::encrypt_bytes(
 				Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 				master_key_nonce,
 				algorithm,
@@ -284,7 +282,7 @@ impl KeyManager {
 			.await?,
 		)?;
 
-		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+		let encrypted_root_key = StreamEncryptor::encrypt_bytes(
 			master_key,
 			root_key_nonce,
 			algorithm,
@@ -403,7 +401,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = EncryptedKey::try_from(
-			StreamEncryption::encrypt_bytes(
+			StreamEncryptor::encrypt_bytes(
 				Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 				master_key_nonce,
 				algorithm,
@@ -413,7 +411,7 @@ impl KeyManager {
 			.await?,
 		)?;
 
-		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+		let encrypted_root_key = StreamEncryptor::encrypt_bytes(
 			master_key,
 			root_key_nonce,
 			algorithm,
@@ -492,7 +490,7 @@ impl KeyManager {
 				)?;
 
 				// decrypt the root key's KEK
-				let master_key = StreamDecryption::decrypt_bytes(
+				let master_key = StreamDecryptor::decrypt_bytes(
 					Key::derive(
 						hashed_password,
 						old_verification_key.salt,
@@ -506,7 +504,7 @@ impl KeyManager {
 				.await?;
 
 				// get the root key from the backup
-				let old_root_key = StreamDecryption::decrypt_bytes(
+				let old_root_key = StreamDecryptor::decrypt_bytes(
 					Key::try_from(master_key)?,
 					old_verification_key.key_nonce,
 					old_verification_key.algorithm,
@@ -529,7 +527,7 @@ impl KeyManager {
 			match key.version {
 				StoredKeyVersion::V1 => {
 					// decrypt the key's master key
-					let master_key = StreamDecryption::decrypt_bytes(
+					let master_key = StreamDecryptor::decrypt_bytes(
 						Key::derive(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						key.master_key_nonce,
 						key.algorithm,
@@ -546,7 +544,7 @@ impl KeyManager {
 
 					// encrypt the master key with the current root key
 					let encrypted_master_key = EncryptedKey::try_from(
-						StreamEncryption::encrypt_bytes(
+						StreamEncryptor::encrypt_bytes(
 							Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 							master_key_nonce,
 							key.algorithm,
@@ -630,7 +628,7 @@ impl KeyManager {
 						e
 					})?;
 
-				let master_key = StreamDecryption::decrypt_bytes(
+				let master_key = StreamDecryptor::decrypt_bytes(
 					Key::derive(
 						hashed_password,
 						verification_key.salt,
@@ -649,7 +647,7 @@ impl KeyManager {
 
 				*self.root_key.lock().await = Some(
 					Key::try_from(
-						StreamDecryption::decrypt_bytes(
+						StreamDecryptor::decrypt_bytes(
 							Key::try_from(master_key)?,
 							verification_key.key_nonce,
 							verification_key.algorithm,
@@ -697,7 +695,7 @@ impl KeyManager {
 				StoredKeyVersion::V1 => {
 					self.mounting_queue.insert(uuid);
 
-					let master_key = StreamDecryption::decrypt_bytes(
+					let master_key = StreamDecryptor::decrypt_bytes(
 						Key::derive(
 							self.get_root_key().await?,
 							stored_key.salt,
@@ -717,7 +715,7 @@ impl KeyManager {
 						Key::try_from,
 					)?;
 					// Decrypt the StoredKey using the decrypted master key
-					let key = StreamDecryption::decrypt_bytes(
+					let key = StreamDecryptor::decrypt_bytes(
 						master_key,
 						stored_key.key_nonce,
 						stored_key.algorithm,
@@ -762,7 +760,7 @@ impl KeyManager {
 		self.ensure_unlocked().await?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
-			let master_key = StreamDecryption::decrypt_bytes(
+			let master_key = StreamDecryptor::decrypt_bytes(
 				Key::derive(
 					self.get_root_key().await?,
 					stored_key.salt,
@@ -777,7 +775,7 @@ impl KeyManager {
 			.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 			// Decrypt the StoredKey using the decrypted master key
-			let key = StreamDecryption::decrypt_bytes(
+			let key = StreamDecryptor::decrypt_bytes(
 				master_key,
 				stored_key.key_nonce,
 				stored_key.algorithm,
@@ -829,7 +827,7 @@ impl KeyManager {
 
 		// Encrypt the master key with a derived key (derived from the root key)
 		let encrypted_master_key = EncryptedKey::try_from(
-			StreamEncryption::encrypt_bytes(
+			StreamEncryptor::encrypt_bytes(
 				Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 				master_key_nonce,
 				algorithm,
@@ -840,7 +838,7 @@ impl KeyManager {
 		)?;
 
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
-		let encrypted_key = StreamEncryption::encrypt_bytes(
+		let encrypted_key = StreamEncryptor::encrypt_bytes(
 			master_key,
 			key_nonce,
 			algorithm,
