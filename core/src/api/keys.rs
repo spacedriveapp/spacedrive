@@ -1,12 +1,10 @@
-use sd_crypto::primitives::types::{Password, SecretKeyString};
-use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
-use std::{path::PathBuf, str::FromStr};
-use tokio::fs::File;
-
 use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+use sd_crypto::primitives::{Algorithm, HashingAlgorithm, SecretKeyString, SECRET_KEY_IDENTIFIER};
+use sd_crypto::{Error, Protected};
 use serde::Deserialize;
 use specta::Type;
+use std::{path::PathBuf, str::FromStr};
+use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
@@ -181,7 +179,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.key_manager
 					.unlock(
-						Password(args.password),
+						args.password,
 						secret_key.map(SecretKeyString),
 						library.id,
 						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
@@ -257,7 +255,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let uuid = library
 					.key_manager
 					.add_to_keystore(
-						Password(args.key),
+						args.key,
 						args.algorithm,
 						args.hashing_algorithm,
 						!args.library_sync,
