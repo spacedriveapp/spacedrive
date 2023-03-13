@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, warn};
 
 use crate::{
-	spacetime::{SpaceTime, SpaceTimeStream},
+	spacetime::{SpaceTime, UnicastStream},
 	AsyncFn, DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, Metadata, PeerId,
 };
 
@@ -113,14 +113,16 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
-	pub async fn stream(&self, peer_id: PeerId) -> Result<SpaceTimeStream, ()> {
+	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
 		self.emit(ManagerStreamAction::StartStream(peer_id, tx))
 			.await;
-		rx.await.map_err(|_| {
+		let mut stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
-		})
+		})?;
+		stream.write_discriminator().await.unwrap(); // TODO: Error handling
+		Ok(stream)
 	}
 
 	pub async fn broadcast(&self, data: Vec<u8>) {
