@@ -3,7 +3,6 @@
 use crate::Result;
 use tokio::io::AsyncReadExt;
 
-// mod encrypt;
 mod stream;
 
 pub use self::stream::{StreamDecryptor, StreamEncryptor};

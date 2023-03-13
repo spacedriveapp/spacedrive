@@ -69,14 +69,6 @@ impl From<Protected<String>> for Protected<Vec<u8>> {
 	}
 }
 
-impl From<String> for Protected<Vec<u8>> {
-	fn from(value: String) -> Self {
-		Self {
-			data: value.into_bytes(),
-		}
-	}
-}
-
 impl<T> Protected<T>
 where
 	T: Zeroize + Default,

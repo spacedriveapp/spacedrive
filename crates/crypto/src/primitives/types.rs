@@ -53,8 +53,8 @@ where
 {
 	fn from(value: Nonce) -> Self {
 		match value {
-			Nonce::Aes256Gcm(x) => Self::from_slice(x.as_ref()).clone(),
-			Nonce::XChaCha20Poly1305(x) => Self::from_slice(x.as_ref()).clone(),
+			Nonce::Aes256Gcm(x) => Self::clone_from_slice(&x),
+			Nonce::XChaCha20Poly1305(x) => Self::clone_from_slice(&x),
 		}
 	}
 }

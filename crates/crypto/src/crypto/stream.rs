@@ -52,7 +52,6 @@ macro_rules! impl_stream {
 				Ok(s)
 			}
 
-
 			fn $next_fn<'msg, 'aad>(
 				&mut self,
 				payload: impl Into<Payload<'msg, 'aad>>,
@@ -118,7 +117,7 @@ macro_rules! impl_stream {
 
 			/// This should ideally only be used for small amounts of data.
 			///
-			/// It is just a thin wrapper around the associated `_streams` function.
+			/// It is just a thin wrapper around the associated `encrypt/decrypt_streams` function.
 			#[allow(unused_mut)]
 			pub async fn $bytes_fn(
 				key: Key,
