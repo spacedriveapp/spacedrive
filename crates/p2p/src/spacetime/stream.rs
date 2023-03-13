@@ -1,5 +1,5 @@
 use std::{
-	io,
+	io::{self, ErrorKind},
 	pin::Pin,
 	task::{Context, Poll},
 };
@@ -9,6 +9,7 @@ use tokio::io::{
 	AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf,
 };
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
+use tracing::error;
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
 pub const UNICAST_DISCRIMINATOR: u8 = 1;
@@ -24,7 +25,7 @@ impl SpaceTimeStream {
 		let mut io = io.compat();
 		let discriminator = io.read_u8().await.unwrap(); // TODO: Timeout on this
 		match discriminator {
-			BROADCAST_DISCRIMINATOR => Self::Broadcast(BroadcastStream(io)),
+			BROADCAST_DISCRIMINATOR => Self::Broadcast(BroadcastStream(Some(io))),
 			UNICAST_DISCRIMINATOR => Self::Unicast(UnicastStream(io)),
 			_ => todo!(), // TODO: Error handling
 		}
@@ -32,12 +33,17 @@ impl SpaceTimeStream {
 
 	pub async fn close(self) -> Result<(), io::Error> {
 		match self {
-			Self::Broadcast(stream) => stream.0,
-			Self::Unicast(stream) => stream.0,
+			Self::Broadcast(mut stream) => {
+				if let Some(stream) = stream.0.take() {
+					BroadcastStream::close_inner(stream).await
+				} else {
+					debug_assert!(true, "'BroadcastStream' should never be 'None' here!");
+					error!("'BroadcastStream' should never be 'None' here!");
+					Ok(())
+				}
+			}
+			Self::Unicast(stream) => stream.0.into_inner().close().await,
 		}
-		.into_inner()
-		.close()
-		.await
 	}
 }
 
@@ -57,7 +63,20 @@ impl AsyncRead for SpaceTimeStream {
 /// A broadcast is a message sent to many peers in the network.
 /// Due to this it is not possible to respond to a broadcast.
 #[derive(Debug)]
-pub struct BroadcastStream(Compat<NegotiatedSubstream>);
+pub struct BroadcastStream(Option<Compat<NegotiatedSubstream>>);
+
+impl BroadcastStream {
+	async fn close_inner(mut io: Compat<NegotiatedSubstream>) -> Result<(), io::Error> {
+		io.write_all(&[b'D']).await?;
+		io.flush().await?;
+
+		match io.into_inner().close().await {
+			Ok(_) => Ok(()),
+			Err(err) if err.kind() == ErrorKind::ConnectionReset => Ok(()), // The other end shut the connection before us
+			Err(err) => Err(err),
+		}
+	}
+}
 
 impl AsyncRead for BroadcastStream {
 	fn poll_read(
@@ -65,7 +84,18 @@ impl AsyncRead for BroadcastStream {
 		cx: &mut Context<'_>,
 		buf: &mut ReadBuf<'_>,
 	) -> Poll<io::Result<()>> {
-		Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
+		Pin::new(&mut self.get_mut().0.as_mut().expect("'BroadcastStream' can only be 'None' if this method is called after 'Drop' which ain't happening!")).poll_read(cx, buf)
+	}
+}
+
+impl Drop for BroadcastStream {
+	fn drop(&mut self) {
+		// This may be `None` if the user manually called `Self::close`
+		if let Some(stream) = self.0.take() {
+			tokio::spawn(async move {
+				Self::close_inner(stream).await.unwrap();
+			});
+		}
 	}
 }
 

@@ -1,7 +1,13 @@
-use std::future::{ready, Ready};
+use std::{
+	future::{ready, Ready},
+	io::ErrorKind,
+};
 
 use libp2p::{
-	core::UpgradeInfo, futures::AsyncWriteExt, swarm::NegotiatedSubstream, OutboundUpgrade,
+	core::UpgradeInfo,
+	futures::{AsyncReadExt, AsyncWriteExt},
+	swarm::NegotiatedSubstream,
+	OutboundUpgrade,
 };
 use tokio::sync::oneshot;
 use tracing::error;
@@ -40,7 +46,18 @@ impl OutboundUpgrade<NegotiatedSubstream> for OutboundProtocol {
 						error!("Error sending broadcast: {:?}", err);
 					}
 					io.flush().await.unwrap();
-					io.close().await.unwrap();
+
+					let mut buf = [0u8; 1];
+					io.read_exact(&mut buf).await.unwrap();
+					debug_assert_eq!(buf[0], b'D', "Peer should let us know they were done!");
+
+					match io.close().await {
+						Ok(_) => {}
+						Err(err) if err.kind() == ErrorKind::ConnectionReset => {} // The other end shut the connection before us
+						Err(err) => {
+							error!("Error closing broadcast stream: {:?}", err);
+						}
+					}
 				});
 			}
 			OutboundRequest::Unicast(sender) => {
