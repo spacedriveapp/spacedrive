@@ -1,6 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
-
-use libp2p::{core::ConnectedPoint, swarm::ConnectionId};
+use std::{net::SocketAddr, sync::Arc};
 
 use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 
@@ -40,7 +38,4 @@ impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
 pub struct ConnectedPeer {
 	/// get the peer id of the discovered peer
 	pub peer_id: PeerId,
-	/// list of connections between the peer and the local node
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	pub connections: HashMap<ConnectionId, ConnectedPoint>, // TODO: Probs use `thinvec` style thing here
 }

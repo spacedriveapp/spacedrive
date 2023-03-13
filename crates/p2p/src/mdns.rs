@@ -123,7 +123,7 @@ where
 	}
 
 	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
-	pub async fn poll(&mut self) {
+	pub async fn poll(&mut self) -> Option<Event<TMetadata>> {
 		tokio::select! {
 			_ = &mut self.next_mdns_advertisement => {
 				self.advertise();
@@ -143,7 +143,7 @@ where
 							Ok(peer_id) => {
 								// Prevent discovery of the current peer.
 								if peer_id == self.manager.peer_id {
-									return;
+									return None;
 								}
 
 								match TMetadata::from_hashmap(
@@ -182,7 +182,7 @@ where
 											discovered_peers.insert(peer_id, peer.clone());
 											peer
 										};
-										self.manager.emit(Event::PeerDiscovered(peer).into()).await;
+										return Some(Event::PeerDiscovered(peer));
 									}
 									Err(err) => {
 										error!("error parsing metadata for peer '{}': {}", raw_peer_id, err)
@@ -202,7 +202,7 @@ where
 							Ok(peer_id) => {
 								// Prevent discovery of the current peer.
 								if peer_id == self.manager.peer_id {
-									return;
+									return None;
 								}
 
 								{
@@ -210,12 +210,10 @@ where
 										self.manager.discovered.write().await;
 									let peer = discovered_peers.remove(&peer_id);
 
-									self.manager
-										.emit(Event::PeerExpired {
-											id: peer_id,
-											metadata: peer.map(|p| p.metadata),
-										}.into())
-										.await;
+									return Some(Event::PeerExpired {
+										id: peer_id,
+										metadata: peer.map(|p| p.metadata),
+									});
 								}
 							}
 							Err(_) => warn!(
@@ -227,6 +225,8 @@ where
 					ServiceEvent::SearchStopped(_) => {}
 				}
 			}
-		}
+		};
+
+		None
 	}
 }
