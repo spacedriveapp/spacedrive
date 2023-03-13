@@ -1,11 +1,4 @@
-use std::{
-	fmt,
-	net::SocketAddr,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
-};
+use std::{collections::VecDeque, fmt, net::SocketAddr, sync::Arc};
 
 use libp2p::{
 	futures::StreamExt,
@@ -13,7 +6,7 @@ use libp2p::{
 		dial_opts::{DialOpts, PeerCondition},
 		NetworkBehaviourAction, NotifyHandler, SwarmEvent,
 	},
-	Multiaddr, Swarm,
+	Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
@@ -63,7 +56,7 @@ where
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
 	pub(crate) mdns: Mdns<TMetadata, TMetadataFn>,
-	pub(crate) is_advertisement_queued: AtomicBool,
+	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 }
 
 impl<TMetadata, TMetadataFn> ManagerStream<TMetadata, TMetadataFn>
@@ -75,8 +68,12 @@ where
 	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
+			if let Some(event) = self.queued_events.pop_front() {
+				return Some(event);
+			}
+
 			tokio::select! {
-				event = self.mdns.poll() => {
+				event = self.mdns.poll(&self.manager) => {
 					if let Some(event) = event {
 						return Some(event);
 					}
@@ -101,16 +98,11 @@ where
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
 						SwarmEvent::BannedPeer { peer_id, .. } => warn!("banned peer '{}' attempted to connection and was rejected", peer_id),
-						SwarmEvent::NewListenAddr{ address, .. } => {
+						SwarmEvent::NewListenAddr { address, .. } => {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									debug!("listen address added: {}", addr);
-									self.manager.listen_addrs.write().await.insert(addr);
-									if !self.is_advertisement_queued.load(Ordering::Relaxed) {
-										self.is_advertisement_queued.store(true, Ordering::Relaxed);
-										self.mdns.advertise();
-									}
-									self.mdns.advertise();
+									self.mdns.register_addr(addr).await;
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -120,8 +112,12 @@ where
 							}
 						},
 						SwarmEvent::ExpiredListenAddr { address, .. } => {
-							match Self::unregister_addr(&self.manager, &self.mdns, &self.is_advertisement_queued, address).await {
-								Ok(_) => {},
+							match quic_multiaddr_to_socketaddr(address) {
+								Ok(addr) => {
+									debug!("listen address added: {}", addr);
+									self.mdns.unregister_addr(&addr).await;
+									return Some(Event::RemoveListenAddr(addr));
+								},
 								Err(err) => {
 									warn!("error passing listen address: {}", err);
 									continue;
@@ -131,14 +127,21 @@ where
 						SwarmEvent::ListenerClosed { listener_id, addresses, reason } => {
 							debug!("listener '{:?}' was closed due to: {:?}", listener_id, reason);
 							for address in addresses {
-								match Self::unregister_addr(&self.manager, &self.mdns, &self.is_advertisement_queued, address).await {
-									Ok(_) => {},
+								match quic_multiaddr_to_socketaddr(address) {
+									Ok(addr) => {
+										debug!("listen address added: {}", addr);
+										self.mdns.unregister_addr(&addr).await;
+
+										self.queued_events.push_back(Event::RemoveListenAddr(addr));
+									},
 									Err(err) => {
 										warn!("error passing listen address: {}", err);
 										continue;
 									}
 								}
 							}
+
+							// The `loop` will restart and begin returning the events from `queued_events`.
 						}
 						SwarmEvent::ListenerError { listener_id, error } => warn!("listener '{:?}' reported a non-fatal error: {}", listener_id, error),
 						SwarmEvent::Dialing(_peer_id) => {},
@@ -191,13 +194,13 @@ where
 				);
 			}
 			ManagerStreamAction::BroadcastData(data) => {
-				let connected_peers = self.swarm.connected_peers().map(|v| *v).collect::<Vec<_>>();
+				let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();
 				let behaviour = self.swarm.behaviour_mut();
 				for peer_id in connected_peers {
 					behaviour
 						.pending_events
 						.push_back(NetworkBehaviourAction::NotifyHandler {
-							peer_id: peer_id,
+							peer_id,
 							handler: NotifyHandler::Any,
 							event: OutboundRequest::Broadcast(data.clone()),
 						});
@@ -205,28 +208,6 @@ where
 			}
 		}
 
-		return None;
-	}
-
-	// TODO: Move into mdns
-	async fn unregister_addr(
-		manager: &Arc<Manager<TMetadata>>,
-		mdns: &Mdns<TMetadata, TMetadataFn>,
-		is_advertisement_queued: &AtomicBool,
-		address: Multiaddr,
-	) -> Result<Event<TMetadata>, String> {
-		match quic_multiaddr_to_socketaddr(address) {
-			Ok(addr) => {
-				debug!("listen address removed: {}", addr);
-				manager.listen_addrs.write().await.remove(&addr);
-				let _ = mdns.unregister_mdns();
-				if !is_advertisement_queued.load(Ordering::Relaxed) {
-					is_advertisement_queued.store(true, Ordering::Relaxed);
-					mdns.advertise();
-				}
-				Ok(Event::RemoveListenAddr(addr))
-			}
-			Err(err) => Err(err),
-		}
+		None
 	}
 }

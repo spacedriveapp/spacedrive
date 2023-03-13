@@ -1,25 +1,21 @@
-use std::{
-	collections::{HashMap, HashSet},
-	net::SocketAddr,
-	sync::{atomic::AtomicBool, Arc},
-};
+use std::{collections::HashSet, net::SocketAddr, sync::Arc};
 
 use libp2p::{core::muxing::StreamMuxerBox, quic, Swarm, Transport};
 use thiserror::Error;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	AsyncFn, DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, Metadata, PeerId,
+	AsyncFn, DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState,
+	Metadata, PeerId,
 };
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 #[derive(Debug)]
 pub struct Manager<TMetadata: Metadata> {
+	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
-	pub(crate) listen_addrs: RwLock<HashSet<SocketAddr>>,
-	pub(crate) discovered: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
 	pub(crate) application_name: &'static [u8],
 	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
 }
@@ -40,17 +36,19 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
+		let peer_id = PeerId(keypair.public().to_peer_id());
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
+
+		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, fn_get_metadata).unwrap();
 		let this = Arc::new(Self {
+			mdns_state,
 			// Look this is bad but it's hard to avoid. Technically a memory leak but it's a small amount of memory and is should done on startup on the P2P system.
 			application_name: Box::leak(Box::new(
 				format!("/{}/spacetime/1.0.0", application_name)
 					.as_bytes()
 					.to_vec(),
 			)),
-			peer_id: PeerId(keypair.public().to_peer_id()),
-			listen_addrs: RwLock::new(Default::default()),
-			discovered: RwLock::new(Default::default()),
+			peer_id,
 			event_stream_tx,
 		});
 
@@ -77,11 +75,11 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		Ok((
 			this.clone(),
 			ManagerStream {
-				manager: this.clone(),
+				manager: this,
 				event_stream_rx,
 				swarm,
-				mdns: Mdns::new(this, application_name, fn_get_metadata).unwrap(),
-				is_advertisement_queued: AtomicBool::new(false),
+				mdns,
+				queued_events: Default::default(),
 			},
 		))
 	}
@@ -98,11 +96,17 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 	}
 
 	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		self.listen_addrs.read().await.clone()
+		self.mdns_state.listen_addrs.read().await.clone()
 	}
 
 	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
-		self.discovered.read().await.values().cloned().collect()
+		self.mdns_state
+			.discovered
+			.read()
+			.await
+			.values()
+			.cloned()
+			.collect()
 	}
 
 	pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, ()> {
