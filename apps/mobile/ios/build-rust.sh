@@ -2,6 +2,8 @@
 
 set -e
 
+export PROTOC=/opt/homebrew/bin/protoc
+
 TARGET_DIRECTORY=../../../target
 
 CARGO_FLAGS=
