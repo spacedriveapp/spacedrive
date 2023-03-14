@@ -17,7 +17,7 @@ const FolderIcon: React.FC<FolderProps> = ({ size = 24, isWhite }) => {
 	return isWhite ? (
 		<FolderWhite width={size} height={size} />
 	) : (
-		<Image source={require('@sd/assets/images/Folder.png')} style={{ width: size, height: size }} />
+		<Image source={require('@sd/assets/icons/Folder.png')} style={{ width: size, height: size }} />
 	);
 };
 

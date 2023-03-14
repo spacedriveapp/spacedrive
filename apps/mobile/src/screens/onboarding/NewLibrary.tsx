@@ -33,7 +33,7 @@ const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary
 
 	return (
 		<OnboardingContainer>
-			<Image source={require('@sd/assets/images/Database.png')} style={tw`h-25 w-25`} />
+			<Image source={require('@sd/assets/icons/Database.png')} style={tw`h-25 w-25`} />
 			<OnboardingTitle style={tw`mt-4`}>Create a Library</OnboardingTitle>
 			<View style={tw`w-full px-4`}>
 				<OnboardingDescription style={tw`mt-4`}>
