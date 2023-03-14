@@ -1,29 +1,72 @@
-import { useState } from 'react';
-import { CRDTOperation, useBridgeSubscription, useLibraryContext } from '~/../packages/client/src';
+import {
+	CRDTOperation,
+	useBridgeSubscription,
+	useLibraryContext,
+	useLibraryQuery
+} from '@sd/client';
+import { tw } from '~/../packages/ui/src';
+
+const Label = tw.span`text-gray-300`;
+const Pill = tw.span`rounded-full bg-gray-500 px-2 py-1`;
+const Row = tw.p`overflow-hidden text-ellipsis space-x-1`;
+
+const OperationItem = ({ op }: { op: CRDTOperation }) => {
+	let contents = null;
+
+	if ('record_id' in op.typ) {
+		let subContents = null;
+
+		if (op.typ.data === null) {
+			subContents = 'Delete';
+		} else if (op.typ.data === 'a' || 'u' in op.typ.data) {
+			subContents = 'Create';
+		} else {
+			subContents = `Update - ${op.typ.data.field}`;
+		}
+
+		contents = (
+			<>
+				<div className="space-x-2">
+					<Pill>{subContents}</Pill>
+				</div>
+				<Row>
+					<Label>Model</Label>
+					<span>{op.typ.model}</span>
+				</Row>
+				<Row>
+					<Label>Time</Label>
+					<span>{op.timestamp}</span>
+				</Row>
+			</>
+		);
+	}
+
+	return <li className="space-y-1 rounded-md bg-gray-700 p-2 text-sm">{contents}</li>;
+};
 
 export default () => {
-	const [messages, setMessages] = useState<CRDTOperation[]>([]);
-
 	const { library } = useLibraryContext();
+
+	const messages = useLibraryQuery(['sync.messages']);
 
 	useBridgeSubscription(
 		[
-			'sync.messages',
+			'sync.newMessage',
 			{
 				arg: null,
 				library_id: library.uuid
 			}
 		],
 		{
-			onData: (msg) => (console.log(msg), setMessages((msgs) => [msg, ...msgs]))
+			onData: () => messages.refetch()
 		}
 	);
 
 	return (
-		<div>
-			{messages.map((msg) => (
-				<code>{JSON.stringify(msg, null, 4)}</code>
+		<ul className="space-y-2">
+			{messages.data?.map((op) => (
+				<OperationItem key={op.id} op={op} />
 			))}
-		</div>
+		</ul>
 	);
 };

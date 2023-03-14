@@ -11,7 +11,7 @@ use util::secure_temp_keystore::SecureTempKeystore;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
@@ -196,6 +196,7 @@ impl Node {
 							let libraries = library_manager.libraries.read().await;
 
 							let Some(library) = libraries.first() else {
+                                warn!("no library found!");
                                 continue;
                             };
 

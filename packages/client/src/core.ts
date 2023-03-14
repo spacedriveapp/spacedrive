@@ -24,6 +24,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
+        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -80,7 +81,7 @@ export type Procedures = {
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation }
+        { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
 
 /**
