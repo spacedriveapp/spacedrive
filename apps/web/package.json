@@ -32,6 +32,7 @@
 		"vite": "^4.0.4",
 		"vite-plugin-html": "^3.2.0",
 		"vite-plugin-svgr": "^2.2.1",
+		"vite-plugin-commonjs": "^0.6.2",
 		"vite-tsconfig-paths": "^3.5.2"
 	}
 }
