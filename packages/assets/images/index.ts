@@ -5,22 +5,22 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
+export const AppLogo = require('./AppLogo.png');
+export const Ball = require('./Ball.png');
+export const BloomOne = require('./BloomOne.png');
+export const BloomThree = require('./BloomThree.png');
+export const BloomTwo = require('./BloomTwo.png');
 export const GoogleDrive = require('./GoogleDrive.png');
 export const Mega = require('./Mega.png');
-export const bloomone = require('./bloom-one.png');
-export const bloomthree = require('./bloom-three.png');
-export const bloomtwo = require('./bloom-two.png');
 export const iCloud = require('./iCloud.png');
-export const logo = require('./logo.png');
-export const spacedrive_logo = require('./spacedrive_logo.png');
 
 export default {
+	AppLogo,
+	Ball,
+	BloomOne,
+	BloomThree,
+	BloomTwo,
 	GoogleDrive,
 	Mega,
-	bloomone,
-	bloomthree,
-	bloomtwo,
-	iCloud,
-	logo,
-	spacedrive_logo
+	iCloud
 };
