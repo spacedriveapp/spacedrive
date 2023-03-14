@@ -1,4 +1,4 @@
-import icons from '@sd/assets/icons';
+import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
 import { ExplorerItem } from '@sd/client';

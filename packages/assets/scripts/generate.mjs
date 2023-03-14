@@ -34,7 +34,7 @@ assetFolders.forEach((folder) => {
 		.filter((fileName) => fileName !== 'index.ts')
 		.map((fileName) => {
 			const variableName = fileName.split('.')[0].replace(/-/g, '');
-			return `export const ${variableName} = require('./${fileName}');`;
+			return `import ${variableName} from './${fileName}';`;
 		})
 		.join('\n');
 
@@ -55,7 +55,7 @@ assetFolders.forEach((folder) => {
 	* To regenerate this file, run: pnpm assets gen
 	*/
 	
-${assetImports}\n\nexport default {\n  ${assetExports}\n};\n`;
+${assetImports}\n\nexport {\n  ${assetExports}\n};\n`;
 
 	// Write the index file.
 	prettier.resolveConfig(join(__dirname, '..', '..', '..', '.prettierrc.js')).then((options) => {

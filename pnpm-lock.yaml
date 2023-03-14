@@ -54,7 +54,6 @@ importers:
       sass: ^1.55.0
       typescript: ^4.8.4
       vite: ^4.0.4
-      vite-plugin-commonjs: ^0.6.2
       vite-plugin-html: ^3.2.0
       vite-plugin-svgr: ^2.2.1
       vite-tsconfig-paths: ^4.0.3
@@ -80,7 +79,6 @@ importers:
       sass: 1.57.1
       typescript: 4.9.4
       vite: 4.1.4_sass@1.57.1
-      vite-plugin-commonjs: 0.6.2
       vite-plugin-svgr: 2.4.0_vite@4.1.4
       vite-tsconfig-paths: 4.0.5_typescript@4.9.4
 
@@ -128,7 +126,6 @@ importers:
       tsparticles: ^2.3.4
       typescript: ^4.8.4
       vite: ^4.0.4
-      vite-plugin-commonjs: ^0.6.2
       vite-plugin-esmodule: ^1.4.4
       vite-plugin-markdown: ^2.1.0
       vite-plugin-ssr: ^0.4.39
@@ -179,7 +176,6 @@ importers:
       postcss: 8.4.21
       rollup-plugin-visualizer: 5.9.0
       sass: 1.57.1
-      vite-plugin-commonjs: 0.6.2
       vite-plugin-esmodule: 1.4.4
       vite-plugin-markdown: 2.1.0_vite@4.1.4
       vite-plugin-svgr: 2.4.0_vite@4.1.4
@@ -313,7 +309,6 @@ importers:
       rollup-plugin-visualizer: ^5.9.0
       typescript: ^4.8.4
       vite: ^4.0.4
-      vite-plugin-commonjs: ^0.6.2
       vite-plugin-html: ^3.2.0
       vite-plugin-svgr: ^2.2.1
       vite-tsconfig-paths: ^3.5.2
@@ -337,7 +332,6 @@ importers:
       rollup-plugin-visualizer: 5.9.0
       typescript: 4.9.4
       vite: 4.1.4
-      vite-plugin-commonjs: 0.6.2
       vite-plugin-html: 3.2.0_vite@4.1.4
       vite-plugin-svgr: 2.4.0_vite@4.1.4
       vite-tsconfig-paths: 3.6.0_vite@4.1.4
@@ -428,7 +422,6 @@ importers:
       use-debounce: ^8.0.4
       valtio: ^1.7.4
       vite: ^4.0.4
-      vite-plugin-commonjs: ^0.6.2
       vite-plugin-svgr: ^2.2.1
       zod: ^3.20.2
     dependencies:
@@ -488,7 +481,6 @@ importers:
       prettier: 2.8.3
       typescript: 4.9.4
       vite: 4.1.4_@types+node@18.11.18
-      vite-plugin-commonjs: 0.6.2
       vite-plugin-svgr: 2.4.0_vite@4.1.4
 
   packages/assets:
@@ -20751,12 +20743,6 @@ packages:
       is-buffer: 2.0.5
       unist-util-stringify-position: 2.0.3
       vfile-message: 2.0.4
-    dev: true
-
-  /vite-plugin-commonjs/0.6.2:
-    resolution: {integrity: sha512-bXUGOYhuMdwxzbSOnB7G2h1GRrxh1rWW2z92wpcZS0Nz8jpq154yLLIUPU3MHuyWeyZAGYS+evik2wO29pOpuw==}
-    dependencies:
-      fast-glob: 3.2.12
     dev: true
 
   /vite-plugin-esmodule/1.4.4:

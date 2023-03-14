@@ -1,7 +1,6 @@
 import { relativeAliasResolver } from '@sd/config/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import commonjs from 'vite-plugin-commonjs';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
@@ -19,8 +18,6 @@ export default defineConfig({
 		createHtmlPlugin({
 			minify: true
 		}),
-		// Used for @sd/asset `required` imports
-		commonjs()
 	],
 	css: {
 		modules: {

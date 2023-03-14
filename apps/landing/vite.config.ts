@@ -2,7 +2,6 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
-import commonjs from 'vite-plugin-commonjs';
 // import esm from 'vite-plugin-esmodule';
 import md, { Mode } from 'vite-plugin-markdown';
 import ssr from 'vite-plugin-ssr/plugin';
@@ -17,8 +16,6 @@ export default defineConfig({
 		svg(),
 		md({ mode: [Mode.REACT] }),
 		visualizer(),
-		// Used for @sd/asset `required` imports
-		commonjs()
 	],
 	css: {
 		modules: {
