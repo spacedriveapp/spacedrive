@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{path::PathBuf, str::FromStr, sync::Arc, time::Instant};
 
 use rspc::Type;
 use sd_p2p::{
@@ -35,6 +35,8 @@ pub enum P2PEvent {
 
 pub struct P2PManager {
 	events: broadcast::Sender<P2PEvent>,
+	// We hold this only so we don't get errors sending when no frontend's are listening
+	_events_rx: broadcast::Receiver<P2PEvent>,
 	pub manager: Arc<Manager<PeerMetadata>>,
 }
 
@@ -69,7 +71,7 @@ impl P2PManager {
 			manager.listen_addrs().await
 		);
 
-		let (events_tx, _) = broadcast::channel(100);
+		let (events_tx, events_rx) = broadcast::channel(100);
 		let events = events_tx.clone();
 		tokio::spawn(async move {
 			while let Some(event) = stream.next().await {
@@ -116,9 +118,11 @@ impl P2PManager {
 									// TODO: Save to the filesystem
 								}
 								Header::Sync(library_id) => {
-									let buf_len = event.stream.read_u8().await.unwrap();
+									let mut len = [0; 4];
+									event.stream.read_exact(&mut len).await.unwrap();
+									let len = u32::from_be_bytes(len);
 
-									let mut buf = vec![0; buf_len as usize]; // TODO: Designed for easily being able to be DOS the current Node
+									let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
 									event.stream.read_exact(&mut buf).await.unwrap();
 
 									let mut buf: &[u8] = &buf;
@@ -144,9 +148,13 @@ impl P2PManager {
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
-		let this = Arc::new(Self { events, manager });
+		let this = Arc::new(Self {
+			events,
+			_events_rx: events_rx,
+			manager,
+		});
 
-		// TODO: Probs remove this
+		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
 			let this = this.clone();
 			async move {
@@ -157,26 +165,51 @@ impl P2PManager {
 			}
 		});
 
-		// TODO: Probs remove this
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-				let mut connected = this
-					.manager
-					.get_connected_peers()
-					.await
-					.unwrap()
-					.into_iter();
-				if let Some(peer_id) = connected.next() {
-					info!("Starting Spacedrop to peer '{}'", peer_id);
-					this.big_bad_spacedrop(peer_id, PathBuf::from("./demo.txt"))
+		// TODO(@Oscar): Remove this in the future once i'm done using it for testing
+		if std::env::var("SPACEDROP_DEMO").is_ok() {
+			// tokio::spawn({
+			// 	let this = this.clone();
+			// 	async move {
+			// 		tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+			// 		let mut connected = this
+			// 			.manager
+			// 			.get_connected_peers()
+			// 			.await
+			// 			.unwrap()
+			// 			.into_iter();
+			// 		if let Some(peer_id) = connected.next() {
+			// 			info!("Starting Spacedrop to peer '{}'", peer_id);
+			// 			this.big_bad_spacedrop(peer_id, PathBuf::from("./demo.txt"))
+			// 				.await;
+			// 		} else {
+			// 			info!("No clients found so skipping Spacedrop demo!");
+			// 		}
+			// 	}
+			// });
+
+			tokio::spawn({
+				let this = this.clone();
+				async move {
+					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+					let mut connected = this
+						.manager
+						.get_connected_peers()
+						.await
+						.unwrap()
+						.into_iter();
+					if let Some(peer_id) = connected.next() {
+						info!("Starting Spacedrop to peer '{}'", peer_id);
+						this.broadcast_sync_events(
+							Uuid::from_str("e4372586-d028-48f8-8be6-b4ff781a7dc2").unwrap(),
+							vec![],
+						)
 						.await;
-				} else {
-					info!("No clients found so skipping Spacedrop demo!");
+					} else {
+						info!("No clients found so skipping Spacedrop demo!");
+					}
 				}
-			}
-		});
+			});
+		}
 
 		this
 	}
@@ -189,10 +222,15 @@ impl P2PManager {
 	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
 		let mut head_buf = Header::Sync(library_id).to_bytes();
 		let mut buf = rmp_serde::to_vec_named(&event).unwrap(); // TODO: Error handling
-		head_buf.push(buf.len() as u8); // TODO: This is going to overflow quickly so deal with it properly!
+
+		let len: u32 = buf.len().try_into().unwrap(); // Max Sync payload is like 4GB
+		let mut len_buf = len.to_le_bytes();
+		debug_assert_eq!(len_buf.len(), 4);
+
+		head_buf.extend_from_slice(&len_buf);
 		head_buf.append(&mut buf);
 
-		self.manager.broadcast(buf).await;
+		self.manager.broadcast(head_buf).await;
 	}
 
 	pub async fn ping(&self) {

@@ -10,7 +10,7 @@ use std::{
 
 use tokio::io::AsyncReadExt;
 
-use crate::spacetime::SpaceTimeStream;
+use crate::spacetime::{SpaceTimeStream, UnicastStream};
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -35,7 +35,7 @@ pub struct TransferRequest {
 }
 
 impl TransferRequest {
-	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, ()> {
+	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, ()> {
 		let name_len = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 		let mut name = vec![0u8; name_len as usize];
 		stream.read_exact(&mut name).await.map_err(|_| ())?; // TODO: Error handling
