@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { getExplorerStore } from '~/hooks/useExplorerStore';
 import Explorer from '../Explorer';
 
@@ -16,11 +16,15 @@ export function useExplorerParams() {
 }
 
 export default () => {
-	const { location_id, path } = useExplorerParams();
+	const { location_id, path, limit } = useExplorerParams();
+
+	const quickRescan = useLibraryMutation('locations.quickRescan');
+	const explorerState = getExplorerStore();
 
 	useEffect(() => {
-		getExplorerStore().locationId = location_id;
-	}, [location_id]);
+		explorerState.locationId = location_id;
+		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path });
+	}, [location_id, path]);
 
 	if (location_id === null) throw new Error(`location_id is null!`);
 
@@ -28,8 +32,8 @@ export default () => {
 		'locations.getExplorerData',
 		{
 			location_id,
-			path: path,
-			limit: 100,
+			path,
+			limit,
 			cursor: null
 		}
 	]);

@@ -51,7 +51,7 @@ export default () => {
 		<div
 			className={clsx(
 				'border-sidebar-divider bg-sidebar relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2 border-r px-2.5 pb-2',
-				macOnly(os, 'bg-opacity-[0.75]')
+				macOnly(os, 'bg-opacity-[0.65]')
 			)}
 		>
 			<WindowControls />

@@ -1,7 +1,8 @@
 import { relativeAliasResolver } from '@sd/config/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import svgr from 'vite-plugin-svgr';
+import { createHtmlPlugin } from 'vite-plugin-html';
+import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { name, version } from './package.json';
 
@@ -13,10 +14,9 @@ export default defineConfig({
 	plugins: [
 		tsconfigPaths(),
 		react(),
-		svgr({
-			svgrOptions: {
-				icon: true
-			}
+		svg({ svgrOptions: { icon: true } }),
+		createHtmlPlugin({
+			minify: true
 		})
 	],
 	css: {

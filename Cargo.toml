@@ -33,13 +33,17 @@ rspc = { version = "0.1.2" }
 specta = { version = "0.0.6" }
 httpz = { version = "0.0.3" }
 
-swift-rs = { version = "1.0" }
+swift-rs = { version = "1.0.1" }
 
 tokio = { version = "1.25.0" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
+# We patch this so that it can be built for IOS - The `main` branch uses macOS specific APIs
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d2d0730f1441df1c29294fec4c3c04193" }
+
+mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin + upgraded Tauri version is released
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "c03872c0ba29d2429e9c059dfb235cdd03e15e8c" }

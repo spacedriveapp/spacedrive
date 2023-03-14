@@ -1,6 +1,6 @@
 use crate::{
 	location::{indexer::IndexerError, LocationError, LocationManagerError},
-	object::{identifier_job::IdentifierJobError, preview::ThumbnailError},
+	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
 };
 
 use std::{
@@ -13,7 +13,7 @@ use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
+use tracing::info;
 use uuid::Uuid;
 
 mod job_manager;
@@ -57,10 +57,10 @@ pub enum JobError {
 	IndexerError(#[from] IndexerError),
 	#[error("Location error: {0}")]
 	LocationError(#[from] LocationError),
-	#[error("Thumbnail error: {0}")]
-	ThumbnailError(#[from] ThumbnailError),
+	#[error("Thumbnailer error: {0}")]
+	ThumbnailError(#[from] ThumbnailerError),
 	#[error("Identifier error: {0}")]
-	IdentifierError(#[from] IdentifierJobError),
+	IdentifierError(#[from] FileIdentifierJobError),
 	#[error("Crypto error: {0}")]
 	CryptoError(#[from] CryptoError),
 
@@ -172,23 +172,32 @@ impl<State: StatefulJob> DynJob for Job<State> {
 	}
 
 	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
+		let mut job_should_run = true;
+
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
-			self.stateful_job.init(ctx.clone(), &mut self.state).await?;
+			if let Err(e) = self.stateful_job.init(ctx.clone(), &mut self.state).await {
+				if matches!(e, JobError::EarlyFinish { .. }) {
+					info!("{e}");
+					job_should_run = false;
+				} else {
+					return Err(e);
+				}
+			}
 		}
 
 		let mut shutdown_rx = ctx.shutdown_rx();
 		let shutdown_rx_fut = shutdown_rx.recv();
 		tokio::pin!(shutdown_rx_fut);
 
-		while !self.state.steps.is_empty() {
+		while job_should_run && !self.state.steps.is_empty() {
 			tokio::select! {
 				step_result = self.stateful_job.execute_step(
 					ctx.clone(),
 					&mut self.state,
 				) => {
 					if matches!(step_result, Err(JobError::EarlyFinish { .. })) {
-						warn!("{}", step_result.unwrap_err());
+						info!("{}", step_result.unwrap_err());
 						break;
 					} else {
 						step_result?;

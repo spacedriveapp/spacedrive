@@ -1,12 +1,20 @@
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../../settings/library/locations/AddDialog';
 
 export default () => {
 	const platform = usePlatform();
-
-	const createLocation = useLibraryMutation('locations.create');
+	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+	const createLocation = useLibraryMutation('locations.create', {
+		onSuccess: () => {
+			submitPlausibleEvent({
+				event: {
+					type: 'locationCreate'
+				}
+			});
+		}
+	});
 
 	return (
 		<button

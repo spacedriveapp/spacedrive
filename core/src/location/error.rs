@@ -7,7 +7,7 @@ use thiserror::Error;
 use tokio::io;
 use uuid::Uuid;
 
-use super::metadata::LocationMetadataError;
+use super::{file_path_helper::FilePathError, metadata::LocationMetadataError};
 
 /// Error type for location related errors
 #[derive(Error, Debug)]
@@ -30,7 +30,9 @@ pub enum LocationError {
 		old_path: PathBuf,
 		new_path: PathBuf,
 	},
-	#[error("Exist a different library in the location metadata file, must add a new library: (path: {0:?})")]
+	#[error(
+		"This location belongs to another library, must update .spacedrive file: (path: {0:?})"
+	)]
 	AddLibraryToMetadata(PathBuf),
 	#[error("Location metadata file not found: (path: {0:?})")]
 	MetadataNotFound(PathBuf),
@@ -56,6 +58,8 @@ pub enum LocationError {
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Location manager error (error: {0:?})")]
 	LocationManagerError(#[from] LocationManagerError),
+	#[error("File path related error (error: {0})")]
+	FilePathError(#[from] FilePathError),
 }
 
 impl From<LocationError> for rspc::Error {

@@ -1,124 +1,128 @@
-pub fn main() {}
-// use std::{env, time::Duration};
+use std::{collections::HashMap, env, time::Duration};
 
-// use quinn::{RecvStream, SendStream};
-// use sd_p2p::{
-// 	Identity, NetworkManager, NetworkManagerConfig, P2PManager, Peer, PeerId, PeerMetadata,
-// };
-// use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata};
+use tokio::{io::AsyncReadExt, time::sleep};
+use tracing::{debug, error, info};
 
-// #[derive(Debug, Clone)]
-// pub enum P2PEvent {
-// 	PeerDiscovered(PeerId),
-// 	PeerExpired(PeerId),
-// 	PeerConnected(PeerId),
-// 	PeerDisconnected(PeerId),
-// }
+#[derive(Debug, Clone)]
+pub struct PeerMetadata {
+	name: String,
+}
 
-// // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
-// #[derive(Clone)]
-// pub struct SdP2PManager {
-// 	// peer_name is the name of the current peer. In a normal application this would be a display name set by the end user.
-// 	peer_name: String,
-// 	/// event_channel is used to send events to the application
-// 	event_channel: UnboundedSender<P2PEvent>,
-// }
+impl Metadata for PeerMetadata {
+	fn to_hashmap(self) -> HashMap<String, String> {
+		HashMap::from([("name".to_owned(), self.name)])
+	}
 
-// impl P2PManager for SdP2PManager {
-// 	const APPLICATION_NAME: &'static str = "spacedrive";
+	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
+	where
+		Self: Sized,
+	{
+		Ok(Self {
+			name: data
+				.get("name")
+				.ok_or_else(|| {
+					"DNS record for field 'name' missing. Unable to decode 'PeerMetadata'!"
+						.to_owned()
+				})?
+				.to_owned(),
+		})
+	}
+}
 
-// 	fn get_metadata(&self) -> PeerMetadata {
-// 		PeerMetadata {
-// 			name: self.peer_name.clone(),
-// 			version: Some(env!("CARGO_PKG_VERSION").into()),
-// 			operating_system: todo!(),
-// 		}
-// 	}
+#[tokio::main]
+async fn main() {
+	tracing_subscriber::fmt()
+		.with_env_filter(
+			tracing_subscriber::EnvFilter::from_default_env()
+				.add_directive("basic=trace".parse().unwrap())
+				.add_directive("sd-p2p=trace".parse().unwrap())
+				.add_directive("info".parse().unwrap()),
+		)
+		.try_init()
+		.unwrap();
 
-// 	fn peer_discovered(&self, nm: &NetworkManager<Self>, peer_id: &PeerId) {
-// 		self.event_channel
-// 			.send(P2PEvent::PeerDiscovered(peer_id.clone()));
-// 		nm.add_known_peer(peer_id.clone()); // Be careful doing this in a production application because it will just trust all clients
-// 	}
+	let keypair = Keypair::generate();
 
-// 	fn peer_expired(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-// 		self.event_channel.send(P2PEvent::PeerExpired(peer_id));
-// 	}
+	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, || async move {
+		PeerMetadata {
+			name: "TODO".to_string(),
+		}
+	})
+	.await
+	.unwrap();
 
-// 	fn peer_connected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-// 		self.event_channel.send(P2PEvent::PeerConnected(peer_id));
-// 	}
+	info!(
+		"Node '{}' is now online listening at addresses: {:?}",
+		manager.peer_id(),
+		manager.listen_addrs().await
+	);
 
-// 	fn peer_disconnected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-// 		self.event_channel.send(P2PEvent::PeerDisconnected(peer_id));
-// 	}
+	tokio::spawn(async move {
+		// Your application must keeping poll this stream to keep the P2P system running
+		while let Some(event) = stream.next().await {
+			match event {
+				Event::PeerDiscovered(event) => {
+					println!(
+						"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+						event.peer_id, event.addresses, event.metadata
+					);
+					event.dial().await; // We connect to everyone we find on the network. Your app will probs wanna restrict this!
+				}
+				Event::PeerMessage(event) => {
+					debug!("Peer '{}' established stream", event.peer_id);
 
-// 	fn accept_stream(&self, peer: &Peer<Self>, (mut tx, mut rx): (SendStream, RecvStream)) {
-// 		let peer = peer.clone();
-// 		tokio::spawn(async move {
-// 			let msg = rx.read_chunk(1024, true).await.unwrap().unwrap();
-// 			println!("Received '{:?}' from peer '{}'", msg.bytes, peer.id);
-// 			tx.write(b"Pong").await.unwrap();
-// 		});
-// 	}
-// }
+					tokio::spawn(async move {
+						match event.stream {
+							SpaceTimeStream::Broadcast(mut stream) => {
+								let mut buf = [0; 100];
+								let n = stream.read(&mut buf).await.unwrap();
+								println!(
+									"GOT BROADCAST: {:?}",
+									std::str::from_utf8(&buf[..n]).unwrap()
+								);
+							}
+							SpaceTimeStream::Unicast(mut stream) => {
+								let mut buf = [0; 100];
+								let n = stream.read(&mut buf).await.unwrap();
+								println!(
+									"GOT UNICAST: {:?}",
+									std::str::from_utf8(&buf[..n]).unwrap()
+								);
+							}
+						}
+					});
+				}
+				_ => debug!("event: {:?}", event),
+			}
+		}
 
-// #[tokio::main]
-// async fn main() {
-// 	let identity = Identity::new().unwrap();
-// 	let peer_id = PeerId::from_cert(&identity.clone().into_rustls().0);
-// 	let mut event_channel = unbounded_channel();
-// 	let nm = NetworkManager::new(
-// 		identity,
-// 		SdP2PManager {
-// 			peer_name: format!(
-// 				"{}-{}",
-// 				peer_id
-// 					.to_string()
-// 					.chars()
-// 					.into_iter()
-// 					.take(5)
-// 					.collect::<String>(),
-// 				env::consts::OS
-// 			),
-// 			event_channel: event_channel.0,
-// 		},
-// 		NetworkManagerConfig {
-// 			known_peers: Default::default(),
-// 			listen_port: None,
-// 			spacetunnel_url: Some(String::new()),
-// 		},
-// 	)
-// 	.await
-// 	.unwrap();
-// 	println!(
-// 		"Peer '{}' listening on: {:?}",
-// 		nm.peer_id(),
-// 		nm.listen_addr()
-// 	);
+		error!("Manager event stream closed! The core is unstable from this point forward!");
+		// process.exit(1); // TODO: Should I?
+	});
 
-// 	loop {
-// 		tokio::select! {
-// 			event = event_channel.1.recv() => {
-// 				if let Some(event) = event {
-// 					println!("{:?}", event);
+	if env::var("PING").as_deref() != Ok("skip") {
+		tokio::spawn(async move {
+			sleep(Duration::from_millis(500)).await;
 
-// 					match event {
-// 						P2PEvent::PeerConnected(peer_id) => {
-// 							nm.send_to(peer_id, b"Ping on Connection").await.unwrap();
-// 						}
-// 						_ => {}
-// 					}
-// 				}
-// 			}
-// 			_ = tokio::time::sleep(Duration::from_secs(5)) => {
-// 				println!("");
-// 				for (peer_id, peer) in nm.connected_peers() {
-// 					println!("Sending ping to '{:?}'", peer_id);
-// 					let resp = nm.send_to(peer_id, b"Ping").await.unwrap();
-// 					println!("Peer '{}' responded to ping with message '{:?}'", peer.id, resp.bytes);
-// 				}
-// 			}
-// 		};
-// 	}
-// }
+			// Send pings to every client every 3 second after startup
+			loop {
+				sleep(Duration::from_secs(3)).await;
+				manager
+					.broadcast(
+						format!("Hello World From {}", keypair.public().to_peer_id())
+							.as_bytes()
+							.to_vec(),
+					)
+					.await;
+				debug!("Sent ping broadcast to all connected peers!");
+			}
+		});
+	}
+
+	// TODO: proper shutdown
+	// https://docs.rs/ctrlc/latest/ctrlc/
+	// https://docs.rs/system_shutdown/latest/system_shutdown/
+
+	tokio::time::sleep(Duration::from_secs(100)).await;
+}

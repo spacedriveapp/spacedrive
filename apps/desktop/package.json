@@ -21,7 +21,8 @@
 		"@tanstack/react-query": "^4.24.4",
 		"@tauri-apps/api": "1.2.0",
 		"react": "^18.2.0",
-		"react-dom": "^18.2.0"
+		"react-dom": "^18.2.0",
+		"vite-plugin-html": "^3.2.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

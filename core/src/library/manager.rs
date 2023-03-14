@@ -1,5 +1,6 @@
 use crate::{
 	invalidate_query,
+	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
 	prisma::{node, PrismaClient},
 	sync::SyncManager,
@@ -131,7 +132,6 @@ impl LibraryManager {
 
 		let mut libraries = Vec::new();
 		for entry in fs::read_dir(&libraries_dir)?
-			.into_iter()
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| {
 				entry.path().is_file()
@@ -346,6 +346,7 @@ impl LibraryManager {
 			key_manager,
 			sync: Arc::new(sync_manager),
 			db,
+			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
 			node_local_id: node_data.id,
 			node_context,
 		})
