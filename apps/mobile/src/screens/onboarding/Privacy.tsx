@@ -44,7 +44,7 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 	);
 
 	const onPress = () => {
-		getOnboardingStore().shareTelemetryDataWithDevelopers = shareTelemetry === 'share-telemetry';
+		getOnboardingStore().shareTelemetry = shareTelemetry === 'share-telemetry';
 		navigation.navigate('CreatingLibrary');
 	};
 
