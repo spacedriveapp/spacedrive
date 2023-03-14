@@ -1,9 +1,61 @@
-import { Icon, User } from 'phosphor-react-native';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
+import { DeviceMobile, Icon, Laptop, User } from 'phosphor-react-native';
+import { Alert, Image, ImageSourcePropType, Pressable, ScrollView, Text, View } from 'react-native';
+import { Polygon, Svg } from 'react-native-svg';
+import { InfoPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SpacedropStackScreenProps } from '~/navigation/tabs/SpacedropStack';
 
-type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows';
+const testData = [
+	{
+		name: "Jamie's MacBook Pro",
+		receivingNodeOsType: 'macOS',
+		connectionType: 'lan',
+		icon: Laptop
+	},
+	{
+		name: "Jamie's MacBook Pro",
+		receivingNodeOsType: 'iOS',
+		connectionType: 'lan',
+		icon: DeviceMobile
+	},
+	{
+		name: 'Brendan Alan',
+		image: 'https://github.com/brendonovich.png',
+		connectionType: 'p2p'
+	},
+	{
+		name: 'Oscar Beaumont',
+		image: 'https://github.com/oscartbeaumont.png',
+		connectionType: 'usb'
+	},
+	{
+		name: 'maxichrome',
+		image: 'https://github.com/maxichrome.png',
+		connectionType: 'p2p'
+	},
+	{
+		name: 'Utku',
+		image: 'https://github.com/utkubakir.png',
+		connectionType: 'p2p'
+	},
+	{ name: "Jamie's Google Drive", brandIcon: 'google-drive', connectionType: 'cloud' },
+	{ name: 'iCloud', brandIcon: 'icloud', connectionType: 'cloud' },
+	{ name: 'Mega', brandIcon: 'mega', connectionType: 'cloud' }
+] as DropItemProps[];
+
+const Hexagon = () => {
+	const width = 180;
+	const height = width * 1.1547;
+
+	return (
+		<Svg width={width} height={height} viewBox="0 0 100 100">
+			<Polygon points="0,25 0,75 50,100 100,75 100,25 50,0" fill={tw.color('bg-app-box/30')} />
+		</Svg>
+	);
+};
+
+type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'iOS' | 'android';
 
 type DropItemProps = {
 	name: string;
@@ -14,96 +66,76 @@ type DropItemProps = {
 function DropItem(props: DropItemProps) {
 	let icon;
 	if ('image' in props) {
-		// Needs width and height
-		icon = <Image style={tw`rounded-full`} source={{ uri: props.image }} />;
+		icon = <Image style={tw`h-12 w-12 rounded-full`} source={{ uri: props.image }} />;
 	} else if ('brandIcon' in props) {
-		let brandIconSrc;
+		let brandIconSrc: ImageSourcePropType | undefined;
 		switch (props.brandIcon) {
 			case 'google-drive':
-				brandIconSrc = '@sd/assets/images/GoogleDrive.png';
+				brandIconSrc = GoogleDrive;
 				break;
 			case 'icloud':
-				brandIconSrc = '@sd/assets/images/Mega.png';
+				brandIconSrc = iCloud;
 				break;
 			case 'mega':
-				brandIconSrc = '@sd/assets/images/iCloud.png';
+				brandIconSrc = Mega;
 				break;
 		}
 		if (!brandIconSrc) throw new Error('Invalid brand icon url: ' + props.brandIcon);
 		icon = (
-			<View style={tw`flex h-full items-center justify-center p-3`}>
+			<View style={tw`flex items-center justify-center p-3`}>
 				{/* // Needs width and height */}
-				<Image source={require('@sd/assets/images/Mega.png')} style={tw`rounded-full`} />
+				<Image source={brandIconSrc} style={tw`h-8 w-8 rounded-full`} />
 			</View>
 		);
 	} else {
 		// Use the custom icon or default to User icon.
 		const Icon = props.icon || User;
-		icon = <Icon style={twStyle('m-3 h-8 w-8', !props.name && 'opacity-20')} />;
+		icon = <Icon size={30} color="white" style={twStyle(!props.name && 'opacity-20')} />;
 	}
 	return (
-		<View>
-			<View></View>
+		<View style={tw`relative`}>
+			<Hexagon />
+			<View style={tw`absolute h-full w-full items-center justify-center`}>
+				<Pressable
+					style={tw`w-full items-center justify-center`}
+					onPress={() => Alert.alert('TODO')}
+				>
+					<View style={tw`bg-app-button h-12 w-12 items-center justify-center rounded-full`}>
+						{icon}
+					</View>
+					{props.name && (
+						<Text numberOfLines={1} style={tw`mt-1 text-sm font-medium text-white`}>
+							{props.name}
+						</Text>
+					)}
+					<View style={tw`mt-1 flex flex-row gap-x-1`}>
+						{props.receivingNodeOsType && <InfoPill text={props.receivingNodeOsType} />}
+						{props.connectionType && (
+							<InfoPill
+								text={props.connectionType}
+								containerStyle={twStyle(
+									'px-1',
+									props.connectionType === 'lan' && 'bg-green-500',
+									props.connectionType === 'p2p' && 'bg-blue-500'
+								)}
+								textStyle={tw`uppercase text-white`}
+							/>
+						)}
+					</View>
+				</Pressable>
+			</View>
 		</View>
 	);
 }
 
 export default function SpacedropScreen({ navigation }: SpacedropStackScreenProps<'Spacedrop'>) {
 	return (
-		<View style={tw`flex-1`}>
-			<View style={tw`flex flex-row flex-wrap`}>
-				{Array.from({ length: 10 }).map((_, i) => (
-					<View key={i} style={styles.hexagon}>
-						<View style={styles.hexagonInner} />
-						<View style={styles.hexagonBefore} />
-						<View style={styles.hexagonAfter} />
-					</View>
+		<View style={tw`flex-1 py-4`}>
+			<ScrollView contentContainerStyle={tw`flex flex-row flex-wrap justify-center gap-x-2`}>
+				{testData.map((item, i) => (
+					<DropItem key={i} {...item} />
 				))}
-			</View>
+			</ScrollView>
 		</View>
 	);
 }
-
-const HEXAGON_WIDTH = 160;
-const HEXAGON_COLOR = tw.color('bg-app-box/50');
-
-const styles = StyleSheet.create({
-	hexagon: {
-		width: HEXAGON_WIDTH,
-		height: HEXAGON_WIDTH * 0.55,
-		margin: 4
-	},
-	hexagonInner: {
-		width: HEXAGON_WIDTH,
-		height: HEXAGON_WIDTH * 0.55,
-		backgroundColor: HEXAGON_COLOR
-	},
-	hexagonAfter: {
-		position: 'absolute',
-		bottom: -(HEXAGON_WIDTH / 4),
-		left: 0,
-		width: 0,
-		height: 0,
-		borderStyle: 'solid',
-		borderLeftWidth: HEXAGON_WIDTH / 2,
-		borderLeftColor: 'transparent',
-		borderRightWidth: HEXAGON_WIDTH / 2,
-		borderRightColor: 'transparent',
-		borderTopWidth: HEXAGON_WIDTH / 4,
-		borderTopColor: HEXAGON_COLOR
-	},
-	hexagonBefore: {
-		position: 'absolute',
-		top: -(HEXAGON_WIDTH / 4),
-		left: 0,
-		width: 0,
-		height: 0,
-		borderStyle: 'solid',
-		borderLeftWidth: HEXAGON_WIDTH / 2,
-		borderLeftColor: 'transparent',
-		borderRightWidth: HEXAGON_WIDTH / 2,
-		borderRightColor: 'transparent',
-		borderBottomWidth: HEXAGON_WIDTH / 4,
-		borderBottomColor: HEXAGON_COLOR
-	}
-});
