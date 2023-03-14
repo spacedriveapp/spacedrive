@@ -9,7 +9,7 @@ use tokio::io::{
 	AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf,
 };
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
-use tracing::{debug, error};
+use tracing::error;
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
 pub const UNICAST_DISCRIMINATOR: u8 = 1;
@@ -28,6 +28,13 @@ impl SpaceTimeStream {
 			BROADCAST_DISCRIMINATOR => Self::Broadcast(BroadcastStream(Some(io))),
 			UNICAST_DISCRIMINATOR => Self::Unicast(UnicastStream(io)),
 			_ => todo!(), // TODO: Error handling
+		}
+	}
+
+	pub fn stream_type(&self) -> &'static str {
+		match self {
+			Self::Broadcast(_) => "broadcast",
+			Self::Unicast(_) => "unicast",
 		}
 	}
 
