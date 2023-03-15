@@ -23,7 +23,6 @@ pub struct FileHeader001 {
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
 #[derive(bincode::Encode, bincode::Decode, Clone)]
 pub struct Keyslot001 {
-	pub enabled: bool,
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: Salt,
@@ -32,9 +31,8 @@ pub struct Keyslot001 {
 }
 
 impl Keyslot001 {
-	pub fn disabled() -> Self {
+	pub fn random() -> Self {
 		Self {
-			enabled: false,
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
 			master_key: EncryptedKey(generate_bytes()),
@@ -44,34 +42,35 @@ impl Keyslot001 {
 	}
 }
 
+/// We use this without encode/decode traits so we can map/wrap it to a `KeyslotAreaBundle`
 #[derive(Clone)]
 pub struct KeyslotArea001(Vec<Keyslot001>);
 
-impl TryFrom<Vec<Keyslot001>> for KeyslotArea001 {
-	type Error = Error;
+#[derive(Clone, bincode::Encode, bincode::Decode)]
+pub struct KeyslotBundle001 {
+	pub enabled: bool,
+	pub keyslot: Keyslot001,
+}
 
-	fn try_from(value: Vec<Keyslot001>) -> std::result::Result<Self, Self::Error> {
-		if value.len() > KEYSLOT_LIMIT {
-			return Err(Error::TooManyKeyslots);
-		}
-
-		Ok(Self(value))
-	}
+#[derive(bincode::Encode, bincode::Decode)]
+pub struct KeyslotAreaBundle001 {
+	pub keyslot_bundle: [KeyslotBundle001; KEYSLOT_LIMIT],
 }
 
 impl bincode::Decode for KeyslotArea001 {
 	fn decode<D: bincode::de::Decoder>(
 		decoder: &mut D,
 	) -> std::result::Result<Self, bincode::error::DecodeError> {
-		let keyslots: Vec<Keyslot001> = (0..KEYSLOT_LIMIT)
-			.filter_map(|_| {
-				bincode::decode_from_reader(decoder.reader(), bincode::config::standard())
-					.ok()
-					.filter(|x: &Keyslot001| x.enabled)
-			})
+		let bundle: KeyslotAreaBundle001 =
+			bincode::decode_from_reader(decoder.reader(), bincode::config::standard())?;
+
+		let keyslots: Vec<Keyslot001> = bundle
+			.keyslot_bundle
+			.into_iter()
+			.filter_map(|x| if x.enabled { Some(x.keyslot) } else { None })
 			.collect();
 
-		Self::try_from(keyslots).map_err(Into::into)
+		Ok(Self(keyslots))
 	}
 }
 
@@ -83,13 +82,37 @@ impl bincode::Encode for KeyslotArea001 {
 		encoder: &mut E,
 	) -> std::result::Result<(), bincode::error::EncodeError> {
 		if self.0.len() > KEYSLOT_LIMIT {
-			return Err(Error::TooManyKeyslots.into());
+			return Err(Error::TooManyKeyslots)?;
 		}
 
-		self.0.iter().try_for_each(|k| k.encode(encoder))?;
+		let mut bundle = vec![];
 
-		(0..KEYSLOT_LIMIT - self.0.len())
-			.try_for_each(|_| Keyslot001::disabled().encode(encoder))?;
+		// if it's an actual keyslot, mark it as enabled
+		self.0.iter().for_each(|k| {
+			bundle.push(KeyslotBundle001 {
+				enabled: true,
+				keyslot: k.clone(),
+			});
+		});
+
+		// if it's an "empty space" keyslot, mark it as disabled
+		(0..KEYSLOT_LIMIT - self.0.len()).for_each(|_| {
+			bundle.push(KeyslotBundle001 {
+				enabled: false,
+				keyslot: Keyslot001::random(),
+			});
+		});
+
+		if bundle.len() != KEYSLOT_LIMIT {
+			// probably not a too many keyslots issue
+			return Err(Error::Serialization)?;
+		}
+
+		let bundle = KeyslotAreaBundle001 {
+			keyslot_bundle: [bundle[0].clone(), bundle[1].clone()],
+		};
+
+		bundle.encode(encoder)?;
 
 		Ok(())
 	}
@@ -127,7 +150,6 @@ impl Keyslot001 {
 		)?;
 
 		Ok(Self {
-			enabled: true,
 			hashing_algorithm,
 			salt,
 			content_salt,
