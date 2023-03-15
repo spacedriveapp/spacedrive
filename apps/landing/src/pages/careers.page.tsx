@@ -20,7 +20,15 @@ interface PositionPosting {
 	description: string;
 }
 
-export const positions: PositionPosting[] = [];
+export const positions: PositionPosting[] = [
+	{
+		name: 'Senior Frontend Engineer',
+		type: 'Full-time',
+		salary: '$80,000',
+		description: `You will be responsible for building our web based interface in TypeScript, React and Tailwind; working closely with our backend engineers to build a great user experience. A keen eye for design and clean code is a must. As our 9th employee, you'll have a huge impact and creative control over the development of Spacedrive.`
+	}
+];
+
 const values = [
 	{
 		title: 'Async',
