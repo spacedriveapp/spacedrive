@@ -1,4 +1,4 @@
-import icons from '@sd/assets/icons';
+import * as icons from '@sd/assets/icons';
 import { PropsWithChildren } from 'react';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';

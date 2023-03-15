@@ -1,3 +1,4 @@
+import { AppLogo, BloomOne } from '@sd/assets/images';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { CaretLeft } from 'phosphor-react-native';
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
@@ -36,10 +37,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 				</Text>
 			</View>
 			{/* Bloom */}
-			<Image
-				source={require('@sd/assets/images/bloom-one.png')}
-				style={tw`top-100 absolute h-screen w-screen opacity-20`}
-			/>
+			<Image source={BloomOne} style={tw`top-100 absolute h-screen w-screen opacity-20`} />
 		</View>
 	);
 }
@@ -59,7 +57,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 		<OnboardingContainer>
 			{/* Logo */}
 			<LogoAnimation style={tw`items-center`}>
-				<Image source={require('@sd/assets/images/logo.png')} style={tw`h-30 w-30`} />
+				<Image source={AppLogo} style={tw`h-30 w-30`} />
 			</LogoAnimation>
 			{/* Title */}
 			<FadeInUpAnimation delay={500} style={tw`mt-8`}>
