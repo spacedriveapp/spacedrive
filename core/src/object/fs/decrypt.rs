@@ -1,4 +1,4 @@
-use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
+use sd_crypto::{crypto::Decryptor, header::file::FileHeader};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -83,56 +83,15 @@ impl StatefulJob for FileDecryptorJob {
 		let mut reader = File::open(info.fs_path.clone()).await?;
 		let mut writer = File::create(output_path).await?;
 
-		let (header, aad) = FileHeader::from_reader(&mut reader).await?;
+		let header = FileHeader::from_reader(&mut reader).await?;
 
-		let master_key = if let Some(password) = state.init.password.clone() {
-			if let Some(save_to_library) = state.init.save_to_library {
-				// we can do this first, as `find_key_index` requires a successful decryption (just like `decrypt_master_key`)
-				let password_bytes = Protected::new(password.as_bytes().to_vec());
+		let keys = key_manager.enumerate_hashed_keys();
+		let master_key = header.decrypt_master_key(keys).await?;
 
-				if save_to_library {
-					let index = header.find_key_index(password_bytes.clone()).await?;
-
-					// inherit the encryption algorithm from the keyslot
-					key_manager
-						.add_to_keystore(
-							Protected::new(password),
-							header.algorithm,
-							header.keyslots[index].hashing_algorithm,
-							false,
-							false,
-							Some(header.keyslots[index].salt),
-						)
-						.await?;
-				}
-
-				header.decrypt_master_key(password_bytes).await?
-			} else {
-				return Err(JobError::JobDataNotFound(String::from(
-					"Password decryption selected, but save to library boolean was not included",
-				)));
-			}
-		} else {
-			if state.init.mount_associated_key {
-				for key in key_manager.dump_keystore().iter().filter(|x| {
-					header
-						.keyslots
-						.iter()
-						.any(|k| k.content_salt == x.content_salt)
-				}) {
-					key_manager.mount(key.uuid).await.ok();
-				}
-			}
-
-			let keys = key_manager.enumerate_hashed_keys();
-
-			header.decrypt_master_key_from_prehashed(keys).await?
-		};
-
-		let decryptor = Decryptor::new(master_key, header.nonce, header.algorithm)?;
+		let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm())?;
 
 		decryptor
-			.decrypt_streams(&mut reader, &mut writer, &aad)
+			.decrypt_streams(&mut reader, &mut writer, &header.get_aad())
 			.await?;
 
 		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values

@@ -5,13 +5,12 @@ use std::path::PathBuf;
 use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::Encryptor,
-	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
+	header::file::{FileHeader, LATEST_FILE_HEADER},
 	types::{Algorithm, Key},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{fs::File, io::AsyncReadExt};
+use tokio::fs::File;
 use tracing::warn;
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
@@ -130,86 +129,23 @@ impl StatefulJob for FileEncryptorJob {
 
 			let master_key = Key::generate();
 
-			let mut header = FileHeader::new(
-				LATEST_FILE_HEADER,
-				state.init.algorithm,
-				vec![
-					Keyslot::new(
-						LATEST_KEYSLOT,
-						state.init.algorithm,
-						user_key_details.hashing_algorithm,
-						user_key_details.content_salt,
-						user_key,
-						master_key.clone(),
-					)
-					.await?,
-				],
-			)?;
+			let mut header = FileHeader::new(LATEST_FILE_HEADER, state.init.algorithm)?;
 
-			if state.init.metadata || state.init.preview_media {
-				// if any are requested, we can make the query as it'll be used at least once
-				if let Some(object) = info.path_data.object.clone() {
-					if state.init.metadata {
-						let metadata = Metadata {
-							path_id: state.init.path_id,
-							name: info.path_data.materialized_path.clone(),
-							hidden: object.hidden,
-							favorite: object.favorite,
-							important: object.important,
-							note: object.note,
-							date_created: object.date_created,
-							date_modified: object.date_modified,
-						};
-
-						header
-							.add_metadata(
-								LATEST_METADATA,
-								state.init.algorithm,
-								master_key.clone(),
-								&metadata,
-							)
-							.await?;
-					}
-
-					// if state.init.preview_media
-					// 	&& (object.has_thumbnail
-					// 		|| object.has_video_preview || object.has_thumbstrip)
-
-					// may not be the best - pvm isn't guaranteed to be webp
-					let pvm_path = ctx
-						.library
-						.config()
-						.data_directory()
-						.join("thumbnails")
-						.join(info.path_data.cas_id.as_ref().unwrap())
-						.with_extension("wepb");
-
-					if tokio::fs::metadata(&pvm_path).await.is_ok() {
-						let mut pvm_bytes = Vec::new();
-						let mut pvm_file = File::open(pvm_path).await?;
-						pvm_file.read_to_end(&mut pvm_bytes).await?;
-
-						header
-							.add_preview_media(
-								LATEST_PREVIEW_MEDIA,
-								state.init.algorithm,
-								master_key.clone(),
-								&pvm_bytes,
-							)
-							.await?;
-					}
-				} else {
-					// should use container encryption if it's a directory
-					warn!("skipping metadata/preview media inclusion, no associated object found")
-				}
-			}
+			header
+				.add_keyslot(
+					user_key_details.hashing_algorithm,
+					user_key_details.content_salt,
+					user_key,
+					master_key.clone(),
+				)
+				.await?;
 
 			header.write(&mut writer).await?;
 
-			let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm)?;
+			let encryptor = Encryptor::new(master_key, header.get_nonce(), state.init.algorithm)?;
 
 			encryptor
-				.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
+				.encrypt_streams(&mut reader, &mut writer, &header.get_aad())
 				.await?;
 		} else {
 			warn!(
