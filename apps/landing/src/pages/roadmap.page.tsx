@@ -1,4 +1,3 @@
-import folderSvg from '@sd/assets/svgs/folder.svg';
 import clsx from 'clsx';
 import { Helmet } from 'react-helmet';
 

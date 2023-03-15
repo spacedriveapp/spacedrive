@@ -1,8 +1,6 @@
-import GoogleDrive from '@sd/assets/images/GoogleDrive.png';
-import Mega from '@sd/assets/images/Mega.png';
-import iCloud from '@sd/assets/images/iCloud.png';
+import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
-import { DeviceMobile, HardDrives, Icon, Laptop, Star, User } from 'phosphor-react';
+import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
 import { useRef, useState } from 'react';
 import { tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';

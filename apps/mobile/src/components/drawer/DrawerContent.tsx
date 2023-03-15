@@ -1,3 +1,4 @@
+import { AppLogo } from '@sd/assets/images';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { Gear } from 'phosphor-react-native';
@@ -22,7 +23,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 			<View style={twStyle('justify-between', { height: drawerHeight })}>
 				<View>
 					<View style={tw`flex flex-row items-center`}>
-						<Image source={require('@sd/assets/images/logo.png')} style={tw`h-[40px] w-[40px]`} />
+						<Image source={AppLogo} style={tw`h-[40px] w-[40px]`} />
 						<Text style={tw`text-ink ml-2 text-lg font-bold`}>Spacedrive</Text>
 					</View>
 					<View style={tw`mt-6`} />
