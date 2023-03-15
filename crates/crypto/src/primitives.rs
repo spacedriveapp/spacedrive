@@ -4,13 +4,7 @@
 //! lengths for master keys and even the STREAM block size.
 use zeroize::Zeroize;
 
-use crate::{
-	header::{
-		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
-		preview_media::PreviewMediaVersion,
-	},
-	Error, Result,
-};
+use crate::{Error, Result};
 
 #[cfg(feature = "keymanager")]
 use crate::keys::keymanager::StoredKeyVersion;
@@ -29,6 +23,8 @@ pub const BLOCK_LEN: usize = 1_048_576;
 /// This is the default AEAD tag size for all encryption algorithms used within the crate.
 pub const AEAD_TAG_LEN: usize = 16;
 
+pub const AAD_LEN: usize = 32;
+
 /// The length of encrypted master keys (`KEY_LEN` + `AEAD_TAG_LEN`)
 pub const ENCRYPTED_KEY_LEN: usize = 48;
 
@@ -41,17 +37,8 @@ pub const APP_IDENTIFIER: &str = "Spacedrive";
 /// Used for OS keyrings to identify our items.
 pub const SECRET_KEY_IDENTIFIER: &str = "Secret key";
 
-/// Defines the latest `FileHeaderVersion`
-pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::V1;
-
-/// Defines the latest `KeyslotVersion`
-pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
-
-/// Defines the latest `MetadataVersion`
-pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
-
-/// Defines the latest `PreviewMediaVersion`
-pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
+#[cfg(feature = "headers")]
+pub use crate::header::file::LATEST_FILE_HEADER;
 
 /// Defines the latest `StoredKeyVersion`
 #[cfg(feature = "keymanager")]

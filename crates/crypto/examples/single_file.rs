@@ -1,9 +1,10 @@
+#![cfg(feature = "headers")]
+
 use tokio::fs::File;
 
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
-	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	header::file::{FileHeader, LATEST_FILE_HEADER},
 	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	Protected,
 };
@@ -27,31 +28,30 @@ async fn encrypt() {
 		.hash(password, content_salt, None)
 		.unwrap();
 
-	// Create a keyslot to be added to the header
-	let keyslots = vec![Keyslot::new(
-		LATEST_KEYSLOT,
-		ALGORITHM,
-		HASHING_ALGORITHM,
-		content_salt,
-		hashed_password,
-		master_key.clone(),
-	)
-	.await
-	.unwrap()];
-
 	// Create the header for the encrypted file
-	let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots).unwrap();
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+
+	// Create a keyslot to be added to the header
+	header
+		.add_keyslot(
+			HASHING_ALGORITHM,
+			content_salt,
+			hashed_password,
+			master_key.clone(),
+		)
+		.await
+		.unwrap();
 
 	// Write the header to the file
 	header.write(&mut writer).await.unwrap();
 
 	// Use the nonce created by the header to initialize a stream encryption object
-	let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm).unwrap();
+	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
+		.encrypt_streams(&mut reader, &mut writer, &header.get_aad())
 		.await
 		.unwrap();
 }
@@ -64,17 +64,20 @@ async fn decrypt() {
 	let mut writer = File::create("test.original").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, aad) = FileHeader::from_reader(&mut reader).await.unwrap();
+	let header = FileHeader::from_reader(&mut reader).await.unwrap();
 
 	// Decrypt the master key with the user's password
-	let master_key = header.decrypt_master_key(password).await.unwrap();
+	let master_key = header
+		.decrypt_master_key_with_password(password)
+		.await
+		.unwrap();
 
 	// Initialize a stream decryption object using data provided by the header
-	let decryptor = Decryptor::new(master_key, header.nonce, header.algorithm).unwrap();
+	let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
 
-	// Decrypt data the from the writer, and write it to the writer
+	// Decrypt data the from the reader, and write it to the writer
 	decryptor
-		.decrypt_streams(&mut reader, &mut writer, &aad)
+		.decrypt_streams(&mut reader, &mut writer, &header.get_aad())
 		.await
 		.unwrap();
 }

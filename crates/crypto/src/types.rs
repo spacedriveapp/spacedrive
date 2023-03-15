@@ -2,12 +2,13 @@
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
 use rand::{RngCore, SeedableRng};
+use std::fmt::Display;
 use std::ops::Deref;
 use zeroize::Zeroize;
 
 use crate::{Error, Protected};
 
-use crate::primitives::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+use crate::primitives::{to_array, AAD_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
@@ -17,6 +18,7 @@ use serde_big_array::BigArray;
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
@@ -27,11 +29,8 @@ pub enum Nonce {
 ///
 /// The greater the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Params {
 	Standard,
@@ -43,10 +42,10 @@ pub enum Params {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
 	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize),
+	derive(serde::Serialize, serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
@@ -122,11 +121,8 @@ impl Deref for Nonce {
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize),
-	derive(serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
@@ -300,6 +296,7 @@ impl From<SecretKeyString> for SecretKey {
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
@@ -322,11 +319,41 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 	}
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+pub struct Aad(pub [u8; AAD_LEN]);
+
+impl Aad {
+	#[must_use]
+	pub fn generate() -> Self {
+		let mut aad = [0u8; AAD_LEN];
+		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut aad);
+		Self(aad)
+	}
+}
+
+impl Deref for Aad {
+	type Target = [u8];
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl TryFrom<Vec<u8>> for Aad {
+	type Error = Error;
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		to_array(&value).map(Self)
+	}
+}
+
 /// This should be used for passing a salt around.
 ///
 /// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct Salt(pub [u8; SALT_LEN]);
 
@@ -362,4 +389,32 @@ pub struct OnboardingConfig {
 	pub password: Protected<String>,
 	pub algorithm: Algorithm,
 	pub hashing_algorithm: HashingAlgorithm,
+}
+
+impl Display for HashingAlgorithm {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match *self {
+			Self::Argon2id(p) => write!(f, "Argon2id ({p})"),
+			Self::BalloonBlake3(p) => write!(f, "BLAKE3-Balloon ({p})"),
+		}
+	}
+}
+
+impl Display for Params {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match *self {
+			Self::Standard => write!(f, "Standard"),
+			Self::Hardened => write!(f, "Hardened"),
+			Self::Paranoid => write!(f, "Paranoid"),
+		}
+	}
+}
+
+impl Display for Algorithm {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match *self {
+			Self::XChaCha20Poly1305 => write!(f, "XChaCha20-Poly1305"),
+			Self::Aes256Gcm => write!(f, "AES-256-GCM"),
+		}
+	}
 }

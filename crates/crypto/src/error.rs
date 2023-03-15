@@ -29,14 +29,24 @@ pub enum Error {
 	StreamModeInit,
 
 	// header errors
+	#[cfg(feature = "headers")]
 	#[error("no keyslots available")]
 	NoKeyslots,
-	#[error("no preview media found")]
-	NoPreviewMedia,
-	#[error("no metadata found")]
-	NoMetadata,
+	#[cfg(feature = "headers")]
 	#[error("tried adding too many keyslots to a header")]
 	TooManyKeyslots,
+	#[cfg(feature = "headers")]
+	#[error("no header objects available")]
+	NoObjects,
+	#[cfg(feature = "headers")]
+	#[error("tried adding too many objects to a header")]
+	TooManyObjects,
+	#[cfg(feature = "headers")]
+	#[error("error while encoding with bincode: {0}")]
+	BincodeEncode(#[from] bincode::error::EncodeError),
+	#[cfg(feature = "headers")]
+	#[error("error while decoding with bincode: {0}")]
+	BincodeDecode(#[from] bincode::error::DecodeError),
 
 	// key manager
 	#[error("requested key wasn't found in the key manager")]
@@ -69,6 +79,8 @@ pub enum Error {
 	Serialization,
 	#[error("string parse error")]
 	StringParse(#[from] FromUtf8Error),
+	#[error("error while trying to index a value")]
+	Index,
 
 	// keyring
 	#[cfg(all(target_os = "linux", feature = "os-keyrings"))]

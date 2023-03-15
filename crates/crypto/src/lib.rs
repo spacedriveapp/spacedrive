@@ -16,11 +16,14 @@
 pub mod crypto;
 pub mod error;
 pub mod fs;
-pub mod header;
+
 pub mod keys;
 pub mod primitives;
 pub mod protected;
 pub mod types;
+
+#[cfg(feature = "headers")]
+pub mod header;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
