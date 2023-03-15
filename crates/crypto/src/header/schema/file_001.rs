@@ -237,12 +237,18 @@ impl Header for FileHeader001 {
 		bincode::encode_to_vec(self, bincode::config::standard()).map_err(Error::BincodeEncode)
 	}
 
-	async fn decrypt_object(&self, index: usize, master_key: Key) -> Result<Protected<Vec<u8>>> {
-		if index >= self.objects.len() || self.objects.is_empty() {
-			return Err(Error::Index);
-		}
-
-		self.objects[index]
+	async fn decrypt_object(
+		&self,
+		object_type: HeaderObjectType,
+		master_key: Key,
+	) -> Result<Protected<Vec<u8>>> {
+		self.objects
+			.iter()
+			.filter(|o| o.object_type == object_type)
+			.cloned()
+			.collect::<Vec<FileHeaderObject001>>()
+			.first()
+			.ok_or(Error::NoObjects)?
 			.decrypt(self.algorithm, self.aad, master_key)
 			.await
 	}
@@ -280,6 +286,15 @@ impl Header for FileHeader001 {
 	) -> Result<()> {
 		if self.objects.len() + 1 > OBJECT_LIMIT {
 			return Err(Error::TooManyObjects);
+		}
+
+		if self
+			.objects
+			.iter()
+			.filter(|x| x.object_type == object_type)
+			.count() != 0
+		{
+			return Err(Error::DuplicateObjects);
 		}
 
 		self.objects.push(

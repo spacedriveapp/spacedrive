@@ -50,8 +50,11 @@ pub enum Error {
 	#[error("tried adding too many keyslots to a header")]
 	TooManyKeyslots,
 	#[cfg(feature = "headers")]
-	#[error("no header objects available")]
+	#[error("no header objects available (or none that match)")]
 	NoObjects,
+	#[cfg(feature = "headers")]
+	#[error("tried to run an object operation which resulted in duplicates")]
+	DuplicateObjects,
 	#[cfg(feature = "headers")]
 	#[error("tried adding too many objects to a header")]
 	TooManyObjects,
@@ -93,8 +96,6 @@ pub enum Error {
 	Serialization,
 	#[error("string parse error")]
 	StringParse(#[from] FromUtf8Error),
-	#[error("error while trying to index a value")]
-	Index,
 
 	// keyring
 	#[cfg(all(target_os = "linux", feature = "os-keyrings"))]

@@ -45,11 +45,11 @@ use super::schema::FileHeader001;
 pub const MAGIC_BYTES: [u8; 8] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03];
 
 // Can be expanded (not shrunk!) inconsequentially I believe
-#[derive(bincode::Encode, bincode::Decode, Clone)]
+#[derive(Clone, Eq, PartialEq, bincode::Encode, bincode::Decode)]
 pub enum HeaderObjectType {
 	Metadata,
 	PreviewMedia,
-	Bytes,
+	Custom(String),
 }
 
 #[async_trait::async_trait]
@@ -66,7 +66,11 @@ pub trait Header {
 	async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key>;
 	async fn decrypt_master_key_with_password(&self, password: Protected<Vec<u8>>) -> Result<Key>;
 
-	async fn decrypt_object(&self, index: usize, master_key: Key) -> Result<Protected<Vec<u8>>>;
+	async fn decrypt_object(
+		&self,
+		object_type: HeaderObjectType,
+		master_key: Key,
+	) -> Result<Protected<Vec<u8>>>;
 
 	async fn add_keyslot(
 		&mut self,
@@ -247,10 +251,10 @@ impl FileHeader {
 
 	pub async fn decrypt_object(
 		&self,
-		index: usize,
+		object_type: HeaderObjectType,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		self.inner.decrypt_object(index, master_key).await
+		self.inner.decrypt_object(object_type, master_key).await
 	}
 
 	pub async fn add_object(
@@ -385,49 +389,16 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer).await.unwrap();
 
-		let bytes = header.decrypt_object(0, mk).await.unwrap();
+		let bytes = header
+			.decrypt_object(HeaderObjectType::Metadata, mk)
+			.await
+			.unwrap();
 		let (md, _): (Metadata, usize) =
 			bincode::decode_from_slice(bytes.expose(), bincode::config::standard()).unwrap();
 
 		assert_eq!(md, METADATA);
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
-	}
-
-	#[tokio::test]
-	#[should_panic(expected = "Index")]
-	async fn serialize_and_deserialize_metadata_wrong_index() {
-		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
-
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
-
-		header
-			.add_keyslot(
-				HASHING_ALGORITHM,
-				Salt::generate(),
-				Key::generate(),
-				mk.clone(),
-			)
-			.await
-			.unwrap();
-
-		header
-			.add_object(
-				HeaderObjectType::Metadata,
-				mk.clone(),
-				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
-			)
-			.await
-			.unwrap();
-
-		header.write(&mut writer).await.unwrap();
-
-		writer.rewind().await.unwrap();
-
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
-
-		header.decrypt_object(4, mk).await.unwrap();
 	}
 
 	#[tokio::test]
@@ -485,7 +456,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::PreviewMedia, mk, &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::Custom("magic".to_string()),
+				mk,
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
@@ -554,7 +529,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::Bytes, mk, &MAGIC_BYTES)
+			.add_object(
+				HeaderObjectType::Custom("magic".to_string()),
+				mk,
+				&MAGIC_BYTES,
+			)
 			.await
 			.unwrap();
 	}
@@ -592,7 +571,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::Bytes, mk, &MAGIC_BYTES)
+			.add_object(
+				HeaderObjectType::Custom("magic".to_string()),
+				mk.clone(),
+				&MAGIC_BYTES,
+			)
 			.await
 			.unwrap();
 
@@ -604,5 +587,18 @@ mod tests {
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
+
+		let preview_media = header
+			.decrypt_object(HeaderObjectType::PreviewMedia, mk.clone())
+			.await
+			.unwrap();
+
+		let magic = header
+			.decrypt_object(HeaderObjectType::Custom("magic".to_string()), mk.clone())
+			.await
+			.unwrap();
+
+		assert_eq!(preview_media.expose(), &PVM_BYTES);
+		assert_eq!(magic.expose(), &MAGIC_BYTES);
 	}
 }
