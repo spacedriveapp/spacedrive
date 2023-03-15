@@ -1,8 +1,9 @@
 import { createWSClient, loggerLink, wsLink } from '@rspc/client';
 import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { createMemoryRouter } from 'react-router-dom';
 import { getDebugState, hooks } from '@sd/client';
-import { Platform, PlatformProvider, SpacedriveInterface } from '@sd/interface';
+import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
 import demoData from './demoData.json';
 
 globalThis.isDev = import.meta.env.DEV;
@@ -54,6 +55,8 @@ const queryClient = new QueryClient({
 	}
 });
 
+const router = createMemoryRouter(routes);
+
 function App() {
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
@@ -66,7 +69,7 @@ function App() {
 			<hooks.Provider client={client} queryClient={queryClient}>
 				<PlatformProvider platform={platform}>
 					<QueryClientProvider client={queryClient}>
-						<SpacedriveInterface router="browser" />
+						<SpacedriveInterface router={router} />
 					</QueryClientProvider>
 				</PlatformProvider>
 			</hooks.Provider>

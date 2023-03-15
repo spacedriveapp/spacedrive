@@ -5,7 +5,7 @@ import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
-export default () => {
+export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
 

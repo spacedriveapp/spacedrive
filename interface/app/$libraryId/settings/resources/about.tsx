@@ -2,7 +2,7 @@ import { AppLogo } from '@sd/assets/images';
 import { useBridgeQuery } from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
-export default function AboutSpacedrive() {
+export const Component = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	const os = useOperatingSystem();
@@ -26,4 +26,4 @@ export default function AboutSpacedrive() {
 			</div>
 		</>
 	);
-}
+};

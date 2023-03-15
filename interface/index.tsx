@@ -7,15 +7,15 @@ import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
-import App from './app';
 
 export * from './util/keybind';
 export * from './util/Platform';
 export { ErrorPage } from './ErrorFallback';
+export * from './app';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -44,15 +44,11 @@ const Devtools = () => {
 	) : null;
 };
 
-export const SpacedriveInterface = ({ router }: { router: 'memory' | 'browser' }) => {
-	const Router = router === 'memory' ? MemoryRouter : BrowserRouter;
-
+export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
-			<Router>
-				<App />
-			</Router>
+			<RouterProvider router={props.router} />
 			<Dialogs />
 		</ErrorBoundary>
 	);

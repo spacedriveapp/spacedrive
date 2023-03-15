@@ -85,7 +85,7 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-export default function OverviewScreen() {
+export const Component = () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
 
@@ -134,7 +134,7 @@ export default function OverviewScreen() {
 			<div className="flex h-4 w-full shrink-0" />
 		</div>
 	);
-}
+};
 
 interface CategoryButtonProps {
 	category: string;

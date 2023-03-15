@@ -3,7 +3,7 @@ import { CodeBlock } from '~/components/Codeblock';
 import { usePlatform } from '~/util/Platform';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
-export default function DebugScreen() {
+export const Component = () => {
 	const platform = usePlatform();
 	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
@@ -42,4 +42,4 @@ export default function DebugScreen() {
 			<CodeBlock src={{ ...libraryState }} />
 		</div>
 	);
-}
+};

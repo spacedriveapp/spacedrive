@@ -53,7 +53,7 @@ function ExtensionItem(props: { extension: ExtensionItemData }) {
 	);
 }
 
-export default function ExtensionSettings() {
+export const Component = () => {
 	// const { data: volumes } = useBridgeQuery('GetVolumes');
 
 	return (
@@ -71,4 +71,4 @@ export default function ExtensionSettings() {
 			</GridLayout>
 		</>
 	);
-}
+};
