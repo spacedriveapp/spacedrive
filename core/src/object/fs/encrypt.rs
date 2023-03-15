@@ -6,9 +6,8 @@ use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::Encryptor,
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{
-		Algorithm, Key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA,
-	},
+	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
+	types::{Algorithm, Key},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;

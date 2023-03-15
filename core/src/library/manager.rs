@@ -13,7 +13,7 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	primitives::{EncryptedKey, Nonce, OnboardingConfig, Salt},
+	types::{EncryptedKey, Nonce, OnboardingConfig, Salt},
 };
 use std::{
 	env, fs, io,

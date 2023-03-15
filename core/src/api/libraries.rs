@@ -7,7 +7,7 @@ use crate::{
 };
 
 use sd_crypto::{
-	primitives::{Algorithm, HashingAlgorithm, OnboardingConfig},
+	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
 	Protected,
 };
 

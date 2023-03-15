@@ -1,5 +1,6 @@
 use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
-use sd_crypto::primitives::{Algorithm, HashingAlgorithm, SecretKeyString, SECRET_KEY_IDENTIFIER};
+use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
+use sd_crypto::types::{Algorithm, HashingAlgorithm, SecretKeyString};
 use sd_crypto::{Error, Protected};
 use serde::Deserialize;
 use specta::Type;
