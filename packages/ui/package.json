@@ -41,7 +41,7 @@
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-loading-icons": "^1.1.0",
-		"react-router-dom": "6.4.2",
+		"react-router-dom": "6.9.0",
 		"react-spring": "^9.5.5",
 		"tailwindcss-radix": "^2.6.0"
 	},

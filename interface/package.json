@@ -11,7 +11,6 @@
 		"./components/*": "./components/*"
 	},
 	"scripts": {
-		"icons": "./scripts/generateSvgImports.mjs",
 		"lint": "eslint .",
 		"typecheck": "tsc -b",
 		"build": "tsc"
@@ -20,11 +19,11 @@
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
 		"@hookform/resolvers": "^2.9.10",
-		"@loadable/component": "^5.15.2",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
 		"@radix-ui/react-toast": "^1.1.2",
 		"@radix-ui/react-tooltip": "^1.0.2",
+		"@remix-run/router": "^1.4.0",
 		"@sd/assets": "workspace:*",
 		"@sd/client": "workspace:*",
 		"@sd/ui": "workspace:*",
@@ -53,9 +52,9 @@
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.1.0",
 		"react-qr-code": "^2.0.11",
-		"react-responsive": "^9.0.2",
-		"react-router": "6.4.2",
-		"react-router-dom": "6.4.2",
+    "react-responsive": "^9.0.2",
+		"react-router": "6.9.0",
+		"react-router-dom": "6.9.0",
 		"rooks": "^5.14.0",
 		"tailwindcss": "^3.1.8",
 		"use-count-up": "^3.0.1",

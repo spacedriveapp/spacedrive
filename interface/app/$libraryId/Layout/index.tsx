@@ -61,7 +61,7 @@ const Layout = () => {
 	);
 };
 
-export default () => {
+export const Component = () => {
 	const params = useParams<{ libraryId: string }>();
 
 	return (

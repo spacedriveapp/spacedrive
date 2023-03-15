@@ -24,7 +24,7 @@ const schema = z.object({
 	hidden: z.boolean()
 });
 
-export default function EditLocation() {
+export const Component = () => {
 	const queryClient = useQueryClient();
 	const { id } = useParams<{
 		id: string;
@@ -182,4 +182,4 @@ export default function EditLocation() {
 			</ModalLayout>
 		</Form>
 	);
-}
+};

@@ -1,3 +1,4 @@
+import { AppLogo } from '@sd/assets/images';
 import { Image, Text, View } from 'react-native';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
@@ -10,7 +11,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 			{/* Logo */}
 			<LogoAnimation>
 				<View style={tw`mt-2 items-center`}>
-					<Image source={require('@sd/assets/images/logo.png')} style={tw`h-24 w-24`} />
+					<Image source={AppLogo} style={tw`h-24 w-24`} />
 				</View>
 			</LogoAnimation>
 			{/* Text */}

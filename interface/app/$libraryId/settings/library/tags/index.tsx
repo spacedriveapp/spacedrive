@@ -6,7 +6,7 @@ import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
-export default function TagsSettings() {
+export const Component = () => {
 	const tags = useLibraryQuery(['tags.list']);
 
 	const [selectedTag, setSelectedTag] = useState<null | Tag>(tags.data?.[0] ?? null);
@@ -54,4 +54,4 @@ export default function TagsSettings() {
 			)}
 		</>
 	);
-}
+};

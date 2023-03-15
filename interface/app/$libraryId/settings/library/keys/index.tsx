@@ -72,7 +72,7 @@ export const KeyMounterDropdown = ({
 	);
 };
 
-export default () => {
+export const Component = () => {
 	const platform = usePlatform();
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 	const keyringSk = useLibraryQuery(['keys.getSecretKey'], { initialData: '' }); // assume true by default, as it will often be the case. need to fix this with an rspc subscription+such

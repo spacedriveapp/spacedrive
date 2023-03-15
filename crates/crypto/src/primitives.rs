@@ -9,11 +9,11 @@ use crate::{
 		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
 		preview_media::PreviewMediaVersion,
 	},
-	keys::keymanager::StoredKeyVersion,
 	Error, Result,
 };
 
-pub mod types;
+#[cfg(feature = "keymanager")]
+use crate::keys::keymanager::StoredKeyVersion;
 
 /// This is the salt size.
 pub const SALT_LEN: usize = 16;
@@ -54,6 +54,7 @@ pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
 pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
 /// Defines the latest `StoredKeyVersion`
+#[cfg(feature = "keymanager")]
 pub const LATEST_STORED_KEY: StoredKeyVersion = StoredKeyVersion::V1;
 
 /// Defines the context string for BLAKE3-KDF in regards to root key derivation
@@ -68,7 +69,7 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 
 /// This is used for converting a `&[u8]` to an array of bytes.
 ///
-/// It does `Clone`, with `to_vec()`.
+/// It calls `Clone`, via `to_vec()`.
 ///
 /// This function calls `zeroize` on any data it can
 pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {

@@ -11,7 +11,7 @@ const schema = z.object({
 	blurEffects: z.boolean()
 });
 
-export default function AppearanceSettings() {
+export const Component = () => {
 	const form = useZodForm({
 		schema
 	});
@@ -52,4 +52,4 @@ export default function AppearanceSettings() {
 			</Setting>
 		</Form>
 	);
-}
+};

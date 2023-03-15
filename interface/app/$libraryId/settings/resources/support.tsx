@@ -1,9 +1,9 @@
 import { Heading } from '../Layout';
 
-export default function Support() {
+export const Component = () => {
 	return (
 		<>
 			<Heading title="Support" description="" />
 		</>
 	);
-}
+};

@@ -6,7 +6,7 @@ import { Heading } from '../../Layout';
 import AddDialog from './AddDialog';
 import ListItem from './ListItem';
 
-export default () => {
+export const Component = () => {
 	const platform = usePlatform();
 	const locations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
