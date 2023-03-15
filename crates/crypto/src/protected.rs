@@ -55,6 +55,20 @@ where
 	}
 }
 
+impl From<Vec<u8>> for Protected<Vec<u8>> {
+	fn from(value: Vec<u8>) -> Self {
+		Self { data: value }
+	}
+}
+
+impl From<Protected<String>> for Protected<Vec<u8>> {
+	fn from(value: Protected<String>) -> Self {
+		Self {
+			data: value.expose().as_bytes().to_vec(),
+		}
+	}
+}
+
 impl<T> Protected<T>
 where
 	T: Zeroize + Default,
@@ -99,6 +113,7 @@ where
 
 #[cfg(feature = "rspc")]
 use rspc::internal::specta;
+
 #[cfg(feature = "rspc")]
 impl<T> specta::Type for Protected<T>
 where
