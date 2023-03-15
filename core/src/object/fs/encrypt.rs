@@ -4,11 +4,10 @@ use std::path::PathBuf;
 
 use chrono::FixedOffset;
 use sd_crypto::{
-	crypto::stream::{Algorithm, StreamEncryption},
+	crypto::Encryptor,
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{
-		types::Key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA,
-	},
+	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
+	types::{Algorithm, Key},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -207,7 +206,7 @@ impl StatefulJob for FileEncryptorJob {
 
 			header.write(&mut writer).await?;
 
-			let encryptor = StreamEncryption::new(master_key, header.nonce, header.algorithm)?;
+			let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm)?;
 
 			encryptor
 				.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())

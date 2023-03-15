@@ -20,14 +20,10 @@ pub mod header;
 pub mod keys;
 pub mod primitives;
 pub mod protected;
+pub mod types;
 
-// Re-export this so that payloads can be generated elsewhere
-pub use aead::Payload;
-
-// Make this easier to use (e.g. `sd_crypto::Protected`)
-pub use protected::Protected;
-
-// Re-export zeroize so it can be used elsewhere
-pub use zeroize::Zeroize;
-
+// Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
+pub use aead::Payload;
+pub use protected::Protected;
+pub use zeroize::Zeroize;

@@ -1,12 +1,13 @@
 //! This module defines all of the possible types used throughout this crate,
 //! in an effort to add additional type safety.
+use aead::generic_array::{ArrayLength, GenericArray};
 use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+use crate::{Error, Protected};
 
-use super::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+use crate::primitives::{to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
 
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
@@ -20,6 +21,36 @@ use serde_big_array::BigArray;
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
 	Aes256Gcm([u8; 8]),
+}
+
+/// These parameters define the password-hashing level.
+///
+/// The greater the parameter, the longer the password will take to hash.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum Params {
+	Standard,
+	Hardened,
+	Paranoid,
+}
+
+/// This defines all available password hashing algorithms.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize),
+	serde(tag = "name", content = "params")
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum HashingAlgorithm {
+	Argon2id(Params),
+	BalloonBlake3(Params),
 }
 
 impl Nonce {
@@ -42,6 +73,18 @@ impl Nonce {
 		match self {
 			Self::Aes256Gcm(x) => x.is_empty(),
 			Self::XChaCha20Poly1305(x) => x.is_empty(),
+		}
+	}
+}
+
+impl<I> From<Nonce> for GenericArray<u8, I>
+where
+	I: ArrayLength<u8>,
+{
+	fn from(value: Nonce) -> Self {
+		match value {
+			Nonce::Aes256Gcm(x) => Self::clone_from_slice(&x),
+			Nonce::XChaCha20Poly1305(x) => Self::clone_from_slice(&x),
 		}
 	}
 }
@@ -73,6 +116,30 @@ impl Deref for Nonce {
 		match self {
 			Self::Aes256Gcm(x) => x,
 			Self::XChaCha20Poly1305(x) => x,
+		}
+	}
+}
+
+/// These are all possible algorithms that can be used for encryption and decryption
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum Algorithm {
+	XChaCha20Poly1305,
+	Aes256Gcm,
+}
+
+impl Algorithm {
+	/// This function allows us to get the nonce length for a given encryption algorithm
+	#[must_use]
+	pub const fn nonce_len(&self) -> usize {
+		match self {
+			Self::XChaCha20Poly1305 => 20,
+			Self::Aes256Gcm => 8,
 		}
 	}
 }
@@ -113,6 +180,15 @@ impl Key {
 		let mut key = [0u8; KEY_LEN];
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut key);
 		Self::new(key)
+	}
+}
+
+impl<I> From<Key> for GenericArray<u8, I>
+where
+	I: ArrayLength<u8>,
+{
+	fn from(value: Key) -> Self {
+		Self::clone_from_slice(value.expose())
 	}
 }
 
@@ -216,24 +292,6 @@ impl From<SecretKeyString> for SecretKey {
 		to_array(&secret_key)
 			.ok()
 			.map_or_else(Self::generate, Self::new)
-	}
-}
-
-/// This should be used for passing a password around.
-///
-/// It can be a string of any length.
-#[derive(Clone)]
-pub struct Password(pub Protected<String>);
-
-impl Password {
-	#[must_use]
-	pub const fn new(v: String) -> Self {
-		Self(Protected::new(v))
-	}
-
-	#[must_use]
-	pub const fn expose(&self) -> &String {
-		self.0.expose()
 	}
 }
 
