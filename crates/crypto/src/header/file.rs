@@ -320,6 +320,40 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn serialize_and_deserialize_header_with_two_keyslots() {
+		let mk = Key::generate();
+		let content_salt = Salt::generate();
+		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw.clone(),
+				mk.clone(),
+			)
+			.await
+			.unwrap();
+
+		header
+			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk.clone())
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		FileHeader::from_reader(&mut writer).await.unwrap();
+
+		assert!(header.count_keyslots() == 2);
+	}
+
+	#[tokio::test]
 	async fn serialize_and_deserialize_metadata() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
