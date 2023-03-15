@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
 import { ExplorerItem } from '@sd/client';
-import { usePlatform } from '~/util/Platform';
+import { useIsDark, usePlatform } from '~/util/Platform';
 import { getExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
 
@@ -92,6 +92,9 @@ export function FileThumbImg({
 }: FileThumbImgProps) {
 	const platform = usePlatform();
 
+	// is dark mode
+	const isDark = useIsDark();
+
 	if (hasThumbnail && cas_id) {
 		return (
 			<img
@@ -113,6 +116,8 @@ export function FileThumbImg({
 	} else if (kind && iconsMap[kind] && kind !== 'Unknown') {
 		icon = iconsMap[kind];
 	}
+
+	if (!isDark) icon = icon?.substring(0, icon.length - 4) + '_Light' + '.png';
 
 	return <img src={icon} className={clsx('h-full overflow-hidden')} />;
 }

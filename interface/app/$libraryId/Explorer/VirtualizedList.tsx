@@ -36,7 +36,8 @@ export const VirtualizedList = memo(({ data, onScroll }: Props) => {
 	}, [explorerStore.showInspector]);
 
 	// sizing calculations
-	const GRID_TEXT_AREA_HEIGHT = explorerStore.gridItemSize / 4;
+	const GRID_TEXT_AREA_HEIGHT =
+		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
 	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 4,
 		amountOfRows =
 			explorerStore.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
@@ -65,6 +66,11 @@ export const VirtualizedList = memo(({ data, onScroll }: Props) => {
 		estimateSize: () => itemSize,
 		measureElement: () => itemSize
 	});
+
+	// recalculate virtualizer when store values change that affect the virtual measurements
+	useEffect(() => {
+		rowVirtualizer.measure();
+	}, [explorerStore.showBytesInGridView, explorerStore.gridItemSize, rowVirtualizer]);
 
 	// TODO: Make scroll adjustment work with both list and grid layout, currently top bar offset disrupts positioning of list, and grid just doesn't work
 	// useEffect(() => {

@@ -17,8 +17,12 @@ export default function DocsSidebar(props: Props) {
 	return (
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
 			<div onClick={() => alert('Search coming soon...')} className="relative w-full">
-				<MagnifyingGlass weight="bold" className="absolute top-3 left-3" />
-				<Input className="pointer-events-none mb-5 w-full pl-9" placeholder="Search" />
+				<MagnifyingGlass weight="bold" className="absolute top-[11px] left-3" />
+				<Input
+					size="md"
+					className="pointer-events-none mb-5 flex w-full pl-9"
+					placeholder="Search"
+				/>
 				<span className="absolute  right-3 top-[9px] text-sm font-semibold text-gray-400">⌘K</span>
 			</div>
 			<div className="mb-6 flex flex-col">

@@ -53,6 +53,7 @@
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.1.0",
 		"react-qr-code": "^2.0.11",
+		"react-responsive": "^9.0.2",
 		"react-router": "6.4.2",
 		"react-router-dom": "6.4.2",
 		"rooks": "^5.14.0",

@@ -9,6 +9,7 @@ import {
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
+	SlidersHorizontal,
 	SquaresFour,
 	Tag
 } from 'phosphor-react';
@@ -312,15 +313,13 @@ export default (props: TopBarProps) => {
 					</div>
 				</div>
 				<div className="mr-3 flex space-x-2">
-					<Tooltip label="File display options" position="left">
+					<Tooltip label="Explorer display options" position="left">
 						<Popover
 							className="focus:outline-none"
 							trigger={
-								// <Tooltip label="Major Key Alert">
 								<TopBarButton className="my-2">
-									<List className={TOP_BAR_ICON_STYLE} />
+									<SlidersHorizontal className={TOP_BAR_ICON_STYLE} />
 								</TopBarButton>
-								// </Tooltip>
 							}
 						>
 							<div className="block w-[250px] ">
