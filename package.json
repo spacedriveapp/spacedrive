@@ -14,6 +14,7 @@
 		"landing": "pnpm --filter @sd/landing -- ",
 		"ui": "pnpm --filter @sd/ui -- ",
 		"interface": "pnpm --filter @sd/interface -- ",
+		"assets": "pnpm --filter @sd/assets -- ",
 		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
