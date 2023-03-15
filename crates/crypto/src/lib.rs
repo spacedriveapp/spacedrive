@@ -1,17 +1,19 @@
 //! This is Spacedrive's `crypto` crate. It handles cryptographic operations
 //! such as key hashing, encryption/decryption, key management and much more.
 #![forbid(unsafe_code)]
+#![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::correctness)]
 #![warn(clippy::perf)]
 #![warn(clippy::style)]
 #![warn(clippy::suspicious)]
-#![warn(clippy::nursery)]
 #![warn(clippy::complexity)]
+#![warn(clippy::nursery)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
+#![deny(warnings)]
 
 pub mod crypto;
 pub mod error;
