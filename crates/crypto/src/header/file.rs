@@ -393,12 +393,52 @@ mod tests {
 			.decrypt_object(HeaderObjectType::Metadata, mk)
 			.await
 			.unwrap();
+
 		let (md, _): (Metadata, usize) =
 			bincode::decode_from_slice(bytes.expose(), bincode::config::standard()).unwrap();
 
 		assert_eq!(md, METADATA);
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "NoObjects")]
+	async fn serialize_and_deserialize_metadata_bad_identifier() {
+		let mk = Key::generate();
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk.clone(),
+			)
+			.await
+			.unwrap();
+
+		header
+			.add_object(
+				HeaderObjectType::Metadata,
+				mk.clone(),
+				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
+			)
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+
+		header
+			.decrypt_object(HeaderObjectType::PreviewMedia, mk)
+			.await
+			.unwrap();
 	}
 
 	#[tokio::test]
