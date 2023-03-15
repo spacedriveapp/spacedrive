@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import { Button } from '@sd/ui';
 
-export default () => {
+export const Component = () => {
 	const navigate = useNavigate();
 
 	return (

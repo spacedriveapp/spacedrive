@@ -1,5 +1,4 @@
 import { RouteObject } from 'react-router-dom';
-import { lazyEl } from '~/util';
 import clientRoutes from './client';
 import libraryRoutes from './library';
 import nodeRoutes from './node';
@@ -8,12 +7,12 @@ import resourcesRoutes from './resources';
 export default [
 	{
 		path: 'client',
-		element: lazyEl(() => import('./OverviewLayout')),
+		lazy: () => import('./OverviewLayout'),
 		children: clientRoutes
 	},
 	{
 		path: 'node',
-		element: lazyEl(() => import('./OverviewLayout')),
+		lazy: () => import('./OverviewLayout'),
 		children: nodeRoutes
 	},
 	{
@@ -22,7 +21,7 @@ export default [
 	},
 	{
 		path: 'resources',
-		element: lazyEl(() => import('./OverviewLayout')),
+		lazy: () => import('./OverviewLayout'),
 		children: resourcesRoutes
 	}
 ] satisfies RouteObject[];

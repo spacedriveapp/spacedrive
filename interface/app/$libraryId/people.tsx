@@ -1,5 +1,5 @@
 import { ScreenHeading } from '@sd/ui';
 
-export default () => {
+export const Component = () => {
 	return <ScreenHeading>People</ScreenHeading>;
 };

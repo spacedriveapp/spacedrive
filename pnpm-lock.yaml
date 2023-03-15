@@ -51,6 +51,7 @@ importers:
       prettier: ^2.7.1
       react: ^18.2.0
       react-dom: ^18.2.0
+      react-router-dom: 6.9.0
       sass: ^1.55.0
       typescript: ^4.8.4
       vite: ^4.0.4
@@ -67,6 +68,7 @@ importers:
       '@tauri-apps/api': 1.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
+      react-router-dom: 6.9.0_biqbaboplfbrettd7655fr4n2y
       vite-plugin-html: 3.2.0_vite@4.0.4
     devDependencies:
       '@sd/config': link:../../packages/config
@@ -306,6 +308,7 @@ importers:
       postcss: ^8.4.17
       react: ^18.2.0
       react-dom: ^18.2.0
+      react-router-dom: 6.9.0
       rollup-plugin-visualizer: ^5.9.0
       typescript: ^4.8.4
       vite: ^4.0.4
@@ -320,6 +323,7 @@ importers:
       '@tanstack/react-query': 4.22.0_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
+      react-router-dom: 6.9.0_biqbaboplfbrettd7655fr4n2y
     devDependencies:
       '@playwright/test': 1.30.0
       '@sd/config': link:../../packages/config
@@ -376,6 +380,7 @@ importers:
       '@radix-ui/react-slider': ^1.1.0
       '@radix-ui/react-toast': ^1.1.2
       '@radix-ui/react-tooltip': ^1.0.2
+      '@remix-run/router': ^1.4.0
       '@sd/assets': workspace:*
       '@sd/client': workspace:*
       '@sd/config': workspace:*
@@ -413,8 +418,8 @@ importers:
       react-json-view: ^1.21.3
       react-loading-skeleton: ^3.1.0
       react-qr-code: ^2.0.11
-      react-router: 6.4.2
-      react-router-dom: 6.4.2
+      react-router: 6.9.0
+      react-router-dom: 6.9.0
       rooks: ^5.14.0
       tailwindcss: ^3.1.8
       typescript: ^4.8.4
@@ -433,6 +438,7 @@ importers:
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-toast': 1.1.2_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-tooltip': 1.0.3_5ndqzdd6t4rivxsukjv3i3ak2q
+      '@remix-run/router': 1.4.0
       '@sd/assets': link:../packages/assets
       '@sd/client': link:../packages/client
       '@sd/ui': link:../packages/ui
@@ -461,8 +467,8 @@ importers:
       react-json-view: 1.21.3_5ndqzdd6t4rivxsukjv3i3ak2q
       react-loading-skeleton: 3.1.0_react@18.2.0
       react-qr-code: 2.0.11_react@18.2.0
-      react-router: 6.4.2_react@18.2.0
-      react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
+      react-router: 6.9.0_react@18.2.0
+      react-router-dom: 6.9.0_biqbaboplfbrettd7655fr4n2y
       rooks: 5.14.1_biqbaboplfbrettd7655fr4n2y
       tailwindcss: 3.2.4
       use-count-up: 3.0.1_react@18.2.0
@@ -574,7 +580,7 @@ importers:
       react: ^18.2.0
       react-dom: ^18.2.0
       react-loading-icons: ^1.1.0
-      react-router-dom: 6.4.2
+      react-router-dom: 6.9.0
       react-spring: ^9.5.5
       sass: ^1.55.0
       sass-loader: ^13.0.2
@@ -604,7 +610,7 @@ importers:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       react-loading-icons: 1.1.0
-      react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
+      react-router-dom: 6.9.0_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.6.1_biqbaboplfbrettd7655fr4n2y
       tailwindcss-radix: 2.7.0
     devDependencies:
@@ -5637,8 +5643,8 @@ packages:
       react-dom: 18.2.0_react@18.2.0
     dev: false
 
-  /@remix-run/router/1.0.2:
-    resolution: {integrity: sha512-GRSOFhJzjGN+d4sKHTMSvNeUPoZiDHWmRnXfzaxrqe7dE/Nzlc8BiMSJdLDESZlndM7jIUrZ/F4yWqVYlI0rwQ==}
+  /@remix-run/router/1.4.0:
+    resolution: {integrity: sha512-BJ9SxXux8zAg991UmT8slpwpsd31K1dHHbD3Ba4VzD+liLQ4WAMSxQp2d2ZPRPfN0jN2NPRowcSSoM7lCaF08Q==}
     engines: {node: '>=14'}
     dev: false
 
@@ -17689,26 +17695,26 @@ packages:
       use-sidecar: 1.1.2_3stiutgnnbnfnf3uowm5cip22i
     dev: false
 
-  /react-router-dom/6.4.2_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-yM1kjoTkpfjgczPrcyWrp+OuQMyB1WleICiiGfstnQYo/S8hPEEnVjr/RdmlH6yKK4Tnj1UGXFSa7uwAtmDoLQ==}
+  /react-router-dom/6.9.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-/seUAPY01VAuwkGyVBPCn1OXfVbaWGGu4QN9uj0kCPcTyNYgL1ldZpxZUpRU7BLheKQI4Twtl/OW2nHRF1u26Q==}
     engines: {node: '>=14'}
     peerDependencies:
       react: '>=16.8'
       react-dom: '>=16.8'
     dependencies:
-      '@remix-run/router': 1.0.2
+      '@remix-run/router': 1.4.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
-      react-router: 6.4.2_react@18.2.0
+      react-router: 6.9.0_react@18.2.0
     dev: false
 
-  /react-router/6.4.2_react@18.2.0:
-    resolution: {integrity: sha512-Rb0BAX9KHhVzT1OKhMvCDMw776aTYM0DtkxqUBP8dNBom3mPXlfNs76JNGK8wKJ1IZEY1+WGj+cvZxHVk/GiKw==}
+  /react-router/6.9.0_react@18.2.0:
+    resolution: {integrity: sha512-51lKevGNUHrt6kLuX3e/ihrXoXCa9ixY/nVWRLlob4r/l0f45x3SzBvYJe3ctleLUQQ5fVa4RGgJOTH7D9Umhw==}
     engines: {node: '>=14'}
     peerDependencies:
       react: '>=16.8'
     dependencies:
-      '@remix-run/router': 1.0.2
+      '@remix-run/router': 1.4.0
       react: 18.2.0
     dev: false
 

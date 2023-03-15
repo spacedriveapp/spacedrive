@@ -1,21 +1,20 @@
 import { RouteObject } from 'react-router';
-import { lazyEl } from '~/util';
 
 export default [
 	{
-		element: lazyEl(() => import('../OverviewLayout')),
+		lazy: () => import('../OverviewLayout'),
 		children: [
-			{ path: 'contacts', element: lazyEl(() => import('./contacts')) },
-			{ path: 'keys', element: lazyEl(() => import('./keys')) },
-			{ path: 'security', element: lazyEl(() => import('./security')) },
-			{ path: 'sharing', element: lazyEl(() => import('./sharing')) },
-			{ path: 'sync', element: lazyEl(() => import('./sync')) },
-			{ path: 'tags', element: lazyEl(() => import('./tags')) },
-			{ path: 'general', element: lazyEl(() => import('./general')) },
-			{ path: 'tags', element: lazyEl(() => import('./tags')) },
-			{ path: 'nodes', element: lazyEl(() => import('./nodes')) },
-			{ path: 'locations', element: lazyEl(() => import('./locations')) }
+			{ path: 'contacts', lazy: () => import('./contacts') },
+			{ path: 'keys', lazy: () => import('./keys') },
+			{ path: 'security', lazy: () => import('./security') },
+			{ path: 'sharing', lazy: () => import('./sharing') },
+			{ path: 'sync', lazy: () => import('./sync') },
+			{ path: 'tags', lazy: () => import('./tags') },
+			{ path: 'general', lazy: () => import('./general') },
+			{ path: 'tags', lazy: () => import('./tags') },
+			{ path: 'nodes', lazy: () => import('./nodes') },
+			{ path: 'locations', lazy: () => import('./locations') }
 		]
 	},
-	{ path: 'locations/:id', element: lazyEl(() => import('./locations/$id')) }
+	{ path: 'locations/:id', lazy: () => import('./locations/$id') }
 ] satisfies RouteObject[];

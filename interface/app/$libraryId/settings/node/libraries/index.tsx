@@ -4,7 +4,7 @@ import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
 import ListItem from './ListItem';
 
-export default () => {
+export const Component = () => {
 	const libraries = useBridgeQuery(['library.list']);
 
 	const { library } = useLibraryContext();

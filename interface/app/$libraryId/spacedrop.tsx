@@ -138,7 +138,7 @@ function TemporarySpacedropDemo() {
 	);
 }
 
-export default () => {
+export const Component = () => {
 	const searchRef = useRef<HTMLInputElement>(null);
 
 	return (
