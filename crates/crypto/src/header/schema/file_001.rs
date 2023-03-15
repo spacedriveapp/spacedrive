@@ -1,8 +1,10 @@
+use bincode::impl_borrow_decode;
+
 use crate::{
 	crypto::{Decryptor, Encryptor},
 	header::file::{Header, HeaderObjectType},
-	primitives::FILE_KEY_CONTEXT,
-	types::{Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
+	primitives::{generate_bytes, FILE_KEY_CONTEXT},
+	types::{Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt},
 	Error, Protected, Result,
 };
 
@@ -14,18 +16,83 @@ pub struct FileHeader001 {
 	pub aad: Aad,
 	pub algorithm: Algorithm,
 	pub nonce: Nonce,
-	pub keyslots: Vec<Keyslot001>,
+	pub keyslots: KeyslotArea001,
 	pub objects: Vec<FileHeaderObject001>,
 }
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
 #[derive(bincode::Encode, bincode::Decode, Clone)]
 pub struct Keyslot001 {
+	pub enabled: bool,
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: Salt,
 	pub master_key: EncryptedKey, // encrypted
 	pub nonce: Nonce,
+}
+
+impl Keyslot001 {
+	pub fn disabled() -> Self {
+		Self {
+			enabled: false,
+			content_salt: Salt::generate(),
+			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
+			master_key: EncryptedKey(generate_bytes()),
+			salt: Salt::generate(),
+			nonce: Nonce::generate_xchacha(),
+		}
+	}
+}
+
+#[derive(Clone)]
+pub struct KeyslotArea001(Vec<Keyslot001>);
+
+impl TryFrom<Vec<Keyslot001>> for KeyslotArea001 {
+	type Error = Error;
+
+	fn try_from(value: Vec<Keyslot001>) -> std::result::Result<Self, Self::Error> {
+		if value.len() > KEYSLOT_LIMIT {
+			return Err(Error::TooManyKeyslots);
+		}
+
+		Ok(Self(value))
+	}
+}
+
+impl bincode::Decode for KeyslotArea001 {
+	fn decode<D: bincode::de::Decoder>(
+		decoder: &mut D,
+	) -> std::result::Result<Self, bincode::error::DecodeError> {
+		let keyslots: Vec<Keyslot001> = (0..KEYSLOT_LIMIT)
+			.filter_map(|_| {
+				bincode::decode_from_reader(decoder.reader(), bincode::config::standard())
+					.ok()
+					.filter(|x: &Keyslot001| x.enabled)
+			})
+			.collect();
+
+		Self::try_from(keyslots).map_err(Into::into)
+	}
+}
+
+impl_borrow_decode!(KeyslotArea001);
+
+impl bincode::Encode for KeyslotArea001 {
+	fn encode<E: bincode::enc::Encoder>(
+		&self,
+		encoder: &mut E,
+	) -> std::result::Result<(), bincode::error::EncodeError> {
+		if self.0.len() > KEYSLOT_LIMIT {
+			return Err(Error::TooManyKeyslots.into());
+		}
+
+		self.0.iter().try_for_each(|k| k.encode(encoder))?;
+
+		(0..KEYSLOT_LIMIT - self.0.len())
+			.try_for_each(|_| Keyslot001::disabled().encode(encoder))?;
+
+		Ok(())
+	}
 }
 
 #[derive(Clone, bincode::Encode, bincode::Decode)]
@@ -60,6 +127,7 @@ impl Keyslot001 {
 		)?;
 
 		Ok(Self {
+			enabled: true,
 			hashing_algorithm,
 			salt,
 			content_salt,
@@ -92,7 +160,7 @@ impl FileHeader001 {
 			aad: Aad::generate(),
 			algorithm,
 			nonce: Nonce::generate(algorithm)?,
-			keyslots: vec![],
+			keyslots: KeyslotArea001(vec![]),
 			objects: vec![],
 		};
 
@@ -158,11 +226,11 @@ impl Header for FileHeader001 {
 		hashed_key: Key,
 		master_key: Key,
 	) -> Result<()> {
-		if self.keyslots.len() + 1 > KEYSLOT_LIMIT {
+		if self.keyslots.0.len() + 1 > KEYSLOT_LIMIT {
 			return Err(Error::TooManyKeyslots);
 		}
 
-		self.keyslots.push(
+		self.keyslots.0.push(
 			Keyslot001::new(
 				self.algorithm,
 				hashing_algorithm,
@@ -172,6 +240,7 @@ impl Header for FileHeader001 {
 			)
 			.await?,
 		);
+
 		Ok(())
 	}
 
@@ -194,12 +263,12 @@ impl Header for FileHeader001 {
 
 	#[allow(clippy::needless_pass_by_value)]
 	async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key> {
-		if self.keyslots.is_empty() {
+		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
 		for hashed_key in keys {
-			for v in &self.keyslots {
+			for v in &self.keyslots.0 {
 				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone()).await {
 					return Ok(key);
 				}
@@ -211,11 +280,11 @@ impl Header for FileHeader001 {
 
 	#[allow(clippy::needless_pass_by_value)]
 	async fn decrypt_master_key_with_password(&self, password: Protected<Vec<u8>>) -> Result<Key> {
-		if self.keyslots.is_empty() {
+		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		for v in &self.keyslots {
+		for v in &self.keyslots.0 {
 			let key = v
 				.hashing_algorithm
 				.hash(password.clone(), v.content_salt, None)
@@ -246,6 +315,6 @@ impl Header for FileHeader001 {
 	}
 
 	fn count_keyslots(&self) -> usize {
-		self.keyslots.len()
+		self.keyslots.0.len()
 	}
 }

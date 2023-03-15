@@ -11,6 +11,20 @@ impl From<Error> for rspc::Error {
 	}
 }
 
+#[cfg(feature = "headers")]
+impl From<Error> for bincode::error::EncodeError {
+	fn from(value: Error) -> Self {
+		Self::OtherString(value.to_string())
+	}
+}
+
+#[cfg(feature = "headers")]
+impl From<Error> for bincode::error::DecodeError {
+	fn from(value: Error) -> Self {
+		Self::OtherString(value.to_string())
+	}
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// This enum defines all possible errors that this crate can give

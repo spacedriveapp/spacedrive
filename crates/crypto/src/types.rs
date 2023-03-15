@@ -8,22 +8,13 @@ use zeroize::Zeroize;
 
 use crate::{Error, Protected};
 
-use crate::primitives::{to_array, AAD_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN};
+use crate::primitives::{
+	generate_bytes, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN,
+	SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+};
 
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
-
-/// This should be used for providing a nonce to encrypt/decrypt functions.
-///
-/// You may also generate a nonce for a given algorithm with `Nonce::generate()`
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub enum Nonce {
-	XChaCha20Poly1305([u8; 20]),
-	Aes256Gcm([u8; 8]),
-}
 
 /// These parameters define the password-hashing level.
 ///
@@ -52,6 +43,18 @@ pub enum HashingAlgorithm {
 	BalloonBlake3(Params),
 }
 
+/// This should be used for providing a nonce to encrypt/decrypt functions.
+///
+/// You may also generate a nonce for a given algorithm with `Nonce::generate()`
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+pub enum Nonce {
+	XChaCha20Poly1305([u8; XCHACHA20_POLY1305_NONCE_LEN]),
+	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
+}
+
 impl Nonce {
 	pub fn generate(algorithm: Algorithm) -> crate::Result<Self> {
 		let mut nonce = vec![0u8; algorithm.nonce_len()];
@@ -59,11 +62,17 @@ impl Nonce {
 		Self::try_from(nonce)
 	}
 
+	/// Primarily used for testing.
+	#[must_use]
+	pub fn generate_xchacha() -> Self {
+		Self::XChaCha20Poly1305(generate_bytes())
+	}
+
 	#[must_use]
 	pub const fn len(&self) -> usize {
 		match self {
-			Self::Aes256Gcm(_) => 8,
-			Self::XChaCha20Poly1305(_) => 20,
+			Self::Aes256Gcm(_) => AES_256_GCM_NONCE_LEN,
+			Self::XChaCha20Poly1305(_) => XCHACHA20_POLY1305_NONCE_LEN,
 		}
 	}
 
@@ -134,8 +143,8 @@ impl Algorithm {
 	#[must_use]
 	pub const fn nonce_len(&self) -> usize {
 		match self {
-			Self::XChaCha20Poly1305 => 20,
-			Self::Aes256Gcm => 8,
+			Self::Aes256Gcm => AES_256_GCM_NONCE_LEN,
+			Self::XChaCha20Poly1305 => XCHACHA20_POLY1305_NONCE_LEN,
 		}
 	}
 }

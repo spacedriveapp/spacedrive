@@ -2,6 +2,7 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the STREAM block size.
+use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
 use crate::{Error, Result};
@@ -11,6 +12,9 @@ use crate::keys::keymanager::StoredKeyVersion;
 
 /// This is the salt size.
 pub const SALT_LEN: usize = 16;
+
+pub const XCHACHA20_POLY1305_NONCE_LEN: usize = 20;
+pub const AES_256_GCM_NONCE_LEN: usize = 8;
 
 /// The length of the secret key, in bytes.
 pub const SECRET_KEY_LEN: usize = 18;
@@ -64,4 +68,12 @@ pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
 		b.zeroize();
 		Error::VecArrSizeMismatch
 	})
+}
+
+#[must_use]
+pub fn generate_bytes<const I: usize>() -> [u8; I] {
+	let mut bytes = [0u8; I];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
+
+	bytes
 }
