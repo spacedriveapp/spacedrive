@@ -219,6 +219,11 @@ impl FileHeader {
 		self.inner.get_nonce()
 	}
 
+	#[must_use]
+	pub const fn get_version(&self) -> FileHeaderVersion {
+		self.version
+	}
+
 	pub async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key> {
 		self.inner.decrypt_master_key(keys).await
 	}
@@ -353,6 +358,42 @@ mod tests {
 		assert_eq!(md, METADATA);
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "Index")]
+	async fn serialize_and_deserialize_metadata_wrong_index() {
+		let mk = Key::generate();
+		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk.clone(),
+			)
+			.await
+			.unwrap();
+
+		header
+			.add_object(
+				HeaderObjectType::Metadata,
+				mk.clone(),
+				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
+			)
+			.await
+			.unwrap();
+
+		header.write(&mut writer).await.unwrap();
+
+		writer.rewind().await.unwrap();
+
+		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+
+		header.decrypt_object(4, mk).await.unwrap();
 	}
 
 	#[tokio::test]
