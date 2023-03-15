@@ -54,7 +54,7 @@ pub struct KeyslotBundle001 {
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct KeyslotAreaBundle001 {
-	pub keyslot_bundle: [KeyslotBundle001; KEYSLOT_LIMIT],
+	pub bundles: [KeyslotBundle001; KEYSLOT_LIMIT],
 }
 
 impl bincode::Decode for KeyslotArea001 {
@@ -64,13 +64,7 @@ impl bincode::Decode for KeyslotArea001 {
 		let bundle: KeyslotAreaBundle001 =
 			bincode::decode_from_reader(decoder.reader(), bincode::config::standard())?;
 
-		let keyslots: Vec<Keyslot001> = bundle
-			.keyslot_bundle
-			.into_iter()
-			.filter_map(|x| if x.enabled { Some(x.keyslot) } else { None })
-			.collect();
-
-		Ok(Self(keyslots))
+		Ok(Self(bundle.into()))
 	}
 }
 
@@ -103,18 +97,30 @@ impl bincode::Encode for KeyslotArea001 {
 			});
 		});
 
-		if bundle.len() != KEYSLOT_LIMIT {
-			// probably not a too many keyslots issue
-			return Err(Error::Serialization)?;
-		}
-
-		let bundle = KeyslotAreaBundle001 {
-			keyslot_bundle: [bundle[0].clone(), bundle[1].clone()],
-		};
-
-		bundle.encode(encoder)?;
+		KeyslotAreaBundle001::try_from(bundle)?.encode(encoder)?;
 
 		Ok(())
+	}
+}
+
+impl From<KeyslotAreaBundle001> for Vec<Keyslot001> {
+	fn from(value: KeyslotAreaBundle001) -> Self {
+		value
+			.bundles
+			.into_iter()
+			.filter_map(|x| x.enabled.then_some(x.keyslot))
+			.collect()
+	}
+}
+
+impl TryFrom<Vec<KeyslotBundle001>> for KeyslotAreaBundle001 {
+	type Error = Error;
+
+	fn try_from(value: Vec<KeyslotBundle001>) -> std::result::Result<Self, Self::Error> {
+		let s: [KeyslotBundle001; KEYSLOT_LIMIT] =
+			value.try_into().map_err(|_| Error::VecArrSizeMismatch)?;
+
+		Ok(Self { bundles: s })
 	}
 }
 
