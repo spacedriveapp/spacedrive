@@ -375,7 +375,6 @@ importers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
       '@hookform/resolvers': ^2.9.10
-      '@loadable/component': ^5.15.2
       '@radix-ui/react-progress': ^1.0.1
       '@radix-ui/react-slider': ^1.1.0
       '@radix-ui/react-toast': ^1.1.2
@@ -433,7 +432,6 @@ importers:
       '@fontsource/inter': 4.5.15
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
       '@hookform/resolvers': 2.9.10_react-hook-form@7.43.0
-      '@loadable/component': 5.15.2_react@18.2.0
       '@radix-ui/react-progress': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-toast': 1.1.2_biqbaboplfbrettd7655fr4n2y
@@ -4272,18 +4270,6 @@ packages:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.0
       '@jridgewell/sourcemap-codec': 1.4.14
-    dev: false
-
-  /@loadable/component/5.15.2_react@18.2.0:
-    resolution: {integrity: sha512-ryFAZOX5P2vFkUdzaAtTG88IGnr9qxSdvLRvJySXcUA4B4xVWurUNADu3AnKPksxOZajljqTrDEDcYjeL4lvLw==}
-    engines: {node: '>=8'}
-    peerDependencies:
-      react: '>=16.3.0'
-    dependencies:
-      '@babel/runtime': 7.20.7
-      hoist-non-react-statics: 3.3.2
-      react: 18.2.0
-      react-is: 16.13.1
     dev: false
 
   /@mdx-js/mdx/1.6.22:
