@@ -1,6 +1,6 @@
 import { Heading } from '../Layout';
 
-export default () => {
+export const Component = () => {
 	return (
 		<>
 			<Heading title="Security" description="Keep your client safe." />

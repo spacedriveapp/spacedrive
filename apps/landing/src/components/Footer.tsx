@@ -1,4 +1,4 @@
-import AppLogo from '@sd/assets/images/logo.png';
+import { AppLogo } from '@sd/assets/images';
 import {
 	Discord,
 	Github,

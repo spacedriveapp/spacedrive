@@ -1,8 +1,8 @@
-import Logo from '@sd/assets/images/logo.png';
+import { AppLogo } from '@sd/assets/images';
 import { useBridgeQuery } from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
-export default function AboutSpacedrive() {
+export const Component = () => {
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	const os = useOperatingSystem();
@@ -13,7 +13,7 @@ export default function AboutSpacedrive() {
 	return (
 		<>
 			<div className="flex flex-row items-center">
-				<img src={Logo} className="mr-8 h-[88px] w-[88px]" />
+				<img src={AppLogo} className="mr-8 h-[88px] w-[88px]" />
 				<div className="flex flex-col">
 					<h1 className="text-2xl font-bold">
 						Spacedrive {os !== 'unknown' && <>for {currentPlatformNiceName}</>}
@@ -26,4 +26,4 @@ export default function AboutSpacedrive() {
 			</div>
 		</>
 	);
-}
+};

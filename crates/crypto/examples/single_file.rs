@@ -1,13 +1,10 @@
 use tokio::fs::File;
 
 use sd_crypto::{
-	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	crypto::{Decryptor, Encryptor},
 	header::{file::FileHeader, keyslot::Keyslot},
-	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{
-		types::{Key, Salt},
-		LATEST_FILE_HEADER, LATEST_KEYSLOT,
-	},
+	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	Protected,
 };
 
@@ -49,7 +46,7 @@ async fn encrypt() {
 	header.write(&mut writer).await.unwrap();
 
 	// Use the nonce created by the header to initialize a stream encryption object
-	let encryptor = StreamEncryption::new(master_key, header.nonce, header.algorithm).unwrap();
+	let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
@@ -73,7 +70,7 @@ async fn decrypt() {
 	let master_key = header.decrypt_master_key(password).await.unwrap();
 
 	// Initialize a stream decryption object using data provided by the header
-	let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm).unwrap();
+	let decryptor = Decryptor::new(master_key, header.nonce, header.algorithm).unwrap();
 
 	// Decrypt data the from the writer, and write it to the writer
 	decryptor

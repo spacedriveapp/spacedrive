@@ -6,7 +6,7 @@ import { Heading } from '../Layout';
 import Setting from '../Setting';
 import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
 
-export default () => {
+export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
 

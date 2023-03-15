@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ScreenHeading } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
-export default function DependenciesScreen() {
+export const Component = () => {
 	const frontEnd = useQuery(['frontend-deps'], () => import('@sd/assets/deps/frontend-deps.json'));
 	const backEnd = useQuery(['backend-deps'], () => import('@sd/assets/deps/backend-deps.json'));
 	const platform = usePlatform();
@@ -44,4 +44,4 @@ export default function DependenciesScreen() {
 			</div>
 		</div>
 	);
-}
+};

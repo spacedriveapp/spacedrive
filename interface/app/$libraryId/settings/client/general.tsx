@@ -8,7 +8,7 @@ import Setting from '../Setting';
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
-export default () => {
+export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
 	const debugState = useDebugState();

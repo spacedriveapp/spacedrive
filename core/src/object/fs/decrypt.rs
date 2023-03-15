@@ -1,7 +1,4 @@
-use sd_crypto::{
-	crypto::stream::StreamDecryption, header::file::FileHeader, primitives::types::Password,
-	Protected,
-};
+use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -99,7 +96,7 @@ impl StatefulJob for FileDecryptorJob {
 					// inherit the encryption algorithm from the keyslot
 					key_manager
 						.add_to_keystore(
-							Password::new(password),
+							Protected::new(password),
 							header.algorithm,
 							header.keyslots[index].hashing_algorithm,
 							false,
@@ -132,7 +129,7 @@ impl StatefulJob for FileDecryptorJob {
 			header.decrypt_master_key_from_prehashed(keys).await?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, header.nonce, header.algorithm)?;
+		let decryptor = Decryptor::new(master_key, header.nonce, header.algorithm)?;
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &aad)

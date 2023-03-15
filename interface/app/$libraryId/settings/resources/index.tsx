@@ -1,9 +1,8 @@
 import { RouteObject } from "react-router";
-import { lazyEl } from "~/util";
 
 export default [
-	{ path: 'about', element: lazyEl(() => import('./about')) },
-	{ path: 'changelog', element: lazyEl(() => import('./changelog')) },
-	{ path: 'dependencies', element: lazyEl(() => import('./dependencies')) },
-	{ path: 'support', element: lazyEl(() => import('./support')) },
+	{ path: 'about', lazy: () => import('./about') },
+	{ path: 'changelog', lazy: () => import('./changelog') },
+	{ path: 'dependencies', lazy: () => import('./dependencies') },
+	{ path: 'support', lazy: () => import('./support') },
 ] satisfies RouteObject[]

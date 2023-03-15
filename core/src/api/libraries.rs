@@ -7,8 +7,8 @@ use crate::{
 };
 
 use sd_crypto::{
-	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
-	primitives::types::OnboardingConfig, Protected,
+	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
+	Protected,
 };
 
 use chrono::Utc;
