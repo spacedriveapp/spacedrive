@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::io::{Cursor, Read, Write};
 
 use crate::{
 	primitives::{AEAD_TAG_LEN, BLOCK_LEN},
@@ -13,7 +13,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use super::exhaustive_read;
+use super::{exhaustive_read, exhaustive_read_async};
 
 macro_rules! impl_stream {
 	(
@@ -23,6 +23,7 @@ macro_rules! impl_stream {
 	$last_fn:ident, // "encrypt_last"
 	$stream_primitive:ident, // "DecryptorLE31"
 	$streams_fn:ident, // "encrypt_streams"
+	$streams_fn_async:ident, // "encrypt_streams_async"
 	$bytes_fn:ident, // "encrypt_bytes"
 	$bytes_return:ty,
 	$size:expr,
@@ -81,7 +82,7 @@ macro_rules! impl_stream {
 			/// It requires a reader, a writer, and any relevant AAD.
 			///
 			/// The AAD will be authenticated with every block of data.
-			pub async fn $streams_fn<R, W>(
+			pub async fn $streams_fn_async<R, W>(
 				mut self,
 				mut reader: R,
 				mut writer: W,
@@ -94,7 +95,7 @@ macro_rules! impl_stream {
 				let mut buffer = vec![0u8; $size].into_boxed_slice();
 
 				loop {
-					let count = exhaustive_read(&mut reader, &mut buffer).await?;
+					let count = exhaustive_read_async(&mut reader, &mut buffer).await?;
 
 					let payload = Payload {
 						aad,
@@ -116,11 +117,53 @@ macro_rules! impl_stream {
 				Ok(())
 			}
 
+			/// This function should be used for large amounts of data.
+			///
+			/// The streaming implementation reads blocks of data in `BLOCK_LEN`, encrypts/decrypts, and writes to the writer.
+			///
+			/// It requires a reader, a writer, and any relevant AAD.
+			///
+			/// The AAD will be authenticated with every block of data.
+			pub fn $streams_fn<R, W>(
+				mut self,
+				mut reader: R,
+				mut writer: W,
+				aad: &[u8],
+			) -> Result<()>
+			where
+				R: Read,
+				W: Write,
+			{
+				let mut buffer = vec![0u8; $size].into_boxed_slice();
+
+				loop {
+					let count = exhaustive_read(&mut reader, &mut buffer)?;
+
+					let payload = Payload {
+						aad,
+						msg: &buffer[..count],
+					};
+
+					if count == $size {
+						let d = self.$next_fn(payload)?;
+						writer.write_all(&d)?;
+					} else {
+						let d = self.$last_fn(payload)?;
+						writer.write_all(&d)?;
+						break;
+					}
+				}
+
+				writer.flush()?;
+
+				Ok(())
+			}
+
 			/// This should ideally only be used for small amounts of data.
 			///
 			/// It is just a thin wrapper around the associated `encrypt/decrypt_streams` function.
 			#[allow(unused_mut)]
-			pub async fn $bytes_fn(
+			pub fn $bytes_fn(
 				key: Key,
 				nonce: Nonce,
 				algorithm: Algorithm,
@@ -132,7 +175,6 @@ macro_rules! impl_stream {
 
 				s
 					.$streams_fn(bytes, &mut writer, aad)
-					.await
 					.map_or_else(Err, |_| Ok(writer.into_inner().into()))
 			}
 
@@ -147,6 +189,7 @@ impl_stream!(
 	encrypt_last,
 	EncryptorLE31,
 	encrypt_streams,
+	encrypt_streams_async,
 	encrypt_bytes,
 	Vec<u8>,
 	BLOCK_LEN,
@@ -161,6 +204,7 @@ impl_stream!(
 	decrypt_last,
 	DecryptorLE31,
 	decrypt_streams,
+	decrypt_streams_async,
 	decrypt_bytes,
 	Protected<Vec<u8>>,
 	(BLOCK_LEN + AEAD_TAG_LEN),

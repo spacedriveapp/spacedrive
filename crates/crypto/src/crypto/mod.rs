@@ -1,5 +1,7 @@
 //! This module contains all encryption and decryption items. These are used throughout the crate for all encryption/decryption needs.
 
+use std::io::Read;
+
 use crate::Result;
 use tokio::io::AsyncReadExt;
 
@@ -16,7 +18,7 @@ pub use self::stream::{Decryptor, Encryptor};
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
-async fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
 where
 	R: AsyncReadExt + Unpin + Send,
 {
@@ -24,6 +26,31 @@ where
 
 	loop {
 		let i = reader.read(&mut buffer[read_count..]).await?;
+		read_count += i;
+		if i == 0 || read_count == buffer.len() {
+			// if we're EOF or the buffer is filled
+			break Ok(read_count);
+		}
+	}
+}
+
+/// This is used to exhaustively read from an asynchronous reader into a buffer.
+///
+/// This function returns on three possible conditions, and they are:
+///
+/// - when the reader has been exhausted (reaches EOF)
+/// - when the buffer has been entirely populated
+/// - when an error has been generated
+///
+/// It returns the amount of total bytes read, which will be <= the buffer's size.
+fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+where
+	R: Read,
+{
+	let mut read_count = 0;
+
+	loop {
+		let i = reader.read(&mut buffer[read_count..])?;
 		read_count += i;
 		if i == 0 || read_count == buffer.len() {
 			// if we're EOF or the buffer is filled
