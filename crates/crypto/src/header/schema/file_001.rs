@@ -132,7 +132,6 @@ pub struct FileHeaderObject001 {
 }
 
 impl Keyslot001 {
-	#[allow(clippy::needless_pass_by_value)]
 	pub async fn new(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
