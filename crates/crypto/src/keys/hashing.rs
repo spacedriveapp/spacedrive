@@ -41,27 +41,27 @@ impl Params {
 	/// This function is used to generate parameters for password hashing.
 	///
 	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
-	#[must_use]
-	pub fn argon2id(&self) -> argon2::Params {
+	pub fn argon2id(&self) -> Result<argon2::Params> {
 		match self {
 			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
-			Self::Standard => argon2::Params::new(131_072, 8, 4, None).unwrap(),
-			Self::Hardened => argon2::Params::new(262_144, 8, 4, None).unwrap(),
-			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None).unwrap(),
+			Self::Standard => argon2::Params::new(131_072, 8, 4, None),
+			Self::Hardened => argon2::Params::new(262_144, 8, 4, None),
+			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None),
 		}
+		.map_err(|_| Error::PasswordHash)
 	}
 
 	/// This function is used to generate parameters for password hashing.
 	///
 	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::BalloonBlake3(Params::Standard).hash()`)
-	#[must_use]
-	pub fn balloon_blake3(&self) -> balloon_hash::Params {
+	pub fn balloon_blake3(&self) -> Result<balloon_hash::Params> {
 		match self {
 			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
-			Self::Standard => balloon_hash::Params::new(131_072, 2, 1).unwrap(),
-			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1).unwrap(),
-			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1).unwrap(),
+			Self::Standard => balloon_hash::Params::new(131_072, 2, 1),
+			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1),
+			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1),
 		}
+		.map_err(|_| Error::PasswordHash)
 	}
 }
 
@@ -75,14 +75,14 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.expose().to_vec()).into();
+		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.0.to_vec()).into();
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
 			secret.expose(),
 			argon2::Algorithm::Argon2id,
 			argon2::Version::V0x13,
-			params.argon2id(),
+			params.argon2id()?,
 		)
 		.map_err(|_| Error::PasswordHash)?;
 
@@ -98,13 +98,13 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.expose().to_vec()).into();
+		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.0.to_vec()).into();
 
 		let mut key = [0u8; KEY_LEN];
 
 		let balloon = Balloon::<blake3::Hasher>::new(
 			balloon_hash::Algorithm::Balloon,
-			params.balloon_blake3(),
+			params.balloon_blake3()?,
 			Some(secret.expose()),
 		);
 
@@ -115,6 +115,7 @@ impl PasswordHasher {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 

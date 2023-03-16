@@ -593,7 +593,8 @@ impl KeyManager {
 					library_uuid: &library_uuid.to_string(),
 					usage: SECRET_KEY_IDENTIFIER,
 				})
-				.map(|x| SecretKeyString::new(String::from_utf8(x.expose().clone()).unwrap()))?
+				.map(SecretKey::try_from)?
+				.map(SecretKeyString::from)?
 				.into()
 		};
 

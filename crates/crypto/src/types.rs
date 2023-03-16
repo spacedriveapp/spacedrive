@@ -300,6 +300,14 @@ impl From<SecretKeyString> for SecretKey {
 	}
 }
 
+impl TryFrom<Protected<Vec<u8>>> for SecretKey {
+	type Error = crate::Error;
+
+	fn try_from(v: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
+		Ok(Self::new(to_array(v.expose())?))
+	}
+}
+
 /// This should be used for passing an encrypted key around.
 ///
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)

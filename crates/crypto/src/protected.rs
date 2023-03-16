@@ -98,6 +98,13 @@ where
 	}
 }
 
+impl<const I: usize> Protected<[u8; I]> {
+	#[must_use]
+	pub fn to_vec(self) -> Vec<u8> {
+		self.expose().to_vec()
+	}
+}
+
 #[cfg(feature = "serde")]
 impl<'de, T> serde::Deserialize<'de> for Protected<T>
 where
