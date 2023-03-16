@@ -89,7 +89,11 @@ async fn decrypt_metadata() {
 
 	// Decrypt the metadata
 	let (file_info, _): (FileInformation, usize) = bincode::decode_from_slice(
-		header.decrypt_object(0, master_key).await.unwrap().expose(),
+		header
+			.decrypt_object(HeaderObjectType::Metadata, master_key)
+			.await
+			.unwrap()
+			.expose(),
 		bincode::config::standard(),
 	)
 	.unwrap();

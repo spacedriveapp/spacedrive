@@ -79,7 +79,10 @@ async fn decrypt_preview_media() {
 		.unwrap();
 
 	// Decrypt the preview media
-	let media = header.decrypt_object(0, master_key).await.unwrap();
+	let media = header
+		.decrypt_object(HeaderObjectType::PreviewMedia, master_key)
+		.await
+		.unwrap();
 
 	println!("{:?}", media.expose());
 }
