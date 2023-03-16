@@ -553,7 +553,6 @@ importers:
       '@radix-ui/react-switch': ^1.0.1
       '@radix-ui/react-tabs': ^1.0.1
       '@sd/assets': workspace:*
-      '@sd/client': workspace:*
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.12
       '@storybook/addon-essentials': ^6.5.12
@@ -603,7 +602,6 @@ importers:
       '@radix-ui/react-switch': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-tabs': 1.0.2_biqbaboplfbrettd7655fr4n2y
       '@sd/assets': link:../assets
-      '@sd/client': link:../client
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
       class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
@@ -9178,7 +9176,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - supports-color
 
@@ -21790,7 +21788,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - rollup
       - supports-color

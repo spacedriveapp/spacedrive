@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
-import { Button, Card, PasswordMeter } from '@sd/ui';
+import { Button, Card } from '@sd/ui';
 import { Form, PasswordInput, useZodForm, z } from '@sd/ui/src/forms';
+import { PasswordMeter } from '~/components/PasswordMeter';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 

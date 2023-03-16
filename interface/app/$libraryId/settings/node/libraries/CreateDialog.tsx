@@ -13,7 +13,6 @@ import {
 	Button,
 	CheckBox,
 	Dialog,
-	PasswordMeter,
 	Select,
 	SelectOption,
 	Tooltip,
@@ -21,6 +20,7 @@ import {
 	useDialog
 } from '@sd/ui';
 import { forms } from '@sd/ui';
+import { PasswordMeter } from '~/components/PasswordMeter';
 import { generatePassword } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
