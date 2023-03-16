@@ -109,6 +109,8 @@ CREATE TABLE "file_path" (
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "extension" TEXT COLLATE NOCASE NOT NULL,
+    "inode" BLOB NOT NULL,
+    "device" BLOB NOT NULL,
     "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,
@@ -319,6 +321,9 @@ CREATE INDEX "file_path_location_id_idx" ON "file_path"("location_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "file_path_location_id_materialized_path_name_extension_key" ON "file_path"("location_id", "materialized_path", "name", "extension");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "file_path_location_id_inode_device_key" ON "file_path"("location_id", "inode", "device");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "file_conflict_original_object_id_key" ON "file_conflict"("original_object_id");

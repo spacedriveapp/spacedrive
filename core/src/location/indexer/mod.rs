@@ -75,6 +75,8 @@ pub struct IndexerJobStepEntry {
 	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
+	inode: u64,
+	device: u64,
 }
 
 impl IndexerJobData {
@@ -176,6 +178,8 @@ async fn execute_indexer_step(
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
+						("inode", json!(entry.inode)),
+						("device", json!(entry.device)),
 						("parent_id", json!(entry.parent_id)),
 						("date_created", json!(entry.created_at)),
 					],
@@ -186,6 +190,8 @@ async fn execute_indexer_step(
 					materialized_path,
 					name,
 					extension,
+					entry.inode.to_le_bytes().into(),
+					entry.device.to_le_bytes().into(),
 					vec![
 						is_dir::set(is_dir),
 						parent_id::set(entry.parent_id),

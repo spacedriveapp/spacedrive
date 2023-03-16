@@ -5,7 +5,8 @@ use crate::prisma::{
 
 use std::{
 	fmt::{Display, Formatter},
-	path::{Path, PathBuf},
+	fs::Metadata,
+	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
 use dashmap::{mapref::entry::Entry, DashMap};
@@ -63,14 +64,15 @@ impl MaterializedPath {
 		is_dir: bool,
 	) -> Result<Self, FilePathError> {
 		let full_path = full_path.as_ref();
-		let mut materialized_path =
+		let mut materialized_path = format!(
+			"{MAIN_SEPARATOR_STR}{}",
 			extract_materialized_path(location_id, location_path, full_path)?
 				.to_str()
 				.expect("Found non-UTF-8 path")
-				.to_string();
+		);
 
-		if is_dir && !materialized_path.ends_with('/') {
-			materialized_path += "/";
+		if is_dir && !materialized_path.ends_with(MAIN_SEPARATOR) {
+			materialized_path += MAIN_SEPARATOR_STR;
 		}
 
 		let extension = if !is_dir {
@@ -110,7 +112,7 @@ impl MaterializedPath {
 
 	fn prepare_name(path: &Path) -> String {
 		// Not using `impl AsRef<Path>` here because it's an private method
-		path.file_name()
+		path.file_stem()
 			.unwrap_or_default()
 			.to_str()
 			.unwrap_or_default()
@@ -120,15 +122,15 @@ impl MaterializedPath {
 	pub fn parent(&self) -> Self {
 		let parent_path = Path::new(&self.materialized_path)
 			.parent()
-			.unwrap_or_else(|| Path::new("/"));
+			.unwrap_or_else(|| Path::new(MAIN_SEPARATOR_STR));
 
 		let mut parent_path_str = parent_path
 			.to_str()
 			.unwrap() // SAFETY: This unwrap is ok because this path was a valid UTF-8 String before
 			.to_string();
 
-		if !parent_path_str.ends_with('/') {
-			parent_path_str += "/";
+		if !parent_path_str.ends_with(MAIN_SEPARATOR) {
+			parent_path_str += MAIN_SEPARATOR_STR;
 		}
 
 		Self {
@@ -163,7 +165,8 @@ impl AsRef<str> for MaterializedPath {
 
 impl AsRef<Path> for MaterializedPath {
 	fn as_ref(&self) -> &Path {
-		Path::new(&self.materialized_path)
+		// Skipping / because it's not a valid path to be joined
+		Path::new(&self.materialized_path[1..])
 	}
 }
 
@@ -175,6 +178,8 @@ impl Display for MaterializedPath {
 
 #[derive(Error, Debug)]
 pub enum FilePathError {
+	#[error("File Path not found: <path={0}>")]
+	NotFound(PathBuf),
 	#[error("Received an invalid sub path: <location_path={location_path}, sub_path={sub_path}>")]
 	InvalidSubPath {
 		location_path: PathBuf,
@@ -261,6 +266,8 @@ impl LastFilePathIdManager {
 			extension,
 		}: MaterializedPath,
 		parent_id: Option<i32>,
+		inode: u64,
+		device: u64,
 	) -> Result<file_path::Data, FilePathError> {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
@@ -281,6 +288,8 @@ impl LastFilePathIdManager {
 				materialized_path,
 				name,
 				extension,
+				inode.to_le_bytes().into(),
+				device.to_le_bytes().into(),
 				vec![
 					file_path::parent_id::set(parent_id),
 					file_path::is_dir::set(is_dir),
@@ -351,14 +360,54 @@ pub async fn find_many_file_paths_by_full_path<'db>(
 	]))
 }
 
+#[cfg(feature = "location-watcher")]
+pub async fn check_existing_file_path(
+	MaterializedPath {
+		materialized_path,
+		is_dir,
+		location_id,
+		name,
+		extension,
+	}: MaterializedPath,
+	db: &PrismaClient,
+) -> Result<bool, FilePathError> {
+	db.file_path()
+		.count(vec![
+			file_path::location_id::equals(location_id),
+			file_path::materialized_path::equals(materialized_path),
+			file_path::is_dir::equals(is_dir),
+			file_path::name::equals(name),
+			file_path::extension::equals(extension),
+		])
+		.exec()
+		.await
+		.map_or_else(|e| Err(e.into()), |count| Ok(count > 0))
+}
+
 fn find_existing_file_path<'db>(
-	materialized_path: &MaterializedPath,
+	MaterializedPath {
+		materialized_path,
+		is_dir,
+		location_id,
+		name,
+		extension,
+	}: &MaterializedPath,
 	db: &'db PrismaClient,
 ) -> file_path::FindFirst<'db> {
-	db.file_path().find_first(vec![
-		file_path::location_id::equals(materialized_path.location_id),
-		file_path::materialized_path::equals(materialized_path.into()),
-	])
+	let mut params = vec![
+		file_path::location_id::equals(*location_id),
+		file_path::materialized_path::equals(materialized_path.clone()),
+		file_path::is_dir::equals(*is_dir),
+		file_path::extension::equals(extension.clone()),
+	];
+
+	// This is due to a limitation of MaterializedPath, where we don't know the location name to use
+	// as the file_path name at the root of the location "/"
+	if materialized_path != "/" {
+		params.push(file_path::name::equals(name.clone()));
+	}
+
+	db.file_path().find_first(params)
 }
 
 pub async fn get_existing_file_path_id(
@@ -412,6 +461,18 @@ pub async fn get_existing_file_or_directory(
 	location: &super::location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
 	db: &PrismaClient,
+) -> Result<file_path_with_object::Data, FilePathError> {
+	let path = path.as_ref();
+	maybe_get_existing_file_or_directory(location, path, db)
+		.await?
+		.ok_or_else(|| FilePathError::NotFound(path.to_path_buf()))
+}
+
+#[cfg(feature = "location-watcher")]
+pub async fn maybe_get_existing_file_or_directory(
+	location: &super::location_with_indexer_rules::Data,
+	path: impl AsRef<Path>,
+	db: &PrismaClient,
 ) -> Result<Option<file_path_with_object::Data>, FilePathError> {
 	let mut maybe_file_path = get_existing_file_path_with_object(
 		&MaterializedPath::new(location.id, &location.path, path.as_ref(), false)?,
@@ -450,7 +511,12 @@ pub async fn ensure_sub_path_is_in_location(
 	location_path: impl AsRef<Path>,
 	sub_path: impl AsRef<Path>,
 ) -> Result<PathBuf, FilePathError> {
-	let sub_path = sub_path.as_ref();
+	let mut sub_path = sub_path.as_ref();
+	if sub_path.is_absolute() {
+		sub_path = sub_path
+			.strip_prefix(MAIN_SEPARATOR_STR)
+			.unwrap_or(sub_path);
+	}
 	let location_path = location_path.as_ref();
 
 	if !sub_path.starts_with(location_path) {
@@ -474,7 +540,12 @@ pub async fn ensure_sub_path_is_directory(
 	location_path: impl AsRef<Path>,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), FilePathError> {
-	let sub_path = sub_path.as_ref();
+	let mut sub_path = sub_path.as_ref();
+	if sub_path.is_absolute() {
+		sub_path = sub_path
+			.strip_prefix(MAIN_SEPARATOR_STR)
+			.unwrap_or(sub_path);
+	}
 	let location_path = location_path.as_ref();
 
 	match fs::metadata(sub_path).await {
@@ -535,4 +606,44 @@ pub async fn retain_file_paths_in_location(
 		.exec()
 		.await
 		.map_err(Into::into)
+}
+
+pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathError> {
+	#[cfg(target_family = "unix")]
+	{
+		use std::os::unix::fs::MetadataExt;
+
+		Ok((metadata.ino(), metadata.dev()))
+	}
+
+	#[cfg(target_family = "windows")]
+	{
+		// TODO use this when it's stable and remove winapi-utils dependency
+
+		// use std::os::windows::fs::MetadataExt;
+
+		// (
+		// 	metadata
+		// 		.file_index()
+		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata"),
+		// 	metadata
+		// 		.volume_serial_number()
+		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata") as u64,
+		// )
+
+		use winapi::{file::information, Handle::from_path_any};
+
+		let info = information(&from_path_any(path.as_ref())?)?;
+
+		(info.file_index(), info.volume_serial_number())
+	}
+}
+
+#[cfg(target_family = "windows")]
+pub async fn get_inode_and_device_from_path(
+	path: impl AsRef<Path>,
+) -> Result<(u64, u64), FilePathError> {
+	let metadata = fs::metadata(path.as_ref()).await?;
+
+	get_inode_and_device(&metadata)
 }

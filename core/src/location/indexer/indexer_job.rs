@@ -140,7 +140,7 @@ impl StatefulJob for IndexerJob {
 			.into_iter()
 			.map(|file_path| {
 				(
-					location_path.join(file_path.materialized_path),
+					location_path.join(&file_path.materialized_path[1..]),
 					file_path.id,
 				)
 			}),
@@ -184,6 +184,8 @@ impl StatefulJob for IndexerJob {
 									dirs_ids.get(parent_dir).copied()
 								}),
 								full_path: entry.path,
+								inode: entry.inode,
+								device: entry.device,
 							}
 						})
 					},

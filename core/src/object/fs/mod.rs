@@ -76,7 +76,7 @@ pub async fn context_menu_fs_info(
 	Ok(FsInfo {
 		fs_path: get_path_from_location_id(db, location_id)
 			.await?
-			.join(&path_data.materialized_path),
+			.join(&path_data.materialized_path[1..]),
 		path_data,
 	})
 }

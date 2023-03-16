@@ -94,7 +94,8 @@ impl StatefulJob for ObjectValidatorJob {
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&file_path.materialized_path)).await?;
+			let checksum =
+				file_checksum(data.root_path.join(&file_path.materialized_path[1..])).await?;
 
 			sync.write_op(
 				db,

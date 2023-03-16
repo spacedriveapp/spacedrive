@@ -149,7 +149,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 					// SAFETY: We know that the sub_path is a valid UTF-8 string because we validated it before
 					state.init.sub_path.to_str().unwrap().to_string()
 				} else {
-					"".to_string()
+					"/".to_string()
 				},
 				thumbnails_created: 0,
 			},

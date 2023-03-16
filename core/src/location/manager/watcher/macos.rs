@@ -1,40 +1,55 @@
 use crate::{
+	invalidate_query,
 	library::Library,
-	location::{file_path_helper::get_existing_file_or_directory, location_with_indexer_rules},
+	location::{
+		file_path_helper::{
+			check_existing_file_path, get_existing_file_or_directory, get_inode_and_device,
+			MaterializedPath,
+		},
+		location_with_indexer_rules,
+	},
 };
 
 use std::{
-	collections::{hash_map::DefaultHasher, BTreeMap},
-	hash::{Hash, Hasher},
-	path::{Path, PathBuf},
+	collections::{BTreeMap, HashMap},
+	path::PathBuf,
 	time::Duration,
 };
 
 use async_trait::async_trait;
-use futures::{stream::FuturesUnordered, StreamExt};
 use notify::{
 	event::{CreateKind, DataChange, ModifyKind, RenameMode},
 	Event, EventKind,
 };
 use tokio::{
-	fs,
+	fs, io,
 	runtime::Handle,
 	select,
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
-	time::{sleep, Instant},
+	time::{interval_at, Instant, MissedTickBehavior},
 };
-use tracing::{error, trace};
+use tracing::{error, trace, warn};
 
 use super::{
 	utils::{
-		create_dir, create_dir_by_path, create_file, create_file_by_path, remove_by_file_path,
-		remove_event, rename, update_file,
+		create_dir, create_dir_or_file_by_path, create_file, remove_by_path, remove_event, rename,
+		update_file,
 	},
 	EventHandler, LocationManagerError,
 };
 
+type INodeAndDevice = (u64, u64);
+type InstantLocationPathAndLibrary = (Instant, LocationPathAndLibrary);
+type LocationPathAndLibrary = (location_with_indexer_rules::Data, PathBuf, Library);
+
 const ONE_SECOND: Duration = Duration::from_secs(1);
+const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
+
+enum CreateOrDelete {
+	Create,
+	Delete,
+}
 
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler {
@@ -153,77 +168,177 @@ impl EventHandler for MacOsEventHandler {
 	}
 }
 
+/// Rename events on MacOS using FSEvents backend are pretty complicated;
+/// There are just (ModifyKind::Name(RenameMode::Any) events and nothing else.
+/// This means that we have to link the old path with the new path to know which file was renamed.
+/// But you can't forget that renames events aren't always the case that I file name was modified,
+/// but its path was modified. So we have to check if the file was moved. When a file is moved
+/// inside the same location, we received 2 events: one for the old path and one for the new path.
+/// But when a file is moved to another location, we only receive the old path event... This
+/// way we have to handle like a file deletion, and the same applies for when a file is moved to our
+/// current location from anywhere else, we just receive the new path rename event, which means a
+/// creation.
 async fn handle_rename_events_loop(
 	mut rename_events_rx: mpsc::Receiver<(location_with_indexer_rules::Data, PathBuf, Library)>,
 	mut stop_rx: oneshot::Receiver<()>,
 ) {
-	// Organizing locations, paths and library contexts by path's hash, so we can easy share
-	let mut paths_by_hash = BTreeMap::new();
-	let mut last_path_hash = None;
-	let mut timeouts = FuturesUnordered::new();
+	let mut old_paths_map = HashMap::new();
+	let mut new_paths_map = HashMap::new();
+
+	// Using this buffer to not reallocate memory for every cleanup
+	let mut maps_buffer = vec![];
+
+	let mut cleaning_interval = interval_at(Instant::now() + HUNDRED_MILLIS, HUNDRED_MILLIS);
+	// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
+	cleaning_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
 	loop {
 		select! {
 			_ = &mut stop_rx => {
 				break;
 			}
-			Some((location, path, library_ctx)) = rename_events_rx.recv() => {
+			Some((location, path, library)) = rename_events_rx.recv() => {
 				trace!("Received rename event for path: {}", path.display());
-				if let Some(path_hash) = last_path_hash.take() {
-					// SAFETY: If we have a `path_hash` in the Option,
-					// it's because we put it in the hashmap
-					let (location, old_path, library_ctx) = paths_by_hash.remove(&path_hash).unwrap();
-
-					// We received 2 rename events in an interval smaller then 100ms
-					// this is actually a rename or move operation
-					if let Err(e) = rename(path, old_path, &location, &library_ctx).await {
-						error!("Failed to rename file: {e}");
-					}
-
-				} else {
-					let mut hasher = DefaultHasher::new();
-					path.hash(&mut hasher);
-					let path_hash = hasher.finish();
-
-					paths_by_hash.insert(path_hash, (location, path, library_ctx));
-					timeouts.push(timeout(path_hash));
-					last_path_hash = Some(path_hash);
+				if let Err(e) = handle_single_rename_event(
+					location,
+					path,
+					library,
+					&mut old_paths_map,
+					&mut new_paths_map,
+				).await {
+					error!("Failed to handle rename event: {e}");
 				}
 			}
-			Some(path_hash) = timeouts.next() => {
-				trace!("Timeout for path_hash: {path_hash}");
-				// We need this if let here because the path can already be handled by
-				// the other `select!` branch
-				if let Some((location, path, library)) = paths_by_hash.remove(&path_hash) {
-					last_path_hash = None;
-					trace!("Path: {}", path.display());
-
-					if let Err(e) = handle_create_or_delete(&location, path, &library).await {
-						error!("Failed to handle create or delete event: {e:#?}");
-					}
-				}
+			_ = cleaning_interval.tick() => {
+				// Cleaning out recently renamed files that are older than 2 seconds
+				clear_paths_map(&mut old_paths_map, &mut maps_buffer, CreateOrDelete::Delete).await;
+				clear_paths_map(&mut new_paths_map, &mut maps_buffer, CreateOrDelete::Create).await;
 			}
 		}
 	}
 }
 
-async fn timeout(path_hash: u64) -> u64 {
-	sleep(Duration::from_millis(100)).await;
-	path_hash
+async fn clear_paths_map(
+	paths_map: &mut HashMap<INodeAndDevice, InstantLocationPathAndLibrary>,
+	temp_buffer: &mut Vec<(INodeAndDevice, InstantLocationPathAndLibrary)>,
+	create_or_delete: CreateOrDelete,
+) {
+	// Just to make sure that our buffer is clean
+	temp_buffer.clear();
+
+	for (created_at, (instant, (location, path, library))) in paths_map.drain() {
+		if instant.elapsed() > HUNDRED_MILLIS {
+			match create_or_delete {
+				CreateOrDelete::Create => {
+					if let Err(e) = create_dir_or_file_by_path(&location, &path, &library).await {
+						error!("Failed to create file_path on MacOS : {e}");
+					}
+					trace!("Created file_path due timeout: {}", path.display())
+				}
+				CreateOrDelete::Delete => {
+					if let Err(e) = remove_by_path(&location, &path, &library).await {
+						error!("Failed to remove file_path: {e}");
+					}
+					trace!("Removed file_path due timeout: {}", path.display())
+				}
+			}
+			invalidate_query!(&library, "locations.getExplorerData");
+		} else {
+			temp_buffer.push((created_at, (instant, (location, path, library))));
+		}
+	}
+
+	for (key, value) in temp_buffer.drain(..) {
+		paths_map.insert(key, value);
+	}
 }
 
-async fn handle_create_or_delete(
-	location: &location_with_indexer_rules::Data,
-	path: impl AsRef<Path>,
-	library: &Library,
+async fn handle_single_rename_event(
+	location: location_with_indexer_rules::Data,
+	path: PathBuf, // this is used internally only once, so we can use just PathBuf
+	library: Library,
+	old_paths_map: &mut HashMap<INodeAndDevice, InstantLocationPathAndLibrary>,
+	new_paths_map: &mut HashMap<INodeAndDevice, InstantLocationPathAndLibrary>,
 ) -> Result<(), LocationManagerError> {
-	let path = path.as_ref();
-	if let Some(file_path) = get_existing_file_or_directory(location, path, &library.db).await? {
-		remove_by_file_path(location, path, &file_path, library).await?;
-	} else if fs::metadata(path).await?.is_dir() {
-		create_dir_by_path(location, path, library).await?;
-	} else {
-		create_file_by_path(location, path, library).await?;
+	match fs::metadata(&path).await {
+		Ok(meta) => {
+			// File or directory exists, so this can be a "new path" to an actual rename/move or a creation
+			trace!("Path exists: {}", path.display());
+
+			let inode_and_device = get_inode_and_device(&meta)?;
+
+			if !check_existing_file_path(
+				MaterializedPath::new(location.id, &location.path, &path, meta.is_dir())?,
+				&library.db,
+			)
+			.await?
+			{
+				if let Some((_, (old_path_location, old_path, old_path_library))) =
+					old_paths_map.remove(&inode_and_device)
+				{
+					// Just to make sure we're not doing anything wrong
+					assert_eq!(location.id, old_path_location.id);
+					assert_eq!(library.id, old_path_library.id);
+
+					trace!(
+						"Got a match new -> old: {} -> {}",
+						path.display(),
+						old_path.display()
+					);
+
+					// We found a new path for this old path, so we can rename it
+					rename(&path, &old_path, &location, &library).await?;
+				} else {
+					trace!("No match for new path yet: {}", path.display());
+					new_paths_map.insert(
+						inode_and_device,
+						(Instant::now(), (location, path, library)),
+					);
+				}
+			} else {
+				warn!(
+					"Received rename event for a file that already exists in the database: {}",
+					path.display()
+				);
+			}
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// File or directory does not exist in the filesystem, if it exists in the database,
+			// then we try pairing it with the old path from our map
+
+			trace!("Path doesn't exists: {}", path.display());
+
+			let file_path = get_existing_file_or_directory(&location, &path, &library.db).await?;
+			let inode_and_device = (
+				u64::from_le_bytes(file_path.inode[0..8].try_into().unwrap()),
+				u64::from_le_bytes(file_path.device[0..8].try_into().unwrap()),
+			);
+
+			if let Some((_, (new_path_location, new_path, new_path_library))) =
+				new_paths_map.remove(&inode_and_device)
+			{
+				// Just to make sure we're not doing anything wrong
+				assert_eq!(location.id, new_path_location.id);
+				assert_eq!(library.id, new_path_library.id);
+
+				trace!(
+					"Got a match old -> new: {} -> {}",
+					path.display(),
+					new_path.display()
+				);
+
+				// We found a new path for this old path, so we can rename it
+				rename(&new_path, &path, &location, &library).await?;
+			} else {
+				trace!("No match for old path yet: {}", path.display());
+				// We didn't find a new path for this old path, so we store ir for later
+				old_paths_map.insert(
+					inode_and_device,
+					(Instant::now(), (location, path, library)),
+				);
+			}
+		}
+		Err(e) => return Err(e.into()),
 	}
 
 	Ok(())

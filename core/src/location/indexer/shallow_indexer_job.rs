@@ -189,6 +189,8 @@ impl StatefulJob for ShallowIndexerJob {
 								created_at: entry.created_at,
 								file_id: 0, // To be set later
 								parent_id: Some(parent_id),
+								inode: entry.inode,
+								device: entry.device,
 							})
 						},
 					)

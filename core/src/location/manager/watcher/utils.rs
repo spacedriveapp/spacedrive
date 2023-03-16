@@ -4,9 +4,9 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			extract_materialized_path, file_path_with_object, get_existing_file_or_directory,
-			get_existing_file_path_with_object, get_parent_dir, get_parent_dir_id,
-			MaterializedPath,
+			extract_materialized_path, file_path_with_object, get_existing_file_path_with_object,
+			get_inode_and_device, get_parent_dir, get_parent_dir_id,
+			maybe_get_existing_file_or_directory, MaterializedPath,
 		},
 		location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -25,15 +25,17 @@ use crate::{
 
 use std::{
 	collections::HashSet,
-	path::{Path, PathBuf},
+	fs::Metadata,
+	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 	str::FromStr,
 };
+
+use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use int_enum::IntEnum;
 use notify::{event::RemoveKind, Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
-use sd_file_ext::extensions::ImageExtension;
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
 use uuid::Uuid;
@@ -54,12 +56,14 @@ pub(super) async fn create_dir(
 	event: &Event,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	create_dir_by_path(location, &event.paths[0], library).await
+	let path = &event.paths[0];
+	create_dir_by_path(location, path, &fs::metadata(path).await?, library).await
 }
 
 pub(super) async fn create_dir_by_path(
 	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
+	metadata: &Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id != library.node_local_id {
@@ -76,18 +80,26 @@ pub(super) async fn create_dir_by_path(
 
 	let materialized_path = MaterializedPath::new(location.id, &location.path, path, true)?;
 
+	let (inode, device) = get_inode_and_device(metadata)?;
+
 	let parent_directory = get_parent_dir(&materialized_path, &library.db).await?;
 
 	trace!("parent_directory: {:?}", parent_directory);
 
 	let Some(parent_directory) = parent_directory else {
-		warn!("Watcher found a path without parent");
+		warn!("Watcher found a directory without parent");
         return Ok(())
 	};
 
 	let created_path = library
 		.last_file_path_id_manager
-		.create_file_path(&library.db, materialized_path, Some(parent_directory.id))
+		.create_file_path(
+			&library.db,
+			materialized_path,
+			Some(parent_directory.id),
+			inode,
+			device,
+		)
 		.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
@@ -105,12 +117,14 @@ pub(super) async fn create_file(
 	event: &Event,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	create_file_by_path(location, &event.paths[0], library).await
+	let path = &event.paths[0];
+	create_file_by_path(location, path, &fs::metadata(path).await?, library).await
 }
 
 pub(super) async fn create_file_by_path(
 	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
+	metadata: &Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
@@ -128,16 +142,24 @@ pub(super) async fn create_file_by_path(
 
 	let materialized_path = MaterializedPath::new(location.id, &location.path, path, false)?;
 
+	let (inode, device) = get_inode_and_device(metadata)?;
+
 	let Some(parent_directory) =
-		get_parent_dir(&materialized_path, &library.db).await?
+		get_parent_dir(&materialized_path, db).await?
     else {
-		warn!("Watcher found a path without parent");
+		warn!("Watcher found a file without parent");
         return Ok(())
     };
 
 	let created_file = library
 		.last_file_path_id_manager
-		.create_file_path(&library.db, materialized_path, Some(parent_directory.id))
+		.create_file_path(
+			db,
+			materialized_path,
+			Some(parent_directory.id),
+			inode,
+			device,
+		)
 		.await?;
 
 	info!("Created path: {}", created_file.materialized_path);
@@ -147,7 +169,7 @@ pub(super) async fn create_file_by_path(
 		cas_id,
 		kind,
 		fs_metadata,
-	} = FileMetadata::new(&location.path, &created_file.materialized_path).await?;
+	} = FileMetadata::new(&location.path, &created_file.materialized_path[1..]).await?;
 
 	let existing_object = db
 		.object()
@@ -206,6 +228,19 @@ pub(super) async fn create_file_by_path(
 	invalidate_query!(library, "locations.getExplorerData");
 
 	Ok(())
+}
+
+pub(super) async fn create_dir_or_file_by_path(
+	location: &location_with_indexer_rules::Data,
+	path: impl AsRef<Path>,
+	library: &Library,
+) -> Result<(), LocationManagerError> {
+	let metadata = fs::metadata(path.as_ref()).await?;
+	if metadata.is_dir() {
+		create_dir_by_path(location, path, &metadata, library).await
+	} else {
+		create_file_by_path(location, path, &metadata, library).await
+	}
 }
 
 pub(super) async fn file_creation_or_update(
@@ -267,7 +302,7 @@ async fn inner_update_file(
 		cas_id,
 		fs_metadata,
 		..
-	} = FileMetadata::new(&location.path, &file_path.materialized_path).await?;
+	} = FileMetadata::new(&location.path, &file_path.materialized_path[1..]).await?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
@@ -335,24 +370,28 @@ pub(super) async fn rename(
 
 	let old_path_materialized =
 		extract_materialized_path(location.id, location_path, old_path.as_ref())?;
-	let mut old_path_materialized_str = old_path_materialized
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
+	let mut old_path_materialized_str = format!(
+		"{MAIN_SEPARATOR_STR}{}",
+		old_path_materialized
+			.to_str()
+			.expect("Found non-UTF-8 path")
+	);
 
 	let new_path_materialized =
 		extract_materialized_path(location.id, location_path, new_path.as_ref())?;
-	let mut new_path_materialized_str = new_path_materialized
-		.to_str()
-		.expect("Found non-UTF-8 path")
-		.to_string();
+	let mut new_path_materialized_str = format!(
+		"{MAIN_SEPARATOR_STR}{}",
+		new_path_materialized
+			.to_str()
+			.expect("Found non-UTF-8 path")
+	);
 
 	let old_materialized_path_parent = old_path_materialized
 		.parent()
-		.unwrap_or_else(|| Path::new("/"));
+		.unwrap_or_else(|| Path::new(MAIN_SEPARATOR_STR));
 	let new_materialized_path_parent = new_path_materialized
 		.parent()
-		.unwrap_or_else(|| Path::new("/"));
+		.unwrap_or_else(|| Path::new(MAIN_SEPARATOR_STR));
 
 	// Renaming a file could potentially be a move to another directory, so we check if our parent changed
 	let changed_parent_id = if old_materialized_path_parent != new_materialized_path_parent {
@@ -373,15 +412,16 @@ pub(super) async fn rename(
 		None
 	};
 
-	if let Some(file_path) = get_existing_file_or_directory(location, old_path, &library.db).await?
+	if let Some(file_path) =
+		maybe_get_existing_file_or_directory(location, old_path, &library.db).await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
-			if !old_path_materialized_str.ends_with('/') {
-				old_path_materialized_str += "/";
+			if !old_path_materialized_str.ends_with(MAIN_SEPARATOR) {
+				old_path_materialized_str += MAIN_SEPARATOR_STR;
 			}
-			if !new_path_materialized_str.ends_with('/') {
-				new_path_materialized_str += "/";
+			if !new_path_materialized_str.ends_with(MAIN_SEPARATOR) {
+				new_path_materialized_str += MAIN_SEPARATOR_STR;
 			}
 
 			let updated = library
@@ -389,11 +429,10 @@ pub(super) async fn rename(
 				._execute_raw(raw!(
 					"UPDATE file_path \
 						SET materialized_path = REPLACE(materialized_path, {}, {}) \
-						WHERE location_id = {} AND parent_id = {}",
-					PrismaValue::String(old_path_materialized_str),
+						WHERE location_id = {}",
+					PrismaValue::String(old_path_materialized_str.clone()),
 					PrismaValue::String(new_path_materialized_str.clone()),
-					PrismaValue::Int(location.id as i64),
-					PrismaValue::Int(file_path.id as i64)
+					PrismaValue::Int(location.id as i64)
 				))
 				.exec()
 				.await?;
@@ -460,7 +499,7 @@ pub(super) async fn remove_by_path(
 	let path = path.as_ref();
 
 	// if it doesn't exist either way, then we don't care
-	let Some(file_path) = get_existing_file_or_directory(
+	let Some(file_path) = maybe_get_existing_file_or_directory(
 		location,
 		path,
 		&library.db

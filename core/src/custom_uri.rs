@@ -125,7 +125,7 @@ async fn handle_file(
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 			let lru_entry = (
-				Path::new(&file_path.location.path).join(&file_path.materialized_path),
+				Path::new(&file_path.location.path).join(&file_path.materialized_path[1..]),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
