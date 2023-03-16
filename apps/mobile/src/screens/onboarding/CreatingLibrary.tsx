@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import {
 	HASHING_ALGOS,
 	resetOnboardingStore,
+	telemetryStore,
 	useBridgeMutation,
 	useDebugState,
 	useOnboardingStore
@@ -38,18 +39,26 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 
 	const created = useRef(false);
 
-	useEffect(() => {
-		if (created.current == true) return;
-		created.current = true;
+	const create = async () => {
+		telemetryStore.shareTelemetry = obStore.shareTelemetry;
+
 		createLibrary.mutate({
 			name: obStore.newLibraryName,
 			auth: {
 				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken ?? ''
+				value: obStore.passwordSetToken || ''
 			},
 			algorithm: obStore.algorithm,
 			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
 		});
+
+		return;
+	};
+
+	useEffect(() => {
+		if (created.current == true) return;
+		created.current = true;
+		create();
 		const timer = setTimeout(() => {
 			setStatus('Almost done...');
 		}, 2000);

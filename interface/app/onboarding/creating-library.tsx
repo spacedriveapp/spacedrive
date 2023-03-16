@@ -1,9 +1,7 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-	Algorithm,
 	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
@@ -59,7 +57,7 @@ export default function OnboardingCreatingLibrary() {
 				type: 'TokenizedPassword',
 				value: obStore.passwordSetToken || ''
 			},
-			algorithm: obStore.algorithm as Algorithm,
+			algorithm: obStore.algorithm,
 			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
 		});
 
@@ -84,6 +82,7 @@ export default function OnboardingCreatingLibrary() {
 			clearTimeout(timer);
 			clearTimeout(timer2);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (
