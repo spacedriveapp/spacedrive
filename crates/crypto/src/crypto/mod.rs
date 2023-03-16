@@ -1,9 +1,6 @@
 //! This module contains all encryption and decryption items. These are used throughout the crate for all encryption/decryption needs.
 
-use std::io::Read;
-
 use crate::Result;
-use tokio::io::AsyncReadExt;
 
 mod stream;
 
@@ -18,14 +15,14 @@ pub use self::stream::{Decryptor, Encryptor};
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
-async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
 where
-	R: AsyncReadExt + Unpin + Send,
+	R: std::io::Read,
 {
 	let mut read_count = 0;
 
 	loop {
-		let i = reader.read(&mut buffer[read_count..]).await?;
+		let i = reader.read(&mut buffer[read_count..])?;
 		read_count += i;
 		if i == 0 || read_count == buffer.len() {
 			// if we're EOF or the buffer is filled
@@ -43,14 +40,14 @@ where
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
-fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
 where
-	R: Read,
+	R: tokio::io::AsyncReadExt + Unpin + Send,
 {
 	let mut read_count = 0;
 
 	loop {
-		let i = reader.read(&mut buffer[read_count..])?;
+		let i = reader.read(&mut buffer[read_count..]).await?;
 		read_count += i;
 		if i == 0 || read_count == buffer.len() {
 			// if we're EOF or the buffer is filled
@@ -128,7 +125,6 @@ mod tests {
 	async fn aes_encrypt_bytes() {
 		let ciphertext =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &[])
-				.await
 				.unwrap();
 
 		assert_eq!(AES_BYTES_EXPECTED[0].to_vec(), ciphertext);
@@ -138,7 +134,6 @@ mod tests {
 	async fn aes_encrypt_bytes_with_aad() {
 		let ciphertext =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &AAD)
-				.await
 				.unwrap();
 
 		assert_eq!(AES_BYTES_EXPECTED[1].to_vec(), ciphertext);
@@ -153,7 +148,6 @@ mod tests {
 			&AES_BYTES_EXPECTED[0],
 			&[],
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
@@ -168,7 +162,6 @@ mod tests {
 			&AES_BYTES_EXPECTED[1],
 			&AAD,
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
@@ -184,7 +177,6 @@ mod tests {
 			&AES_BYTES_EXPECTED[1],
 			&[],
 		)
-		.await
 		.unwrap();
 	}
 
@@ -199,7 +191,6 @@ mod tests {
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &[])
-			.await
 			.unwrap();
 
 		let mut reader = Cursor::new(writer.into_inner());
@@ -209,7 +200,6 @@ mod tests {
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &[])
-			.await
 			.unwrap();
 
 		let output = writer.into_inner();
@@ -228,7 +218,6 @@ mod tests {
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &AAD)
-			.await
 			.unwrap();
 
 		let mut reader = Cursor::new(writer.into_inner());
@@ -238,7 +227,6 @@ mod tests {
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &AAD)
-			.await
 			.unwrap();
 
 		let output = writer.into_inner();
@@ -255,7 +243,6 @@ mod tests {
 			&PLAINTEXT,
 			&[],
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext);
@@ -270,7 +257,6 @@ mod tests {
 			&PLAINTEXT,
 			&AAD,
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(XCHACHA_BYTES_EXPECTED[1].to_vec(), ciphertext);
@@ -285,7 +271,6 @@ mod tests {
 			&XCHACHA_BYTES_EXPECTED[0],
 			&[],
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
@@ -300,7 +285,6 @@ mod tests {
 			&XCHACHA_BYTES_EXPECTED[1],
 			&AAD,
 		)
-		.await
 		.unwrap();
 
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
@@ -316,7 +300,6 @@ mod tests {
 			&XCHACHA_BYTES_EXPECTED[1],
 			&[],
 		)
-		.await
 		.unwrap();
 	}
 
@@ -331,7 +314,6 @@ mod tests {
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &[])
-			.await
 			.unwrap();
 
 		let mut reader = Cursor::new(writer.into_inner());
@@ -341,7 +323,6 @@ mod tests {
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &[])
-			.await
 			.unwrap();
 
 		let output = writer.into_inner();
@@ -360,7 +341,6 @@ mod tests {
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, &AAD)
-			.await
 			.unwrap();
 
 		let mut reader = Cursor::new(writer.into_inner());
@@ -370,7 +350,6 @@ mod tests {
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &AAD)
-			.await
 			.unwrap();
 
 		let output = writer.into_inner();
@@ -388,7 +367,6 @@ mod tests {
 			&PLAINTEXT,
 			&[],
 		)
-		.await
 		.unwrap();
 	}
 
@@ -402,7 +380,6 @@ mod tests {
 			&XCHACHA_BYTES_EXPECTED[0],
 			&[],
 		)
-		.await
 		.unwrap();
 	}
 }
