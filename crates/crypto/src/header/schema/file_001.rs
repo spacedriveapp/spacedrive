@@ -118,7 +118,7 @@ impl TryFrom<Vec<KeyslotBundle001>> for KeyslotAreaBundle001 {
 
 	fn try_from(value: Vec<KeyslotBundle001>) -> std::result::Result<Self, Self::Error> {
 		let s: [KeyslotBundle001; KEYSLOT_LIMIT] =
-			value.try_into().map_err(|_| Error::VecArrSizeMismatch)?;
+			value.try_into().map_err(|_| Error::LengthMismatch)?;
 
 		Ok(Self { bundles: s })
 	}

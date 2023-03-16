@@ -37,10 +37,10 @@ pub enum Error {
 	Encrypt,
 	#[error("error while decrypting")]
 	Decrypt,
-	#[error("nonce length mismatch")]
-	NonceLengthMismatch,
 	#[error("error initialising stream encryption/decryption")]
 	StreamModeInit,
+	#[error("a provided type consists of entirely zeroes")]
+	ZeroType,
 
 	// header errors
 	#[cfg(feature = "headers")]
@@ -95,10 +95,10 @@ pub enum Error {
 	KeyNotMemoryOnly,
 
 	// general errors
+	#[error("expected length differs from actual length")]
+	LengthMismatch,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
-	#[error("mismatched data length while converting vec to array")]
-	VecArrSizeMismatch,
 	#[error("incorrect password/details were provided")]
 	IncorrectPassword,
 	#[error("error while serializing/deserializing an item")]

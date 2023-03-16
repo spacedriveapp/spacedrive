@@ -104,7 +104,7 @@ impl TryFrom<Vec<u8>> for Nonce {
 		match value.len() {
 			8 => Ok(Self::Aes256Gcm(to_array(&value)?)),
 			20 => Ok(Self::XChaCha20Poly1305(to_array(&value)?)),
-			_ => Err(Error::VecArrSizeMismatch),
+			_ => Err(Error::LengthMismatch),
 		}
 	}
 }

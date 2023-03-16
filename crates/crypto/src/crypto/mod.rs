@@ -64,8 +64,9 @@ mod tests {
 	use rand_chacha::ChaCha20Rng;
 
 	use crate::{
-		primitives::BLOCK_LEN,
+		primitives::{BLOCK_LEN, KEY_LEN},
 		types::{Algorithm, Key, Nonce},
+		Protected,
 	};
 
 	use super::*;
@@ -358,7 +359,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic(expected = "NonceLengthMismatch")]
+	#[should_panic(expected = "LengthMismatch")]
 	async fn encrypt_with_invalid_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
@@ -371,7 +372,33 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic(expected = "NonceLengthMismatch")]
+	#[should_panic(expected = "ZeroType")]
+	async fn encrypt_with_null_nonce() {
+		Encryptor::encrypt_bytes(
+			KEY,
+			Nonce::XChaCha20Poly1305([0u8; 20]),
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "ZeroType")]
+	async fn encrypt_with_null_key() {
+		Encryptor::encrypt_bytes(
+			Key(Protected::new([0u8; KEY_LEN])),
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "LengthMismatch")]
 	async fn decrypt_with_invalid_nonce() {
 		Decryptor::decrypt_bytes(
 			KEY,

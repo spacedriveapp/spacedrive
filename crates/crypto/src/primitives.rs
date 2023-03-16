@@ -66,7 +66,7 @@ pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key deri
 pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
 	bytes.to_vec().try_into().map_err(|mut b: Vec<u8>| {
 		b.zeroize();
-		Error::VecArrSizeMismatch
+		Error::LengthMismatch
 	})
 }
 
@@ -76,4 +76,17 @@ pub fn generate_bytes<const I: usize>() -> [u8; I] {
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 
 	bytes
+}
+
+pub fn ensure_not_zero(b: &[u8]) -> Result<()> {
+	(!b.iter().all(|x| x == &0u8))
+		.then_some(())
+		.ok_or(Error::ZeroType)
+}
+
+pub const fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {
+	if b.len() != expected {
+		return Err(Error::LengthMismatch);
+	}
+	Ok(())
 }
