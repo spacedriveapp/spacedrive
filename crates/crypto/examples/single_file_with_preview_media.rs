@@ -10,6 +10,8 @@ use sd_crypto::{
 	Protected,
 };
 
+const MAGIC_BYTES: [u8; 6] = *b"crypto";
+
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
@@ -51,7 +53,7 @@ async fn encrypt() {
 		.unwrap();
 
 	// Write the header to the file
-	header.write(&mut writer).await.unwrap();
+	header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 	// Use the nonce created by the header to initialise a stream encryption object
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -71,7 +73,9 @@ async fn decrypt_preview_media() {
 	let mut reader = File::open("test.encrypted").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let header = FileHeader::from_reader(&mut reader).await.unwrap();
+	let header = FileHeader::from_reader(&mut reader, MAGIC_BYTES)
+		.await
+		.unwrap();
 
 	let master_key = header
 		.decrypt_master_key_with_password(password)

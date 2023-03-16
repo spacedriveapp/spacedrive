@@ -39,11 +39,6 @@ use crate::{
 
 use super::schema::FileHeader001;
 
-/// These are used to quickly and easily identify Spacedrive-encrypted files
-///
-/// These currently are set to "ballapp", plus the ASCII "ETX" code (`0x03`)
-pub const MAGIC_BYTES: [u8; 8] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03];
-
 // Can be expanded (not shrunk!) inconsequentially I believe
 #[derive(Clone, Eq, PartialEq, bincode::Encode, bincode::Decode)]
 pub enum HeaderObjectType {
@@ -148,14 +143,14 @@ macro_rules! generate_header_versions {
 			}
 
 			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
-			pub async fn from_reader<R>(reader: &mut R) -> Result<Self>
+			pub async fn from_reader<R, const I: usize>(reader: &mut R, magic_bytes: [u8; I]) -> Result<Self>
 			where
 				R: AsyncReadExt + AsyncSeekExt + Unpin + Send,
 			{
-				let mut magic_bytes = [0u8; MAGIC_BYTES.len()];
-				reader.read_exact(&mut magic_bytes).await?;
+				let mut mb = [0u8; I];
+				reader.read_exact(&mut mb).await?;
 
-				if magic_bytes != MAGIC_BYTES {
+				if mb != magic_bytes {
 					return Err(Error::Serialization);
 				}
 
@@ -187,7 +182,7 @@ generate_header_versions!(V001, FileHeader001, (V001, FileHeader001, Keyslot001)
 
 impl FileHeader {
 	/// This is a helper function to serialize and write a header to a file.
-	pub async fn write<W>(&self, writer: &mut W) -> Result<()>
+	pub async fn write<W, const I: usize>(&self, writer: &mut W, magic_bytes: [u8; I]) -> Result<()>
 	where
 		W: AsyncWriteExt + Unpin + Send,
 	{
@@ -197,7 +192,7 @@ impl FileHeader {
 		};
 
 		let serialized_bundle = bincode::encode_to_vec(&bundle, bincode::config::standard())?;
-		writer.write_all(&MAGIC_BYTES).await?;
+		writer.write_all(&magic_bytes).await?;
 
 		writer
 			.write_all(&(serialized_bundle.len() as u64).to_le_bytes())
@@ -294,6 +289,9 @@ mod tests {
 
 	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
+
+	pub const MAGIC_BYTES: [u8; 6] = *b"crypto";
+
 	const PVM_BYTES: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
 	const METADATA: Metadata = Metadata {
 		count: 43948,
@@ -315,11 +313,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		FileHeader::from_reader(&mut writer).await.unwrap();
+		FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		assert!(header.count_keyslots() == 1);
 	}
@@ -349,11 +349,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		FileHeader::from_reader(&mut writer).await.unwrap();
+		FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		assert!(header.count_keyslots() == 2);
 	}
@@ -384,11 +386,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		let bytes = header
 			.decrypt_object(HeaderObjectType::Metadata, mk)
@@ -430,11 +434,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		header
 			.decrypt_object(HeaderObjectType::PreviewMedia, mk)
@@ -464,11 +470,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
@@ -505,11 +513,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 1);
@@ -620,11 +630,13 @@ mod tests {
 			.await
 			.unwrap();
 
-		header.write(&mut writer).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
 
 		writer.rewind().await.unwrap();
 
-		let header = FileHeader::from_reader(&mut writer).await.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);

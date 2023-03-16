@@ -202,7 +202,7 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// setup master password
-		let verification_key = KeyManager::onboarding(km_config, library.id).await?;
+		let verification_key = KeyManager::onboarding(km_config, library.id)?;
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;
 

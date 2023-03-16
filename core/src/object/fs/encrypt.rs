@@ -13,7 +13,7 @@ use specta::Type;
 use tokio::fs::File;
 use tracing::warn;
 
-use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
+use super::{context_menu_fs_info, FsInfo, BYTES_EXT, ENCRYPTED_FILE_MAGIC_BYTES};
 
 pub struct FileEncryptorJob;
 
@@ -140,12 +140,14 @@ impl StatefulJob for FileEncryptorJob {
 				)
 				.await?;
 
-			header.write(&mut writer).await?;
+			header
+				.write(&mut writer, ENCRYPTED_FILE_MAGIC_BYTES)
+				.await?;
 
 			let encryptor = Encryptor::new(master_key, header.get_nonce(), state.init.algorithm)?;
 
 			encryptor
-				.encrypt_streams(&mut reader, &mut writer, &header.get_aad())
+				.encrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
 				.await?;
 		} else {
 			warn!(

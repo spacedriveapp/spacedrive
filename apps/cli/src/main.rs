@@ -11,12 +11,15 @@ struct Args {
 	path: PathBuf,
 }
 
+/// Should be sourced from the core
+pub const ENCRYPTED_FILE_MAGIC_BYTES: [u8; 8] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03];
+
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Args::parse();
 
 	let mut reader = File::open(args.path).await.context("unable to open file")?;
-	let header = FileHeader::from_reader(&mut reader).await?;
+	let header = FileHeader::from_reader(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
 	print_crypto_details(&header, &header.get_aad());
 
 	Ok(())

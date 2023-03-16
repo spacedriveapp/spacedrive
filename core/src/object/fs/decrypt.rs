@@ -6,7 +6,7 @@ use tokio::fs::File;
 
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 
-use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
+use super::{context_menu_fs_info, FsInfo, BYTES_EXT, ENCRYPTED_FILE_MAGIC_BYTES};
 pub struct FileDecryptorJob;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobState {}
@@ -83,7 +83,7 @@ impl StatefulJob for FileDecryptorJob {
 		let mut reader = File::open(info.fs_path.clone()).await?;
 		let mut writer = File::create(output_path).await?;
 
-		let header = FileHeader::from_reader(&mut reader).await?;
+		let header = FileHeader::from_reader(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
 
 		let keys = key_manager.enumerate_hashed_keys();
 		let master_key = header.decrypt_master_key(keys).await?;
@@ -91,7 +91,7 @@ impl StatefulJob for FileDecryptorJob {
 		let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm())?;
 
 		decryptor
-			.decrypt_streams(&mut reader, &mut writer, &header.get_aad())
+			.decrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
 			.await?;
 
 		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
