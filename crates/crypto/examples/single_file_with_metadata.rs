@@ -68,7 +68,7 @@ async fn encrypt() {
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams(&mut reader, &mut writer, &header.get_aad())
+		.encrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
 		.await
 		.unwrap();
 }
