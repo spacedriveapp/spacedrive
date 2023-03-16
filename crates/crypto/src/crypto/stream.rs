@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read, Write};
 
 use crate::{
-	primitives::{ensure_length, ensure_not_zero, AEAD_TAG_LEN, BLOCK_LEN},
+	primitives::{ensure_length, ensure_not_null, AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
@@ -42,8 +42,8 @@ macro_rules! impl_stream {
 			#[allow(clippy::needless_pass_by_value)]
 			pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
 				ensure_length(algorithm.nonce_len(), &nonce)?;
-				ensure_not_zero(key.expose())?;
-				ensure_not_zero(&nonce)?;
+				ensure_not_null(key.expose())?;
+				ensure_not_null(&nonce)?;
 
 				let s = match algorithm {
 					$(

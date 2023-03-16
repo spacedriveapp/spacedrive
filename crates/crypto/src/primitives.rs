@@ -78,10 +78,10 @@ pub fn generate_bytes<const I: usize>() -> [u8; I] {
 	bytes
 }
 
-pub fn ensure_not_zero(b: &[u8]) -> Result<()> {
+pub fn ensure_not_null(b: &[u8]) -> Result<()> {
 	(!b.iter().all(|x| x == &0u8))
 		.then_some(())
-		.ok_or(Error::ZeroType)
+		.ok_or(Error::NullType)
 }
 
 pub const fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {

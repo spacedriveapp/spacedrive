@@ -39,8 +39,8 @@ pub enum Error {
 	Decrypt,
 	#[error("error initialising stream encryption/decryption")]
 	StreamModeInit,
-	#[error("a provided type consists of entirely zeroes")]
-	ZeroType,
+	#[error("a provided type is completely null")]
+	NullType,
 
 	// header errors
 	#[cfg(feature = "headers")]

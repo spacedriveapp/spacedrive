@@ -372,7 +372,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic(expected = "ZeroType")]
+	#[should_panic(expected = "NullType")]
 	async fn encrypt_with_null_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
@@ -385,7 +385,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[should_panic(expected = "ZeroType")]
+	#[should_panic(expected = "NullType")]
 	async fn encrypt_with_null_key() {
 		Encryptor::encrypt_bytes(
 			Key(Protected::new([0u8; KEY_LEN])),
