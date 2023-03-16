@@ -7,7 +7,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 	variants: {
 		variant: {
-			default: 'border-app-line bg-app text-ink'
+			default: 'border-app-line bg-app-input text-ink'
 		},
 		size: {
 			default: ['py-2', 'px-3'],
@@ -26,7 +26,7 @@ export const Input = ({ variant, size, ...props }: InputProps) => {
 	const { style, ...otherProps } = props;
 	return (
 		<TextInput
-			placeholderTextColor={tw.color('ink-dull')}
+			placeholderTextColor={tw.color('ink-faint')}
 			style={twStyle(input({ variant, size }), style as string)}
 			{...otherProps}
 		/>

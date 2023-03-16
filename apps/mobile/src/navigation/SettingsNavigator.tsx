@@ -8,6 +8,7 @@ import LibrarySettingsScreen from '~/screens/settings/client/LibrarySettings';
 import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
 import SupportScreen from '~/screens/settings/info/Support';
+import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
@@ -72,6 +73,11 @@ export default function SettingsNavigator() {
 				options={{ headerTitle: 'Locations' }}
 			/>
 			<SettingsStack.Screen
+				name="EditLocationSettings"
+				component={EditLocationSettingsScreen}
+				options={{ headerTitle: 'Edit Location' }}
+			/>
+			<SettingsStack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
 				options={{ headerTitle: 'Nodes' }}
@@ -112,7 +118,11 @@ export type SettingsStackParamList = {
 	ExtensionsSettings: undefined;
 	// Library
 	LibraryGeneralSettings: undefined;
+
+	// Location
 	LocationSettings: undefined;
+	EditLocationSettings: { id: number };
+
 	NodesSettings: undefined;
 	TagsSettings: undefined;
 	KeysSettings: undefined;

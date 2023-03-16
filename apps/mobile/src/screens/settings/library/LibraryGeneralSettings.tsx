@@ -1,13 +1,14 @@
 import { Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Controller } from 'react-hook-form';
-import { Alert, Text, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
 import { AnimatedButton } from '~/components/primitive/Button';
-import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { Divider } from '~/components/primitive/Divider';
+import { SettingsContainer, SettingsInputTitle } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { useZodForm, z } from '~/hooks/useZodForm';
@@ -35,10 +36,9 @@ const LibraryGeneralSettingsScreen = ({
 	});
 
 	return (
-		<View>
-			{/* This looks bad... */}
-			<View style={tw`bg-app-overlay mt-4 px-2 py-4`}>
-				<Text style={tw`text-ink-dull mb-1 ml-1 text-xs font-medium`}>Name</Text>
+		<View style={tw`gap-4`}>
+			<View style={tw`mt-4 px-2`}>
+				<SettingsInputTitle>Name</SettingsInputTitle>
 				<Controller
 					name="name"
 					control={form.control}
@@ -47,7 +47,7 @@ const LibraryGeneralSettingsScreen = ({
 					)}
 				/>
 				{/* Description */}
-				<Text style={tw`text-ink-dull mb-1 ml-1 mt-3 text-xs font-medium`}>Description</Text>
+				<SettingsInputTitle style={tw`mt-4`}>Description</SettingsInputTitle>
 				<Controller
 					name="description"
 					control={form.control}
@@ -56,31 +56,31 @@ const LibraryGeneralSettingsScreen = ({
 					)}
 				/>
 			</View>
-			{/* Encrypt */}
-			<View style={tw`mt-6`} />
-			<SettingsContainer description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves.">
-				<SettingsItem title="Encrypt Library" rightArea={<Switch value={true} />} />
-			</SettingsContainer>
-			<View style={tw`mt-6`} />
-			{/* Export */}
-			<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
-			<View style={tw`mt-4`} />
-			{/* Delete Library */}
-			<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
-				<SettingsItem
-					title="Delete Library"
-					rightArea={
-						<DeleteLibraryModal
-							libraryUuid={library.uuid}
-							trigger={
-								<AnimatedButton size="sm" variant="danger">
-									<Trash color={tw.color('ink')} size={20} />
-								</AnimatedButton>
-							}
-						/>
-					}
-				/>
-			</SettingsContainer>
+			<Divider />
+			<View style={tw`gap-y-6`}>
+				{/* Encrypt */}
+				<SettingsContainer description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves.">
+					<SettingsItem title="Encrypt Library" rightArea={<Switch value={true} />} />
+				</SettingsContainer>
+				{/* Export */}
+				<SettingsItem title="Export Library" onPress={() => Alert.alert('TODO')} />
+				{/* Delete Library */}
+				<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
+					<SettingsItem
+						title="Delete Library"
+						rightArea={
+							<DeleteLibraryModal
+								libraryUuid={library.uuid}
+								trigger={
+									<AnimatedButton size="sm" variant="danger">
+										<Trash color={tw.color('ink')} size={20} />
+									</AnimatedButton>
+								}
+							/>
+						}
+					/>
+				</SettingsContainer>
+			</View>
 		</View>
 	);
 };

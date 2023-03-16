@@ -14,7 +14,7 @@ import { ExplorerItem, formatBytes, isObject, useLibraryQuery } from '@sd/client
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
-import Divider from '~/components/primitive/Divider';
+import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 
