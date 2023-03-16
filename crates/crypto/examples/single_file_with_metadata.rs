@@ -54,7 +54,7 @@ async fn encrypt() {
 
 	header
 		.add_object(
-			HeaderObjectType::Metadata,
+			HeaderObjectType::new("Metadata"),
 			master_key.clone(),
 			&bincode::encode_to_vec(&embedded_metadata, bincode::config::standard()).unwrap(),
 		)
@@ -94,7 +94,7 @@ async fn decrypt_metadata() {
 	// Decrypt the metadata
 	let (file_info, _): (FileInformation, usize) = bincode::decode_from_slice(
 		header
-			.decrypt_object(HeaderObjectType::Metadata, master_key)
+			.decrypt_object(HeaderObjectType::new("Metadata"), master_key)
 			.await
 			.unwrap()
 			.expose(),

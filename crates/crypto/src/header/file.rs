@@ -39,12 +39,14 @@ use crate::{
 
 use super::schema::FileHeader001;
 
-// Can be expanded (not shrunk!) inconsequentially I believe
-#[derive(Clone, Eq, PartialEq, bincode::Encode, bincode::Decode)]
-pub enum HeaderObjectType {
-	Metadata,
-	PreviewMedia,
-	Custom(String),
+#[derive(Clone, PartialEq, Eq, bincode::Encode, bincode::Decode)]
+pub struct HeaderObjectType(pub String);
+
+impl HeaderObjectType {
+	#[must_use]
+	pub fn new(identifier: &str) -> Self {
+		Self(identifier.to_string())
+	}
 }
 
 #[async_trait::async_trait]
@@ -379,7 +381,7 @@ mod tests {
 
 		header
 			.add_object(
-				HeaderObjectType::Metadata,
+				HeaderObjectType::new("Metadata"),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -395,7 +397,7 @@ mod tests {
 			.unwrap();
 
 		let bytes = header
-			.decrypt_object(HeaderObjectType::Metadata, mk)
+			.decrypt_object(HeaderObjectType::new("Metadata"), mk)
 			.await
 			.unwrap();
 
@@ -427,7 +429,7 @@ mod tests {
 
 		header
 			.add_object(
-				HeaderObjectType::Metadata,
+				HeaderObjectType::new("Metadata"),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -443,7 +445,7 @@ mod tests {
 			.unwrap();
 
 		header
-			.decrypt_object(HeaderObjectType::PreviewMedia, mk)
+			.decrypt_object(HeaderObjectType::new("PreviewMedia"), mk)
 			.await
 			.unwrap();
 	}
@@ -466,7 +468,7 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::PreviewMedia, mk, &PVM_BYTES)
+			.add_object(HeaderObjectType::new("PreviewMedia"), mk, &PVM_BYTES)
 			.await
 			.unwrap();
 
@@ -500,16 +502,16 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::PreviewMedia, mk.clone(), &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::new("PreviewMedia"),
+				mk.clone(),
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
 		header
-			.add_object(
-				HeaderObjectType::Custom("magic".to_string()),
-				mk,
-				&PVM_BYTES,
-			)
+			.add_object(HeaderObjectType::new("MagicBytes"), mk, &PVM_BYTES)
 			.await
 			.unwrap();
 
@@ -566,13 +568,17 @@ mod tests {
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
 
 		header
-			.add_object(HeaderObjectType::PreviewMedia, mk.clone(), &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::new("PreviewMedia"),
+				mk.clone(),
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::Metadata,
+				HeaderObjectType::new("Metadata"),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -580,11 +586,7 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(
-				HeaderObjectType::Custom("magic".to_string()),
-				mk,
-				&MAGIC_BYTES,
-			)
+			.add_object(HeaderObjectType::new("MagicBytes"), mk, &MAGIC_BYTES)
 			.await
 			.unwrap();
 	}
@@ -617,13 +619,17 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::PreviewMedia, mk.clone(), &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::new("PreviewMedia"),
+				mk.clone(),
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::Custom("magic".to_string()),
+				HeaderObjectType::new("MagicBytes"),
 				mk.clone(),
 				&MAGIC_BYTES,
 			)
@@ -642,12 +648,12 @@ mod tests {
 		assert!(header.count_keyslots() == 2);
 
 		let preview_media = header
-			.decrypt_object(HeaderObjectType::PreviewMedia, mk.clone())
+			.decrypt_object(HeaderObjectType::new("PreviewMedia"), mk.clone())
 			.await
 			.unwrap();
 
 		let magic = header
-			.decrypt_object(HeaderObjectType::Custom("magic".to_string()), mk.clone())
+			.decrypt_object(HeaderObjectType::new("MagicBytes"), mk.clone())
 			.await
 			.unwrap();
 

@@ -48,7 +48,11 @@ async fn encrypt() {
 		.unwrap();
 
 	header
-		.add_object(HeaderObjectType::PreviewMedia, master_key.clone(), &pvm)
+		.add_object(
+			HeaderObjectType::new("PreviewMedia"),
+			master_key.clone(),
+			&pvm,
+		)
 		.await
 		.unwrap();
 
@@ -84,7 +88,7 @@ async fn decrypt_preview_media() {
 
 	// Decrypt the preview media
 	let media = header
-		.decrypt_object(HeaderObjectType::PreviewMedia, master_key)
+		.decrypt_object(HeaderObjectType::new("PreviewMedia"), master_key)
 		.await
 		.unwrap();
 
