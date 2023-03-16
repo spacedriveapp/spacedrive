@@ -66,22 +66,31 @@ pub enum Error {
 	BincodeDecode(#[from] bincode::error::DecodeError),
 
 	// key manager
+	#[cfg(feature = "keymanager")]
 	#[error("requested key wasn't found in the key manager")]
 	KeyNotFound,
+	#[cfg(feature = "keymanager")]
 	#[error("key is already mounted")]
 	KeyAlreadyMounted,
+	#[cfg(feature = "keymanager")]
 	#[error("key not mounted")]
 	KeyNotMounted,
+	#[cfg(feature = "keymanager")]
 	#[error("key isn't in the queue")]
 	KeyNotQueued,
+	#[cfg(feature = "keymanager")]
 	#[error("key is already in the queue")]
 	KeyAlreadyQueued,
+	#[cfg(feature = "keymanager")]
 	#[error("no default key has been set")]
 	NoDefaultKeySet,
+	#[cfg(feature = "keymanager")]
 	#[error("keymanager is not unlocked")]
 	NotUnlocked,
+	#[cfg(feature = "keymanager")]
 	#[error("no verification key")]
 	NoVerificationKey,
+	#[cfg(feature = "keymanager")]
 	#[error("key isn't flagged as memory only")]
 	KeyNotMemoryOnly,
 
