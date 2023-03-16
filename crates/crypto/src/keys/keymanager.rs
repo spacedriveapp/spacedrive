@@ -245,7 +245,7 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn onboarding(config: OnboardingConfig, library_uuid: Uuid) -> Result<StoredKey> {
+	pub fn onboarding(config: OnboardingConfig, library_uuid: Uuid) -> Result<StoredKey> {
 		let content_salt = Salt::generate();
 		let secret_key = SecretKey::generate();
 
@@ -271,16 +271,13 @@ impl KeyManager {
 		let root_key_nonce = Nonce::generate(algorithm)?;
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = EncryptedKey::try_from(
-			Encryptor::encrypt_bytes(
-				Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-				master_key_nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)
-			.await?,
-		)?;
+		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+			master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
 		let encrypted_root_key = Encryptor::encrypt_bytes(
 			master_key,
@@ -288,8 +285,7 @@ impl KeyManager {
 			algorithm,
 			root_key.expose(),
 			&[],
-		)
-		.await?;
+		)?;
 
 		// attempt to insert into the OS keyring
 		// can ignore false here as we want to silently error
@@ -400,16 +396,13 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = EncryptedKey::try_from(
-			Encryptor::encrypt_bytes(
-				Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-				master_key_nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)
-			.await?,
-		)?;
+		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+			master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
 		let encrypted_root_key = Encryptor::encrypt_bytes(
 			master_key,
@@ -417,8 +410,7 @@ impl KeyManager {
 			algorithm,
 			root_key.expose(),
 			&[],
-		)
-		.await?;
+		)?;
 
 		// will update if it's already present
 		self.keyring_insert(
@@ -500,8 +492,7 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					&old_verification_key.master_key,
 					&[],
-				)
-				.await?;
+				)?;
 
 				// get the root key from the backup
 				let old_root_key = Decryptor::decrypt_bytes(
@@ -510,8 +501,7 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					&old_verification_key.key,
 					&[],
-				)
-				.await?;
+				)?;
 
 				Key::try_from(old_root_key)?
 			}
@@ -534,7 +524,6 @@ impl KeyManager {
 						&key.master_key,
 						&[],
 					)
-					.await
 					.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 					// generate a new nonce
@@ -543,16 +532,13 @@ impl KeyManager {
 					let salt = Salt::generate();
 
 					// encrypt the master key with the current root key
-					let encrypted_master_key = EncryptedKey::try_from(
-						Encryptor::encrypt_bytes(
-							Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
-							master_key_nonce,
-							key.algorithm,
-							master_key.expose(),
-							&[],
-						)
-						.await?,
-					)?;
+					let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+						Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
+						master_key_nonce,
+						key.algorithm,
+						master_key.expose(),
+						&[],
+					)?)?;
 
 					let mut updated_key = key.clone();
 					updated_key.master_key_nonce = master_key_nonce;
@@ -639,23 +625,19 @@ impl KeyManager {
 					&verification_key.master_key,
 					&[],
 				)
-				.await
 				.map_err(|_| {
 					self.remove_from_queue(verification_key.uuid).ok();
 					Error::IncorrectPassword
 				})?;
 
 				*self.root_key.lock().await = Some(
-					Key::try_from(
-						Decryptor::decrypt_bytes(
-							Key::try_from(master_key)?,
-							verification_key.key_nonce,
-							verification_key.algorithm,
-							&verification_key.key,
-							&[],
-						)
-						.await?,
-					)
+					Key::try_from(Decryptor::decrypt_bytes(
+						Key::try_from(master_key)?,
+						verification_key.key_nonce,
+						verification_key.algorithm,
+						&verification_key.key,
+						&[],
+					)?)
 					.map_err(|e| {
 						self.remove_from_queue(verification_key.uuid).ok();
 						e
@@ -706,7 +688,6 @@ impl KeyManager {
 						&stored_key.master_key,
 						&[],
 					)
-					.await
 					.map_or_else(
 						|_| {
 							self.remove_from_queue(uuid).ok();
@@ -722,7 +703,6 @@ impl KeyManager {
 						&stored_key.key,
 						&[],
 					)
-					.await
 					.map_err(|e| {
 						self.remove_from_queue(uuid).ok();
 						e
@@ -771,7 +751,6 @@ impl KeyManager {
 				&stored_key.master_key,
 				&[],
 			)
-			.await
 			.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 			// Decrypt the StoredKey using the decrypted master key
@@ -781,8 +760,7 @@ impl KeyManager {
 				stored_key.algorithm,
 				&stored_key.key,
 				&[],
-			)
-			.await?;
+			)?;
 
 			Ok(Protected::new(String::from_utf8(key.expose().clone())?))
 		} else {
@@ -826,16 +804,13 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with a derived key (derived from the root key)
-		let encrypted_master_key = EncryptedKey::try_from(
-			Encryptor::encrypt_bytes(
-				Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
-				master_key_nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)
-			.await?,
-		)?;
+		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+			Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
+			master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
 		let encrypted_key = Encryptor::encrypt_bytes(
@@ -844,8 +819,7 @@ impl KeyManager {
 			algorithm,
 			key.expose().as_bytes(),
 			&[],
-		)
-		.await?;
+		)?;
 
 		// Insert it into the Keystore
 		self.keystore.insert(

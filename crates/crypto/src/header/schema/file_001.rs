@@ -132,7 +132,8 @@ pub struct FileHeaderObject001 {
 }
 
 impl Keyslot001 {
-	pub async fn new(
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn new(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
@@ -143,16 +144,13 @@ impl Keyslot001 {
 
 		let salt = Salt::generate();
 
-		let encrypted_master_key = EncryptedKey::try_from(
-			Encryptor::encrypt_bytes(
-				Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
-				nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)
-			.await?,
-		)?;
+		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+			Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
+			nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
 		Ok(Self {
 			hashing_algorithm,
@@ -163,18 +161,14 @@ impl Keyslot001 {
 		})
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
-	async fn decrypt(&self, algorithm: Algorithm, key: Key) -> Result<Key> {
-		Key::try_from(
-			Decryptor::decrypt_bytes(
-				Key::derive(key, self.salt, FILE_KEY_CONTEXT),
-				self.nonce,
-				algorithm,
-				&self.master_key,
-				&[],
-			)
-			.await?,
-		)
+	fn decrypt(&self, algorithm: Algorithm, key: Key) -> Result<Key> {
+		Key::try_from(Decryptor::decrypt_bytes(
+			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+			self.nonce,
+			algorithm,
+			&self.master_key,
+			&[],
+		)?)
 	}
 }
 
@@ -196,7 +190,7 @@ impl FileHeader001 {
 }
 
 impl FileHeaderObject001 {
-	pub async fn new(
+	pub fn new(
 		object_type: HeaderObjectType,
 		algorithm: Algorithm,
 		master_key: Key,
@@ -204,10 +198,7 @@ impl FileHeaderObject001 {
 		data: &[u8],
 	) -> Result<Self> {
 		let nonce = Nonce::generate(algorithm)?;
-
-		let encrypted_data =
-			Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, &aad).await?;
-
+		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, &aad)?;
 		let object = Self {
 			object_type,
 			nonce,
@@ -217,16 +208,13 @@ impl FileHeaderObject001 {
 		Ok(object)
 	}
 
-	async fn decrypt(
+	fn decrypt(
 		&self,
 		algorithm: Algorithm,
 		aad: Aad,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		let pvm =
-			Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, &aad).await?;
-
-		Ok(pvm)
+		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, &aad)
 	}
 }
 
@@ -249,7 +237,6 @@ impl Header for FileHeader001 {
 			.first()
 			.ok_or(Error::NoObjects)?
 			.decrypt(self.algorithm, self.aad, master_key)
-			.await
 	}
 
 	async fn add_keyslot(
@@ -263,16 +250,13 @@ impl Header for FileHeader001 {
 			return Err(Error::TooManyKeyslots);
 		}
 
-		self.keyslots.0.push(
-			Keyslot001::new(
-				self.algorithm,
-				hashing_algorithm,
-				content_salt,
-				hashed_key,
-				master_key,
-			)
-			.await?,
-		);
+		self.keyslots.0.push(Keyslot001::new(
+			self.algorithm,
+			hashing_algorithm,
+			content_salt,
+			hashed_key,
+			master_key,
+		)?);
 
 		Ok(())
 	}
@@ -296,10 +280,13 @@ impl Header for FileHeader001 {
 			return Err(Error::DuplicateObjects);
 		}
 
-		self.objects.push(
-			FileHeaderObject001::new(object_type, self.algorithm, master_key, self.aad, data)
-				.await?,
-		);
+		self.objects.push(FileHeaderObject001::new(
+			object_type,
+			self.algorithm,
+			master_key,
+			self.aad,
+			data,
+		)?);
 		Ok(())
 	}
 
@@ -311,7 +298,7 @@ impl Header for FileHeader001 {
 
 		for hashed_key in keys {
 			for v in &self.keyslots.0 {
-				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone()).await {
+				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone()) {
 					return Ok(key);
 				}
 			}
@@ -332,7 +319,7 @@ impl Header for FileHeader001 {
 				.hash(password.clone(), v.content_salt, None)
 				.map_err(|_| Error::PasswordHash)?;
 
-			if let Ok(key) = v.decrypt(self.algorithm, key).await {
+			if let Ok(key) = v.decrypt(self.algorithm, key) {
 				return Ok(key);
 			}
 		}
