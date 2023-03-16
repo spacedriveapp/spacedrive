@@ -12,6 +12,8 @@ use sd_crypto::{
 
 const MAGIC_BYTES: [u8; 6] = *b"crypto";
 
+const OBJECT_IDENTIFIER_CONTEXT: &str = "spacedrive 2023-03-16 18:10:47 header object examples";
+
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
@@ -34,7 +36,7 @@ async fn encrypt() {
 	let pvm = b"a nice mountain".to_vec();
 
 	// Create the header for the encrypted file
-	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 	// Create a keyslot to be added to the header
 	header
@@ -49,7 +51,7 @@ async fn encrypt() {
 
 	header
 		.add_object(
-			HeaderObjectType::new("PreviewMedia"),
+			HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
 			master_key.clone(),
 			&pvm,
 		)
@@ -88,7 +90,10 @@ async fn decrypt_preview_media() {
 
 	// Decrypt the preview media
 	let media = header
-		.decrypt_object(HeaderObjectType::new("PreviewMedia"), master_key)
+		.decrypt_object(
+			HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+			master_key,
+		)
 		.await
 		.unwrap();
 

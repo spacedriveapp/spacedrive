@@ -1,7 +1,6 @@
 //! This module defines all of the possible types used throughout this crate,
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
-use rand::{RngCore, SeedableRng};
 use std::fmt::Display;
 use std::ops::Deref;
 use zeroize::Zeroize;
@@ -9,8 +8,8 @@ use zeroize::Zeroize;
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	generate_bytes, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN,
-	SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+	generate_byte_array, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
+	SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
 #[cfg(feature = "serde")]
@@ -56,16 +55,18 @@ pub enum Nonce {
 }
 
 impl Nonce {
-	pub fn generate(algorithm: Algorithm) -> crate::Result<Self> {
-		let mut nonce = vec![0u8; algorithm.nonce_len()];
-		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
-		Self::try_from(nonce)
+	#[must_use]
+	pub fn generate(algorithm: Algorithm) -> Self {
+		match algorithm {
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_byte_array()),
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_byte_array()),
+		}
 	}
 
 	/// Primarily used for testing.
 	#[must_use]
 	pub fn generate_xchacha() -> Self {
-		Self::XChaCha20Poly1305(generate_bytes())
+		Self::XChaCha20Poly1305(generate_byte_array())
 	}
 
 	#[must_use]
@@ -155,7 +156,7 @@ impl Algorithm {
 ///
 /// You may also generate a secure random key with `Key::generate()`
 #[derive(Clone)]
-pub struct Key(pub Protected<[u8; KEY_LEN]>);
+pub struct Key(Protected<[u8; KEY_LEN]>);
 
 impl Key {
 	#[must_use]
@@ -166,10 +167,8 @@ impl Key {
 	#[must_use]
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn derive(key: Self, salt: Salt, context: &str) -> Self {
-		let mut input = key.expose().to_vec();
-		input.extend_from_slice(&salt);
+		let mut input = [key.0.into_inner().as_ref(), &salt].concat();
 		let key = blake3::derive_key(context, &input);
-
 		input.zeroize();
 
 		Self::new(key)
@@ -182,9 +181,7 @@ impl Key {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		let mut key = [0u8; KEY_LEN];
-		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut key);
-		Self::new(key)
+		Self::new(generate_byte_array())
 	}
 }
 
@@ -217,7 +214,7 @@ impl Deref for Key {
 ///
 /// You may also generate a secret key with `SecretKey::generate()`
 #[derive(Clone)]
-pub struct SecretKey(pub Protected<[u8; SECRET_KEY_LEN]>);
+pub struct SecretKey(Protected<[u8; SECRET_KEY_LEN]>);
 
 impl SecretKey {
 	#[must_use]
@@ -232,9 +229,12 @@ impl SecretKey {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		let mut secret_key = [0u8; SECRET_KEY_LEN];
-		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut secret_key);
-		Self::new(secret_key)
+		Self::new(generate_byte_array())
+	}
+
+	#[must_use]
+	pub fn to_vec(self) -> Vec<u8> {
+		self.0.to_vec()
 	}
 }
 
@@ -250,7 +250,7 @@ impl Deref for SecretKey {
 ///
 /// It is `SECRET_KEY_LEN` bytes, encoded in hex and delimited with `-` every 6 characters.
 #[derive(Clone)]
-pub struct SecretKeyString(pub Protected<String>);
+pub struct SecretKeyString(Protected<String>);
 
 impl SecretKeyString {
 	#[must_use]
@@ -338,14 +338,12 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
-pub struct Aad(pub [u8; AAD_LEN]);
+pub struct Aad([u8; AAD_LEN]);
 
 impl Aad {
 	#[must_use]
 	pub fn generate() -> Self {
-		let mut aad = [0u8; AAD_LEN];
-		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut aad);
-		Self(aad)
+		Self(generate_byte_array())
 	}
 }
 
@@ -372,14 +370,17 @@ impl TryFrom<Vec<u8>> for Aad {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub struct Salt(pub [u8; SALT_LEN]);
+pub struct Salt([u8; SALT_LEN]);
 
 impl Salt {
 	#[must_use]
 	pub fn generate() -> Self {
-		let mut salt = [0u8; SALT_LEN];
-		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
-		Self(salt)
+		Self(generate_byte_array())
+	}
+
+	#[must_use]
+	pub const fn new(v: [u8; SALT_LEN]) -> Self {
+		Self(v)
 	}
 }
 

@@ -265,10 +265,10 @@ impl KeyManager {
 
 		// Generate items we'll need for encryption
 		let master_key = Key::generate();
-		let master_key_nonce = Nonce::generate(algorithm)?;
+		let master_key_nonce = Nonce::generate(algorithm);
 
 		let root_key = Key::generate();
-		let root_key_nonce = Nonce::generate(algorithm)?;
+		let root_key_nonce = Nonce::generate(algorithm);
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
@@ -388,10 +388,10 @@ impl KeyManager {
 
 		// Generate items we'll need for encryption
 		let master_key = Key::generate();
-		let master_key_nonce = Nonce::generate(algorithm)?;
+		let master_key_nonce = Nonce::generate(algorithm);
 
 		let root_key = self.get_root_key().await?;
-		let root_key_nonce = Nonce::generate(algorithm)?;
+		let root_key_nonce = Nonce::generate(algorithm);
 
 		let salt = Salt::generate();
 
@@ -527,7 +527,7 @@ impl KeyManager {
 					.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
 
 					// generate a new nonce
-					let master_key_nonce = Nonce::generate(key.algorithm)?;
+					let master_key_nonce = Nonce::generate(key.algorithm);
 
 					let salt = Salt::generate();
 
@@ -795,9 +795,9 @@ impl KeyManager {
 		let uuid = Uuid::new_v4();
 
 		// Generate items we'll need for encryption
-		let key_nonce = Nonce::generate(algorithm)?;
+		let key_nonce = Nonce::generate(algorithm);
 		let master_key = Key::generate();
-		let master_key_nonce = Nonce::generate(algorithm)?;
+		let master_key_nonce = Nonce::generate(algorithm);
 
 		let content_salt = content_salt.map_or_else(Salt::generate, |v| v);
 

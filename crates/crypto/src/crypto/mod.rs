@@ -67,7 +67,6 @@ mod tests {
 	use crate::{
 		primitives::{BLOCK_LEN, KEY_LEN},
 		types::{Algorithm, Key, Nonce},
-		Protected,
 	};
 
 	use super::*;
@@ -389,7 +388,7 @@ mod tests {
 	#[should_panic(expected = "NullType")]
 	async fn encrypt_with_null_key() {
 		Encryptor::encrypt_bytes(
-			Key(Protected::new([0u8; KEY_LEN])),
+			Key::new([0u8; KEY_LEN]),
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,

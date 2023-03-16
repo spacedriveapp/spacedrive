@@ -71,7 +71,15 @@ pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
 }
 
 #[must_use]
-pub fn generate_bytes<const I: usize>() -> [u8; I] {
+pub fn generate_bytes(size: usize) -> Vec<u8> {
+	let mut bytes = vec![0u8; size];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
+	dbg!(bytes.len());
+	bytes
+}
+
+#[must_use]
+pub fn generate_byte_array<const I: usize>() -> [u8; I] {
 	let mut bytes = [0u8; I];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 

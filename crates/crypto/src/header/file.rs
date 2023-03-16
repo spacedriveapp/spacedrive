@@ -40,12 +40,12 @@ use crate::{
 use super::schema::FileHeader001;
 
 #[derive(Clone, PartialEq, Eq, bincode::Encode, bincode::Decode)]
-pub struct HeaderObjectType(pub String);
+pub struct HeaderObjectType([u8; 32]);
 
 impl HeaderObjectType {
 	#[must_use]
-	pub fn new(identifier: &str) -> Self {
-		Self(identifier.to_string())
+	pub fn new(identifier: &str, context: &str) -> Self {
+		Self(blake3::derive_key(context, identifier.as_bytes()))
 	}
 }
 
@@ -60,12 +60,16 @@ pub trait Header {
 	fn count_objects(&self) -> usize;
 	fn count_keyslots(&self) -> usize;
 
-	async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key>;
-	async fn decrypt_master_key_with_password(&self, password: Protected<Vec<u8>>) -> Result<Key>;
+	async fn decrypt_master_key(&self, keys: Vec<Key>, context: &str) -> Result<Key>;
+	async fn decrypt_master_key_with_password(
+		&self,
+		password: Protected<Vec<u8>>,
+		context: &str,
+	) -> Result<Key>;
 
 	async fn decrypt_object(
 		&self,
-		object_type: HeaderObjectType,
+		identifier: HeaderObjectType,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>>;
 
@@ -75,11 +79,12 @@ pub trait Header {
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
+		context: &str,
 	) -> Result<()>;
 
 	async fn add_object(
 		&mut self,
-		object_type: HeaderObjectType,
+		identifier: HeaderObjectType,
 		master_key: Key,
 		data: &[u8],
 	) -> Result<()>;
@@ -131,17 +136,18 @@ macro_rules! generate_header_versions {
 		}
 
 		impl FileHeader {
+			#[must_use]
 			pub fn new(
 				version: FileHeaderVersion,
 				algorithm: Algorithm,
-			) -> Result<Self> {
+			) -> Self {
 				let header = match version {
 					$(
-						FileHeaderVersion::$version => $schema::new(algorithm)?,
+						FileHeaderVersion::$version => $schema::new(algorithm),
 					)*
 				};
 
-				Ok(Self { inner: Box::new(header), version })
+				Self { inner: Box::new(header), version }
 			}
 
 			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
@@ -225,15 +231,18 @@ impl FileHeader {
 		self.version
 	}
 
-	pub async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key> {
-		self.inner.decrypt_master_key(keys).await
+	pub async fn decrypt_master_key(&self, keys: Vec<Key>, context: &str) -> Result<Key> {
+		self.inner.decrypt_master_key(keys, context).await
 	}
 
 	pub async fn decrypt_master_key_with_password(
 		&self,
 		password: Protected<Vec<u8>>,
+		context: &str,
 	) -> Result<Key> {
-		self.inner.decrypt_master_key_with_password(password).await
+		self.inner
+			.decrypt_master_key_with_password(password, context)
+			.await
 	}
 
 	#[must_use]
@@ -269,9 +278,16 @@ impl FileHeader {
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
+		context: &str,
 	) -> Result<()> {
 		self.inner
-			.add_keyslot(hashing_algorithm, content_salt, hashed_key, master_key)
+			.add_keyslot(
+				hashing_algorithm,
+				content_salt,
+				hashed_key,
+				master_key,
+				context,
+			)
 			.await
 	}
 }
@@ -292,7 +308,10 @@ mod tests {
 	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
-	pub const MAGIC_BYTES: [u8; 6] = *b"crypto";
+	const MAGIC_BYTES: [u8; 6] = *b"crypto";
+
+	const FILE_HEADER_CONTEXT: &str = "spacedrive 2023-03-16 18:27:55 header keyslot tests";
+	const OBJECT_IDENTIFIER_CONTEXT: &str = "spacedrive 2023-03-16 18:10:47 header object tests";
 
 	const PVM_BYTES: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
 	const METADATA: Metadata = Metadata {
@@ -308,10 +327,16 @@ mod tests {
 
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
-			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk)
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw,
+				mk,
+				FILE_HEADER_CONTEXT,
+			)
 			.await
 			.unwrap();
 
@@ -334,7 +359,7 @@ mod tests {
 
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -342,12 +367,19 @@ mod tests {
 				content_salt,
 				hashed_pw.clone(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
-			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk.clone())
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw,
+				mk.clone(),
+				FILE_HEADER_CONTEXT,
+			)
 			.await
 			.unwrap();
 
@@ -367,7 +399,7 @@ mod tests {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -375,13 +407,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::new("Metadata"),
+				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -397,7 +430,10 @@ mod tests {
 			.unwrap();
 
 		let bytes = header
-			.decrypt_object(HeaderObjectType::new("Metadata"), mk)
+			.decrypt_object(
+				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
+				mk,
+			)
 			.await
 			.unwrap();
 
@@ -415,7 +451,7 @@ mod tests {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -423,13 +459,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::new("Metadata"),
+				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -445,7 +482,10 @@ mod tests {
 			.unwrap();
 
 		header
-			.decrypt_object(HeaderObjectType::new("PreviewMedia"), mk)
+			.decrypt_object(
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+				mk,
+			)
 			.await
 			.unwrap();
 	}
@@ -455,7 +495,7 @@ mod tests {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -463,12 +503,17 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::new("PreviewMedia"), mk, &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+				mk,
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
@@ -489,7 +534,7 @@ mod tests {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -497,13 +542,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::new("PreviewMedia"),
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -511,7 +557,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::new("MagicBytes"), mk, &PVM_BYTES)
+			.add_object(
+				HeaderObjectType::new("MagicBytes", OBJECT_IDENTIFIER_CONTEXT),
+				mk,
+				&PVM_BYTES,
+			)
 			.await
 			.unwrap();
 
@@ -532,7 +582,7 @@ mod tests {
 	async fn serialize_and_deserialize_header_with_too_many_keyslots() {
 		let mk = Key::generate();
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -540,6 +590,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
@@ -550,12 +601,19 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
-			.add_keyslot(HASHING_ALGORITHM, Salt::generate(), Key::generate(), mk)
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk,
+				FILE_HEADER_CONTEXT,
+			)
 			.await
 			.unwrap();
 	}
@@ -565,11 +623,11 @@ mod tests {
 	async fn serialize_and_deserialize_header_with_three_objects() {
 		let mk = Key::generate();
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_object(
-				HeaderObjectType::new("PreviewMedia"),
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -578,7 +636,7 @@ mod tests {
 
 		header
 			.add_object(
-				HeaderObjectType::new("Metadata"),
+				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&bincode::encode_to_vec(&METADATA, bincode::config::standard()).unwrap(),
 			)
@@ -586,7 +644,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(HeaderObjectType::new("MagicBytes"), mk, &MAGIC_BYTES)
+			.add_object(
+				HeaderObjectType::new("MagicBytes", OBJECT_IDENTIFIER_CONTEXT),
+				mk,
+				&MAGIC_BYTES,
+			)
 			.await
 			.unwrap();
 	}
@@ -596,7 +658,7 @@ mod tests {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -604,6 +666,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
@@ -614,13 +677,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
+				FILE_HEADER_CONTEXT,
 			)
 			.await
 			.unwrap();
 
 		header
 			.add_object(
-				HeaderObjectType::new("PreviewMedia"),
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -629,7 +693,7 @@ mod tests {
 
 		header
 			.add_object(
-				HeaderObjectType::new("MagicBytes"),
+				HeaderObjectType::new("MagicBytes", OBJECT_IDENTIFIER_CONTEXT),
 				mk.clone(),
 				&MAGIC_BYTES,
 			)
@@ -648,12 +712,18 @@ mod tests {
 		assert!(header.count_keyslots() == 2);
 
 		let preview_media = header
-			.decrypt_object(HeaderObjectType::new("PreviewMedia"), mk.clone())
+			.decrypt_object(
+				HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+				mk.clone(),
+			)
 			.await
 			.unwrap();
 
 		let magic = header
-			.decrypt_object(HeaderObjectType::new("MagicBytes"), mk.clone())
+			.decrypt_object(
+				HeaderObjectType::new("MagicBytes", OBJECT_IDENTIFIER_CONTEXT),
+				mk.clone(),
+			)
 			.await
 			.unwrap();
 

@@ -31,7 +31,7 @@ async fn encrypt() {
 		.unwrap();
 
 	// Create the header for the encrypted file
-	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 	// Create a keyslot to be added to the header
 	header

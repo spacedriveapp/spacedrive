@@ -8,10 +8,13 @@ use sd_crypto::{
 	Protected,
 };
 use tokio::fs::File;
-const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
-const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
 const MAGIC_BYTES: [u8; 6] = *b"crypto";
+
+const OBJECT_IDENTIFIER_CONTEXT: &str = "spacedrive 2023-03-16 18:10:47 header object examples";
+
+const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
+const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct FileInformation {
@@ -39,7 +42,7 @@ async fn encrypt() {
 		.unwrap();
 
 	// Create the header for the encrypted file
-	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM).unwrap();
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 	// Create a keyslot to be added to the header
 	header
@@ -54,7 +57,7 @@ async fn encrypt() {
 
 	header
 		.add_object(
-			HeaderObjectType::new("Metadata"),
+			HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
 			master_key.clone(),
 			&bincode::encode_to_vec(&embedded_metadata, bincode::config::standard()).unwrap(),
 		)
@@ -94,7 +97,10 @@ async fn decrypt_metadata() {
 	// Decrypt the metadata
 	let (file_info, _): (FileInformation, usize) = bincode::decode_from_slice(
 		header
-			.decrypt_object(HeaderObjectType::new("Metadata"), master_key)
+			.decrypt_object(
+				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
+				master_key,
+			)
 			.await
 			.unwrap()
 			.expose(),

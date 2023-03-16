@@ -75,7 +75,7 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.0.to_vec()).into();
+		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -98,7 +98,7 @@ impl PasswordHasher {
 		secret: Option<SecretKey>,
 		params: Params,
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], |k| k.0.to_vec()).into();
+		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
 
 		let mut key = [0u8; KEY_LEN];
 
@@ -136,7 +136,7 @@ mod tests {
 		0x23, 0x23,
 	]);
 
-	const SALT: Salt = Salt([
+	const SALT: Salt = Salt::new([
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF,
 	]);

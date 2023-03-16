@@ -3,7 +3,7 @@ use bincode::impl_borrow_decode;
 use crate::{
 	crypto::{Decryptor, Encryptor},
 	header::file::{Header, HeaderObjectType},
-	primitives::{generate_bytes, FILE_KEY_CONTEXT},
+	primitives::generate_byte_array,
 	types::{Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt},
 	Error, Protected, Result,
 };
@@ -35,7 +35,7 @@ impl Keyslot001 {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-			master_key: EncryptedKey(generate_bytes()),
+			master_key: EncryptedKey(generate_byte_array()),
 			salt: Salt::generate(),
 			nonce: Nonce::generate_xchacha(),
 		}
@@ -139,13 +139,14 @@ impl Keyslot001 {
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
+		context: &str,
 	) -> Result<Self> {
-		let nonce = Nonce::generate(algorithm)?;
+		let nonce = Nonce::generate(algorithm);
 
 		let salt = Salt::generate();
 
 		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
-			Key::derive(hashed_key, salt, FILE_KEY_CONTEXT),
+			Key::derive(hashed_key, salt, context),
 			nonce,
 			algorithm,
 			master_key.expose(),
@@ -161,9 +162,9 @@ impl Keyslot001 {
 		})
 	}
 
-	fn decrypt(&self, algorithm: Algorithm, key: Key) -> Result<Key> {
+	fn decrypt(&self, algorithm: Algorithm, key: Key, context: &str) -> Result<Key> {
 		Key::try_from(Decryptor::decrypt_bytes(
-			Key::derive(key, self.salt, FILE_KEY_CONTEXT),
+			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
 			&self.master_key,
@@ -176,16 +177,14 @@ impl FileHeader001 {
 	// TODO(brxken128): make the AAD not static
 	// should be brought in from the raw file bytes but bincode makes that harder
 	// as the first 32~ bytes of the file *may* change
-	pub fn new(algorithm: Algorithm) -> Result<Self> {
-		let f = Self {
+	pub fn new(algorithm: Algorithm) -> Self {
+		Self {
 			aad: Aad::generate(),
 			algorithm,
-			nonce: Nonce::generate(algorithm)?,
+			nonce: Nonce::generate(algorithm),
 			keyslots: KeyslotArea001(vec![]),
 			objects: vec![],
-		};
-
-		Ok(f)
+		}
 	}
 }
 
@@ -197,7 +196,7 @@ impl FileHeaderObject001 {
 		aad: Aad,
 		data: &[u8],
 	) -> Result<Self> {
-		let nonce = Nonce::generate(algorithm)?;
+		let nonce = Nonce::generate(algorithm);
 		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, &aad)?;
 		let object = Self {
 			object_type,
@@ -245,6 +244,7 @@ impl Header for FileHeader001 {
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
+		context: &str,
 	) -> Result<()> {
 		if self.keyslots.0.len() + 1 > KEYSLOT_LIMIT {
 			return Err(Error::TooManyKeyslots);
@@ -256,6 +256,7 @@ impl Header for FileHeader001 {
 			content_salt,
 			hashed_key,
 			master_key,
+			context,
 		)?);
 
 		Ok(())
@@ -291,14 +292,14 @@ impl Header for FileHeader001 {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	async fn decrypt_master_key(&self, keys: Vec<Key>) -> Result<Key> {
+	async fn decrypt_master_key(&self, keys: Vec<Key>, context: &str) -> Result<Key> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
 		for hashed_key in keys {
 			for v in &self.keyslots.0 {
-				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone()) {
+				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone(), context) {
 					return Ok(key);
 				}
 			}
@@ -308,7 +309,11 @@ impl Header for FileHeader001 {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	async fn decrypt_master_key_with_password(&self, password: Protected<Vec<u8>>) -> Result<Key> {
+	async fn decrypt_master_key_with_password(
+		&self,
+		password: Protected<Vec<u8>>,
+		context: &str,
+	) -> Result<Key> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -319,7 +324,7 @@ impl Header for FileHeader001 {
 				.hash(password.clone(), v.content_salt, None)
 				.map_err(|_| Error::PasswordHash)?;
 
-			if let Ok(key) = v.decrypt(self.algorithm, key) {
+			if let Ok(key) = v.decrypt(self.algorithm, key, context) {
 				return Ok(key);
 			}
 		}
