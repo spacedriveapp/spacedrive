@@ -95,8 +95,7 @@ const Dialog = (props: DialogProps) => {
 								{props.loading && <PulseAnimation style={tw`h-7`} />}
 								<View style={tw`grow`} />
 								<Button
-									variant="dark_gray"
-									size="md"
+									variant="darkGray"
 									disabled={props.loading} // Disables Close button if loading
 									onPress={handleCloseDialog}
 								>
@@ -106,7 +105,6 @@ const Dialog = (props: DialogProps) => {
 									<Button
 										style={tw`ml-2`}
 										variant={props.ctaDanger ? 'danger' : 'accent'}
-										size="md"
 										onPress={props.ctaAction}
 										disabled={props.ctaDisabled || props.loading}
 									>

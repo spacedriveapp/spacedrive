@@ -1,21 +1,21 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import { FC, useMemo } from 'react';
-import { Pressable, PressableProps } from 'react-native';
-import { tw, twStyle } from '~/lib/tailwind';
+import { Pressable, PressableProps, View, ViewProps } from 'react-native';
+import { twStyle } from '~/lib/tailwind';
 
 const button = cva(['items-center justify-center rounded-md border shadow-sm'], {
 	variants: {
 		variant: {
 			danger: ['border-red-800 bg-red-600'],
 			gray: ['border-app-line bg-app-button'],
-			dark_gray: ['border-app-box bg-app'],
-			accent: ['border-accent-deep bg-accent shadow-app-shade/10 shadow-md']
+			darkGray: ['border-app-box bg-app'],
+			accent: ['border-accent-deep bg-accent shadow-app-shade/10 shadow-md'],
+			outline: ['border-sidebar-line/60 ']
 		},
 		size: {
-			default: ['py-1', 'px-3'],
+			default: ['py-1.5', 'px-3'],
 			sm: ['py-1', 'px-2'],
-			md: ['py-1.5', 'px-3'],
 			lg: ['py-2', 'px-4']
 		},
 		disabled: {
@@ -68,5 +68,20 @@ export const AnimatedButton: FC<AnimatedButtonProps> = ({ variant, size, disable
 		>
 			{props.children}
 		</MotiPressable>
+	);
+};
+
+// Useful for when you want to replicate a button but don't want to deal with the pressable logic (e.g. you need to disable the inner pressable)
+type FakeButtonProps = VariantProps<typeof button> & ViewProps;
+
+export const FakeButton: FC<FakeButtonProps> = ({ variant, size, ...props }) => {
+	const { style, ...otherProps } = props;
+	return (
+		<View
+			style={twStyle(button({ variant, size, disabled: false }), style as string)}
+			{...otherProps}
+		>
+			{props.children}
+		</View>
 	);
 };

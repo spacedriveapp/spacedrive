@@ -3130,8 +3130,7 @@ dependencies = [
 [[package]]
 name = "if-watch"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba7abdbb86e485125dad06c2691e1e393bf3b08c7b743b43aa162a00fd39062e"
+source = "git+https://github.com/oscartbeaumont/if-watch?rev=410e8e1d2d0730f1441df1c29294fec4c3c04193#410e8e1d2d0730f1441df1c29294fec4c3c04193"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -4081,7 +4080,7 @@ dependencies = [
 [[package]]
 name = "mdns-sd"
 version = "0.6.1"
-source = "git+https://github.com/oscartbeaumont/mdns-sd.git?rev=45515a98e9e408c102871abaa5a9bff3bee0cbe8#45515a98e9e408c102871abaa5a9bff3bee0cbe8"
+source = "git+https://github.com/oscartbeaumont/mdns-sd?rev=45515a98e9e408c102871abaa5a9bff3bee0cbe8#45515a98e9e408c102871abaa5a9bff3bee0cbe8"
 dependencies = [
  "flume",
  "if-addrs",

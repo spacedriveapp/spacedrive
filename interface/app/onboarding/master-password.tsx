@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
-import { Button, Card, PasswordMeter } from '@sd/ui';
+import { Button, Card } from '@sd/ui';
 import { Form, PasswordInput, useZodForm, z } from '@sd/ui/src/forms';
+import { PasswordMeter } from '~/components/PasswordMeter';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
@@ -118,7 +119,9 @@ export default function OnboardingNewLibrary() {
 								disabled={form.formState.isSubmitting}
 								variant="outline"
 								size="sm"
-								onClick={() => {
+								onClick={(event: any) => {
+									// Without this, form is submitted before token gets removed
+									event.preventDefault();
 									getOnboardingStore().passwordSetToken = null;
 									form.reset();
 								}}

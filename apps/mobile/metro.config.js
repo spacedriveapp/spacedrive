@@ -12,6 +12,7 @@ const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const metroConfig = makeMetroConfig({
+	...expoDefaultConfig,
 	projectRoot,
 	watchFolders: [workspaceRoot],
 	resolver: {
@@ -29,6 +30,7 @@ const metroConfig = makeMetroConfig({
 		]
 	},
 	transformer: {
+		...expoDefaultConfig.transformer,
 		// Metro default is "uglify-es" but terser should be faster and has better defaults.
 		minifierPath: 'metro-minify-terser',
 		minifierConfig: {
