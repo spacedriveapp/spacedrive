@@ -332,14 +332,6 @@ impl EncryptedKey {
 	}
 }
 
-impl TryFrom<Vec<u8>> for EncryptedKey {
-	type Error = Error;
-
-	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		Ok(Self(to_array(&value)?))
-	}
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 pub struct Aad([u8; AAD_LEN]);
