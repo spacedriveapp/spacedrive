@@ -4,15 +4,15 @@ use tokio::fs::File;
 
 use sd_crypto::{
 	crypto::Encryptor,
-	header::file::{FileHeader, HeaderObjectType},
-	primitives::LATEST_FILE_HEADER,
-	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
+	header::{FileHeader, HeaderObjectName},
+	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
+	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
 };
 
-const MAGIC_BYTES: [u8; 6] = *b"crypto";
-
-const OBJECT_IDENTIFIER_CONTEXT: &str = "spacedrive 2023-03-16 18:10:47 header object examples";
+const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
+const OBJECT_IDENTIFIER_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-03-16 18:10:47 header object examples");
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -45,13 +45,15 @@ async fn encrypt() {
 			content_salt,
 			hashed_password,
 			master_key.clone(),
+			FILE_KEYSLOT_CONTEXT,
 		)
 		.await
 		.unwrap();
 
 	header
 		.add_object(
-			HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+			HeaderObjectName::new("PreviewMedia"),
+			OBJECT_IDENTIFIER_CONTEXT,
 			master_key.clone(),
 			&pvm,
 		)
@@ -84,14 +86,15 @@ async fn decrypt_preview_media() {
 		.unwrap();
 
 	let master_key = header
-		.decrypt_master_key_with_password(password)
+		.decrypt_master_key_with_password(password, FILE_KEYSLOT_CONTEXT)
 		.await
 		.unwrap();
 
 	// Decrypt the preview media
 	let media = header
 		.decrypt_object(
-			HeaderObjectType::new("PreviewMedia", OBJECT_IDENTIFIER_CONTEXT),
+			HeaderObjectName::new("PreviewMedia"),
+			OBJECT_IDENTIFIER_CONTEXT,
 			master_key,
 		)
 		.await

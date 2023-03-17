@@ -2,16 +2,17 @@
 
 use sd_crypto::{
 	crypto::Encryptor,
-	header::file::{FileHeader, HeaderObjectType},
-	primitives::LATEST_FILE_HEADER,
-	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
+	encoding,
+	header::{FileHeader, HeaderObjectName},
+	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
+	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
 };
 use tokio::fs::File;
 
-const MAGIC_BYTES: [u8; 6] = *b"crypto";
-
-const OBJECT_IDENTIFIER_CONTEXT: &str = "spacedrive 2023-03-16 18:10:47 header object examples";
+const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
+const OBJECT_IDENTIFIER_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-03-16 18:10:47 header object examples");
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -51,21 +52,21 @@ async fn encrypt() {
 			content_salt,
 			hashed_password,
 			master_key.clone(),
+			FILE_KEYSLOT_CONTEXT,
 		)
-		.await
 		.unwrap();
 
 	header
 		.add_object(
-			HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
+			HeaderObjectName::new("Metadata"),
+			OBJECT_IDENTIFIER_CONTEXT,
 			master_key.clone(),
-			&bincode::encode_to_vec(&embedded_metadata, bincode::config::standard()).unwrap(),
+			&encoding::encode(&embedded_metadata).unwrap(),
 		)
-		.await
 		.unwrap();
 
 	// Write the header to the file
-	header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
 
 	// Use the nonce created by the header to initialise a stream encryption object
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -85,26 +86,24 @@ async fn decrypt_metadata() {
 	let mut reader = File::open("test.encrypted").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let header = FileHeader::from_reader(&mut reader, MAGIC_BYTES)
+	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
 		.await
 		.unwrap();
 
 	let master_key = header
-		.decrypt_master_key_with_password(password)
-		.await
+		.decrypt_master_key_with_password(password, FILE_KEYSLOT_CONTEXT)
 		.unwrap();
 
 	// Decrypt the metadata
-	let (file_info, _): (FileInformation, usize) = bincode::decode_from_slice(
+	let file_info: FileInformation = encoding::decode(
 		header
 			.decrypt_object(
-				HeaderObjectType::new("Metadata", OBJECT_IDENTIFIER_CONTEXT),
+				HeaderObjectName::new("Metadata"),
+				OBJECT_IDENTIFIER_CONTEXT,
 				master_key,
 			)
-			.await
 			.unwrap()
 			.expose(),
-		bincode::config::standard(),
 	)
 	.unwrap();
 

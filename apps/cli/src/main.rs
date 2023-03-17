@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use indoc::printdoc;
-use sd_crypto::header::file::FileHeader;
+use sd_crypto::{header::FileHeader, types::MagicBytes};
 use std::path::PathBuf;
 use tokio::fs::File;
 
@@ -12,14 +12,15 @@ struct Args {
 }
 
 /// Should be sourced from the core
-pub const ENCRYPTED_FILE_MAGIC_BYTES: [u8; 8] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03];
+pub const ENCRYPTED_FILE_MAGIC_BYTES: MagicBytes<8> =
+	MagicBytes::new([0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03]);
 
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Args::parse();
 
 	let mut reader = File::open(args.path).await.context("unable to open file")?;
-	let header = FileHeader::from_reader(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
+	let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
 	print_crypto_details(&header, &header.get_aad());
 
 	Ok(())

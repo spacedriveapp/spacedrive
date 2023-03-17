@@ -3,7 +3,6 @@
 use aead::generic_array::{ArrayLength, GenericArray};
 use std::fmt::Display;
 use std::ops::Deref;
-use zeroize::Zeroize;
 
 use crate::{Error, Protected};
 
@@ -14,6 +13,33 @@ use crate::primitives::{
 
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct MagicBytes<const I: usize>([u8; I]);
+
+impl<const I: usize> MagicBytes<I> {
+	#[must_use]
+	pub const fn new(bytes: [u8; I]) -> Self {
+		Self(bytes)
+	}
+}
+
+impl<const I: usize> Deref for MagicBytes<I> {
+	type Target = [u8];
+	fn deref(&self) -> &Self::Target {
+		self.0.as_slice()
+	}
+}
+
+#[derive(Clone, Copy)]
+pub struct DerivationContext(&'static str);
+
+impl DerivationContext {
+	#[must_use]
+	pub const fn new(context: &'static str) -> Self {
+		Self(context)
+	}
+}
 
 /// These parameters define the password-hashing level.
 ///
@@ -63,17 +89,11 @@ impl Nonce {
 		}
 	}
 
-	/// Primarily used for testing.
-	#[must_use]
-	pub fn generate_xchacha() -> Self {
-		Self::XChaCha20Poly1305(generate_byte_array())
-	}
-
 	#[must_use]
 	pub const fn len(&self) -> usize {
 		match self {
-			Self::Aes256Gcm(_) => AES_256_GCM_NONCE_LEN,
-			Self::XChaCha20Poly1305(_) => XCHACHA20_POLY1305_NONCE_LEN,
+			Self::Aes256Gcm(x) => x.len(),
+			Self::XChaCha20Poly1305(x) => x.len(),
 		}
 	}
 
@@ -83,6 +103,12 @@ impl Nonce {
 			Self::Aes256Gcm(x) => x.is_empty(),
 			Self::XChaCha20Poly1305(x) => x.is_empty(),
 		}
+	}
+}
+
+impl Default for Nonce {
+	fn default() -> Self {
+		Self::XChaCha20Poly1305(generate_byte_array())
 	}
 }
 
@@ -131,7 +157,7 @@ impl Deref for Nonce {
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Algorithm {
@@ -166,12 +192,11 @@ impl Key {
 
 	#[must_use]
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn derive(key: Self, salt: Salt, context: &str) -> Self {
-		let mut input = [key.0.into_inner().as_ref(), &salt].concat();
-		let key = blake3::derive_key(context, &input);
-		input.zeroize();
-
-		Self::new(key)
+	pub fn derive(key: Self, salt: Salt, context: DerivationContext) -> Self {
+		Self::new(blake3::derive_key(
+			context.0,
+			&[key.0.expose().as_ref(), &salt].concat(),
+		))
 	}
 
 	#[must_use]

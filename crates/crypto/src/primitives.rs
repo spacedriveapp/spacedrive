@@ -5,15 +5,18 @@
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{Error, Result};
+use crate::{types::DerivationContext, Error, Result};
 
 #[cfg(feature = "keymanager")]
 use crate::keys::keymanager::StoredKeyVersion;
 
-/// This is the salt size.
+/// This is the salt size
 pub const SALT_LEN: usize = 16;
 
+/// The nonce size for XChaCha20-Poly1305, minus the last 4 bytes (due to STREAM with a 31+1 bit counter)
 pub const XCHACHA20_POLY1305_NONCE_LEN: usize = 20;
+
+/// The nonce size for AES-256-GCM, minus the last 4 bytes (due to STREAM with a 31+1 bit counter)
 pub const AES_256_GCM_NONCE_LEN: usize = 8;
 
 /// The length of the secret key, in bytes.
@@ -49,14 +52,16 @@ pub use crate::header::file::LATEST_FILE_HEADER;
 pub const LATEST_STORED_KEY: StoredKeyVersion = StoredKeyVersion::V1;
 
 /// Defines the context string for BLAKE3-KDF in regards to root key derivation
-pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key derivation";
+pub const ROOT_KEY_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2022-12-14 12:53:54 root key derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to master password hash derivation
-pub const MASTER_PASSWORD_CONTEXT: &str =
-	"spacedrive 2022-12-14 15:35:41 master password hash derivation";
+pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2022-12-14 15:35:41 master password hash derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to file key derivation (for file encryption)
-pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation";
+pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
 
 /// This is used for converting a `&[u8]` to an array of bytes.
 ///

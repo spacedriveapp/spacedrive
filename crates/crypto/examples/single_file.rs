@@ -4,12 +4,13 @@ use tokio::fs::File;
 
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
-	header::file::{FileHeader, LATEST_FILE_HEADER},
-	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
+	header::FileHeader,
+	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
+	types::{Algorithm, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
 };
 
-const MAGIC_BYTES: [u8; 6] = *b"crypto";
+const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -40,6 +41,7 @@ async fn encrypt() {
 			content_salt,
 			hashed_password,
 			master_key.clone(),
+			FILE_KEYSLOT_CONTEXT,
 		)
 		.await
 		.unwrap();
@@ -72,7 +74,7 @@ async fn decrypt() {
 
 	// Decrypt the master key with the user's password
 	let master_key = header
-		.decrypt_master_key_with_password(password)
+		.decrypt_master_key_with_password(password, FILE_KEYSLOT_CONTEXT)
 		.await
 		.unwrap();
 

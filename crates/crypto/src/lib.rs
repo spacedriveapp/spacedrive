@@ -28,6 +28,9 @@ pub mod types;
 #[cfg(feature = "headers")]
 pub mod header;
 
+#[cfg(feature = "headers")]
+pub use header::encoding;
+
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
 pub use aead::Payload;

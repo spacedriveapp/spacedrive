@@ -43,7 +43,6 @@ impl Params {
 	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
 	pub fn argon2id(&self) -> Result<argon2::Params> {
 		match self {
-			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
 			Self::Standard => argon2::Params::new(131_072, 8, 4, None),
 			Self::Hardened => argon2::Params::new(262_144, 8, 4, None),
 			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None),
@@ -56,7 +55,6 @@ impl Params {
 	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::BalloonBlake3(Params::Standard).hash()`)
 	pub fn balloon_blake3(&self) -> Result<balloon_hash::Params> {
 		match self {
-			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
 			Self::Standard => balloon_hash::Params::new(131_072, 2, 1),
 			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1),
 			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1),
@@ -117,9 +115,12 @@ impl PasswordHasher {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
+	use crate::types::DerivationContext;
+
 	use super::*;
 
-	const TEST_CONTEXT: &str = "spacedrive 2023-02-09 17:44:14 test key derivation";
+	const TEST_CONTEXT: DerivationContext =
+		DerivationContext::new("spacedrive 2023-02-09 17:44:14 test key derivation");
 
 	const ARGON2ID_STANDARD: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 	const ARGON2ID_HARDENED: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Hardened);
