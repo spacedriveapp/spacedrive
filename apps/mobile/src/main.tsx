@@ -9,6 +9,7 @@ SplashScreen.preventAutoHideAsync();
 const _localStorage = new Map<string, string>();
 
 // We patch stuff onto `globalThis` so that `@sd/client` can use it. This is super hacky but as far as I can tell, there's no better way to do this.
+// TODO: Add env value to automatically set this to `true` in development and false in production builds.
 globalThis.isDev = true;
 
 // Custom polyfill for browser `localStorage`

@@ -9,7 +9,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 import { AnimatedHeight } from '../animation/layout';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
-import Divider from '../primitive/Divider';
+import { Divider } from '../primitive/Divider';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
@@ -51,7 +51,7 @@ const DrawerLibraryManager = () => {
 				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md p-2`}>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
-						console.log('library', library);
+						// console.log('library', library);
 						return (
 							<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
 								<View

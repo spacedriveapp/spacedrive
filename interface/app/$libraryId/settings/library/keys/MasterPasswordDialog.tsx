@@ -4,22 +4,14 @@ import {
 	Algorithm,
 	HASHING_ALGOS,
 	HashingAlgoSlug,
-	generatePassword,
 	hashingAlgoSlugSchema,
 	useLibraryMutation
 } from '@sd/client';
-import {
-	Button,
-	Dialog,
-	Input,
-	PasswordMeter,
-	Select,
-	SelectOption,
-	UseDialogProps,
-	useDialog
-} from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
+import { PasswordMeter } from '~/components/PasswordMeter';
+import { generatePassword } from '~/util';
 
 const schema = z.object({
 	masterPassword: z.string(),
