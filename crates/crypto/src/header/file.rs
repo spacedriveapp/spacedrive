@@ -30,6 +30,8 @@
 //! header.write(&mut writer).unwrap();
 //! ```
 
+use std::io::{Read, Seek, Write};
+
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
@@ -55,32 +57,26 @@ impl HeaderObjectName {
 	}
 }
 
-#[async_trait::async_trait]
 pub trait Header {
 	fn serialize(&self) -> Result<Vec<u8>>;
-
 	fn get_aad(&self) -> Aad;
 	fn get_nonce(&self) -> Nonce;
 	fn get_algorithm(&self) -> Algorithm;
-
 	fn count_objects(&self) -> usize;
 	fn count_keyslots(&self) -> usize;
-
-	async fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key>;
-	async fn decrypt_master_key_with_password(
+	fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key>;
+	fn decrypt_master_key_with_password(
 		&self,
 		password: Protected<Vec<u8>>,
 		context: DerivationContext,
 	) -> Result<Key>;
-
-	async fn decrypt_object(
+	fn decrypt_object(
 		&self,
 		name: HeaderObjectName,
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>>;
-
-	async fn add_keyslot(
+	fn add_keyslot(
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
@@ -88,8 +84,7 @@ pub trait Header {
 		master_key: Key,
 		context: DerivationContext,
 	) -> Result<()>;
-
-	async fn add_object(
+	fn add_object(
 		&mut self,
 		name: HeaderObjectName,
 		context: DerivationContext,
@@ -159,7 +154,40 @@ macro_rules! generate_header_versions {
 			}
 
 			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
-			pub async fn from_reader<R, const I: usize>(reader: &mut R, magic_bytes: MagicBytes<I>) -> Result<Self>
+			pub fn from_reader<R, const I: usize>(reader: &mut R, magic_bytes: MagicBytes<I>) -> Result<Self>
+			where
+				R: Read + Seek,
+			{
+				let mut mb = [0u8; I];
+				reader.read_exact(&mut mb)?;
+
+				if mb != &*magic_bytes {
+					return Err(Error::Serialization);
+				}
+
+				let mut header_size = [0u8; 8];
+				reader.read_exact(&mut header_size)?;
+				let header_size = u64::from_le_bytes(header_size);
+
+				#[allow(clippy::cast_possible_truncation)]
+				let mut header_bytes = vec![0u8; header_size as usize];
+				reader.read_exact(&mut header_bytes)?;
+
+				let bundle: HeaderBundle = encoding::decode(&header_bytes)?;
+				let header: Box<dyn Header + Send + Sync> = match bundle.version {
+					$(
+						FileHeaderVersion::$version => Box::new(encoding::decode::<$schema>(&bundle.bytes)?),
+					)*
+				};
+
+				Ok((Self {
+					inner: header,
+					version: bundle.version,
+				}))
+			}
+
+			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
+			pub async fn from_reader_async<R, const I: usize>(reader: &mut R, magic_bytes: MagicBytes<I>) -> Result<Self>
 			where
 				R: AsyncReadExt + AsyncSeekExt + Unpin + Send,
 			{
@@ -198,7 +226,28 @@ generate_header_versions!(V001, FileHeader001, (V001, FileHeader001, Keyslot001)
 
 impl FileHeader {
 	/// This is a helper function to serialize and write a header to a file.
-	pub async fn write<W, const I: usize>(
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn write<W, const I: usize>(&self, writer: &mut W, magic_bytes: MagicBytes<I>) -> Result<()>
+	where
+		W: Write,
+	{
+		let bundle = HeaderBundle {
+			version: self.version,
+			bytes: self.inner.serialize()?,
+		};
+
+		let serialized_bundle = encoding::encode(&bundle)?;
+		writer.write_all(&magic_bytes)?;
+
+		writer.write_all(&(serialized_bundle.len() as u64).to_le_bytes())?;
+
+		writer.write_all(&serialized_bundle)?;
+
+		Ok(())
+	}
+
+	/// This is a helper function to serialize and write a header to a file.
+	pub async fn write_async<W, const I: usize>(
 		&self,
 		writer: &mut W,
 		magic_bytes: MagicBytes<I>,
@@ -243,22 +292,17 @@ impl FileHeader {
 		self.version
 	}
 
-	pub async fn decrypt_master_key(
-		&self,
-		keys: Vec<Key>,
-		context: DerivationContext,
-	) -> Result<Key> {
-		self.inner.decrypt_master_key(keys, context).await
+	pub fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key> {
+		self.inner.decrypt_master_key(keys, context)
 	}
 
-	pub async fn decrypt_master_key_with_password(
+	pub fn decrypt_master_key_with_password(
 		&self,
 		password: Protected<Vec<u8>>,
 		context: DerivationContext,
 	) -> Result<Key> {
 		self.inner
 			.decrypt_master_key_with_password(password, context)
-			.await
 	}
 
 	#[must_use]
@@ -271,26 +315,26 @@ impl FileHeader {
 		self.inner.count_keyslots()
 	}
 
-	pub async fn decrypt_object(
+	pub fn decrypt_object(
 		&self,
 		name: HeaderObjectName,
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		self.inner.decrypt_object(name, context, master_key).await
+		self.inner.decrypt_object(name, context, master_key)
 	}
 
-	pub async fn add_object(
+	pub fn add_object(
 		&mut self,
 		name: HeaderObjectName,
 		context: DerivationContext,
 		master_key: Key,
 		data: &[u8],
 	) -> Result<()> {
-		self.inner.add_object(name, context, master_key, data).await
+		self.inner.add_object(name, context, master_key, data)
 	}
 
-	pub async fn add_keyslot(
+	pub fn add_keyslot(
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
@@ -298,33 +342,26 @@ impl FileHeader {
 		master_key: Key,
 		context: DerivationContext,
 	) -> Result<()> {
-		self.inner
-			.add_keyslot(
-				hashing_algorithm,
-				content_salt,
-				hashed_key,
-				master_key,
-				context,
-			)
-			.await
+		self.inner.add_keyslot(
+			hashing_algorithm,
+			content_salt,
+			hashed_key,
+			master_key,
+			context,
+		)
 	}
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-	use super::*;
 	use crate::{
 		encoding,
-		types::{HashingAlgorithm, Params, Salt},
+		header::{FileHeader, HeaderObjectName},
+		primitives::LATEST_FILE_HEADER,
+		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	};
-	use std::io::Cursor;
-
-	#[derive(Clone, Eq, PartialEq, Debug, bincode::Encode, bincode::Decode)]
-	struct Metadata {
-		count: usize,
-		enabled: bool,
-	}
+	use std::io::{Cursor, Seek};
 
 	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -342,13 +379,20 @@ mod tests {
 	const MAGIC_BYTES_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("MagicBytes");
 
 	const PVM_BYTES: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
+
+	#[derive(Clone, Eq, PartialEq, Debug, bincode::Encode, bincode::Decode)]
+	struct Metadata {
+		count: usize,
+		enabled: bool,
+	}
+
 	const METADATA: Metadata = Metadata {
 		count: 43948,
 		enabled: true,
 	};
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_header() {
+	#[test]
+	fn serialize_and_deserialize_header() {
 		let mk = Key::generate();
 		let content_salt = Salt::generate();
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
@@ -365,22 +409,19 @@ mod tests {
 				mk,
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		assert!(header.count_keyslots() == 1);
 	}
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_header_with_two_keyslots() {
+	#[test]
+	fn serialize_and_deserialize_header_with_two_keyslots() {
 		let mk = Key::generate();
 		let content_salt = Salt::generate();
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
@@ -397,7 +438,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -405,25 +445,22 @@ mod tests {
 				HASHING_ALGORITHM,
 				content_salt,
 				hashed_pw,
-				mk.clone(),
+				mk,
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		assert!(header.count_keyslots() == 2);
 	}
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_metadata() {
+	#[test]
+	fn serialize_and_deserialize_metadata() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
@@ -437,7 +474,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -447,20 +483,16 @@ mod tests {
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		let bytes = header
 			.decrypt_object(METADATA_OBJECT_NAME, OBJECT_IDENTIFIER_CONTEXT, mk)
-			.await
 			.unwrap();
 
 		let md: Metadata = encoding::decode(bytes.expose()).unwrap();
@@ -470,9 +502,9 @@ mod tests {
 		assert!(header.count_keyslots() == 1);
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "NoObjects")]
-	async fn serialize_and_deserialize_metadata_bad_identifier() {
+	fn serialize_and_deserialize_metadata_bad_identifier() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
@@ -486,7 +518,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -496,25 +527,25 @@ mod tests {
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		header
-			.decrypt_object(PREVIEW_MEDIA_OBJECT_NAME, OBJECT_IDENTIFIER_CONTEXT, mk)
-			.await
+			.decrypt_object(
+				HeaderObjectName::new("nonexistent"),
+				OBJECT_IDENTIFIER_CONTEXT,
+				mk,
+			)
 			.unwrap();
 	}
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_header_with_one_object() {
+	#[test]
+	fn serialize_and_deserialize_header_with_one_object() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
@@ -528,7 +559,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -538,23 +568,20 @@ mod tests {
 				mk,
 				&PVM_BYTES,
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
 	}
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_header_with_two_objects() {
+	#[test]
+	fn serialize_and_deserialize_header_with_two_objects() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
@@ -568,7 +595,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -578,7 +604,6 @@ mod tests {
 				mk.clone(),
 				&PVM_BYTES,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -588,24 +613,21 @@ mod tests {
 				mk,
 				&MAGIC_BYTES,
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 1);
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "TooManyKeyslots")]
-	async fn serialize_and_deserialize_header_with_too_many_keyslots() {
+	fn serialize_and_deserialize_header_with_too_many_keyslots() {
 		let mk = Key::generate();
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -618,7 +640,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -629,7 +650,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -640,13 +660,12 @@ mod tests {
 				mk,
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "TooManyObjects")]
-	async fn serialize_and_deserialize_header_with_three_objects() {
+	fn serialize_and_deserialize_header_with_three_objects() {
 		let mk = Key::generate();
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -658,7 +677,6 @@ mod tests {
 				mk.clone(),
 				&PVM_BYTES,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -668,7 +686,6 @@ mod tests {
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
-			.await
 			.unwrap();
 
 		header
@@ -678,12 +695,11 @@ mod tests {
 				mk,
 				&MAGIC_BYTES,
 			)
-			.await
 			.unwrap();
 	}
 
-	#[tokio::test]
-	async fn serialize_and_deserialize_header_with_all() {
+	#[test]
+	fn serialize_and_deserialize_header_with_all() {
 		let mk = Key::generate();
 		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
 
@@ -697,7 +713,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -708,7 +723,6 @@ mod tests {
 				mk.clone(),
 				FILE_KEYSLOT_CONTEXT,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -718,7 +732,6 @@ mod tests {
 				mk.clone(),
 				&PVM_BYTES,
 			)
-			.await
 			.unwrap();
 
 		header
@@ -728,16 +741,13 @@ mod tests {
 				mk.clone(),
 				&MAGIC_BYTES,
 			)
-			.await
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
-		writer.rewind().await.unwrap();
+		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES)
-			.await
-			.unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
@@ -748,16 +758,10 @@ mod tests {
 				OBJECT_IDENTIFIER_CONTEXT,
 				mk.clone(),
 			)
-			.await
 			.unwrap();
 
 		let magic = header
-			.decrypt_object(
-				MAGIC_BYTES_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
-				mk.clone(),
-			)
-			.await
+			.decrypt_object(MAGIC_BYTES_OBJECT_NAME, OBJECT_IDENTIFIER_CONTEXT, mk)
 			.unwrap();
 
 		assert_eq!(preview_media.expose(), &PVM_BYTES);

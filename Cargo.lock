@@ -6671,7 +6671,6 @@ dependencies = [
  "aead 0.5.1",
  "aes-gcm 0.10.1",
  "argon2",
- "async-trait",
  "balloon-hash",
  "bincode 2.0.0-rc.2",
  "blake3",

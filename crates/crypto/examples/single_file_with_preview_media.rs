@@ -47,7 +47,6 @@ async fn encrypt() {
 			master_key.clone(),
 			FILE_KEYSLOT_CONTEXT,
 		)
-		.await
 		.unwrap();
 
 	header
@@ -57,11 +56,10 @@ async fn encrypt() {
 			master_key.clone(),
 			&pvm,
 		)
-		.await
 		.unwrap();
 
 	// Write the header to the file
-	header.write(&mut writer, MAGIC_BYTES).await.unwrap();
+	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
 
 	// Use the nonce created by the header to initialise a stream encryption object
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -81,13 +79,12 @@ async fn decrypt_preview_media() {
 	let mut reader = File::open("test.encrypted").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let header = FileHeader::from_reader(&mut reader, MAGIC_BYTES)
+	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
 		.await
 		.unwrap();
 
 	let master_key = header
 		.decrypt_master_key_with_password(password, FILE_KEYSLOT_CONTEXT)
-		.await
 		.unwrap();
 
 	// Decrypt the preview media
@@ -97,7 +94,6 @@ async fn decrypt_preview_media() {
 			OBJECT_IDENTIFIER_CONTEXT,
 			master_key,
 		)
-		.await
 		.unwrap();
 
 	println!("{:?}", media.expose());

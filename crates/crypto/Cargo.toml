@@ -11,7 +11,7 @@ rust-version = "1.67.0"
 default = ["headers"]
 rspc = ["dep:rspc"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
-headers = ["dep:bincode", "dep:async-trait"]
+headers = ["dep:bincode"]
 keymanager = ["dep:dashmap", "os-keyrings"]
 os-keyrings = ["dep:secret-service", "dep:security-framework"]
 
@@ -38,7 +38,6 @@ thiserror = "1.0.37"
 
 # header serialization
 bincode = { version = "2.0.0-rc.2", optional = true }
-async-trait = { version = "0.1.66", optional = true }
 
 # generic serialization
 serde = { version = "1.0", features = ["derive"], optional = true }

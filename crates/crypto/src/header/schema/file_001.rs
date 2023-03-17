@@ -2,9 +2,12 @@ use bincode::impl_borrow_decode;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	header::file::{Header, HeaderObjectType},
-	primitives::generate_byte_array,
-	types::{Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt},
+	encoding,
+	header::file::{Header, HeaderObjectName},
+	primitives::{generate_byte_array, to_array},
+	types::{
+		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
+	},
 	Error, Protected, Result,
 };
 
@@ -37,7 +40,7 @@ impl Keyslot001 {
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
 			master_key: EncryptedKey(generate_byte_array()),
 			salt: Salt::generate(),
-			nonce: Nonce::generate_xchacha(),
+			nonce: Nonce::default(),
 		}
 	}
 }
@@ -117,18 +120,87 @@ impl TryFrom<Vec<KeyslotBundle001>> for KeyslotAreaBundle001 {
 	type Error = Error;
 
 	fn try_from(value: Vec<KeyslotBundle001>) -> std::result::Result<Self, Self::Error> {
-		let s: [KeyslotBundle001; KEYSLOT_LIMIT] =
-			value.try_into().map_err(|_| Error::LengthMismatch)?;
-
-		Ok(Self { bundles: s })
+		Ok(Self {
+			bundles: value.try_into().map_err(|_| Error::LengthMismatch)?,
+		})
 	}
 }
 
 #[derive(Clone, bincode::Encode, bincode::Decode)]
 pub struct FileHeaderObject001 {
-	pub object_type: HeaderObjectType,
+	pub identifier: HeaderObjectIdentifier,
 	pub nonce: Nonce,
 	pub data: Vec<u8>,
+}
+
+#[derive(Clone, bincode::Encode, bincode::Decode)]
+pub struct HeaderObjectIdentifier {
+	key: EncryptedKey,
+	salt: Salt,
+	nonce: Nonce,
+}
+
+impl HeaderObjectIdentifier {
+	pub fn new(
+		name: HeaderObjectName,
+		master_key: Key,
+		algorithm: Algorithm,
+		context: DerivationContext,
+		aad: Aad,
+	) -> Result<Self> {
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+		let name_hash = blake3::hash(name.into_bytes());
+
+		// encrypt the object name's hash with the master key
+		let encrypted_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+			Key::derive(master_key, salt, context),
+			nonce,
+			algorithm,
+			name_hash.as_bytes(),
+			&aad,
+		)?)?;
+
+		Ok(Self {
+			key: encrypted_key,
+			salt,
+			nonce,
+		})
+	}
+
+	pub fn eq(
+		&self,
+		other: HeaderObjectName,
+		master_key: Key,
+		algorithm: Algorithm,
+		context: DerivationContext,
+		aad: Aad,
+	) -> Result<bool> {
+		let source = self.decrypt_hash(master_key, algorithm, context, aad)?;
+		let rhs = blake3::hash(other.into_bytes());
+		Ok(source.eq(&rhs))
+	}
+
+	fn decrypt_hash(
+		&self,
+		master_key: Key,
+		algorithm: Algorithm,
+		context: DerivationContext,
+		aad: Aad,
+	) -> Result<blake3::Hash> {
+		to_array(
+			Decryptor::decrypt_bytes(
+				Key::derive(master_key, self.salt, context),
+				self.nonce,
+				algorithm,
+				&self.key,
+				&aad,
+			)?
+			.expose(),
+		)
+		.map_err(|_| Error::Decrypt)
+		.map(blake3::Hash::from)
+	}
 }
 
 impl Keyslot001 {
@@ -139,10 +211,10 @@ impl Keyslot001 {
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
-		context: &str,
+		aad: Aad,
+		context: DerivationContext,
 	) -> Result<Self> {
 		let nonce = Nonce::generate(algorithm);
-
 		let salt = Salt::generate();
 
 		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
@@ -150,7 +222,7 @@ impl Keyslot001 {
 			nonce,
 			algorithm,
 			master_key.expose(),
-			&[],
+			&aad,
 		)?)?;
 
 		Ok(Self {
@@ -162,13 +234,19 @@ impl Keyslot001 {
 		})
 	}
 
-	fn decrypt(&self, algorithm: Algorithm, key: Key, context: &str) -> Result<Key> {
+	fn decrypt(
+		&self,
+		algorithm: Algorithm,
+		key: Key,
+		aad: Aad,
+		context: DerivationContext,
+	) -> Result<Key> {
 		Key::try_from(Decryptor::decrypt_bytes(
 			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
 			&self.master_key,
-			&[],
+			&aad,
 		)?)
 	}
 }
@@ -190,16 +268,21 @@ impl FileHeader001 {
 
 impl FileHeaderObject001 {
 	pub fn new(
-		object_type: HeaderObjectType,
+		name: HeaderObjectName,
 		algorithm: Algorithm,
 		master_key: Key,
+		context: DerivationContext,
 		aad: Aad,
 		data: &[u8],
 	) -> Result<Self> {
+		let identifier =
+			HeaderObjectIdentifier::new(name, master_key.clone(), algorithm, context, aad)?;
+
 		let nonce = Nonce::generate(algorithm);
 		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, &aad)?;
+
 		let object = Self {
-			object_type,
+			identifier,
 			nonce,
 			data: encrypted_data,
 		};
@@ -217,34 +300,45 @@ impl FileHeaderObject001 {
 	}
 }
 
-#[async_trait::async_trait]
 impl Header for FileHeader001 {
 	fn serialize(&self) -> Result<Vec<u8>> {
-		bincode::encode_to_vec(self, bincode::config::standard()).map_err(Error::BincodeEncode)
+		encoding::encode(self)
 	}
 
-	async fn decrypt_object(
+	fn decrypt_object(
 		&self,
-		object_type: HeaderObjectType,
+		name: HeaderObjectName,
+		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
 		self.objects
 			.iter()
-			.filter(|o| o.object_type == object_type)
+			.filter_map(|o| {
+				o.identifier
+					.eq(
+						name.clone(),
+						master_key.clone(),
+						self.algorithm,
+						context,
+						self.aad,
+					)
+					.ok()
+					.and_then(|z| z.then_some(o))
+			})
 			.cloned()
-			.collect::<Vec<FileHeaderObject001>>()
+			.collect::<Vec<_>>()
 			.first()
 			.ok_or(Error::NoObjects)?
 			.decrypt(self.algorithm, self.aad, master_key)
 	}
 
-	async fn add_keyslot(
+	fn add_keyslot(
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
 		hashed_key: Key,
 		master_key: Key,
-		context: &str,
+		context: DerivationContext,
 	) -> Result<()> {
 		if self.keyslots.0.len() + 1 > KEYSLOT_LIMIT {
 			return Err(Error::TooManyKeyslots);
@@ -256,15 +350,17 @@ impl Header for FileHeader001 {
 			content_salt,
 			hashed_key,
 			master_key,
+			self.aad,
 			context,
 		)?);
 
 		Ok(())
 	}
 
-	async fn add_object(
+	fn add_object(
 		&mut self,
-		object_type: HeaderObjectType,
+		name: HeaderObjectName,
+		context: DerivationContext,
 		master_key: Key,
 		data: &[u8],
 	) -> Result<()> {
@@ -275,16 +371,25 @@ impl Header for FileHeader001 {
 		if self
 			.objects
 			.iter()
-			.filter(|x| x.object_type == object_type)
-			.count() != 0
+			.flat_map(|o| {
+				o.identifier.eq(
+					name.clone(),
+					master_key.clone(),
+					self.algorithm,
+					context,
+					self.aad,
+				)
+			})
+			.any(|x| x)
 		{
 			return Err(Error::DuplicateObjects);
 		}
 
 		self.objects.push(FileHeaderObject001::new(
-			object_type,
+			name,
 			self.algorithm,
 			master_key,
+			context,
 			self.aad,
 			data,
 		)?);
@@ -292,44 +397,42 @@ impl Header for FileHeader001 {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	async fn decrypt_master_key(&self, keys: Vec<Key>, context: &str) -> Result<Key> {
+	fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		for hashed_key in keys {
-			for v in &self.keyslots.0 {
-				if let Ok(key) = v.decrypt(self.algorithm, hashed_key.clone(), context) {
-					return Ok(key);
-				}
-			}
-		}
-
-		Err(Error::IncorrectPassword)
+		keys.iter()
+			.find_map(|k| {
+				self.keyslots
+					.0
+					.iter()
+					.find_map(|z| z.decrypt(self.algorithm, k.clone(), self.aad, context).ok())
+			})
+			.ok_or(Error::IncorrectPassword)
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	async fn decrypt_master_key_with_password(
+	fn decrypt_master_key_with_password(
 		&self,
 		password: Protected<Vec<u8>>,
-		context: &str,
+		context: DerivationContext,
 	) -> Result<Key> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		for v in &self.keyslots.0 {
-			let key = v
-				.hashing_algorithm
-				.hash(password.clone(), v.content_salt, None)
-				.map_err(|_| Error::PasswordHash)?;
-
-			if let Ok(key) = v.decrypt(self.algorithm, key, context) {
-				return Ok(key);
-			}
-		}
-
-		Err(Error::IncorrectPassword)
+		self.keyslots
+			.0
+			.iter()
+			.find_map(|z| {
+				let k = z
+					.hashing_algorithm
+					.hash(password.clone(), z.content_salt, None)
+					.ok()?;
+				z.decrypt(self.algorithm, k, self.aad, context).ok()
+			})
+			.ok_or(Error::IncorrectPassword)
 	}
 
 	fn get_aad(&self) -> Aad {
