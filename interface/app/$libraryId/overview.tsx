@@ -125,7 +125,6 @@ export const Component = () => {
 				<CategoryButton icon={CloudArrowDown} category="Downloads" />
 				<CategoryButton icon={MusicNote} category="Music" />
 				<CategoryButton icon={Image} category="Albums" />
-				<CategoryButton icon={Heart} category="Favorites" />
 			</div>
 			<Card className="text-ink-dull">
 				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
