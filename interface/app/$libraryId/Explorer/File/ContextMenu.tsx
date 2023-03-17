@@ -21,7 +21,7 @@ import {
 	useLibraryQuery,
 	usePlausibleEvent
 } from '@sd/client';
-import { ContextMenu, dialogManager } from '@sd/ui';
+import { ContextMenu, Input, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -262,6 +262,11 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 	return (
 		<>
+			{tags.data?.length === 0 && (
+				<div className="m-1 pb-10">
+					<Input autoFocus defaultValue="New tag" />
+				</div>
+			)}
 			{tags.data?.map((tag, index) => {
 				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
 
