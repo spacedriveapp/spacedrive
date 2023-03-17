@@ -490,7 +490,7 @@ impl KeyManager {
 					),
 					old_verification_key.master_key_nonce,
 					old_verification_key.algorithm,
-					&old_verification_key.master_key,
+					old_verification_key.master_key.inner(),
 					&[],
 				)?;
 
@@ -521,7 +521,7 @@ impl KeyManager {
 						Key::derive(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						key.master_key_nonce,
 						key.algorithm,
-						&key.master_key,
+						key.master_key.inner(),
 						&[],
 					)
 					.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
@@ -623,7 +623,7 @@ impl KeyManager {
 					),
 					verification_key.master_key_nonce,
 					verification_key.algorithm,
-					&verification_key.master_key,
+					verification_key.master_key.inner(),
 					&[],
 				)
 				.map_err(|_| {
@@ -686,7 +686,7 @@ impl KeyManager {
 						),
 						stored_key.master_key_nonce,
 						stored_key.algorithm,
-						&stored_key.master_key,
+						stored_key.master_key.inner(),
 						&[],
 					)
 					.map_or_else(
@@ -749,7 +749,7 @@ impl KeyManager {
 				),
 				stored_key.master_key_nonce,
 				stored_key.algorithm,
-				&stored_key.master_key,
+				stored_key.master_key.inner(),
 				&[],
 			)
 			.map_or(Err(Error::IncorrectPassword), Key::try_from)?;

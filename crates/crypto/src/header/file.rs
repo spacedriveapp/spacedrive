@@ -52,7 +52,7 @@ impl HeaderObjectName {
 	}
 
 	#[must_use]
-	pub const fn into_bytes(self) -> &'static [u8] {
+	pub const fn inner(self) -> &'static [u8] {
 		self.0.as_bytes()
 	}
 }
@@ -161,7 +161,7 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb)?;
 
-				if mb != &*magic_bytes {
+				if &mb != magic_bytes.inner() {
 					return Err(Error::Serialization);
 				}
 
@@ -194,7 +194,7 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb).await?;
 
-				if mb != &*magic_bytes {
+				if &mb != magic_bytes.inner() {
 					return Err(Error::Serialization);
 				}
 
@@ -237,7 +237,7 @@ impl FileHeader {
 		};
 
 		let serialized_bundle = encoding::encode(&bundle)?;
-		writer.write_all(&magic_bytes)?;
+		writer.write_all(magic_bytes.inner())?;
 
 		writer.write_all(&(serialized_bundle.len() as u64).to_le_bytes())?;
 
@@ -261,7 +261,7 @@ impl FileHeader {
 		};
 
 		let serialized_bundle = encoding::encode(&bundle)?;
-		writer.write_all(&magic_bytes).await?;
+		writer.write_all(magic_bytes.inner()).await?;
 
 		writer
 			.write_all(&(serialized_bundle.len() as u64).to_le_bytes())
@@ -611,7 +611,7 @@ mod tests {
 				MAGIC_BYTES_OBJECT_NAME,
 				OBJECT_IDENTIFIER_CONTEXT,
 				mk,
-				&MAGIC_BYTES,
+				MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 
@@ -693,7 +693,7 @@ mod tests {
 				MAGIC_BYTES_OBJECT_NAME,
 				OBJECT_IDENTIFIER_CONTEXT,
 				mk,
-				&MAGIC_BYTES,
+				MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 	}
@@ -739,7 +739,7 @@ mod tests {
 				MAGIC_BYTES_OBJECT_NAME,
 				OBJECT_IDENTIFIER_CONTEXT,
 				mk.clone(),
-				&MAGIC_BYTES,
+				MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 
@@ -765,6 +765,6 @@ mod tests {
 			.unwrap();
 
 		assert_eq!(preview_media.expose(), &PVM_BYTES);
-		assert_eq!(magic.expose(), &*MAGIC_BYTES);
+		assert_eq!(magic.expose(), MAGIC_BYTES.inner());
 	}
 }

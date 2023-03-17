@@ -41,9 +41,9 @@ macro_rules! impl_stream {
 			/// The desired master key, nonce and algorithm should be provided.
 			#[allow(clippy::needless_pass_by_value)]
 			pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
-				ensure_length(algorithm.nonce_len(), &nonce)?;
+				ensure_length(algorithm.nonce_len(), nonce.inner())?;
 				ensure_not_null(key.expose())?;
-				ensure_not_null(&nonce)?;
+				ensure_not_null(nonce.inner())?;
 
 				let s = match algorithm {
 					$(

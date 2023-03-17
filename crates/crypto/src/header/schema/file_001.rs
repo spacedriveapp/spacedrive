@@ -153,7 +153,7 @@ impl HeaderObjectIdentifier {
 
 		// it's encrypted so we probably don't need to hash it further/with anything else
 		// this hash was only so we could 100% predict the length
-		let name_hash = blake3::hash(name.into_bytes());
+		let name_hash = blake3::hash(name.inner());
 
 		// encrypt the object name's hash with the master key
 		let encrypted_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
@@ -161,7 +161,7 @@ impl HeaderObjectIdentifier {
 			nonce,
 			algorithm,
 			name_hash.as_bytes(),
-			&aad,
+			aad.inner(),
 		)?)?;
 
 		Ok(Self {
@@ -180,7 +180,7 @@ impl HeaderObjectIdentifier {
 		aad: Aad,
 	) -> Result<bool> {
 		let source = self.decrypt_hash(master_key, algorithm, context, aad)?;
-		let rhs = blake3::hash(other.into_bytes());
+		let rhs = blake3::hash(other.inner());
 		Ok(source.eq(&rhs))
 	}
 
@@ -196,8 +196,8 @@ impl HeaderObjectIdentifier {
 				Key::derive(master_key, self.salt, context),
 				self.nonce,
 				algorithm,
-				&self.key,
-				&aad,
+				self.key.inner(),
+				aad.inner(),
 			)?
 			.expose(),
 		)
@@ -225,7 +225,7 @@ impl Keyslot001 {
 			nonce,
 			algorithm,
 			master_key.expose(),
-			&aad,
+			aad.inner(),
 		)?)?;
 
 		Ok(Self {
@@ -248,8 +248,8 @@ impl Keyslot001 {
 			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
-			&self.master_key,
-			&aad,
+			self.master_key.inner(),
+			aad.inner(),
 		)?)
 	}
 }
@@ -282,7 +282,8 @@ impl FileHeaderObject001 {
 			HeaderObjectIdentifier::new(name, master_key.clone(), algorithm, context, aad)?;
 
 		let nonce = Nonce::generate(algorithm);
-		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, &aad)?;
+		let encrypted_data =
+			Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, aad.inner())?;
 
 		let object = Self {
 			identifier,
@@ -299,7 +300,7 @@ impl FileHeaderObject001 {
 		aad: Aad,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, &aad)
+		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, aad.inner())
 	}
 }
 

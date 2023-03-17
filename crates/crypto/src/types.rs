@@ -2,7 +2,6 @@
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
 use std::fmt::Display;
-use std::ops::Deref;
 
 use crate::{Error, Protected};
 
@@ -22,12 +21,10 @@ impl<const I: usize> MagicBytes<I> {
 	pub const fn new(bytes: [u8; I]) -> Self {
 		Self(bytes)
 	}
-}
 
-impl<const I: usize> Deref for MagicBytes<I> {
-	type Target = [u8];
-	fn deref(&self) -> &Self::Target {
-		self.0.as_slice()
+	#[must_use]
+	pub const fn inner(&self) -> &[u8; I] {
+		&self.0
 	}
 }
 
@@ -38,6 +35,11 @@ impl DerivationContext {
 	#[must_use]
 	pub const fn new(context: &'static str) -> Self {
 		Self(context)
+	}
+
+	#[must_use]
+	pub const fn inner(&self) -> &'static str {
+		self.0
 	}
 }
 
@@ -90,6 +92,14 @@ impl Nonce {
 	}
 
 	#[must_use]
+	pub const fn inner(&self) -> &[u8] {
+		match self {
+			Self::Aes256Gcm(x) => x,
+			Self::XChaCha20Poly1305(x) => x,
+		}
+	}
+
+	#[must_use]
 	pub const fn len(&self) -> usize {
 		match self {
 			Self::Aes256Gcm(x) => x.len(),
@@ -136,25 +146,6 @@ impl TryFrom<Vec<u8>> for Nonce {
 	}
 }
 
-impl AsRef<[u8]> for Nonce {
-	fn as_ref(&self) -> &[u8] {
-		match self {
-			Self::Aes256Gcm(x) => x,
-			Self::XChaCha20Poly1305(x) => x,
-		}
-	}
-}
-
-impl Deref for Nonce {
-	type Target = [u8];
-	fn deref(&self) -> &Self::Target {
-		match self {
-			Self::Aes256Gcm(x) => x,
-			Self::XChaCha20Poly1305(x) => x,
-		}
-	}
-}
-
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -195,7 +186,7 @@ impl Key {
 	pub fn derive(key: Self, salt: Salt, context: DerivationContext) -> Self {
 		Self::new(blake3::derive_key(
 			context.0,
-			&[key.0.expose().as_ref(), &salt].concat(),
+			&[key.0.expose().as_ref(), &salt.0].concat(),
 		))
 	}
 
@@ -227,14 +218,6 @@ impl TryFrom<Protected<Vec<u8>>> for Key {
 	}
 }
 
-impl Deref for Key {
-	type Target = Protected<[u8; KEY_LEN]>;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
 /// This should be used for providing a secret key to functions.
 ///
 /// You may also generate a secret key with `SecretKey::generate()`
@@ -260,14 +243,6 @@ impl SecretKey {
 	#[must_use]
 	pub fn to_vec(self) -> Vec<u8> {
 		self.0.to_vec()
-	}
-}
-
-impl Deref for SecretKey {
-	type Target = Protected<[u8; SECRET_KEY_LEN]>;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
 	}
 }
 
@@ -345,10 +320,14 @@ pub struct EncryptedKey(
 	pub  [u8; ENCRYPTED_KEY_LEN],
 );
 
-impl Deref for EncryptedKey {
-	type Target = [u8];
+impl EncryptedKey {
+	#[must_use]
+	pub const fn new(v: [u8; ENCRYPTED_KEY_LEN]) -> Self {
+		Self(v)
+	}
 
-	fn deref(&self) -> &Self::Target {
+	#[must_use]
+	pub const fn inner(&self) -> &[u8; ENCRYPTED_KEY_LEN] {
 		&self.0
 	}
 }
@@ -370,12 +349,9 @@ impl Aad {
 	pub fn generate() -> Self {
 		Self(generate_byte_array())
 	}
-}
 
-impl Deref for Aad {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
+	#[must_use]
+	pub const fn inner(&self) -> &[u8; AAD_LEN] {
 		&self.0
 	}
 }
@@ -407,12 +383,9 @@ impl Salt {
 	pub const fn new(v: [u8; SALT_LEN]) -> Self {
 		Self(v)
 	}
-}
 
-impl Deref for Salt {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
+	#[must_use]
+	pub const fn inner(&self) -> &[u8; SALT_LEN] {
 		&self.0
 	}
 }
