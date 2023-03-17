@@ -128,7 +128,7 @@ export type FileEncryptorJobInit = { location_id: number, path_id: number, key_u
 
 export type FileEraserJobInit = { location_id: number, path_id: number, passes: string }
 
-export type FilePath = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
+export type FilePath = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, inode: number[], device: number[], object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
 export type GenerateThumbsForLocationArgs = { id: number, path: string }
 
@@ -294,7 +294,7 @@ export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 
 export type Volume = { name: string, mount_point: string, total_capacity: string, available_capacity: string, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
-export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
+export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, inode: number[], device: number[], object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
 
 export type location_with_indexer_rules = { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: { indexer_rule: IndexerRule }[] }
 

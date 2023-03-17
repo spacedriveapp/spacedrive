@@ -6633,6 +6633,7 @@ dependencies = [
  "uhlc",
  "uuid 1.2.1",
  "webp",
+ "winapi-util",
 ]
 
 [[package]]

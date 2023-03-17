@@ -1,4 +1,8 @@
+#[cfg(target_family = "unix")]
 use crate::location::file_path_helper::get_inode_and_device;
+
+#[cfg(target_family = "windows")]
+use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
 	cmp::Ordering,
@@ -171,8 +175,7 @@ async fn inner_walk_single_dir(
 
 			#[cfg(target_family = "windows")]
 			{
-				use crate::location::file_path_helper::get_inode_and_device_from_path;
-				get_inode_and_device_from_path(current_path).await
+				get_inode_and_device_from_path(&current_path).await
 			}
 		} {
 			Ok(inode_and_device) => inode_and_device,
@@ -300,7 +303,18 @@ async fn inner_walk_single_dir(
 				trace!("Indexing ancestor {}", ancestor.display());
 				if !indexed_paths.contains_key(ancestor) {
 					let metadata = fs::metadata(ancestor).await?;
-					let (inode, device) = get_inode_and_device(&metadata)?;
+					let (inode, device) = {
+						#[cfg(target_family = "unix")]
+						{
+							get_inode_and_device(&metadata)?
+						}
+
+						#[cfg(target_family = "windows")]
+						{
+							get_inode_and_device_from_path(ancestor).await?
+						}
+					};
+
 					indexed_paths.insert(
 						ancestor.to_path_buf(),
 						WalkEntry {
@@ -333,7 +347,17 @@ async fn prepared_indexed_paths(
 	if include_root {
 		// Also adding the root location path
 		let metadata = fs::metadata(&root).await?;
-		let (inode, device) = get_inode_and_device(&metadata)?;
+		let (inode, device) = {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode_and_device(&metadata)?
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_and_device_from_path(&root).await?
+			}
+		};
 		indexed_paths.push(WalkEntry {
 			path: root,
 			is_dir: true,

@@ -68,6 +68,9 @@ notify = { version = "5.0.0", default-features = false, features = [
   "macos_fsevent",
 ], optional = true }
 
+[target.'cfg(windows)'.dependencies.winapi-util]
+version = "0.1.5"
+
 [dev-dependencies]
 tempfile = "^3.3.0"
 tracing-test = "^0.2.3"

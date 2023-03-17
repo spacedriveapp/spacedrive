@@ -5,8 +5,8 @@ use crate::{
 		delete_directory,
 		file_path_helper::{
 			extract_materialized_path, file_path_with_object, get_existing_file_path_with_object,
-			get_inode_and_device, get_parent_dir, get_parent_dir_id,
-			maybe_get_existing_file_or_directory, MaterializedPath,
+			get_parent_dir, get_parent_dir_id, maybe_get_existing_file_or_directory,
+			MaterializedPath,
 		},
 		location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -22,6 +22,12 @@ use crate::{
 	},
 	prisma::{file_path, object},
 };
+
+#[cfg(target_family = "unix")]
+use crate::location::file_path_helper::get_inode_and_device;
+
+#[cfg(target_family = "windows")]
+use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
 	collections::HashSet,
@@ -80,7 +86,19 @@ pub(super) async fn create_dir_by_path(
 
 	let materialized_path = MaterializedPath::new(location.id, &location.path, path, true)?;
 
-	let (inode, device) = get_inode_and_device(metadata)?;
+	let (inode, device) = {
+		#[cfg(target_family = "unix")]
+		{
+			get_inode_and_device(&metadata)?
+		}
+
+		#[cfg(target_family = "windows")]
+		{
+			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
+			let _ = &metadata; // To avoid unused variable warning
+			get_inode_and_device_from_path(&path).await?
+		}
+	};
 
 	let parent_directory = get_parent_dir(&materialized_path, &library.db).await?;
 
@@ -142,7 +160,19 @@ pub(super) async fn create_file_by_path(
 
 	let materialized_path = MaterializedPath::new(location.id, &location.path, path, false)?;
 
-	let (inode, device) = get_inode_and_device(metadata)?;
+	let (inode, device) = {
+		#[cfg(target_family = "unix")]
+		{
+			get_inode_and_device(&metadata)?
+		}
+
+		#[cfg(target_family = "windows")]
+		{
+			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
+			let _ = &metadata; // To avoid unused variable warning
+			get_inode_and_device_from_path(path).await?
+		}
+	};
 
 	let Some(parent_directory) =
 		get_parent_dir(&materialized_path, db).await?

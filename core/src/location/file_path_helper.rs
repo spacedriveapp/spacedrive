@@ -622,20 +622,16 @@ pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathE
 
 		// use std::os::windows::fs::MetadataExt;
 
-		// (
+		// Ok((
 		// 	metadata
 		// 		.file_index()
 		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata"),
 		// 	metadata
 		// 		.volume_serial_number()
 		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata") as u64,
-		// )
+		// ))
 
-		use winapi::{file::information, Handle::from_path_any};
-
-		let info = information(&from_path_any(path.as_ref())?)?;
-
-		(info.file_index(), info.volume_serial_number())
+		todo!("Use metadata: {:#?}", metadata)
 	}
 }
 
@@ -643,7 +639,14 @@ pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathE
 pub async fn get_inode_and_device_from_path(
 	path: impl AsRef<Path>,
 ) -> Result<(u64, u64), FilePathError> {
-	let metadata = fs::metadata(path.as_ref()).await?;
+	// TODO use this when it's stable and remove winapi-utils dependency
+	// let metadata = fs::metadata(path.as_ref()).await?;
 
-	get_inode_and_device(&metadata)
+	// get_inode_and_device(&metadata)
+
+	use winapi_util::{file::information, Handle};
+
+	let info = information(&Handle::from_path_any(path.as_ref())?)?;
+
+	Ok((info.file_index(), info.volume_serial_number()))
 }
