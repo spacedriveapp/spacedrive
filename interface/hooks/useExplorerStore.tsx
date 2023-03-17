@@ -17,6 +17,7 @@ const state = {
 	gridItemSize: 100,
 	listItemSize: 40,
 	selectedRowIndex: 1,
+	showBytesInGridView: true,
 	tagAssignMode: false,
 	showInspector: false,
 	multiSelectIndexes: [] as number[],

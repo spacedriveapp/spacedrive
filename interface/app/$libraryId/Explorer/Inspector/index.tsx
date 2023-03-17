@@ -73,7 +73,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 				<>
 					<div
 						className={clsx(
-							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden rounded-lg'
+							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
 						)}
 					>
 						<FileThumb size={240} data={data} />
