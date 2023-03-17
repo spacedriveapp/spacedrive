@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { MagnifyingGlass } from 'phosphor-react';
-import { Input } from '@sd/ui';
+import { Input, SearchInput } from '@sd/ui';
 import { DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
 
@@ -16,15 +16,11 @@ export default function DocsSidebar(props: Props) {
 
 	return (
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
-			<div onClick={() => alert('Search coming soon...')} className="relative w-full">
-				<MagnifyingGlass weight="bold" className="absolute top-[11px] left-3" />
-				<Input
-					size="md"
-					className="pointer-events-none mb-5 flex w-full pl-9"
-					placeholder="Search"
-				/>
-				<span className="absolute  right-3 top-[9px] text-sm font-semibold text-gray-400">⌘K</span>
+			<div onClick={() => alert('Search coming soon...')} className="relative mb-5">
+				<SearchInput placeholder="Search..." disabled />
+				<span className="absolute top-2 right-3 text-xs font-semibold text-gray-400">⌘K</span>
 			</div>
+
 			<div className="mb-6 flex flex-col">
 				{props.navigation.map((section) => {
 					const isActive = section.slug === activeSection;
