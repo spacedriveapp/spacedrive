@@ -79,7 +79,6 @@ pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
 pub fn generate_bytes(size: usize) -> Vec<u8> {
 	let mut bytes = vec![0u8; size];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
-	dbg!(bytes.len());
 	bytes
 }
 
@@ -87,7 +86,6 @@ pub fn generate_bytes(size: usize) -> Vec<u8> {
 pub fn generate_byte_array<const I: usize>() -> [u8; I] {
 	let mut bytes = [0u8; I];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
-
 	bytes
 }
 
@@ -97,9 +95,8 @@ pub fn ensure_not_null(b: &[u8]) -> Result<()> {
 		.ok_or(Error::NullType)
 }
 
-pub const fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {
-	if b.len() != expected {
-		return Err(Error::LengthMismatch);
-	}
-	Ok(())
+pub fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {
+	(b.len() == expected)
+		.then_some(())
+		.ok_or(Error::LengthMismatch)
 }

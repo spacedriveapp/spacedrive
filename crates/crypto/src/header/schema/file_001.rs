@@ -150,6 +150,9 @@ impl HeaderObjectIdentifier {
 	) -> Result<Self> {
 		let salt = Salt::generate();
 		let nonce = Nonce::generate(algorithm);
+
+		// it's encrypted so we probably don't need to hash it further/with anything else
+		// this hash was only so we could 100% predict the length
 		let name_hash = blake3::hash(name.into_bytes());
 
 		// encrypt the object name's hash with the master key
