@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read, Write};
 
 use crate::{
-	primitives::{ensure_length, ensure_not_null, AEAD_TAG_LEN, BLOCK_LEN},
+	primitives::{ensure_length, ensure_not_null, to_array, AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Algorithm, Key, Nonce},
 	Error, Protected, Result,
 };
@@ -180,6 +180,40 @@ macro_rules! impl_stream {
 
 		}
 	};
+}
+
+impl Encryptor {
+	pub fn encrypt_byte_array<const I: usize, const T: usize>(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		bytes: &[u8; I],
+		aad: &[u8],
+	) -> Result<[u8; T]> {
+		let mut writer = Cursor::new(Vec::new());
+		let s = Self::new(key, nonce, algorithm)?;
+
+		s.encrypt_streams(bytes.as_ref(), &mut writer, aad)
+			.map(|_| writer.into_inner())
+			.map_or_else(Err, |x| to_array(&x))
+	}
+}
+
+impl Decryptor {
+	pub fn decrypt_byte_array<const I: usize, const T: usize>(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		bytes: &[u8; I],
+		aad: &[u8],
+	) -> Result<Protected<[u8; T]>> {
+		let mut writer = Cursor::new(Vec::new());
+		let s = Self::new(key, nonce, algorithm)?;
+
+		s.decrypt_streams(bytes.as_ref(), &mut writer, aad)
+			.map(|_| to_array(&writer.into_inner()))?
+			.map_or_else(Err, |x| Ok(Protected::new(x)))
+	}
 }
 
 impl_stream!(

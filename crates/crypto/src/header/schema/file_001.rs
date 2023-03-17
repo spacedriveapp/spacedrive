@@ -29,7 +29,7 @@ pub struct Keyslot001 {
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: Salt,
-	pub master_key: EncryptedKey, // encrypted
+	pub encrypted_key: EncryptedKey, // encrypted
 	pub nonce: Nonce,
 }
 
@@ -38,7 +38,7 @@ impl Keyslot001 {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-			master_key: EncryptedKey(generate_byte_array()),
+			encrypted_key: EncryptedKey(generate_byte_array()),
 			salt: Salt::generate(),
 			nonce: Nonce::default(),
 		}
@@ -156,13 +156,14 @@ impl HeaderObjectIdentifier {
 		let name_hash = blake3::hash(name.inner());
 
 		// encrypt the object name's hash with the master key
-		let encrypted_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+		let encrypted_key = Encryptor::encrypt_bytes_array(
 			Key::derive(master_key, salt, context),
 			nonce,
 			algorithm,
 			name_hash.as_bytes(),
 			aad.inner(),
-		)?)?;
+		)
+		.map(EncryptedKey::new)?;
 
 		Ok(Self {
 			key: encrypted_key,
@@ -220,19 +221,20 @@ impl Keyslot001 {
 		let nonce = Nonce::generate(algorithm);
 		let salt = Salt::generate();
 
-		let encrypted_master_key = EncryptedKey::try_from(Encryptor::encrypt_bytes(
+		let encrypted_key = Encryptor::encrypt_byte_array(
 			Key::derive(hashed_key, salt, context),
 			nonce,
 			algorithm,
 			master_key.expose(),
 			aad.inner(),
-		)?)?;
+		)
+		.map(EncryptedKey::new)?;
 
 		Ok(Self {
 			hashing_algorithm,
 			salt,
 			content_salt,
-			master_key: encrypted_master_key,
+			encrypted_key,
 			nonce,
 		})
 	}
