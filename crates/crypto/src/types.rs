@@ -6,8 +6,10 @@ use std::fmt::Display;
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	generate_byte_array, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
-	SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+	generate_byte_array, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED,
+	ARGON2ID_PARANOID, ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID,
+	B3BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
+	XCHACHA20_POLY1305_NONCE_LEN,
 };
 
 #[cfg(feature = "serde")]
@@ -68,6 +70,24 @@ pub enum Params {
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	BalloonBlake3(Params),
+}
+
+impl HashingAlgorithm {
+	#[must_use]
+	pub const fn get_parameters(&self) -> (u32, u32, u32) {
+		match self {
+			Self::Argon2id(p) => match p {
+				Params::Standard => ARGON2ID_STANDARD,
+				Params::Hardened => ARGON2ID_HARDENED,
+				Params::Paranoid => ARGON2ID_PARANOID,
+			},
+			Self::BalloonBlake3(p) => match p {
+				Params::Standard => B3BALLOON_STANDARD,
+				Params::Hardened => B3BALLOON_HARDENED,
+				Params::Paranoid => B3BALLOON_PARANOID,
+			},
+		}
+	}
 }
 
 /// This should be used for providing a nonce to encrypt/decrypt functions.

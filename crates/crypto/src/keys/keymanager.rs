@@ -41,6 +41,7 @@ use tokio::sync::Mutex;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
+	keys::hashing::PasswordHasher,
 	primitives::{
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 		SECRET_KEY_IDENTIFIER,
@@ -255,7 +256,8 @@ impl KeyManager {
 		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
-		let hashed_password = hashing_algorithm.hash(
+		let hashed_password = PasswordHasher::hash(
+			hashing_algorithm,
 			config.password.into(),
 			content_salt,
 			Some(secret_key.clone()),
@@ -271,7 +273,7 @@ impl KeyManager {
 		let root_key_nonce = Nonce::generate(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = Encryptor::encrypt_bytes_array(
+		let encrypted_master_key = Encryptor::encrypt_byte_array(
 			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
@@ -381,7 +383,8 @@ impl KeyManager {
 
 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
-		let hashed_password = hashing_algorithm.hash(
+		let hashed_password = PasswordHasher::hash(
+			hashing_algorithm,
 			master_password.into(),
 			content_salt,
 			Some(secret_key.clone()),
@@ -397,7 +400,7 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = Encryptor::encrypt_bytes_array(
+		let encrypted_master_key = Encryptor::encrypt_byte_array(
 			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
@@ -477,7 +480,8 @@ impl KeyManager {
 
 		let old_root_key = match old_verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = old_verification_key.hashing_algorithm.hash(
+				let hashed_password = PasswordHasher::hash(
+					old_verification_key.hashing_algorithm,
 					master_password.into(),
 					old_verification_key.content_salt,
 					Some(secret_key),
@@ -534,7 +538,7 @@ impl KeyManager {
 					let salt = Salt::generate();
 
 					// encrypt the master key with the current root key
-					let encrypted_master_key = Encryptor::encrypt_bytes_array(
+					let encrypted_master_key = Encryptor::encrypt_byte_array(
 						Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 						master_key_nonce,
 						key.algorithm,
@@ -606,17 +610,16 @@ impl KeyManager {
 
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = verification_key
-					.hashing_algorithm
-					.hash(
-						master_password.into(),
-						verification_key.content_salt,
-						Some(secret_key),
-					)
-					.map_err(|e| {
-						self.remove_from_queue(verification_key.uuid).ok();
-						e
-					})?;
+				let hashed_password = PasswordHasher::hash(
+					verification_key.hashing_algorithm,
+					master_password.into(),
+					verification_key.content_salt,
+					Some(secret_key),
+				)
+				.map_err(|e| {
+					self.remove_from_queue(verification_key.uuid).ok();
+					e
+				})?;
 
 				let master_key = Decryptor::decrypt_bytes(
 					Key::derive(
@@ -713,13 +716,16 @@ impl KeyManager {
 					})?;
 
 					// Hash the key once with the parameters/algorithm the user selected during first mount
-					let hashed_key = stored_key
-						.hashing_algorithm
-						.hash(key, stored_key.content_salt, None)
-						.map_err(|e| {
-							self.remove_from_queue(uuid).ok();
-							e
-						})?;
+					let hashed_key = PasswordHasher::hash(
+						stored_key.hashing_algorithm,
+						key,
+						stored_key.content_salt,
+						None,
+					)
+					.map_err(|e| {
+						self.remove_from_queue(uuid).ok();
+						e
+					})?;
 
 					self.keymount.insert(
 						uuid,
@@ -808,7 +814,7 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with a derived key (derived from the root key)
-		let encrypted_master_key = Encryptor::encrypt_bytes_array(
+		let encrypted_master_key = Encryptor::encrypt_byte_array(
 			Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 			master_key_nonce,
 			algorithm,

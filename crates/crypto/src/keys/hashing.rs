@@ -13,74 +13,46 @@
 
 use crate::{
 	primitives::KEY_LEN,
-	types::{HashingAlgorithm, Key, Params, Salt, SecretKey},
+	types::{HashingAlgorithm, Key, Salt, SecretKey},
 	Error, Protected, Result,
 };
 use argon2::Argon2;
 use balloon_hash::Balloon;
 
-impl HashingAlgorithm {
-	/// This function should be used to hash passwords. It handles all appropriate parameters, and uses hashing with a secret key (if provided).
-	#[allow(clippy::needless_pass_by_value)]
+pub struct PasswordHasher;
+
+impl PasswordHasher {
 	pub fn hash(
-		&self,
+		algorithm: HashingAlgorithm,
 		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
 	) -> Result<Key> {
-		match self {
-			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
-			Self::BalloonBlake3(params) => {
-				PasswordHasher::balloon_blake3(password, salt, secret, *params)
-			}
+		let d = algorithm.get_parameters();
+
+		match algorithm {
+			HashingAlgorithm::Argon2id(_) => Self::argon2id(password, salt, secret, d),
+			HashingAlgorithm::BalloonBlake3(_) => Self::balloon_blake3(password, salt, secret, d),
 		}
 	}
-}
 
-impl Params {
-	/// This function is used to generate parameters for password hashing.
-	///
-	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
-	pub fn argon2id(&self) -> Result<argon2::Params> {
-		match self {
-			Self::Standard => argon2::Params::new(131_072, 8, 4, None),
-			Self::Hardened => argon2::Params::new(262_144, 8, 4, None),
-			Self::Paranoid => argon2::Params::new(524_288, 8, 4, None),
-		}
-		.map_err(|_| Error::PasswordHash)
-	}
-
-	/// This function is used to generate parameters for password hashing.
-	///
-	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::BalloonBlake3(Params::Standard).hash()`)
-	pub fn balloon_blake3(&self) -> Result<balloon_hash::Params> {
-		match self {
-			Self::Standard => balloon_hash::Params::new(131_072, 2, 1),
-			Self::Hardened => balloon_hash::Params::new(262_144, 2, 1),
-			Self::Paranoid => balloon_hash::Params::new(524_288, 2, 1),
-		}
-		.map_err(|_| Error::PasswordHash)
-	}
-}
-
-struct PasswordHasher;
-
-impl PasswordHasher {
 	#[allow(clippy::needless_pass_by_value)]
 	fn argon2id(
 		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
-		params: Params,
+		params: (u32, u32, u32),
 	) -> Result<Key> {
 		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
+		let p = argon2::Params::new(params.0, params.1, params.2, None)
+			.map_err(|_| Error::PasswordHash)?;
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
 			secret.expose(),
 			argon2::Algorithm::Argon2id,
 			argon2::Version::V0x13,
-			params.argon2id()?,
+			p,
 		)
 		.map_err(|_| Error::PasswordHash)?;
 
@@ -94,15 +66,17 @@ impl PasswordHasher {
 		password: Protected<Vec<u8>>,
 		salt: Salt,
 		secret: Option<SecretKey>,
-		params: Params,
+		params: (u32, u32, u32),
 	) -> Result<Key> {
 		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
+		let p = balloon_hash::Params::new(params.0, params.1, params.2)
+			.map_err(|_| Error::PasswordHash)?;
 
 		let mut key = [0u8; KEY_LEN];
 
 		let balloon = Balloon::<blake3::Hasher>::new(
 			balloon_hash::Algorithm::Balloon,
-			params.balloon_blake3()?,
+			p,
 			Some(secret.expose()),
 		);
 
@@ -115,7 +89,7 @@ impl PasswordHasher {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-	use crate::types::DerivationContext;
+	use crate::types::{DerivationContext, Params};
 
 	use super::*;
 
@@ -216,108 +190,126 @@ mod tests {
 
 	#[test]
 	fn hash_argon2id_standard() {
-		let output = ARGON2ID_STANDARD
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_standard_with_secret() {
-		let output = ARGON2ID_STANDARD
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			ARGON2ID_STANDARD,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_hardened() {
-		let output = ARGON2ID_HARDENED
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_hardened_with_secret() {
-		let output = ARGON2ID_HARDENED
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			ARGON2ID_HARDENED,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_paranoid() {
-		let output = ARGON2ID_PARANOID
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_paranoid_with_secret() {
-		let output = ARGON2ID_PARANOID
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			ARGON2ID_PARANOID,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_WITH_SECRET_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_standard() {
-		let output = B3BALLOON_STANDARD
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(B3BALLOON_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_standard_with_secret() {
-		let output = B3BALLOON_STANDARD
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			B3BALLOON_STANDARD,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_hardened() {
-		let output = B3BALLOON_HARDENED
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(B3BALLOON_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_hardened_with_secret() {
-		let output = B3BALLOON_HARDENED
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			B3BALLOON_HARDENED,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_paranoid() {
-		let output = B3BALLOON_PARANOID
-			.hash(PASSWORD.to_vec().into(), SALT, None)
-			.unwrap();
+		let output =
+			PasswordHasher::hash(B3BALLOON_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_paranoid_with_secret() {
-		let output = B3BALLOON_PARANOID
-			.hash(PASSWORD.to_vec().into(), SALT, Some(SECRET_KEY))
-			.unwrap();
+		let output = PasswordHasher::hash(
+			B3BALLOON_PARANOID,
+			PASSWORD.to_vec().into(),
+			SALT,
+			Some(SECRET_KEY),
+		)
+		.unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_WITH_SECRET_EXPECTED[2], output.expose());
 	}

@@ -63,6 +63,13 @@ pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
 pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
 
+pub(super) const ARGON2ID_STANDARD: (u32, u32, u32) = (131_072, 8, 4);
+pub(super) const ARGON2ID_HARDENED: (u32, u32, u32) = (262_144, 8, 4);
+pub(super) const ARGON2ID_PARANOID: (u32, u32, u32) = (524_288, 8, 4);
+pub(super) const B3BALLOON_STANDARD: (u32, u32, u32) = (131_072, 2, 1);
+pub(super) const B3BALLOON_HARDENED: (u32, u32, u32) = (262_144, 2, 1);
+pub(super) const B3BALLOON_PARANOID: (u32, u32, u32) = (524_288, 2, 1);
+
 /// This is used for converting a `&[u8]` to an array of bytes.
 ///
 /// It calls `Clone`, via `to_vec()`.

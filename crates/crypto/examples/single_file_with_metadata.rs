@@ -4,6 +4,7 @@ use sd_crypto::{
 	crypto::Encryptor,
 	encoding,
 	header::{FileHeader, HeaderObjectName},
+	keys::hashing::PasswordHasher,
 	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
 	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
@@ -38,9 +39,8 @@ async fn encrypt() {
 
 	// These should ideally be done by a key management system
 	let content_salt = Salt::generate();
-	let hashed_password = HASHING_ALGORITHM
-		.hash(password, content_salt, None)
-		.unwrap();
+	let hashed_password =
+		PasswordHasher::hash(HASHING_ALGORITHM, password, content_salt, None).unwrap();
 
 	// Create the header for the encrypted file
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -74,7 +74,7 @@ async fn encrypt() {
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
+		.encrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
 		.await
 		.unwrap();
 }
