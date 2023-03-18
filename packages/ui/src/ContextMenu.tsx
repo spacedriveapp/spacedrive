@@ -1,10 +1,10 @@
 import * as RadixCM from '@radix-ui/react-context-menu';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretRight, Icon } from 'phosphor-react';
+import { CaretRight, Icon, IconProps } from 'phosphor-react';
 import { PropsWithChildren, Suspense } from 'react';
 
-interface Props extends RadixCM.MenuContentProps {
+interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
 }
 
@@ -17,7 +17,7 @@ export const contextMenuClasses = clsx(
 	'cursor-default select-none rounded-md'
 );
 
-const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Props>) => {
+const Root = ({ trigger, children, className, ...props }: PropsWithChildren<ContextMenuProps>) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
@@ -31,9 +31,11 @@ const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Prop
 };
 
 export const contextMenuSeparatorClassNames =
-	'border-b-menu-line pointer-events-none mx-2 border-0 border-b';
+	'border-b-menu-line pointer-events-none mx-2 my-1 border-0 border-b';
 
-const Separator = () => <RadixCM.Separator className={contextMenuSeparatorClassNames} />;
+const Separator = (props: { className?: string }) => (
+	<RadixCM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
+);
 
 export const contextSubMenuTriggerClassNames =
 	"[&[data-state='open']_div]:bg-accent text-menu-ink py-[3px]  focus:outline-none [&[data-state='open']_div]:text-white";
@@ -60,7 +62,7 @@ const SubMenu = ({
 
 export const contextMenuItemStyles = cva(
 	[
-		'flex flex-1 flex-row items-center justify-start',
+		'flex flex-1 flex-row items-center justify-start overflow-hidden',
 		'space-x-2 px-2 py-[3px]',
 		'cursor-default rounded',
 		'focus:outline-none'
@@ -84,6 +86,7 @@ export const contextMenuItemStyles = cva(
 
 export interface ContextMenuItemProps extends VariantProps<typeof contextMenuItemStyles> {
 	icon?: Icon;
+	iconProps?: IconProps;
 	rightArrow?: boolean;
 	label?: string;
 	keybind?: string;
@@ -113,11 +116,17 @@ const DivItem = ({ variant, ...props }: ContextMenuItemProps) => (
 	</div>
 );
 
-export const ItemInternals = ({ icon, label, rightArrow, keybind }: ContextMenuItemProps) => {
+export const ItemInternals = ({
+	icon,
+	label,
+	rightArrow,
+	keybind,
+	iconProps
+}: ContextMenuItemProps) => {
 	const ItemIcon = icon;
 	return (
 		<>
-			{ItemIcon && <ItemIcon size={18} />}
+			{ItemIcon && <ItemIcon size={18} {...iconProps} />}
 			{label && <p>{label}</p>}
 
 			{keybind && (

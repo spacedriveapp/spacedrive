@@ -1,6 +1,6 @@
 import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import React, { PropsWithChildren, Suspense, useContext, useRef } from 'react';
+import React, { PropsWithChildren, Suspense, useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
 	ContextMenuItemProps,
@@ -11,10 +11,13 @@ import {
 	contextSubMenuTriggerClassNames
 } from './ContextMenu';
 
-interface Props extends RadixDM.MenuContentProps, Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
+interface DropdownMenuProps
+	extends RadixDM.MenuContentProps,
+		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToParent?: boolean;
+	animate?: boolean;
 }
 
 const Root = ({
@@ -25,25 +28,33 @@ const Root = ({
 	triggerClassName,
 	alignToParent,
 	onOpenChange,
+	animate,
 	...props
-}: PropsWithChildren<Props>) => {
-	const triggerRef = useRef<HTMLButtonElement>(null);
+}: PropsWithChildren<DropdownMenuProps>) => {
+	const [width, setWidth] = useState<number>();
+
+	const measureRef = useCallback((ref: HTMLButtonElement | null) => {
+		ref && setWidth(ref.getBoundingClientRect().width);
+	}, []);
 
 	return (
 		<RadixDM.Root modal={false} onOpenChange={onOpenChange}>
-			<RadixDM.Trigger ref={triggerRef} asChild={asChild} className={triggerClassName}>
+			<RadixDM.Trigger ref={measureRef} asChild={asChild} className={triggerClassName}>
 				{trigger}
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
 				<div>
 					<div className="fixed inset-0"></div>
 					<RadixDM.Content
-						className={clsx(contextMenuClasses, 'w-44', className)}
+						className={clsx(
+							contextMenuClasses,
+							animate && 'animate-in fade-in data-[side=bottom]:slide-in-from-top-2',
+							'w-44',
+							className
+						)}
 						align="start"
 						collisionPadding={5}
-						style={{
-							width: alignToParent ? triggerRef.current?.offsetWidth : undefined
-						}}
+						style={{ width }}
 						{...props}
 					>
 						{children}
@@ -54,7 +65,9 @@ const Root = ({
 	);
 };
 
-const Separator = () => <RadixDM.Separator className={contextMenuSeparatorClassNames} />;
+const Separator = (props: { className?: string }) => (
+	<RadixDM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
+);
 
 const SubMenu = ({
 	label,
@@ -88,34 +101,53 @@ const SubMenu = ({
 
 interface DropdownItemProps extends ContextMenuItemProps, RadixDM.MenuItemProps {
 	to?: string;
+	selected?: boolean;
 }
 
 const Item = ({
 	icon,
+	iconProps,
 	label,
 	rightArrow,
 	children,
 	keybind,
 	variant,
 	className,
+	selected,
 	to,
 	...props
 }: DropdownItemProps) => {
+	const ref = useRef<HTMLDivElement>(null);
+
 	return (
 		<RadixDM.Item
 			className={clsx(
 				'text-menu-ink group cursor-default select-none py-0.5 focus:outline-none active:opacity-80',
 				className
 			)}
+			ref={ref}
 			{...props}
 		>
 			{to ? (
-				<Link to={to} className={contextMenuItemStyles({ variant })}>
-					{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
+				<Link
+					to={to}
+					className={contextMenuItemStyles({
+						variant,
+						className: clsx(selected && 'bg-accent')
+					})}
+					onClick={() => ref.current?.click()}
+				>
+					{children ? (
+						<span className="truncate">{children}</span>
+					) : (
+						<ItemInternals {...{ icon, iconProps, label, rightArrow, keybind }} />
+					)}
 				</Link>
 			) : (
-				<div className={contextMenuItemStyles({ variant })}>
-					{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
+				<div
+					className={contextMenuItemStyles({ variant, className: clsx(selected && 'bg-accent') })}
+				>
+					{children || <ItemInternals {...{ icon, iconProps, label, rightArrow, keybind }} />}
 				</div>
 			)}
 		</RadixDM.Item>
