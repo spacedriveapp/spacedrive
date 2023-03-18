@@ -4,7 +4,7 @@ use crate::{
 	crypto::{Decryptor, Encryptor},
 	encoding,
 	header::file::{Header, HeaderObjectName},
-	keys::hashing::PasswordHasher,
+	keys::PasswordHasher,
 	primitives::{generate_byte_array, to_array},
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,

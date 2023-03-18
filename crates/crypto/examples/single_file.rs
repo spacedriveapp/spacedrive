@@ -5,7 +5,7 @@ use tokio::fs::File;
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
 	header::FileHeader,
-	keys::hashing::PasswordHasher,
+	keys::PasswordHasher,
 	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
 	types::{Algorithm, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,

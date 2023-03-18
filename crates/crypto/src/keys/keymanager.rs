@@ -41,7 +41,7 @@ use tokio::sync::Mutex;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	keys::hashing::PasswordHasher,
+	keys::PasswordHasher,
 	primitives::{
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 		SECRET_KEY_IDENTIFIER,
