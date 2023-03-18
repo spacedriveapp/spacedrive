@@ -26,18 +26,26 @@
 	},
 	"pnpm": {
 		"overrides": {
-			"@radix-ui/react-dismissable-layer": "1.0.2"
+			"@radix-ui/react-dismissable-layer": "1.0.2",
+			"ua-parser-js@<0.7.33": ">=0.7.33",
+			"got@<11.8.5": ">=11.8.5",
+			"trim@<0.0.3": ">=0.0.3",
+			"http-cache-semantics@<4.1.1": ">=4.1.1",
+			"json5@<1.0.2": ">=1.0.2",
+			"glob-parent@<5.1.2": ">=5.1.2",
+			"trim-newlines@<3.0.1": ">=3.0.1",
+			"webpack@>=5.0.0 <5.76.0": ">=5.76.0"
 		}
 	},
 	"devDependencies": {
 		"@babel/plugin-syntax-import-assertions": "^7.20.0",
 		"@cspell/dict-rust": "^2.0.1",
 		"@cspell/dict-typescript": "^2.0.2",
-		"@trivago/prettier-plugin-sort-imports": "^3.4.0",
+		"@trivago/prettier-plugin-sort-imports": "^4.1.1",
 		"cspell": "^6.12.0",
 		"markdown-link-check": "^3.10.3",
-		"prettier": "^2.8.3",
-		"prettier-plugin-tailwindcss": "^0.2.2",
+		"prettier": "^2.8.4",
+		"prettier-plugin-tailwindcss": "^0.2.5",
 		"rimraf": "^4.1.1",
 		"turbo": "^1.5.5",
 		"turbo-ignore": "^0.3.0",

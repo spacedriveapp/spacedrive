@@ -50,7 +50,7 @@
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.1.0",
 		"react-qr-code": "^2.0.11",
-    "react-responsive": "^9.0.2",
+		"react-responsive": "^9.0.2",
 		"react-router": "6.9.0",
 		"react-router-dom": "6.9.0",
 		"rooks": "^5.14.0",
