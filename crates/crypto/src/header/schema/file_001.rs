@@ -156,7 +156,7 @@ impl HeaderObjectIdentifier {
 		let name_hash = blake3::hash(name.inner());
 
 		// encrypt the object name's hash with the master key
-		let encrypted_key = Encryptor::encrypt_bytes_array(
+		let encrypted_key = Encryptor::encrypt_byte_array(
 			Key::derive(master_key, salt, context),
 			nonce,
 			algorithm,
@@ -250,7 +250,7 @@ impl Keyslot001 {
 			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
-			self.master_key.inner(),
+			self.encrypted_key.inner(),
 			aad.inner(),
 		)?)
 	}

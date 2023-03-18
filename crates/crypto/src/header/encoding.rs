@@ -1,20 +1,21 @@
+use bincode::config::Configuration;
+
 use crate::{Error, Result};
+
+pub const CONFIG: Configuration = bincode::config::standard();
 
 pub fn decode<T>(bytes: &[u8]) -> Result<T>
 where
 	T: bincode::Decode,
 {
-	bincode::decode_from_slice::<T, bincode::config::Configuration>(
-		bytes,
-		bincode::config::standard(),
-	)
-	.map(|t| t.0)
-	.map_err(Error::BincodeDecode)
+	bincode::decode_from_slice::<T, Configuration>(bytes, CONFIG)
+		.map(|t| t.0)
+		.map_err(Error::BincodeDecode)
 }
 
 pub fn encode<T>(object: T) -> Result<Vec<u8>>
 where
 	T: bincode::Encode,
 {
-	bincode::encode_to_vec(object, bincode::config::standard()).map_err(Error::BincodeEncode)
+	bincode::encode_to_vec(object, CONFIG).map_err(Error::BincodeEncode)
 }
