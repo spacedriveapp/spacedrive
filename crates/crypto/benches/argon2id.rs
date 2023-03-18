@@ -1,36 +1,43 @@
-// use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-// use sd_crypto::{
-// 	keys::hashing::{HashingAlgorithm, Params},
-// 	primitives::{generate_master_key, generate_salt},
-// 	Protected,
-// };
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use sd_crypto::{
+	keys::PasswordHasher,
+	primitives::generate_bytes,
+	types::{HashingAlgorithm, Params, Salt},
+	Protected,
+};
 
-// const PARAMS: [Params; 3] = [Params::Standard, Params::Hardened, Params::Paranoid];
+const PARAMS: [Params; 3] = [Params::Standard, Params::Hardened, Params::Paranoid];
 
-// fn bench(c: &mut Criterion) {
-// 	let mut group = c.benchmark_group("argon2id");
+fn bench(c: &mut Criterion) {
+	let mut group = c.benchmark_group("argon2id");
+	group.sample_size(10);
 
-// 	for param in PARAMS {
-// 		let key = Protected::new(generate_master_key().expose().to_vec());
-// 		let salt = generate_salt();
-// 		let hashing_algorithm = HashingAlgorithm::Argon2id(param);
+	for param in PARAMS {
+		let password = Protected::new(generate_bytes(32));
+		let salt = Salt::generate();
+		let hashing_algorithm = HashingAlgorithm::Argon2id(param);
 
-// 		group.bench_function(BenchmarkId::new("hash", param.argon2id().m_cost()), |b| {
-// 			b.iter_batched(
-// 				|| (key.clone(), salt),
-// 				|(key, salt)| hashing_algorithm.hash(key, salt, None),
-// 				BatchSize::SmallInput,
-// 			)
-// 		});
-// 	}
+		group.bench_function(
+			BenchmarkId::new("hash", hashing_algorithm.get_parameters().0),
+			|b| {
+				b.iter_batched(
+					|| (password.clone(), salt),
+					|(password, salt)| {
+						PasswordHasher::hash(hashing_algorithm, password, salt, None)
+					},
+					BatchSize::SmallInput,
+				)
+			},
+		);
+	}
 
-// 	group.finish();
-// }
+	group.finish();
+}
 
-// criterion_group!(
-// 	name = benches;
-// 	config = Criterion::default();
-// 	targets = bench
-// );
+criterion_group!(
+	name = benches;
+	config = Criterion::default();
+	targets = bench
+);
 
-// criterion_main!(benches);
+criterion_main!(benches);

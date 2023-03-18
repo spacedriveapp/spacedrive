@@ -72,3 +72,20 @@ tokio = { workspace = true, features = [
     "fs",
     "macros",
 ] } # features needed for examples
+
+criterion = "0.4.0"
+
+[[bench]]
+name = "aes-256-gcm"
+path = "benches/aes-256-gcm.rs"
+harness = false
+
+[[bench]]
+name = "xchacha20-poly1305"
+path = "benches/xchacha20-poly1305.rs"
+harness = false
+
+[[bench]]
+name = "argon2id"
+path = "benches/argon2id.rs"
+harness = false
