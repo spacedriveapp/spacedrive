@@ -28,7 +28,7 @@ export default () => {
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
 			className="dark:bg-sidebar-box dark:border-sidebar-line dark:divide-menu-selected/30 mt-1 shadow-none"
-			alignToParent
+			alignToTrigger
 			animate
 		>
 			{libraries.data?.map((lib) => (

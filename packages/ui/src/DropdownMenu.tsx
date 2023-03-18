@@ -16,7 +16,7 @@ interface DropdownMenuProps
 		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
-	alignToParent?: boolean;
+	alignToTrigger?: boolean;
 	animate?: boolean;
 }
 
@@ -26,7 +26,7 @@ const Root = ({
 	className,
 	asChild = true,
 	triggerClassName,
-	alignToParent,
+	alignToTrigger,
 	onOpenChange,
 	animate,
 	...props
@@ -34,7 +34,7 @@ const Root = ({
 	const [width, setWidth] = useState<number>();
 
 	const measureRef = useCallback((ref: HTMLButtonElement | null) => {
-		ref && setWidth(ref.getBoundingClientRect().width);
+		alignToTrigger && ref && setWidth(ref.getBoundingClientRect().width);
 	}, []);
 
 	return (
