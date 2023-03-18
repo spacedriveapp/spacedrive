@@ -83,10 +83,13 @@ impl SyncManager {
 			})
 			.collect::<Vec<_>>();
 
-		let (res, _) = tx._batch((queries, (owned, shared))).await?;
+		#[cfg(feature = "sync-messages")]
+		{
+			let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
-		for op in ops {
-			self.tx.send(SyncMessage::Created(op)).ok();
+			for op in ops {
+				self.tx.send(SyncMessage::Created(op)).ok();
+			}
 		}
 
 		Ok(res)
