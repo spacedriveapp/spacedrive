@@ -1,18 +1,10 @@
+import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
 import { CSSProperties } from 'react';
 import { ExplorerItem } from '@sd/client';
-import { usePlatform } from '~/util/Platform';
+import { useIsDark, usePlatform } from '~/util/Platform';
 import { getExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
-
-const icons = import.meta.glob('../../../../../packages/assets/icons/*.png', { eager: true });
-// extract icons by their name
-const iconsMap: Record<string, string> = {};
-for (const [key, value] of Object.entries(icons)) {
-	const split = key.split('/');
-	const iconName = split[split.length - 1]?.replace('.png', '');
-	if (iconName) iconsMap[iconName] = (value as { default: string }).default;
-}
 
 interface Props {
 	data: ExplorerItem;
@@ -92,6 +84,9 @@ export function FileThumbImg({
 }: FileThumbImgProps) {
 	const platform = usePlatform();
 
+	// is dark mode
+	const isDark = useIsDark();
+
 	if (hasThumbnail && cas_id) {
 		return (
 			<img
@@ -104,15 +99,21 @@ export function FileThumbImg({
 	}
 
 	// Render an img component with an image based on kind
-	let icon = iconsMap['Document'];
+	let icon = icons['Document'];
 
 	if (isDir) {
-		icon = iconsMap['Folder'];
-	} else if (kind && extension && iconsMap[`${kind}_${extension.toLowerCase()}`]) {
-		icon = iconsMap[`${kind}_${extension.toLowerCase()}`];
-	} else if (kind && iconsMap[kind] && kind !== 'Unknown') {
-		icon = iconsMap[kind];
+		icon = icons['Folder'];
+	} else if (
+		kind &&
+		extension &&
+		icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons]
+	) {
+		icon = icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons];
+	} else if (kind !== 'Unknown' && kind && icons[kind as keyof typeof icons]) {
+		icon = icons[kind as keyof typeof icons];
 	}
+
+	if (!isDark) icon = icon?.substring(0, icon.length - 4) + '_Light' + '.png';
 
 	return <img src={icon} className={clsx('h-full overflow-hidden')} />;
 }

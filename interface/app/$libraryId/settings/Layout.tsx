@@ -4,7 +4,7 @@ import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import DragRegion from '../../../components/DragRegion';
 import Sidebar from './Sidebar';
 
-export default () => {
+export const Component = () => {
 	const os = useOperatingSystem();
 
 	return (

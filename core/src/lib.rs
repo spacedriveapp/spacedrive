@@ -113,8 +113,8 @@ impl Node {
 		);
 		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		#[cfg(target_os = "android")]
-		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
+		// #[cfg(target_os = "android")]
+		// let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber
 			// .with(
 			// 	Layer::default()

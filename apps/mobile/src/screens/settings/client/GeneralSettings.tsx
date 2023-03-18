@@ -1,9 +1,9 @@
-import React from 'react';
 import { Text, View } from 'react-native';
 import { useBridgeQuery } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
-import Divider from '~/components/primitive/Divider';
+import { Divider } from '~/components/primitive/Divider';
+import { SettingsInputTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -14,7 +14,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 
 	return (
 		<View style={tw`flex-1 p-4`}>
-			<Card>
+			<Card style={tw`bg-app-box`}>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
 					<Text style={tw`text-ink font-semibold`}>Connected Node</Text>
@@ -32,9 +32,9 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				{/* Divider */}
 				<Divider style={tw`mt-2 mb-4`} />
 				{/* Node Name and Port */}
-				<Text style={tw`text-ink-dull mb-1 ml-1 text-xs font-medium`}>Node Name</Text>
+				<SettingsInputTitle>Node Name</SettingsInputTitle>
 				<Input value={node.name} />
-				<Text style={tw`text-ink-dull mt-2 mb-1 ml-1 text-xs font-medium`}>Node Port</Text>
+				<SettingsInputTitle style={tw`mt-3`}>Node Port</SettingsInputTitle>
 				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
 			</Card>
 		</View>

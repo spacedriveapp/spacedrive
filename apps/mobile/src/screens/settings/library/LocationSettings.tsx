@@ -1,4 +1,4 @@
-import { CaretRight, Repeat, Trash } from 'phosphor-react-native';
+import { CaretRight, Pen, Repeat, Trash } from 'phosphor-react-native';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
@@ -14,7 +14,13 @@ import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocatio
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
-function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {
+type LocationItemProps = {
+	location: Location & { node: Node };
+	index: number;
+	navigation: SettingsStackScreenProps<'LocationSettings'>['navigation'];
+};
+
+function LocationItem({ location, index, navigation }: LocationItemProps) {
 	const fullRescan = useLibraryMutation('locations.fullRescan', {
 		onMutate: () => {
 			// TODO: Show Toast
@@ -23,7 +29,11 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 
 	const onlineLocations = useOnlineLocations();
 
-	const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
+	const renderRightActions = (
+		progress: Animated.AnimatedInterpolation<number>,
+		_: any,
+		swipeable: Swipeable
+	) => {
 		const translate = progress.interpolate({
 			inputRange: [0, 1],
 			outputRange: [100, 0],
@@ -32,8 +42,20 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 
 		return (
 			<Animated.View
-				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
+				style={[
+					tw`mr-3 flex flex-row items-center gap-2`,
+					{ transform: [{ translateX: translate }] }
+				]}
 			>
+				<Pressable
+					style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+					onPress={() => {
+						navigation.navigate('EditLocationSettings', { id: location.id });
+						swipeable.close();
+					}}
+				>
+					<Pen size={18} color="white" />
+				</Pressable>
 				<DeleteLocationModal
 					locationId={location.id}
 					trigger={
@@ -46,7 +68,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 				/>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
-					style={tw`border-app-line bg-app-button mx-2 items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+					style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
 					onPress={() => fullRescan.mutate(location.id)}
 				>
 					<Repeat size={18} color="white" />
@@ -106,7 +128,9 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 			<FlatList
 				data={locations}
 				keyExtractor={(item) => item.id.toString()}
-				renderItem={({ item, index }) => <LocationItem location={item} index={index} />}
+				renderItem={({ item, index }) => (
+					<LocationItem navigation={navigation} location={item} index={index} />
+				)}
 			/>
 		</View>
 	);

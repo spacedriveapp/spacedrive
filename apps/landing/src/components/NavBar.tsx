@@ -1,4 +1,4 @@
-import AppLogo from '@sd/assets/images/logo.png';
+import { AppLogo } from '@sd/assets/images';
 import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
@@ -22,9 +22,12 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 }
 
 function link(path: string) {
+	const selected = getWindow()?.location.href.includes(path);
+
 	return {
-		selected: getWindow()?.location.href.includes(path),
-		onClick: () => router.navigate(path)
+		selected,
+		onClick: () => router.navigate(path),
+		className: clsx(selected && 'bg-accent/20')
 	};
 }
 
@@ -114,6 +117,11 @@ export default function NavBar() {
 						</Dropdown.Item>
 						<Dropdown.Item icon={Academia} {...link('/careers')}>
 							Careers
+							{positions.length > 0 ? (
+								<span className="bg-primary ml-2 rounded-md px-[5px] py-px text-xs">
+									{positions.length}
+								</span>
+							) : null}
 						</Dropdown.Item>
 					</Dropdown.Section>
 				</Dropdown.Root>

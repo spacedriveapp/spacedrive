@@ -15,7 +15,7 @@ export function useExplorerParams() {
 	return { location_id, path, limit };
 }
 
-export default () => {
+export const Component = () => {
 	const { location_id, path, limit } = useExplorerParams();
 
 	const quickRescan = useLibraryMutation('locations.quickRescan');

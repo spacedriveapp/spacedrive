@@ -1,5 +1,5 @@
 import { ScreenHeading } from '@sd/ui';
 
-export default function SpacesScreen() {
+export const Component = () => {
 	return <ScreenHeading>Spaces</ScreenHeading>;
-}
+};

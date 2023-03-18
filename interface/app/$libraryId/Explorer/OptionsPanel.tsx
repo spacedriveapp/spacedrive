@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Select, SelectOption, Slider, tw } from '@sd/ui';
+import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
@@ -53,6 +53,19 @@ export default () => {
 						<SelectOption value="node">Node</SelectOption>
 					</Select>
 				</div>
+			</div>
+			<div className="flex w-full pt-2">
+				<RadixCheckbox
+					checked={explorerStore.showBytesInGridView}
+					label="Show Object size"
+					name="showBytesInGridView"
+					onCheckedChange={(value) => {
+						console.log(value);
+						if (typeof value === 'boolean') {
+							getExplorerStore().showBytesInGridView = value;
+						}
+					}}
+				/>
 			</div>
 		</div>
 	);

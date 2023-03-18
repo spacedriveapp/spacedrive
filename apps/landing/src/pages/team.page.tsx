@@ -56,16 +56,6 @@ const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Haden Fletcher',
-		role: 'Engineer & Designer',
-		image: teamImages['haden.jpg']!,
-		socials: {
-			twitter: 'https://twitter.com/heymaxichrome',
-			twitch: 'https://twitch.tv/maxichrome',
-			github: 'https://github.com/maxichrome'
-		}
-	},
-	{
 		name: 'Jake Robinson',
 		role: 'Rust Engineer',
 		image: teamImages['jake.jpg']!,

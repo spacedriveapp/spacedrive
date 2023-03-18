@@ -44,7 +44,7 @@ const OperationItem = ({ op }: { op: CRDTOperation }) => {
 	return <li className="space-y-1 rounded-md bg-gray-700 p-2 text-sm">{contents}</li>;
 };
 
-export default () => {
+export const Component = () => {
 	const { library } = useLibraryContext();
 
 	const messages = useLibraryQuery(['sync.messages']);

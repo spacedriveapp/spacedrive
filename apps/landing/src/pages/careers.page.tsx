@@ -20,7 +20,15 @@ interface PositionPosting {
 	description: string;
 }
 
-export const positions: PositionPosting[] = [];
+export const positions: PositionPosting[] = [
+	{
+		name: 'Senior Frontend Engineer',
+		type: 'Full-time',
+		salary: '$80,000',
+		description: `You will be responsible for building our web based interface in TypeScript, React and Tailwind; working closely with our backend engineers to build a great user experience. A keen eye for design and clean code is a must. As our 9th employee, you'll have a huge impact and creative control over the development of Spacedrive.`
+	}
+];
+
 const values = [
 	{
 		title: 'Async',
@@ -123,7 +131,7 @@ function Page() {
 								key={value.title + index}
 								className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
 							>
-								<value.icon className="m-0 w-8" />
+								<value.icon className="text-[32px]" weight="bold" />
 								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
 								<p className="text-gray-350 mt-1 mb-0">{value.desc}</p>
 							</div>
@@ -141,7 +149,7 @@ function Page() {
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
 								className="bg-gray-550/30 flex flex-col rounded-md border p-8"
 							>
-								<value.icon className="m-0 w-8" color={value.color} />
+								<value.icon className="text-[32px]" weight="bold" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
 								<p className="mt-1 mb-0 text-sm text-white opacity-60">{value.desc}</p>
 							</div>
