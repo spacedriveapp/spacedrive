@@ -73,11 +73,17 @@ impl From<LocationError> for rspc::Error {
 			}
 
 			// User's fault errors
-			LocationError::NotDirectory(_)
 			// | LocationError::MissingLocalPath(_)
-			| LocationError::NeedRelink { .. }
-			| LocationError::AddLibraryToMetadata(_) => {
+			LocationError::NotDirectory(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+			}
+
+			LocationError::NeedRelink { .. } => {
+				rspc::Error::with_cause(ErrorCode::Conflict, err.to_string(), err)
+			}
+
+			LocationError::AddLibraryToMetadata(_) => {
+				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
 			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),

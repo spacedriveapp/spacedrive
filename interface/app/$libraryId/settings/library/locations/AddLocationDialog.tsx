@@ -1,4 +1,5 @@
-import { ChangeEvent } from 'react';
+import { RSPCError } from '@rspc/client';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { CheckBox, Dialog, UseDialogProps, useDialog } from '@sd/ui';
@@ -15,8 +16,12 @@ interface Props extends UseDialogProps {
 export const AddLocationDialog = (props: Props) => {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
+	const [exceptionCode, setExceptionCode] = useState<0 | 404 | 409>(0);
 	const createLocation = useLibraryMutation('locations.create');
+	const relinkLocation = useLibraryMutation('locations.relink');
 	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
+	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
+	const deleteLocationIndexerRule = useLibraryMutation('locations.indexer_rules.delete');
 
 	const form = useZodForm({
 		schema,
@@ -25,6 +30,16 @@ export const AddLocationDialog = (props: Props) => {
 			indexer_rules_ids: []
 		}
 	});
+
+	useEffect(() => {
+		const subscription = form.watch((_, { name }) => {
+			if (name === 'path') {
+				form.clearErrors('root.serverError');
+				setExceptionCode(0);
+			}
+		});
+		return () => subscription.unsubscribe();
+	}, [form, form.watch]);
 
 	return (
 		<Dialog
@@ -36,21 +51,57 @@ export const AddLocationDialog = (props: Props) => {
 					: ''
 			}
 			onSubmit={form.handleSubmit(async ({ path, indexer_rules_ids }) => {
-				try {
-					if (platform.platform === 'tauri') createLocation.mutate({ path, indexer_rules_ids });
-					else await createLocation.mutateAsync({ path, indexer_rules_ids });
-				} catch (err) {
-					console.error(err);
-					showAlertDialog({
-						title: 'Error',
-						value: 'Failed to add location'
-					});
+				if (exceptionCode === 0) {
+					try {
+						await createLocation.mutateAsync({ path, indexer_rules_ids });
+					} catch (err) {
+						const error = err instanceof Error ? err : new Error(String(err));
+
+						if ('cause' in error && error.cause instanceof RSPCError) {
+							const { code } = error.cause.shape;
+							if (code === 404 || code === 409) {
+								setExceptionCode(code);
+								form.reset({}, { keepValues: true });
+								form.setError('root.serverError', {
+									type: 'custom',
+									message:
+										code === 404
+											? 'Location is already linked to another Library.\u000ADo you want to add it to this Library too?'
+											: 'Location already present.\u000ADo you want to relink it?'
+								});
+								throw error;
+							}
+						}
+
+						showAlertDialog({
+							title: 'Error',
+							value: error.message ?? 'Failed to add location'
+						});
+					}
+				} else {
+					try {
+						if (exceptionCode === 404) {
+							await addLocationToLibrary.mutateAsync({ path, indexer_rules_ids });
+						} else if (exceptionCode === 409) {
+							await relinkLocation.mutateAsync(path);
+							const deleteAllIndexerRules = indexerRulesList.data?.map((rule) =>
+								deleteLocationIndexerRule.mutateAsync(rule.id)
+							);
+							if (deleteAllIndexerRules) await Promise.all<unknown>(deleteAllIndexerRules);
+						}
+					} catch (err) {
+						const error = err instanceof Error ? err : new Error(String(err));
+						showAlertDialog({
+							title: 'Error',
+							value: error.message ?? 'Failed to add location'
+						});
+					}
 				}
 			})}
 			ctaLabel="Add"
 		>
 			<div className="relative flex flex-col">
-				<p className="mt-2 text-[0.9rem] font-bold">Path:</p>
+				<p className="mt-2 text-[0.9rem]">Path:</p>
 				<Input
 					type="text"
 					onClick={async () => {
@@ -77,7 +128,7 @@ export const AddLocationDialog = (props: Props) => {
 			</div>
 
 			<div className="relative flex flex-col">
-				<p className="mt-6 text-[0.9rem] font-bold">File indexing rules:</p>
+				<p className="mt-6 text-[0.9rem]">File indexing rules:</p>
 				<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 					<Controller
 						name="indexer_rules_ids"
@@ -107,6 +158,12 @@ export const AddLocationDialog = (props: Props) => {
 					/>
 				</div>
 			</div>
+
+			{form.formState.errors.root?.serverError && (
+				<span className="mt-6 inline-block whitespace-pre-wrap text-[0.9rem] text-red-400">
+					{form.formState.errors.root.serverError.message}
+				</span>
+			)}
 		</Dialog>
 	);
 };
