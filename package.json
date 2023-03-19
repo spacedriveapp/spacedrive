@@ -26,15 +26,7 @@
 	},
 	"pnpm": {
 		"overrides": {
-			"@radix-ui/react-dismissable-layer": "1.0.2",
-			"ua-parser-js@<0.7.33": ">=0.7.33",
-			"got@<11.8.5": ">=11.8.5",
-			"trim@<0.0.3": ">=0.0.3",
-			"http-cache-semantics@<4.1.1": ">=4.1.1",
-			"json5@<1.0.2": ">=1.0.2",
-			"glob-parent@<5.1.2": ">=5.1.2",
-			"trim-newlines@<3.0.1": ">=3.0.1",
-			"webpack@>=5.0.0 <5.76.0": ">=5.76.0"
+			"@radix-ui/react-dismissable-layer": "1.0.2"
 		}
 	},
 	"devDependencies": {
