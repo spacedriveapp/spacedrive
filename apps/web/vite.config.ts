@@ -22,7 +22,7 @@ export default defineConfig({
 		visualizer({
 			gzipSize: true,
 			brotliSize: true
-		}),
+		})
 	],
 	css: {
 		modules: {

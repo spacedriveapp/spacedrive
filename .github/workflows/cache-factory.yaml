@@ -25,7 +25,7 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          save-cache: "true"
+          save-cache: 'true'
 
       - name: Compile workspace with stable Rust
         run: cargo test --workspace --all-features --no-run

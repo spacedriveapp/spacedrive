@@ -114,7 +114,7 @@ const LibrarySection = () => {
 								/>
 							</div>
 
-							<span className="shrink-0 grow">{location.name}</span>
+							<span className="truncate">{location.name}</span>
 						</SidebarLink>
 					);
 				})}
@@ -139,10 +139,10 @@ const LibrarySection = () => {
 						{tags.data?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
-									className="h-[12px] w-[12px] rounded-full"
+									className="h-[12px] w-[12px] shrink-0 rounded-full"
 									style={{ backgroundColor: tag.color || '#efefef' }}
 								/>
-								<span className="ml-1.5 text-sm">{tag.name}</span>
+								<span className="ml-1.5 truncate text-sm">{tag.name}</span>
 							</SidebarLink>
 						))}
 					</div>
