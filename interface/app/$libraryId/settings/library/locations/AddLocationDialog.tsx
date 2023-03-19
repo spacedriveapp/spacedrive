@@ -8,7 +8,7 @@ import { usePlatform } from '~/util/Platform';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
 
-type Props = UseDialogProps;
+interface Props extends UseDialogProps {}
 
 export const AddLocationDialog = (props: Props & { path: string }) => {
 	const dialog = useDialog(props);
@@ -51,7 +51,7 @@ export const AddLocationDialog = (props: Props & { path: string }) => {
 				<p className="mt-2 text-[0.9rem] font-bold">Path:</p>
 				<Input
 					type="text"
-					onClick={async (event) => {
+					onClick={async () => {
 						if (!platform.openDirectoryPickerDialog) return;
 
 						const path = await platform.openDirectoryPickerDialog();

@@ -22,11 +22,11 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { Button, ButtonLink, Folder, Loader, Popover, Tooltip } from '@sd/ui';
+import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
 import { MacTrafficLights } from '~/components/TrafficLights';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { OperatingSystem, usePlatform } from '~/util/Platform';
-import { AddLocationButton } from '../../settings/library/locations/AddLocationButton';
 import DebugPopover from './DebugPopover';
 import Icon from './Icon';
 import { JobsManager } from './JobManager';

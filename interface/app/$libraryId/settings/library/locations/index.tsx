@@ -1,14 +1,11 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { SearchInput } from '@sd/ui';
-import { usePlatform } from '~/util/Platform';
 import { Heading } from '../../Layout';
 import { AddLocationButton } from './AddLocationButton';
 import ListItem from './ListItem';
 
 export const Component = () => {
-	const platform = usePlatform();
 	const locations = useLibraryQuery(['locations.list']);
-	const createLocation = useLibraryMutation('locations.create');
 
 	return (
 		<>
@@ -18,7 +15,7 @@ export const Component = () => {
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<SearchInput placeholder="Search locations" />
-						<AddLocationButton variant="accent" size="md"></AddLocationButton>
+						<AddLocationButton variant="accent" size="md" />
 					</div>
 				}
 			/>

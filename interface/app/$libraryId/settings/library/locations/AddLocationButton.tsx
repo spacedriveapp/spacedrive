@@ -1,4 +1,3 @@
-import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
 import { Button, ButtonProps, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
@@ -6,17 +5,6 @@ import { AddLocationDialog } from './AddLocationDialog';
 
 export const AddLocationButton = (props: ButtonProps) => {
 	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
-	const createLocation = useLibraryMutation('locations.create', {
-		onSuccess: () => {
-			submitPlausibleEvent({
-				event: {
-					type: 'locationCreate'
-				}
-			});
-		}
-	});
-	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
 
 	return (
 		<>
