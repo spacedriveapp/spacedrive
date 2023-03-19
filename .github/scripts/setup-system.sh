@@ -121,7 +121,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		# Protobuf compiler - https://github.com/archlinux/svntogit-packages/blob/packages/protobuf/trunk/PKGBUILD provides `libprotoc`
 		ARCH_LIBP2P_DEPS="protobuf"
 
-		sudo pacman -Syu
+		sudo pacman -Sy
 		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS
 	elif command -v dnf >/dev/null; then
 		echo "Detected dnf!"

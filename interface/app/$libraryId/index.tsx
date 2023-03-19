@@ -3,17 +3,17 @@ import settingsRoutes from './settings';
 
 export default [
 	{
-		lazy: () => import("./PageLayout"),
+		lazy: () => import('./PageLayout'),
 		children: [
 			{
 				path: 'overview',
 				lazy: () => import('./overview')
 			},
-			{ path: 'people', lazy: () => import('./people')},
+			{ path: 'people', lazy: () => import('./people') },
 			{ path: 'media', lazy: () => import('./media') },
 			{ path: 'spaces', lazy: () => import('./spaces') },
 			{ path: 'debug', lazy: () => import('./debug') },
-			{ path: 'spacedrop', lazy: () => import('./spacedrop') },
+			{ path: 'spacedrop', lazy: () => import('./spacedrop') }
 		]
 	},
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
