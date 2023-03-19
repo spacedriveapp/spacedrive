@@ -5,13 +5,25 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { CheckBox, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
-import { usePlatform } from '~/util/Platform';
+import { Platform, usePlatform } from '~/util/Platform';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
 
 interface Props extends UseDialogProps {
 	path: string;
 }
+
+export const openDirectoryPickerDialog = async (platform: Platform): Promise<string> => {
+	if (!platform.openDirectoryPickerDialog) return '';
+
+	const path = await platform.openDirectoryPickerDialog();
+	if (!path) return '';
+	if (typeof path !== 'string')
+		// TODO: Should support for adding multiple locations simultaneously be added?
+		throw new Error('Adding multiple locations simultaneously is not supported');
+
+	return path;
+};
 
 export const AddLocationDialog = (props: Props) => {
 	const dialog = useDialog(props);
@@ -65,9 +77,12 @@ export const AddLocationDialog = (props: Props) => {
 								form.setError('root.serverError', {
 									type: 'custom',
 									message:
+										// \u000A is a line break, It works with css white-space: pre-line
 										code === 404
 											? 'Location is already linked to another Library.\u000ADo you want to add it to this Library too?'
-											: 'Location already present.\u000ADo you want to relink it?'
+											: code === 409
+											? 'Location already present.\u000ADo you want to relink it?'
+											: 'Unknown error'
 								});
 								throw error;
 							}
@@ -104,22 +119,16 @@ export const AddLocationDialog = (props: Props) => {
 				<p className="mt-2 text-[0.9rem]">Path:</p>
 				<Input
 					type="text"
-					onClick={async () => {
-						if (!platform.openDirectoryPickerDialog) return;
-
-						const path = await platform.openDirectoryPickerDialog();
-						if (!path) return;
-						if (typeof path !== 'string') {
-							// TODO: Should support for adding multiple locations simultaneously be added?
-							showAlertDialog({
-								title: 'Error',
-								value: "Can't add multiple locations"
-							});
-							return;
-						}
-
-						form.setValue('path', path);
-					}}
+					onClick={() =>
+						openDirectoryPickerDialog(platform)
+							.then((path) => void (path && form.setValue('path', path)))
+							.catch((error) =>
+								showAlertDialog({
+									title: 'Error',
+									value: String(error)
+								})
+							)
+					}
 					readOnly={platform.platform !== 'web'}
 					required
 					className="mt-3 w-full grow cursor-pointer"
