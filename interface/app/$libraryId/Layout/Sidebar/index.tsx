@@ -22,11 +22,11 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { Button, ButtonLink, Folder, Loader, Popover, Tooltip } from '@sd/ui';
+import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
 import { MacTrafficLights } from '~/components/TrafficLights';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { OperatingSystem, usePlatform } from '~/util/Platform';
-import AddLocationButton from './AddLocationButton';
 import DebugPopover from './DebugPopover';
 import Icon from './Icon';
 import { JobsManager } from './JobManager';
@@ -118,7 +118,13 @@ const LibrarySection = () => {
 						</SidebarLink>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && <AddLocationButton />}
+				{(locations.data?.length || 0) < 4 && (
+					<AddLocationButton
+						className="border-sidebar-line hover:border-sidebar-selected cursor-normal
+						text-ink-faint mt-1 w-full rounded border border-dashed px-2 py-1
+						text-center text-xs font-medium transition"
+					/>
+				)}
 			</Section>
 			{!!tags.data?.length && (
 				<Section
