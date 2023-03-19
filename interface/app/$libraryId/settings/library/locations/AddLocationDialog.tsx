@@ -8,9 +8,11 @@ import { usePlatform } from '~/util/Platform';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
 
-interface Props extends UseDialogProps {}
+interface Props extends UseDialogProps {
+	path: string;
+}
 
-export const AddLocationDialog = (props: Props & { path: string }) => {
+export const AddLocationDialog = (props: Props) => {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
 	const createLocation = useLibraryMutation('locations.create');
