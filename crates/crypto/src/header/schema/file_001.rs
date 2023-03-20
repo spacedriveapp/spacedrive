@@ -5,7 +5,7 @@ use crate::{
 	encoding,
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
-	primitives::{generate_byte_array, to_array},
+	primitives::{generate_bytes_fixed, to_array},
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
 	},
@@ -39,7 +39,7 @@ impl Keyslot001 {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-			encrypted_key: EncryptedKey(generate_byte_array()),
+			encrypted_key: EncryptedKey::new(generate_bytes_fixed()),
 			salt: Salt::generate(),
 			nonce: Nonce::default(),
 		}
@@ -157,14 +157,13 @@ impl HeaderObjectIdentifier {
 		let name_hash = blake3::hash(name.inner());
 
 		// encrypt the object name's hash with the master key
-		let encrypted_key = Encryptor::encrypt_byte_array(
+		let encrypted_key = Encryptor::encrypt_key(
 			Key::derive(master_key, salt, context),
 			nonce,
 			algorithm,
-			name_hash.as_bytes(),
+			Key::new(*name_hash.as_bytes()),
 			aad.inner(),
-		)
-		.map(EncryptedKey::new)?;
+		)?;
 
 		Ok(Self {
 			key: encrypted_key,
@@ -222,14 +221,13 @@ impl Keyslot001 {
 		let nonce = Nonce::generate(algorithm);
 		let salt = Salt::generate();
 
-		let encrypted_key = Encryptor::encrypt_byte_array(
+		let encrypted_key = Encryptor::encrypt_key(
 			Key::derive(hashed_key, salt, context),
 			nonce,
 			algorithm,
-			master_key.expose(),
+			master_key,
 			aad.inner(),
-		)
-		.map(EncryptedKey::new)?;
+		)?;
 
 		Ok(Self {
 			hashing_algorithm,
@@ -247,14 +245,13 @@ impl Keyslot001 {
 		aad: Aad,
 		context: DerivationContext,
 	) -> Result<Key> {
-		Decryptor::decrypt_byte_array(
+		Decryptor::decrypt_key(
 			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
-			self.encrypted_key.inner(),
+			self.encrypted_key,
 			aad.inner(),
 		)
-		.map(Key::from)
 	}
 }
 

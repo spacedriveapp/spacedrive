@@ -273,14 +273,13 @@ impl KeyManager {
 		let root_key_nonce = Nonce::generate(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = Encryptor::encrypt_byte_array(
+		let encrypted_master_key = Encryptor::encrypt_key(
 			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
-			master_key.expose(),
+			master_key.clone(),
 			&[],
-		)
-		.map(EncryptedKey::new)?;
+		)?;
 
 		let encrypted_root_key = Encryptor::encrypt_bytes(
 			master_key,
@@ -400,14 +399,13 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key = Encryptor::encrypt_byte_array(
+		let encrypted_master_key = Encryptor::encrypt_key(
 			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
-			master_key.expose(),
+			master_key.clone(),
 			&[],
-		)
-		.map(EncryptedKey::new)?;
+		)?;
 
 		let encrypted_root_key = Encryptor::encrypt_bytes(
 			master_key,
@@ -488,7 +486,7 @@ impl KeyManager {
 				)?;
 
 				// decrypt the root key's KEK
-				let master_key = Decryptor::decrypt_byte_array(
+				let master_key = Decryptor::decrypt_key(
 					Key::derive(
 						hashed_password,
 						old_verification_key.salt,
@@ -496,7 +494,7 @@ impl KeyManager {
 					),
 					old_verification_key.master_key_nonce,
 					old_verification_key.algorithm,
-					old_verification_key.master_key.inner(),
+					old_verification_key.master_key,
 					&[],
 				)
 				.map(Key::from)?;
@@ -523,11 +521,11 @@ impl KeyManager {
 			match key.version {
 				StoredKeyVersion::V1 => {
 					// decrypt the key's master key
-					let master_key = Decryptor::decrypt_byte_array(
+					let master_key = Decryptor::decrypt_key(
 						Key::derive(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						key.master_key_nonce,
 						key.algorithm,
-						key.master_key.inner(),
+						key.master_key,
 						&[],
 					)
 					.map(Key::from)?;
@@ -538,14 +536,13 @@ impl KeyManager {
 					let salt = Salt::generate();
 
 					// encrypt the master key with the current root key
-					let encrypted_master_key = Encryptor::encrypt_byte_array(
+					let encrypted_master_key = Encryptor::encrypt_key(
 						Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 						master_key_nonce,
 						key.algorithm,
-						master_key.expose(),
+						master_key,
 						&[],
-					)
-					.map(EncryptedKey::new)?;
+					)?;
 
 					let mut updated_key = key.clone();
 					updated_key.master_key_nonce = master_key_nonce;
@@ -621,7 +618,7 @@ impl KeyManager {
 					e
 				})?;
 
-				let master_key = Decryptor::decrypt_byte_array(
+				let master_key = Decryptor::decrypt_key(
 					Key::derive(
 						hashed_password,
 						verification_key.salt,
@@ -629,16 +626,13 @@ impl KeyManager {
 					),
 					verification_key.master_key_nonce,
 					verification_key.algorithm,
-					verification_key.master_key.inner(),
+					verification_key.master_key,
 					&[],
 				)
-				.map_or_else(
-					|_| {
-						self.remove_from_queue(verification_key.uuid).ok();
-						Err(Error::IncorrectPassword)
-					},
-					|k| Ok(Key::from(k)),
-				)?;
+				.map_err(|_| {
+					self.remove_from_queue(verification_key.uuid).ok();
+					Error::IncorrectPassword
+				})?;
 
 				*self.root_key.lock().await = Some(
 					Decryptor::decrypt_bytes(
@@ -690,7 +684,7 @@ impl KeyManager {
 				StoredKeyVersion::V1 => {
 					self.mounting_queue.insert(uuid);
 
-					let master_key = Decryptor::decrypt_byte_array(
+					let master_key = Decryptor::decrypt_key(
 						Key::derive(
 							self.get_root_key().await?,
 							stored_key.salt,
@@ -698,16 +692,13 @@ impl KeyManager {
 						),
 						stored_key.master_key_nonce,
 						stored_key.algorithm,
-						stored_key.master_key.inner(),
+						stored_key.master_key,
 						&[],
 					)
-					.map_or_else(
-						|_| {
-							self.remove_from_queue(uuid).ok();
-							Err(Error::IncorrectPassword)
-						},
-						|k| Ok(Key::from(k)),
-					)?;
+					.map_err(|_| {
+						self.remove_from_queue(uuid).ok();
+						Error::IncorrectPassword
+					})?;
 
 					// Decrypt the StoredKey using the decrypted master key
 					let key = Decryptor::decrypt_bytes(
@@ -757,7 +748,7 @@ impl KeyManager {
 		self.ensure_unlocked().await?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
-			let master_key = Decryptor::decrypt_byte_array(
+			let master_key = Decryptor::decrypt_key(
 				Key::derive(
 					self.get_root_key().await?,
 					stored_key.salt,
@@ -765,10 +756,10 @@ impl KeyManager {
 				),
 				stored_key.master_key_nonce,
 				stored_key.algorithm,
-				stored_key.master_key.inner(),
+				stored_key.master_key,
 				&[],
 			)
-			.map_or(Err(Error::IncorrectPassword), |k| Ok(Key::from(k)))?;
+			.map_err(|_| Error::IncorrectPassword)?;
 
 			// Decrypt the StoredKey using the decrypted master key
 			let key = Decryptor::decrypt_bytes(
@@ -821,14 +812,13 @@ impl KeyManager {
 		let salt = Salt::generate();
 
 		// Encrypt the master key with a derived key (derived from the root key)
-		let encrypted_master_key = Encryptor::encrypt_byte_array(
+		let encrypted_master_key = Encryptor::encrypt_key(
 			Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 			master_key_nonce,
 			algorithm,
-			master_key.expose(),
+			master_key.clone(),
 			&[],
-		)
-		.map(EncryptedKey::new)?;
+		)?;
 
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
 		let encrypted_key = Encryptor::encrypt_bytes(

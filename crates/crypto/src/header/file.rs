@@ -358,21 +358,13 @@ mod tests {
 	use crate::{
 		encoding,
 		header::{FileHeader, HeaderObjectName},
-		primitives::LATEST_FILE_HEADER,
-		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
+		primitives::{CRYPTO_TEST_CONTEXT, CRYPTO_TEST_MAGIC_BYTES, LATEST_FILE_HEADER},
+		types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	};
 	use std::io::{Cursor, Seek};
 
 	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
-
-	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
-
-	const FILE_KEYSLOT_CONTEXT: DerivationContext =
-		DerivationContext::new("spacedrive 2023-03-16 18:27:55 header keyslot tests");
-
-	const OBJECT_IDENTIFIER_CONTEXT: DerivationContext =
-		DerivationContext::new("spacedrive 2023-03-16 18:10:47 header object tests");
 
 	const METADATA_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("Metadata");
 	const PREVIEW_MEDIA_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("PreviewMedia");
@@ -407,15 +399,15 @@ mod tests {
 				content_salt,
 				hashed_pw,
 				mk,
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		assert!(header.count_keyslots() == 1);
 	}
@@ -436,7 +428,7 @@ mod tests {
 				content_salt,
 				hashed_pw.clone(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
@@ -446,15 +438,15 @@ mod tests {
 				content_salt,
 				hashed_pw,
 				mk,
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		assert!(header.count_keyslots() == 2);
 	}
@@ -472,27 +464,27 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
 		header
 			.add_object(
 				METADATA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		let bytes = header
-			.decrypt_object(METADATA_OBJECT_NAME, OBJECT_IDENTIFIER_CONTEXT, mk)
+			.decrypt_object(METADATA_OBJECT_NAME, CRYPTO_TEST_CONTEXT, mk)
 			.unwrap();
 
 		let md: Metadata = encoding::decode(bytes.expose()).unwrap();
@@ -516,29 +508,29 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
 		header
 			.add_object(
 				METADATA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		header
 			.decrypt_object(
 				HeaderObjectName::new("nonexistent"),
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk,
 			)
 			.unwrap();
@@ -557,24 +549,24 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
 		header
 			.add_object(
 				PREVIEW_MEDIA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk,
 				&PVM_BYTES,
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
@@ -593,14 +585,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
 		header
 			.add_object(
 				PREVIEW_MEDIA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -609,17 +601,17 @@ mod tests {
 		header
 			.add_object(
 				MAGIC_BYTES_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk,
-				MAGIC_BYTES.inner(),
+				CRYPTO_TEST_MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 1);
@@ -638,7 +630,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
@@ -648,7 +640,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
@@ -658,7 +650,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk,
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 	}
@@ -673,7 +665,7 @@ mod tests {
 		header
 			.add_object(
 				PREVIEW_MEDIA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -682,7 +674,7 @@ mod tests {
 		header
 			.add_object(
 				METADATA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&encoding::encode(&METADATA).unwrap(),
 			)
@@ -691,9 +683,9 @@ mod tests {
 		header
 			.add_object(
 				MAGIC_BYTES_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk,
-				MAGIC_BYTES.inner(),
+				CRYPTO_TEST_MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 	}
@@ -711,7 +703,7 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
@@ -721,14 +713,14 @@ mod tests {
 				Salt::generate(),
 				Key::generate(),
 				mk.clone(),
-				FILE_KEYSLOT_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 			)
 			.unwrap();
 
 		header
 			.add_object(
 				PREVIEW_MEDIA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
 				&PVM_BYTES,
 			)
@@ -737,34 +729,30 @@ mod tests {
 		header
 			.add_object(
 				MAGIC_BYTES_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
+				CRYPTO_TEST_CONTEXT,
 				mk.clone(),
-				MAGIC_BYTES.inner(),
+				CRYPTO_TEST_MAGIC_BYTES.inner(),
 			)
 			.unwrap();
 
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
+		header.write(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, CRYPTO_TEST_MAGIC_BYTES).unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
 
 		let preview_media = header
-			.decrypt_object(
-				PREVIEW_MEDIA_OBJECT_NAME,
-				OBJECT_IDENTIFIER_CONTEXT,
-				mk.clone(),
-			)
+			.decrypt_object(PREVIEW_MEDIA_OBJECT_NAME, CRYPTO_TEST_CONTEXT, mk.clone())
 			.unwrap();
 
 		let magic = header
-			.decrypt_object(MAGIC_BYTES_OBJECT_NAME, OBJECT_IDENTIFIER_CONTEXT, mk)
+			.decrypt_object(MAGIC_BYTES_OBJECT_NAME, CRYPTO_TEST_CONTEXT, mk)
 			.unwrap();
 
 		assert_eq!(preview_media.expose(), &PVM_BYTES);
-		assert_eq!(magic.expose(), MAGIC_BYTES.inner());
+		assert_eq!(magic.expose(), CRYPTO_TEST_MAGIC_BYTES.inner());
 	}
 }
