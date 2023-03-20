@@ -6,12 +6,10 @@ use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
 	header::FileHeader,
 	keys::Hasher,
-	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
-	types::{Algorithm, HashingAlgorithm, Key, MagicBytes, Params, Salt},
+	primitives::{CRYPTO_TEST_CONTEXT, CRYPTO_TEST_MAGIC_BYTES, LATEST_FILE_HEADER},
+	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	Protected,
 };
-
-const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -40,12 +38,15 @@ async fn encrypt() {
 			content_salt,
 			hashed_password,
 			master_key.clone(),
-			FILE_KEYSLOT_CONTEXT,
+			CRYPTO_TEST_CONTEXT,
 		)
 		.unwrap();
 
 	// Write the header to the file
-	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
+	header
+		.write_async(&mut writer, CRYPTO_TEST_MAGIC_BYTES)
+		.await
+		.unwrap();
 
 	// Use the nonce created by the header to initialize a stream encryption object
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -66,13 +67,13 @@ async fn decrypt() {
 	let mut writer = File::create("test.original").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
+	let header = FileHeader::from_reader_async(&mut reader, CRYPTO_TEST_MAGIC_BYTES)
 		.await
 		.unwrap();
 
 	// Decrypt the master key with the user's password
 	let master_key = header
-		.decrypt_master_key_with_password(password, FILE_KEYSLOT_CONTEXT)
+		.decrypt_master_key_with_password(password, CRYPTO_TEST_CONTEXT)
 		.unwrap();
 
 	// Initialize a stream decryption object using data provided by the header

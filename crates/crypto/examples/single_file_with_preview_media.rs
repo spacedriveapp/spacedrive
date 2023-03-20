@@ -6,14 +6,12 @@ use sd_crypto::{
 	crypto::Encryptor,
 	header::{FileHeader, HeaderObjectName},
 	keys::Hasher,
-	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
-	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
+	primitives::{
+		CRYPTO_TEST_CONTEXT, CRYPTO_TEST_MAGIC_BYTES, FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER,
+	},
+	types::{Algorithm, HashingAlgorithm, Key, Params, Salt},
 	Protected,
 };
-
-const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
-const OBJECT_IDENTIFIER_CONTEXT: DerivationContext =
-	DerivationContext::new("spacedrive 2023-03-16 18:10:47 header object examples");
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
@@ -44,21 +42,24 @@ async fn encrypt() {
 			content_salt,
 			hashed_password,
 			master_key.clone(),
-			FILE_KEYSLOT_CONTEXT,
+			CRYPTO_TEST_CONTEXT,
 		)
 		.unwrap();
 
 	header
 		.add_object(
 			HeaderObjectName::new("PreviewMedia"),
-			OBJECT_IDENTIFIER_CONTEXT,
+			CRYPTO_TEST_CONTEXT,
 			master_key.clone(),
 			&pvm,
 		)
 		.unwrap();
 
 	// Write the header to the file
-	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
+	header
+		.write_async(&mut writer, CRYPTO_TEST_MAGIC_BYTES)
+		.await
+		.unwrap();
 
 	// Use the nonce created by the header to initialise a stream encryption object
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -78,7 +79,7 @@ async fn decrypt_preview_media() {
 	let mut reader = File::open("test.encrypted").await.unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
+	let header = FileHeader::from_reader_async(&mut reader, CRYPTO_TEST_MAGIC_BYTES)
 		.await
 		.unwrap();
 
@@ -90,7 +91,7 @@ async fn decrypt_preview_media() {
 	let media = header
 		.decrypt_object(
 			HeaderObjectName::new("PreviewMedia"),
-			OBJECT_IDENTIFIER_CONTEXT,
+			CRYPTO_TEST_CONTEXT,
 			master_key,
 		)
 		.unwrap();
