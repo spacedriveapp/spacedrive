@@ -13,7 +13,6 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
-#![deny(warnings)]
 #![forbid(unsafe_code)]
 
 pub mod crypto;
@@ -28,8 +27,11 @@ pub mod types;
 #[cfg(feature = "headers")]
 pub mod header;
 
+#[cfg(any(feature = "serde", feature = "headers"))]
+pub mod serialization;
+
 #[cfg(feature = "headers")]
-pub use header::encoding;
+pub use serialization::encoding;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
