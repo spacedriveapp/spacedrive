@@ -1,6 +1,6 @@
 import { RSPCError } from '@rspc/client';
-import { ChangeEvent, useEffect, useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { Controller, UseFormReturn } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { CheckBox, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
@@ -9,9 +9,17 @@ import { Platform, usePlatform } from '~/util/Platform';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
 
+type FormFieldValues<U> = U extends UseFormReturn<infer U> ? U : never;
+
 interface Props extends UseDialogProps {
 	path: string;
 }
+
+const LOCATION_ERROR_MESSAGES: Record<number, string | undefined> = {
+	// \u000A is a line break, It works with css white-space: pre-line
+	404: 'Location is already linked to another Library.\u000ADo you want to add it to this Library too?',
+	409: 'Location already present.\u000ADo you want to relink it?'
+};
 
 export const openDirectoryPickerDialog = async (platform: Platform): Promise<string> => {
 	if (!platform.openDirectoryPickerDialog) return '';
@@ -33,7 +41,6 @@ export const AddLocationDialog = (props: Props) => {
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
-	const deleteLocationIndexerRule = useLibraryMutation('locations.indexer_rules.delete');
 
 	const form = useZodForm({
 		schema,
@@ -45,6 +52,7 @@ export const AddLocationDialog = (props: Props) => {
 
 	useEffect(() => {
 		const subscription = form.watch((_, { name }) => {
+			// Clear custom location error when user changes location path
 			if (name === 'path') {
 				form.clearErrors('root.serverError');
 				setExceptionCode(0);
@@ -52,6 +60,71 @@ export const AddLocationDialog = (props: Props) => {
 		});
 		return () => subscription.unsubscribe();
 	}, [form, form.watch]);
+
+	const addLocation = async ({ path, indexer_rules_ids }: FormFieldValues<typeof form>) => {
+		try {
+			await createLocation.mutateAsync({ path, indexer_rules_ids });
+		} catch (err) {
+			const error = err instanceof Error ? err : new Error(String(err));
+
+			if ('cause' in error && error.cause instanceof RSPCError) {
+				const { code } = error.cause.shape;
+				if (code !== 0) {
+					/**
+					 * TODO: On code 409 (NeedRelink), we should query the backend for
+					 * the current location indexer_rules_ids, then update the checkboxes
+					 * accordingly. However we don't have the location id at this point.
+					 * Maybe backend could return the location id in the error?
+					 */
+
+					setExceptionCode(code);
+					form.reset({}, { keepValues: true });
+					form.setError('root.serverError', {
+						type: 'custom',
+						message: LOCATION_ERROR_MESSAGES[code] ?? 'Unknown error'
+					});
+
+					// Throw error to prevent dialog from closing
+					throw error;
+				}
+			}
+
+			showAlertDialog({
+				title: 'Error',
+				value: error.message ?? 'Failed to add location'
+			});
+		}
+	};
+
+	const confirmAfterError = async ({ path, indexer_rules_ids }: FormFieldValues<typeof form>) => {
+		try {
+			switch (exceptionCode) {
+				case 409: {
+					await relinkLocation.mutateAsync(path);
+					// TODO: Update relinked location with new indexer rules
+					// await updateLocation.mutateAsync({
+					// 	id: locationId,
+					// 	name: null,
+					// 	hidden: null,
+					// 	indexer_rules_ids,
+					// 	sync_preview_media: null,
+					// 	generate_preview_media: null
+					// });
+					break;
+				}
+				case 404: {
+					await addLocationToLibrary.mutateAsync({ path, indexer_rules_ids });
+					break;
+				}
+			}
+		} catch (err) {
+			const error = err instanceof Error ? err : new Error(String(err));
+			showAlertDialog({
+				title: 'Error',
+				value: error.message ?? 'Failed to add location'
+			});
+		}
+	};
 
 	return (
 		<Dialog
@@ -62,57 +135,9 @@ export const AddLocationDialog = (props: Props) => {
 					? '"As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node."'
 					: ''
 			}
-			onSubmit={form.handleSubmit(async ({ path, indexer_rules_ids }) => {
-				if (exceptionCode === 0) {
-					try {
-						await createLocation.mutateAsync({ path, indexer_rules_ids });
-					} catch (err) {
-						const error = err instanceof Error ? err : new Error(String(err));
-
-						if ('cause' in error && error.cause instanceof RSPCError) {
-							const { code } = error.cause.shape;
-							if (code === 404 || code === 409) {
-								setExceptionCode(code);
-								form.reset({}, { keepValues: true });
-								form.setError('root.serverError', {
-									type: 'custom',
-									message:
-										// \u000A is a line break, It works with css white-space: pre-line
-										code === 404
-											? 'Location is already linked to another Library.\u000ADo you want to add it to this Library too?'
-											: code === 409
-											? 'Location already present.\u000ADo you want to relink it?'
-											: 'Unknown error'
-								});
-								throw error;
-							}
-						}
-
-						showAlertDialog({
-							title: 'Error',
-							value: error.message ?? 'Failed to add location'
-						});
-					}
-				} else {
-					try {
-						if (exceptionCode === 404) {
-							await addLocationToLibrary.mutateAsync({ path, indexer_rules_ids });
-						} else if (exceptionCode === 409) {
-							await relinkLocation.mutateAsync(path);
-							const deleteAllIndexerRules = indexerRulesList.data?.map((rule) =>
-								deleteLocationIndexerRule.mutateAsync(rule.id)
-							);
-							if (deleteAllIndexerRules) await Promise.all<unknown>(deleteAllIndexerRules);
-						}
-					} catch (err) {
-						const error = err instanceof Error ? err : new Error(String(err));
-						showAlertDialog({
-							title: 'Error',
-							value: error.message ?? 'Failed to add location'
-						});
-					}
-				}
-			})}
+			onSubmit={form.handleSubmit((values) =>
+				exceptionCode === 0 ? addLocation(values) : confirmAfterError(values)
+			)}
 			ctaLabel="Add"
 		>
 			<div className="relative flex flex-col">
@@ -148,13 +173,15 @@ export const AddLocationDialog = (props: Props) => {
 									<div className="flex" key={rule.id}>
 										<CheckBox
 											value={rule.id}
+											checked={field.value.includes(rule.id)}
 											onChange={(event: ChangeEvent) => {
-												const ref = event.target as HTMLInputElement;
-												if (ref.checked) {
-													field.onChange([...field.value, Number.parseInt(ref.value)]);
+												const checkBoxRef = event.target as HTMLInputElement;
+												const checkBoxValue = Number.parseInt(checkBoxRef.value);
+												if (checkBoxRef.checked) {
+													field.onChange([...field.value, checkBoxValue]);
 												} else {
 													field.onChange(
-														field.value.filter((value) => value !== Number.parseInt(ref.value))
+														field.value.filter((fieldValue) => fieldValue !== checkBoxValue)
 													);
 												}
 											}}
@@ -169,7 +196,7 @@ export const AddLocationDialog = (props: Props) => {
 			</div>
 
 			{form.formState.errors.root?.serverError && (
-				<span className="mt-6 inline-block whitespace-pre-wrap text-[0.9rem] text-red-400">
+				<span className="mt-6 inline-block w-full whitespace-pre-wrap text-center text-[0.9rem] text-red-400">
 					{form.formState.errors.root.serverError.message}
 				</span>
 			)}
