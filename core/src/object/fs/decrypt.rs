@@ -1,4 +1,4 @@
-use sd_crypto::{crypto::Decryptor, header::file::FileHeader};
+use sd_crypto::{crypto::Decryptor, header::FileHeader, primitives::FILE_KEYSLOT_CONTEXT};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
@@ -83,15 +83,15 @@ impl StatefulJob for FileDecryptorJob {
 		let mut reader = File::open(info.fs_path.clone()).await?;
 		let mut writer = File::create(output_path).await?;
 
-		let header = FileHeader::from_reader(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
+		let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
 
 		let keys = key_manager.enumerate_hashed_keys();
-		let master_key = header.decrypt_master_key(keys).await?;
+		let master_key = header.decrypt_master_key(keys, FILE_KEYSLOT_CONTEXT)?;
 
 		let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm())?;
 
 		decryptor
-			.decrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
+			.decrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
 			.await?;
 
 		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values

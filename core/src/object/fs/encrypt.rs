@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::Encryptor,
-	header::file::{FileHeader, LATEST_FILE_HEADER},
+	header::FileHeader,
+	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
 	types::{Algorithm, Key},
 };
 use serde::{Deserialize, Serialize};
@@ -129,25 +130,24 @@ impl StatefulJob for FileEncryptorJob {
 
 			let master_key = Key::generate();
 
-			let mut header = FileHeader::new(LATEST_FILE_HEADER, state.init.algorithm)?;
+			let mut header = FileHeader::new(LATEST_FILE_HEADER, state.init.algorithm);
+
+			header.add_keyslot(
+				user_key_details.hashing_algorithm,
+				user_key_details.content_salt,
+				user_key,
+				master_key.clone(),
+				FILE_KEYSLOT_CONTEXT,
+			)?;
 
 			header
-				.add_keyslot(
-					user_key_details.hashing_algorithm,
-					user_key_details.content_salt,
-					user_key,
-					master_key.clone(),
-				)
-				.await?;
-
-			header
-				.write(&mut writer, ENCRYPTED_FILE_MAGIC_BYTES)
+				.write_async(&mut writer, ENCRYPTED_FILE_MAGIC_BYTES)
 				.await?;
 
 			let encryptor = Encryptor::new(master_key, header.get_nonce(), state.init.algorithm)?;
 
 			encryptor
-				.encrypt_streams_async(&mut reader, &mut writer, &header.get_aad())
+				.encrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
 				.await?;
 		} else {
 			warn!(

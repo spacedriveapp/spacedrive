@@ -13,7 +13,7 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	types::{EncryptedKey, Nonce, OnboardingConfig, Salt},
+	types::{Nonce, OnboardingConfig, Salt},
 };
 use std::{
 	env, fs, io,
@@ -100,7 +100,8 @@ pub async fn seed_keymanager(
 				algorithm: serde_json::from_str(&key.algorithm)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
 				content_salt: Salt::try_from(key.content_salt)?,
-				master_key: EncryptedKey::try_from(key.master_key)?,
+				master_key: serde_json::from_slice(&key.master_key)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
 				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
 				key_nonce: Nonce::try_from(key.key_nonce)?,
 				key: key.key,

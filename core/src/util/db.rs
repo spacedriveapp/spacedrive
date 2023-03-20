@@ -47,22 +47,22 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 /// If the key is marked as memory-only, it is skipped
 pub async fn write_storedkey_to_db(
 	db: &PrismaClient,
-	key: &StoredKey,
+	stored_key: &StoredKey,
 ) -> Result<(), LibraryManagerError> {
-	if !key.memory_only {
+	if !stored_key.memory_only {
 		db.key()
 			.create(
-				key.uuid.to_string(),
-				serde_json::to_string(&key.version)?,
-				serde_json::to_string(&key.key_type)?,
-				serde_json::to_string(&key.algorithm)?,
-				serde_json::to_string(&key.hashing_algorithm)?,
-				key.content_salt.0.to_vec(),
-				key.master_key.to_vec(),
-				key.master_key_nonce.to_vec(),
-				key.key_nonce.to_vec(),
-				key.key.to_vec(),
-				key.salt.to_vec(),
+				stored_key.uuid.to_string(),
+				serde_json::to_string(&stored_key.version)?,
+				serde_json::to_string(&stored_key.key_type)?,
+				serde_json::to_string(&stored_key.algorithm)?,
+				serde_json::to_string(&stored_key.hashing_algorithm)?,
+				stored_key.content_salt.inner().to_vec(),
+				stored_key.master_key.inner().to_vec(),
+				stored_key.master_key_nonce.inner().to_vec(),
+				stored_key.key_nonce.inner().to_vec(),
+				stored_key.key.clone(),
+				stored_key.salt.inner().to_vec(),
 				vec![],
 			)
 			.exec()

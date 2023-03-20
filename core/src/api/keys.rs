@@ -175,16 +175,15 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("unlockKeyManager", |t| {
 			t(|_, args: UnlockKeyManagerArgs, library| async move {
-				let secret_key = (!args.secret_key.expose().is_empty()).then_some(args.secret_key);
+				let secret_key = (!args.secret_key.expose().is_empty())
+					.then_some(args.secret_key)
+					.map(|s| SecretKeyString::new(s.into_inner()));
 
 				library
 					.key_manager
-					.unlock(
-						args.password,
-						secret_key.map(SecretKeyString),
-						library.id,
-						|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
-					)
+					.unlock(args.password, secret_key, library.id, || {
+						invalidate_query!(library, "keys.isKeyManagerUnlocking")
+					})
 					.await?;
 
 				invalidate_query!(library, "keys.isUnlocked");
@@ -329,7 +328,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key_manager
 					.import_keystore_backup(
 						args.password,
-						SecretKeyString(args.secret_key),
+						SecretKeyString::new(args.secret_key.into_inner()),
 						&stored_keys,
 					)
 					.await?;

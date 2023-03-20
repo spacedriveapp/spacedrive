@@ -6,6 +6,7 @@ use crate::{
 
 use std::{ffi::OsStr, path::PathBuf};
 
+use sd_crypto::types::MagicBytes;
 use serde::{Deserialize, Serialize};
 
 pub mod create;
@@ -26,7 +27,8 @@ pub const BYTES_EXT: &str = ".bytes";
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 ///
 /// These currently are set to "ballapp", plus the ASCII "ETX" code (`0x03`)
-pub const ENCRYPTED_FILE_MAGIC_BYTES: [u8; 8] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03];
+pub const ENCRYPTED_FILE_MAGIC_BYTES: MagicBytes<8> =
+	MagicBytes::new([0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x03]);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
