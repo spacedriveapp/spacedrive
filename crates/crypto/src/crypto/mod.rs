@@ -65,7 +65,7 @@ mod tests {
 	use rand_chacha::ChaCha20Rng;
 
 	use crate::{
-		primitives::{BLOCK_LEN, KEY_LEN},
+		primitives::{BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN},
 		types::{Algorithm, Key, Nonce},
 	};
 
@@ -122,6 +122,20 @@ mod tests {
 		],
 	];
 
+	const PLAINTEXT_KEY: [u8; KEY_LEN] = [1u8; KEY_LEN];
+
+	const XCHACHA_ENCRYPTED_KEY: [u8; ENCRYPTED_KEY_LEN] = [
+		120, 245, 167, 96, 140, 26, 94, 182, 157, 89, 104, 19, 180, 3, 127, 234, 211, 167, 27, 198,
+		214, 110, 209, 57, 226, 89, 16, 246, 166, 56, 222, 148, 40, 198, 237, 205, 45, 49, 205, 18,
+		69, 102, 16, 78, 199, 141, 246, 165,
+	];
+
+	const AES_ENCRYPTED_KEY: [u8; ENCRYPTED_KEY_LEN] = [
+		125, 59, 176, 104, 216, 224, 249, 195, 236, 86, 245, 12, 55, 42, 157, 3, 49, 34, 139, 126,
+		79, 81, 89, 48, 30, 200, 240, 214, 117, 164, 238, 32, 6, 159, 3, 111, 114, 28, 176, 224,
+		187, 185, 123, 20, 164, 197, 171, 31,
+	];
+
 	#[tokio::test]
 	async fn aes_encrypt_bytes() {
 		let ciphertext =
@@ -166,6 +180,56 @@ mod tests {
 		.unwrap();
 
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
+	}
+
+	#[tokio::test]
+	async fn aes_encrypt_key() {
+		Encryptor::encrypt_byte_array::<KEY_LEN, ENCRYPTED_KEY_LEN>(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&PLAINTEXT_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	async fn aes_decrypt_key() {
+		Decryptor::decrypt_byte_array::<ENCRYPTED_KEY_LEN, KEY_LEN>(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&AES_ENCRYPTED_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "LengthMismatch")]
+	async fn aes_encrypt_key_bad_length() {
+		Encryptor::encrypt_byte_array::<KEY_LEN, KEY_LEN>(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&PLAINTEXT_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "LengthMismatch")]
+	async fn aes_decrypt_key_bad_length() {
+		Decryptor::decrypt_byte_array::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&AES_ENCRYPTED_KEY,
+			&[],
+		)
+		.unwrap();
 	}
 
 	#[tokio::test]
@@ -247,6 +311,56 @@ mod tests {
 		.unwrap();
 
 		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext);
+	}
+
+	#[tokio::test]
+	async fn xchacha_encrypt_key() {
+		Encryptor::encrypt_byte_array::<KEY_LEN, ENCRYPTED_KEY_LEN>(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	async fn xchacha_decrypt_key() {
+		Decryptor::decrypt_byte_array::<ENCRYPTED_KEY_LEN, KEY_LEN>(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPTED_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "LengthMismatch")]
+	async fn xchacha_encrypt_key_bad_length() {
+		Encryptor::encrypt_byte_array::<KEY_LEN, KEY_LEN>(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT_KEY,
+			&[],
+		)
+		.unwrap();
+	}
+
+	#[tokio::test]
+	#[should_panic(expected = "LengthMismatch")]
+	async fn xchacha_decrypt_key_bad_length() {
+		Decryptor::decrypt_byte_array::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_ENCRYPTED_KEY,
+			&[],
+		)
+		.unwrap();
 	}
 
 	#[tokio::test]

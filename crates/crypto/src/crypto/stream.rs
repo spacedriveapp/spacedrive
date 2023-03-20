@@ -190,6 +190,10 @@ impl Encryptor {
 		bytes: &[u8; I],
 		aad: &[u8],
 	) -> Result<[u8; T]> {
+		if T != I + (((I + BLOCK_LEN - 1) / BLOCK_LEN) * AEAD_TAG_LEN) {
+			return Err(Error::LengthMismatch);
+		}
+
 		let mut writer = Cursor::new(Vec::new());
 		let s = Self::new(key, nonce, algorithm)?;
 
@@ -207,6 +211,10 @@ impl Decryptor {
 		bytes: &[u8; I],
 		aad: &[u8],
 	) -> Result<Protected<[u8; T]>> {
+		if T != I - (((I + BLOCK_LEN - 1) / BLOCK_LEN) * AEAD_TAG_LEN) {
+			return Err(Error::LengthMismatch);
+		}
+
 		let mut writer = Cursor::new(Vec::new());
 		let s = Self::new(key, nonce, algorithm)?;
 
