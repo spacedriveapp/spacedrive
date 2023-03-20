@@ -230,6 +230,12 @@ where
 	}
 }
 
+impl From<Protected<[u8; KEY_LEN]>> for Key {
+	fn from(value: Protected<[u8; KEY_LEN]>) -> Self {
+		Self(value)
+	}
+}
+
 impl TryFrom<Protected<Vec<u8>>> for Key {
 	type Error = Error;
 

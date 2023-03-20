@@ -247,13 +247,14 @@ impl Keyslot001 {
 		aad: Aad,
 		context: DerivationContext,
 	) -> Result<Key> {
-		Key::try_from(Decryptor::decrypt_bytes(
+		Decryptor::decrypt_byte_array(
 			Key::derive(key, self.salt, context),
 			self.nonce,
 			algorithm,
 			self.encrypted_key.inner(),
 			aad.inner(),
-		)?)
+		)
+		.map(Key::from)
 	}
 }
 

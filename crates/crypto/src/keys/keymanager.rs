@@ -488,7 +488,7 @@ impl KeyManager {
 				)?;
 
 				// decrypt the root key's KEK
-				let master_key = Decryptor::decrypt_bytes(
+				let master_key = Decryptor::decrypt_byte_array(
 					Key::derive(
 						hashed_password,
 						old_verification_key.salt,
@@ -498,18 +498,18 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					old_verification_key.master_key.inner(),
 					&[],
-				)?;
+				)
+				.map(Key::from)?;
 
 				// get the root key from the backup
-				let old_root_key = Decryptor::decrypt_bytes(
-					Key::try_from(master_key)?,
+				Decryptor::decrypt_bytes(
+					master_key,
 					old_verification_key.key_nonce,
 					old_verification_key.algorithm,
 					&old_verification_key.key,
 					&[],
-				)?;
-
-				Key::try_from(old_root_key)?
+				)
+				.map(Key::try_from)??
 			}
 		};
 
@@ -523,14 +523,14 @@ impl KeyManager {
 			match key.version {
 				StoredKeyVersion::V1 => {
 					// decrypt the key's master key
-					let master_key = Decryptor::decrypt_bytes(
+					let master_key = Decryptor::decrypt_byte_array(
 						Key::derive(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						key.master_key_nonce,
 						key.algorithm,
 						key.master_key.inner(),
 						&[],
 					)
-					.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
+					.map(Key::from)?;
 
 					// generate a new nonce
 					let master_key_nonce = Nonce::generate(key.algorithm);
@@ -621,7 +621,7 @@ impl KeyManager {
 					e
 				})?;
 
-				let master_key = Decryptor::decrypt_bytes(
+				let master_key = Decryptor::decrypt_byte_array(
 					Key::derive(
 						hashed_password,
 						verification_key.salt,
@@ -632,23 +632,29 @@ impl KeyManager {
 					verification_key.master_key.inner(),
 					&[],
 				)
-				.map_err(|_| {
-					self.remove_from_queue(verification_key.uuid).ok();
-					Error::IncorrectPassword
-				})?;
+				.map_or_else(
+					|_| {
+						self.remove_from_queue(verification_key.uuid).ok();
+						Err(Error::IncorrectPassword)
+					},
+					|k| Ok(Key::from(k)),
+				)?;
 
 				*self.root_key.lock().await = Some(
-					Key::try_from(Decryptor::decrypt_bytes(
-						Key::try_from(master_key)?,
+					Decryptor::decrypt_bytes(
+						master_key,
 						verification_key.key_nonce,
 						verification_key.algorithm,
 						&verification_key.key,
 						&[],
-					)?)
-					.map_err(|e| {
-						self.remove_from_queue(verification_key.uuid).ok();
-						e
-					})?,
+					)
+					.map_or_else(
+						|e| {
+							self.remove_from_queue(verification_key.uuid).ok();
+							Err(e)
+						},
+						Key::try_from,
+					)?,
 				);
 
 				self.remove_from_queue(verification_key.uuid)?;
@@ -684,7 +690,7 @@ impl KeyManager {
 				StoredKeyVersion::V1 => {
 					self.mounting_queue.insert(uuid);
 
-					let master_key = Decryptor::decrypt_bytes(
+					let master_key = Decryptor::decrypt_byte_array(
 						Key::derive(
 							self.get_root_key().await?,
 							stored_key.salt,
@@ -700,8 +706,9 @@ impl KeyManager {
 							self.remove_from_queue(uuid).ok();
 							Err(Error::IncorrectPassword)
 						},
-						Key::try_from,
+						|k| Ok(Key::from(k)),
 					)?;
+
 					// Decrypt the StoredKey using the decrypted master key
 					let key = Decryptor::decrypt_bytes(
 						master_key,
@@ -750,7 +757,7 @@ impl KeyManager {
 		self.ensure_unlocked().await?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
-			let master_key = Decryptor::decrypt_bytes(
+			let master_key = Decryptor::decrypt_byte_array(
 				Key::derive(
 					self.get_root_key().await?,
 					stored_key.salt,
@@ -761,7 +768,7 @@ impl KeyManager {
 				stored_key.master_key.inner(),
 				&[],
 			)
-			.map_or(Err(Error::IncorrectPassword), Key::try_from)?;
+			.map_or(Err(Error::IncorrectPassword), |k| Ok(Key::from(k)))?;
 
 			// Decrypt the StoredKey using the decrypted master key
 			let key = Decryptor::decrypt_bytes(
