@@ -6,14 +6,11 @@ use std::fmt::Display;
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	generate_byte_array, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED,
+	generate_bytes_fixed, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED,
 	ARGON2ID_PARANOID, ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID,
 	B3BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
 	XCHACHA20_POLY1305_NONCE_LEN,
 };
-
-#[cfg(feature = "serde")]
-use serde_big_array::BigArray;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct MagicBytes<const I: usize>([u8; I]);
@@ -106,8 +103,8 @@ impl Nonce {
 	#[must_use]
 	pub fn generate(algorithm: Algorithm) -> Self {
 		match algorithm {
-			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_byte_array()),
-			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_byte_array()),
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_bytes_fixed()),
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_bytes_fixed()),
 		}
 	}
 
@@ -138,7 +135,7 @@ impl Nonce {
 
 impl Default for Nonce {
 	fn default() -> Self {
-		Self::XChaCha20Poly1305(generate_byte_array())
+		Self::XChaCha20Poly1305(generate_bytes_fixed())
 	}
 }
 
@@ -217,7 +214,7 @@ impl Key {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		Self::new(generate_byte_array())
+		Self::new(generate_bytes_fixed())
 	}
 }
 
@@ -263,7 +260,7 @@ impl SecretKey {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		Self::new(generate_byte_array())
+		Self::new(generate_bytes_fixed())
 	}
 
 	#[must_use]
@@ -337,14 +334,10 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 /// This should be used for passing an encrypted key around.
 ///
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub struct EncryptedKey(
-	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
-	pub  [u8; ENCRYPTED_KEY_LEN],
-);
+pub struct EncryptedKey([u8; ENCRYPTED_KEY_LEN]);
 
 impl EncryptedKey {
 	#[must_use]
@@ -365,7 +358,7 @@ pub struct Aad([u8; AAD_LEN]);
 impl Aad {
 	#[must_use]
 	pub fn generate() -> Self {
-		Self(generate_byte_array())
+		Self(generate_bytes_fixed())
 	}
 
 	#[must_use]
@@ -394,7 +387,7 @@ pub struct Salt([u8; SALT_LEN]);
 impl Salt {
 	#[must_use]
 	pub fn generate() -> Self {
-		Self(generate_byte_array())
+		Self(generate_bytes_fixed())
 	}
 
 	#[must_use]
