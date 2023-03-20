@@ -9,12 +9,12 @@ use sd_crypto::{
 const PARAMS: [Params; 3] = [Params::Standard, Params::Hardened, Params::Paranoid];
 
 fn bench(c: &mut Criterion) {
-	let mut group = c.benchmark_group("argon2id");
+	let mut group = c.benchmark_group("balloon-blake3");
 
 	for param in PARAMS {
 		let password = Protected::new(generate_bytes(32));
 		let salt = Salt::generate();
-		let hashing_algorithm = HashingAlgorithm::Argon2id(param);
+		let hashing_algorithm = HashingAlgorithm::BalloonBlake3(param);
 
 		group.bench_function(
 			BenchmarkId::new("hash", hashing_algorithm.get_parameters().0),

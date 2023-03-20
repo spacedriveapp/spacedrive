@@ -1,43 +1,32 @@
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
+	primitives::{BLOCK_LEN, KEY_LEN},
 	types::{Algorithm, Key, Nonce},
 };
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
-
-const KB: usize = 1024;
-
-const SIZES: [usize; 8] = [
-	KB * 16,
-	KB * 32,
-	KB * 64,
-	KB * 128,
-	KB * 512,
-	KB * 1024,
-	KB * 2048,
-	KB * 4096,
-];
+const SIZES: [usize; 1] = [BLOCK_LEN];
 
 fn bench(c: &mut Criterion) {
-	let mut group = c.benchmark_group("xchacha20-poly1305");
+	let mut group = c.benchmark_group(ALGORITHM.to_string().to_ascii_lowercase());
+
+	let key = Key::generate();
+	let nonce = Nonce::generate(ALGORITHM);
 
 	for size in SIZES {
-		let buf = vec![0u8; size].into_boxed_slice();
+		group.throughput(Throughput::Bytes(size as u64));
 
-		let key = Key::generate();
-		let nonce = Nonce::generate(ALGORITHM);
+		let buf = vec![0u8; size].into_boxed_slice();
 
 		let encrypted_bytes =
 			Encryptor::encrypt_bytes(key.clone(), nonce, ALGORITHM, &buf, &[]).unwrap(); // bytes to decrypt
-
-		group.throughput(criterion::Throughput::Bytes(size as u64));
 
 		group.bench_function(BenchmarkId::new("encrypt", size), |b| {
 			b.iter_batched(
 				|| (key.clone(), nonce),
 				|(key, nonce)| Encryptor::encrypt_bytes(key, nonce, ALGORITHM, &buf, &[]).unwrap(),
-				BatchSize::SmallInput,
+				BatchSize::LargeInput,
 			)
 		});
 
@@ -47,7 +36,35 @@ fn bench(c: &mut Criterion) {
 				|(key, nonce)| {
 					Decryptor::decrypt_bytes(key, nonce, ALGORITHM, &encrypted_bytes, &[]).unwrap()
 				},
-				BatchSize::SmallInput,
+				BatchSize::LargeInput,
+			)
+		});
+	}
+
+	{
+		group.throughput(Throughput::Bytes(KEY_LEN as u64));
+
+		let test_key = Key::generate();
+		let test_key_encrypted =
+			Encryptor::encrypt_key(key.clone(), nonce, ALGORITHM, test_key.clone(), &[]).unwrap();
+
+		group.bench_function(BenchmarkId::new("encrypt", "key"), |b| {
+			b.iter_batched(
+				|| (key.clone(), nonce, test_key.clone()),
+				|(key, nonce, test_key)| {
+					Encryptor::encrypt_key(key, nonce, ALGORITHM, test_key, &[]).unwrap()
+				},
+				BatchSize::LargeInput,
+			)
+		});
+
+		group.bench_function(BenchmarkId::new("decrypt", "key"), |b| {
+			b.iter_batched(
+				|| (key.clone(), nonce, test_key_encrypted),
+				|(key, nonce, test_key_encrypted)| {
+					Decryptor::decrypt_key(key, nonce, ALGORITHM, test_key_encrypted, &[]).unwrap()
+				},
+				BatchSize::LargeInput,
 			)
 		});
 	}
