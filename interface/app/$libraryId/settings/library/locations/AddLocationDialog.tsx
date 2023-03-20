@@ -123,6 +123,8 @@ export const AddLocationDialog = (props: Props) => {
 				title: 'Error',
 				value: error.message ?? 'Failed to add location'
 			});
+		} finally {
+			setExceptionCode(0);
 		}
 	};
 
@@ -141,7 +143,7 @@ export const AddLocationDialog = (props: Props) => {
 			ctaLabel="Add"
 		>
 			<div className="relative flex flex-col">
-				<p className="mt-2 text-[0.9rem]">Path:</p>
+				<p className="my-2 text-sm font-bold">Path:</p>
 				<Input
 					type="text"
 					onClick={() =>
@@ -156,14 +158,14 @@ export const AddLocationDialog = (props: Props) => {
 					}
 					readOnly={platform.platform !== 'web'}
 					required
-					className="mt-3 w-full grow cursor-pointer"
+					className="grow cursor-pointer !py-0.5"
 					{...form.register('path')}
 				/>
 			</div>
 
-			<div className="relative flex flex-col">
-				<p className="mt-6 text-[0.9rem]">File indexing rules:</p>
-				<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="relative mt-3 mb-1 flex flex-col">
+				<p className="my-2 text-sm font-bold">File indexing rules:</p>
+				<div className="mb-3 grid w-full grid-cols-2 gap-4">
 					<Controller
 						name="indexer_rules_ids"
 						control={form.control}
@@ -185,8 +187,9 @@ export const AddLocationDialog = (props: Props) => {
 													);
 												}
 											}}
+											className="bg-app-selected"
 										/>
-										<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">{rule.name}</span>
+										<span className="mt-1 text-xs font-medium">{rule.name}</span>
 									</div>
 								))}
 							</>
@@ -196,7 +199,7 @@ export const AddLocationDialog = (props: Props) => {
 			</div>
 
 			{form.formState.errors.root?.serverError && (
-				<span className="mt-6 inline-block w-full whitespace-pre-wrap text-center text-[0.9rem] text-red-400">
+				<span className="mt-6 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
 					{form.formState.errors.root.serverError.message}
 				</span>
 			)}
