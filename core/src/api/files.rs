@@ -1,7 +1,7 @@
 use crate::{
+	api::utils::library,
 	invalidate_query,
 	job::Job,
-	library::Library,
 	object::fs::{
 		copy::{FileCopierJob, FileCopierJobInit},
 		cut::{FileCutterJob, FileCutterJobInit},
@@ -13,170 +13,178 @@ use crate::{
 	prisma::object,
 };
 
-use rspc::Type;
+use rspc::{alpha::AlphaRouter, Type};
 use serde::Deserialize;
 use tokio::sync::oneshot;
 
-use super::{utils::LibraryRequest, RouterBuilder};
+use super::{t, Ctx};
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new()
-		.library_query("get", |t| {
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	t.router()
+		.procedure("get", {
 			#[derive(Type, Deserialize)]
 			pub struct GetArgs {
 				pub id: i32,
 			}
-			t(|_, args: GetArgs, library: Library| async move {
-				Ok(library
-					.db
-					.object()
-					.find_unique(object::id::equals(args.id))
-					.include(object::include!({ file_paths media_data }))
-					.exec()
-					.await?)
-			})
+
+			t.with(library())
+				.query(|(_, library), args: GetArgs| async move {
+					Ok(library
+						.db
+						.object()
+						.find_unique(object::id::equals(args.id))
+						.include(object::include!({ file_paths media_data }))
+						.exec()
+						.await?)
+				})
 		})
-		.library_mutation("setNote", |t| {
+		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
 			pub struct SetNoteArgs {
 				pub id: i32,
 				pub note: Option<String>,
 			}
 
-			t(|_, args: SetNoteArgs, library: Library| async move {
-				library
-					.db
-					.object()
-					.update(
-						object::id::equals(args.id),
-						vec![object::note::set(args.note)],
-					)
-					.exec()
-					.await?;
+			t.with(library())
+				.mutation(|(_, library), args: SetNoteArgs| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(args.id),
+							vec![object::note::set(args.note)],
+						)
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "locations.getExplorerData");
+					invalidate_query!(library, "tags.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("setFavorite", |t| {
+		.procedure("setFavorite", {
 			#[derive(Type, Deserialize)]
 			pub struct SetFavoriteArgs {
 				pub id: i32,
 				pub favorite: bool,
 			}
 
-			t(|_, args: SetFavoriteArgs, library: Library| async move {
-				library
-					.db
-					.object()
-					.update(
-						object::id::equals(args.id),
-						vec![object::favorite::set(args.favorite)],
-					)
-					.exec()
-					.await?;
+			t.with(library())
+				.mutation(|(_, library), args: SetFavoriteArgs| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(args.id),
+							vec![object::favorite::set(args.favorite)],
+						)
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "locations.getExplorerData");
+					invalidate_query!(library, "tags.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("delete", |t| {
-			t(|_, id: i32, library: Library| async move {
-				library
-					.db
-					.object()
-					.delete(object::id::equals(id))
-					.exec()
-					.await?;
+		.procedure("delete", {
+			t.with(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.delete(object::id::equals(id))
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				Ok(())
-			})
+					invalidate_query!(library, "locations.getExplorerData");
+					Ok(())
+				})
 		})
-		.library_mutation("encryptFiles", |t| {
-			t(
-				|_, args: FileEncryptorJobInit, library: Library| async move {
+		.procedure("encryptFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileEncryptorJobInit| async move {
 					library.spawn_job(Job::new(args, FileEncryptorJob {})).await;
 					invalidate_query!(library, "locations.getExplorerData");
 
 					Ok(())
-				},
-			)
+				})
 		})
-		.library_mutation("decryptFiles", |t| {
-			t(
-				|_, args: FileDecryptorJobInit, library: Library| async move {
+		.procedure("decryptFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileDecryptorJobInit| async move {
 					library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
 					invalidate_query!(library, "locations.getExplorerData");
 
 					Ok(())
-				},
-			)
+				})
 		})
-		.library_mutation("deleteFiles", |t| {
-			t(|_, args: FileDeleterJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileDeleterJob {})).await;
-				invalidate_query!(library, "locations.getExplorerData");
+		.procedure("deleteFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileDeleterJobInit| async move {
+					library.spawn_job(Job::new(args, FileDeleterJob {})).await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("eraseFiles", |t| {
-			t(|_, args: FileEraserJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileEraserJob {})).await;
-				invalidate_query!(library, "locations.getExplorerData");
+		.procedure("eraseFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileEraserJobInit| async move {
+					library.spawn_job(Job::new(args, FileEraserJob {})).await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("duplicateFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				let (done_tx, done_rx) = oneshot::channel();
+		.procedure("duplicateFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileCopierJobInit| async move {
+					let (done_tx, done_rx) = oneshot::channel();
 
-				library
-					.spawn_job(Job::new(
-						args,
-						FileCopierJob {
-							done_tx: Some(done_tx),
-						},
-					))
-					.await;
+					library
+						.spawn_job(Job::new(
+							args,
+							FileCopierJob {
+								done_tx: Some(done_tx),
+							},
+						))
+						.await;
 
-				let _ = done_rx.await;
-				invalidate_query!(library, "locations.getExplorerData");
+					let _ = done_rx.await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("copyFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				let (done_tx, done_rx) = oneshot::channel();
+		.procedure("copyFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileCopierJobInit| async move {
+					let (done_tx, done_rx) = oneshot::channel();
 
-				library
-					.spawn_job(Job::new(
-						args,
-						FileCopierJob {
-							done_tx: Some(done_tx),
-						},
-					))
-					.await;
+					library
+						.spawn_job(Job::new(
+							args,
+							FileCopierJob {
+								done_tx: Some(done_tx),
+							},
+						))
+						.await;
 
-				let _ = done_rx.await;
-				invalidate_query!(library, "locations.getExplorerData");
+					let _ = done_rx.await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("cutFiles", |t| {
-			t(|_, args: FileCutterJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileCutterJob {})).await;
-				invalidate_query!(library, "locations.getExplorerData");
+		.procedure("cutFiles", {
+			t.with(library())
+				.mutation(|(_, library), args: FileCutterJobInit| async move {
+					library.spawn_job(Job::new(args, FileCutterJob {})).await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
 }

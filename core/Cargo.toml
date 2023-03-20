@@ -29,7 +29,7 @@ sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
 
-rspc = { workspace = true, features = ["uuid", "chrono", "tracing"] }
+rspc = { workspace = true, features = ["uuid", "chrono", "tracing", "alpha"] }
 httpz = { workspace = true }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }

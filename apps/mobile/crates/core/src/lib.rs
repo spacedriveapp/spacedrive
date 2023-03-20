@@ -3,7 +3,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use rspc::internal::jsonrpc::*;
 use sd_core::{api::Router, Node};
 use serde_json::{from_str, from_value, to_string, Value};
-use std::{collections::HashMap, marker::Send, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, marker::Send, sync::Arc};
 use tokio::{
 	runtime::Runtime,
 	sync::{
@@ -55,34 +55,36 @@ pub fn handle_core_msg(
 			}
 		};
 
-		let responses = join_all(reqs.into_iter().map(|request| {
-			let node = node.clone();
-			let router = router.clone();
-			async move {
-				let mut channel = EVENT_SENDER.get().unwrap().clone();
-				let mut resp = Sender::ResponseAndChannel(None, &mut channel);
+		// let responses = join_all(reqs.into_iter().map(|request| {
+		// 	let node = node.clone();
+		// 	let router = router.clone();
+		// 	async move {
+		// 		let mut channel = EVENT_SENDER.get().unwrap().clone();
+		// 		let mut resp = Sender::ResponseAndChannel(None, &mut channel);
 
-				handle_json_rpc(
-					node.get_request_context(),
-					request,
-					&router,
-					&mut resp,
-					&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
-				)
-				.await;
+		// 		handle_json_rpc(
+		// 			node.get_request_context(),
+		// 			request,
+		// 			Cow::Borrowed(router),
+		// 			&mut resp,
+		// 			&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
+		// 		)
+		// 		.await;
 
-				match resp {
-					Sender::ResponseAndChannel(resp, _) => resp,
-					_ => unreachable!(),
-				}
-			}
-		}))
-		.await;
+		// 		match resp {
+		// 			Sender::ResponseAndChannel(resp, _) => resp,
+		// 			_ => unreachable!(),
+		// 		}
+		// 	}
+		// }))
+		// .await;
 
-		callback(Ok(serde_json::to_string(
-			&responses.into_iter().flatten().collect::<Vec<_>>(),
-		)
-		.unwrap()));
+		// callback(Ok(serde_json::to_string(
+		// 	&responses.into_iter().flatten().collect::<Vec<_>>(),
+		// )
+		// .unwrap()));
+
+		todo!();
 	});
 }
 

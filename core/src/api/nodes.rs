@@ -1,9 +1,10 @@
-use super::RouterBuilder;
-use rspc::Type;
+use rspc::{alpha::AlphaRouter, Type};
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new().mutation("tokenizeSensitiveKey", |t| {
+use super::{t, Ctx};
+
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	t.router().procedure("tokenizeSensitiveKey", {
 		#[derive(Deserialize, Type)]
 		pub struct TokenizeKeyArgs {
 			pub secret_key: String,
@@ -13,7 +14,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			pub token: String,
 		}
 
-		t(|ctx, args: TokenizeKeyArgs| async move {
+		t.mutation(|ctx, args: TokenizeKeyArgs| async move {
 			let token = ctx.secure_temp_keystore.tokenize(args.secret_key);
 
 			Ok(TokenizeResponse {

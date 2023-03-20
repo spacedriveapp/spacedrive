@@ -8,38 +8,44 @@ use crate::{
 	},
 };
 
-use rspc::Type;
+use rspc::{alpha::AlphaRouter, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
+use super::{t, utils::library, CoreEvent, Ctx};
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new()
-		.library_query("getRunning", |t| {
-			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await) })
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	t.router()
+		.procedure("getRunning", {
+			t.with(library())
+				.query(|(ctx, _), _: ()| async move { Ok(ctx.jobs.get_running().await) })
 		})
-		.library_query("isRunning", |t| {
-			t(|ctx, _: (), _| async move { Ok(!ctx.jobs.get_running().await.is_empty()) })
-		})
-		.library_query("getHistory", |t| {
-			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
-		})
-		.library_mutation("clearAll", |t| {
-			t(|_, _: (), library| async move {
-				JobManager::clear_all_jobs(&library).await?;
-				Ok(())
+		.procedure("isRunning", {
+			t.with(library()).query(|(ctx, _), _: ()| async move {
+				Ok(!ctx.jobs.get_running().await.is_empty())
 			})
 		})
-		.library_mutation("generateThumbsForLocation", |t| {
+		.procedure("getHistory", {
+			t.with(library()).query(|(_, library), _: ()| async move {
+				Ok(JobManager::get_history(&library).await?)
+			})
+		})
+		.procedure("clearAll", {
+			t.with(library())
+				.mutation(|(_, library), _: ()| async move {
+					JobManager::clear_all_jobs(&library).await?;
+					Ok(())
+				})
+		})
+		.procedure("generateThumbsForLocation", {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {
 				pub id: i32,
 				pub path: PathBuf,
 			}
 
-			t(
-				|_, args: GenerateThumbsForLocationArgs, library| async move {
+			t.with(library()).mutation(
+				|(_, library), args: GenerateThumbsForLocationArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
@@ -59,59 +65,62 @@ pub(crate) fn mount() -> RouterBuilder {
 				},
 			)
 		})
-		.library_mutation("objectValidator", |t| {
+		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
 				pub id: i32,
 				pub path: PathBuf,
 			}
 
-			t(|_, args: ObjectValidatorArgs, library| async move {
-				if find_location(&library, args.id).exec().await?.is_none() {
-					return Err(LocationError::IdNotFound(args.id).into());
-				}
+			t.with(library())
+				.mutation(|(_, library), args: ObjectValidatorArgs| async move {
+					if find_location(&library, args.id).exec().await?.is_none() {
+						return Err(LocationError::IdNotFound(args.id).into());
+					}
 
-				library
-					.spawn_job(Job::new(
-						ObjectValidatorJobInit {
-							location_id: args.id,
-							path: args.path,
-							background: true,
-						},
-						ObjectValidatorJob {},
-					))
-					.await;
+					library
+						.spawn_job(Job::new(
+							ObjectValidatorJobInit {
+								location_id: args.id,
+								path: args.path,
+								background: true,
+							},
+							ObjectValidatorJob {},
+						))
+						.await;
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("identifyUniqueFiles", |t| {
+		.procedure("identifyUniqueFiles", {
 			#[derive(Type, Deserialize)]
 			pub struct IdentifyUniqueFilesArgs {
 				pub id: i32,
 				pub path: PathBuf,
 			}
 
-			t(|_, args: IdentifyUniqueFilesArgs, library| async move {
-				let Some(location) = find_location(&library, args.id).exec().await? else {
+			t.with(library())
+				.mutation(|(_, library), args: IdentifyUniqueFilesArgs| async move {
+					let Some(location) = find_location(&library, args.id).exec().await? else {
 					return Err(LocationError::IdNotFound(args.id).into());
 				};
 
-				library
-					.spawn_job(Job::new(
-						FileIdentifierJobInit {
-							location,
-							sub_path: Some(args.path),
-						},
-						FileIdentifierJob {},
-					))
-					.await;
+					library
+						.spawn_job(Job::new(
+							FileIdentifierJobInit {
+								location,
+								sub_path: Some(args.path),
+							},
+							FileIdentifierJob {},
+						))
+						.await;
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_subscription("newThumbnail", |t| {
-			t(|ctx, _: (), _| {
+		.procedure(
+			"newThumbnail",
+			t.with(library()).subscription(|(ctx, _), _: ()| {
 				// TODO: Only return event for the library that was subscribed to
 
 				let mut event_bus_rx = ctx.event_bus.subscribe();
@@ -123,6 +132,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						}
 					}
 				}
-			})
-		})
+			}),
+		)
 }

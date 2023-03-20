@@ -61,11 +61,11 @@ impl InvalidRequests {
 			for req in &invalidate_requests.queries {
 				if let Some(query_ty) = queries.get(req.key) {
 					if let Some(input) = &req.input_ty {
-						if &query_ty.ty.input != input {
+						if &query_ty.ty.arg_ty != input {
 							panic!(
 								"Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
 								req.macro_src, req.key
-                        	);
+		                	);
 						}
 					}
 				} else {

@@ -2329,9 +2329,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.26"
+version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e5317663a9089767a1ec00a487df42e0ca174b61b4483213ac24448e4664df5"
+checksum = "164713a5a0dcc3e7b4b1ed7d3b433cabc18025386f9339346e8daf15963cf7ac"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -2339,9 +2339,9 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.26"
+version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec90ff4d0fe1f57d600049061dc6bb68ed03c7d2fbd697274c41805dcb3f8608"
+checksum = "86d7a0c1aa76363dac491de0ee99faf6941128376f1cf96f07db7603b7de69dd"
 
 [[package]]
 name = "futures-executor"
@@ -2377,6 +2377,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-locks"
+version = "0.7.1"
+source = "git+https://github.com/oscartbeaumont/futures-locks?rev=a2e880337e6bfb3140a261932667149607e3ada9#a2e880337e6bfb3140a261932667149607e3ada9"
+dependencies = [
+ "futures-channel",
+ "tokio",
+]
+
+[[package]]
 name = "futures-macro"
 version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2400,9 +2409,9 @@ dependencies = [
 
 [[package]]
 name = "futures-sink"
-version = "0.3.26"
+version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f310820bb3e8cfd46c80db4d7fb8353e15dfff853a127158425f31e0be6c8364"
+checksum = "ec93083a4aecafb2a80a885c9de1f0ccae9dbd32c2bb54b0c3a65690e0b8d2f2"
 
 [[package]]
 name = "futures-task"
@@ -2992,7 +3001,24 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz.git?rev=a5020adecb15b55d84a8330b4680eba82fa6b820#a5020adecb15b55d84a8330b4680eba82fa6b820"
+source = "git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6#a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6"
+dependencies = [
+ "axum",
+ "form_urlencoded",
+ "futures",
+ "http",
+ "hyper",
+ "percent-encoding",
+ "tauri",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "httpz"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6769d2cb10425c442c41a787d1a3719744770a188cfa7885cd4d8126fa13f37a"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -3003,22 +3029,6 @@ dependencies = [
  "http",
  "hyper",
  "sha1",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "httpz"
-version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6#a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6"
-dependencies = [
- "axum",
- "form_urlencoded",
- "futures",
- "http",
- "hyper",
- "percent-encoding",
- "tauri",
  "thiserror",
  "tokio",
 ]
@@ -4019,6 +4029,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "macro_rules_attribute"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf0c9b980bf4f3a37fd7b1c066941dd1b1d0152ce6ee6e8fe8c49b9f6810d862"
+dependencies = [
+ "macro_rules_attribute-proc_macro",
+ "paste",
+]
+
+[[package]]
+name = "macro_rules_attribute-proc_macro"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58093314a45e00c77d5c508f76e77c3396afbbc0d01506e7fae47b018bac2b1d"
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4607,6 +4633,27 @@ dependencies = [
  "dbus",
  "mac-notification-sys",
  "tauri-winrt-notification",
+]
+
+[[package]]
+name = "nougat"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97b57b9ced431322f054fc673f1d3c7fa52d80efd9df74ad2fc759f044742510"
+dependencies = [
+ "macro_rules_attribute",
+ "nougat-proc_macros",
+]
+
+[[package]]
+name = "nougat-proc_macros"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c84f77a45e99a2f9b492695d99e1c23844619caa5f3e57647cffacad773ca257"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -6320,12 +6367,13 @@ dependencies = [
 
 [[package]]
 name = "rspc"
-version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=c03872c0ba29d2429e9c059dfb235cdd03e15e8c#c03872c0ba29d2429e9c059dfb235cdd03e15e8c"
+version = "0.1.3"
 dependencies = [
- "async-stream",
  "futures",
- "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz.git?rev=a5020adecb15b55d84a8330b4680eba82fa6b820)",
+ "futures-channel",
+ "futures-locks",
+ "httpz 0.0.4",
+ "nougat",
  "serde",
  "serde_json",
  "specta",
@@ -6611,7 +6659,7 @@ dependencies = [
  "globset",
  "hostname",
  "http-range",
- "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
+ "httpz 0.0.3",
  "image",
  "include_dir",
  "int-enum",
@@ -6951,9 +6999,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.91"
+version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877c235533714907a8c2464236f5c4b2a17262ef1bd71f38f35ea592c8da6883"
+checksum = "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
 dependencies = [
  "indexmap",
  "itoa 1.0.4",
@@ -7072,7 +7120,7 @@ dependencies = [
  "axum",
  "ctrlc",
  "http",
- "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
+ "httpz 0.0.3",
  "hyper",
  "rspc",
  "sd-core",
@@ -7285,7 +7333,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http",
- "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
+ "httpz 0.0.3",
  "percent-encoding",
  "rand 0.8.5",
  "rspc",
@@ -7303,8 +7351,8 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "0.0.6"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=c03872c0ba29d2429e9c059dfb235cdd03e15e8c#c03872c0ba29d2429e9c059dfb235cdd03e15e8c"
+version = "1.0.0"
+source = "git+https://github.com/oscartbeaumont/specta?rev=6b4c282ff654374b7f12832ee4433db731cdff1c#6b4c282ff654374b7f12832ee4433db731cdff1c"
 dependencies = [
  "chrono",
  "document-features",
@@ -7316,14 +7364,15 @@ dependencies = [
  "serde_json",
  "specta-macros",
  "thiserror",
+ "tokio",
  "uhlc",
  "uuid 1.2.1",
 ]
 
 [[package]]
 name = "specta-macros"
-version = "0.0.6"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=c03872c0ba29d2429e9c059dfb235cdd03e15e8c#c03872c0ba29d2429e9c059dfb235cdd03e15e8c"
+version = "1.0.0"
+source = "git+https://github.com/oscartbeaumont/specta?rev=6b4c282ff654374b7f12832ee4433db731cdff1c#6b4c282ff654374b7f12832ee4433db731cdff1c"
 dependencies = [
  "Inflector",
  "itertools",

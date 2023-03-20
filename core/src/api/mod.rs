@@ -3,7 +3,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use rspc::{Config, Type};
+use rspc::{alpha::Rspc, Config, Type};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
@@ -17,8 +17,10 @@ use crate::{
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
+#[allow(non_upper_case_globals)]
+pub(self) const t: Rspc<Ctx> = Rspc::new();
+
 pub type Router = rspc::Router<Ctx>;
-pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
@@ -64,22 +66,30 @@ pub(crate) fn mount() -> Arc<Router> {
 		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
 	);
 
-	let r = <Router>::new()
-		.config(config)
-		.query("buildInfo", |t| {
+	// TODO: Calling router on `publicProcedure` here is a tad weird
+	let r = t
+		.router()
+		.procedure("buildInfo", {
 			#[derive(Serialize, Type)]
 			pub struct BuildInfo {
 				version: &'static str,
 				commit: &'static str,
 			}
 
-			t(|_, _: ()| BuildInfo {
+			t.query(|_, _: ()| BuildInfo {
 				version: env!("CARGO_PKG_VERSION"),
 				commit: env!("GIT_HASH"),
 			})
 		})
-		.query("nodeState", |t| {
-			t(|ctx, _: ()| async move {
+		.procedure("nodeState", {
+			// TODO: `serde_json::json!` like macro but that supports `rspc::Type` for this
+			#[derive(Serialize, Type)]
+			pub struct BuildInfo {
+				version: &'static str,
+				commit: &'static str,
+			}
+
+			t.query(|ctx, _: ()| async move {
 				Ok(NodeState {
 					config: ctx.config.get().await,
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
@@ -92,18 +102,17 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
-		.yolo_merge("library.", libraries::mount())
-		.yolo_merge("volumes.", volumes::mount())
-		.yolo_merge("tags.", tags::mount())
-		.yolo_merge("nodes.", nodes::mount())
-		.yolo_merge("keys.", keys::mount())
-		.yolo_merge("locations.", locations::mount())
-		.yolo_merge("files.", files::mount())
-		.yolo_merge("jobs.", jobs::mount())
-		.yolo_merge("p2p.", p2p::mount())
-		// TODO: Scope the invalidate queries to a specific library (filtered server side)
-		.subscription("invalidateQuery", |t| {
-			t(|ctx, _: ()| {
+		.merge("library.", libraries::mount())
+		.merge("volumes.", volumes::mount())
+		.merge("tags.", tags::mount())
+		.merge("nodes.", nodes::mount())
+		.merge("keys.", keys::mount())
+		.merge("locations.", locations::mount())
+		.merge("files.", files::mount())
+		.merge("jobs.", jobs::mount())
+		.merge("p2p.", p2p::mount())
+		.procedure("invalidateQuery", {
+			t.subscription(|ctx, _: ()| {
 				let mut event_bus_rx = ctx.event_bus.subscribe();
 				let mut last = Instant::now();
 				async_stream::stream! {
@@ -122,7 +131,13 @@ pub(crate) fn mount() -> Arc<Router> {
 					}
 				}
 			})
-		})
+		});
+
+	// TODO: Remove this and move `Config` onto new system
+	let r = <Router>::new()
+		.config(config)
+		.merge("", r)
+		// TODO: Scope the invalidate queries to a specific library (filtered server side)
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
