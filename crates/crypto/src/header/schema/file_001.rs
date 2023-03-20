@@ -4,7 +4,7 @@ use crate::{
 	crypto::{Decryptor, Encryptor},
 	encoding,
 	header::file::{Header, HeaderObjectName},
-	keys::PasswordHasher,
+	keys::Hasher,
 	primitives::{generate_byte_array, to_array},
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
@@ -434,13 +434,8 @@ impl Header for FileHeader001 {
 			.0
 			.iter()
 			.find_map(|z| {
-				let k = PasswordHasher::hash(
-					z.hashing_algorithm,
-					password.clone(),
-					z.content_salt,
-					None,
-				)
-				.ok()?;
+				let k = Hasher::hash(z.hashing_algorithm, password.clone(), z.content_salt, None)
+					.ok()?;
 				z.decrypt(self.algorithm, k, self.aad, context).ok()
 			})
 			.ok_or(Error::IncorrectPassword)

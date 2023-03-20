@@ -5,7 +5,7 @@ use tokio::fs::File;
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
 	header::FileHeader,
-	keys::PasswordHasher,
+	keys::Hasher,
 	primitives::{FILE_KEYSLOT_CONTEXT, LATEST_FILE_HEADER},
 	types::{Algorithm, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
@@ -28,8 +28,7 @@ async fn encrypt() {
 
 	// These should ideally be done by a key management system
 	let content_salt = Salt::generate();
-	let hashed_password =
-		PasswordHasher::hash(HASHING_ALGORITHM, password, content_salt, None).unwrap();
+	let hashed_password = Hasher::hash(HASHING_ALGORITHM, password, content_salt, None).unwrap();
 
 	// Create the header for the encrypted file
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);

@@ -13,7 +13,7 @@ where
 		.map_err(Error::BincodeDecode)
 }
 
-pub fn encode<T>(object: T) -> Result<Vec<u8>>
+pub fn encode<T>(object: &T) -> Result<Vec<u8>>
 where
 	T: bincode::Encode,
 {

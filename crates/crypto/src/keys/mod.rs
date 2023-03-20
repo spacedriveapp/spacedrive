@@ -1,7 +1,7 @@
 //! This module contains all key and hashing related functions.
 
 mod hashing;
-pub use hashing::PasswordHasher;
+pub use hashing::Hasher;
 
 #[cfg(all(feature = "keymanager", feature = "os-keyrings"))]
 pub mod keymanager;

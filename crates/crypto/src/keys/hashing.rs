@@ -19,9 +19,9 @@ use crate::{
 use argon2::Argon2;
 use balloon_hash::Balloon;
 
-pub struct PasswordHasher;
+pub struct Hasher;
 
-impl PasswordHasher {
+impl Hasher {
 	pub fn hash(
 		algorithm: HashingAlgorithm,
 		password: Protected<Vec<u8>>,
@@ -190,15 +190,14 @@ mod tests {
 
 	#[test]
 	fn hash_argon2id_standard() {
-		let output =
-			PasswordHasher::hash(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_standard_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			ARGON2ID_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
@@ -211,15 +210,14 @@ mod tests {
 
 	#[test]
 	fn hash_argon2id_hardened() {
-		let output =
-			PasswordHasher::hash(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_hardened_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			ARGON2ID_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
@@ -232,15 +230,14 @@ mod tests {
 
 	#[test]
 	fn hash_argon2id_paranoid() {
-		let output =
-			PasswordHasher::hash(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_ARGON2ID_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn hash_argon2id_paranoid_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			ARGON2ID_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,
@@ -254,14 +251,14 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_standard() {
 		let output =
-			PasswordHasher::hash(B3BALLOON_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
+			Hasher::hash(B3BALLOON_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[0], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_standard_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			B3BALLOON_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
@@ -275,14 +272,14 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_hardened() {
 		let output =
-			PasswordHasher::hash(B3BALLOON_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
+			Hasher::hash(B3BALLOON_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[1], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_hardened_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			B3BALLOON_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
@@ -296,14 +293,14 @@ mod tests {
 	#[test]
 	fn hash_b3balloon_paranoid() {
 		let output =
-			PasswordHasher::hash(B3BALLOON_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
+			Hasher::hash(B3BALLOON_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
 		assert_eq!(&HASH_B3BALLOON_EXPECTED[2], output.expose());
 	}
 
 	#[test]
 	fn hash_b3balloon_paranoid_with_secret() {
-		let output = PasswordHasher::hash(
+		let output = Hasher::hash(
 			B3BALLOON_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,

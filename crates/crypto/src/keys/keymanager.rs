@@ -41,7 +41,7 @@ use tokio::sync::Mutex;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	keys::PasswordHasher,
+	keys::Hasher,
 	primitives::{
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 		SECRET_KEY_IDENTIFIER,
@@ -256,7 +256,7 @@ impl KeyManager {
 		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
-		let hashed_password = PasswordHasher::hash(
+		let hashed_password = Hasher::hash(
 			hashing_algorithm,
 			config.password.into(),
 			content_salt,
@@ -383,7 +383,7 @@ impl KeyManager {
 
 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
-		let hashed_password = PasswordHasher::hash(
+		let hashed_password = Hasher::hash(
 			hashing_algorithm,
 			master_password.into(),
 			content_salt,
@@ -480,7 +480,7 @@ impl KeyManager {
 
 		let old_root_key = match old_verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = PasswordHasher::hash(
+				let hashed_password = Hasher::hash(
 					old_verification_key.hashing_algorithm,
 					master_password.into(),
 					old_verification_key.content_salt,
@@ -610,7 +610,7 @@ impl KeyManager {
 
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = PasswordHasher::hash(
+				let hashed_password = Hasher::hash(
 					verification_key.hashing_algorithm,
 					master_password.into(),
 					verification_key.content_salt,
@@ -723,7 +723,7 @@ impl KeyManager {
 					})?;
 
 					// Hash the key once with the parameters/algorithm the user selected during first mount
-					let hashed_key = PasswordHasher::hash(
+					let hashed_key = Hasher::hash(
 						stored_key.hashing_algorithm,
 						key,
 						stored_key.content_salt,

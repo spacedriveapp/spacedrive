@@ -15,7 +15,7 @@ pub use self::stream::{Decryptor, Encryptor};
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
-fn exhaustive_read<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+fn exhaustive_read<R>(reader: &mut R, buffer: &mut [u8]) -> Result<usize>
 where
 	R: std::io::Read,
 {
@@ -40,7 +40,7 @@ where
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
-async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut Box<[u8]>) -> Result<usize>
+async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut [u8]) -> Result<usize>
 where
 	R: tokio::io::AsyncReadExt + Unpin + Send,
 {

@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use sd_crypto::{
-	keys::PasswordHasher,
+	keys::Hasher,
 	primitives::generate_bytes,
 	types::{HashingAlgorithm, Params, Salt},
 	Protected,
@@ -22,9 +22,7 @@ fn bench(c: &mut Criterion) {
 			|b| {
 				b.iter_batched(
 					|| (password.clone(), salt),
-					|(password, salt)| {
-						PasswordHasher::hash(hashing_algorithm, password, salt, None)
-					},
+					|(password, salt)| Hasher::hash(hashing_algorithm, password, salt, None),
 					BatchSize::SmallInput,
 				)
 			},

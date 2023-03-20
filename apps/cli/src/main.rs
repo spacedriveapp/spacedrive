@@ -21,12 +21,12 @@ async fn main() -> Result<()> {
 
 	let mut reader = File::open(args.path).await.context("unable to open file")?;
 	let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
-	print_crypto_details(&header, &header.get_aad());
+	print_crypto_details(&header);
 
 	Ok(())
 }
 
-fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
+fn print_crypto_details(header: &FileHeader) {
 	printdoc! {"
         Header version: {version}
         Encryption algorithm: {algorithm}
@@ -35,7 +35,7 @@ fn print_crypto_details(header: &FileHeader, aad: &[u8]) {
     ",
 		version = header.get_version(),
 		algorithm = header.get_algorithm(),
-		nonce = hex::encode(header.get_nonce()),
-		hex = hex::encode(aad)
+		nonce = hex::encode(header.get_nonce().inner()),
+		hex = hex::encode(header.get_aad().inner())
 	};
 }
