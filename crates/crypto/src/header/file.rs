@@ -359,7 +359,6 @@ impl FileHeader {
 #[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{
-		encoding,
 		header::{FileHeader, HeaderObjectName},
 		primitives::LATEST_FILE_HEADER,
 		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
@@ -368,60 +367,58 @@ mod tests {
 
 	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
-	// don't do this - use separate contexts for keys and objects
+	// don't do this in production code - use separate contexts for keys and objects
 	const CONTEXT: DerivationContext =
 		DerivationContext::new("crypto 2023-03-20 20:12:42 global test context");
 
 	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
-	const METADATA_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("Metadata");
-	const PREVIEW_MEDIA_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("PreviewMedia");
-	const MAGIC_BYTES_OBJECT_NAME: HeaderObjectName = HeaderObjectName::new("MagicBytes");
+	const OBJECT1_NAME: HeaderObjectName = HeaderObjectName::new("Object1");
+	const OBJECT2_NAME: HeaderObjectName = HeaderObjectName::new("Object2");
 
-	const PVM_BYTES: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
-
-	#[derive(Clone, Eq, PartialEq, Debug, bincode::Encode, bincode::Decode)]
-	struct Metadata {
-		count: usize,
-		enabled: bool,
-	}
-
-	const METADATA: Metadata = Metadata {
-		count: 43948,
-		enabled: true,
-	};
+	const OBJECT1_DATA: [u8; 16] = [4u8; 16];
+	const OBJECT2_DATA: [u8; 16] = [5u8; 16];
 
 	#[test]
-	fn serialize_and_deserialize_header() {
+	fn serialize_and_deserialize() {
 		let mk = Key::generate();
 		let content_salt = Salt::generate();
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
 
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mut writer = Cursor::new(vec![]);
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
-			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk, CONTEXT)
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
 
 		assert!(header.count_keyslots() == 1);
+		assert_eq!(decrypted_mk.expose(), mk.expose());
 	}
 
 	#[test]
-	fn serialize_and_deserialize_header_with_two_keyslots() {
+	fn serialize_and_deserialize_with_two_keyslots() {
 		let mk = Key::generate();
 		let content_salt = Salt::generate();
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+		let hashed_pw2 = Key::generate();
 
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mut writer = Cursor::new(vec![]);
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
@@ -436,22 +433,34 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk, CONTEXT)
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw2.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
 		writer.rewind().unwrap();
 
-		FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let decrypted_mk2 = header
+			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
+			.unwrap();
 
 		assert!(header.count_keyslots() == 2);
+		assert_eq!(decrypted_mk.expose(), mk.expose());
+		assert_eq!(decrypted_mk2.expose(), mk.expose());
 	}
 
 	#[test]
-	fn serialize_and_deserialize_metadata() {
+	fn serialize_and_deserialize_with_object() {
 		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mut writer = Cursor::new(vec![]);
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
@@ -466,12 +475,7 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(
-				METADATA_OBJECT_NAME,
-				CONTEXT,
-				mk.clone(),
-				&encoding::encode(&METADATA).unwrap(),
-			)
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
@@ -480,22 +484,18 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
-		let bytes = header
-			.decrypt_object(METADATA_OBJECT_NAME, CONTEXT, mk)
-			.unwrap();
+		let bytes = header.decrypt_object(OBJECT1_NAME, CONTEXT, mk).unwrap();
 
-		let md: Metadata = encoding::decode(bytes.expose()).unwrap();
-
-		assert_eq!(md, METADATA);
 		assert!(header.count_objects() == 1);
 		assert!(header.count_keyslots() == 1);
+		assert_eq!(bytes.expose(), &OBJECT1_DATA);
 	}
 
 	#[test]
 	#[should_panic(expected = "NoObjects")]
-	fn serialize_and_deserialize_metadata_bad_identifier() {
+	fn serialize_and_deserialize_with_object_bad_identifier() {
 		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mut writer = Cursor::new(vec![]);
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
@@ -510,12 +510,7 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(
-				METADATA_OBJECT_NAME,
-				CONTEXT,
-				mk.clone(),
-				&encoding::encode(&METADATA).unwrap(),
-			)
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
@@ -525,14 +520,14 @@ mod tests {
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
 		header
-			.decrypt_object(HeaderObjectName::new("nonexistent"), CONTEXT, mk)
+			.decrypt_object(HeaderObjectName::new("NonExistent"), CONTEXT, mk)
 			.unwrap();
 	}
 
 	#[test]
-	fn serialize_and_deserialize_header_with_one_object() {
+	fn serialize_and_deserialize_with_two_objects() {
 		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let mut writer = Cursor::new(vec![]);
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
@@ -547,7 +542,11 @@ mod tests {
 			.unwrap();
 
 		header
-			.add_object(PREVIEW_MEDIA_OBJECT_NAME, CONTEXT, mk, &PVM_BYTES)
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
+			.unwrap();
+
+		header
+			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
@@ -556,48 +555,21 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
-		assert!(header.count_objects() == 1);
-		assert!(header.count_keyslots() == 1);
-	}
-
-	#[test]
-	fn serialize_and_deserialize_header_with_two_objects() {
-		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
-
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
-
-		header
-			.add_keyslot(
-				HASHING_ALGORITHM,
-				Salt::generate(),
-				Key::generate(),
-				mk.clone(),
-				CONTEXT,
-			)
+		let object1 = header
+			.decrypt_object(OBJECT1_NAME, CONTEXT, mk.clone())
 			.unwrap();
 
-		header
-			.add_object(PREVIEW_MEDIA_OBJECT_NAME, CONTEXT, mk.clone(), &PVM_BYTES)
-			.unwrap();
-
-		header
-			.add_object(MAGIC_BYTES_OBJECT_NAME, CONTEXT, mk, MAGIC_BYTES.inner())
-			.unwrap();
-
-		header.write(&mut writer, MAGIC_BYTES).unwrap();
-
-		writer.rewind().unwrap();
-
-		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let object2 = header.decrypt_object(OBJECT2_NAME, CONTEXT, mk).unwrap();
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 1);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}
 
 	#[test]
 	#[should_panic(expected = "TooManyKeyslots")]
-	fn serialize_and_deserialize_header_with_too_many_keyslots() {
+	fn serialize_and_deserialize_with_too_many_keyslots() {
 		let mk = Key::generate();
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -635,41 +607,38 @@ mod tests {
 
 	#[test]
 	#[should_panic(expected = "TooManyObjects")]
-	fn serialize_and_deserialize_header_with_three_objects() {
+	fn serialize_and_deserialize_with_three_objects() {
 		let mk = Key::generate();
 
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
-			.add_object(PREVIEW_MEDIA_OBJECT_NAME, CONTEXT, mk.clone(), &PVM_BYTES)
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
 			.unwrap();
 
 		header
-			.add_object(
-				METADATA_OBJECT_NAME,
-				CONTEXT,
-				mk.clone(),
-				&encoding::encode(&METADATA).unwrap(),
-			)
+			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
 			.unwrap();
 
 		header
-			.add_object(MAGIC_BYTES_OBJECT_NAME, CONTEXT, mk, MAGIC_BYTES.inner())
+			.add_object(HeaderObjectName::new("dg"), CONTEXT, mk, &[0u8; 4])
 			.unwrap();
 	}
 
 	#[test]
-	fn serialize_and_deserialize_header_with_all() {
+	fn serialize_and_deserialize_with_all() {
 		let mk = Key::generate();
-		let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+		let hashed_pw2 = Key::generate();
 
+		let mut writer = Cursor::new(vec![]);
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
 			.add_keyslot(
 				HASHING_ALGORITHM,
 				Salt::generate(),
-				Key::generate(),
+				hashed_pw.clone(),
 				mk.clone(),
 				CONTEXT,
 			)
@@ -679,23 +648,18 @@ mod tests {
 			.add_keyslot(
 				HASHING_ALGORITHM,
 				Salt::generate(),
-				Key::generate(),
+				hashed_pw2.clone(),
 				mk.clone(),
 				CONTEXT,
 			)
 			.unwrap();
 
 		header
-			.add_object(PREVIEW_MEDIA_OBJECT_NAME, CONTEXT, mk.clone(), &PVM_BYTES)
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
 			.unwrap();
 
 		header
-			.add_object(
-				MAGIC_BYTES_OBJECT_NAME,
-				CONTEXT,
-				mk.clone(),
-				MAGIC_BYTES.inner(),
-			)
+			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
 			.unwrap();
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
@@ -704,18 +668,89 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
+		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let decrypted_mk2 = header
+			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
+			.unwrap();
+
+		let object1 = header
+			.decrypt_object(OBJECT1_NAME, CONTEXT, mk.clone())
+			.unwrap();
+		let object2 = header
+			.decrypt_object(OBJECT2_NAME, CONTEXT, mk.clone())
+			.unwrap();
+
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
+		assert_eq!(decrypted_mk.expose(), mk.expose());
+		assert_eq!(decrypted_mk2.expose(), mk.expose());
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
+	}
 
-		let preview_media = header
-			.decrypt_object(PREVIEW_MEDIA_OBJECT_NAME, CONTEXT, mk.clone())
+	#[cfg(feature = "async")]
+	#[tokio::test]
+	async fn serialize_and_deserialize_with_all_async() {
+		let mk = Key::generate();
+		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+		let hashed_pw2 = Key::generate();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				hashed_pw.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
 			.unwrap();
 
-		let magic = header
-			.decrypt_object(MAGIC_BYTES_OBJECT_NAME, CONTEXT, mk)
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				hashed_pw2.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
 			.unwrap();
 
-		assert_eq!(preview_media.expose(), &PVM_BYTES);
-		assert_eq!(magic.expose(), MAGIC_BYTES.inner());
+		header
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
+			.unwrap();
+
+		header
+			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
+			.unwrap();
+
+		header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader_async(&mut writer, MAGIC_BYTES)
+			.await
+			.unwrap();
+
+		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let decrypted_mk2 = header
+			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
+			.unwrap();
+
+		let object1 = header
+			.decrypt_object(OBJECT1_NAME, CONTEXT, mk.clone())
+			.unwrap();
+		let object2 = header
+			.decrypt_object(OBJECT2_NAME, CONTEXT, mk.clone())
+			.unwrap();
+
+		assert!(header.count_objects() == 2);
+		assert!(header.count_keyslots() == 2);
+		assert_eq!(decrypted_mk.expose(), mk.expose());
+		assert_eq!(decrypted_mk2.expose(), mk.expose());
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}
 }
