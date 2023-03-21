@@ -24,10 +24,14 @@ It aims to be (relatively) lightweight, easy to maintain and platform-agnostic w
 
 A list of all features can be found below (NOTE: none of these features are enabled by default)
 
-- `serde` - provides integration with the `serde` and `serde_json` crates. this also enables header metadata
+- `serde` - provides integration with `serde` and `serde_json`
+- `uuid` - enables the `uuid` crate
+- `async` - enables `x_async` functions with the read/write traits provided by `tokio`
 - `rspc` - provides integration with the `rspc` crate
-- `keymanager` - provides an interface for handling the encryption, decryption, storage and derivation of passwords/keys. this enables the `os-keyrings` feature
+- `keymanager` - provides an interface for handling the encryption, decryption, storage and derivation of passwords/keys. this enables the `os-keyrings`, `async` and `uuid` features
 - `os-keyrings` - provides a unified interface for interacting with OS-keyrings (currently only supports MacOS/iOS and Gnome/KDE (via `gnome-keyring` and `kwallet` respectively))
+- `encoding` - provides type encoding/decoding via `bincode`, and encrypted file headers
+- `examples` - enables everything required to run the examples. this is a workaround to keep `tokio` as feature-minimal as possible, because dev-dependencies can't be optional
 
 ## Security Notice
 

@@ -1,6 +1,7 @@
 use std::io::{Cursor, Read, Write};
 
 use crate::{
+	crypto::exhaustive_read,
 	primitives::{ensure_length, ensure_not_null, ToArray, AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Algorithm, EncryptedKey, Key, Nonce},
 	Error, Protected, Result,
@@ -11,10 +12,13 @@ use aead::{
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use zeroize::Zeroize;
 
-use super::{exhaustive_read, exhaustive_read_async};
+#[cfg(feature = "async")]
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+#[cfg(feature = "async")]
+use crate::crypto::exhaustive_read_async;
 
 macro_rules! impl_stream {
 	(
@@ -93,6 +97,7 @@ macro_rules! impl_stream {
 			/// It requires a reader, a writer, and any relevant AAD.
 			///
 			/// The AAD will be authenticated with every block of data.
+			#[cfg(feature = "async")]
 			pub async fn $streams_fn_async<R, W>(
 				mut self,
 				mut reader: R,

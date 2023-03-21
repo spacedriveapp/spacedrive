@@ -40,6 +40,7 @@ where
 /// - when an error has been generated
 ///
 /// It returns the amount of total bytes read, which will be <= the buffer's size.
+#[cfg(feature = "async")]
 async fn exhaustive_read_async<R>(reader: &mut R, buffer: &mut [u8]) -> Result<usize>
 where
 	R: tokio::io::AsyncReadExt + Unpin + Send,

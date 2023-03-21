@@ -36,7 +36,6 @@
 //! ```
 
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
 
 use crate::{
@@ -148,7 +147,7 @@ impl KeyManager {
 	pub async fn keyring_contains(&self, library_uuid: Uuid, usage: String) -> Result<()> {
 		self.get_keyring()?.lock().await.retrieve(Identifier {
 			application: APP_IDENTIFIER,
-			library_uuid: &library_uuid.to_string(),
+			id: &library_uuid.to_string(),
 			usage: &usage,
 		})?;
 
@@ -185,7 +184,7 @@ impl KeyManager {
 	) -> Result<Protected<String>> {
 		let value = self.get_keyring()?.lock().await.retrieve(Identifier {
 			application: APP_IDENTIFIER,
-			library_uuid: &library_uuid.to_string(),
+			id: &library_uuid.to_string(),
 			usage: &usage,
 		})?;
 
@@ -225,7 +224,7 @@ impl KeyManager {
 		self.get_keyring()?.lock().await.insert(
 			Identifier {
 				application: APP_IDENTIFIER,
-				library_uuid: &library_uuid.to_string(),
+				id: &library_uuid.to_string(),
 				usage: &usage,
 			},
 			value,
@@ -294,7 +293,7 @@ impl KeyManager {
 		if let Ok(keyring) = KeyringInterface::new() {
 			let identifier = Identifier {
 				application: APP_IDENTIFIER,
-				library_uuid: &library_uuid.to_string(),
+				id: &library_uuid.to_string(),
 				usage: SECRET_KEY_IDENTIFIER,
 			};
 
@@ -594,7 +593,7 @@ impl KeyManager {
 				.await
 				.retrieve(Identifier {
 					application: APP_IDENTIFIER,
-					library_uuid: &library_uuid.to_string(),
+					id: &library_uuid.to_string(),
 					usage: SECRET_KEY_IDENTIFIER,
 				})
 				.map(SecretKey::try_from)?

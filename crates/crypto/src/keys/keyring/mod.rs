@@ -10,7 +10,7 @@ pub mod apple;
 #[derive(Clone, Copy)]
 pub struct Identifier<'a> {
 	pub application: &'a str,
-	pub library_uuid: &'a str,
+	pub id: &'a str,
 	pub usage: &'a str,
 }
 
@@ -20,7 +20,7 @@ impl<'a> Identifier<'a> {
 	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
 		[
 			("Application", self.application),
-			("Library", self.library_uuid),
+			("Library", self.id),
 			("Usage", self.usage),
 		]
 		.into_iter()
@@ -36,7 +36,7 @@ impl<'a> Identifier<'a> {
 	#[cfg(any(target_os = "macos", target_os = "ios"))]
 	#[must_use]
 	pub fn to_apple_account(self) -> String {
-		format!("{} - {}", self.library_uuid, self.usage)
+		format!("{} - {}", self.id, self.usage)
 	}
 }
 

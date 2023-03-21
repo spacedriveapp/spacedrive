@@ -17,6 +17,8 @@
 
 pub mod crypto;
 pub mod error;
+
+#[cfg(feature = "async")]
 pub mod fs;
 
 pub mod keys;
@@ -24,10 +26,10 @@ pub mod primitives;
 pub mod protected;
 pub mod types;
 
-#[cfg(feature = "headers")]
+#[cfg(feature = "encoding")]
 pub mod header;
 
-#[cfg(feature = "headers")]
+#[cfg(feature = "encoding")]
 pub mod encoding;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations

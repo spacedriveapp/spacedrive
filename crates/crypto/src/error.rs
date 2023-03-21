@@ -11,14 +11,14 @@ impl From<Error> for rspc::Error {
 	}
 }
 
-#[cfg(feature = "headers")]
+#[cfg(feature = "encoding")]
 impl From<Error> for bincode::error::EncodeError {
 	fn from(value: Error) -> Self {
 		Self::OtherString(value.to_string())
 	}
 }
 
-#[cfg(feature = "headers")]
+#[cfg(feature = "encoding")]
 impl From<Error> for bincode::error::DecodeError {
 	fn from(value: Error) -> Self {
 		Self::OtherString(value.to_string())
@@ -43,25 +43,25 @@ pub enum Error {
 	NullType,
 
 	// header errors
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("no keyslots available")]
 	NoKeyslots,
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("tried adding too many keyslots to a header")]
 	TooManyKeyslots,
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("no header objects available (or none that match)")]
 	NoObjects,
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("tried to run an object operation which resulted in duplicates")]
 	DuplicateObjects,
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("tried adding too many objects to a header")]
 	TooManyObjects,
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("error while encoding with bincode: {0}")]
 	BincodeEncode(#[from] bincode::error::EncodeError),
-	#[cfg(feature = "headers")]
+	#[cfg(feature = "encoding")]
 	#[error("error while decoding with bincode: {0}")]
 	BincodeDecode(#[from] bincode::error::DecodeError),
 

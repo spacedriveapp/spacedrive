@@ -4465,7 +4465,7 @@ dependencies = [
  "digest 0.10.6",
  "multihash-derive",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.3.3",
  "sha2 0.10.6",
  "unsigned-varint",
 ]
@@ -6820,7 +6820,7 @@ dependencies = [
  "secret-service",
  "security-framework",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.5.1",
  "serde_json",
  "subtle",
  "thiserror",
@@ -7074,6 +7074,15 @@ name = "serde-big-array"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
 dependencies = [
  "serde",
 ]

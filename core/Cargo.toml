@@ -24,7 +24,7 @@ sd-crypto = { path = "../crates/crypto", features = [
   "rspc",
   "serde",
   "keymanager",
-  "headers",
+  "encoding",
 ] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }

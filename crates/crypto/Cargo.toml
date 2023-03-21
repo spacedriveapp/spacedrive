@@ -9,10 +9,13 @@ rust-version = "1.67.0"
 
 [features]
 rspc = ["dep:rspc"]
-serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
-headers = ["dep:bincode"]
-keymanager = ["dep:dashmap", "os-keyrings"]
+uuid = ["dep:uuid", "rspc?/uuid"]
+serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid?/serde"]
+encoding = ["dep:bincode"]
+keymanager = ["dep:dashmap", "os-keyrings", "uuid", "async", "tokio?/sync"]
 os-keyrings = ["dep:secret-service", "dep:security-framework"]
+async = ["dep:tokio"]
+examples = ["async", "tokio?/rt", "tokio?/macros"]
 
 [dependencies]
 # rng
@@ -45,19 +48,22 @@ bincode = { version = "2.0.0-rc.2", optional = true }
 # generic serialization
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
-serde-big-array = { version = "*", optional = true }
+serde-big-array = { version = "0.5.1", optional = true }
 
 # for storedkey organisation and handling
-uuid = { version = "1.1.2", features = ["v4"] }
+uuid = { version = "1.1.2", features = ["v4"], optional = true }
 
 # better concurrency for the keymanager
 dashmap = { version = "5.4.0", optional = true }
 
 # optional, for support with rspc
-rspc = { workspace = true, features = ["uuid"], optional = true }
+rspc = { workspace = true, optional = true }
 
 # for asynchronous crypto
-tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, default-features = false, features = [
+    "io-util",
+    "rt-multi-thread",
+], optional = true }
 
 hex = "0.4.3"
 
@@ -70,11 +76,6 @@ secret-service = { version = "2.0.2", optional = true }
 security-framework = { version = "2.8.1", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = [
-    "fs",
-    "macros",
-] } # features needed for examples
-
 criterion = "0.4.0"
 
 [[bench]]
@@ -105,14 +106,14 @@ harness = false
 [[example]]
 name = "single_file"
 path = "examples/single_file.rs"
-required-features = ["headers"]
+required-features = ["encoding", "examples"]
 
 [[example]]
 name = "single_file_with_metadata"
 path = "examples/single_file_with_metadata.rs"
-required-features = ["headers"]
+required-features = ["encoding", "examples"]
 
 [[example]]
 name = "single_file_with_preview_media"
 path = "examples/single_file_with_preview_media.rs"
-required-features = ["headers"]
+required-features = ["encoding", "examples"]

@@ -47,7 +47,7 @@ impl DerivationContext {
 /// The greater the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Params {
 	Standard,
@@ -62,7 +62,7 @@ pub enum Params {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
@@ -92,7 +92,7 @@ impl HashingAlgorithm {
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; XCHACHA20_POLY1305_NONCE_LEN]),
@@ -166,7 +166,7 @@ impl TryFrom<Vec<u8>> for Nonce {
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
@@ -350,7 +350,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
@@ -370,7 +370,7 @@ impl EncryptedKey {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 pub struct Aad([u8; AAD_LEN]);
 
 impl Aad {
@@ -398,7 +398,7 @@ impl TryFrom<Vec<u8>> for Aad {
 /// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct Salt([u8; SALT_LEN]);
 

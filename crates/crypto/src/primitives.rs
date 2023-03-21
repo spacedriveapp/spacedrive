@@ -45,7 +45,7 @@ pub const APP_IDENTIFIER: &str = "Spacedrive";
 /// Used for OS keyrings to identify our items.
 pub const SECRET_KEY_IDENTIFIER: &str = "Secret key";
 
-#[cfg(feature = "headers")]
+#[cfg(feature = "encoding")]
 pub use crate::header::file::LATEST_FILE_HEADER;
 
 /// Defines the latest `StoredKeyVersion`

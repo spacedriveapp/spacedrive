@@ -187,6 +187,7 @@ macro_rules! generate_header_versions {
 			}
 
 			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
+			#[cfg(feature = "async")]
 			pub async fn from_reader_async<R, const I: usize>(reader: &mut R, magic_bytes: MagicBytes<I>) -> Result<Self>
 			where
 				R: AsyncReadExt + AsyncSeekExt + Unpin + Send,
@@ -247,6 +248,7 @@ impl FileHeader {
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
+	#[cfg(feature = "async")]
 	pub async fn write_async<W, const I: usize>(
 		&self,
 		writer: &mut W,
