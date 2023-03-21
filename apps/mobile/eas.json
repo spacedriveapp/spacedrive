@@ -1,25 +1,32 @@
 {
 	"cli": {
-		"version": ">= 0.56.0",
+		"version": ">= 3.8.1",
 		"promptToConfigurePushNotifications": false
 	},
 	"build": {
-		"production": {
-			"node": "18.12.1"
-		},
-		"preview": {
-			"extends": "production",
-			"distribution": "internal"
-		},
 		"development": {
 			"extends": "production",
 			"developmentClient": true,
 			"distribution": "internal",
-			"android": {
-				"gradleCommand": ":app:assembleDebug"
-			},
 			"ios": {
-				"buildConfiguration": "Debug"
+				"resourceClass": "m-medium"
+			}
+		},
+		"preview": {
+			"extends": "production",
+			"distribution": "internal",
+			"ios": {
+				"resourceClass": "m-medium"
+			}
+		},
+		"production": {
+			"android": {
+				"buildType": "apk",
+				"ndk": "23.1.7779620"
+			},
+			"node": "18.12.1",
+			"ios": {
+				"resourceClass": "m-medium"
 			}
 		}
 	},
