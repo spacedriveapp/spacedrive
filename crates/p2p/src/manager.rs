@@ -1,4 +1,8 @@
-use std::{collections::HashSet, net::SocketAddr, sync::Arc};
+use std::{
+	collections::HashSet,
+	net::SocketAddr,
+	sync::{atomic::AtomicU64, Arc},
+};
 
 use libp2p::{core::muxing::StreamMuxerBox, quic, Swarm, Transport};
 use thiserror::Error;
@@ -17,6 +21,7 @@ pub struct Manager<TMetadata: Metadata> {
 	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: &'static [u8],
+	pub(crate) stream_id: AtomicU64,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
 }
 
@@ -48,6 +53,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 					.as_bytes()
 					.to_vec(),
 			)),
+			stream_id: AtomicU64::new(0),
 			peer_id,
 			event_stream_tx,
 		});
