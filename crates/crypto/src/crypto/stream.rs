@@ -1,8 +1,8 @@
 use std::io::{Cursor, Read, Write};
 
 use crate::{
-	primitives::{ensure_length, ensure_not_null, to_array, AEAD_TAG_LEN, BLOCK_LEN},
-	types::{Algorithm, Key, Nonce},
+	primitives::{ensure_length, ensure_not_null, ToArray, AEAD_TAG_LEN, BLOCK_LEN},
+	types::{Algorithm, EncryptedKey, Key, Nonce},
 	Error, Protected, Result,
 };
 use aead::{
@@ -12,6 +12,7 @@ use aead::{
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use zeroize::Zeroize;
 
 use super::{exhaustive_read, exhaustive_read_async};
 
@@ -21,6 +22,7 @@ macro_rules! impl_stream {
 	$error:expr,
 	$next_fn:ident, // "encrypt_next"
 	$last_fn:ident, // "encrypt_last"
+	$last_in_place_fn:ident,
 	$stream_primitive:ident, // "DecryptorLE31"
 	$streams_fn:ident, // "encrypt_streams"
 	$streams_fn_async:ident, // "encrypt_streams_async"
@@ -70,6 +72,15 @@ macro_rules! impl_stream {
 				match self {
 					$(
 						Self::$algorithm(s) => s.$last_fn(payload),
+					)*
+				}
+				.map_err(|_| $error)
+			}
+
+			fn $last_in_place_fn(self, aad: &[u8], buf: &mut dyn aead::Buffer) -> Result<()> {
+				match self {
+					$(
+						Self::$algorithm(s) => s.$last_in_place_fn(aad, buf),
 					)*
 				}
 				.map_err(|_| $error)
@@ -183,44 +194,89 @@ macro_rules! impl_stream {
 }
 
 impl Encryptor {
-	pub fn encrypt_byte_array<const I: usize, const T: usize>(
+	/// This is only for encrypting inputs <= `BLOCK_LEN`.
+	///
+	/// It is stack allocated, and that must be taken into consideration.
+	///
+	/// It uses `encrypt_last_in_place` under the hood due to the input always being <= `BLOCK_LEN`.
+	///
+	/// It's faster than the `encrypt_streams` alternative (for small sizes) as we don't need to allocate the
+	/// full buffer - we only allocate what is required.
+	pub fn encrypt_fixed<const I: usize, const T: usize>(
 		key: Key,
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
 		aad: &[u8],
 	) -> Result<[u8; T]> {
-		if T != I + (((I + BLOCK_LEN - 1) / BLOCK_LEN) * AEAD_TAG_LEN) {
+		if I > BLOCK_LEN || T != (I + AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
 		}
 
-		let mut writer = Cursor::new(Vec::new());
 		let s = Self::new(key, nonce, algorithm)?;
+		let mut buffer = Vec::with_capacity(I + AEAD_TAG_LEN);
+		buffer.extend_from_slice(bytes);
+		s.encrypt_last_in_place(aad, &mut buffer)?;
 
-		s.encrypt_streams(bytes.as_ref(), &mut writer, aad)
-			.map(|_| writer.into_inner())
-			.map_or_else(Err, |x| to_array(&x))
+		buffer.to_array().map_err(|_| Error::Encrypt)
+	}
+
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn encrypt_key(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		key_to_encrypt: Key,
+		aad: &[u8],
+	) -> Result<EncryptedKey> {
+		Self::encrypt_fixed(key, nonce, algorithm, key_to_encrypt.expose(), aad)
+			.map(EncryptedKey::new)
 	}
 }
 
 impl Decryptor {
-	pub fn decrypt_byte_array<const I: usize, const T: usize>(
+	/// This is only for decrypting inputs <= `BLOCK_LEN + AEAD_TAG_LEN`.
+	///
+	/// It is stack allocated, and that must be taken into consideration.
+	///
+	/// It uses `decrypt_last_in_place` under the hood due to the input always being <= `BLOCK_LEN + AEAD_TAG_LEN`.
+	///
+	/// It's faster than the `decrypt_streams` alternative (for small sizes) as we don't need to allocate the
+	/// full buffer - we only allocate what is required.
+	pub fn decrypt_fixed<const I: usize, const T: usize>(
 		key: Key,
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
 		aad: &[u8],
 	) -> Result<Protected<[u8; T]>> {
-		if T != I - (((I + BLOCK_LEN - 1) / BLOCK_LEN) * AEAD_TAG_LEN) {
+		if I > (BLOCK_LEN + AEAD_TAG_LEN) || T != (I - AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
 		}
 
-		let mut writer = Cursor::new(Vec::new());
 		let s = Self::new(key, nonce, algorithm)?;
+		let mut buffer = Vec::with_capacity(I + AEAD_TAG_LEN);
+		buffer.extend_from_slice(bytes);
+		s.decrypt_last_in_place(aad, &mut buffer)?;
 
-		s.decrypt_streams(bytes.as_ref(), &mut writer, aad)
-			.map(|_| to_array(&writer.into_inner()))?
-			.map_or_else(Err, |x| Ok(Protected::new(x)))
+		let output = buffer[..T]
+			.to_array()
+			.map_or(Err(Error::Decrypt), |b| Ok(Protected::new(b)));
+
+		buffer.zeroize();
+
+		output
+	}
+
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn decrypt_key(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		key_to_decrypt: EncryptedKey,
+		aad: &[u8],
+	) -> Result<Key> {
+		Self::decrypt_fixed(key, nonce, algorithm, key_to_decrypt.inner(), aad).map(Key::from)
 	}
 }
 
@@ -229,6 +285,7 @@ impl_stream!(
 	Error::Encrypt,
 	encrypt_next,
 	encrypt_last,
+	encrypt_last_in_place,
 	EncryptorLE31,
 	encrypt_streams,
 	encrypt_streams_async,
@@ -244,6 +301,7 @@ impl_stream!(
 	Error::Decrypt,
 	decrypt_next,
 	decrypt_last,
+	decrypt_last_in_place,
 	DecryptorLE31,
 	decrypt_streams,
 	decrypt_streams_async,
