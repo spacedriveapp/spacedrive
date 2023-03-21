@@ -75,9 +75,10 @@ pub enum CRDTOperationType {
 	Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub node: Uuid,
+	#[specta(type = u32)]
 	pub timestamp: NTP64,
 	pub id: Uuid,
 	// #[serde(flatten)]

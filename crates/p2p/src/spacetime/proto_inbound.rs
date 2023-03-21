@@ -1,6 +1,7 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use libp2p::{core::UpgradeInfo, swarm::NegotiatedSubstream, InboundUpgrade};
+use tracing::debug;
 
 use crate::{Manager, ManagerStreamAction, Metadata, PeerId, PeerMessageEvent};
 
@@ -27,11 +28,23 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 
 	fn upgrade_inbound(self, io: NegotiatedSubstream, _: Self::Info) -> Self::Future {
 		Box::pin(async move {
+			let id = 1; // TODO
+			debug!(
+				"stream({}, {id}): accepting inbound connection",
+				self.peer_id
+			);
+			let stream = SpaceTimeStream::from_stream(io).await;
+			debug!(
+				"stream({}, {id}): stream of type {} accepted",
+				self.peer_id,
+				stream.stream_type(),
+			);
+
 			Ok(ManagerStreamAction::Event(
 				PeerMessageEvent {
 					peer_id: self.peer_id,
 					manager: self.manager.clone(),
-					stream: SpaceTimeStream::from_stream(io).await,
+					stream,
 					_priv: (),
 				}
 				.into(),
