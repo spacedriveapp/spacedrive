@@ -3,7 +3,6 @@ apply plugin: "com.facebook.react"
 
 import com.android.build.OutputFile
 
-
 // SPACEDRIVE CODE
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 
@@ -46,11 +45,6 @@ react {
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
     hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
     debuggableVariants = expoDebuggableVariants
-    
-    // Use Expo CLI to bundle the app, this ensures the Metro config
-    // works correctly with Expo projects.
-    cliFile = new File(["node", "--print", "require.resolve('@expo/cli')"].execute(null, rootDir).text.trim())
-    bundleCommand = "export:embed"
 
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '..'
@@ -59,6 +53,8 @@ react {
     // reactNativeDir = file("../node_modules/react-native")
     //   The folder where the react-native Codegen package is. Default is ../node_modules/react-native-codegen
     // codegenDir = file("../node_modules/react-native-codegen")
+    //   The cli.js file which is the React Native CLI entrypoint. Default is ../node_modules/react-native/cli.js
+    // cliFile = file("../node_modules/react-native/cli.js")
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
@@ -69,7 +65,9 @@ react {
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
     // nodeExecutableAndArgs = ["node"]
-
+    //
+    //   The command to run when bundling. By default is 'bundle'
+    // bundleCommand = "ram-bundle"
     //
     //   The path to the CLI configuration file. Default is empty.
     // bundleConfig = file(../rn-cli.config.js)
@@ -138,8 +136,9 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
+    namespace 'com.spacedrive.app'
     defaultConfig {
-        applicationId "com.spacedrive.app"
+        applicationId 'com.spacedrive.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
