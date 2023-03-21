@@ -2,8 +2,9 @@ use std::io::{Cursor, Read, Write};
 
 use crate::{
 	crypto::exhaustive_read,
-	primitives::{ensure_length, ensure_not_null, ToArray, AEAD_TAG_LEN, BLOCK_LEN},
+	primitives::{AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
+	util::{ensure_length, ensure_not_null, ToArray},
 	Error, Protected, Result,
 };
 use aead::{

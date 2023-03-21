@@ -53,7 +53,7 @@ impl HeaderObjectName {
 	}
 
 	#[must_use]
-	pub const fn into_inner(self) -> &'static [u8] {
+	pub const fn inner(&self) -> &[u8] {
 		self.0.as_bytes()
 	}
 }
@@ -589,6 +589,32 @@ mod tests {
 		assert!(header.count_keyslots() == 1);
 		assert_eq!(object1.expose(), &OBJECT1_DATA);
 		assert_eq!(object2.expose(), &OBJECT2_DATA);
+	}
+
+	#[test]
+	#[should_panic(expected = "TooManyObjects")]
+	fn serialize_and_deserialize_with_two_objects_same_name() {
+		let mk = Key::generate();
+
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				mk.clone(),
+				CONTEXT,
+			)
+			.unwrap();
+
+		header
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
+			.unwrap();
+
+		header
+			.add_object(OBJECT1_NAME, CONTEXT, mk, &OBJECT1_DATA)
+			.unwrap();
 	}
 
 	#[test]

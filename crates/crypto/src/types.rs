@@ -4,15 +4,15 @@ use aead::generic_array::{ArrayLength, GenericArray};
 use std::fmt::Display;
 use subtle::ConstantTimeEq;
 
+use crate::util::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	generate_fixed, ToArray, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID,
-	ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID, B3BALLOON_STANDARD,
-	ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+	AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID, ARGON2ID_STANDARD,
+	B3BALLOON_HARDENED, B3BALLOON_PARANOID, B3BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN,
+	SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
-#[derive(Clone)]
 pub struct MagicBytes<const I: usize>([u8; I]);
 
 impl<const I: usize> MagicBytes<I> {
@@ -210,15 +210,6 @@ impl Key {
 	}
 
 	#[must_use]
-	#[allow(clippy::needless_pass_by_value)]
-	pub fn derive(key: Self, salt: Salt, context: DerivationContext) -> Self {
-		Self::new(blake3::derive_key(
-			context.0,
-			&[key.0.expose().as_ref(), &salt.0].concat(),
-		))
-	}
-
-	#[must_use]
 	pub const fn expose(&self) -> &[u8; KEY_LEN] {
 		self.0.expose()
 	}
@@ -235,6 +226,12 @@ impl ConstantTimeEq for Key {
 	}
 }
 
+impl PartialEq for Key {
+	fn eq(&self, other: &Self) -> bool {
+		self.ct_eq(other).into()
+	}
+}
+
 impl<I> From<Key> for GenericArray<u8, I>
 where
 	I: ArrayLength<u8>,
@@ -245,9 +242,8 @@ where
 }
 
 impl From<blake3::Hash> for Key {
-	// TODO(brxken128): ensure this zeroizes, or at least ensure that callers zeroize sensitive hashes
 	fn from(value: blake3::Hash) -> Self {
-		Self::new(*value.as_bytes())
+		Self::new(value.into())
 	}
 }
 
@@ -377,6 +373,18 @@ impl EncryptedKey {
 	#[must_use]
 	pub const fn inner(&self) -> &[u8; ENCRYPTED_KEY_LEN] {
 		&self.0
+	}
+}
+
+impl ConstantTimeEq for EncryptedKey {
+	fn ct_eq(&self, other: &Self) -> subtle::Choice {
+		self.inner().ct_eq(other.inner())
+	}
+}
+
+impl PartialEq for EncryptedKey {
+	fn eq(&self, other: &Self) -> bool {
+		self.ct_eq(other).into()
 	}
 }
 

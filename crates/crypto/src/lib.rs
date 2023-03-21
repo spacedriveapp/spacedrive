@@ -17,20 +17,20 @@
 
 pub mod crypto;
 pub mod error;
-
-#[cfg(feature = "async")]
-pub mod fs;
-
 pub mod keys;
 pub mod primitives;
 pub mod protected;
 pub mod types;
-
-#[cfg(feature = "encoding")]
-pub mod header;
+pub mod util;
 
 #[cfg(feature = "encoding")]
 pub mod encoding;
+
+#[cfg(feature = "async")]
+pub mod fs;
+
+#[cfg(feature = "encoding")]
+pub mod header;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};

@@ -1,13 +1,12 @@
 use bincode::impl_borrow_decode;
-use subtle::ConstantTimeEq;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
 	encoding,
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
-	primitives::generate_fixed,
 	types::{Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
+	util::generate_fixed,
 	Error, Protected, Result,
 };
 
@@ -135,14 +134,14 @@ pub struct FileHeaderObject001 {
 
 #[derive(Clone, bincode::Encode, bincode::Decode)]
 pub struct HeaderObjectIdentifier {
-	key: EncryptedKey,
+	key: EncryptedKey, // technically a key, although used as an identifier here
 	salt: Salt,
 	nonce: Nonce,
 }
 
 impl HeaderObjectIdentifier {
 	pub fn new(
-		name: HeaderObjectName,
+		name: &HeaderObjectName,
 		master_key: Key,
 		algorithm: Algorithm,
 		context: DerivationContext,
@@ -151,16 +150,15 @@ impl HeaderObjectIdentifier {
 		let salt = Salt::generate();
 		let nonce = Nonce::generate(algorithm);
 
-		// it's encrypted so we probably don't need to hash it further/with anything else
-		// this hash was only so we could 100% predict the length
-		let name_hash = blake3::hash(name.inner());
+		// we hash the identifier with blake3 so that
+		// we know the length and can treat it as an encrypted key
 
 		// encrypt the object name's hash with the master key
 		let encrypted_key = Encryptor::encrypt_key(
-			Key::derive(master_key, salt, context),
+			Hasher::derive_key(master_key, salt, context),
 			nonce,
 			algorithm,
-			Key::new(*name_hash.as_bytes()),
+			Hasher::blake3(name.inner()),
 			aad,
 		)?;
 
@@ -171,20 +169,7 @@ impl HeaderObjectIdentifier {
 		})
 	}
 
-	pub fn decrypt_ct_eq(
-		&self,
-		other: HeaderObjectName,
-		master_key: Key,
-		algorithm: Algorithm,
-		context: DerivationContext,
-		aad: Aad,
-	) -> Result<bool> {
-		let source = self.decrypt_hash(master_key, algorithm, context, aad)?;
-		let rhs = blake3::hash(other.inner()).into();
-		Ok(source.ct_eq(&rhs).into())
-	}
-
-	fn decrypt_hash(
+	fn decrypt_id(
 		&self,
 		master_key: Key,
 		algorithm: Algorithm,
@@ -192,13 +177,12 @@ impl HeaderObjectIdentifier {
 		aad: Aad,
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
-			Key::derive(master_key, self.salt, context),
+			Hasher::derive_key(master_key, self.salt, context),
 			self.nonce,
 			algorithm,
 			self.key,
 			aad,
 		)
-		.map_err(|_| Error::Decrypt)
 	}
 }
 
@@ -217,7 +201,7 @@ impl Keyslot001 {
 		let salt = Salt::generate();
 
 		let encrypted_key = Encryptor::encrypt_key(
-			Key::derive(hashed_key, salt, context),
+			Hasher::derive_key(hashed_key, salt, context),
 			nonce,
 			algorithm,
 			master_key,
@@ -241,7 +225,7 @@ impl Keyslot001 {
 		context: DerivationContext,
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
-			Key::derive(key, self.salt, context),
+			Hasher::derive_key(key, self.salt, context),
 			self.nonce,
 			algorithm,
 			self.encrypted_key,
@@ -267,7 +251,7 @@ impl FileHeader001 {
 
 impl FileHeaderObject001 {
 	pub fn new(
-		name: HeaderObjectName,
+		name: &HeaderObjectName,
 		algorithm: Algorithm,
 		master_key: Key,
 		context: DerivationContext,
@@ -310,19 +294,15 @@ impl Header for FileHeader001 {
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
+		let rhs = Hasher::blake3(name.inner());
+
 		self.objects
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.decrypt_ct_eq(
-						name.clone(),
-						master_key.clone(),
-						self.algorithm,
-						context,
-						self.aad,
-					)
+					.decrypt_id(master_key.clone(), self.algorithm, context, self.aad)
 					.ok()
-					.and_then(|z| z.then_some(o))
+					.and_then(|i| (i == rhs).then_some(o))
 			})
 			.cloned()
 			.collect::<Vec<_>>()
@@ -367,25 +347,24 @@ impl Header for FileHeader001 {
 			return Err(Error::TooManyObjects);
 		}
 
+		let rhs = Hasher::blake3(name.inner());
+
 		if self
 			.objects
 			.iter()
-			.flat_map(|o| {
-				o.identifier.decrypt_ct_eq(
-					name.clone(),
-					master_key.clone(),
-					self.algorithm,
-					context,
-					self.aad,
-				)
+			.filter_map(|o| {
+				o.identifier
+					.decrypt_id(master_key.clone(), self.algorithm, context, self.aad)
+					.ok()
+					.map(|i| i == rhs)
 			})
 			.any(|x| x)
 		{
-			return Err(Error::DuplicateObjects);
+			return Err(Error::TooManyObjects);
 		}
 
 		self.objects.push(FileHeaderObject001::new(
-			name,
+			&name,
 			self.algorithm,
 			master_key,
 			context,
@@ -408,7 +387,7 @@ impl Header for FileHeader001 {
 					.iter()
 					.find_map(|z| z.decrypt(self.algorithm, k.clone(), self.aad, context).ok())
 			})
-			.ok_or(Error::IncorrectPassword)
+			.ok_or(Error::Decrypt)
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
@@ -425,11 +404,16 @@ impl Header for FileHeader001 {
 			.0
 			.iter()
 			.find_map(|z| {
-				let k = Hasher::hash(z.hashing_algorithm, password.clone(), z.content_salt, None)
-					.ok()?;
+				let k = Hasher::hash_password(
+					z.hashing_algorithm,
+					password.clone(),
+					z.content_salt,
+					None,
+				)
+				.ok()?;
 				z.decrypt(self.algorithm, k, self.aad, context).ok()
 			})
-			.ok_or(Error::IncorrectPassword)
+			.ok_or(Error::Decrypt)
 	}
 
 	fn get_aad(&self) -> Aad {

@@ -1,8 +1,8 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use sd_crypto::{
 	keys::Hasher,
-	primitives::generate_fixed,
 	types::{HashingAlgorithm, Params, Salt},
+	util::generate_fixed,
 	Protected,
 };
 

@@ -62,13 +62,11 @@ where
 mod tests {
 	use std::io::Cursor;
 
-	use rand::{RngCore, SeedableRng};
-	use rand_chacha::ChaCha20Rng;
-
 	use crate::{
 		crypto::{Decryptor, Encryptor},
 		primitives::{BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN},
 		types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
+		util::generate_vec,
 	};
 
 	const KEY: Key = Key::new([
@@ -123,7 +121,7 @@ mod tests {
 		],
 	];
 
-	const PLAINTEXT_KEY: [u8; KEY_LEN] = [1u8; KEY_LEN];
+	const PLAINTEXT_KEY: Key = Key::new([1u8; KEY_LEN]);
 
 	const XCHACHA_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new([
 		120, 245, 167, 96, 140, 26, 94, 182, 157, 89, 104, 19, 180, 3, 127, 234, 211, 167, 27, 198,
@@ -143,7 +141,7 @@ mod tests {
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, Aad::Null)
 				.unwrap();
 
-		assert_eq!(AES_BYTES_EXPECTED[0].to_vec(), ciphertext);
+		assert_eq!(&ciphertext, &AES_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
@@ -152,7 +150,7 @@ mod tests {
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, AAD)
 				.unwrap();
 
-		assert_eq!(AES_BYTES_EXPECTED[1].to_vec(), ciphertext);
+		assert_eq!(&ciphertext, &AES_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
@@ -166,7 +164,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -180,24 +178,26 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
 	fn aes_encrypt_key() {
-		Encryptor::encrypt_key(
+		let output = Encryptor::encrypt_key(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
-			Key::new(PLAINTEXT_KEY),
+			PLAINTEXT_KEY,
 			Aad::Null,
 		)
 		.unwrap();
+
+		assert!(output == AES_ENCRYPTED_KEY);
 	}
 
 	#[test]
 	fn aes_decrypt_key() {
-		Decryptor::decrypt_key(
+		let output = Decryptor::decrypt_key(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -205,18 +205,23 @@ mod tests {
 			Aad::Null,
 		)
 		.unwrap();
+
+		assert!(output == PLAINTEXT_KEY);
 	}
 
 	#[test]
 	fn aes_encrypt_fixed() {
-		Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
+		let output = Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
-			&PLAINTEXT_KEY,
+			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
+		.map(EncryptedKey::new)
 		.unwrap();
+
+		assert!(output == AES_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -226,7 +231,7 @@ mod tests {
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
-			&PLAINTEXT_KEY,
+			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
 		.unwrap();
@@ -234,14 +239,17 @@ mod tests {
 
 	#[test]
 	fn aes_decrypt_fixed() {
-		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
+		let output = Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
 			AES_ENCRYPTED_KEY.inner(),
 			Aad::Null,
 		)
+		.map(Key::from)
 		.unwrap();
+
+		assert!(output == PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -272,9 +280,9 @@ mod tests {
 
 	#[test]
 	fn aes_encrypt_and_decrypt_5_blocks() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
@@ -299,9 +307,9 @@ mod tests {
 
 	#[test]
 	fn aes_encrypt_and_decrypt_5_blocks_with_aad() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
@@ -327,9 +335,9 @@ mod tests {
 	#[cfg(feature = "async")]
 	#[tokio::test]
 	async fn aes_encrypt_and_decrypt_5_blocks_async() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
@@ -357,9 +365,9 @@ mod tests {
 	#[cfg(feature = "async")]
 	#[tokio::test]
 	async fn aes_encrypt_and_decrypt_5_blocks_with_aad_async() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
@@ -395,24 +403,26 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext);
+		assert_eq!(&ciphertext, &XCHACHA_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
 	fn xchacha_encrypt_key() {
-		Encryptor::encrypt_key(
+		let output = Encryptor::encrypt_key(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
-			Key::new(PLAINTEXT_KEY),
+			PLAINTEXT_KEY,
 			Aad::Null,
 		)
 		.unwrap();
+
+		assert!(output == XCHACHA_ENCRYPTED_KEY);
 	}
 
 	#[test]
 	fn xchacha_decrypt_key() {
-		Decryptor::decrypt_key(
+		let output = Decryptor::decrypt_key(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -420,18 +430,38 @@ mod tests {
 			Aad::Null,
 		)
 		.unwrap();
+
+		assert!(output == PLAINTEXT_KEY);
 	}
 
 	#[test]
 	fn xchacha_encrypt_fixed() {
-		Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
+		let output = Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
-			&PLAINTEXT_KEY,
+			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
+		.map(EncryptedKey::new)
 		.unwrap();
+
+		assert!(output == XCHACHA_ENCRYPTED_KEY);
+	}
+
+	#[test]
+	fn xchacha_decrypt_fixed() {
+		let output = Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			XCHACHA_ENCRYPTED_KEY.inner(),
+			Aad::Null,
+		)
+		.map(Key::from)
+		.unwrap();
+
+		assert!(output == PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -441,19 +471,7 @@ mod tests {
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
-			&PLAINTEXT_KEY,
-			Aad::Null,
-		)
-		.unwrap();
-	}
-
-	#[test]
-	fn xchacha_decrypt_keyh() {
-		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
-			KEY,
-			XCHACHA_NONCE,
-			Algorithm::XChaCha20Poly1305,
-			XCHACHA_ENCRYPTED_KEY.inner(),
+			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
 		.unwrap();
@@ -461,7 +479,7 @@ mod tests {
 
 	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	fn xchacha_decrypt_key_bad_length() {
+	fn xchacha_decrypt_fixed_bad_length() {
 		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
@@ -483,7 +501,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(XCHACHA_BYTES_EXPECTED[1].to_vec(), ciphertext);
+		assert_eq!(&ciphertext, &XCHACHA_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
@@ -497,7 +515,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -511,7 +529,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -529,9 +547,9 @@ mod tests {
 
 	#[test]
 	fn xchacha_encrypt_and_decrypt_5_blocks() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
@@ -556,9 +574,9 @@ mod tests {
 
 	#[test]
 	fn xchacha_encrypt_and_decrypt_5_blocks_with_aad() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
@@ -584,9 +602,9 @@ mod tests {
 	#[cfg(feature = "async")]
 	#[tokio::test]
 	async fn xchacha_encrypt_and_decrypt_5_blocks_async() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
@@ -614,9 +632,9 @@ mod tests {
 	#[cfg(feature = "async")]
 	#[tokio::test]
 	async fn xchacha_encrypt_and_decrypt_5_blocks_with_aad_async() {
-		let mut buf = vec![0u8; BLOCK_LEN * 5];
-		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-		let mut reader = Cursor::new(buf.clone());
+		let buf = generate_vec(BLOCK_LEN * 5);
+
+		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
 		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
