@@ -32,6 +32,7 @@
 
 use std::io::{Read, Seek, Write};
 
+use subtle::ConstantTimeEq;
 #[cfg(feature = "async")]
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
@@ -162,7 +163,7 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb)?;
 
-				if &mb != magic_bytes.inner() {
+				if !bool::from(magic_bytes.inner().ct_eq(&mb)) {
 					return Err(Error::Serialization);
 				}
 
@@ -196,7 +197,7 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb).await?;
 
-				if &mb != magic_bytes.inner() {
+				if !bool::from(magic_bytes.inner().ct_eq(&mb)) {
 					return Err(Error::Serialization);
 				}
 
@@ -361,7 +362,7 @@ mod tests {
 	use crate::{
 		header::{FileHeader, HeaderObjectName},
 		primitives::LATEST_FILE_HEADER,
-		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
+		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	};
 	use std::io::{Cursor, Seek};
 
@@ -371,8 +372,8 @@ mod tests {
 	const CONTEXT: DerivationContext =
 		DerivationContext::new("crypto 2023-03-20 20:12:42 global test context");
 
-	const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
-	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
+	const ALGORITHM: Algorithm = Algorithm::default();
+	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::default();
 
 	const OBJECT1_NAME: HeaderObjectName = HeaderObjectName::new("Object1");
 	const OBJECT2_NAME: HeaderObjectName = HeaderObjectName::new("Object2");

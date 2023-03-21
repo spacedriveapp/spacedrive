@@ -7,9 +7,7 @@ use crate::{
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
 	primitives::generate_fixed,
-	types::{
-		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
-	},
+	types::{Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
 	Error, Protected, Result,
 };
 
@@ -39,10 +37,10 @@ impl Keyslot001 {
 	pub fn random() -> Self {
 		Self {
 			content_salt: Salt::generate(),
-			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
+			hashing_algorithm: HashingAlgorithm::default(),
 			encrypted_key: EncryptedKey::new(generate_fixed()),
 			salt: Salt::generate(),
-			nonce: Nonce::default(),
+			nonce: Nonce::generate(Algorithm::default()),
 		}
 	}
 }
@@ -163,7 +161,7 @@ impl HeaderObjectIdentifier {
 			nonce,
 			algorithm,
 			Key::new(*name_hash.as_bytes()),
-			aad.inner(),
+			aad,
 		)?;
 
 		Ok(Self {
@@ -198,7 +196,7 @@ impl HeaderObjectIdentifier {
 			self.nonce,
 			algorithm,
 			self.key,
-			aad.inner(),
+			aad,
 		)
 		.map_err(|_| Error::Decrypt)
 	}
@@ -223,7 +221,7 @@ impl Keyslot001 {
 			nonce,
 			algorithm,
 			master_key,
-			aad.inner(),
+			aad,
 		)?;
 
 		Ok(Self {
@@ -247,7 +245,7 @@ impl Keyslot001 {
 			self.nonce,
 			algorithm,
 			self.encrypted_key,
-			aad.inner(),
+			aad,
 		)
 	}
 }
@@ -280,8 +278,7 @@ impl FileHeaderObject001 {
 			HeaderObjectIdentifier::new(name, master_key.clone(), algorithm, context, aad)?;
 
 		let nonce = Nonce::generate(algorithm);
-		let encrypted_data =
-			Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, aad.inner())?;
+		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, aad)?;
 
 		let object = Self {
 			identifier,
@@ -298,7 +295,7 @@ impl FileHeaderObject001 {
 		aad: Aad,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, aad.inner())
+		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, aad)
 	}
 }
 

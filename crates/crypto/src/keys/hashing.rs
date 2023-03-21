@@ -6,7 +6,7 @@
 //!
 //! ```rust,ignore
 //! let password = Protected::new(b"password".to_vec());
-//! let hashing_algorithm = HashingAlgorithm::Argon2id(Params::Standard);
+//! let hashing_algorithm = HashingAlgorithm::default();
 //! let salt = generate_salt();
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
@@ -89,9 +89,10 @@ impl Hasher {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-	use crate::types::{DerivationContext, Params};
-
-	use super::*;
+	use crate::{
+		keys::Hasher,
+		types::{DerivationContext, HashingAlgorithm, Key, Params, Salt, SecretKey},
+	};
 
 	const TEST_CONTEXT: DerivationContext =
 		DerivationContext::new("spacedrive 2023-02-09 17:44:14 test key derivation");

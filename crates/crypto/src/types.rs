@@ -12,7 +12,7 @@ use crate::primitives::{
 	ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct MagicBytes<const I: usize>([u8; I]);
 
 impl<const I: usize> MagicBytes<I> {
@@ -45,7 +45,7 @@ impl DerivationContext {
 /// These parameters define the password-hashing level.
 ///
 /// The greater the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -55,8 +55,15 @@ pub enum Params {
 	Paranoid,
 }
 
+impl Params {
+	#[must_use]
+	pub const fn default() -> Self {
+		Self::Standard
+	}
+}
+
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize, serde::Deserialize),
@@ -70,6 +77,11 @@ pub enum HashingAlgorithm {
 }
 
 impl HashingAlgorithm {
+	#[must_use]
+	pub const fn default() -> Self {
+		Self::Argon2id(Params::default())
+	}
+
 	#[must_use]
 	pub const fn get_parameters(&self) -> (u32, u32, u32) {
 		match self {
@@ -90,7 +102,7 @@ impl HashingAlgorithm {
 /// This should be used for providing a nonce to encrypt/decrypt functions.
 ///
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -133,12 +145,6 @@ impl Nonce {
 	}
 }
 
-impl Default for Nonce {
-	fn default() -> Self {
-		Self::XChaCha20Poly1305(generate_fixed())
-	}
-}
-
 impl<I> From<Nonce> for GenericArray<u8, I>
 where
 	I: ArrayLength<u8>,
@@ -164,7 +170,7 @@ impl TryFrom<Vec<u8>> for Nonce {
 }
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -174,6 +180,11 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
+	#[must_use]
+	pub const fn default() -> Self {
+		Self::XChaCha20Poly1305
+	}
+
 	/// This function allows us to get the nonce length for a given encryption algorithm
 	#[must_use]
 	pub const fn nonce_len(&self) -> usize {
@@ -348,7 +359,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 /// This should be used for passing an encrypted key around.
 ///
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -369,34 +380,32 @@ impl EncryptedKey {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-pub struct Aad([u8; AAD_LEN]);
+pub enum Aad {
+	Standard([u8; AAD_LEN]),
+	Null,
+}
 
 impl Aad {
 	#[must_use]
 	pub fn generate() -> Self {
-		Self(generate_fixed())
+		Self::Standard(generate_fixed())
 	}
 
 	#[must_use]
-	pub const fn inner(&self) -> &[u8; AAD_LEN] {
-		&self.0
-	}
-}
-
-impl TryFrom<Vec<u8>> for Aad {
-	type Error = Error;
-
-	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		value.to_array().map(Self)
+	pub const fn inner(&self) -> &[u8] {
+		match self {
+			Self::Standard(b) => b,
+			Self::Null => &[],
+		}
 	}
 }
 
 /// This should be used for passing a salt around.
 ///
 /// You may also generate a salt with `Salt::generate()`
-#[derive(Clone, PartialEq, Eq, Copy)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]

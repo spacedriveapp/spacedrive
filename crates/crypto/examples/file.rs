@@ -5,7 +5,7 @@ use sd_crypto::{
 	header::FileHeader,
 	keys::Hasher,
 	primitives::LATEST_FILE_HEADER,
-	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
+	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	Protected,
 };
 
@@ -14,8 +14,8 @@ const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 const HEADER_KEY_CONTEXT: DerivationContext =
 	DerivationContext::new("crypto 2023-03-21 11:24:53 example header key context");
 
-const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
-const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
+const ALGORITHM: Algorithm = Algorithm::default();
+const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::default();
 
 const FILE_NAME: &str = "dfskgjh39u4dgsfjk.test";
 
@@ -56,7 +56,7 @@ fn encrypt() {
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams(&mut reader, &mut writer, header.get_aad().inner())
+		.encrypt_streams(&mut reader, &mut writer, header.get_aad())
 		.unwrap();
 }
 
@@ -80,7 +80,7 @@ fn decrypt() {
 
 	// Decrypt data the from the reader, and write it to the writer
 	decryptor
-		.decrypt_streams(&mut reader, &mut writer, header.get_aad().inner())
+		.decrypt_streams(&mut reader, &mut writer, header.get_aad())
 		.unwrap();
 }
 

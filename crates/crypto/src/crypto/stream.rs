@@ -3,7 +3,7 @@ use std::io::{Cursor, Read, Write};
 use crate::{
 	crypto::exhaustive_read,
 	primitives::{ensure_length, ensure_not_null, ToArray, AEAD_TAG_LEN, BLOCK_LEN},
-	types::{Algorithm, EncryptedKey, Key, Nonce},
+	types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
 	Error, Protected, Result,
 };
 use aead::{
@@ -81,10 +81,10 @@ macro_rules! impl_stream {
 				.map_err(|_| $error)
 			}
 
-			fn $last_in_place_fn(self, aad: &[u8], buf: &mut dyn aead::Buffer) -> Result<()> {
+			fn $last_in_place_fn(self, aad: Aad, buf: &mut dyn aead::Buffer) -> Result<()> {
 				match self {
 					$(
-						Self::$algorithm(s) => s.$last_in_place_fn(aad, buf),
+						Self::$algorithm(s) => s.$last_in_place_fn(aad.inner(), buf),
 					)*
 				}
 				.map_err(|_| $error)
@@ -102,7 +102,7 @@ macro_rules! impl_stream {
 				mut self,
 				mut reader: R,
 				mut writer: W,
-				aad: &[u8],
+				aad: Aad,
 			) -> Result<()>
 			where
 				R: AsyncReadExt + Unpin + Send,
@@ -114,7 +114,7 @@ macro_rules! impl_stream {
 					let count = exhaustive_read_async(&mut reader, &mut buffer).await?;
 
 					let payload = Payload {
-						aad,
+						aad: aad.inner(),
 						msg: &buffer[..count],
 					};
 
@@ -144,7 +144,7 @@ macro_rules! impl_stream {
 				mut self,
 				mut reader: R,
 				mut writer: W,
-				aad: &[u8],
+				aad: Aad,
 			) -> Result<()>
 			where
 				R: Read,
@@ -156,7 +156,7 @@ macro_rules! impl_stream {
 					let count = exhaustive_read(&mut reader, &mut buffer)?;
 
 					let payload = Payload {
-						aad,
+						aad: aad.inner(),
 						msg: &buffer[..count],
 					};
 
@@ -184,7 +184,7 @@ macro_rules! impl_stream {
 				nonce: Nonce,
 				algorithm: Algorithm,
 				bytes: &[u8],
-				aad: &[u8],
+				aad: Aad,
 			) -> Result<$bytes_return> {
 				let mut writer = Cursor::new(Vec::new());
 				let s = Self::new(key, nonce, algorithm)?;
@@ -212,7 +212,7 @@ impl Encryptor {
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
-		aad: &[u8],
+		aad: Aad,
 	) -> Result<[u8; T]> {
 		if I > BLOCK_LEN || T != (I + AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
@@ -232,7 +232,7 @@ impl Encryptor {
 		nonce: Nonce,
 		algorithm: Algorithm,
 		key_to_encrypt: Key,
-		aad: &[u8],
+		aad: Aad,
 	) -> Result<EncryptedKey> {
 		Self::encrypt_fixed(key, nonce, algorithm, key_to_encrypt.expose(), aad)
 			.map(EncryptedKey::new)
@@ -253,7 +253,7 @@ impl Decryptor {
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
-		aad: &[u8],
+		aad: Aad,
 	) -> Result<Protected<[u8; T]>> {
 		if I > (BLOCK_LEN + AEAD_TAG_LEN) || T != (I - AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
@@ -279,7 +279,7 @@ impl Decryptor {
 		nonce: Nonce,
 		algorithm: Algorithm,
 		key_to_decrypt: EncryptedKey,
-		aad: &[u8],
+		aad: Aad,
 	) -> Result<Key> {
 		Self::decrypt_fixed(key, nonce, algorithm, key_to_decrypt.inner(), aad).map(Key::from)
 	}

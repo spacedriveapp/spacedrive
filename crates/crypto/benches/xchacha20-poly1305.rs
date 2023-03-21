@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
 	primitives::{BLOCK_LEN, KEY_LEN},
-	types::{Algorithm, Key, Nonce},
+	types::{Aad, Algorithm, Key, Nonce},
 };
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
@@ -20,12 +20,14 @@ fn bench(c: &mut Criterion) {
 		let buf = vec![0u8; size].into_boxed_slice();
 
 		let encrypted_bytes =
-			Encryptor::encrypt_bytes(key.clone(), nonce, ALGORITHM, &buf, &[]).unwrap(); // bytes to decrypt
+			Encryptor::encrypt_bytes(key.clone(), nonce, ALGORITHM, &buf, Aad::Null).unwrap(); // bytes to decrypt
 
 		group.bench_function(BenchmarkId::new("encrypt", size), |b| {
 			b.iter_batched(
 				|| (key.clone(), nonce),
-				|(key, nonce)| Encryptor::encrypt_bytes(key, nonce, ALGORITHM, &buf, &[]).unwrap(),
+				|(key, nonce)| {
+					Encryptor::encrypt_bytes(key, nonce, ALGORITHM, &buf, Aad::Null).unwrap()
+				},
 				BatchSize::LargeInput,
 			)
 		});
@@ -34,7 +36,8 @@ fn bench(c: &mut Criterion) {
 			b.iter_batched(
 				|| (key.clone(), nonce),
 				|(key, nonce)| {
-					Decryptor::decrypt_bytes(key, nonce, ALGORITHM, &encrypted_bytes, &[]).unwrap()
+					Decryptor::decrypt_bytes(key, nonce, ALGORITHM, &encrypted_bytes, Aad::Null)
+						.unwrap()
 				},
 				BatchSize::LargeInput,
 			)
@@ -46,13 +49,14 @@ fn bench(c: &mut Criterion) {
 
 		let test_key = Key::generate();
 		let test_key_encrypted =
-			Encryptor::encrypt_key(key.clone(), nonce, ALGORITHM, test_key.clone(), &[]).unwrap();
+			Encryptor::encrypt_key(key.clone(), nonce, ALGORITHM, test_key.clone(), Aad::Null)
+				.unwrap();
 
 		group.bench_function(BenchmarkId::new("encrypt", "key"), |b| {
 			b.iter_batched(
 				|| (key.clone(), nonce, test_key.clone()),
 				|(key, nonce, test_key)| {
-					Encryptor::encrypt_key(key, nonce, ALGORITHM, test_key, &[]).unwrap()
+					Encryptor::encrypt_key(key, nonce, ALGORITHM, test_key, Aad::Null).unwrap()
 				},
 				BatchSize::LargeInput,
 			)
@@ -62,7 +66,8 @@ fn bench(c: &mut Criterion) {
 			b.iter_batched(
 				|| (key.clone(), nonce, test_key_encrypted),
 				|(key, nonce, test_key_encrypted)| {
-					Decryptor::decrypt_key(key, nonce, ALGORITHM, test_key_encrypted, &[]).unwrap()
+					Decryptor::decrypt_key(key, nonce, ALGORITHM, test_key_encrypted, Aad::Null)
+						.unwrap()
 				},
 				BatchSize::LargeInput,
 			)
