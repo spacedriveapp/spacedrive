@@ -7,10 +7,9 @@ use subtle::ConstantTimeEq;
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	generate_bytes_fixed, to_array, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED,
-	ARGON2ID_PARANOID, ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID,
-	B3BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
-	XCHACHA20_POLY1305_NONCE_LEN,
+	generate_fixed, ToArray, AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID,
+	ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID, B3BALLOON_STANDARD,
+	ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -104,8 +103,8 @@ impl Nonce {
 	#[must_use]
 	pub fn generate(algorithm: Algorithm) -> Self {
 		match algorithm {
-			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_bytes_fixed()),
-			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_bytes_fixed()),
+			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_fixed()),
+			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_fixed()),
 		}
 	}
 
@@ -136,7 +135,7 @@ impl Nonce {
 
 impl Default for Nonce {
 	fn default() -> Self {
-		Self::XChaCha20Poly1305(generate_bytes_fixed())
+		Self::XChaCha20Poly1305(generate_fixed())
 	}
 }
 
@@ -157,8 +156,8 @@ impl TryFrom<Vec<u8>> for Nonce {
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
 		match value.len() {
-			8 => Ok(Self::Aes256Gcm(to_array(&value)?)),
-			20 => Ok(Self::XChaCha20Poly1305(to_array(&value)?)),
+			8 => Ok(Self::Aes256Gcm(value.to_array()?)),
+			20 => Ok(Self::XChaCha20Poly1305(value.to_array()?)),
 			_ => Err(Error::LengthMismatch),
 		}
 	}
@@ -215,7 +214,7 @@ impl Key {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		Self::new(generate_bytes_fixed())
+		Self::new(generate_fixed())
 	}
 }
 
@@ -251,7 +250,7 @@ impl TryFrom<Protected<Vec<u8>>> for Key {
 	type Error = Error;
 
 	fn try_from(value: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
-		Ok(Self::new(to_array(value.expose())?))
+		Ok(Self::new(value.into_inner().to_array()?))
 	}
 }
 
@@ -274,7 +273,7 @@ impl SecretKey {
 
 	#[must_use]
 	pub fn generate() -> Self {
-		Self::new(generate_bytes_fixed())
+		Self::new(generate_fixed())
 	}
 
 	#[must_use]
@@ -331,7 +330,8 @@ impl From<SecretKeyString> for SecretKey {
 			.ok()
 			.map_or(Vec::new(), |v| v);
 
-		to_array(&secret_key)
+		secret_key
+			.to_array()
 			.ok()
 			.map_or_else(Self::generate, Self::new)
 	}
@@ -341,7 +341,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 	type Error = crate::Error;
 
 	fn try_from(v: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
-		Ok(Self::new(to_array(v.expose())?))
+		Ok(Self::new(v.into_inner().to_array()?))
 	}
 }
 
@@ -349,9 +349,13 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 ///
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "headers", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub struct EncryptedKey([u8; ENCRYPTED_KEY_LEN]);
+pub struct EncryptedKey(
+	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
+	[u8; ENCRYPTED_KEY_LEN],
+);
 
 impl EncryptedKey {
 	#[must_use]
@@ -372,7 +376,7 @@ pub struct Aad([u8; AAD_LEN]);
 impl Aad {
 	#[must_use]
 	pub fn generate() -> Self {
-		Self(generate_bytes_fixed())
+		Self(generate_fixed())
 	}
 
 	#[must_use]
@@ -385,7 +389,7 @@ impl TryFrom<Vec<u8>> for Aad {
 	type Error = Error;
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		to_array(&value).map(Self)
+		value.to_array().map(Self)
 	}
 }
 
@@ -401,7 +405,7 @@ pub struct Salt([u8; SALT_LEN]);
 impl Salt {
 	#[must_use]
 	pub fn generate() -> Self {
-		Self(generate_bytes_fixed())
+		Self(generate_fixed())
 	}
 
 	#[must_use]
@@ -419,7 +423,7 @@ impl TryFrom<Vec<u8>> for Salt {
 	type Error = Error;
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		Ok(Self(to_array(&value)?))
+		Ok(Self(value.to_array()?))
 	}
 }
 

@@ -3,6 +3,7 @@
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the STREAM block size.
 use rand::{RngCore, SeedableRng};
+use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 use crate::{types::DerivationContext, Error, Result};
@@ -32,8 +33,8 @@ pub const AEAD_TAG_LEN: usize = 16;
 
 pub const AAD_LEN: usize = 32;
 
-/// The length of encrypted master keys (`KEY_LEN` + `AEAD_TAG_LEN`)
-pub const ENCRYPTED_KEY_LEN: usize = 48;
+/// The length of encrypted master keys
+pub const ENCRYPTED_KEY_LEN: usize = KEY_LEN + AEAD_TAG_LEN;
 
 /// The length of plain master/hashed keys
 pub const KEY_LEN: usize = 32;
@@ -70,40 +71,51 @@ pub(super) const B3BALLOON_STANDARD: (u32, u32, u32) = (131_072, 2, 1);
 pub(super) const B3BALLOON_HARDENED: (u32, u32, u32) = (262_144, 2, 1);
 pub(super) const B3BALLOON_PARANOID: (u32, u32, u32) = (524_288, 2, 1);
 
-/// This is used for converting a `&[u8]` to an array of bytes.
-///
-/// It calls `Clone`, via `to_vec()`.
-///
-/// This function calls `zeroize` on any data it can
-pub fn to_array<const I: usize>(bytes: &[u8]) -> Result<[u8; I]> {
-	bytes.to_vec().try_into().map_err(|mut b: Vec<u8>| {
-		b.zeroize();
-		Error::LengthMismatch
-	})
+pub(crate) trait ToArray {
+	fn to_array<const I: usize>(self) -> Result<[u8; I]>;
 }
 
-#[must_use]
-pub fn generate_bytes(size: usize) -> Vec<u8> {
-	let mut bytes = vec![0u8; size];
-	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
-	bytes
+impl ToArray for Vec<u8> {
+	/// This function uses `try_into()`, and calls `zeroize` in the event of an error.
+	fn to_array<const I: usize>(self) -> Result<[u8; I]> {
+		self.try_into().map_err(|mut b: Self| {
+			b.zeroize();
+			Error::LengthMismatch
+		})
+	}
 }
 
+impl ToArray for &[u8] {
+	/// **Using this can be risky - ensure that you `zeroize` the source buffer before returning.**
+	///
+	/// `zeroize` cannot be called on the input as we do not have ownership.
+	///
+	/// This function copies `self` into a `Vec`, before using the `ToArray` implementation for `Vec<u8>`
+	fn to_array<const I: usize>(self) -> Result<[u8; I]> {
+		self.to_vec().to_array()
+	}
+}
+
+/// Ideally this should be used for small amounts only.
+///
+/// It is stack allocated, so be wary.
 #[must_use]
-pub fn generate_byte_array<const I: usize>() -> [u8; I] {
+pub fn generate_fixed<const I: usize>() -> [u8; I] {
 	let mut bytes = [0u8; I];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 	bytes
 }
 
 pub fn ensure_not_null(b: &[u8]) -> Result<()> {
-	(!b.iter().all(|x| x == &0u8))
+	// constant time "not equal" would make this cleaner
+	// needs subtle 2.5.0+ though
+	(!b.iter().all(|x| x.ct_eq(&0u8).into()))
 		.then_some(())
 		.ok_or(Error::NullType)
 }
 
 pub fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {
-	(b.len() == expected)
+	bool::from(b.len().ct_eq(&expected))
 		.then_some(())
 		.ok_or(Error::LengthMismatch)
 }

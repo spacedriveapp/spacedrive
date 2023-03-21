@@ -6,7 +6,7 @@ use crate::{
 	encoding,
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
-	primitives::generate_bytes_fixed,
+	primitives::generate_fixed,
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
 	},
@@ -40,7 +40,7 @@ impl Keyslot001 {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-			encrypted_key: EncryptedKey::new(generate_bytes_fixed()),
+			encrypted_key: EncryptedKey::new(generate_fixed()),
 			salt: Salt::generate(),
 			nonce: Nonce::default(),
 		}
