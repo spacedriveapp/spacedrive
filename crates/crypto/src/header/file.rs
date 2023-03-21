@@ -32,6 +32,7 @@
 
 use std::io::{Read, Seek, Write};
 
+#[cfg(feature = "async")]
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{

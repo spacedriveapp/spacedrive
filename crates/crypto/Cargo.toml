@@ -62,7 +62,7 @@ rspc = { workspace = true, optional = true }
 tokio = { workspace = true, default-features = false, features = [
     "io-util",
     "rt-multi-thread",
-    "fs",
+    "macros",
 ], optional = true }
 
 hex = "0.4.3"
