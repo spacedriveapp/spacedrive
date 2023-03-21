@@ -1,4 +1,4 @@
-use tokio::fs::File;
+use std::fs::{remove_file, File};
 
 use sd_crypto::{
 	crypto::Encryptor,
@@ -22,14 +22,12 @@ const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::S
 
 const FILE_NAME: &str = "dfskgjh39u4dgsfjk.test";
 
-async fn encrypt() {
+fn encrypt() {
 	let password = Protected::new(b"password".to_vec());
 
 	// Open both the source and the output file
-	let mut reader = File::open(FILE_NAME).await.unwrap();
-	let mut writer = File::create(format!("{FILE_NAME}.encrypted"))
-		.await
-		.unwrap();
+	let mut reader = File::open(FILE_NAME).unwrap();
+	let mut writer = File::create(format!("{FILE_NAME}.encrypted")).unwrap();
 
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = Key::generate();
@@ -64,7 +62,7 @@ async fn encrypt() {
 		.unwrap();
 
 	// Write the header to the file
-	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
+	header.write(&mut writer, MAGIC_BYTES).unwrap();
 
 	// Use the nonce created by the header to initialize an encryptor
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -72,21 +70,18 @@ async fn encrypt() {
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
-		.await
+		.encrypt_streams(&mut reader, &mut writer, header.get_aad().inner())
 		.unwrap();
 }
 
-async fn decrypt() {
+fn decrypt() {
 	let password = Protected::new(b"password".to_vec());
 
 	// Open the encrypted file
-	let mut reader = File::open(format!("{FILE_NAME}.encrypted")).await.unwrap();
+	let mut reader = File::open(format!("{FILE_NAME}.encrypted")).unwrap();
 
 	// Deserialize the header from the encrypted file
-	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
-		.await
-		.unwrap();
+	let header = FileHeader::from_reader(&mut reader, MAGIC_BYTES).unwrap();
 
 	let master_key = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
@@ -107,16 +102,13 @@ async fn decrypt() {
 	);
 }
 
-#[tokio::main]
-async fn main() {
-	File::create(FILE_NAME).await.unwrap();
+fn main() {
+	File::create(FILE_NAME).unwrap();
 
-	encrypt().await;
+	encrypt();
 
-	decrypt().await;
+	decrypt();
 
-	tokio::fs::remove_file(FILE_NAME).await.unwrap();
-	tokio::fs::remove_file(format!("{FILE_NAME}.encrypted"))
-		.await
-		.unwrap();
+	remove_file(FILE_NAME).unwrap();
+	remove_file(format!("{FILE_NAME}.encrypted")).unwrap();
 }

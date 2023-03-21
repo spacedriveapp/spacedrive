@@ -15,7 +15,6 @@ encoding = ["dep:bincode"]
 keymanager = ["dep:dashmap", "os-keyrings", "uuid", "async", "tokio?/sync"]
 os-keyrings = ["dep:secret-service", "dep:security-framework"]
 async = ["dep:tokio"]
-examples = ["async", "tokio?/rt", "tokio?/macros"]
 
 [dependencies]
 # rng
@@ -107,9 +106,9 @@ harness = false
 [[example]]
 name = "file"
 path = "examples/file.rs"
-required-features = ["encoding", "examples"]
+required-features = ["encoding"]
 
 [[example]]
 name = "file_with_object"
 path = "examples/file_with_object.rs"
-required-features = ["encoding", "examples"]
+required-features = ["encoding"]
