@@ -32,7 +32,6 @@
 
 use std::io::{Read, Seek, Write};
 
-use subtle::ConstantTimeEq;
 #[cfg(feature = "async")]
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
@@ -54,7 +53,7 @@ impl HeaderObjectName {
 	}
 
 	#[must_use]
-	pub const fn inner(self) -> &'static [u8] {
+	pub const fn into_inner(self) -> &'static [u8] {
 		self.0.as_bytes()
 	}
 }
@@ -163,8 +162,8 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb)?;
 
-				if !bool::from(magic_bytes.inner().ct_eq(&mb)) {
-					return Err(Error::Serialization);
+				if &mb != magic_bytes.inner() {
+					return Err(Error::MagicByteMismatch);
 				}
 
 				let mut header_size = [0u8; 8];
@@ -197,8 +196,8 @@ macro_rules! generate_header_versions {
 				let mut mb = [0u8; I];
 				reader.read_exact(&mut mb).await?;
 
-				if !bool::from(magic_bytes.inner().ct_eq(&mb)) {
-					return Err(Error::Serialization);
+				if &mb != magic_bytes.inner() {
+					return Err(Error::MagicByteMismatch);
 				}
 
 				let mut header_size = [0u8; 8];
@@ -409,7 +408,31 @@ mod tests {
 		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
 
 		assert!(header.count_keyslots() == 1);
-		assert_eq!(decrypted_mk.expose(), mk.expose());
+		assert!(decrypted_mk == mk);
+	}
+
+	#[test]
+	#[should_panic(expected = "MagicByteMismatch")]
+	fn serialize_and_deserialize_with_bad_magic_bytes() {
+		let mut writer = Cursor::new(vec![]);
+
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				Salt::generate(),
+				Key::generate(),
+				Key::generate(),
+				CONTEXT,
+			)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		FileHeader::from_reader(&mut writer, MagicBytes::new([0u8; 4])).unwrap();
 	}
 
 	#[test]
@@ -454,8 +477,8 @@ mod tests {
 			.unwrap();
 
 		assert!(header.count_keyslots() == 2);
-		assert_eq!(decrypted_mk.expose(), mk.expose());
-		assert_eq!(decrypted_mk2.expose(), mk.expose());
+		assert!(decrypted_mk == mk);
+		assert!(decrypted_mk2 == mk);
 	}
 
 	#[test]
@@ -683,8 +706,8 @@ mod tests {
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
-		assert_eq!(decrypted_mk.expose(), mk.expose());
-		assert_eq!(decrypted_mk2.expose(), mk.expose());
+		assert!(decrypted_mk == mk);
+		assert!(decrypted_mk2 == mk);
 		assert_eq!(object1.expose(), &OBJECT1_DATA);
 		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}
@@ -749,8 +772,8 @@ mod tests {
 
 		assert!(header.count_objects() == 2);
 		assert!(header.count_keyslots() == 2);
-		assert_eq!(decrypted_mk.expose(), mk.expose());
-		assert_eq!(decrypted_mk2.expose(), mk.expose());
+		assert!(decrypted_mk == mk);
+		assert!(decrypted_mk2 == mk);
 		assert_eq!(object1.expose(), &OBJECT1_DATA);
 		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}

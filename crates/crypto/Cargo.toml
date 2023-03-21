@@ -80,27 +80,32 @@ criterion = "0.4.0"
 
 [[bench]]
 name = "aes-256-gcm"
-path = "benches/aes-256-gcm.rs"
+path = "benches/crypto/aes-256-gcm.rs"
 harness = false
 
 [[bench]]
 name = "xchacha20-poly1305"
-path = "benches/xchacha20-poly1305.rs"
+path = "benches/crypto/xchacha20-poly1305.rs"
 harness = false
 
 [[bench]]
 name = "argon2id"
-path = "benches/argon2id.rs"
+path = "benches/hashing/argon2id.rs"
+harness = false
+
+[[bench]]
+name = "blake3"
+path = "benches/hashing/blake3.rs"
 harness = false
 
 [[bench]]
 name = "balloon-blake3"
-path = "benches/balloon-blake3.rs"
+path = "benches/hashing/balloon-blake3.rs"
 harness = false
 
 [[bench]]
 name = "blake3-kdf"
-path = "benches/blake3-kdf.rs"
+path = "benches/hashing/blake3-kdf.rs"
 harness = false
 
 [[example]]

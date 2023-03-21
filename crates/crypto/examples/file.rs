@@ -31,7 +31,8 @@ fn encrypt() {
 
 	// These should ideally be done by a key management system
 	let content_salt = Salt::generate();
-	let hashed_password = Hasher::hash(HASHING_ALGORITHM, password, content_salt, None).unwrap();
+	let hashed_password =
+		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, None).unwrap();
 
 	// Create the header for the encrypted file
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
