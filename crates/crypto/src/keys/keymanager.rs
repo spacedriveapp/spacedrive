@@ -43,7 +43,7 @@ use crate::{
 	keys::Hasher,
 	primitives::{
 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
-		SECRET_KEY_IDENTIFIER,
+		SECRET_KEY_IDENTIFIER, SECRET_KEY_LEN,
 	},
 	types::{
 		Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, OnboardingConfig, Salt,
@@ -205,10 +205,10 @@ impl KeyManager {
 		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
 
 		if hex::decode(secret_key_sanitized)
-			.map_err(|_| Error::IncorrectPassword)?
-			.len() != 18
+			.map_err(|_| Error::KeyringError)?
+			.len() != SECRET_KEY_LEN
 		{
-			return Err(Error::IncorrectPassword);
+			return Err(Error::KeyringError);
 		}
 
 		Ok(())
@@ -255,7 +255,7 @@ impl KeyManager {
 		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
-		let hashed_password = Hasher::hash(
+		let hashed_password = Hasher::hash_password(
 			hashing_algorithm,
 			config.password.into(),
 			content_salt,
@@ -273,7 +273,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = Encryptor::encrypt_key(
-			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+			Hasher::derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
 			master_key.clone(),
@@ -381,7 +381,7 @@ impl KeyManager {
 
 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
 
-		let hashed_password = Hasher::hash(
+		let hashed_password = Hasher::hash_password(
 			hashing_algorithm,
 			master_password.into(),
 			content_salt,
@@ -399,7 +399,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = Encryptor::encrypt_key(
-			Key::derive(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
+			Hasher::derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			master_key_nonce,
 			algorithm,
 			master_key.clone(),
@@ -477,7 +477,7 @@ impl KeyManager {
 
 		let old_root_key = match old_verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = Hasher::hash(
+				let hashed_password = Hasher::hash_password(
 					old_verification_key.hashing_algorithm,
 					master_password.into(),
 					old_verification_key.content_salt,
@@ -486,7 +486,7 @@ impl KeyManager {
 
 				// decrypt the root key's KEK
 				let master_key = Decryptor::decrypt_key(
-					Key::derive(
+					Hasher::derive_key(
 						hashed_password,
 						old_verification_key.salt,
 						MASTER_PASSWORD_CONTEXT,
@@ -495,8 +495,7 @@ impl KeyManager {
 					old_verification_key.algorithm,
 					old_verification_key.master_key,
 					Aad::Null,
-				)
-				.map(Key::from)?;
+				)?;
 
 				// get the root key from the backup
 				Decryptor::decrypt_bytes(
@@ -521,7 +520,7 @@ impl KeyManager {
 				StoredKeyVersion::V1 => {
 					// decrypt the key's master key
 					let master_key = Decryptor::decrypt_key(
-						Key::derive(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
+						Hasher::derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 						key.master_key_nonce,
 						key.algorithm,
 						key.master_key,
@@ -536,7 +535,7 @@ impl KeyManager {
 
 					// encrypt the master key with the current root key
 					let encrypted_master_key = Encryptor::encrypt_key(
-						Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
+						Hasher::derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 						master_key_nonce,
 						key.algorithm,
 						master_key,
@@ -606,19 +605,15 @@ impl KeyManager {
 
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = Hasher::hash(
+				let hashed_password = Hasher::hash_password(
 					verification_key.hashing_algorithm,
 					master_password.into(),
 					verification_key.content_salt,
 					Some(secret_key),
-				)
-				.map_err(|e| {
-					self.remove_from_queue(verification_key.uuid).ok();
-					e
-				})?;
+				)?;
 
 				let master_key = Decryptor::decrypt_key(
-					Key::derive(
+					Hasher::derive_key(
 						hashed_password,
 						verification_key.salt,
 						MASTER_PASSWORD_CONTEXT,
@@ -627,32 +622,26 @@ impl KeyManager {
 					verification_key.algorithm,
 					verification_key.master_key,
 					Aad::Null,
-				)
-				.map_err(|_| {
-					self.remove_from_queue(verification_key.uuid).ok();
-					Error::IncorrectPassword
-				})?;
+				)?;
 
-				*self.root_key.lock().await = Some(
-					Decryptor::decrypt_bytes(
-						master_key,
-						verification_key.key_nonce,
-						verification_key.algorithm,
-						&verification_key.key,
-						Aad::Null,
-					)
-					.map_or_else(
-						|e| {
-							self.remove_from_queue(verification_key.uuid).ok();
-							Err(e)
-						},
-						Key::try_from,
-					)?,
-				);
+				let root_key = Decryptor::decrypt_bytes(
+					master_key,
+					verification_key.key_nonce,
+					verification_key.algorithm,
+					&verification_key.key,
+					Aad::Null,
+				)?
+				.try_into()?;
 
-				self.remove_from_queue(verification_key.uuid)?;
+				*self.root_key.lock().await = Some(root_key);
+
+				self.remove_from_queue(verification_key.uuid)
 			}
 		}
+		.map_err(|e| {
+			self.remove_from_queue(verification_key.uuid).ok();
+			e
+		})?;
 
 		if let Some(secret_key) = provided_secret_key {
 			// converting twice ensures it's formatted correctly
@@ -684,7 +673,7 @@ impl KeyManager {
 					self.mounting_queue.insert(uuid);
 
 					let master_key = Decryptor::decrypt_key(
-						Key::derive(
+						Hasher::derive_key(
 							self.get_root_key().await?,
 							stored_key.salt,
 							ROOT_KEY_CONTEXT,
@@ -693,11 +682,7 @@ impl KeyManager {
 						stored_key.algorithm,
 						stored_key.master_key,
 						Aad::Null,
-					)
-					.map_err(|_| {
-						self.remove_from_queue(uuid).ok();
-						Error::IncorrectPassword
-					})?;
+					)?;
 
 					// Decrypt the StoredKey using the decrypted master key
 					let key = Decryptor::decrypt_bytes(
@@ -706,23 +691,15 @@ impl KeyManager {
 						stored_key.algorithm,
 						&stored_key.key,
 						Aad::Null,
-					)
-					.map_err(|e| {
-						self.remove_from_queue(uuid).ok();
-						e
-					})?;
+					)?;
 
 					// Hash the key once with the parameters/algorithm the user selected during first mount
-					let hashed_key = Hasher::hash(
+					let hashed_key = Hasher::hash_password(
 						stored_key.hashing_algorithm,
 						key,
 						stored_key.content_salt,
 						None,
-					)
-					.map_err(|e| {
-						self.remove_from_queue(uuid).ok();
-						e
-					})?;
+					)?;
 
 					self.keymount.insert(
 						uuid,
@@ -732,9 +709,13 @@ impl KeyManager {
 						},
 					);
 
-					self.remove_from_queue(uuid)?;
+					self.remove_from_queue(uuid)
 				}
 			}
+			.map_err(|e| {
+				self.remove_from_queue(uuid).ok();
+				e
+			})?;
 
 			Ok(())
 		} else {
@@ -748,7 +729,7 @@ impl KeyManager {
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
 			let master_key = Decryptor::decrypt_key(
-				Key::derive(
+				Hasher::derive_key(
 					self.get_root_key().await?,
 					stored_key.salt,
 					ROOT_KEY_CONTEXT,
@@ -757,8 +738,7 @@ impl KeyManager {
 				stored_key.algorithm,
 				stored_key.master_key,
 				Aad::Null,
-			)
-			.map_err(|_| Error::IncorrectPassword)?;
+			)?;
 
 			// Decrypt the StoredKey using the decrypted master key
 			let key = Decryptor::decrypt_bytes(
@@ -812,7 +792,7 @@ impl KeyManager {
 
 		// Encrypt the master key with a derived key (derived from the root key)
 		let encrypted_master_key = Encryptor::encrypt_key(
-			Key::derive(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
+			Hasher::derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
 			master_key_nonce,
 			algorithm,
 			master_key.clone(),
