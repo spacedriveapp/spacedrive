@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use sd_crypto::{
 	keys::Hasher,
-	primitives::generate_bytes,
+	primitives::generate_fixed,
 	types::{HashingAlgorithm, Params, Salt},
 	Protected,
 };
@@ -12,7 +12,7 @@ fn bench(c: &mut Criterion) {
 	let mut group = c.benchmark_group("argon2id");
 
 	for param in PARAMS {
-		let password = Protected::new(generate_bytes(32));
+		let password = Protected::new(generate_fixed::<64>().to_vec());
 		let salt = Salt::generate();
 		let hashing_algorithm = HashingAlgorithm::Argon2id(param);
 
