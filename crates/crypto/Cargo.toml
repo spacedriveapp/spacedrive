@@ -105,16 +105,11 @@ path = "benches/blake3-kdf.rs"
 harness = false
 
 [[example]]
-name = "single_file"
-path = "examples/single_file.rs"
+name = "file"
+path = "examples/file.rs"
 required-features = ["encoding", "examples"]
 
 [[example]]
-name = "single_file_with_metadata"
-path = "examples/single_file_with_metadata.rs"
-required-features = ["encoding", "examples"]
-
-[[example]]
-name = "single_file_with_preview_media"
-path = "examples/single_file_with_preview_media.rs"
+name = "file_with_object"
+path = "examples/file_with_object.rs"
 required-features = ["encoding", "examples"]

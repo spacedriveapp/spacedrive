@@ -26,7 +26,7 @@ async fn encrypt() {
 	let password = Protected::new(b"password".to_vec());
 
 	// Open both the source and the output file
-	let mut reader = File::open("test").await.unwrap();
+	let mut reader = File::open(FILE_NAME).await.unwrap();
 	let mut writer = File::create(format!("{FILE_NAME}.encrypted"))
 		.await
 		.unwrap();
@@ -38,7 +38,7 @@ async fn encrypt() {
 	let content_salt = Salt::generate();
 	let hashed_password = Hasher::hash(HASHING_ALGORITHM, password, content_salt, None).unwrap();
 
-	let pvm = b"a nice mountain".to_vec();
+	let object_data = b"a nice mountain";
 
 	// Create the header for the encrypted file
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -56,17 +56,17 @@ async fn encrypt() {
 
 	header
 		.add_object(
-			HeaderObjectName::new("PreviewMedia"),
+			HeaderObjectName::new("FileMetadata"),
 			HEADER_OBJECT_CONTEXT,
 			master_key.clone(),
-			&pvm,
+			object_data,
 		)
 		.unwrap();
 
 	// Write the header to the file
 	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
 
-	// Use the nonce created by the header to initialise a stream encryption object
+	// Use the nonce created by the header to initialize an encryptor
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
@@ -77,13 +77,13 @@ async fn encrypt() {
 		.unwrap();
 }
 
-async fn decrypt_preview_media() {
+async fn decrypt() {
 	let password = Protected::new(b"password".to_vec());
 
 	// Open the encrypted file
 	let mut reader = File::open(format!("{FILE_NAME}.encrypted")).await.unwrap();
 
-	// Deserialize the header, keyslots, etc from the encrypted file
+	// Deserialize the header from the encrypted file
 	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
 		.await
 		.unwrap();
@@ -92,16 +92,19 @@ async fn decrypt_preview_media() {
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
 		.unwrap();
 
-	// Decrypt the preview media
-	let media = header
+	// Decrypt the object
+	let object = header
 		.decrypt_object(
-			HeaderObjectName::new("PreviewMedia"),
+			HeaderObjectName::new("FileMetadata"),
 			HEADER_OBJECT_CONTEXT,
 			master_key,
 		)
 		.unwrap();
 
-	println!("{:?}", media.expose());
+	println!(
+		"the object data was: \"{}\"",
+		String::from_utf8(object.into_inner()).unwrap()
+	);
 }
 
 #[tokio::main]
@@ -110,7 +113,7 @@ async fn main() {
 
 	encrypt().await;
 
-	decrypt_preview_media().await;
+	decrypt().await;
 
 	tokio::fs::remove_file(FILE_NAME).await.unwrap();
 	tokio::fs::remove_file(format!("{FILE_NAME}.encrypted"))

@@ -1,38 +1,26 @@
+use tokio::fs::File;
+
 use sd_crypto::{
-	crypto::Encryptor,
-	encoding,
-	header::{FileHeader, HeaderObjectName},
+	crypto::{Decryptor, Encryptor},
+	header::FileHeader,
 	keys::Hasher,
 	primitives::LATEST_FILE_HEADER,
 	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Params, Salt},
 	Protected,
 };
-use tokio::fs::File;
 
 const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
 const HEADER_KEY_CONTEXT: DerivationContext =
 	DerivationContext::new("crypto 2023-03-21 11:24:53 example header key context");
 
-const HEADER_OBJECT_CONTEXT: DerivationContext =
-	DerivationContext::new("crypto 2023-03-21 11:25:08 example header object context");
-
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
 const FILE_NAME: &str = "dfskgjh39u4dgsfjk.test";
 
-#[derive(bincode::Encode, bincode::Decode)]
-pub struct FileInformation {
-	pub file_name: String,
-}
-
 async fn encrypt() {
 	let password = Protected::new(b"password".to_vec());
-
-	let embedded_metadata = FileInformation {
-		file_name: "filename.txt".to_string(),
-	};
 
 	// Open both the source and the output file
 	let mut reader = File::open(FILE_NAME).await.unwrap();
@@ -61,19 +49,10 @@ async fn encrypt() {
 		)
 		.unwrap();
 
-	header
-		.add_object(
-			HeaderObjectName::new("Metadata"),
-			HEADER_OBJECT_CONTEXT,
-			master_key.clone(),
-			&encoding::encode(&embedded_metadata).unwrap(),
-		)
-		.unwrap();
-
 	// Write the header to the file
 	header.write_async(&mut writer, MAGIC_BYTES).await.unwrap();
 
-	// Use the nonce created by the header to initialise a stream encryption object
+	// Use the nonce created by the header to initialize an encryptor
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
@@ -84,35 +63,31 @@ async fn encrypt() {
 		.unwrap();
 }
 
-async fn decrypt_metadata() {
+async fn decrypt() {
 	let password = Protected::new(b"password".to_vec());
 
-	// Open the encrypted file
+	// Open both the encrypted file and the output file
 	let mut reader = File::open(format!("{FILE_NAME}.encrypted")).await.unwrap();
+	let mut writer = File::create(format!("{FILE_NAME}.original")).await.unwrap();
 
-	// Deserialize the header, keyslots, etc from the encrypted file
+	// Deserialize the header from the encrypted file
 	let header = FileHeader::from_reader_async(&mut reader, MAGIC_BYTES)
 		.await
 		.unwrap();
 
+	// Decrypt the master key with the user's password
 	let master_key = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
 		.unwrap();
 
-	// Decrypt the metadata
-	let file_info: FileInformation = encoding::decode(
-		header
-			.decrypt_object(
-				HeaderObjectName::new("Metadata"),
-				HEADER_OBJECT_CONTEXT,
-				master_key,
-			)
-			.unwrap()
-			.expose(),
-	)
-	.unwrap();
+	// Initialize a stream decryption object using data provided by the header
+	let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
 
-	println!("file name: {}", file_info.file_name);
+	// Decrypt data the from the reader, and write it to the writer
+	decryptor
+		.decrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
+		.await
+		.unwrap();
 }
 
 #[tokio::main]
@@ -121,10 +96,13 @@ async fn main() {
 
 	encrypt().await;
 
-	decrypt_metadata().await;
+	decrypt().await;
 
 	tokio::fs::remove_file(FILE_NAME).await.unwrap();
 	tokio::fs::remove_file(format!("{FILE_NAME}.encrypted"))
+		.await
+		.unwrap();
+	tokio::fs::remove_file(format!("{FILE_NAME}.original"))
 		.await
 		.unwrap();
 }
