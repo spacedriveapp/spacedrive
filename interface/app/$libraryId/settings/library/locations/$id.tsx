@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { useFormState } from 'react-hook-form';
 import { useParams } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, forms, tw } from '@sd/ui';
@@ -69,7 +68,7 @@ export const Component = () => {
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
-	const { isDirty } = useFormState({ control: form.control });
+	const { isDirty } = form.formState;
 
 	return (
 		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
