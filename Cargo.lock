@@ -6820,6 +6820,7 @@ dependencies = [
  "secret-service",
  "security-framework",
  "serde",
+ "serde-big-array",
  "serde_json",
  "subtle",
  "thiserror",

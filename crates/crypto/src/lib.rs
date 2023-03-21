@@ -27,11 +27,8 @@ pub mod types;
 #[cfg(feature = "headers")]
 pub mod header;
 
-#[cfg(any(feature = "serde", feature = "headers"))]
-pub mod serialization;
-
 #[cfg(feature = "headers")]
-pub use serialization::encoding;
+pub mod encoding;
 
 // Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
