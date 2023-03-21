@@ -593,6 +593,7 @@ importers:
       storybook-tailwind-dark-mode: ^1.0.15
       style-loader: ^3.3.1
       tailwindcss: ^3.1.8
+      tailwindcss-animate: ^1.0.5
       tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
     dependencies:
@@ -646,6 +647,7 @@ importers:
       storybook-tailwind-dark-mode: 1.0.15_pmt6gdvpkbsejpsyufhkfrbkda
       style-loader: 3.3.1_webpack@5.75.0
       tailwindcss: 3.2.4_postcss@8.4.21
+      tailwindcss-animate: 1.0.5_tailwindcss@3.2.4
       typescript: 4.9.4
 
 packages:
@@ -20325,6 +20327,14 @@ packages:
 
   /synchronous-promise/2.0.16:
     resolution: {integrity: sha512-qImOD23aDfnIDNqlG1NOehdB9IYsn1V9oByPjKY1nakv2MQYCEMyX033/q+aEtYCpmYK1cv2+NTmlH+ra6GA5A==}
+    dev: true
+
+  /tailwindcss-animate/1.0.5_tailwindcss@3.2.4:
+    resolution: {integrity: sha512-UU3qrOJ4lFQABY+MVADmBm+0KW3xZyhMdRvejwtXqYOL7YjHYxmuREFAZdmVG5LPe5E9CAst846SLC4j5I3dcw==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || insiders'
+    dependencies:
+      tailwindcss: 3.2.4_postcss@8.4.21
     dev: true
 
   /tailwindcss-radix/2.7.0:
