@@ -2,6 +2,7 @@
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
 use std::fmt::Display;
+use subtle::ConstantTimeEq;
 
 use crate::{Error, Protected};
 
@@ -218,12 +219,25 @@ impl Key {
 	}
 }
 
+impl ConstantTimeEq for Key {
+	fn ct_eq(&self, other: &Self) -> subtle::Choice {
+		self.expose().ct_eq(other.expose())
+	}
+}
+
 impl<I> From<Key> for GenericArray<u8, I>
 where
 	I: ArrayLength<u8>,
 {
 	fn from(value: Key) -> Self {
 		Self::clone_from_slice(value.expose())
+	}
+}
+
+impl From<blake3::Hash> for Key {
+	// TODO(brxken128): ensure this zeroizes, or at least ensure that callers zeroize sensitive hashes
+	fn from(value: blake3::Hash) -> Self {
+		Self::new(*value.as_bytes())
 	}
 }
 

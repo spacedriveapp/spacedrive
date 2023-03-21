@@ -6821,6 +6821,7 @@ dependencies = [
  "security-framework",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror",
  "tokio",
  "uuid 1.2.1",

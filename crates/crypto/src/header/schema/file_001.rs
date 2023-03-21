@@ -1,11 +1,12 @@
 use bincode::impl_borrow_decode;
+use subtle::ConstantTimeEq;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
 	encoding,
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
-	primitives::{generate_bytes_fixed, to_array},
+	primitives::generate_bytes_fixed,
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Params, Salt,
 	},
@@ -172,7 +173,7 @@ impl HeaderObjectIdentifier {
 		})
 	}
 
-	pub fn eq(
+	pub fn decrypt_ct_eq(
 		&self,
 		other: HeaderObjectName,
 		master_key: Key,
@@ -181,8 +182,8 @@ impl HeaderObjectIdentifier {
 		aad: Aad,
 	) -> Result<bool> {
 		let source = self.decrypt_hash(master_key, algorithm, context, aad)?;
-		let rhs = blake3::hash(other.inner());
-		Ok(source.eq(&rhs))
+		let rhs = blake3::hash(other.inner()).into();
+		Ok(source.ct_eq(&rhs).into())
 	}
 
 	fn decrypt_hash(
@@ -191,19 +192,15 @@ impl HeaderObjectIdentifier {
 		algorithm: Algorithm,
 		context: DerivationContext,
 		aad: Aad,
-	) -> Result<blake3::Hash> {
-		to_array(
-			Decryptor::decrypt_bytes(
-				Key::derive(master_key, self.salt, context),
-				self.nonce,
-				algorithm,
-				self.key.inner(),
-				aad.inner(),
-			)?
-			.expose(),
+	) -> Result<Key> {
+		Decryptor::decrypt_key(
+			Key::derive(master_key, self.salt, context),
+			self.nonce,
+			algorithm,
+			self.key,
+			aad.inner(),
 		)
 		.map_err(|_| Error::Decrypt)
-		.map(blake3::Hash::from)
 	}
 }
 
@@ -320,7 +317,7 @@ impl Header for FileHeader001 {
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.eq(
+					.decrypt_ct_eq(
 						name.clone(),
 						master_key.clone(),
 						self.algorithm,
@@ -377,7 +374,7 @@ impl Header for FileHeader001 {
 			.objects
 			.iter()
 			.flat_map(|o| {
-				o.identifier.eq(
+				o.identifier.decrypt_ct_eq(
 					name.clone(),
 					master_key.clone(),
 					self.algorithm,
