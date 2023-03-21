@@ -38,10 +38,7 @@ async fn main() {
 			"/spacedrive",
 			create_custom_uri_endpoint(node.clone()).axum(),
 		)
-		.nest(
-			"/rspc",
-			router.endpoint(move || node.get_request_context()).axum(),
-		)
+		.nest("/rspc", router.endpoint(move || node.clone()).axum())
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4

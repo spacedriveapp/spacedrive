@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import {
 	ArchiveBox,
+	ArrowsClockwise,
 	Broadcast,
 	CheckCircle,
 	CirclesFour,
@@ -148,6 +149,12 @@ const LibrarySection = () => {
 					</div>
 				</Section>
 			)}
+			<Section name="Debug">
+				<SidebarLink to="sync">
+					<Icon component={ArrowsClockwise} />
+					Sync
+				</SidebarLink>
+			</Section>
 		</>
 	);
 };

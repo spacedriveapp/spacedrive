@@ -44,10 +44,10 @@ async fn main() -> tauri::Result<()> {
 	let (node, app) = match result {
 		Ok((node, router)) => {
 			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-			let endpoint = create_custom_uri_endpoint(Arc::clone(&node));
+			let endpoint = create_custom_uri_endpoint(node.clone());
 
 			#[cfg(target_os = "linux")]
-			let app = app_linux::setup(app, Arc::clone(&node), endpoint).await;
+			let app = app_linux::setup(app, node.clone(), endpoint).await;
 
 			#[cfg(not(target_os = "linux"))]
 			let app = app.register_uri_scheme_protocol(
@@ -56,8 +56,8 @@ async fn main() -> tauri::Result<()> {
 			);
 
 			let app = app.plugin(rspc::integrations::tauri::plugin(router, {
-				let node = Arc::clone(&node);
-				move || node.get_request_context()
+				let node = node.clone();
+				move || node.clone()
 			}));
 
 			(Some(node), app)

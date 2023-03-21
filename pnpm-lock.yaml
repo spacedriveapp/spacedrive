@@ -8986,7 +8986,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
+      vite: 4.1.4_sass@1.57.1
     transitivePeerDependencies:
       - supports-color
 
@@ -21858,7 +21858,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
+      vite: 4.1.4_sass@1.57.1
     transitivePeerDependencies:
       - rollup
       - supports-color
