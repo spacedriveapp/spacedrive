@@ -137,8 +137,8 @@ mod tests {
 		187, 185, 123, 20, 164, 197, 171, 31,
 	]);
 
-	#[tokio::test]
-	async fn aes_encrypt_bytes() {
+	#[test]
+	fn aes_encrypt_bytes() {
 		let ciphertext =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &[])
 				.unwrap();
@@ -146,8 +146,8 @@ mod tests {
 		assert_eq!(AES_BYTES_EXPECTED[0].to_vec(), ciphertext);
 	}
 
-	#[tokio::test]
-	async fn aes_encrypt_bytes_with_aad() {
+	#[test]
+	fn aes_encrypt_bytes_with_aad() {
 		let ciphertext =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, &AAD)
 				.unwrap();
@@ -155,8 +155,8 @@ mod tests {
 		assert_eq!(AES_BYTES_EXPECTED[1].to_vec(), ciphertext);
 	}
 
-	#[tokio::test]
-	async fn aes_decrypt_bytes() {
+	#[test]
+	fn aes_decrypt_bytes() {
 		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
@@ -169,8 +169,8 @@ mod tests {
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
-	#[tokio::test]
-	async fn aes_decrypt_bytes_with_aad() {
+	#[test]
+	fn aes_decrypt_bytes_with_aad() {
 		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
@@ -183,8 +183,8 @@ mod tests {
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
-	#[tokio::test]
-	async fn aes_encrypt_key() {
+	#[test]
+	fn aes_encrypt_key() {
 		Encryptor::encrypt_key(
 			KEY,
 			AES_NONCE,
@@ -195,14 +195,14 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn aes_decrypt_key() {
+	#[test]
+	fn aes_decrypt_key() {
 		Decryptor::decrypt_key(KEY, AES_NONCE, Algorithm::Aes256Gcm, AES_ENCRYPTED_KEY, &[])
 			.unwrap();
 	}
 
-	#[tokio::test]
-	async fn aes_encrypt_fixed() {
+	#[test]
+	fn aes_encrypt_fixed() {
 		Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			AES_NONCE,
@@ -213,9 +213,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn aes_encrypt_fixed_bad_length() {
+	fn aes_encrypt_fixed_bad_length() {
 		Encryptor::encrypt_fixed::<KEY_LEN, KEY_LEN>(
 			KEY,
 			AES_NONCE,
@@ -226,8 +226,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn aes_decrypt_fixed() {
+	#[test]
+	fn aes_decrypt_fixed() {
 		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
 			KEY,
 			AES_NONCE,
@@ -238,9 +238,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn aes_decrypt_fixed_bad_length() {
+	fn aes_decrypt_fixed_bad_length() {
 		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			AES_NONCE,
@@ -251,9 +251,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "Decrypt")]
-	async fn aes_decrypt_bytes_missing_aad() {
+	fn aes_decrypt_bytes_missing_aad() {
 		Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
@@ -264,8 +264,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn aes_encrypt_and_decrypt_5_blocks() {
+	#[test]
+	fn aes_encrypt_and_decrypt_5_blocks() {
 		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
@@ -291,8 +291,8 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[tokio::test]
-	async fn aes_encrypt_and_decrypt_5_blocks_with_aad() {
+	#[test]
+	fn aes_encrypt_and_decrypt_5_blocks_with_aad() {
 		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
@@ -318,8 +318,8 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_bytes() {
+	#[test]
+	fn xchacha_encrypt_bytes() {
 		let ciphertext = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
@@ -332,8 +332,8 @@ mod tests {
 		assert_eq!(XCHACHA_BYTES_EXPECTED[0].to_vec(), ciphertext);
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_key() {
+	#[test]
+	fn xchacha_encrypt_key() {
 		Encryptor::encrypt_key(
 			KEY,
 			XCHACHA_NONCE,
@@ -344,8 +344,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn xchacha_decrypt_key() {
+	#[test]
+	fn xchacha_decrypt_key() {
 		Decryptor::decrypt_key(
 			KEY,
 			XCHACHA_NONCE,
@@ -356,8 +356,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_fixed() {
+	#[test]
+	fn xchacha_encrypt_fixed() {
 		Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
@@ -368,9 +368,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn xchacha_encrypt_fixed_bad_length() {
+	fn xchacha_encrypt_fixed_bad_length() {
 		Encryptor::encrypt_fixed::<KEY_LEN, KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
@@ -381,8 +381,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn xchacha_decrypt_keyh() {
+	#[test]
+	fn xchacha_decrypt_keyh() {
 		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
@@ -393,9 +393,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn xchacha_decrypt_key_bad_length() {
+	fn xchacha_decrypt_key_bad_length() {
 		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
 			KEY,
 			XCHACHA_NONCE,
@@ -406,8 +406,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_bytes_with_aad() {
+	#[test]
+	fn xchacha_encrypt_bytes_with_aad() {
 		let ciphertext = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
@@ -420,8 +420,8 @@ mod tests {
 		assert_eq!(XCHACHA_BYTES_EXPECTED[1].to_vec(), ciphertext);
 	}
 
-	#[tokio::test]
-	async fn xchacha_decrypt_bytes() {
+	#[test]
+	fn xchacha_decrypt_bytes() {
 		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
@@ -434,8 +434,8 @@ mod tests {
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
-	#[tokio::test]
-	async fn xchacha_decrypt_bytes_with_aad() {
+	#[test]
+	fn xchacha_decrypt_bytes_with_aad() {
 		let plaintext = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
@@ -448,9 +448,9 @@ mod tests {
 		assert_eq!(PLAINTEXT.to_vec(), plaintext.expose().clone());
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "Decrypt")]
-	async fn xchacha_decrypt_bytes_missing_aad() {
+	fn xchacha_decrypt_bytes_missing_aad() {
 		Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
@@ -461,8 +461,8 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_and_decrypt_5_blocks() {
+	#[test]
+	fn xchacha_encrypt_and_decrypt_5_blocks() {
 		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
@@ -488,8 +488,8 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[tokio::test]
-	async fn xchacha_encrypt_and_decrypt_5_blocks_with_aad() {
+	#[test]
+	fn xchacha_encrypt_and_decrypt_5_blocks_with_aad() {
 		let mut buf = vec![0u8; BLOCK_LEN * 5];
 		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
 		let mut reader = Cursor::new(buf.clone());
@@ -515,9 +515,9 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn encrypt_with_invalid_nonce() {
+	fn encrypt_with_invalid_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
 			AES_NONCE,
@@ -528,9 +528,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "NullType")]
-	async fn encrypt_with_null_nonce() {
+	fn encrypt_with_null_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
 			Nonce::XChaCha20Poly1305([0u8; 20]),
@@ -541,9 +541,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "NullType")]
-	async fn encrypt_with_null_key() {
+	fn encrypt_with_null_key() {
 		Encryptor::encrypt_bytes(
 			Key::new([0u8; KEY_LEN]),
 			XCHACHA_NONCE,
@@ -554,9 +554,9 @@ mod tests {
 		.unwrap();
 	}
 
-	#[tokio::test]
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
-	async fn decrypt_with_invalid_nonce() {
+	fn decrypt_with_invalid_nonce() {
 		Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
