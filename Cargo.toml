@@ -13,25 +13,25 @@ members = [
 ]
 
 [workspace.dependencies]
-prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.6", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.6", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.6", features = [
   "sqlite",
 ], default-features = false }
 
 rspc = { version = "0.1.2" }
 specta = { version = "1.0.0" }
-httpz = { version = "0.0.3" }
+httpz = { version = "0.0.4" }
 
 swift-rs = { version = "1.0.1" }
 
@@ -45,7 +45,6 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d
 
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
-
-rspc = { path = "../rspc-rs" }
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "6b4c282ff654374b7f12832ee4433db731cdff1c" }
-httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "0.1.3" }
+specta = { git = "https://github.com/oscartbeaumont/specta.git", rev = "df67cd18ea7a79819387e4c6a329b0e3929fb79e" }
+httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "be67ead9320095bdecf90cae75fded2411509b0f" } # TODO: Move back to crates.io release
