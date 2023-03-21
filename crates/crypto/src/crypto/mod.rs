@@ -318,6 +318,66 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
+	#[cfg(feature = "async")]
+	#[tokio::test]
+	async fn aes_encrypt_and_decrypt_5_blocks_async() {
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		encryptor
+			.encrypt_streams_async(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = Decryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		decryptor
+			.decrypt_streams_async(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[cfg(feature = "async")]
+	#[tokio::test]
+	async fn aes_encrypt_and_decrypt_5_blocks_with_aad_async() {
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = Encryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		encryptor
+			.encrypt_streams_async(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = Decryptor::new(KEY, AES_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		decryptor
+			.decrypt_streams_async(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
 	#[test]
 	fn xchacha_encrypt_bytes() {
 		let ciphertext = Encryptor::encrypt_bytes(
@@ -508,6 +568,66 @@ mod tests {
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, &AAD)
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[cfg(feature = "async")]
+	#[tokio::test]
+	async fn xchacha_encrypt_and_decrypt_5_blocks_async() {
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		encryptor
+			.encrypt_streams_async(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = Decryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		decryptor
+			.decrypt_streams_async(&mut reader, &mut writer, &[])
+			.await
+			.unwrap();
+
+		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[cfg(feature = "async")]
+	#[tokio::test]
+	async fn xchacha_encrypt_and_decrypt_5_blocks_with_aad_async() {
+		let mut buf = vec![0u8; BLOCK_LEN * 5];
+		ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
+		let mut reader = Cursor::new(buf.clone());
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = Encryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		encryptor
+			.encrypt_streams_async(&mut reader, &mut writer, &AAD)
+			.await
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = Decryptor::new(KEY, XCHACHA_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		decryptor
+			.decrypt_streams_async(&mut reader, &mut writer, &AAD)
+			.await
 			.unwrap();
 
 		let output = writer.into_inner();
