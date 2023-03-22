@@ -92,15 +92,17 @@ harness = false
 name = "argon2id"
 path = "benches/hashing/argon2id.rs"
 harness = false
-
-[[bench]]
-name = "blake3"
-path = "benches/hashing/blake3.rs"
-harness = false
+bench = false
 
 [[bench]]
 name = "balloon-blake3"
 path = "benches/hashing/balloon-blake3.rs"
+harness = false
+bench = false
+
+[[bench]]
+name = "blake3"
+path = "benches/hashing/blake3.rs"
 harness = false
 
 [[bench]]
