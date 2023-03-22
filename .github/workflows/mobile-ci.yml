@@ -108,6 +108,9 @@ jobs:
       - name: Setup Android SDK Tools
         uses: android-actions/setup-android@v2.0.2
 
+      - name: Install NDK
+        run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;23.1.7779620" --sdk_root=${ANDROID_SDK_ROOT}
+
       - name: Cache Gradle dependencies
         uses: actions/cache@v3
         with:
