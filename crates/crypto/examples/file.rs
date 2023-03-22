@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Seek};
 
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
@@ -90,6 +90,9 @@ fn main() {
 	let mut source_comparison = io::Cursor::new(vec![]);
 
 	encrypt(&mut source, &mut dest);
+
+	dest.rewind().unwrap();
+
 	decrypt(&mut dest, &mut source_comparison);
 
 	assert_eq!(source.into_inner(), source_comparison.into_inner())

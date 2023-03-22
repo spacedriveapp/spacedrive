@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Seek};
 
 use sd_crypto::{
 	crypto::Encryptor,
@@ -104,6 +104,9 @@ fn main() {
 	let mut dest = io::Cursor::new(vec![]);
 
 	encrypt(&mut source, &mut dest);
+
+	dest.rewind().unwrap();
+
 	let object_data = decrypt(&mut dest);
 
 	assert_eq!(&object_data, &OBJECT_DATA);
