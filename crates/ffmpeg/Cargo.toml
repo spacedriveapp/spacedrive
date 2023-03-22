@@ -13,6 +13,7 @@ resolver = "2"
 
 [dependencies]
 ffmpeg-sys-next = "5.1.1"
+
 thiserror = "1.0.37"
 webp = "0.2.2"
 tokio = { workspace = true, features = ["fs", "rt"] }

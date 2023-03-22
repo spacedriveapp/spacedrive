@@ -2,7 +2,7 @@ import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { Menu, Transition } from '@headlessui/react';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Fragment, PropsWithChildren } from 'react';
+import { Fragment, PropsWithChildren, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import * as UI from '.';
 import { tw } from './utils';
@@ -60,18 +60,20 @@ export const Item = ({ to, className, icon: Icon, children, ...props }: Dropdown
 	);
 };
 
-export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
-	return (
-		<UI.Button size="sm" {...props} className={clsx('flex text-left', className)}>
-			{children}
-			<span className="grow" />
-			<CaretDown
-				className="text-ink-dull ui-open:rotate-180 ui-open:translate-y-[-1px] w-[12px] translate-y-[1px] transition-transform"
-				aria-hidden="true"
-			/>
-		</UI.Button>
-	);
-};
+export const Button = forwardRef<HTMLButtonElement, UI.ButtonProps>(
+	({ children, className, ...props }, ref) => {
+		return (
+			<UI.Button size="sm" ref={ref} className={clsx('group flex text-left', className)} {...props}>
+				{children}
+				<span className="grow" />
+				<CaretDown
+					className="text-ink-dull group-radix-state-open:rotate-180 group-radix-state-open:translate-y-[-1px] ui-open:rotate-180 ui-open:translate-y-[-1px] ml-2 w-[12px] shrink-0 translate-y-[1px] transition-transform"
+					aria-hidden="true"
+				/>
+			</UI.Button>
+		);
+	}
+);
 
 export interface DropdownRootProps {
 	button: React.ReactNode;

@@ -1,11 +1,11 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
+import { Broadcast, CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
 import React from 'react';
 import { tw } from '~/lib/tailwind';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
-import NodesStack, { NodesStackParamList } from './tabs/NodesStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
+import SpacedropStack, { SpacedropStackParamList } from './tabs/SpacedropStack';
 import SpacesStack, { SpacesStackParamList } from './tabs/SpacesStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -40,21 +40,6 @@ export default function TabNavigator() {
 				}}
 			/>
 			<Tab.Screen
-				name="NodesStack"
-				component={NodesStack}
-				options={{
-					tabBarIcon: ({ focused }) => (
-						<ShareNetwork
-							size={22}
-							weight={focused ? 'bold' : 'regular'}
-							color={focused ? tw.color('accent') : tw.color('ink')}
-						/>
-					),
-					tabBarLabel: 'Nodes',
-					tabBarLabelStyle: tw`text-[10px] font-semibold`
-				}}
-			/>
-			<Tab.Screen
 				name="SpacesStack"
 				component={SpacesStack}
 				options={{
@@ -69,13 +54,28 @@ export default function TabNavigator() {
 					tabBarLabelStyle: tw`text-[10px] font-semibold`
 				}}
 			/>
+			<Tab.Screen
+				name="SpacedropStack"
+				component={SpacedropStack}
+				options={{
+					tabBarIcon: ({ focused }) => (
+						<Broadcast
+							size={22}
+							weight={focused ? 'bold' : 'regular'}
+							color={focused ? tw.color('accent') : tw.color('ink')}
+						/>
+					),
+					tabBarLabel: 'Spacedrop',
+					tabBarLabelStyle: tw`text-[10px] font-semibold`
+				}}
+			/>
 		</Tab.Navigator>
 	);
 }
 
 export type TabParamList = {
 	OverviewStack: NavigatorScreenParams<OverviewStackParamList>;
-	NodesStack: NavigatorScreenParams<NodesStackParamList>;
+	SpacedropStack: NavigatorScreenParams<SpacedropStackParamList>;
 	SpacesStack: NavigatorScreenParams<SpacesStackParamList>;
 };
 

@@ -1,5 +1,5 @@
 import { ScreenHeading } from '@sd/ui';
 
-export default function MediaScreen() {
+export const Component = () => {
 	return <ScreenHeading>Media</ScreenHeading>;
-}
+};

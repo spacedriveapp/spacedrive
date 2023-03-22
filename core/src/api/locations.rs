@@ -27,6 +27,7 @@ pub enum ExplorerContext {
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
+		// has_thumbnail is determined by the local existence of a thumbnail
 		has_thumbnail: bool,
 		item: file_path_with_object::Data,
 	},

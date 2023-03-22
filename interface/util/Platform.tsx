@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { useMediaQuery } from 'react-responsive';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -40,3 +41,18 @@ export function PlatformProvider({
 }: PropsWithChildren<{ platform: Platform }>) {
 	return <context.Provider value={platform}>{children}</context.Provider>;
 }
+
+export const useIsDark = () => {
+	const systemPrefersDark = useMediaQuery(
+		{
+			query: '(prefers-color-scheme: dark)'
+		},
+		undefined,
+		(prefersDark: boolean) => {
+			setIsDark(prefersDark);
+		}
+	);
+	const [isDark, setIsDark] = useState(systemPrefersDark);
+
+	return isDark;
+};

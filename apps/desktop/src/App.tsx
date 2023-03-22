@@ -5,6 +5,7 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { useEffect } from 'react';
+import { createMemoryRouter } from 'react-router-dom';
 import { getDebugState, hooks } from '@sd/client';
 import {
 	ErrorPage,
@@ -12,7 +13,8 @@ import {
 	OperatingSystem,
 	Platform,
 	PlatformProvider,
-	SpacedriveInterface
+	SpacedriveInterface,
+	routes
 } from '@sd/interface';
 import '@sd/ui/style';
 
@@ -73,6 +75,8 @@ const platform: Platform = {
 
 const queryClient = new QueryClient();
 
+const router = createMemoryRouter(routes);
+
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
@@ -98,7 +102,7 @@ export default function App() {
 		<hooks.Provider client={client} queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<SpacedriveInterface router="memory" />
+					<SpacedriveInterface router={router} />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</hooks.Provider>

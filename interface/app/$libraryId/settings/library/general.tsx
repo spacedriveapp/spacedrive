@@ -1,11 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
-import { Button, Input, Switch } from '@sd/ui';
+import { Button, Input, Switch, dialogManager } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
+import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
 
-export default () => {
+export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
 
@@ -64,7 +65,16 @@ export default () => {
 				description="This is permanent, your files will not be deleted, only the Spacedrive library."
 			>
 				<div className="mt-2">
-					<Button size="sm" variant="colored" className="border-red-500 bg-red-500">
+					<Button
+						size="sm"
+						variant="colored"
+						className="border-red-500 bg-red-500"
+						onClick={() => {
+							dialogManager.create((dp) => (
+								<DeleteLibraryDialog {...dp} libraryUuid={library.uuid} />
+							));
+						}}
+					>
 						Delete
 					</Button>
 				</div>

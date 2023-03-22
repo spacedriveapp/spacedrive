@@ -103,12 +103,12 @@ impl FromStr for OperatingSystem {
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let mut chars = s.chars();
 		match chars.next() {
-			Some('w') => Ok(OperatingSystem::Windows),
-			Some('l') => Ok(OperatingSystem::Linux),
-			Some('m') => Ok(OperatingSystem::MacOS),
-			Some('i') => Ok(OperatingSystem::Ios),
-			Some('a') => Ok(OperatingSystem::Android),
-			_ => Ok(OperatingSystem::Other(chars.as_str().to_string())),
+			Some('W') => Ok(OperatingSystem::Windows),
+			Some('L') => Ok(OperatingSystem::Linux),
+			Some('M') => Ok(OperatingSystem::MacOS),
+			Some('I') => Ok(OperatingSystem::Ios),
+			Some('A') => Ok(OperatingSystem::Android),
+			_ => Ok(OperatingSystem::Other(s.to_owned())),
 		}
 	}
 }

@@ -3,7 +3,7 @@ import { telemetryStore, useTelemetryState } from '~/../packages/client/src';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
-export default function PrivacySettings() {
+export const Component = () => {
 	const shareTelemetry = useTelemetryState().shareTelemetry;
 
 	return (
@@ -22,4 +22,4 @@ export default function PrivacySettings() {
 			</Setting>
 		</>
 	);
-}
+};

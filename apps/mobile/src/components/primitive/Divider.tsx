@@ -1,12 +1,4 @@
-import { StyleProp, View, ViewStyle } from 'react-native';
-import { tw } from '~/lib/tailwind';
+import { View } from 'react-native';
+import { styled } from '~/lib/tailwind';
 
-type DividerProps = {
-	style?: StyleProp<ViewStyle>;
-};
-
-const Divider = ({ style }: DividerProps) => {
-	return <View style={[tw`bg-app-line my-1 h-[1px] w-full`, style]} />;
-};
-
-export default Divider;
+export const Divider = styled(View, 'bg-app-line my-1 h-[1px] w-full');

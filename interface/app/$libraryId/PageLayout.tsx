@@ -6,7 +6,7 @@ import DragRegion from '~/components/DragRegion';
 
 const PageLayoutContext = createContext<{ ref: RefObject<HTMLDivElement> } | null>(null);
 
-export default () => {
+export const Component = () => {
 	const ref = useRef<HTMLDivElement>(null);
 
 	return (

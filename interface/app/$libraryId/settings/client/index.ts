@@ -1,10 +1,9 @@
-import { RouteObject } from "react-router";
-import { lazyEl } from "~/util";
+import { RouteObject } from 'react-router';
 
 export default [
-	{ path: 'general', element: lazyEl(() => import('./general')) },
-	{ path: 'appearance', element: lazyEl(() => import('./appearance')) },
-	{ path: 'keybindings', element: lazyEl(() => import('./keybindings')) },
-	{ path: 'extensions', element: lazyEl(() => import('./extensions')) },
-	{ path: 'privacy', element: lazyEl(() => import('./privacy')) },
-] satisfies RouteObject[]
+	{ path: 'general', lazy: () => import('./general') },
+	{ path: 'appearance', lazy: () => import('./appearance') },
+	{ path: 'keybindings', lazy: () => import('./keybindings') },
+	{ path: 'extensions', lazy: () => import('./extensions') },
+	{ path: 'privacy', lazy: () => import('./privacy') }
+] satisfies RouteObject[];

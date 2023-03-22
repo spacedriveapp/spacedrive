@@ -16,7 +16,8 @@
 		"@sd/interface": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",
 		"react": "^18.2.0",
-		"react-dom": "^18.2.0"
+		"react-dom": "^18.2.0",
+		"react-router-dom": "6.9.0"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.30.0",

@@ -4,7 +4,6 @@
 mod behaviour;
 mod connection;
 mod libp2p;
-mod message;
 mod proto_inbound;
 mod proto_outbound;
 mod stream;
@@ -12,7 +11,6 @@ mod stream;
 pub use self::libp2p::*;
 pub use behaviour::*;
 pub use connection::*;
-pub use message::*;
 pub use proto_inbound::*;
 pub use proto_outbound::*;
 pub use stream::*;

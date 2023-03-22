@@ -1,5 +1,4 @@
 use crate::{
-	api::Ctx,
 	invalidate_query,
 	library::{Library, LibraryConfig},
 	prisma::statistics,
@@ -7,8 +6,8 @@ use crate::{
 };
 
 use sd_crypto::{
-	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm,
-	primitives::types::OnboardingConfig, Protected,
+	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
+	Protected,
 };
 
 use chrono::Utc;
@@ -25,7 +24,7 @@ use super::{
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
 		.query("list", |t| {
-			t(|ctx: Ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
+			t(|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
 		})
 		.library_query("getStatistics", |t| {
 			t(|_, _: (), library: Library| async move {
@@ -106,7 +105,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				hashing_algorithm: HashingAlgorithm,
 			}
 
-			t(|ctx: Ctx, args: CreateLibraryArgs| async move {
+			t(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
 				let password = match args.auth {
@@ -161,14 +160,49 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub description: Option<String>,
 			}
 
-			t(|ctx: Ctx, args: EditLibraryArgs| async move {
-				Ok(ctx
+			t(|node, args: EditLibraryArgs| async move {
+				Ok(node
 					.library_manager
 					.edit(args.id, args.name, args.description)
 					.await?)
 			})
 		})
 		.mutation("delete", |t| {
-			t(|ctx: Ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
+			t(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
 		})
+	// .yolo_merge("peer.guest.", peer_guest_router())
+	// .yolo_merge("peer.host.", peer_host_router())
 }
+
+// pub(crate) fn peer_guest_router() -> RouterBuilder {
+// 	<RouterBuilder>::new()
+// 		.subscription("request_peering", |t| {
+// 			t(|node, peer_id: String| {
+// 				async_stream::stream! {
+//                     let mut rx = node.begin_guest_peer_request(peer_id).await.unwrap();
+
+// 					while let Some(state) = rx.recv().await {
+// 						yield state;
+// 					}
+// 				}
+// 			})
+// 		})
+// 		.mutation("submit_password", |t| {
+// 			t(|node, password: String| async move {
+// 				let request = node.peer_request.lock().await;
+// 				let Some(peer_request::PeerRequest::Guest(request)) = &*request else {
+//                     return
+//                 };
+
+//                 request.submit_password(password).await;
+// 			})
+// 		})
+// }
+
+// pub(crate) fn peer_host_router() -> RouterBuilder {
+// 	<RouterBuilder>::new()
+// 		.subscription("request", |t| {
+// 			t(|node, _: ()| async_stream::stream! { yield (); })
+// 		})
+// 		.mutation("accept", |t| t(|node, _: ()| Ok(())))
+// }

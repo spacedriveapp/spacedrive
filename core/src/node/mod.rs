@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod config;
+pub mod peer_request;
 
 pub use config::*;
 

@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { useFormState } from 'react-hook-form';
 import { useParams } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, forms, tw } from '@sd/ui';
@@ -24,7 +23,7 @@ const schema = z.object({
 	hidden: z.boolean()
 });
 
-export default function EditLocation() {
+export const Component = () => {
 	const queryClient = useQueryClient();
 	const { id } = useParams<{
 		id: string;
@@ -69,7 +68,7 @@ export default function EditLocation() {
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
-	const { isDirty } = useFormState({ control: form.control });
+	const { isDirty } = form.formState;
 
 	return (
 		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
@@ -182,4 +181,4 @@ export default function EditLocation() {
 			</ModalLayout>
 		</Form>
 	);
-}
+};

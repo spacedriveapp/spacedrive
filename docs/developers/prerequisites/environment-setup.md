@@ -59,7 +59,7 @@ To run mobile app
 1. Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
 2. `./.github/scripts/setup-system.sh mobile`
    _The should setup most of the dependencies for the mobile app to build._
-3. You must also ensure you have [NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
+3. You must also ensure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 4. `pnpm mobile android` - runs on Android Emulator
 5. `pnpm mobile ios` - runs on iOS Emulator
 
@@ -68,4 +68,4 @@ To run mobile app
 If you are having issues ensure you are using the following versions of Rust and Node:
 
 - Rust version: **1.67.0**
-- Node version: **17**
+- Node version: **18**

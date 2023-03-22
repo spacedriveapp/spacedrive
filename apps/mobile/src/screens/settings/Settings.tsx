@@ -109,7 +109,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
 			style={twStyle(
-				'text-ink-dull mb-2 ml-3 text-sm font-semibold',
+				'text-ink mb-2 ml-2 text-sm font-bold',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>
@@ -129,14 +129,15 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 					<SettingsItem
 						title={item.title}
 						leftIcon={item.icon}
-						onPress={() => navigation.navigate(item.navigateTo)}
+						onPress={() => navigation.navigate(item.navigateTo as any)}
 					/>
 				)}
 				renderSectionHeader={renderSectionHeader}
 				ListFooterComponent={
 					<View style={tw`mt-6 mb-4 items-center`}>
-						<Text style={tw`text-ink text-sm font-bold`}>Spacedrive</Text>
-						<Text style={tw`text-ink-faint mt-0.5 text-xs`}>v0.1.0</Text>
+						<Text style={tw`text-ink text-base font-bold`}>Spacedrive</Text>
+						{/* TODO: Get this automatically (expo-device have this?) */}
+						<Text style={tw`text-ink-faint mt-0.5 text-xs font-medium`}>v0.1.0</Text>
 					</View>
 				}
 				showsVerticalScrollIndicator={false}

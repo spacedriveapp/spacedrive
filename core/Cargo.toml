@@ -10,13 +10,22 @@ rust-version = "1.67.0"
 
 [features]
 default = []
-mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = ["dep:ffmpeg-next", "dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+mobile = [
+] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = [
+  "dep:ffmpeg-next",
+  "dep:sd-ffmpeg",
+] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
+sync-messages = []
 
 [dependencies]
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
-sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
+sd-crypto = { path = "../crates/crypto", features = [
+  "rspc",
+  "serde",
+  "keymanager",
+] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
@@ -62,7 +71,7 @@ uhlc = "0.5.1"
 http-range = "0.1.5"
 mini-moka = "0.10.0"
 serde_with = "2.2.0"
-dashmap =  { version = "5.4.0", features = ["serde"] }
+dashmap = { version = "5.4.0", features = ["serde"] }
 ffmpeg-next = { version = "5.1.1", optional = true, features = [] }
 notify = { version = "5.0.0", default-features = false, features = [
   "macos_fsevent",
