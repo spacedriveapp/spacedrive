@@ -98,6 +98,48 @@ macro_rules! impl_stream {
 			/// It requires a reader, a writer, and any relevant AAD.
 			///
 			/// The AAD will be authenticated with every block of data.
+			pub fn $streams_fn<R, W>(
+				mut self,
+				mut reader: R,
+				mut writer: W,
+				aad: Aad,
+			) -> Result<()>
+			where
+				R: Read,
+				W: Write,
+			{
+				let mut buffer = vec![0u8; $size].into_boxed_slice();
+
+				loop {
+					let count = exhaustive_read(&mut reader, &mut buffer)?;
+
+					let payload = Payload {
+						aad: aad.inner(),
+						msg: &buffer[..count],
+					};
+
+					if count == $size {
+						let d = self.$next_fn(payload)?;
+						writer.write_all(&d)?;
+					} else {
+						let d = self.$last_fn(payload)?;
+						writer.write_all(&d)?;
+						break;
+					}
+				}
+
+				writer.flush()?;
+
+				Ok(())
+			}
+
+			/// This function should be used for large amounts of data.
+			///
+			/// The streaming implementation reads blocks of data in `BLOCK_LEN`, encrypts/decrypts, and writes to the writer.
+			///
+			/// It requires a reader, a writer, and any relevant AAD.
+			///
+			/// The AAD will be authenticated with every block of data.
 			#[cfg(feature = "async")]
 			pub async fn $streams_fn_async<R, W>(
 				mut self,
@@ -134,48 +176,6 @@ macro_rules! impl_stream {
 				Ok(())
 			}
 
-			/// This function should be used for large amounts of data.
-			///
-			/// The streaming implementation reads blocks of data in `BLOCK_LEN`, encrypts/decrypts, and writes to the writer.
-			///
-			/// It requires a reader, a writer, and any relevant AAD.
-			///
-			/// The AAD will be authenticated with every block of data.
-			pub fn $streams_fn<R, W>(
-				mut self,
-				mut reader: R,
-				mut writer: W,
-				aad: Aad,
-			) -> Result<()>
-			where
-				R: Read,
-				W: Write,
-			{
-				let mut buffer = vec![0u8; $size].into_boxed_slice();
-
-				loop {
-					let count = exhaustive_read(&mut reader, &mut buffer)?;
-
-					let payload = Payload {
-						aad: aad.inner(),
-						msg: &buffer[..count],
-					};
-
-					if count == $size {
-						let d = self.$next_fn(payload)?;
-						writer.write_all(&d)?;
-					} else {
-						let d = self.$last_fn(payload)?;
-						writer.write_all(&d)?;
-						break;
-					}
-				}
-
-				writer.flush()?;
-
-				Ok(())
-			}
-
 			/// This should ideally only be used for small amounts of data.
 			///
 			/// It is just a thin wrapper around the associated `encrypt/decrypt_streams` function.
@@ -194,7 +194,6 @@ macro_rules! impl_stream {
 					.$streams_fn(bytes, &mut writer, aad)
 					.map(|_|writer.into_inner().into())
 			}
-
 		}
 	};
 }
