@@ -171,7 +171,7 @@ impl TryFrom<Vec<u8>> for Nonce {
 }
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]

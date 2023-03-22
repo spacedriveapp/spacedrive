@@ -409,8 +409,100 @@ mod tests {
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
 
-		assert!(header.count_keyslots() == 1);
+		assert_eq!(header.count_keyslots(), 1);
+		assert_eq!(header.count_objects(), 0);
 		assert!(decrypted_mk == mk);
+		assert!(header.get_algorithm() == ALGORITHM);
+	}
+
+	#[test]
+	fn serialize_and_deserialize_no_extras() {
+		let mut writer = Cursor::new(vec![]);
+		let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+
+		assert_eq!(header.count_keyslots(), 0);
+		assert_eq!(header.count_objects(), 0);
+		assert!(header.get_algorithm() == ALGORITHM);
+	}
+
+	#[test]
+	fn serialize_and_deserialize_no_keyslot_one_object() {
+		let mk = Key::generate();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+
+		let object1 = header.decrypt_object(OBJECT1_NAME, CONTEXT, mk).unwrap();
+
+		assert_eq!(header.count_keyslots(), 0);
+		assert_eq!(header.count_objects(), 1);
+		assert!(header.get_algorithm() == ALGORITHM);
+		assert!(object1.expose() == &OBJECT1_DATA);
+	}
+
+	#[test]
+	fn serialize_and_deserialize_no_keyslot_two_objects() {
+		let mk = Key::generate();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
+			.unwrap();
+
+		header
+			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+
+		let object1 = header
+			.decrypt_object(OBJECT1_NAME, CONTEXT, mk.clone())
+			.unwrap();
+		let object2 = header.decrypt_object(OBJECT2_NAME, CONTEXT, mk).unwrap();
+
+		assert_eq!(header.count_keyslots(), 0);
+		assert_eq!(header.count_objects(), 2);
+		assert!(header.get_algorithm() == ALGORITHM);
+		assert!(object1.expose() == &OBJECT1_DATA);
+		assert!(object2.expose() == &OBJECT2_DATA);
+	}
+
+	#[test]
+	#[should_panic(expected = "NoKeyslots")]
+	fn serialize_and_deserialize_no_keyslot_attempt_decrypt() {
+		let mut writer = Cursor::new(vec![]);
+		let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		header
+			.decrypt_master_key(vec![Key::generate()], CONTEXT)
+			.unwrap();
 	}
 
 	#[test]
@@ -448,8 +540,40 @@ mod tests {
 			.decrypt_master_key_with_password(PASSWORD.to_vec().into(), CONTEXT)
 			.unwrap();
 
-		assert!(header.count_keyslots() == 1);
+		assert_eq!(header.count_keyslots(), 1);
+		assert_eq!(header.count_objects(), 0);
 		assert!(decrypted_mk == mk);
+	}
+
+	#[test]
+	#[should_panic(expected = "Decrypt")]
+	fn serialize_and_deserialize_with_password_incorrect() {
+		let mk = Key::generate();
+		let content_salt = Salt::generate();
+
+		let hashed_pw = Hasher::hash_password(
+			HASHING_ALGORITHM,
+			PASSWORD.to_vec().into(),
+			content_salt,
+			None,
+		)
+		.unwrap();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk, CONTEXT)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		header
+			.decrypt_master_key_with_password(vec![1u8; 8].into(), CONTEXT)
+			.unwrap();
 	}
 
 	#[test]
@@ -515,7 +639,8 @@ mod tests {
 			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
 			.unwrap();
 
-		assert!(header.count_keyslots() == 2);
+		assert_eq!(header.count_keyslots(), 2);
+		assert_eq!(header.count_objects(), 0);
 		assert!(decrypted_mk == mk);
 		assert!(decrypted_mk2 == mk);
 	}
@@ -548,9 +673,9 @@ mod tests {
 
 		let bytes = header.decrypt_object(OBJECT1_NAME, CONTEXT, mk).unwrap();
 
-		assert!(header.count_objects() == 1);
-		assert!(header.count_keyslots() == 1);
-		assert_eq!(bytes.expose(), &OBJECT1_DATA);
+		assert_eq!(header.count_objects(), 1);
+		assert_eq!(header.count_keyslots(), 1);
+		assert!(bytes.expose() == &OBJECT1_DATA);
 	}
 
 	#[test]
@@ -621,10 +746,10 @@ mod tests {
 
 		let object2 = header.decrypt_object(OBJECT2_NAME, CONTEXT, mk).unwrap();
 
-		assert!(header.count_objects() == 2);
-		assert!(header.count_keyslots() == 1);
-		assert_eq!(object1.expose(), &OBJECT1_DATA);
-		assert_eq!(object2.expose(), &OBJECT2_DATA);
+		assert_eq!(header.count_objects(), 2);
+		assert_eq!(header.count_keyslots(), 1);
+		assert!(object1.expose() == &OBJECT1_DATA);
+		assert!(object2.expose() == &OBJECT2_DATA);
 	}
 
 	#[test]
@@ -766,12 +891,12 @@ mod tests {
 			.decrypt_object(OBJECT2_NAME, CONTEXT, mk.clone())
 			.unwrap();
 
-		assert!(header.count_objects() == 2);
-		assert!(header.count_keyslots() == 2);
+		assert_eq!(header.count_objects(), 2);
+		assert_eq!(header.count_keyslots(), 2);
 		assert!(decrypted_mk == mk);
 		assert!(decrypted_mk2 == mk);
-		assert_eq!(object1.expose(), &OBJECT1_DATA);
-		assert_eq!(object2.expose(), &OBJECT2_DATA);
+		assert!(object1.expose() == &OBJECT1_DATA);
+		assert!(object2.expose() == &OBJECT2_DATA);
 	}
 
 	#[cfg(feature = "async")]
@@ -832,11 +957,11 @@ mod tests {
 			.decrypt_object(OBJECT2_NAME, CONTEXT, mk.clone())
 			.unwrap();
 
-		assert!(header.count_objects() == 2);
-		assert!(header.count_keyslots() == 2);
+		assert_eq!(header.count_objects(), 2);
+		assert_eq!(header.count_keyslots(), 2);
 		assert!(decrypted_mk == mk);
 		assert!(decrypted_mk2 == mk);
-		assert_eq!(object1.expose(), &OBJECT1_DATA);
-		assert_eq!(object2.expose(), &OBJECT2_DATA);
+		assert!(object1.expose() == &OBJECT1_DATA);
+		assert!(object2.expose() == &OBJECT2_DATA);
 	}
 }

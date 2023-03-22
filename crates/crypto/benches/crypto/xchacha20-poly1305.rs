@@ -6,7 +6,7 @@ use sd_crypto::{
 };
 
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
-const SIZES: [usize; 1] = [BLOCK_LEN];
+const SIZES: [usize; 3] = [BLOCK_LEN, BLOCK_LEN * 2, BLOCK_LEN * 4];
 
 fn bench(c: &mut Criterion) {
 	let mut group = c.benchmark_group(ALGORITHM.to_string().to_ascii_lowercase());
