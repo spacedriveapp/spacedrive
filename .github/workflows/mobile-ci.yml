@@ -67,6 +67,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.x.x
+
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
@@ -78,11 +83,6 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.2
-        with:
-          version: 7.x.x
 
       - name: Cache Rust deps
         uses: Swatinem/rust-cache@v2
