@@ -171,7 +171,7 @@ impl TryFrom<Vec<u8>> for Nonce {
 }
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -387,7 +387,7 @@ impl EncryptedKey {
 
 impl ConstantTimeEq for EncryptedKey {
 	fn ct_eq(&self, other: &Self) -> subtle::Choice {
-		self.inner().ct_eq(other.inner())
+		self.inner().ct_eq(other.inner()) & self.nonce().inner().ct_eq(other.nonce().inner())
 	}
 }
 
@@ -487,5 +487,78 @@ impl Display for Algorithm {
 			Self::XChaCha20Poly1305 => write!(f, "XChaCha20-Poly1305"),
 			Self::Aes256Gcm => write!(f, "AES-256-GCM"),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::{
+		assert_ct_eq, assert_ct_ne,
+		primitives::{
+			AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+		},
+		types::{EncryptedKey, Key, Nonce},
+	};
+	use subtle::ConstantTimeEq;
+
+	const KEY: Key = Key::new([0x23; KEY_LEN]);
+	const KEY2: Key = Key::new([0x24; KEY_LEN]);
+
+	const EK: [[u8; ENCRYPTED_KEY_LEN]; 2] = [[0x20; ENCRYPTED_KEY_LEN], [0x21; ENCRYPTED_KEY_LEN]];
+	const NONCES: [Nonce; 2] = [
+		Nonce::XChaCha20Poly1305([5u8; XCHACHA20_POLY1305_NONCE_LEN]),
+		Nonce::Aes256Gcm([1u8; AES_256_GCM_NONCE_LEN]),
+	];
+
+	#[test]
+	fn encrypted_key_eq() {
+		// same key and nonce
+		assert_ct_eq!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[0])
+		);
+
+		// same key, different nonce
+		assert_ct_ne!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[1])
+		);
+
+		// different key, same nonce
+		assert_ct_ne!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[1], NONCES[0])
+		);
+	}
+
+	#[test]
+	#[should_panic]
+	fn encrypted_key_eq_different_key() {
+		// different key, same nonce
+		assert_ct_eq!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[1], NONCES[0])
+		);
+	}
+
+	#[test]
+	#[should_panic]
+	fn encrypted_key_eq_different_nonce() {
+		// same key, different nonce
+		assert_ct_eq!(
+			EncryptedKey::new(EK[0], NONCES[0]),
+			EncryptedKey::new(EK[0], NONCES[1])
+		);
+	}
+
+	#[test]
+	fn key_eq() {
+		assert_ct_eq!(KEY, KEY);
+	}
+
+	#[test]
+	#[should_panic]
+	fn key_eq_fail() {
+		assert_ct_eq!(KEY, KEY2);
 	}
 }
