@@ -1,4 +1,4 @@
-use std::fs::{remove_file, File};
+use std::io;
 
 use sd_crypto::{
 	crypto::Encryptor,
@@ -20,14 +20,14 @@ const HEADER_OBJECT_CONTEXT: DerivationContext =
 const ALGORITHM: Algorithm = Algorithm::default();
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::default();
 
-const FILE_NAME: &str = "dfskgjh39u4dgsfjk.test";
+const OBJECT_DATA: [u8; 15] = *b"a nice mountain";
 
-fn encrypt() {
+fn encrypt<R, W>(reader: &mut R, writer: &mut W)
+where
+	R: io::Read,
+	W: io::Write,
+{
 	let password = Protected::new(b"password".to_vec());
-
-	// Open both the source and the output file
-	let mut reader = File::open(FILE_NAME).unwrap();
-	let mut writer = File::create(format!("{FILE_NAME}.encrypted")).unwrap();
 
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = Key::generate();
@@ -36,8 +36,6 @@ fn encrypt() {
 	let content_salt = Salt::generate();
 	let hashed_password =
 		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, None).unwrap();
-
-	let object_data = b"a nice mountain";
 
 	// Create the header for the encrypted file
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
@@ -58,12 +56,12 @@ fn encrypt() {
 			HeaderObjectName::new("FileMetadata"),
 			HEADER_OBJECT_CONTEXT,
 			master_key.clone(),
-			object_data,
+			&OBJECT_DATA,
 		)
 		.unwrap();
 
 	// Write the header to the file
-	header.write(&mut writer, MAGIC_BYTES).unwrap();
+	header.write(writer, MAGIC_BYTES).unwrap();
 
 	// Use the nonce created by the header to initialize an encryptor
 	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
@@ -71,18 +69,18 @@ fn encrypt() {
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams(&mut reader, &mut writer, header.get_aad())
+		.encrypt_streams(reader, writer, header.get_aad())
 		.unwrap();
 }
 
-fn decrypt() {
+fn decrypt<R>(reader: &mut R) -> Vec<u8>
+where
+	R: io::Read + io::Seek,
+{
 	let password = Protected::new(b"password".to_vec());
 
-	// Open the encrypted file
-	let mut reader = File::open(format!("{FILE_NAME}.encrypted")).unwrap();
-
 	// Deserialize the header from the encrypted file
-	let header = FileHeader::from_reader(&mut reader, MAGIC_BYTES).unwrap();
+	let header = FileHeader::from_reader(reader, MAGIC_BYTES).unwrap();
 
 	let master_key = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
@@ -97,19 +95,16 @@ fn decrypt() {
 		)
 		.unwrap();
 
-	println!(
-		"the object data was: \"{}\"",
-		String::from_utf8(object.into_inner()).unwrap()
-	);
+	object.into_inner()
 }
 
 fn main() {
-	File::create(FILE_NAME).unwrap();
+	// Open both the source and the output file
+	let mut source = io::Cursor::new(vec![5u8; 256]);
+	let mut dest = io::Cursor::new(vec![]);
 
-	encrypt();
+	encrypt(&mut source, &mut dest);
+	let object_data = decrypt(&mut dest);
 
-	decrypt();
-
-	remove_file(FILE_NAME).unwrap();
-	remove_file(format!("{FILE_NAME}.encrypted")).unwrap();
+	assert_eq!(&object_data, &OBJECT_DATA);
 }
