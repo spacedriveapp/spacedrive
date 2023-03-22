@@ -192,7 +192,7 @@ macro_rules! impl_stream {
 
 				s
 					.$streams_fn(bytes, &mut writer, aad)
-					.map_or_else(Err, |_| Ok(writer.into_inner().into()))
+					.map(|_|writer.into_inner().into())
 			}
 
 		}
