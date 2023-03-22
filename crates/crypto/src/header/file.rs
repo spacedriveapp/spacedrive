@@ -81,7 +81,7 @@ pub trait Header {
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
-		hashed_key: Key,
+		hashed_password: Key,
 		master_key: Key,
 		context: DerivationContext,
 	) -> Result<()>;
@@ -341,14 +341,14 @@ impl FileHeader {
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
-		hashed_key: Key,
+		hashed_password: Key,
 		master_key: Key,
 		context: DerivationContext,
 	) -> Result<()> {
 		self.inner.add_keyslot(
 			hashing_algorithm,
 			content_salt,
-			hashed_key,
+			hashed_password,
 			master_key,
 			context,
 		)
@@ -360,6 +360,7 @@ impl FileHeader {
 mod tests {
 	use crate::{
 		header::{FileHeader, HeaderObjectName},
+		keys::Hasher,
 		primitives::LATEST_FILE_HEADER,
 		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	};
@@ -374,6 +375,8 @@ mod tests {
 	const ALGORITHM: Algorithm = Algorithm::default();
 	const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::default();
 
+	const PASSWORD: [u8; 16] = [5u8; 16];
+
 	const OBJECT1_NAME: HeaderObjectName = HeaderObjectName::new("Object1");
 	const OBJECT2_NAME: HeaderObjectName = HeaderObjectName::new("Object2");
 
@@ -387,7 +390,6 @@ mod tests {
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
 
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
@@ -412,10 +414,48 @@ mod tests {
 	}
 
 	#[test]
+	fn serialize_and_deserialize_with_password() {
+		let mk = Key::generate();
+		let content_salt = Salt::generate();
+
+		let hashed_pw = Hasher::hash_password(
+			HASHING_ALGORITHM,
+			PASSWORD.to_vec().into(),
+			content_salt,
+			None,
+		)
+		.unwrap();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw,
+				mk.clone(),
+				CONTEXT,
+			)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let decrypted_mk = header
+			.decrypt_master_key_with_password(PASSWORD.to_vec().into(), CONTEXT)
+			.unwrap();
+
+		assert!(header.count_keyslots() == 1);
+		assert!(decrypted_mk == mk);
+	}
+
+	#[test]
 	#[should_panic(expected = "MagicByteMismatch")]
 	fn serialize_and_deserialize_with_bad_magic_bytes() {
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
@@ -443,7 +483,6 @@ mod tests {
 		let hashed_pw2 = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
@@ -485,7 +524,6 @@ mod tests {
 	fn serialize_and_deserialize_with_object() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
@@ -520,7 +558,6 @@ mod tests {
 	fn serialize_and_deserialize_with_object_bad_identifier() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header
@@ -552,7 +589,6 @@ mod tests {
 	fn serialize_and_deserialize_with_two_objects() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-
 		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
 
 		header

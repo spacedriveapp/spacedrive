@@ -9,10 +9,8 @@
 #![warn(clippy::complexity)]
 #![warn(clippy::nursery)]
 #![warn(clippy::unwrap_used)]
-#![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
-#![allow(clippy::similar_names)]
 #![forbid(unsafe_code)]
 
 pub mod crypto;

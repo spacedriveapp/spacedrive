@@ -190,7 +190,7 @@ impl Keyslot001 {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
-		hashed_key: Key,
+		hashed_password: Key,
 		master_key: Key,
 		aad: Aad,
 		context: DerivationContext,
@@ -199,7 +199,7 @@ impl Keyslot001 {
 		let salt = Salt::generate();
 
 		let encrypted_key = Encryptor::encrypt_key(
-			Hasher::derive_key(hashed_key, salt, context),
+			Hasher::derive_key(hashed_password, salt, context),
 			nonce,
 			algorithm,
 			master_key,
@@ -311,7 +311,7 @@ impl Header for FileHeader001 {
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: Salt,
-		hashed_key: Key,
+		hashed_password: Key,
 		master_key: Key,
 		context: DerivationContext,
 	) -> Result<()> {
@@ -323,7 +323,7 @@ impl Header for FileHeader001 {
 			self.algorithm,
 			hashing_algorithm,
 			content_salt,
-			hashed_key,
+			hashed_password,
 			master_key,
 			self.aad,
 			context,
