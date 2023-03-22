@@ -60,3 +60,124 @@ pub fn ensure_length(expected: usize, b: &[u8]) -> Result<()> {
 		.then_some(())
 		.ok_or(Error::LengthMismatch)
 }
+
+#[macro_export]
+// `assert_eq!` but constant-time and opaque
+macro_rules! assert_ct_eq {
+	($left:expr, $right:expr) => {
+		match (&$left, &$right) {
+			(left_val, right_val) => {
+				if !bool::from(left_val.ct_eq(right_val)) {
+					panic!("assertion failed")
+				}
+			}
+		}
+	};
+}
+
+#[macro_export]
+// `assert_ne!` but constant-time and opaque
+macro_rules! assert_ct_ne {
+	($left:expr, $right:expr) => {
+		match (&$left, &$right) {
+			(left_val, right_val) => {
+				if bool::from(left_val.ct_eq(right_val)) {
+					panic!("assertion failed")
+				}
+			}
+		}
+	};
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+	use crate::{assert_ct_eq, primitives::SALT_LEN, util::ToArray};
+	use subtle::ConstantTimeEq;
+
+	#[test]
+	fn vec_to_array() {
+		let vec = vec![1u8; SALT_LEN];
+		let array: [u8; SALT_LEN] = vec.clone().to_array().unwrap();
+
+		assert_eq!(vec, array);
+		assert_eq!(vec.len(), SALT_LEN);
+		assert_eq!(array.len(), SALT_LEN);
+	}
+
+	#[test]
+	fn slice_to_array() {
+		let slice = [1u8; SALT_LEN].as_ref();
+		let array: [u8; SALT_LEN] = slice.to_array().unwrap();
+
+		assert_eq!(slice, array);
+		assert_eq!(slice.len(), SALT_LEN);
+		assert_eq!(array.len(), SALT_LEN);
+	}
+
+	#[test]
+	fn generate_bytes() {
+		let bytes = super::generate_vec(SALT_LEN);
+		let bytes2 = super::generate_vec(SALT_LEN);
+
+		assert_ne!(bytes, bytes2);
+		assert_eq!(bytes.len(), SALT_LEN);
+		assert_eq!(bytes2.len(), SALT_LEN);
+	}
+
+	#[test]
+	fn generate_fixed() {
+		let bytes: [u8; SALT_LEN] = super::generate_fixed();
+		let bytes2: [u8; SALT_LEN] = super::generate_fixed();
+
+		assert_ne!(bytes, bytes2);
+		assert_eq!(bytes.len(), SALT_LEN);
+		assert_eq!(bytes2.len(), SALT_LEN);
+	}
+
+	#[test]
+	fn ensure_not_null() {
+		super::ensure_not_null(&[1u8; SALT_LEN]).unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "NullType")]
+	fn ensure_not_null_fail() {
+		super::ensure_not_null(&[0u8; SALT_LEN]).unwrap();
+	}
+
+	#[test]
+	fn ensure_length() {
+		super::ensure_length(SALT_LEN, &[1u8; SALT_LEN]).unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "LengthMismatch")]
+	fn ensure_length_fail() {
+		super::ensure_length(SALT_LEN - 1, &[1u8; SALT_LEN]).unwrap();
+	}
+
+	#[test]
+	fn assert_ct_eq() {
+		assert_ct_eq!(1u8, 1u8);
+		assert_ct_eq!([23u8; SALT_LEN], [23u8; SALT_LEN]);
+	}
+
+	#[test]
+	#[should_panic]
+	fn assert_ct_eq_fail() {
+		assert_ct_eq!(1u8, 2u8);
+	}
+
+	#[test]
+	fn assert_ct_ne() {
+		assert_ct_ne!(1u8, 2u8);
+		assert_ct_ne!([23u8; SALT_LEN], [20u8; SALT_LEN]);
+	}
+
+	#[test]
+	#[should_panic]
+	fn assert_ct_ne_fail() {
+		assert_ct_ne!(1u8, 1u8);
+	}
+}
