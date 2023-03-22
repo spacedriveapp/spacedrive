@@ -7,7 +7,9 @@
 	"scripts": {
 		"start": "expo start --dev-client",
 		"android": "expo run:android",
+		"android:build": "cd android && ./gradlew bundleRelease",
 		"ios": "expo run:ios",
+		"ios:build": "cd ios && xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphoneos -archivePath spacedrive.xcarchive archive && xcodebuild -exportArchive -archivePath spacedrive.xcarchive -exportOptionsPlist exportOptions.plist -exportPath spacedrive.ipa",
 		"xcode": "open ios/spacedrive.xcworkspace",
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src",

@@ -1,0 +1,127 @@
+name: Mobile CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/.md'
+  workflow_dispatch:
+
+env:
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+
+# Do we need lint & eslint? We do it on desktop CI, so we don't need to do it here?
+jobs:
+  # lint:
+  #   name: TypeScript
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Install pnpm
+  #       uses: pnpm/action-setup@v2.2.2
+  #       with:
+  #         version: 7.x.x
+
+  #     - name: Install Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: 18
+  #         cache: 'pnpm'
+
+  #     - name: Install pnpm dependencies
+  #       run: pnpm i --frozen-lockfile
+
+  #     - name: Perform typechecks
+  #       run: pnpm typecheck
+  # eslint:
+  #   name: ESLint
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Install pnpm
+  #       uses: pnpm/action-setup@v2.2.2
+  #       with:
+  #         version: 7.x.x
+
+  #     - name: Install Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: 18
+  #         cache: 'pnpm'
+
+  #     - name: Install pnpm dependencies
+  #       run: pnpm i --frozen-lockfile
+
+  #     - name: Perform linting
+  #       run: pnpm lint
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.x.x
+
+      - name: Cache Rust deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ inputs.save-cache }} == "true"
+
+      - name: Run 'setup-system.sh' script
+        shell: bash
+        run: ./.github/scripts/setup-system.sh mobile
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
+
+      - name: Install pnpm dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3.10.0
+        with:
+          java-version: '18'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK Tools
+        uses: android-actions/setup-android@v2.0.2
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Make Gradlew Executable
+        working-directory: ./apps/mobile/android
+        run: chmod +x ./gradlew
+
+      - name: Build Android App Bundle
+        working-directory: ./apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
