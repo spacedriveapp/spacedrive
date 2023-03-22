@@ -59,7 +59,7 @@ dashmap = { version = "5.4.0", optional = true }
 rspc = { workspace = true, optional = true }
 
 # for asynchronous crypto
-tokio = { workspace = true, default-features = false, features = [
+tokio = { workspace = true, features = [
     "io-util",
     "rt-multi-thread",
     "macros",
