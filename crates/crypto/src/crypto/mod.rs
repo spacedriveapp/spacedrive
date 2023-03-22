@@ -65,35 +65,25 @@ mod tests {
 	use subtle::ConstantTimeEq;
 
 	use crate::{
+		assert_ct_eq,
 		crypto::{Decryptor, Encryptor},
-		primitives::{BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN},
+		primitives::{
+			AAD_LEN, AES_256_GCM_NONCE_LEN, BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
+			XCHACHA20_POLY1305_NONCE_LEN,
+		},
 		types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
 		util::generate_vec,
 	};
 
-	const KEY: Key = Key::new([
-		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
-		0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23,
-		0x23, 0x23,
-	]);
+	const KEY: Key = Key::new([0x23; KEY_LEN]);
 
-	const AES_NONCE: Nonce = Nonce::Aes256Gcm([0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9]);
-	const XCHACHA_NONCE: Nonce = Nonce::XChaCha20Poly1305([
-		0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9, 0xE9,
-		0xE9, 0xE9, 0xE9, 0xE9, 0xE9,
-	]);
+	const AES_NONCE: Nonce = Nonce::Aes256Gcm([0xE9; AES_256_GCM_NONCE_LEN]);
+	const XCHACHA_NONCE: Nonce = Nonce::XChaCha20Poly1305([0xE9; XCHACHA20_POLY1305_NONCE_LEN]);
 
-	const PLAINTEXT: [u8; 32] = [
-		0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A,
-		0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A,
-		0x5A, 0x5A,
-	];
+	const PLAINTEXT: [u8; 32] = [0x5A; 32];
+	const PLAINTEXT_KEY: Key = Key::new([1u8; KEY_LEN]);
 
-	const AAD: Aad = Aad::Standard([
-		0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92,
-		0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92,
-		0x92, 0x92,
-	]);
+	const AAD: Aad = Aad::Standard([0x92; AAD_LEN]);
 
 	// for the `const` arrays below, [0] is without AAD, [1] is with AAD
 
@@ -123,8 +113,6 @@ mod tests {
 		],
 	];
 
-	const PLAINTEXT_KEY: Key = Key::new([1u8; KEY_LEN]);
-
 	const XCHACHA_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new(
 		[
 			120, 245, 167, 96, 140, 26, 94, 182, 157, 89, 104, 19, 180, 3, 127, 234, 211, 167, 27,
@@ -149,7 +137,7 @@ mod tests {
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, Aad::Null)
 				.unwrap();
 
-		assert!(bool::from(ciphertext.ct_eq(&AES_BYTES_EXPECTED[0])));
+		assert_eq!(ciphertext, AES_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
@@ -158,7 +146,7 @@ mod tests {
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, AAD)
 				.unwrap();
 
-		assert!(bool::from(ciphertext.ct_eq(&AES_BYTES_EXPECTED[1])));
+		assert_eq!(ciphertext, AES_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
@@ -172,7 +160,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(plaintext.expose().ct_eq(&PLAINTEXT)));
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -186,7 +174,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(plaintext.expose().ct_eq(&PLAINTEXT)));
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -200,7 +188,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(output == AES_ENCRYPTED_KEY);
+		assert_ct_eq!(output, AES_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -209,7 +197,7 @@ mod tests {
 			Decryptor::decrypt_key(KEY, Algorithm::Aes256Gcm, AES_ENCRYPTED_KEY, Aad::Null)
 				.unwrap();
 
-		assert!(output == PLAINTEXT_KEY);
+		assert_ct_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -224,7 +212,7 @@ mod tests {
 		.map(|b| EncryptedKey::new(b, AES_NONCE))
 		.unwrap();
 
-		assert!(output == AES_ENCRYPTED_KEY);
+		assert_ct_eq!(output, AES_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -252,7 +240,7 @@ mod tests {
 		.map(Key::from)
 		.unwrap();
 
-		assert!(output == PLAINTEXT_KEY);
+		assert_ct_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -305,7 +293,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[test]
@@ -332,7 +320,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[cfg(feature = "async")]
@@ -362,7 +350,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[cfg(feature = "async")]
@@ -392,7 +380,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[test]
@@ -406,7 +394,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(ciphertext.ct_eq(&XCHACHA_BYTES_EXPECTED[0])));
+		assert_eq!(ciphertext, XCHACHA_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
@@ -420,7 +408,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(output == XCHACHA_ENCRYPTED_KEY);
+		assert_ct_eq!(output, XCHACHA_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -433,7 +421,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(output == PLAINTEXT_KEY);
+		assert_ct_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -448,7 +436,7 @@ mod tests {
 		.map(|b| EncryptedKey::new(b, XCHACHA_NONCE))
 		.unwrap();
 
-		assert!(output == XCHACHA_ENCRYPTED_KEY);
+		assert_ct_eq!(output, XCHACHA_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -463,7 +451,7 @@ mod tests {
 		.map(Key::from)
 		.unwrap();
 
-		assert!(output == PLAINTEXT_KEY);
+		assert_ct_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -503,7 +491,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(ciphertext.ct_eq(&XCHACHA_BYTES_EXPECTED[1])));
+		assert_eq!(ciphertext, XCHACHA_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
@@ -517,7 +505,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(plaintext.expose().ct_eq(&PLAINTEXT)));
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -531,7 +519,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert!(bool::from(plaintext.expose().ct_eq(&PLAINTEXT)));
+		assert_eq!(plaintext.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -571,7 +559,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[test]
@@ -598,7 +586,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[cfg(feature = "async")]
@@ -628,7 +616,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[cfg(feature = "async")]
@@ -658,7 +646,7 @@ mod tests {
 
 		let output = writer.into_inner();
 
-		assert!(bool::from(buf.ct_eq(&output)));
+		assert_eq!(buf, output);
 	}
 
 	#[test]

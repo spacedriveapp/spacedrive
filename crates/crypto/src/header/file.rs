@@ -358,13 +358,16 @@ impl FileHeader {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
+	use std::io::{Cursor, Seek};
+	use subtle::ConstantTimeEq;
+
 	use crate::{
+		assert_ct_eq,
 		header::{FileHeader, HeaderObjectName},
 		keys::Hasher,
 		primitives::LATEST_FILE_HEADER,
 		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	};
-	use std::io::{Cursor, Seek};
 
 	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
@@ -411,8 +414,8 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 1);
 		assert_eq!(header.count_objects(), 0);
-		assert!(decrypted_mk == mk);
-		assert!(header.get_algorithm() == ALGORITHM);
+		assert_eq!(header.get_algorithm(), ALGORITHM);
+		assert_ct_eq!(decrypted_mk, mk);
 	}
 
 	#[test]
@@ -428,7 +431,7 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 0);
 		assert_eq!(header.count_objects(), 0);
-		assert!(header.get_algorithm() == ALGORITHM);
+		assert_eq!(header.get_algorithm(), ALGORITHM);
 	}
 
 	#[test]
@@ -452,8 +455,8 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 0);
 		assert_eq!(header.count_objects(), 1);
-		assert!(header.get_algorithm() == ALGORITHM);
-		assert!(object1.expose() == &OBJECT1_DATA);
+		assert_eq!(header.get_algorithm(), ALGORITHM);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
 	}
 
 	#[test]
@@ -484,9 +487,9 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 0);
 		assert_eq!(header.count_objects(), 2);
-		assert!(header.get_algorithm() == ALGORITHM);
-		assert!(object1.expose() == &OBJECT1_DATA);
-		assert!(object2.expose() == &OBJECT2_DATA);
+		assert_eq!(header.get_algorithm(), ALGORITHM);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}
 
 	#[test]
@@ -542,7 +545,7 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 1);
 		assert_eq!(header.count_objects(), 0);
-		assert!(decrypted_mk == mk);
+		assert_ct_eq!(decrypted_mk, mk);
 	}
 
 	#[test]
@@ -641,8 +644,8 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 2);
 		assert_eq!(header.count_objects(), 0);
-		assert!(decrypted_mk == mk);
-		assert!(decrypted_mk2 == mk);
+		assert_ct_eq!(decrypted_mk, mk);
+		assert_ct_eq!(decrypted_mk2, mk);
 	}
 
 	#[test]
@@ -671,11 +674,11 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
-		let bytes = header.decrypt_object(OBJECT1_NAME, CONTEXT, mk).unwrap();
+		let object1 = header.decrypt_object(OBJECT1_NAME, CONTEXT, mk).unwrap();
 
-		assert_eq!(header.count_objects(), 1);
 		assert_eq!(header.count_keyslots(), 1);
-		assert!(bytes.expose() == &OBJECT1_DATA);
+		assert_eq!(header.count_objects(), 1);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
 	}
 
 	#[test]
@@ -746,10 +749,10 @@ mod tests {
 
 		let object2 = header.decrypt_object(OBJECT2_NAME, CONTEXT, mk).unwrap();
 
-		assert_eq!(header.count_objects(), 2);
 		assert_eq!(header.count_keyslots(), 1);
-		assert!(object1.expose() == &OBJECT1_DATA);
-		assert!(object2.expose() == &OBJECT2_DATA);
+		assert_eq!(header.count_objects(), 2);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
 	}
 
 	#[test]
@@ -893,10 +896,10 @@ mod tests {
 
 		assert_eq!(header.count_objects(), 2);
 		assert_eq!(header.count_keyslots(), 2);
-		assert!(decrypted_mk == mk);
-		assert!(decrypted_mk2 == mk);
-		assert!(object1.expose() == &OBJECT1_DATA);
-		assert!(object2.expose() == &OBJECT2_DATA);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
+		assert_ct_eq!(decrypted_mk, mk);
+		assert_ct_eq!(decrypted_mk2, mk);
 	}
 
 	#[cfg(feature = "async")]
@@ -959,9 +962,9 @@ mod tests {
 
 		assert_eq!(header.count_objects(), 2);
 		assert_eq!(header.count_keyslots(), 2);
-		assert!(decrypted_mk == mk);
-		assert!(decrypted_mk2 == mk);
-		assert!(object1.expose() == &OBJECT1_DATA);
-		assert!(object2.expose() == &OBJECT2_DATA);
+		assert_eq!(object1.expose(), &OBJECT1_DATA);
+		assert_eq!(object2.expose(), &OBJECT2_DATA);
+		assert_ct_eq!(decrypted_mk, mk);
+		assert_ct_eq!(decrypted_mk2, mk);
 	}
 }
