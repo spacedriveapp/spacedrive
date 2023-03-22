@@ -123,17 +123,23 @@ mod tests {
 
 	const PLAINTEXT_KEY: Key = Key::new([1u8; KEY_LEN]);
 
-	const XCHACHA_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new([
-		120, 245, 167, 96, 140, 26, 94, 182, 157, 89, 104, 19, 180, 3, 127, 234, 211, 167, 27, 198,
-		214, 110, 209, 57, 226, 89, 16, 246, 166, 56, 222, 148, 40, 198, 237, 205, 45, 49, 205, 18,
-		69, 102, 16, 78, 199, 141, 246, 165,
-	]);
+	const XCHACHA_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new(
+		[
+			120, 245, 167, 96, 140, 26, 94, 182, 157, 89, 104, 19, 180, 3, 127, 234, 211, 167, 27,
+			198, 214, 110, 209, 57, 226, 89, 16, 246, 166, 56, 222, 148, 40, 198, 237, 205, 45, 49,
+			205, 18, 69, 102, 16, 78, 199, 141, 246, 165,
+		],
+		XCHACHA_NONCE,
+	);
 
-	const AES_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new([
-		125, 59, 176, 104, 216, 224, 249, 195, 236, 86, 245, 12, 55, 42, 157, 3, 49, 34, 139, 126,
-		79, 81, 89, 48, 30, 200, 240, 214, 117, 164, 238, 32, 6, 159, 3, 111, 114, 28, 176, 224,
-		187, 185, 123, 20, 164, 197, 171, 31,
-	]);
+	const AES_ENCRYPTED_KEY: EncryptedKey = EncryptedKey::new(
+		[
+			125, 59, 176, 104, 216, 224, 249, 195, 236, 86, 245, 12, 55, 42, 157, 3, 49, 34, 139,
+			126, 79, 81, 89, 48, 30, 200, 240, 214, 117, 164, 238, 32, 6, 159, 3, 111, 114, 28,
+			176, 224, 187, 185, 123, 20, 164, 197, 171, 31,
+		],
+		AES_NONCE,
+	);
 
 	#[test]
 	fn aes_encrypt_bytes() {
@@ -197,14 +203,9 @@ mod tests {
 
 	#[test]
 	fn aes_decrypt_key() {
-		let output = Decryptor::decrypt_key(
-			KEY,
-			AES_NONCE,
-			Algorithm::Aes256Gcm,
-			AES_ENCRYPTED_KEY,
-			Aad::Null,
-		)
-		.unwrap();
+		let output =
+			Decryptor::decrypt_key(KEY, Algorithm::Aes256Gcm, AES_ENCRYPTED_KEY, Aad::Null)
+				.unwrap();
 
 		assert!(output == PLAINTEXT_KEY);
 	}
@@ -218,7 +219,7 @@ mod tests {
 			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
-		.map(EncryptedKey::new)
+		.map(|b| EncryptedKey::new(b, AES_NONCE))
 		.unwrap();
 
 		assert!(output == AES_ENCRYPTED_KEY);
@@ -424,7 +425,6 @@ mod tests {
 	fn xchacha_decrypt_key() {
 		let output = Decryptor::decrypt_key(
 			KEY,
-			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			XCHACHA_ENCRYPTED_KEY,
 			Aad::Null,
@@ -443,7 +443,7 @@ mod tests {
 			PLAINTEXT_KEY.expose(),
 			Aad::Null,
 		)
-		.map(EncryptedKey::new)
+		.map(|b| EncryptedKey::new(b, XCHACHA_NONCE))
 		.unwrap();
 
 		assert!(output == XCHACHA_ENCRYPTED_KEY);

@@ -102,6 +102,7 @@ impl HashingAlgorithm {
 /// This should be used for providing a nonce to encrypt/decrypt functions.
 ///
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
+// TODO(brxken128): evaluate this `Copy` - can be expensive
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
@@ -354,25 +355,33 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 
 /// This should be used for passing an encrypted key around.
 ///
-/// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
-#[derive(Clone, Copy)]
+/// The length of the encrypted key is `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`).
+///
+/// This also stores the associated `Nonce`, in order to make the API a lot cleaner.
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
 	[u8; ENCRYPTED_KEY_LEN],
+	Nonce,
 );
 
 impl EncryptedKey {
 	#[must_use]
-	pub const fn new(v: [u8; ENCRYPTED_KEY_LEN]) -> Self {
-		Self(v)
+	pub const fn new(v: [u8; ENCRYPTED_KEY_LEN], nonce: Nonce) -> Self {
+		Self(v, nonce)
 	}
 
 	#[must_use]
 	pub const fn inner(&self) -> &[u8; ENCRYPTED_KEY_LEN] {
 		&self.0
+	}
+
+	#[must_use]
+	pub const fn nonce(&self) -> &Nonce {
+		&self.1
 	}
 }
 

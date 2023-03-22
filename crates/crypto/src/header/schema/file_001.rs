@@ -29,7 +29,6 @@ pub struct Keyslot001 {
 	pub salt: Salt, // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: Salt,
 	pub encrypted_key: EncryptedKey, // encrypted
-	pub nonce: Nonce,
 }
 
 impl Keyslot001 {
@@ -37,9 +36,11 @@ impl Keyslot001 {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::default(),
-			encrypted_key: EncryptedKey::new(generate_fixed()),
+			encrypted_key: EncryptedKey::new(
+				generate_fixed(),
+				Nonce::generate(Algorithm::default()),
+			),
 			salt: Salt::generate(),
-			nonce: Nonce::generate(Algorithm::default()),
 		}
 	}
 }
@@ -136,7 +137,6 @@ pub struct FileHeaderObject001 {
 pub struct HeaderObjectIdentifier {
 	key: EncryptedKey, // technically a key, although used as an identifier here
 	salt: Salt,
-	nonce: Nonce,
 }
 
 impl HeaderObjectIdentifier {
@@ -165,7 +165,6 @@ impl HeaderObjectIdentifier {
 		Ok(Self {
 			key: encrypted_key,
 			salt,
-			nonce,
 		})
 	}
 
@@ -178,9 +177,8 @@ impl HeaderObjectIdentifier {
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
 			Hasher::derive_key(master_key, self.salt, context),
-			self.nonce,
 			algorithm,
-			self.key,
+			self.key.clone(),
 			aad,
 		)
 	}
@@ -213,7 +211,6 @@ impl Keyslot001 {
 			salt,
 			content_salt,
 			encrypted_key,
-			nonce,
 		})
 	}
 
@@ -226,9 +223,8 @@ impl Keyslot001 {
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
 			Hasher::derive_key(key, self.salt, context),
-			self.nonce,
 			algorithm,
-			self.encrypted_key,
+			self.encrypted_key.clone(),
 			aad,
 		)
 	}

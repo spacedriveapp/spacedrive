@@ -236,7 +236,7 @@ impl Encryptor {
 		aad: Aad,
 	) -> Result<EncryptedKey> {
 		Self::encrypt_fixed(key, nonce, algorithm, key_to_encrypt.expose(), aad)
-			.map(EncryptedKey::new)
+			.map(|b| EncryptedKey::new(b, nonce))
 	}
 }
 
@@ -277,12 +277,18 @@ impl Decryptor {
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_key(
 		key: Key,
-		nonce: Nonce,
 		algorithm: Algorithm,
-		key_to_decrypt: EncryptedKey,
+		encrypted_key: EncryptedKey,
 		aad: Aad,
 	) -> Result<Key> {
-		Self::decrypt_fixed(key, nonce, algorithm, key_to_decrypt.inner(), aad).map(Key::from)
+		Self::decrypt_fixed(
+			key,
+			*encrypted_key.nonce(),
+			algorithm,
+			encrypted_key.inner(),
+			aad,
+		)
+		.map(Key::from)
 	}
 }
 

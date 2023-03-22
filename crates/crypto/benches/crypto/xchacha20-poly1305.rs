@@ -34,10 +34,9 @@ fn bench(c: &mut Criterion) {
 
 		group.bench_function(BenchmarkId::new("decrypt", "key"), |b| {
 			b.iter_batched(
-				|| (key.clone(), nonce, test_key_encrypted),
-				|(key, nonce, test_key_encrypted)| {
-					Decryptor::decrypt_key(key, nonce, ALGORITHM, test_key_encrypted, Aad::Null)
-						.unwrap()
+				|| (key.clone(), test_key_encrypted.clone()),
+				|(key, test_key_encrypted)| {
+					Decryptor::decrypt_key(key, ALGORITHM, test_key_encrypted, Aad::Null).unwrap()
 				},
 				BatchSize::LargeInput,
 			)

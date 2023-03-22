@@ -71,7 +71,6 @@ pub struct StoredKey {
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
 	pub content_salt: Salt,
 	pub master_key: EncryptedKey, // this is for encrypting the `key`
-	pub master_key_nonce: Nonce,  // nonce for encrypting the master key
 	pub key_nonce: Nonce,         // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the password stored in spacedrive (e.g. generated 64 char key)
 	pub salt: Salt,
@@ -200,7 +199,7 @@ impl KeyManager {
 			.keyring_retrieve(library_uuid, SECRET_KEY_IDENTIFIER.to_string())
 			.await?;
 
-		let mut secret_key_sanitized = secret_key.expose().clone();
+		let mut secret_key_sanitized = secret_key.into_inner();
 		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
 
 		if hex::decode(secret_key_sanitized)
@@ -307,7 +306,6 @@ impl KeyManager {
 			hashing_algorithm,
 			content_salt, // salt used for hashing
 			master_key: encrypted_master_key,
-			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 			salt, // salt used for key derivation
@@ -404,6 +402,13 @@ impl KeyManager {
 			Aad::Null,
 		)?;
 
+		// This is an artifact of how the DB schema is used for root keys
+		//
+		// This technically should be an `EncryptedKey`, but we can't define it
+		// as the associated column is for keys of any length (and `EncryptedKey` is fixed).
+		//
+		// we either need a key manager/root key config file, or a new DB table.
+		// the former would also help for library encryption.
 		let encrypted_root_key = Encryptor::encrypt_bytes(
 			master_key,
 			root_key_nonce,
@@ -429,7 +434,6 @@ impl KeyManager {
 			hashing_algorithm,
 			content_salt,
 			master_key: encrypted_master_key,
-			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 			salt,
@@ -488,7 +492,6 @@ impl KeyManager {
 						old_verification_key.salt,
 						MASTER_PASSWORD_CONTEXT,
 					),
-					old_verification_key.master_key_nonce,
 					old_verification_key.algorithm,
 					old_verification_key.master_key,
 					Aad::Null,
@@ -518,9 +521,8 @@ impl KeyManager {
 					// decrypt the key's master key
 					let master_key = Decryptor::decrypt_key(
 						Hasher::derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
-						key.master_key_nonce,
 						key.algorithm,
-						key.master_key,
+						key.master_key.clone(),
 						Aad::Null,
 					)
 					.map(Key::from)?;
@@ -539,8 +541,7 @@ impl KeyManager {
 						Aad::Null,
 					)?;
 
-					let mut updated_key = key.clone();
-					updated_key.master_key_nonce = master_key_nonce;
+					let mut updated_key = key;
 					updated_key.master_key = encrypted_master_key;
 					updated_key.salt = salt;
 
@@ -615,7 +616,6 @@ impl KeyManager {
 						verification_key.salt,
 						MASTER_PASSWORD_CONTEXT,
 					),
-					verification_key.master_key_nonce,
 					verification_key.algorithm,
 					verification_key.master_key,
 					Aad::Null,
@@ -675,9 +675,8 @@ impl KeyManager {
 							stored_key.salt,
 							ROOT_KEY_CONTEXT,
 						),
-						stored_key.master_key_nonce,
 						stored_key.algorithm,
-						stored_key.master_key,
+						stored_key.master_key.clone(),
 						Aad::Null,
 					)?;
 
@@ -731,9 +730,8 @@ impl KeyManager {
 					stored_key.salt,
 					ROOT_KEY_CONTEXT,
 				),
-				stored_key.master_key_nonce,
 				stored_key.algorithm,
-				stored_key.master_key,
+				stored_key.master_key.clone(),
 				Aad::Null,
 			)?;
 
@@ -746,7 +744,7 @@ impl KeyManager {
 				Aad::Null,
 			)?;
 
-			Ok(Protected::new(String::from_utf8(key.expose().clone())?))
+			Ok(Protected::new(String::from_utf8(key.into_inner())?))
 		} else {
 			Err(Error::KeyNotFound)
 		}
@@ -815,7 +813,6 @@ impl KeyManager {
 				hashing_algorithm,
 				content_salt,
 				master_key: encrypted_master_key,
-				master_key_nonce,
 				key_nonce,
 				key: encrypted_key,
 				salt,

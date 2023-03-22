@@ -29,8 +29,7 @@ impl SecureTempKeystore {
 			.map(|v| v.value().clone())
 			.ok_or(SecureTempKeystoreError::SecureItemNotFound)?;
 
-		let sensitive_value = value.expose().clone();
-
+		let sensitive_value = value.into_inner();
 		value.zeroize();
 
 		self.data.remove(&uuid);
