@@ -1,7 +1,6 @@
 //! This module contains all possible errors that this crate can return.
 
 use std::string::FromUtf8Error;
-
 use thiserror::Error;
 
 #[cfg(feature = "rspc")]
@@ -18,13 +17,6 @@ impl From<Error> for bincode::error::EncodeError {
 	}
 }
 
-#[cfg(feature = "encoding")]
-impl From<Error> for bincode::error::DecodeError {
-	fn from(value: Error) -> Self {
-		Self::OtherString(value.to_string())
-	}
-}
-
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// This enum defines all possible errors that this crate can give
@@ -35,10 +27,8 @@ pub enum Error {
 	PasswordHash,
 	#[error("error while encrypting")]
 	Encrypt,
-	#[error("error while decrypting")]
+	#[error("error while decrypting (could be: wrong password, wrong data, wrong aad, etc)")]
 	Decrypt,
-	#[error("error initialising stream encryption/decryption")]
-	StreamModeInit,
 	#[error("a provided type is completely null")]
 	NullType,
 
@@ -53,11 +43,11 @@ pub enum Error {
 	#[error("no header objects available (or none that match)")]
 	NoObjects,
 	#[cfg(feature = "encoding")]
-	#[error("tried to run an object operation which resulted in duplicates")]
-	DuplicateObjects,
-	#[cfg(feature = "encoding")]
-	#[error("tried adding too many objects to a header")]
+	#[error("tried adding too many objects to a header (or too many with the same name)")]
 	TooManyObjects,
+	#[cfg(feature = "encoding")]
+	#[error("read magic bytes aren't equal to the expected bytes")]
+	MagicByteMismatch,
 	#[cfg(feature = "encoding")]
 	#[error("error while encoding with bincode: {0}")]
 	BincodeEncode(#[from] bincode::error::EncodeError),
@@ -95,14 +85,10 @@ pub enum Error {
 	KeyNotMemoryOnly,
 
 	// general errors
-	#[error("expected length differs from actual length")]
+	#[error("expected length differs from provided length")]
 	LengthMismatch,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
-	#[error("incorrect password/details were provided")]
-	IncorrectPassword,
-	#[error("error while serializing/deserializing an item")]
-	Serialization,
 	#[error("string parse error")]
 	StringParse(#[from] FromUtf8Error),
 

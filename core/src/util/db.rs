@@ -1,6 +1,7 @@
 use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::{migrations::*, NewClientError};
+use sd_crypto::encoding;
 use sd_crypto::keys::keymanager::StoredKey;
 use thiserror::Error;
 
@@ -53,16 +54,16 @@ pub async fn write_storedkey_to_db(
 		db.key()
 			.create(
 				stored_key.uuid.to_string(),
-				serde_json::to_string(&stored_key.version)?,
-				serde_json::to_string(&stored_key.key_type)?,
-				serde_json::to_string(&stored_key.algorithm)?,
-				serde_json::to_string(&stored_key.hashing_algorithm)?,
-				stored_key.content_salt.inner().to_vec(),
-				stored_key.master_key.inner().to_vec(),
-				stored_key.master_key_nonce.inner().to_vec(),
-				stored_key.key_nonce.inner().to_vec(),
-				stored_key.key.clone(),
-				stored_key.salt.inner().to_vec(),
+				encoding::encode(&stored_key.version)?,
+				encoding::encode(&stored_key.key_type)?,
+				encoding::encode(&stored_key.algorithm)?,
+				encoding::encode(&stored_key.hashing_algorithm)?,
+				encoding::encode(&stored_key.content_salt)?,
+				encoding::encode(&stored_key.master_key)?,
+				encoding::encode(&stored_key.master_key_nonce)?,
+				encoding::encode(&stored_key.key_nonce)?,
+				encoding::encode(&stored_key.key)?,
+				encoding::encode(&stored_key.salt)?,
 				vec![],
 			)
 			.exec()

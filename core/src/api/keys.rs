@@ -132,21 +132,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("updateAutomountStatus", |t| {
 			t(|_, args: AutomountUpdateArgs, library| async move {
 				if !library.key_manager.is_memory_only(args.uuid).await? {
-					library
-						.key_manager
-						.change_automount_status(args.uuid, args.status)
-						.await?;
-
-					library
-						.db
-						.key()
-						.update(
-							key::uuid::equals(args.uuid.to_string()),
-							vec![key::SetParam::SetAutomount(args.status)],
-						)
-						.exec()
-						.await?;
-
+					todo!();
 					invalidate_query!(library, "keys.list");
 				}
 
@@ -259,7 +245,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						args.algorithm,
 						args.hashing_algorithm,
 						!args.library_sync,
-						args.automount,
 						None,
 					)
 					.await?;

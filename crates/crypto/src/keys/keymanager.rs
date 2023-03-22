@@ -76,7 +76,6 @@ pub struct StoredKey {
 	pub key: Vec<u8>, // encrypted. the password stored in spacedrive (e.g. generated 64 char key)
 	pub salt: Salt,
 	pub memory_only: bool,
-	pub automount: bool,
 }
 
 /// This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
@@ -313,7 +312,6 @@ impl KeyManager {
 			key: encrypted_root_key,
 			salt, // salt used for key derivation
 			memory_only: false,
-			automount: false,
 		};
 
 		Ok(verification_key)
@@ -436,7 +434,6 @@ impl KeyManager {
 			key: encrypted_root_key,
 			salt,
 			memory_only: false,
-			automount: false,
 		};
 
 		*self.verification_key.lock().await = Some(verification_key.clone());
@@ -773,7 +770,6 @@ impl KeyManager {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
-		automount: bool,
 		content_salt: Option<Salt>,
 	) -> Result<Uuid> {
 		self.ensure_unlocked().await?;
@@ -824,7 +820,6 @@ impl KeyManager {
 				key: encrypted_key,
 				salt,
 				memory_only,
-				automount,
 			},
 		);
 
@@ -891,26 +886,6 @@ impl KeyManager {
 		self.keystore
 			.get(&uuid)
 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.memory_only))
-	}
-
-	/// This is for changing the automount status of a key in the keystore.
-	///
-	/// The database needs to be updated externally
-	pub async fn change_automount_status(&self, uuid: Uuid, status: bool) -> Result<()> {
-		self.ensure_unlocked().await?;
-
-		let updated_key = self
-			.keystore
-			.get(&uuid)
-			.map_or(Err(Error::KeyNotFound), |v| {
-				let mut updated_key = v.clone();
-				updated_key.automount = status;
-				Ok(updated_key)
-			})?;
-
-		self.keystore.remove(&uuid);
-		self.keystore.insert(uuid, updated_key);
-		Ok(())
 	}
 
 	/// This function is for getting an entire collection of hashed keys.

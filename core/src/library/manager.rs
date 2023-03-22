@@ -12,6 +12,7 @@ use crate::{
 };
 
 use sd_crypto::{
+	encoding,
 	keys::keymanager::{KeyManager, StoredKey},
 	types::{Nonce, OnboardingConfig, Salt},
 };
@@ -56,8 +57,8 @@ pub enum LibraryManagerError {
 	InvalidDatabasePath(PathBuf),
 	#[error("Failed to run seeder: {0}")]
 	Seeder(#[from] SeederError),
-	#[error("failed to initialise the key manager")]
-	KeyManager(#[from] sd_crypto::Error),
+	#[error("crypto error: {0}")]
+	Crypto(#[from] sd_crypto::Error),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -93,23 +94,17 @@ pub async fn seed_keymanager(
 
 			Ok(StoredKey {
 				uuid,
-				version: serde_json::from_str(&key.version)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				key_type: serde_json::from_str(&key.key_type)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				algorithm: serde_json::from_str(&key.algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				content_salt: Salt::try_from(key.content_salt)?,
-				master_key: serde_json::from_slice(&key.master_key)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
-				key_nonce: Nonce::try_from(key.key_nonce)?,
-				key: key.key,
-				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				salt: Salt::try_from(key.salt)?,
+				version: encoding::decode(&key.version)?,
+				key_type: encoding::decode(&key.key_type)?,
+				algorithm: encoding::decode(&key.algorithm)?,
+				content_salt: encoding::decode(&key.content_salt)?,
+				master_key: encoding::decode(&key.master_key)?,
+				master_key_nonce: encoding::decode(&key.master_key_nonce)?,
+				key_nonce: encoding::decode(&key.key_nonce)?,
+				key: encoding::decode(&key.key),
+				hashing_algorithm: encoding::decode(&key.hashing_algorithm)?,
+				salt: encoding::decode(&key.salt)?,
 				memory_only: false,
-				automount: key.automount,
 			})
 		})
 		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()

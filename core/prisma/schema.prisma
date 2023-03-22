@@ -215,36 +215,19 @@ model FileConflict {
 /// @shared(id: uuid)
 model Key {
     id                Int       @id @default(autoincrement())
-    // uuid to identify the key
-    uuid              String    @unique
-    version           String
-    key_type          String
-    // the name that the user sets
-    name              String?
-    // is this key the default for encryption?
-    // was not tagged as unique as i'm not too sure if PCR will handle it
-    // can always be tagged as unique, the keys API will need updating to use `find_unique()`
-    default           Boolean   @default(false)
-    // nullable if concealed for security
-    date_created      DateTime? @default(now())
-    // encryption algorithm used to encrypt the key
-    algorithm         String
-    // hashing algorithm used for hashing the key with the content salt
-    hashing_algorithm String
-    // salt used for encrypting data with this key
-    content_salt      Bytes
-    // the *encrypted* master key (48 bytes)
-    master_key        Bytes
-    // the nonce used for encrypting the master key
-    master_key_nonce  Bytes
-    // the nonce used for encrypting the key
-    key_nonce         Bytes
-    // the *encrypted* key
-    key               Bytes
-    // the salt used for deriving the KEK (used for encrypting the master key) from the root key
-    salt              Bytes
-
-    automount Boolean @default(false)
+    uuid              Bytes     @unique
+    date_created      DateTime? @default(now()) // nullable if concealed for security
+    version           Bytes // key version
+    key_type          Bytes // type of key
+    name              Bytes? // user-chosen name
+    algorithm         Bytes // encryption algorithm used to encrypt the key
+    hashing_algorithm Bytes // hashing algorithm used for hashing the key with the content salt
+    content_salt      Bytes // salt used with the above hashing algorithm to create a high-entropy digest (which unique keys are derived from)
+    master_key        Bytes // the *encrypted* master key (48 bytes)
+    master_key_nonce  Bytes // the nonce used for encrypting the master key
+    key_nonce         Bytes // the nonce used for encrypting the key
+    key               Bytes // the *encrypted* key
+    salt              Bytes // the salt used for deriving the KEK (used for encrypting the master key) from the root key
 
     objects    Object[]
     file_paths FilePath[]
