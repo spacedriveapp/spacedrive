@@ -10,7 +10,7 @@ interface ContextMenuProps extends RadixCM.MenuContentProps {
 
 export const contextMenuClassNames = clsx(
 	'z-50 max-h-[calc(100vh-20px)] overflow-y-auto',
-	'my-2 min-w-[12rem] max-w-[16rem] px-1 py-0.5',
+	'my-2 min-w-[12rem] max-w-[16rem] py-0.5',
 	'bg-menu cool-shadow',
 	'border-menu-line border',
 	'cursor-default select-none rounded-md'
@@ -29,7 +29,7 @@ const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
 	);
 };
 
-export const contextMenuSeparatorClassNames = 'border-b-menu-line my-0.5 border-b';
+export const contextMenuSeparatorClassNames = 'border-b-menu-line mx-1 my-0.5 border-b';
 
 const Separator = (props: { className?: string }) => (
 	<RadixCM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
@@ -92,7 +92,7 @@ export interface ContextMenuItemProps extends VariantProps<typeof contextMenuIte
 	keybind?: string;
 }
 
-export const contextMenuItemClassNames = 'group py-0.5 outline-none';
+export const contextMenuItemClassNames = 'group py-0.5 outline-none px-1';
 
 const Item = ({
 	icon,
