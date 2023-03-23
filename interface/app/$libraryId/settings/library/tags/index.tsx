@@ -31,18 +31,18 @@ export const Component = () => {
 				}
 			/>
 			<Card className="!px-2">
-				<div className="m-1 flex flex-wrap gap-2">
+				<div className="m-1 flex flex-wrap gap-2 overflow-hidden">
 					{tags.data?.map((tag) => (
 						<div
 							onClick={() => setSelectedTag(tag.id === selectedTag?.id ? null : tag)}
 							key={tag.id}
 							className={clsx(
-								'flex items-center rounded px-1.5 py-0.5',
+								'flex items-center overflow-hidden rounded px-1.5 py-0.5',
 								selectedTag?.id === tag.id && 'ring'
 							)}
 							style={{ backgroundColor: tag.color + 'CC' }}
 						>
-							<span className="text-xs text-white drop-shadow-md">{tag.name}</span>
+							<span className="truncate text-xs text-white drop-shadow-md">{tag.name}</span>
 						</div>
 					))}
 				</div>
