@@ -121,9 +121,12 @@ mod tests {
 	const ARGON2ID_STANDARD: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 	const ARGON2ID_HARDENED: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Hardened);
 	const ARGON2ID_PARANOID: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Paranoid);
-	const B3BALLOON_STANDARD: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Standard);
-	const B3BALLOON_HARDENED: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Hardened);
-	const B3BALLOON_PARANOID: HashingAlgorithm = HashingAlgorithm::BalloonBlake3(Params::Paranoid);
+	const BALLOON_BLAKE3_STANDARD: HashingAlgorithm =
+		HashingAlgorithm::BalloonBlake3(Params::Standard);
+	const BALLOON_BLAKE3_HARDENED: HashingAlgorithm =
+		HashingAlgorithm::BalloonBlake3(Params::Hardened);
+	const BALLOON_BLAKE3_PARANOID: HashingAlgorithm =
+		HashingAlgorithm::BalloonBlake3(Params::Paranoid);
 
 	const PASSWORD: [u8; 8] = [0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64];
 
@@ -133,7 +136,7 @@ mod tests {
 
 	// for the `const` arrays below, [0] is standard params, [1] is hardened and [2] is paranoid
 
-	const HASH_ARGON2ID_EXPECTED: [Key; 3] = [
+	const ARGON2ID_EXPECTED: [Key; 3] = [
 		Key::new([
 			194, 153, 245, 125, 12, 102, 65, 30, 254, 191, 9, 125, 4, 113, 99, 209, 162, 43, 140,
 			93, 217, 220, 222, 46, 105, 48, 123, 220, 180, 103, 20, 11,
@@ -148,7 +151,7 @@ mod tests {
 		]),
 	];
 
-	const HASH_ARGON2ID_WITH_SECRET_EXPECTED: [Key; 3] = [
+	const ARGON2ID_WITH_SECRET_EXPECTED: [Key; 3] = [
 		Key::new([
 			132, 102, 123, 67, 87, 219, 88, 76, 81, 191, 128, 41, 246, 201, 103, 155, 200, 114, 54,
 			116, 240, 66, 155, 78, 73, 44, 87, 174, 231, 196, 206, 236,
@@ -163,7 +166,7 @@ mod tests {
 		]),
 	];
 
-	const HASH_B3BALLOON_EXPECTED: [Key; 3] = [
+	const BALLOON_BLAKE3_EXPECTED: [Key; 3] = [
 		Key::new([
 			105, 36, 165, 219, 22, 136, 156, 19, 32, 143, 237, 150, 236, 194, 70, 113, 73, 137,
 			243, 106, 80, 31, 43, 73, 207, 210, 29, 251, 88, 6, 132, 77,
@@ -178,7 +181,7 @@ mod tests {
 		]),
 	];
 
-	const HASH_B3BALLOON_WITH_SECRET_EXPECTED: [Key; 3] = [
+	const BALLOON_BLAKE3_WITH_SECRET_EXPECTED: [Key; 3] = [
 		Key::new([
 			188, 0, 43, 39, 137, 199, 91, 142, 97, 31, 98, 6, 130, 75, 251, 71, 150, 109, 29, 62,
 			237, 171, 210, 22, 139, 108, 94, 190, 91, 74, 134, 47,
@@ -193,26 +196,26 @@ mod tests {
 		]),
 	];
 
-	const DERIVE_B3_EXPECTED: Key = Key::new([
+	const BLAKE3_KDF_EXPECTED: Key = Key::new([
 		88, 23, 212, 172, 220, 212, 247, 196, 129, 100, 18, 49, 208, 134, 247, 53, 83, 242, 143,
 		131, 58, 249, 130, 168, 70, 245, 250, 128, 106, 170, 175, 255,
 	]);
 
-	const HASH_B3_EXPECTED: Key = Key::new([
+	const BLAKE3_EXPECTED: Key = Key::new([
 		172, 142, 55, 39, 103, 92, 224, 135, 192, 227, 216, 190, 35, 235, 139, 125, 166, 15, 107,
 		109, 202, 244, 77, 31, 198, 143, 23, 134, 3, 174, 74, 175,
 	]);
 
 	#[test]
-	fn hash_argon2id_standard() {
+	fn argon2id_standard() {
 		let output =
 			Hasher::hash_password(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_EXPECTED[0]);
+		assert_ct_eq!(output, ARGON2ID_EXPECTED[0]);
 	}
 
 	#[test]
-	fn hash_argon2id_standard_with_secret() {
+	fn argon2id_standard_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_STANDARD,
 			PASSWORD.to_vec().into(),
@@ -221,19 +224,19 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_WITH_SECRET_EXPECTED[0]);
+		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[0]);
 	}
 
 	#[test]
-	fn hash_argon2id_hardened() {
+	fn argon2id_hardened() {
 		let output =
 			Hasher::hash_password(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_EXPECTED[1]);
+		assert_ct_eq!(output, ARGON2ID_EXPECTED[1]);
 	}
 
 	#[test]
-	fn hash_argon2id_hardened_with_secret() {
+	fn argon2id_hardened_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_HARDENED,
 			PASSWORD.to_vec().into(),
@@ -242,19 +245,19 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_WITH_SECRET_EXPECTED[1]);
+		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[1]);
 	}
 
 	#[test]
-	fn hash_argon2id_paranoid() {
+	fn argon2id_paranoid() {
 		let output =
 			Hasher::hash_password(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_EXPECTED[2]);
+		assert_ct_eq!(output, ARGON2ID_EXPECTED[2]);
 	}
 
 	#[test]
-	fn hash_argon2id_paranoid_with_secret() {
+	fn argon2id_paranoid_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_PARANOID,
 			PASSWORD.to_vec().into(),
@@ -263,86 +266,98 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_ARGON2ID_WITH_SECRET_EXPECTED[2]);
+		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[2]);
 	}
 
 	#[test]
-	fn hash_b3balloon_standard() {
-		let output =
-			Hasher::hash_password(B3BALLOON_STANDARD, PASSWORD.to_vec().into(), SALT, None)
-				.unwrap();
-
-		assert_ct_eq!(output, HASH_B3BALLOON_EXPECTED[0]);
-	}
-
-	#[test]
-	fn hash_b3balloon_standard_with_secret() {
+	fn balloon_blake3_standard() {
 		let output = Hasher::hash_password(
-			B3BALLOON_STANDARD,
+			BALLOON_BLAKE3_STANDARD,
+			PASSWORD.to_vec().into(),
+			SALT,
+			None,
+		)
+		.unwrap();
+
+		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[0]);
+	}
+
+	#[test]
+	fn balloon_blake3_standard_with_secret() {
+		let output = Hasher::hash_password(
+			BALLOON_BLAKE3_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
 			Some(SECRET_KEY),
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_B3BALLOON_WITH_SECRET_EXPECTED[0]);
+		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[0]);
 	}
 
 	#[test]
-	fn hash_b3balloon_hardened() {
-		let output =
-			Hasher::hash_password(B3BALLOON_HARDENED, PASSWORD.to_vec().into(), SALT, None)
-				.unwrap();
-
-		assert_ct_eq!(output, HASH_B3BALLOON_EXPECTED[1]);
-	}
-
-	#[test]
-	fn hash_b3balloon_hardened_with_secret() {
+	fn balloon_blake3_hardened() {
 		let output = Hasher::hash_password(
-			B3BALLOON_HARDENED,
+			BALLOON_BLAKE3_HARDENED,
+			PASSWORD.to_vec().into(),
+			SALT,
+			None,
+		)
+		.unwrap();
+
+		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[1]);
+	}
+
+	#[test]
+	fn balloon_blake3_hardened_with_secret() {
+		let output = Hasher::hash_password(
+			BALLOON_BLAKE3_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
 			Some(SECRET_KEY),
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_B3BALLOON_WITH_SECRET_EXPECTED[1]);
+		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[1]);
 	}
 
 	#[test]
-	fn hash_b3balloon_paranoid() {
-		let output =
-			Hasher::hash_password(B3BALLOON_PARANOID, PASSWORD.to_vec().into(), SALT, None)
-				.unwrap();
-
-		assert_ct_eq!(output, HASH_B3BALLOON_EXPECTED[2]);
-	}
-
-	#[test]
-	fn hash_b3balloon_paranoid_with_secret() {
+	fn balloon_blake3_paranoid() {
 		let output = Hasher::hash_password(
-			B3BALLOON_PARANOID,
+			BALLOON_BLAKE3_PARANOID,
+			PASSWORD.to_vec().into(),
+			SALT,
+			None,
+		)
+		.unwrap();
+
+		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[2]);
+	}
+
+	#[test]
+	fn balloon_blake3_paranoid_with_secret() {
+		let output = Hasher::hash_password(
+			BALLOON_BLAKE3_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,
 			Some(SECRET_KEY),
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, HASH_B3BALLOON_WITH_SECRET_EXPECTED[2]);
+		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[2]);
 	}
 
 	#[test]
-	fn derive_b3() {
+	fn blake3_kdf() {
 		let output = Hasher::derive_key(KEY, SALT, CONTEXT);
 
-		assert_ct_eq!(output, DERIVE_B3_EXPECTED);
+		assert_ct_eq!(output, BLAKE3_KDF_EXPECTED);
 	}
 
 	#[test]
-	fn hash_b3() {
+	fn blake3_hash() {
 		let output = Hasher::blake3(KEY.expose());
 
-		assert_ct_eq!(output, HASH_B3_EXPECTED);
+		assert_ct_eq!(output, BLAKE3_EXPECTED);
 	}
 }

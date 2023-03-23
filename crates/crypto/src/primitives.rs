@@ -64,16 +64,17 @@ pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 pub(super) const ARGON2ID_STANDARD: (u32, u32, u32) = (131_072, 8, 4);
 pub(super) const ARGON2ID_HARDENED: (u32, u32, u32) = (262_144, 8, 4);
 pub(super) const ARGON2ID_PARANOID: (u32, u32, u32) = (524_288, 8, 4);
-pub(super) const B3BALLOON_STANDARD: (u32, u32, u32) = (131_072, 2, 1);
-pub(super) const B3BALLOON_HARDENED: (u32, u32, u32) = (262_144, 2, 1);
-pub(super) const B3BALLOON_PARANOID: (u32, u32, u32) = (524_288, 2, 1);
+pub(super) const BALLOON_BLAKE3_STANDARD: (u32, u32, u32) = (131_072, 2, 1);
+pub(super) const BALLOON_BLAKE3_HARDENED: (u32, u32, u32) = (262_144, 2, 1);
+pub(super) const BALLOON_BLAKE3_PARANOID: (u32, u32, u32) = (524_288, 2, 1);
 
 #[cfg(test)]
 mod tests {
 	use crate::primitives::{
 		AAD_LEN, AEAD_TAG_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID,
-		ARGON2ID_STANDARD, B3BALLOON_HARDENED, B3BALLOON_PARANOID, B3BALLOON_STANDARD, BLOCK_LEN,
-		ENCRYPTED_KEY_LEN, KEY_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+		ARGON2ID_STANDARD, BALLOON_BLAKE3_HARDENED, BALLOON_BLAKE3_PARANOID,
+		BALLOON_BLAKE3_STANDARD, BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, SECRET_KEY_LEN,
+		XCHACHA20_POLY1305_NONCE_LEN,
 	};
 
 	#[test]
@@ -93,17 +94,17 @@ mod tests {
 
 	#[test]
 	fn balloon_blake3_standard_params() {
-		assert_eq!(B3BALLOON_STANDARD, (131_072, 2, 1));
+		assert_eq!(BALLOON_BLAKE3_STANDARD, (131_072, 2, 1));
 	}
 
 	#[test]
 	fn balloon_blake3_hardened_params() {
-		assert_eq!(B3BALLOON_HARDENED, (262_144, 2, 1));
+		assert_eq!(BALLOON_BLAKE3_HARDENED, (262_144, 2, 1));
 	}
 
 	#[test]
 	fn balloon_blake3_paranoid_params() {
-		assert_eq!(B3BALLOON_PARANOID, (524_288, 2, 1));
+		assert_eq!(BALLOON_BLAKE3_PARANOID, (524_288, 2, 1));
 	}
 
 	#[test]

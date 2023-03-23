@@ -192,7 +192,7 @@ macro_rules! impl_stream {
 
 				s
 					.$streams_fn(bytes, &mut writer, aad)
-					.map(|_|writer.into_inner().into())
+					.map(|_| writer.into_inner().into())
 			}
 		}
 	};
@@ -240,8 +240,6 @@ impl Encryptor {
 
 	/// This is only for encrypting inputs < `BLOCK_LEN`. For anything larger,
 	/// see `Encryptor::encrypt_bytes` or `Encryptor::encrypt_streams`.
-	///
-	/// It is heap allocated.
 	///
 	/// It uses `encrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN`.
 	///
@@ -320,8 +318,6 @@ impl Decryptor {
 
 	/// This is only for decrypting inputs < `BLOCK_LEN + AEAD_TAG_LEN`. For anything larger,
 	/// see `Decryptor::decrypt_bytes` or `Decryptor::decrypt_streams`.
-	///
-	/// It is heap allocated.
 	///
 	/// It uses `decrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN + AEAD_TAG_LEN`.
 	///

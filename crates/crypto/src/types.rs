@@ -9,8 +9,8 @@ use crate::{Error, Protected};
 
 use crate::primitives::{
 	AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID, ARGON2ID_STANDARD,
-	B3BALLOON_HARDENED, B3BALLOON_PARANOID, B3BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN,
-	SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+	BALLOON_BLAKE3_HARDENED, BALLOON_BLAKE3_PARANOID, BALLOON_BLAKE3_STANDARD, ENCRYPTED_KEY_LEN,
+	KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
 pub struct MagicBytes<const I: usize>([u8; I]);
@@ -91,9 +91,9 @@ impl HashingAlgorithm {
 				Params::Paranoid => ARGON2ID_PARANOID,
 			},
 			Self::BalloonBlake3(p) => match p {
-				Params::Standard => B3BALLOON_STANDARD,
-				Params::Hardened => B3BALLOON_HARDENED,
-				Params::Paranoid => B3BALLOON_PARANOID,
+				Params::Standard => BALLOON_BLAKE3_STANDARD,
+				Params::Hardened => BALLOON_BLAKE3_HARDENED,
+				Params::Paranoid => BALLOON_BLAKE3_PARANOID,
 			},
 		}
 	}
