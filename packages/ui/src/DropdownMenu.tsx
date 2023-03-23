@@ -5,10 +5,10 @@ import { Link } from 'react-router-dom';
 import {
 	ContextMenuItemProps,
 	ItemInternals,
-	contextMenuClasses,
+	contextMenuClassNames,
+	contextMenuItemClassNames,
 	contextMenuItemStyles,
-	contextMenuSeparatorClassNames,
-	contextSubMenuTriggerClassNames
+	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
 interface DropdownMenuProps
@@ -47,9 +47,10 @@ const Root = ({
 					<div className="fixed inset-0"></div>
 					<RadixDM.Content
 						className={clsx(
-							contextMenuClasses,
+							contextMenuClassNames,
 							animate && 'animate-in fade-in data-[side=bottom]:slide-in-from-top-2',
 							'w-44',
+							width && 'min-w-0',
 							className
 						)}
 						align="start"
@@ -77,7 +78,7 @@ const SubMenu = ({
 }: RadixDM.MenuSubContentProps & ContextMenuItemProps) => {
 	return (
 		<RadixDM.Sub>
-			<RadixDM.SubTrigger className={contextSubMenuTriggerClassNames}>
+			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
 				<div
 					className={contextMenuItemStyles({
 						class: 'group-radix-state-open:bg-trinary/50 group-radix-state-open:text-primary'
@@ -89,7 +90,7 @@ const SubMenu = ({
 			<RadixDM.Portal>
 				<Suspense fallback={null}>
 					<RadixDM.SubContent
-						className={clsx(contextMenuClasses, className)}
+						className={clsx(contextMenuClassNames, className)}
 						collisionPadding={5}
 						{...props}
 					/>
