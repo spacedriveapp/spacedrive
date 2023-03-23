@@ -16,7 +16,7 @@ import FileThumb from '../File/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
-export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
+export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull truncate`;
 export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
 
 export const MetaContainer = tw.div`flex flex-col px-4 py-1.5`;
@@ -110,7 +110,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 						<Divider />
 						<MetaContainer>
-							<div className="flex flex-wrap gap-1">
+							<div className="flex flex-wrap gap-1 overflow-hidden">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
 								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
@@ -118,6 +118,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										className="!text-white"
 										key={tag.id}
 										style={{ backgroundColor: tag.color + 'CC' }}
+										title={tag.name || ''}
 									>
 										{tag.name}
 									</InfoPill>
