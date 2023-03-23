@@ -3,17 +3,14 @@ import clsx from 'clsx';
 import React, { PropsWithChildren, Suspense, useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+	ContextMenuDivItem,
 	ContextMenuItemProps,
-	ItemInternals,
 	contextMenuClassNames,
 	contextMenuItemClassNames,
-	contextMenuItemStyles,
 	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
-interface DropdownMenuProps
-	extends RadixDM.MenuContentProps,
-		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
+interface DropdownMenuProps extends RadixDM.MenuContentProps {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
@@ -27,7 +24,6 @@ const Root = ({
 	asChild = true,
 	triggerClassName,
 	alignToTrigger,
-	onOpenChange,
 	animate,
 	...props
 }: PropsWithChildren<DropdownMenuProps>) => {
@@ -38,29 +34,24 @@ const Root = ({
 	}, []);
 
 	return (
-		<RadixDM.Root modal={false} onOpenChange={onOpenChange}>
+		<RadixDM.Root>
 			<RadixDM.Trigger ref={measureRef} asChild={asChild} className={triggerClassName}>
 				{trigger}
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
-				<div>
-					<div className="fixed inset-0"></div>
-					<RadixDM.Content
-						className={clsx(
-							contextMenuClassNames,
-							animate && 'animate-in fade-in data-[side=bottom]:slide-in-from-top-2',
-							'w-44',
-							width && 'min-w-0',
-							className
-						)}
-						align="start"
-						collisionPadding={5}
-						style={{ width }}
-						{...props}
-					>
-						{children}
-					</RadixDM.Content>
-				</div>
+				<RadixDM.Content
+					className={clsx(
+						contextMenuClassNames,
+						animate && 'animate-in fade-in data-[side=bottom]:slide-in-from-top-2',
+						width && 'min-w-0',
+						className
+					)}
+					align="start"
+					style={{ width }}
+					{...props}
+				>
+					{children}
+				</RadixDM.Content>
 			</RadixDM.Portal>
 		</RadixDM.Root>
 	);
@@ -79,28 +70,18 @@ const SubMenu = ({
 	return (
 		<RadixDM.Sub>
 			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
-				<div
-					className={contextMenuItemStyles({
-						class: 'group-radix-state-open:bg-trinary/50 group-radix-state-open:text-primary'
-					})}
-				>
-					<ItemInternals rightArrow {...{ label, icon }} />
-				</div>
+				<ContextMenuDivItem rightArrow {...{ label, icon }} />
 			</RadixDM.SubTrigger>
 			<RadixDM.Portal>
 				<Suspense fallback={null}>
-					<RadixDM.SubContent
-						className={clsx(contextMenuClassNames, className)}
-						collisionPadding={5}
-						{...props}
-					/>
+					<RadixDM.SubContent className={clsx(contextMenuClassNames, className)} {...props} />
 				</Suspense>
 			</RadixDM.Portal>
 		</RadixDM.Sub>
 	);
 };
 
-interface DropdownItemProps extends ContextMenuItemProps, RadixDM.MenuItemProps {
+interface DropdownItemProps extends ContextMenuItemProps {
 	to?: string;
 	selected?: boolean;
 }
@@ -117,39 +98,23 @@ const Item = ({
 	selected,
 	to,
 	...props
-}: DropdownItemProps) => {
+}: DropdownItemProps & RadixDM.MenuItemProps) => {
 	const ref = useRef<HTMLDivElement>(null);
 
 	return (
-		<RadixDM.Item
-			className={clsx(
-				'text-menu-ink group cursor-default select-none py-0.5 focus:outline-none active:opacity-80',
-				className
-			)}
-			ref={ref}
-			{...props}
-		>
+		<RadixDM.Item ref={ref} className={clsx(contextMenuItemClassNames, className)} {...props}>
 			{to ? (
-				<Link
-					to={to}
-					className={contextMenuItemStyles({
-						variant,
-						className: clsx(selected && 'bg-accent')
-					})}
-					onClick={() => ref.current?.click()}
-				>
-					{children ? (
-						<span className="truncate">{children}</span>
-					) : (
-						<ItemInternals {...{ icon, iconProps, label, rightArrow, keybind }} />
-					)}
+				<Link to={to} onClick={() => ref.current?.click()}>
+					<ContextMenuDivItem
+						className={clsx(selected && 'bg-accent')}
+						{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+					/>
 				</Link>
 			) : (
-				<div
-					className={contextMenuItemStyles({ variant, className: clsx(selected && 'bg-accent') })}
-				>
-					{children || <ItemInternals {...{ icon, iconProps, label, rightArrow, keybind }} />}
-				</div>
+				<ContextMenuDivItem
+					className={clsx(selected && 'bg-accent')}
+					{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+				/>
 			)}
 		</RadixDM.Item>
 	);

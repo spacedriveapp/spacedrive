@@ -58,7 +58,7 @@ const SubMenu = ({
 	);
 };
 
-export const contextMenuItemStyles = cva(
+const contextMenuItemStyles = cva(
 	[
 		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
 		'text-ink text-sm',
@@ -122,13 +122,7 @@ export const ContextMenuDivItem = ({
 	</div>
 );
 
-export const ItemInternals = ({
-	icon,
-	label,
-	rightArrow,
-	keybind,
-	iconProps
-}: ContextMenuItemProps) => {
+const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextMenuItemProps) => {
 	const ItemIcon = icon;
 
 	return (

@@ -40,7 +40,7 @@ export default () => {
 					{lib.config.name}
 				</DropdownMenu.Item>
 			))}
-			<DropdownMenu.Separator className="mx-0 my-0.5" />
+			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
 				label="	New Library"
 				icon={Plus}
