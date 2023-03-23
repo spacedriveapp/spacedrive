@@ -13,14 +13,10 @@ export const AddLocationButton = (props: ButtonProps) => {
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => {
-							if (path) dialogManager.create((dp) => <AddLocationDialog path={path} {...dp} />);
+							if (path !== '')
+								dialogManager.create((dp) => <AddLocationDialog path={path ?? ''} {...dp} />);
 						})
-						.catch((error) =>
-							showAlertDialog({
-								title: 'Error',
-								value: String(error)
-							})
-						)
+						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
 				}
 			>
 				Add Location
