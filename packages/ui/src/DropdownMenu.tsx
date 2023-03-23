@@ -1,6 +1,13 @@
 import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import React, { PropsWithChildren, Suspense, useCallback, useRef, useState } from 'react';
+import React, {
+	PropsWithChildren,
+	Suspense,
+	useCallback,
+	useContext,
+	useRef,
+	useState
+} from 'react';
 import { Link } from 'react-router-dom';
 import {
 	ContextMenuDivItem,
@@ -16,6 +23,9 @@ interface DropdownMenuProps extends RadixDM.MenuContentProps {
 	alignToTrigger?: boolean;
 	animate?: boolean;
 }
+
+const context = React.createContext<boolean>(false);
+export const useDropdownMenu = () => useContext(context);
 
 const Root = ({
 	trigger,
@@ -50,7 +60,7 @@ const Root = ({
 					style={{ width }}
 					{...props}
 				>
-					{children}
+					<context.Provider value={true}>{children}</context.Provider>
 				</RadixDM.Content>
 			</RadixDM.Portal>
 		</RadixDM.Root>

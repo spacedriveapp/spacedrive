@@ -2,7 +2,7 @@ import * as RadixCM from '@radix-ui/react-context-menu';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { CaretRight, Icon, IconProps } from 'phosphor-react';
-import { PropsWithChildren, Suspense } from 'react';
+import { PropsWithChildren, Suspense, createContext, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
@@ -16,13 +16,16 @@ export const contextMenuClassNames = clsx(
 	'cursor-default select-none rounded-md'
 );
 
+const context = createContext<boolean>(false);
+export const useContextMenu = () => useContext(context);
+
 const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
 			<RadixCM.Portal>
 				<RadixCM.Content className={clsx(contextMenuClassNames, className)} {...props}>
-					{children}
+					<context.Provider value={true}>{children}</context.Provider>
 				</RadixCM.Content>
 			</RadixCM.Portal>
 		</RadixCM.Root>

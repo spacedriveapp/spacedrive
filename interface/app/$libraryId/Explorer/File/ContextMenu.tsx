@@ -1,5 +1,3 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
-import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Copy,
@@ -14,22 +12,20 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren, useRef } from 'react';
+import { PropsWithChildren } from 'react';
 import {
 	ExplorerItem,
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
-	useLibraryQuery,
-	usePlausibleEvent
+	useLibraryQuery
 } from '@sd/client';
-import { ContextMenu, Input, dialogManager } from '@sd/ui';
+import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
 import { usePlatform } from '~/util/Platform';
-import CreateDialog from '../../settings/library/tags/CreateDialog';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -251,105 +247,5 @@ export default ({ data, ...props }: Props) => {
 				/>
 			</ContextMenu.Root>
 		</div>
-	);
-};
-
-const AssignTagMenuItems = (props: { objectId: number }) => {
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
-
-	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
-
-	const assignTag = useLibraryMutation('tags.assign', {
-		onSuccess: () => {
-			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-		}
-	});
-
-	const parentRef = useRef<HTMLDivElement>(null);
-	const rowVirtualizer = useVirtualizer({
-		count: tags.data?.length || 0,
-		getScrollElement: () => parentRef.current,
-		estimateSize: () => 30,
-		paddingStart: 2
-	});
-
-	const { isScrolled } = useScrolled(parentRef, 10);
-
-	return (
-		<>
-			<ContextMenu.Item
-				label="New tag"
-				icon={Plus}
-				iconProps={{ size: 15 }}
-				keybind="⌘N"
-				onClick={() => {
-					dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={props.objectId} />);
-				}}
-			/>
-			<ContextMenu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
-			{tags.data && tags.data.length > 0 ? (
-				<div
-					ref={parentRef}
-					style={{
-						maxHeight: `400px`,
-						height: `100%`,
-						width: `100%`,
-						overflow: 'auto'
-					}}
-				>
-					<div
-						style={{
-							height: `${rowVirtualizer.getTotalSize()}px`,
-							width: '100%',
-							position: 'relative'
-						}}
-					>
-						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const tag = tags.data[virtualRow.index];
-							const active = !!tagsForObject.data?.find((t) => t.id === tag?.id);
-
-							return (
-								tag && (
-									<ContextMenu.Item
-										key={virtualRow.index}
-										style={{
-											position: 'absolute',
-											top: 0,
-											left: 0,
-											width: '100%',
-											height: `${virtualRow.size}px`,
-											transform: `translateY(${virtualRow.start}px)`
-										}}
-										onClick={(e) => {
-											e.preventDefault();
-											assignTag.mutate({
-												tag_id: tag.id,
-												object_id: props.objectId,
-												unassign: active
-											});
-										}}
-									>
-										<div
-											className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
-											style={{
-												backgroundColor: active && tag.color ? tag.color : 'transparent',
-												borderColor: tag.color || '#efefef'
-											}}
-										/>
-										<span className="truncate">{tag.name}</span>
-									</ContextMenu.Item>
-								)
-							);
-						})}
-					</div>
-				</div>
-			) : (
-				<div className="text-ink-faint py-1 text-center text-xs">
-					{tags.data ? 'No tags' : 'Failed to load tags'}
-				</div>
-			)}
-		</>
 	);
 };

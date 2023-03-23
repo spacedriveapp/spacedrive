@@ -11,7 +11,8 @@ import {
 	isObject,
 	useLibraryQuery
 } from '@sd/client';
-import { Button, Divider, Tooltip, tw } from '@sd/ui';
+import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -123,7 +124,17 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										{tag.name}
 									</InfoPill>
 								))}
-								<PlaceholderPill>Add Tag</PlaceholderPill>
+								{objectData?.id && (
+									<DropdownMenu.Root
+										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+										side="left"
+										animate
+										sideOffset={5}
+										alignOffset={-10}
+									>
+										<AssignTagMenuItems objectId={objectData.id} />
+									</DropdownMenu.Root>
+								)}
 							</div>
 						</MetaContainer>
 						<Divider />
