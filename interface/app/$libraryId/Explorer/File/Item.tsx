@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { ExplorerItem, ObjectKind, isObject } from '@sd/client';
+import { ExplorerItem, ObjectKind, formatBytes, isObject, isPath } from '@sd/client';
+import { tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import ContextMenu from './ContextMenu';
 import FileThumb from './Thumb';
@@ -11,8 +12,10 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	index: number;
 }
 
+const ItemMetaContainer = tw.div`flex flex-col justify-center`;
+
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const item = data.item;
+	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const explorerStore = useExplorerStore();
 
@@ -43,17 +46,26 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb data={data} size={explorerStore.gridItemSize} />
 				</div>
-				<div className="flex justify-center">
+				<ItemMetaContainer>
 					<span
 						className={clsx(
 							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-xs font-medium',
 							selected && 'bg-accent text-white'
 						)}
 					>
-						{item.name}
-						{item.extension && `.${item.extension}`}
+						{data.item.name}
+						{data.item.extension && `.${data.item.extension}`}
 					</span>
-				</div>
+					{explorerStore.showBytesInGridView && (
+						<span
+							className={clsx(
+								'text-tiny text-ink-dull cursor-default truncate rounded-md px-1.5 py-[1px] text-center '
+							)}
+						>
+							{formatBytes(Number(objectData?.size_in_bytes || 0))}
+						</span>
+					)}
+				</ItemMetaContainer>
 			</div>
 		</ContextMenu>
 	);

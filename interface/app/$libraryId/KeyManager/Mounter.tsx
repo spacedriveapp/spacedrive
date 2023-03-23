@@ -1,14 +1,9 @@
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import {
-	Algorithm,
-	HASHING_ALGOS,
-	HashingAlgoSlug,
-	generatePassword,
-	useLibraryMutation
-} from '@sd/client';
+import { Algorithm, HASHING_ALGOS, HashingAlgoSlug, useLibraryMutation } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Slider, Switch, tw } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
+import { generatePassword } from '~/util';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 

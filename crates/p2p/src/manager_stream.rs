@@ -196,6 +196,7 @@ where
 			ManagerStreamAction::BroadcastData(data) => {
 				let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();
 				let behaviour = self.swarm.behaviour_mut();
+				debug!("Broadcasting message to '{:?}'", connected_peers);
 				for peer_id in connected_peers {
 					behaviour
 						.pending_events

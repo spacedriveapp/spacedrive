@@ -1,17 +1,17 @@
 use crate::{
-	api::{CoreEvent, Ctx, Router},
+	api::{CoreEvent, Router},
 	job::JobManager,
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
-	p2p::P2PManager,
+	p2p::{P2PEvent, P2PManager},
 };
 use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
@@ -35,16 +35,17 @@ pub struct NodeContext {
 	pub jobs: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
+	pub p2p: Arc<P2PManager>,
 }
 
 pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
-	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	secure_temp_keystore: Arc<SecureTempKeystore>,
+	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
 
 #[cfg(not(target_os = "android"))]
@@ -90,11 +91,11 @@ impl Node {
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
-				.add_directive(
-					"sd-p2p=debug"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				)
+				// .add_directive(
+				// 	"sd_p2p=debug"
+				// 		.parse()
+				// 		.expect("Error invalid tracing directive!"),
+				// )
 				.add_directive(
 					"server=debug"
 						.parse()
@@ -112,8 +113,8 @@ impl Node {
 		);
 		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		#[cfg(target_os = "android")]
-		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
+		// #[cfg(target_os = "android")]
+		// let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber
 			// .with(
 			// 	Layer::default()
@@ -129,12 +130,15 @@ impl Node {
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
 		let secure_temp_keystore = SecureTempKeystore::new();
+		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await;
+
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
-				config: Arc::clone(&config),
-				jobs: Arc::clone(&jobs),
-				location_manager: Arc::clone(&location_manager),
+				config: config.clone(),
+				jobs: jobs.clone(),
+				location_manager: location_manager.clone(),
+				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 			},
 		)
@@ -164,17 +168,48 @@ impl Node {
 		debug!("Watching locations");
 
 		// Trying to resume possible paused jobs
-		let inner_library_manager = Arc::clone(&library_manager);
-		let inner_jobs = Arc::clone(&jobs);
-		tokio::spawn(async move {
-			for library in inner_library_manager.get_all_libraries().await {
-				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library).await {
-					error!("Failed to resume jobs for library. {:#?}", e);
+		tokio::spawn({
+			let library_manager = library_manager.clone();
+			let jobs = jobs.clone();
+
+			async move {
+				for library in library_manager.get_all_libraries().await {
+					if let Err(e) = jobs.clone().resume_jobs(&library).await {
+						error!("Failed to resume jobs for library. {:#?}", e);
+					}
 				}
 			}
 		});
 
-		let p2p = P2PManager::new(config.clone()).await;
+		tokio::spawn({
+			let library_manager = library_manager.clone();
+
+			async move {
+				while let Ok(ops) = p2p_rx.recv().await {
+					match ops {
+						P2PEvent::SyncOperation {
+							library_id,
+							operations,
+						} => {
+							debug!("going to ingest {} operations", operations.len());
+
+							let libraries = library_manager.libraries.read().await;
+
+							let Some(library) = libraries.first() else {
+                                warn!("no library found!");
+                                continue;
+                            };
+
+							for op in operations {
+								println!("ingest lib id: {}", library.id);
+								library.sync.ingest_op(op).await.unwrap();
+							}
+						}
+						_ => {}
+					}
+				}
+			}
+		});
 
 		let router = api::mount();
 		let node = Node {
@@ -184,21 +219,11 @@ impl Node {
 			p2p,
 			event_bus,
 			secure_temp_keystore,
+			// peer_request: tokio::sync::Mutex::new(None),
 		};
 
 		info!("Spacedrive online.");
 		Ok((Arc::new(node), router))
-	}
-
-	pub fn get_request_context(&self) -> Ctx {
-		Ctx {
-			library_manager: Arc::clone(&self.library_manager),
-			config: Arc::clone(&self.config),
-			jobs: Arc::clone(&self.jobs),
-			p2p: Arc::clone(&self.p2p),
-			event_bus: self.event_bus.0.clone(),
-			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
-		}
 	}
 
 	pub async fn shutdown(&self) {
@@ -206,6 +231,21 @@ impl Node {
 		self.jobs.pause().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
+
+	// pub async fn begin_guest_peer_request(
+	// 	&self,
+	// 	peer_id: String,
+	// ) -> Option<Receiver<peer_request::guest::State>> {
+	// 	let mut pr_guard = self.peer_request.lock().await;
+
+	// 	if pr_guard.is_some() {
+	// 		return None;
+	// 	}
+
+	// 	let (req, stream) = peer_request::guest::PeerRequest::new_actor(peer_id);
+	// 	*pr_guard = Some(PeerRequest::Guest(req));
+	// 	Some(stream)
+	// }
 }
 
 /// Error type for Node related errors.

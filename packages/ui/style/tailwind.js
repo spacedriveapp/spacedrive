@@ -162,6 +162,7 @@ module.exports = function (app, options) {
 			// 	addVariant('open', '&[data-state="open"]');
 			// 	addVariant('closed', '&[data-state="closed"]');
 			// }),
+			require('tailwindcss-animate'),
 			require('@headlessui/tailwindcss'),
 			require('tailwindcss-radix')()
 		]

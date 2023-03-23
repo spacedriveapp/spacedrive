@@ -65,7 +65,7 @@ const AppEmbed = () => {
 					<div className="bloom burst bloom-two" />
 				</div>
 			)}
-			<div className="relative z-30 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+			<div className="relative z-30 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div
 					className={clsx(
 						'border-gray-550 relative m-auto h-full max-w-7xl rounded-lg border opacity-0 transition-opacity',

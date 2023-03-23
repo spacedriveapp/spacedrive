@@ -1,22 +1,15 @@
+use rspc::{Config, Type};
+use serde::{Deserialize, Serialize};
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use rspc::{Config, Type};
-use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
-
-use crate::{
-	job::JobManager,
-	library::LibraryManager,
-	node::{NodeConfig, NodeConfigManager},
-	p2p::P2PManager,
-	util::secure_temp_keystore::SecureTempKeystore,
-};
+use crate::{node::NodeConfig, Node};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
+pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
 pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 
@@ -28,16 +21,6 @@ pub enum CoreEvent {
 	InvalidateOperationDebounced(InvalidateOperationEvent),
 }
 
-/// Is provided when executing the router from the request.
-pub struct Ctx {
-	pub library_manager: Arc<LibraryManager>,
-	pub config: Arc<NodeConfigManager>,
-	pub jobs: Arc<JobManager>,
-	pub event_bus: broadcast::Sender<CoreEvent>,
-	pub p2p: Arc<P2PManager>,
-	pub secure_temp_keystore: Arc<SecureTempKeystore>,
-}
-
 mod files;
 mod jobs;
 mod keys;
@@ -45,6 +28,7 @@ mod libraries;
 mod locations;
 mod nodes;
 mod p2p;
+mod sync;
 mod tags;
 pub mod utils;
 pub mod volumes;
@@ -101,10 +85,11 @@ pub(crate) fn mount() -> Arc<Router> {
 		.yolo_merge("files.", files::mount())
 		.yolo_merge("jobs.", jobs::mount())
 		.yolo_merge("p2p.", p2p::mount())
+		.yolo_merge("sync.", sync::mount())
 		// TODO: Scope the invalidate queries to a specific library (filtered server side)
 		.subscription("invalidateQuery", |t| {
 			t(|ctx, _: ()| {
-				let mut event_bus_rx = ctx.event_bus.subscribe();
+				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				let mut last = Instant::now();
 				async_stream::stream! {
 					while let Ok(event) = event_bus_rx.recv().await {

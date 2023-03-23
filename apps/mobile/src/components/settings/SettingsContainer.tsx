@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { Text, View } from 'react-native';
-import { tw } from '~/lib/tailwind';
+import { styled, tw } from '~/lib/tailwind';
 
 type SettingsContainerProps = PropsWithChildren<{
 	title?: string;
@@ -16,3 +16,6 @@ export function SettingsContainer({ children, title, description }: SettingsCont
 		</View>
 	);
 }
+
+export const SettingsInputTitle = styled(Text, 'text-ink mb-1.5 ml-1 text-sm font-medium');
+export const SettingsInputInfo = styled(Text, 'mt-2 text-xs text-ink-faint');

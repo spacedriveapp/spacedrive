@@ -17,7 +17,7 @@ export default defineConfig({
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({
 			minify: true
-		}),
+		})
 	],
 	css: {
 		modules: {

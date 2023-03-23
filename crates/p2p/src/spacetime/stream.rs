@@ -31,6 +31,13 @@ impl SpaceTimeStream {
 		}
 	}
 
+	pub fn stream_type(&self) -> &'static str {
+		match self {
+			Self::Broadcast(_) => "broadcast",
+			Self::Unicast(_) => "unicast",
+		}
+	}
+
 	pub async fn close(self) -> Result<(), io::Error> {
 		match self {
 			Self::Broadcast(mut stream) => {
