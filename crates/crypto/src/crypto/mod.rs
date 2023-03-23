@@ -68,7 +68,7 @@ mod tests {
 		assert_ct_eq,
 		crypto::{Decryptor, Encryptor},
 		primitives::{
-			AAD_LEN, AES_256_GCM_NONCE_LEN, BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
+			AAD_LEN, AEAD_TAG_LEN, AES_256_GCM_NONCE_LEN, BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
 			XCHACHA20_POLY1305_NONCE_LEN,
 		},
 		types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
@@ -133,25 +133,25 @@ mod tests {
 
 	#[test]
 	fn aes_encrypt_bytes() {
-		let ciphertext =
+		let output =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, Aad::Null)
 				.unwrap();
 
-		assert_eq!(ciphertext, AES_BYTES_EXPECTED[0]);
+		assert_eq!(output, AES_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
 	fn aes_encrypt_bytes_with_aad() {
-		let ciphertext =
+		let output =
 			Encryptor::encrypt_bytes(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, AAD)
 				.unwrap();
 
-		assert_eq!(ciphertext, AES_BYTES_EXPECTED[1]);
+		assert_eq!(output, AES_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
 	fn aes_decrypt_bytes() {
-		let plaintext = Decryptor::decrypt_bytes(
+		let output = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -160,12 +160,12 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(plaintext.expose(), &PLAINTEXT);
+		assert_eq!(output.expose(), &PLAINTEXT);
 	}
 
 	#[test]
 	fn aes_decrypt_bytes_with_aad() {
-		let plaintext = Decryptor::decrypt_bytes(
+		let output = Decryptor::decrypt_bytes(
 			KEY,
 			AES_NONCE,
 			Algorithm::Aes256Gcm,
@@ -174,7 +174,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(plaintext.expose(), &PLAINTEXT);
+		assert_eq!(output.expose(), &PLAINTEXT);
 	}
 
 	#[test]
@@ -213,6 +213,55 @@ mod tests {
 		.unwrap();
 
 		assert_ct_eq!(output, AES_ENCRYPTED_KEY);
+	}
+
+	#[test]
+	fn aes_encrypt_tiny() {
+		let output =
+			Encryptor::encrypt_tiny(KEY, AES_NONCE, Algorithm::Aes256Gcm, &PLAINTEXT, Aad::Null)
+				.unwrap();
+
+		assert_eq!(output, AES_BYTES_EXPECTED[0]);
+	}
+
+	#[test]
+	fn aes_decrypt_tiny() {
+		let output = Decryptor::decrypt_tiny(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&AES_BYTES_EXPECTED[0],
+			Aad::Null,
+		)
+		.unwrap();
+
+		assert_eq!(output.expose(), &PLAINTEXT);
+	}
+
+	#[test]
+	#[should_panic(expected = "LengthMismatch")]
+	fn aes_encrypt_tiny_too_large() {
+		Encryptor::encrypt_tiny(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&vec![0u8; BLOCK_LEN],
+			Aad::Null,
+		)
+		.unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "LengthMismatch")]
+	fn aes_decrypt_tiny_too_large() {
+		Decryptor::decrypt_tiny(
+			KEY,
+			AES_NONCE,
+			Algorithm::Aes256Gcm,
+			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
+			Aad::Null,
+		)
+		.unwrap();
 	}
 
 	#[test]
@@ -385,7 +434,7 @@ mod tests {
 
 	#[test]
 	fn xchacha_encrypt_bytes() {
-		let ciphertext = Encryptor::encrypt_bytes(
+		let output = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -394,7 +443,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(ciphertext, XCHACHA_BYTES_EXPECTED[0]);
+		assert_eq!(output, XCHACHA_BYTES_EXPECTED[0]);
 	}
 
 	#[test]
@@ -455,6 +504,60 @@ mod tests {
 	}
 
 	#[test]
+	fn xchacha_encrypt_tiny() {
+		let output = Encryptor::encrypt_tiny(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&PLAINTEXT,
+			Aad::Null,
+		)
+		.unwrap();
+
+		assert_eq!(output, XCHACHA_BYTES_EXPECTED[0]);
+	}
+
+	#[test]
+	fn xchacha_decrypt_tiny() {
+		let output = Decryptor::decrypt_tiny(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&XCHACHA_BYTES_EXPECTED[0],
+			Aad::Null,
+		)
+		.unwrap();
+
+		assert_eq!(output.expose(), &PLAINTEXT);
+	}
+
+	#[test]
+	#[should_panic(expected = "LengthMismatch")]
+	fn xchacha_encrypt_tiny_too_large() {
+		Encryptor::encrypt_tiny(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&vec![0u8; BLOCK_LEN],
+			Aad::Null,
+		)
+		.unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "LengthMismatch")]
+	fn xchacha_decrypt_tiny_too_large() {
+		Decryptor::decrypt_tiny(
+			KEY,
+			XCHACHA_NONCE,
+			Algorithm::XChaCha20Poly1305,
+			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
+			Aad::Null,
+		)
+		.unwrap();
+	}
+
+	#[test]
 	#[should_panic(expected = "LengthMismatch")]
 	fn xchacha_encrypt_fixed_bad_length() {
 		Encryptor::encrypt_fixed::<KEY_LEN, KEY_LEN>(
@@ -482,7 +585,7 @@ mod tests {
 
 	#[test]
 	fn xchacha_encrypt_bytes_with_aad() {
-		let ciphertext = Encryptor::encrypt_bytes(
+		let output = Encryptor::encrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -491,12 +594,12 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(ciphertext, XCHACHA_BYTES_EXPECTED[1]);
+		assert_eq!(output, XCHACHA_BYTES_EXPECTED[1]);
 	}
 
 	#[test]
 	fn xchacha_decrypt_bytes() {
-		let plaintext = Decryptor::decrypt_bytes(
+		let output = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -505,12 +608,12 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(plaintext.expose(), &PLAINTEXT);
+		assert_eq!(output.expose(), &PLAINTEXT);
 	}
 
 	#[test]
 	fn xchacha_decrypt_bytes_with_aad() {
-		let plaintext = Decryptor::decrypt_bytes(
+		let output = Decryptor::decrypt_bytes(
 			KEY,
 			XCHACHA_NONCE,
 			Algorithm::XChaCha20Poly1305,
@@ -519,7 +622,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(plaintext.expose(), &PLAINTEXT);
+		assert_eq!(output.expose(), &PLAINTEXT);
 	}
 
 	#[test]

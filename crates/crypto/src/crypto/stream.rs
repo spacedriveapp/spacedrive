@@ -199,22 +199,22 @@ macro_rules! impl_stream {
 }
 
 impl Encryptor {
-	/// This is only for encrypting inputs <= `BLOCK_LEN`.
+	/// This is only for encrypting inputs <= `1024` bytes, and of a fixed size.
 	///
 	/// It is stack allocated, and that must be taken into consideration.
 	///
-	/// It uses `encrypt_last_in_place` under the hood due to the input always being <= `BLOCK_LEN`.
+	/// It uses `encrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN`.
 	///
-	/// It's faster than the `encrypt_streams` alternative (for small sizes) as we don't need to allocate the
+	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
 	/// full buffer - we only allocate what is required.
-	pub fn encrypt_fixed<const I: usize, const T: usize>(
+	pub(super) fn encrypt_fixed<const I: usize, const T: usize>(
 		key: Key,
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
 		aad: Aad,
 	) -> Result<[u8; T]> {
-		if I > BLOCK_LEN || T != (I + AEAD_TAG_LEN) {
+		if I > 1024 || T != (I + AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
 		}
 
@@ -237,25 +237,53 @@ impl Encryptor {
 		Self::encrypt_fixed(key, nonce, algorithm, key_to_encrypt.expose(), aad)
 			.map(|b| EncryptedKey::new(b, nonce))
 	}
+
+	/// This is only for encrypting inputs < `BLOCK_LEN`. For anything larger,
+	/// see `Encryptor::encrypt_bytes` or `Encryptor::encrypt_streams`.
+	///
+	/// It is heap allocated.
+	///
+	/// It uses `encrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN`.
+	///
+	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
+	/// full buffer - we only allocate what is required.
+	pub fn encrypt_tiny(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		bytes: &[u8],
+		aad: Aad,
+	) -> Result<Vec<u8>> {
+		if bytes.len() >= BLOCK_LEN {
+			return Err(Error::LengthMismatch);
+		}
+
+		let s = Self::new(key, nonce, algorithm)?;
+		let mut buffer = Vec::with_capacity(bytes.len() + AEAD_TAG_LEN);
+		buffer.extend_from_slice(bytes);
+		s.encrypt_last_in_place(aad, &mut buffer)?;
+
+		Ok(buffer)
+	}
 }
 
 impl Decryptor {
-	/// This is only for decrypting inputs <= `BLOCK_LEN + AEAD_TAG_LEN`.
+	/// This is only for decrypting inputs <= `1024 + AEAD_TAG_LEN`, and of a fixed size.
 	///
 	/// It is stack allocated, and that must be taken into consideration.
 	///
-	/// It uses `decrypt_last_in_place` under the hood due to the input always being <= `BLOCK_LEN + AEAD_TAG_LEN`.
+	/// It uses `decrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN + AEAD_TAG_LEN`.
 	///
-	/// It's faster than the `decrypt_streams` alternative (for small sizes) as we don't need to allocate the
+	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
 	/// full buffer - we only allocate what is required.
-	pub fn decrypt_fixed<const I: usize, const T: usize>(
+	pub(super) fn decrypt_fixed<const I: usize, const T: usize>(
 		key: Key,
 		nonce: Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8; I],
 		aad: Aad,
 	) -> Result<Protected<[u8; T]>> {
-		if I > (BLOCK_LEN + AEAD_TAG_LEN) || T != (I - AEAD_TAG_LEN) {
+		if I > (1024 + AEAD_TAG_LEN) || T != (I - AEAD_TAG_LEN) {
 			return Err(Error::LengthMismatch);
 		}
 
@@ -288,6 +316,36 @@ impl Decryptor {
 			aad,
 		)
 		.map(Key::from)
+	}
+
+	/// This is only for decrypting inputs < `BLOCK_LEN + AEAD_TAG_LEN`. For anything larger,
+	/// see `Decryptor::decrypt_bytes` or `Decryptor::decrypt_streams`.
+	///
+	/// It is heap allocated.
+	///
+	/// It uses `decrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN + AEAD_TAG_LEN`.
+	///
+	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
+	/// full buffer - we only allocate what is required.
+	pub fn decrypt_tiny(
+		key: Key,
+		nonce: Nonce,
+		algorithm: Algorithm,
+		bytes: &[u8],
+		aad: Aad,
+	) -> Result<Protected<Vec<u8>>> {
+		if bytes.len() >= (BLOCK_LEN + AEAD_TAG_LEN) {
+			return Err(Error::LengthMismatch);
+		}
+
+		let s = Self::new(key, nonce, algorithm)?;
+		let mut buffer = Vec::with_capacity(bytes.len() + AEAD_TAG_LEN);
+		buffer.extend_from_slice(bytes);
+		s.decrypt_last_in_place(aad, &mut buffer)?;
+
+		buffer.truncate(bytes.len() - AEAD_TAG_LEN);
+
+		Ok(buffer.into())
 	}
 }
 
