@@ -4,7 +4,7 @@ use crate::{
 	crypto::exhaustive_read,
 	primitives::{AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
-	util::ToArray,
+	utils::ToArray,
 	Error, Protected, Result,
 };
 use aead::{

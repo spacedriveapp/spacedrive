@@ -4,7 +4,7 @@ use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
 use std::fmt::{Debug, Display};
 
-use crate::util::{generate_fixed, ConstantTime, ConstantTimeNull, ToArray};
+use crate::utils::{generate_fixed, ConstantTime, ConstantTimeNull, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
@@ -384,7 +384,7 @@ impl From<SecretKeyString> for SecretKey {
 }
 
 impl TryFrom<Protected<Vec<u8>>> for SecretKey {
-	type Error = crate::Error;
+	type Error = Error;
 
 	fn try_from(v: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
 		Ok(Self::new(v.into_inner().to_array()?))

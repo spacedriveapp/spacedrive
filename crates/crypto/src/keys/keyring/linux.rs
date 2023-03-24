@@ -21,7 +21,7 @@ impl<'a> LinuxKeyring<'a> {
 		})
 	}
 
-	fn get_collection(&self) -> Result<Collection> {
+	fn get_collection(&self) -> Result<Collection<'_>> {
 		let collection = self.service.get_default_collection()?;
 
 		collection.is_locked()?.then(|| {
@@ -34,7 +34,7 @@ impl<'a> LinuxKeyring<'a> {
 }
 
 impl<'a> Keyring for LinuxKeyring<'a> {
-	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
+	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
 		self.get_collection()?.create_item(
 			&identifier.generate_linux_label(),
 			identifier.to_hashmap(),
@@ -46,7 +46,7 @@ impl<'a> Keyring for LinuxKeyring<'a> {
 		Ok(())
 	}
 
-	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>> {
+	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
 		let collection = self.get_collection()?;
 		let items = collection.search_items(identifier.to_hashmap())?;
 
@@ -55,7 +55,7 @@ impl<'a> Keyring for LinuxKeyring<'a> {
 		})
 	}
 
-	fn delete(&self, identifier: Identifier) -> Result<()> {
+	fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
 		self.get_collection()?
 			.search_items(identifier.to_hashmap())?
 			.get(0)

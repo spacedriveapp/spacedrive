@@ -130,15 +130,15 @@ where
 	const SID: specta::TypeSid = specta::sid!();
 	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
 
-	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+	fn inline(opts: specta::DefOpts<'_>, generics: &[specta::DataType]) -> specta::DataType {
 		T::inline(opts, generics)
 	}
 
-	fn reference(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+	fn reference(opts: specta::DefOpts<'_>, generics: &[specta::DataType]) -> specta::DataType {
 		T::reference(opts, generics)
 	}
 
-	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
+	fn definition(opts: specta::DefOpts<'_>) -> specta::DataTypeExt {
 		T::definition(opts)
 	}
 }

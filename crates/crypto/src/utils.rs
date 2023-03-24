@@ -112,7 +112,7 @@ impl<T: ConstantTime + Default> ConstantTimeNull for [T] {
 mod tests {
 	use crate::{
 		primitives::{BLOCK_LEN, SALT_LEN},
-		util::{ConstantTime, ConstantTimeNull, ToArray},
+		utils::{ConstantTime, ConstantTimeNull, ToArray},
 	};
 
 	// TODO(brxken128): tests for every possible CT case, every impl, etc

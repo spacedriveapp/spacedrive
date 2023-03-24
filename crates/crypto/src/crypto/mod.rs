@@ -69,7 +69,7 @@ mod tests {
 			XCHACHA20_POLY1305_NONCE_LEN,
 		},
 		types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
-		util::generate_vec,
+		utils::generate_vec,
 	};
 
 	const KEY: Key = Key::new([0x23; KEY_LEN]);

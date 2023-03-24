@@ -11,6 +11,7 @@
 #![warn(clippy::unwrap_used)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
+#![warn(unused_qualifications, rust_2018_idioms)]
 #![forbid(unsafe_code)]
 
 pub mod crypto;
@@ -19,7 +20,7 @@ pub mod keys;
 pub mod primitives;
 pub mod protected;
 pub mod types;
-pub mod util;
+pub mod utils;
 
 #[cfg(feature = "encoding")]
 pub mod encoding;

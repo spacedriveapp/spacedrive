@@ -41,9 +41,9 @@ impl<'a> Identifier<'a> {
 }
 
 pub trait Keyring {
-	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()>;
-	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>>;
-	fn delete(&self, identifier: Identifier) -> Result<()>;
+	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()>;
+	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>>;
+	fn delete(&self, identifier: Identifier<'_>) -> Result<()>;
 }
 
 /// This should be used to interact with all OS keyrings.
@@ -66,15 +66,15 @@ impl KeyringInterface {
 		Ok(Self { keyring })
 	}
 
-	pub fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
+	pub fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
 		self.keyring.insert(identifier, value)
 	}
 
-	pub fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>> {
+	pub fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
 		self.keyring.retrieve(identifier)
 	}
 
-	pub fn delete(&self, identifier: Identifier) -> Result<()> {
+	pub fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
 		self.keyring.delete(identifier)
 	}
 }

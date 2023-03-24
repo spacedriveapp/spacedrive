@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 use sd_crypto::{
 	keys::Hasher,
 	types::{HashingAlgorithm, Params, Salt},
-	util::generate_fixed,
+	utils::generate_fixed,
 	Protected,
 };
 

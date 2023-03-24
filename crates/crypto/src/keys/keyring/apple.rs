@@ -11,7 +11,7 @@ use security_framework::passwords::{
 pub struct AppleKeyring;
 
 impl Keyring for AppleKeyring {
-	fn insert(&self, identifier: Identifier, value: SecretKeyString) -> Result<()> {
+	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
 		set_generic_password(
 			identifier.application,
 			&identifier.to_apple_account(),
@@ -19,12 +19,12 @@ impl Keyring for AppleKeyring {
 		)
 		.map_err(Error::AppleKeyringError)
 	}
-	fn retrieve(&self, identifier: Identifier) -> Result<Protected<Vec<u8>>> {
+	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
 		get_generic_password(identifier.application, &identifier.to_apple_account())
 			.map(Protected::new)
 			.map_err(Error::AppleKeyringError)
 	}
-	fn delete(&self, identifier: Identifier) -> Result<()> {
+	fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
 		delete_generic_password(identifier.application, &identifier.to_apple_account())
 			.map_err(Error::AppleKeyringError)
 	}

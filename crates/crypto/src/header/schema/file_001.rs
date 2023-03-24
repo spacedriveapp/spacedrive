@@ -6,7 +6,7 @@ use crate::{
 	header::file::{Header, HeaderObjectName},
 	keys::Hasher,
 	types::{Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
-	util::generate_fixed,
+	utils::generate_fixed,
 	Error, Protected, Result,
 };
 
