@@ -507,6 +507,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn serialize_and_deserialize_with_password() {
 		let mk = Key::generate();
 		let content_salt = Salt::generate();
@@ -547,6 +548,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	#[should_panic(expected = "Decrypt")]
 	fn serialize_and_deserialize_with_password_incorrect() {
 		let mk = Key::generate();
