@@ -9,7 +9,7 @@ use crate::{Error, Protected};
 
 use crate::primitives::{
 	AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID, ARGON2ID_STANDARD,
-	BALLOON_BLAKE3_HARDENED, BALLOON_BLAKE3_PARANOID, BALLOON_BLAKE3_STANDARD, ENCRYPTED_KEY_LEN,
+	BLAKE3_BALLOON_HARDENED, BLAKE3_BALLOON_PARANOID, BLAKE3_BALLOON_STANDARD, ENCRYPTED_KEY_LEN,
 	KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 };
 
@@ -73,7 +73,7 @@ impl Params {
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
-	BalloonBlake3(Params),
+	Blake3Balloon(Params),
 }
 
 impl HashingAlgorithm {
@@ -90,10 +90,10 @@ impl HashingAlgorithm {
 				Params::Hardened => ARGON2ID_HARDENED,
 				Params::Paranoid => ARGON2ID_PARANOID,
 			},
-			Self::BalloonBlake3(p) => match p {
-				Params::Standard => BALLOON_BLAKE3_STANDARD,
-				Params::Hardened => BALLOON_BLAKE3_HARDENED,
-				Params::Paranoid => BALLOON_BLAKE3_PARANOID,
+			Self::Blake3Balloon(p) => match p {
+				Params::Standard => BLAKE3_BALLOON_STANDARD,
+				Params::Hardened => BLAKE3_BALLOON_HARDENED,
+				Params::Paranoid => BLAKE3_BALLOON_PARANOID,
 			},
 		}
 	}
@@ -512,7 +512,7 @@ impl Display for HashingAlgorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
 			Self::Argon2id(p) => write!(f, "Argon2id ({p})"),
-			Self::BalloonBlake3(p) => write!(f, "BLAKE3-Balloon ({p})"),
+			Self::Blake3Balloon(p) => write!(f, "BLAKE3-Balloon ({p})"),
 		}
 	}
 }

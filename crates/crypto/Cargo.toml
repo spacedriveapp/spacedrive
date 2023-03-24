@@ -94,8 +94,8 @@ harness = false
 bench = false
 
 [[bench]]
-name = "balloon-blake3"
-path = "benches/hashing/balloon-blake3.rs"
+name = "blake3-balloon"
+path = "benches/hashing/blake3-balloon.rs"
 harness = false
 bench = false
 
