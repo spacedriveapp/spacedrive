@@ -307,6 +307,34 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
+	fn aes_256_gcm_encrypt_and_decrypt_1gib() {
+		let buf = vec![1u8; BLOCK_LEN * 1024].into_boxed_slice();
+
+		let mut reader = Cursor::new(&buf);
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
+			.unwrap();
+
+		let output = writer.into_inner().into_boxed_slice();
+
+		assert_eq!(buf, output);
+	}
+
+	#[test]
 	fn aes_256_gcm_encrypt_and_decrypt_5_blocks_with_aad() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -568,6 +596,36 @@ mod tests {
 			.unwrap();
 
 		let output = writer.into_inner();
+
+		assert_eq!(buf, output);
+	}
+
+	#[test]
+	#[ignore]
+	fn xchacha20_poly1305_encrypt_and_decrypt_1gib() {
+		let buf = vec![1u8; BLOCK_LEN * 1024].into_boxed_slice();
+
+		let mut reader = Cursor::new(&buf);
+		let mut writer = Cursor::new(Vec::new());
+
+		let encryptor =
+			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		encryptor
+			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
+			.unwrap();
+
+		let mut reader = Cursor::new(writer.into_inner());
+		let mut writer = Cursor::new(Vec::new());
+
+		let decryptor =
+			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
+			.unwrap();
+
+		let output = writer.into_inner().into_boxed_slice();
 
 		assert_eq!(buf, output);
 	}
