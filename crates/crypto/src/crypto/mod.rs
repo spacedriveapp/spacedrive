@@ -62,13 +62,10 @@ where
 mod tests {
 	use std::io::Cursor;
 
-	use subtle::ConstantTimeEq;
-
 	use crate::{
-		assert_ct_eq,
 		crypto::{Decryptor, Encryptor},
 		primitives::{
-			AAD_LEN, AEAD_TAG_LEN, AES_256_GCM_NONCE_LEN, BLOCK_LEN, ENCRYPTED_KEY_LEN, KEY_LEN,
+			AAD_LEN, AEAD_TAG_LEN, AES_256_GCM_NONCE_LEN, BLOCK_LEN, KEY_LEN,
 			XCHACHA20_POLY1305_NONCE_LEN,
 		},
 		types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
@@ -199,7 +196,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, AES_256_GCM_ENCRYPTED_KEY);
+		assert_eq!(output, AES_256_GCM_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -212,22 +209,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, PLAINTEXT_KEY);
-	}
-
-	#[test]
-	fn aes_256_gcm_encrypt_fixed() {
-		let output = Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
-			KEY,
-			AES_256_GCM_NONCE,
-			Algorithm::Aes256Gcm,
-			PLAINTEXT_KEY.expose(),
-			Aad::Null,
-		)
-		.map(|b| EncryptedKey::new(b, AES_256_GCM_NONCE))
-		.unwrap();
-
-		assert_ct_eq!(output, AES_256_GCM_ENCRYPTED_KEY);
+		assert_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -279,47 +261,6 @@ mod tests {
 			AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
-			Aad::Null,
-		)
-		.unwrap();
-	}
-
-	#[test]
-	#[should_panic(expected = "LengthMismatch")]
-	fn aes_256_gcm_encrypt_fixed_bad_length() {
-		Encryptor::encrypt_fixed::<KEY_LEN, KEY_LEN>(
-			KEY,
-			AES_256_GCM_NONCE,
-			Algorithm::Aes256Gcm,
-			PLAINTEXT_KEY.expose(),
-			Aad::Null,
-		)
-		.unwrap();
-	}
-
-	#[test]
-	fn aes_256_gcm_decrypt_fixed() {
-		let output = Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
-			KEY,
-			AES_256_GCM_NONCE,
-			Algorithm::Aes256Gcm,
-			AES_256_GCM_ENCRYPTED_KEY.inner(),
-			Aad::Null,
-		)
-		.map(Key::from)
-		.unwrap();
-
-		assert_ct_eq!(output, PLAINTEXT_KEY);
-	}
-
-	#[test]
-	#[should_panic(expected = "LengthMismatch")]
-	fn aes_256_gcm_decrypt_fixed_bad_length() {
-		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
-			KEY,
-			AES_256_GCM_NONCE,
-			Algorithm::Aes256Gcm,
-			AES_256_GCM_ENCRYPTED_KEY.inner(),
 			Aad::Null,
 		)
 		.unwrap();
@@ -477,7 +418,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, XCHACHA20_POLY1305_ENCRYPTED_KEY);
+		assert_eq!(output, XCHACHA20_POLY1305_ENCRYPTED_KEY);
 	}
 
 	#[test]
@@ -490,37 +431,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, PLAINTEXT_KEY);
-	}
-
-	#[test]
-	fn xchacha20_poly1305_encrypt_fixed() {
-		let output = Encryptor::encrypt_fixed::<KEY_LEN, ENCRYPTED_KEY_LEN>(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
-			Algorithm::XChaCha20Poly1305,
-			PLAINTEXT_KEY.expose(),
-			Aad::Null,
-		)
-		.map(|b| EncryptedKey::new(b, XCHACHA20_POLY1305_NONCE))
-		.unwrap();
-
-		assert_ct_eq!(output, XCHACHA20_POLY1305_ENCRYPTED_KEY);
-	}
-
-	#[test]
-	fn xchacha20_poly1305_decrypt_fixed() {
-		let output = Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, KEY_LEN>(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
-			Algorithm::XChaCha20Poly1305,
-			XCHACHA20_POLY1305_ENCRYPTED_KEY.inner(),
-			Aad::Null,
-		)
-		.map(Key::from)
-		.unwrap();
-
-		assert_ct_eq!(output, PLAINTEXT_KEY);
+		assert_eq!(output, PLAINTEXT_KEY);
 	}
 
 	#[test]
@@ -572,32 +483,6 @@ mod tests {
 			XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
-			Aad::Null,
-		)
-		.unwrap();
-	}
-
-	#[test]
-	#[should_panic(expected = "LengthMismatch")]
-	fn xchacha20_poly1305_encrypt_fixed_bad_length() {
-		Encryptor::encrypt_fixed::<KEY_LEN, KEY_LEN>(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
-			Algorithm::XChaCha20Poly1305,
-			PLAINTEXT_KEY.expose(),
-			Aad::Null,
-		)
-		.unwrap();
-	}
-
-	#[test]
-	#[should_panic(expected = "LengthMismatch")]
-	fn xchacha20_poly1305_decrypt_fixed_bad_length() {
-		Decryptor::decrypt_fixed::<ENCRYPTED_KEY_LEN, ENCRYPTED_KEY_LEN>(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
-			Algorithm::XChaCha20Poly1305,
-			XCHACHA20_POLY1305_ENCRYPTED_KEY.inner(),
 			Aad::Null,
 		)
 		.unwrap();
@@ -781,7 +666,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "LengthMismatch")]
+	#[should_panic(expected = "Validity")]
 	fn encrypt_with_invalid_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
@@ -794,7 +679,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "NullType")]
+	#[should_panic(expected = "Validity")]
 	fn encrypt_with_null_nonce() {
 		Encryptor::encrypt_bytes(
 			KEY,
@@ -807,7 +692,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "NullType")]
+	#[should_panic(expected = "Validity")]
 	fn encrypt_with_null_key() {
 		Encryptor::encrypt_bytes(
 			Key::new([0u8; KEY_LEN]),
@@ -820,7 +705,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "LengthMismatch")]
+	#[should_panic(expected = "Validity")]
 	fn decrypt_with_invalid_nonce() {
 		Decryptor::decrypt_bytes(
 			KEY,

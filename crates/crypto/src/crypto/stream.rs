@@ -4,7 +4,7 @@ use crate::{
 	crypto::exhaustive_read,
 	primitives::{AEAD_TAG_LEN, BLOCK_LEN},
 	types::{Aad, Algorithm, EncryptedKey, Key, Nonce},
-	util::{ensure_length, ensure_not_null, ToArray},
+	util::ToArray,
 	Error, Protected, Result,
 };
 use aead::{
@@ -13,7 +13,6 @@ use aead::{
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use zeroize::Zeroize;
 
 #[cfg(feature = "async")]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -46,11 +45,13 @@ macro_rules! impl_stream {
 			/// This should be used to initialize a stream object.
 			///
 			/// The desired master key, nonce and algorithm should be provided.
+			///
+			/// This function ensures that both the nonce and key are *valid*.
+			/// For more information, view `Key::validate()` and `Nonce::validate()`
 			#[allow(clippy::needless_pass_by_value)]
 			pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
-				ensure_length(algorithm.nonce_len(), nonce.inner())?;
-				ensure_not_null(key.expose())?;
-				ensure_not_null(nonce.inner())?;
+				nonce.validate(algorithm)?;
+				key.validate()?;
 
 				let s = match algorithm {
 					$(
@@ -199,33 +200,6 @@ macro_rules! impl_stream {
 }
 
 impl Encryptor {
-	/// This is only for encrypting inputs <= `1024` bytes, and of a fixed size.
-	///
-	/// It is stack allocated, and that must be taken into consideration.
-	///
-	/// It uses `encrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN`.
-	///
-	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
-	/// full buffer - we only allocate what is required.
-	pub(super) fn encrypt_fixed<const I: usize, const T: usize>(
-		key: Key,
-		nonce: Nonce,
-		algorithm: Algorithm,
-		bytes: &[u8; I],
-		aad: Aad,
-	) -> Result<[u8; T]> {
-		if I > 1024 || T != (I + AEAD_TAG_LEN) {
-			return Err(Error::LengthMismatch);
-		}
-
-		let s = Self::new(key, nonce, algorithm)?;
-		let mut buffer = Vec::with_capacity(I + AEAD_TAG_LEN);
-		buffer.extend_from_slice(bytes);
-		s.encrypt_last_in_place(aad, &mut buffer)?;
-
-		buffer.to_array().map_err(|_| Error::Encrypt)
-	}
-
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn encrypt_key(
 		key: Key,
@@ -234,8 +208,9 @@ impl Encryptor {
 		key_to_encrypt: Key,
 		aad: Aad,
 	) -> Result<EncryptedKey> {
-		Self::encrypt_fixed(key, nonce, algorithm, key_to_encrypt.expose(), aad)
-			.map(|b| EncryptedKey::new(b, nonce))
+		Self::encrypt_tiny(key, nonce, algorithm, key_to_encrypt.expose(), aad)
+			.map(|b| Ok(EncryptedKey::new(b.to_array()?, nonce)))
+			.map_err(|_| Error::Encrypt)?
 	}
 
 	/// This is only for encrypting inputs < `BLOCK_LEN`. For anything larger,
@@ -266,39 +241,6 @@ impl Encryptor {
 }
 
 impl Decryptor {
-	/// This is only for decrypting inputs <= `1024 + AEAD_TAG_LEN`, and of a fixed size.
-	///
-	/// It is stack allocated, and that must be taken into consideration.
-	///
-	/// It uses `decrypt_last_in_place` under the hood due to the input always being less than `BLOCK_LEN + AEAD_TAG_LEN`.
-	///
-	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
-	/// full buffer - we only allocate what is required.
-	pub(super) fn decrypt_fixed<const I: usize, const T: usize>(
-		key: Key,
-		nonce: Nonce,
-		algorithm: Algorithm,
-		bytes: &[u8; I],
-		aad: Aad,
-	) -> Result<Protected<[u8; T]>> {
-		if I > (1024 + AEAD_TAG_LEN) || T != (I - AEAD_TAG_LEN) {
-			return Err(Error::LengthMismatch);
-		}
-
-		let s = Self::new(key, nonce, algorithm)?;
-		let mut buffer = Vec::with_capacity(I + AEAD_TAG_LEN);
-		buffer.extend_from_slice(bytes);
-		s.decrypt_last_in_place(aad, &mut buffer)?;
-
-		let output = buffer[..T]
-			.to_array()
-			.map_or(Err(Error::Decrypt), |b| Ok(Protected::new(b)));
-
-		buffer.zeroize();
-
-		output
-	}
-
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_key(
 		key: Key,
@@ -306,14 +248,15 @@ impl Decryptor {
 		encrypted_key: EncryptedKey,
 		aad: Aad,
 	) -> Result<Key> {
-		Self::decrypt_fixed(
+		Self::decrypt_tiny(
 			key,
 			*encrypted_key.nonce(),
 			algorithm,
 			encrypted_key.inner(),
 			aad,
 		)
-		.map(Key::from)
+		.map(Key::try_from)
+		.map_err(|_| Error::Decrypt)?
 	}
 
 	/// This is only for decrypting inputs < `BLOCK_LEN + AEAD_TAG_LEN`. For anything larger,
