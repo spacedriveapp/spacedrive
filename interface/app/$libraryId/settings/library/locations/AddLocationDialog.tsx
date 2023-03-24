@@ -1,5 +1,6 @@
 import { ErrorMessage } from '@hookform/error-message';
 import { RSPCError } from '@rspc/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
@@ -44,6 +45,7 @@ export const openDirectoryPickerDialog = async (platform: Platform): Promise<nul
 export const AddLocationDialog = (props: Props) => {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
+	const queryClient = useQueryClient();
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
@@ -142,7 +144,10 @@ export const AddLocationDialog = (props: Props) => {
 					: ''
 			}
 			onSubmit={form.handleSubmit((fields) =>
-				onLocationSubmit(fields).catch(onLocationSubmitError)
+				onLocationSubmit(fields).then(
+					() => queryClient.invalidateQueries(['library.list']),
+					onLocationSubmitError
+				)
 			)}
 			ctaLabel="Add"
 		>
