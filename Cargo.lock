@@ -6828,7 +6828,6 @@ dependencies = [
  "serde",
  "serde-big-array 0.5.1",
  "serde_json",
- "subtle",
  "thiserror",
  "tokio",
  "uuid 1.2.1",

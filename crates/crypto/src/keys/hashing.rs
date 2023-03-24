@@ -105,10 +105,7 @@ impl Hasher {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-	use subtle::ConstantTimeEq;
-
 	use crate::{
-		assert_ct_eq,
 		keys::Hasher,
 		primitives::{KEY_LEN, SALT_LEN, SECRET_KEY_LEN},
 		types::{DerivationContext, HashingAlgorithm, Key, Params, Salt, SecretKey},
@@ -211,7 +208,7 @@ mod tests {
 		let output =
 			Hasher::hash_password(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_EXPECTED[0]);
+		assert_eq!(output, ARGON2ID_EXPECTED[0]);
 	}
 
 	#[test]
@@ -224,7 +221,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[0]);
+		assert_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[0]);
 	}
 
 	#[test]
@@ -232,7 +229,7 @@ mod tests {
 		let output =
 			Hasher::hash_password(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_EXPECTED[1]);
+		assert_eq!(output, ARGON2ID_EXPECTED[1]);
 	}
 
 	#[test]
@@ -245,7 +242,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[1]);
+		assert_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[1]);
 	}
 
 	#[test]
@@ -253,7 +250,7 @@ mod tests {
 		let output =
 			Hasher::hash_password(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_EXPECTED[2]);
+		assert_eq!(output, ARGON2ID_EXPECTED[2]);
 	}
 
 	#[test]
@@ -266,7 +263,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[2]);
+		assert_eq!(output, ARGON2ID_WITH_SECRET_EXPECTED[2]);
 	}
 
 	#[test]
@@ -279,7 +276,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[0]);
+		assert_eq!(output, BALLOON_BLAKE3_EXPECTED[0]);
 	}
 
 	#[test]
@@ -292,7 +289,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[0]);
+		assert_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[0]);
 	}
 
 	#[test]
@@ -305,7 +302,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[1]);
+		assert_eq!(output, BALLOON_BLAKE3_EXPECTED[1]);
 	}
 
 	#[test]
@@ -318,7 +315,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[1]);
+		assert_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[1]);
 	}
 
 	#[test]
@@ -331,7 +328,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_EXPECTED[2]);
+		assert_eq!(output, BALLOON_BLAKE3_EXPECTED[2]);
 	}
 
 	#[test]
@@ -344,20 +341,20 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_ct_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[2]);
+		assert_eq!(output, BALLOON_BLAKE3_WITH_SECRET_EXPECTED[2]);
 	}
 
 	#[test]
 	fn blake3_kdf() {
 		let output = Hasher::derive_key(KEY, SALT, CONTEXT);
 
-		assert_ct_eq!(output, BLAKE3_KDF_EXPECTED);
+		assert_eq!(output, BLAKE3_KDF_EXPECTED);
 	}
 
 	#[test]
 	fn blake3_hash() {
 		let output = Hasher::blake3(KEY.expose());
 
-		assert_ct_eq!(output, BLAKE3_EXPECTED);
+		assert_eq!(output, BLAKE3_EXPECTED);
 	}
 }

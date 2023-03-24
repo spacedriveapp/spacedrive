@@ -29,8 +29,6 @@ pub enum Error {
 	Encrypt,
 	#[error("error while decrypting (could be: wrong password, wrong data, wrong aad, etc)")]
 	Decrypt,
-	#[error("a provided type is completely null")]
-	NullType,
 
 	// header errors
 	#[cfg(feature = "encoding")]
@@ -87,6 +85,8 @@ pub enum Error {
 	// general errors
 	#[error("expected length differs from provided length")]
 	LengthMismatch,
+	#[error("expected type/value differs from provided")]
+	Validity,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
 	#[error("string parse error")]

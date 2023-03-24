@@ -1,10 +1,10 @@
 //! This module defines all of the possible types used throughout this crate,
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
-use std::fmt::Display;
-use subtle::ConstantTimeEq;
+use cmov::Cmov;
+use std::fmt::{Debug, Display};
 
-use crate::util::{generate_fixed, ToArray};
+use crate::util::{generate_fixed, ConstantTime, ConstantTimeNull, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
@@ -144,6 +144,35 @@ impl Nonce {
 			Self::XChaCha20Poly1305(x) => x.is_empty(),
 		}
 	}
+
+	#[must_use]
+	pub const fn algorithm(&self) -> Algorithm {
+		match self {
+			Self::Aes256Gcm(_) => Algorithm::Aes256Gcm,
+			Self::XChaCha20Poly1305(_) => Algorithm::XChaCha20Poly1305,
+		}
+	}
+
+	pub fn validate(&self, algorithm: Algorithm) -> crate::Result<()> {
+		let mut x = 1u8;
+		x.cmovz(0u8, u8::from(self.algorithm().ct_eq(&algorithm)));
+		x.cmovz(0u8, u8::from(self.inner().ct_ne_null()));
+
+		(x != 0u8).then_some(()).ok_or(Error::Validity)
+	}
+}
+
+impl ConstantTime for Nonce {
+	fn ct_eq(&self, rhs: &Self) -> bool {
+		// short circuit if algorithm (and therefore lengths) don't match
+		if self.algorithm().ct_ne(&rhs.algorithm()) {
+			return false;
+		}
+
+		let mut x = 1u8;
+		x.cmovz(0u8, u8::from(self.inner().ct_eq(rhs.inner())));
+		x != 0u8
+	}
 }
 
 impl<I> From<Nonce> for GenericArray<u8, I>
@@ -158,20 +187,8 @@ where
 	}
 }
 
-impl TryFrom<Vec<u8>> for Nonce {
-	type Error = Error;
-
-	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		match value.len() {
-			8 => Ok(Self::Aes256Gcm(value.to_array()?)),
-			20 => Ok(Self::XChaCha20Poly1305(value.to_array()?)),
-			_ => Err(Error::LengthMismatch),
-		}
-	}
-}
-
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -180,13 +197,27 @@ pub enum Algorithm {
 	Aes256Gcm,
 }
 
+impl ConstantTime for Algorithm {
+	fn ct_eq(&self, rhs: &Self) -> bool {
+		let mut x = 1u8;
+		x.cmovz(0u8, u8::from((*self as u8) == (*rhs as u8)));
+		x != 0u8
+	}
+}
+
+impl PartialEq for Algorithm {
+	fn eq(&self, other: &Self) -> bool {
+		self.ct_eq(other)
+	}
+}
+
 impl Algorithm {
 	#[must_use]
 	pub const fn default() -> Self {
 		Self::XChaCha20Poly1305
 	}
 
-	/// This function allows us to get the nonce length for a given encryption algorithm
+	/// This function returns the nonce length for a given encryption algorithm
 	#[must_use]
 	pub const fn nonce_len(&self) -> usize {
 		match self {
@@ -219,17 +250,24 @@ impl Key {
 	pub fn generate() -> Self {
 		Self::new(generate_fixed())
 	}
+
+	pub fn validate(&self) -> crate::Result<()> {
+		self.expose()
+			.ct_ne_null()
+			.then_some(())
+			.ok_or(Error::Validity)
+	}
 }
 
-impl ConstantTimeEq for Key {
-	fn ct_eq(&self, other: &Self) -> subtle::Choice {
-		self.expose().ct_eq(other.expose())
+impl ConstantTime for Key {
+	fn ct_eq(&self, rhs: &Self) -> bool {
+		self.expose().ct_eq(rhs.expose())
 	}
 }
 
 impl PartialEq for Key {
 	fn eq(&self, other: &Self) -> bool {
-		self.ct_eq(other).into()
+		self.ct_eq(other)
 	}
 }
 
@@ -385,15 +423,23 @@ impl EncryptedKey {
 	}
 }
 
-impl ConstantTimeEq for EncryptedKey {
-	fn ct_eq(&self, other: &Self) -> subtle::Choice {
-		self.inner().ct_eq(other.inner()) & self.nonce().inner().ct_eq(other.nonce().inner())
+impl ConstantTime for EncryptedKey {
+	fn ct_eq(&self, rhs: &Self) -> bool {
+		// short circuit if algorithm (and therefore nonce lengths) don't match
+		if self.nonce().algorithm().ct_ne(&rhs.nonce().algorithm()) {
+			return false;
+		}
+
+		let mut x = 1u8;
+		x.cmovz(0u8, u8::from(self.inner().ct_eq(rhs.inner())));
+		x.cmovz(0u8, u8::from(self.nonce().ct_eq(rhs.nonce())));
+		x != 0u8
 	}
 }
 
 impl PartialEq for EncryptedKey {
 	fn eq(&self, other: &Self) -> bool {
-		self.ct_eq(other).into()
+		self.ct_eq(other)
 	}
 }
 
@@ -490,16 +536,29 @@ impl Display for Algorithm {
 	}
 }
 
+impl Debug for Key {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("[REDACTED]")
+	}
+}
+
+impl Debug for EncryptedKey {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("[REDACTED]")
+	}
+}
+
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{
-		assert_ct_eq, assert_ct_ne,
 		primitives::{
 			AES_256_GCM_NONCE_LEN, ENCRYPTED_KEY_LEN, KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
 		},
 		types::{EncryptedKey, Key, Nonce},
 	};
-	use subtle::ConstantTimeEq;
+
+	use super::Algorithm;
 
 	const KEY: Key = Key::new([0x23; KEY_LEN]);
 	const KEY2: Key = Key::new([0x24; KEY_LEN]);
@@ -513,19 +572,19 @@ mod tests {
 	#[test]
 	fn encrypted_key_eq() {
 		// same key and nonce
-		assert_ct_eq!(
+		assert_eq!(
 			EncryptedKey::new(EK[0], NONCES[0]),
 			EncryptedKey::new(EK[0], NONCES[0])
 		);
 
 		// same key, different nonce
-		assert_ct_ne!(
+		assert_ne!(
 			EncryptedKey::new(EK[0], NONCES[0]),
 			EncryptedKey::new(EK[0], NONCES[1])
 		);
 
 		// different key, same nonce
-		assert_ct_ne!(
+		assert_ne!(
 			EncryptedKey::new(EK[0], NONCES[0]),
 			EncryptedKey::new(EK[1], NONCES[0])
 		);
@@ -535,7 +594,7 @@ mod tests {
 	#[should_panic]
 	fn encrypted_key_eq_different_key() {
 		// different key, same nonce
-		assert_ct_eq!(
+		assert_eq!(
 			EncryptedKey::new(EK[0], NONCES[0]),
 			EncryptedKey::new(EK[1], NONCES[0])
 		);
@@ -545,7 +604,7 @@ mod tests {
 	#[should_panic]
 	fn encrypted_key_eq_different_nonce() {
 		// same key, different nonce
-		assert_ct_eq!(
+		assert_eq!(
 			EncryptedKey::new(EK[0], NONCES[0]),
 			EncryptedKey::new(EK[0], NONCES[1])
 		);
@@ -553,12 +612,57 @@ mod tests {
 
 	#[test]
 	fn key_eq() {
-		assert_ct_eq!(KEY, KEY);
+		assert_eq!(KEY, KEY);
 	}
 
 	#[test]
 	#[should_panic]
 	fn key_eq_fail() {
-		assert_ct_eq!(KEY, KEY2);
+		assert_eq!(KEY, KEY2);
+	}
+
+	#[test]
+	fn algorithm_eq() {
+		assert_eq!(Algorithm::XChaCha20Poly1305, Algorithm::XChaCha20Poly1305);
+	}
+
+	#[test]
+	#[should_panic]
+	fn algorithm_eq_fail() {
+		assert_eq!(Algorithm::XChaCha20Poly1305, Algorithm::Aes256Gcm);
+	}
+
+	#[test]
+	fn key_validate() {
+		KEY.validate().unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "Validity")]
+	fn key_validate_fail() {
+		Key::new([0u8; KEY_LEN]).validate().unwrap();
+	}
+
+	#[test]
+	fn nonce_validate() {
+		Nonce::generate(Algorithm::default())
+			.validate(Algorithm::default())
+			.unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "Validity")]
+	fn nonce_validate_different_algorithms() {
+		Nonce::generate(Algorithm::XChaCha20Poly1305)
+			.validate(Algorithm::Aes256Gcm)
+			.unwrap();
+	}
+
+	#[test]
+	#[should_panic(expected = "Validity")]
+	fn nonce_validate_null() {
+		Nonce::XChaCha20Poly1305([0u8; XCHACHA20_POLY1305_NONCE_LEN])
+			.validate(Algorithm::XChaCha20Poly1305)
+			.unwrap();
 	}
 }

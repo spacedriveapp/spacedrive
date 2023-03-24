@@ -359,10 +359,8 @@ impl FileHeader {
 #[allow(clippy::unwrap_used)]
 mod tests {
 	use std::io::{Cursor, Seek};
-	use subtle::ConstantTimeEq;
 
 	use crate::{
-		assert_ct_eq,
 		header::{FileHeader, HeaderObjectName},
 		keys::Hasher,
 		primitives::LATEST_FILE_HEADER,
@@ -415,7 +413,7 @@ mod tests {
 		assert_eq!(header.count_keyslots(), 1);
 		assert_eq!(header.count_objects(), 0);
 		assert_eq!(header.get_algorithm(), ALGORITHM);
-		assert_ct_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk, mk);
 	}
 
 	#[test]
@@ -545,7 +543,7 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 1);
 		assert_eq!(header.count_objects(), 0);
-		assert_ct_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk, mk);
 	}
 
 	#[test]
@@ -644,8 +642,8 @@ mod tests {
 
 		assert_eq!(header.count_keyslots(), 2);
 		assert_eq!(header.count_objects(), 0);
-		assert_ct_eq!(decrypted_mk, mk);
-		assert_ct_eq!(decrypted_mk2, mk);
+		assert_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk2, mk);
 	}
 
 	#[test]
@@ -898,8 +896,8 @@ mod tests {
 		assert_eq!(header.count_keyslots(), 2);
 		assert_eq!(object1.expose(), &OBJECT1_DATA);
 		assert_eq!(object2.expose(), &OBJECT2_DATA);
-		assert_ct_eq!(decrypted_mk, mk);
-		assert_ct_eq!(decrypted_mk2, mk);
+		assert_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk2, mk);
 	}
 
 	#[cfg(feature = "async")]
@@ -964,7 +962,7 @@ mod tests {
 		assert_eq!(header.count_keyslots(), 2);
 		assert_eq!(object1.expose(), &OBJECT1_DATA);
 		assert_eq!(object2.expose(), &OBJECT2_DATA);
-		assert_ct_eq!(decrypted_mk, mk);
-		assert_ct_eq!(decrypted_mk2, mk);
+		assert_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk2, mk);
 	}
 }

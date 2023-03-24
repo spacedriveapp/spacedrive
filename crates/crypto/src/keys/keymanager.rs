@@ -7,7 +7,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use sd_crypto::keys::keymanager::KeyManager;
 //! use sd_crypto::Protected;
 //! use sd_crypto::crypto::stream::Algorithm;
