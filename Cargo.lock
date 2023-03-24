@@ -1159,6 +1159,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmov"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "254890f9fb6f7239e0f54eed04dea0c0862167206e8315aebfba3443d591871c"
+
+[[package]]
 name = "cocoa"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6810,6 +6816,7 @@ dependencies = [
  "bincode 2.0.0-rc.2",
  "blake3",
  "chacha20poly1305 0.10.1",
+ "cmov",
  "criterion",
  "dashmap",
  "hex",
