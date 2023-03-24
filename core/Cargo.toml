@@ -6,7 +6,7 @@ authors = ["Spacedrive Technology Inc."]
 license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
-rust-version = "1.67.0"
+rust-version = "1.68.1"
 
 [features]
 default = []
@@ -42,7 +42,7 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 
-base64 = "0.13.0"
+base64 = "0.21.0"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.22", features = ["serde"] }
 serde_json = "1.0"
@@ -53,7 +53,7 @@ rmp-serde = "^1.1.1"
 blake3 = "1.3.1"
 hostname = "0.3.1"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
-sysinfo = "0.26.4"
+sysinfo = "0.28.3"
 thiserror = "1.0.37"
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.57"
@@ -76,6 +76,7 @@ ffmpeg-next = { version = "5.1.1", optional = true, features = [] }
 notify = { version = "5.0.0", default-features = false, features = [
   "macos_fsevent",
 ], optional = true }
+static_assertions = "1.1.0"
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
