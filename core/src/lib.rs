@@ -15,6 +15,7 @@ use tracing::{debug, error, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
+pub(crate) mod crypto;
 pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
