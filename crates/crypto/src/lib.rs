@@ -1,5 +1,4 @@
-//! This is Spacedrive's `crypto` crate. It handles cryptographic operations
-//! such as key hashing, encryption/decryption, key management and much more.
+#![doc = include_str!("../README.md")]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::correctness)]
@@ -15,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod crypto;
+pub mod ct;
 pub mod error;
 pub mod keys;
 pub mod primitives;

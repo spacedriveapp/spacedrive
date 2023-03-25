@@ -4,7 +4,8 @@ use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
 use std::fmt::{Debug, Display};
 
-use crate::utils::{generate_fixed, ConstantTime, ConstantTimeNull, ToArray};
+use crate::ct::{ConstantTimeEq, ConstantTimeEqNull};
+use crate::utils::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
@@ -162,7 +163,7 @@ impl Nonce {
 	}
 }
 
-impl ConstantTime for Nonce {
+impl ConstantTimeEq for Nonce {
 	fn ct_eq(&self, rhs: &Self) -> bool {
 		// short circuit if algorithm (and therefore lengths) don't match
 		if self.algorithm().ct_ne(&rhs.algorithm()) {
@@ -197,7 +198,7 @@ pub enum Algorithm {
 	Aes256Gcm,
 }
 
-impl ConstantTime for Algorithm {
+impl ConstantTimeEq for Algorithm {
 	fn ct_eq(&self, rhs: &Self) -> bool {
 		let mut x = 1u8;
 		x.cmovz(0u8, u8::from((*self as u8) == (*rhs as u8)));
@@ -259,7 +260,7 @@ impl Key {
 	}
 }
 
-impl ConstantTime for Key {
+impl ConstantTimeEq for Key {
 	fn ct_eq(&self, rhs: &Self) -> bool {
 		self.expose().ct_eq(rhs.expose())
 	}
@@ -423,7 +424,7 @@ impl EncryptedKey {
 	}
 }
 
-impl ConstantTime for EncryptedKey {
+impl ConstantTimeEq for EncryptedKey {
 	fn ct_eq(&self, rhs: &Self) -> bool {
 		// short circuit if algorithm (and therefore nonce lengths) don't match
 		if self.nonce().algorithm().ct_ne(&rhs.nonce().algorithm()) {

@@ -1,4 +1,3 @@
-use cmov::Cmov;
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
@@ -29,9 +28,9 @@ impl ToArray for &[u8] {
 	}
 }
 
-/// Ideally this should be used for small amounts only.
+/// Used to generate completely random bytes, with the use of `ChaCha20`
 ///
-/// It is stack allocated, so be wary.
+/// Ideally this should be used for small amounts only (as it's stack allocated)
 #[must_use]
 pub fn generate_fixed<const I: usize>() -> [u8; I] {
 	let mut bytes = [0u8; I];
@@ -39,7 +38,7 @@ pub fn generate_fixed<const I: usize>() -> [u8; I] {
 	bytes
 }
 
-/// Ideally this should be used for small amounts only.
+/// Used to generate completely random bytes, with the use of `ChaCha20`
 #[must_use]
 pub fn generate_vec(size: usize) -> Vec<u8> {
 	let mut bytes = vec![0u8; size];
@@ -47,79 +46,10 @@ pub fn generate_vec(size: usize) -> Vec<u8> {
 	bytes
 }
 
-pub(crate) trait ConstantTime {
-	fn ct_eq(&self, rhs: &Self) -> bool;
-	fn ct_ne(&self, rhs: &Self) -> bool {
-		!self.ct_eq(rhs)
-	}
-}
-
-impl ConstantTime for usize {
-	fn ct_eq(&self, rhs: &Self) -> bool {
-		let mut x = 0u8;
-		x.cmovnz(1u8, u8::from(self == rhs));
-		x != 0u8
-	}
-}
-
-impl ConstantTime for u8 {
-	fn ct_eq(&self, rhs: &Self) -> bool {
-		let mut x = 0u8;
-		x.cmovnz(1u8, Self::from(self == rhs));
-		x != 0u8
-	}
-}
-
-impl<T: ConstantTime> ConstantTime for [T] {
-	fn ct_eq(&self, rhs: &Self) -> bool {
-		// short-circuit if lengths don't match
-		if self.len().ct_ne(&rhs.len()) {
-			return false;
-		}
-
-		let mut x = 1u8;
-
-		self.iter()
-			.zip(rhs.iter())
-			.for_each(|(a, b)| x.cmovz(0u8, u8::from(a.ct_eq(b))));
-
-		x != 0u8
-	}
-}
-
-pub(crate) trait ConstantTimeNull {
-	/// Check if the provided value is equivalent to null, in constant time.
-	fn ct_eq_null(&self) -> bool;
-	/// Check if the provided value is not equivalent to null, in constant time.
-	fn ct_ne_null(&self) -> bool {
-		!self.ct_eq_null()
-	}
-}
-
-impl<T: ConstantTime + Default> ConstantTimeNull for [T] {
-	fn ct_eq_null(&self) -> bool {
-		let mut x = 1u8;
-		let d = T::default();
-
-		self.iter()
-			.for_each(|i| x.cmovz(0u8, u8::from(i.ct_eq(&d))));
-		x != 0u8
-	}
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-	use crate::{
-		primitives::{BLOCK_LEN, SALT_LEN},
-		utils::{ConstantTime, ConstantTimeNull, ToArray},
-	};
-
-	// TODO(brxken128): tests for every possible CT case, every impl, etc
-	// can probably just test the `ct_eq` implementations, as `ct_ne` is just inverted
-
-	const USIZE1: usize = 64;
-	const USIZE2: usize = 56;
+	use crate::{primitives::SALT_LEN, utils::ToArray};
 
 	#[test]
 	fn vec_to_array() {
@@ -159,88 +89,5 @@ mod tests {
 		assert_ne!(bytes, bytes2);
 		assert_eq!(bytes.len(), SALT_LEN);
 		assert_eq!(bytes2.len(), SALT_LEN);
-	}
-
-	#[test]
-	fn constant_time_eq_null() {
-		assert!(&[0u8; SALT_LEN].ct_eq_null());
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_eq_null_fail() {
-		assert!(&[1u8; SALT_LEN].ct_eq_null());
-	}
-
-	#[test]
-	fn constant_time_ne_null() {
-		assert!(&[1u8; SALT_LEN].ct_ne_null());
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_ne_null_fail() {
-		assert!(&[0u8; SALT_LEN].ct_ne_null());
-	}
-
-	#[test]
-	fn constant_time_eq_usize() {
-		assert!(USIZE1.ct_eq(&USIZE1));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_eq_usize_fail() {
-		assert!(USIZE1.ct_eq(&USIZE2));
-	}
-
-	#[test]
-	fn constant_time_ne_usize() {
-		assert!(USIZE1.ct_ne(&USIZE2));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_ne_usize_fail() {
-		assert!(USIZE1.ct_ne(&USIZE1));
-	}
-
-	#[test]
-	fn constant_time_eq() {
-		assert!(&[0u8; SALT_LEN].ct_eq(&[0u8; SALT_LEN]));
-	}
-
-	#[test]
-	fn constant_time_eq_large() {
-		assert!(vec![0u8; BLOCK_LEN * 5].ct_eq(&vec![0u8; BLOCK_LEN * 5]));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_eq_large_fail() {
-		assert!(vec![0u8; BLOCK_LEN * 5].ct_eq(&vec![1u8; BLOCK_LEN * 5]));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_eq_different_bytes() {
-		assert!(&[0u8; SALT_LEN].ct_eq(&[1u8; SALT_LEN]));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_eq_different_length() {
-		assert!([0u8; SALT_LEN].as_ref().ct_eq([0u8; 1].as_ref()));
-	}
-
-	#[test]
-	fn constant_time_ne() {
-		assert!(&[0u8; SALT_LEN].ct_ne(&[1u8; SALT_LEN]));
-	}
-
-	#[test]
-	#[should_panic]
-	fn constant_time_ne_fail() {
-		assert!([0u8; SALT_LEN].ct_ne(&[0u8; SALT_LEN]));
 	}
 }
