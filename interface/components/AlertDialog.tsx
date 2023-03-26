@@ -23,19 +23,21 @@ const AlertDialog = (props: Props) => {
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 		>
 			{props.inputBox && (
-				<div className="relative mt-3 flex grow">
-					<Input value={props.value} disabled className="grow !py-0.5" />
-					<Button
-						type="button"
-						onClick={() => {
-							navigator.clipboard.writeText(props.value);
-						}}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<Clipboard className="h-4 w-4" />
-					</Button>
-				</div>
+				<Input
+					value={props.value}
+					disabled
+					right={
+						<Button
+							type="button"
+							onClick={() => {
+								navigator.clipboard.writeText(props.value);
+							}}
+							size="icon"
+						>
+							<Clipboard className="h-4 w-4" />
+						</Button>
+					}
+				/>
 			)}
 
 			{!props.inputBox && <div className="text-sm">{props.value}</div>}

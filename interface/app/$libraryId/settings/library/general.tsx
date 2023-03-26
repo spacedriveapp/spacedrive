@@ -29,18 +29,20 @@ export const Component = () => {
 				description="General settings related to the currently active library."
 			/>
 			<div className="flex flex-row space-x-5 pb-3">
-				<div className="flex grow flex-col">
-					<span className="mb-1 text-sm font-medium">Name</span>
-					<Input
-						size="md"
-						{...form.register('name', { required: true })}
-						defaultValue="My Default Library"
-					/>
-				</div>
-				<div className="flex grow flex-col">
-					<span className="mb-1 text-sm font-medium">Description</span>
-					<Input size="md" {...form.register('description')} placeholder="" />
-				</div>
+				<Input
+					label="Name"
+					size="md"
+					outerClassName="grow"
+					{...form.register('name', { required: true })}
+					defaultValue="My Default Library"
+				/>
+
+				<Input
+					label="Description"
+					size="md"
+					outerClassName="grow"
+					{...form.register('description')}
+				/>
 			</div>
 
 			<Setting

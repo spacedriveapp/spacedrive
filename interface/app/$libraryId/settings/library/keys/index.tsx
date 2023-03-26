@@ -1,11 +1,11 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
+import { Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { animated, useTransition } from 'react-spring';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Input, dialogManager } from '@sd/ui';
+import { Button, PasswordInput, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 import KeyList from '../../../KeyManager/List';
@@ -90,56 +90,32 @@ export const Component = () => {
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 
-	const [showMasterPassword, setShowMasterPassword] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState(''); // for the unlock form
 	const [viewSecretKey, setViewSecretKey] = useState(false); // for the settings page
 
 	const keys = useLibraryQuery(['keys.list']);
 
-	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
-
 	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
 	if (!isUnlocked?.data) {
 		return (
 			<div className="mx-20 mt-10 p-2">
-				<div className="relative mb-2 flex grow">
-					<Input
-						value={masterPassword}
-						onChange={(e) => setMasterPassword(e.target.value)}
-						autoFocus
-						type={showMasterPassword ? 'text' : 'password'}
-						className="grow !py-0.5"
-						placeholder="Master Password"
-					/>
-					<Button
-						onClick={() => setShowMasterPassword(!showMasterPassword)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<MPCurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+				<PasswordInput
+					value={masterPassword}
+					onChange={(e) => setMasterPassword(e.target.value)}
+					autoFocus
+					placeholder="Master Password"
+					outerClassName="mb-2"
+				/>
+
 				{enterSkManually && (
-					<div className="relative mb-2 flex grow">
-						<Input
-							value={secretKey}
-							onChange={(e) => setSecretKey(e.target.value)}
-							type={showSecretKey ? 'text' : 'password'}
-							className="grow !py-0.5"
-							placeholder="Secret Key"
-						/>
-						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<SKCurrentEyeIcon className="h-4 w-4" />
-						</Button>
-					</div>
+					<PasswordInput
+						value={secretKey}
+						onChange={(e) => setSecretKey(e.target.value)}
+						placeholder="Secret Key"
+						outerClassName="mb-2"
+					/>
 				)}
 
 				<Button

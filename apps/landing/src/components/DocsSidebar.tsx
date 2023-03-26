@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { MagnifyingGlass } from 'phosphor-react';
-import { Input, SearchInput } from '@sd/ui';
+import { SearchInput } from '@sd/ui';
 import { DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
 
@@ -16,9 +15,13 @@ export default function DocsSidebar(props: Props) {
 
 	return (
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
-			<div onClick={() => alert('Search coming soon...')} className="relative mb-5">
-				<SearchInput placeholder="Search..." disabled />
-				<span className="absolute top-2 right-3 text-xs font-semibold text-gray-400">⌘K</span>
+			<div onClick={() => alert('Search coming soon...')} className="mb-5">
+				<SearchInput
+					placeholder="Search..."
+					disabled
+					right={<span className="text-xs font-semibold text-gray-400">⌘K</span>}
+					rightClassName="!px-3"
+				/>
 			</div>
 
 			<div className="mb-6 flex flex-col">

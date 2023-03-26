@@ -5,7 +5,6 @@ import {
 	CaretRight,
 	Columns,
 	Key,
-	List,
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
@@ -88,8 +87,9 @@ export const SearchBar = forwardRef<HTMLInputElement, ComponentProps<'input'>>(
 			}
 		});
 
-		const platform = useOperatingSystem(false);
 		const os = useOperatingSystem(true);
+
+		const cmdKey = os === 'macOS' ? '⌘' : 'CTRL';
 
 		return (
 			<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
@@ -101,22 +101,17 @@ export const SearchBar = forwardRef<HTMLInputElement, ComponentProps<'input'>>(
 						else if (forwardedRef) forwardedRef.current = el;
 					}}
 					placeholder="Search"
-					className={clsx('w-32 transition-all focus:w-52', props.className)}
+					className={clsx('w-32 transition-all focus-within:w-52', props.className)}
+					size="sm"
+					right={
+						<Shortcut
+							className="border-none !px-2 opacity-70 group-focus-within:hidden"
+							chars={`${cmdKey}F`}
+							aria-label={`Press ${cmdKey}-F to focus search bar`}
+						/>
+					}
 					{...searchField}
 				/>
-				<div
-					className={clsx(
-						'pointer-events-none absolute right-1 flex h-7 items-center space-x-1 opacity-70 peer-focus:invisible'
-					)}
-				>
-					{platform === 'browser' ? (
-						<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
-					) : os === 'macOS' ? (
-						<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
-					) : (
-						<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
-					)}
-				</div>
 			</form>
 		);
 	}

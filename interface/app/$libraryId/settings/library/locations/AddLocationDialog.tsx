@@ -49,32 +49,31 @@ export const AddLocationDialog = (props: Props) => {
 			})}
 			ctaLabel="Add"
 		>
-			<div className="relative flex flex-col">
-				<p className="mt-2 text-[0.9rem] font-bold">Path:</p>
-				<Input
-					type="text"
-					onClick={async () => {
-						if (!platform.openDirectoryPickerDialog) return;
+			<Input
+				label="Path:"
+				type="text"
+				onClick={async () => {
+					if (!platform.openDirectoryPickerDialog) return;
 
-						const path = await platform.openDirectoryPickerDialog();
-						if (!path) return;
-						if (typeof path !== 'string') {
-							// TODO: Should support for adding multiple locations simultaneously be added?
-							showAlertDialog({
-								title: 'Error',
-								value: "Can't add multiple locations"
-							});
-							return;
-						}
+					const path = await platform.openDirectoryPickerDialog();
+					if (!path) return;
+					if (typeof path !== 'string') {
+						// TODO: Should support for adding multiple locations simultaneously be added?
+						showAlertDialog({
+							title: 'Error',
+							value: "Can't add multiple locations"
+						});
+						return;
+					}
 
-						form.setValue('path', path);
-					}}
-					readOnly={platform.platform !== 'web'}
-					required
-					className="mt-3 w-full grow cursor-pointer"
-					{...form.register('path')}
-				/>
-			</div>
+					form.setValue('path', path);
+				}}
+				readOnly={platform.platform !== 'web'}
+				required
+				className="cursor-pointer"
+				outerClassName="mt-3"
+				{...form.register('path')}
+			/>
 
 			<div className="relative flex flex-col">
 				<p className="mt-6 text-[0.9rem] font-bold">File indexing rules:</p>

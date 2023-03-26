@@ -66,7 +66,8 @@ export default function OnboardingNewLibrary() {
 							{...form.register('name')}
 							size="md"
 							autoFocus
-							className="mt-6 w-[300px]"
+							className="w-[300px]"
+							outerClassName="mt-6"
 							placeholder={'e.g. "James\' Library"'}
 						/>
 						<div className="flex grow" />

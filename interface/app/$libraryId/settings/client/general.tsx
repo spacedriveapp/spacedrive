@@ -28,25 +28,24 @@ export const Component = () => {
 
 					<hr className="border-app-line mt-2 mb-4" />
 					<div className="grid grid-cols-3 gap-2">
-						<div className="flex flex-col">
-							<NodeSettingLabel>Node Name</NodeSettingLabel>
-							<Input
-								value={node.data?.name}
-								onChange={() => {
-									/* TODO */
-								}}
-							/>
-						</div>
-						<div className="flex flex-col">
-							<NodeSettingLabel>Node Port</NodeSettingLabel>
-							<Input
-								contentEditable={false}
-								value={node.data?.p2p_port || 5795}
-								onChange={() => {
-									/* TODO */
-								}}
-							/>
-						</div>
+						<Input
+							label="Node Name"
+							labelClassName="text-xs"
+							value={node.data?.name}
+							onChange={() => {
+								/* TODO */
+							}}
+						/>
+
+						<Input
+							label="Node Port"
+							labelClassName="text-xs"
+							contentEditable={false}
+							value={node.data?.p2p_port || 5795}
+							onChange={() => {
+								/* TODO */
+							}}
+						/>
 					</div>
 					<div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />

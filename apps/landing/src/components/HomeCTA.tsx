@@ -133,13 +133,12 @@ export function HomeCTA() {
 								<Input
 									{...register('email')}
 									type="email"
+									size="lg"
 									autoFocus
 									autoComplete="off"
 									placeholder="Enter your email"
-									className={clsx({
-										'hidden': waitlistSubmitted,
-										'rounded-r-none': !waitlistSubmitted
-									})}
+									outerClassName={clsx(waitlistSubmitted && 'hidden')}
+									className={clsx(!waitlistSubmitted && 'rounded-r-none')}
 									disabled={waitlistSubmitted}
 								/>
 								{!waitlistSubmitted && (

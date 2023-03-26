@@ -82,9 +82,7 @@ export default function OnboardingNewLibrary() {
 					<div className="my-2 flex grow">
 						<PasswordInput
 							{...form.register('password')}
-							size="md"
 							autoFocus
-							className="w-full"
 							disabled={form.formState.isSubmitting}
 						/>
 					</div>
@@ -92,10 +90,8 @@ export default function OnboardingNewLibrary() {
 						<div className="mb-2 flex grow">
 							<PasswordInput
 								{...form.register('password_validate')}
-								size="md"
 								placeholder="Confirm password"
 								autoFocus
-								className="w-full"
 								disabled={form.formState.isSubmitting}
 							/>
 						</div>
