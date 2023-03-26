@@ -1,13 +1,13 @@
 import { VariantProps, cva, cx } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
-import { PropsWithChildren, forwardRef, useState } from 'react';
+import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from 'phosphor-react';
+import { PropsWithChildren, createElement, forwardRef, isValidElement, useState } from 'react';
 import { Button } from './Button';
 
 export interface InputBaseProps extends VariantProps<typeof inputStyles> {
 	label?: string;
 	error?: string | boolean;
-	icon?: React.ReactNode;
+	icon?: Icon | React.ReactNode;
 	iconPosition?: 'left' | 'right';
 	right?: React.ReactNode;
 	outerClassName?: string;
@@ -96,7 +96,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 								iconClassName
 							)}
 						>
-							{icon}
+							{isValidElement(icon)
+								? icon
+								: createElement<IconProps>(icon as Icon, {
+										size: 18,
+										className: 'text-gray-350'
+								  })}
 						</div>
 					)}
 
@@ -124,7 +129,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 
 export const SearchInput = forwardRef<HTMLInputElement, InputProps>((props, ref) => (
-	<Input {...props} ref={ref} icon={<MagnifyingGlass className="text-gray-350" size={18} />} />
+	<Input {...props} ref={ref} icon={MagnifyingGlass} />
 ));
 
 export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
