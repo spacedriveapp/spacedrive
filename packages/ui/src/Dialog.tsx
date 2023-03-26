@@ -17,6 +17,7 @@ export type DialogState = ReturnType<typeof createDialogState>;
 
 export interface DialogOptions {
 	onSubmit?(): void;
+	closeOnSubmit?: boolean;
 }
 
 export interface UseDialogProps extends DialogOptions {
@@ -87,7 +88,8 @@ export function useDialog(props: UseDialogProps) {
 
 	return {
 		...props,
-		state
+		state,
+		close: () => (state.open = false)
 	};
 }
 
@@ -164,7 +166,7 @@ export function Dialog<S extends FieldValues>({
 									onSubmit={async (e) => {
 										await onSubmit?.(e);
 										dialog.onSubmit?.();
-										setOpen(false);
+										if (dialog.closeOnSubmit !== false) dialog.close();
 									}}
 									className="bg-app-box border-app-line text-ink shadow-app-shade !pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border"
 								>
