@@ -1,17 +1,17 @@
-import { useClientContext, useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import ColorPicker from '~/components/ColorPicker';
 import { usePlatform } from '~/util/Platform';
 
 export default (props: UseDialogProps) => {
-	const dialog = useDialog(props);
+	const dialog = useDialog({ ...props, closeOnSubmit: false });
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
 
 	const form = useZodForm({
 		schema: z.object({
-			name: z.string(),
+			name: z.string().min(1, 'Name required'),
 			color: z.string()
 		}),
 		defaultValues: {
@@ -22,6 +22,7 @@ export default (props: UseDialogProps) => {
 	const createTag = useLibraryMutation('tags.create', {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
+			dialog.close();
 		},
 		onError: (e) => {
 			console.error('error', e);
@@ -36,14 +37,13 @@ export default (props: UseDialogProps) => {
 			description="Choose a name and color."
 			ctaLabel="Create"
 		>
-			<div className="relative mt-3 ">
-				<ColorPicker className="!absolute left-[9px] top-[-5px]" {...form.register('color')} />
-				<Input
-					{...form.register('name', { required: true })}
-					className="w-full pl-[40px]"
-					placeholder="Name"
-				/>
-			</div>
+			<Input
+				placeholder="Name"
+				icon={<ColorPicker control={form.control} name="color" />}
+				outerClassName="mt-3"
+				error={form.formState.errors.name?.message}
+				{...form.register('name')}
+			/>
 		</Dialog>
 	);
 };
