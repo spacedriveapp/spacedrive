@@ -1,4 +1,7 @@
-use crate::{types::SecretKeyString, Protected, Result};
+use crate::{Protected, Result};
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
+pub mod portable;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -14,67 +17,11 @@ pub struct Identifier<'a> {
 	pub usage: &'a str,
 }
 
-impl<'a> Identifier<'a> {
-	#[cfg(target_os = "linux")]
-	#[must_use]
-	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
-		[
-			("Application", self.application),
-			("Library", self.id),
-			("Usage", self.usage),
-		]
-		.into_iter()
-		.collect()
-	}
-
-	#[cfg(target_os = "linux")]
-	#[must_use]
-	pub fn generate_linux_label(&self) -> String {
-		format!("{} - {}", self.application, self.usage)
-	}
-
-	#[cfg(any(target_os = "macos", target_os = "ios"))]
-	#[must_use]
-	pub fn to_apple_account(self) -> String {
-		format!("{} - {}", self.id, self.usage)
-	}
-}
-
 pub trait Keyring {
-	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()>;
+	fn new() -> Result<Self>
+	where
+		Self: Sized;
+	fn insert(&self, identifier: Identifier<'_>, value: Protected<Vec<u8>>) -> Result<()>;
 	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>>;
 	fn delete(&self, identifier: Identifier<'_>) -> Result<()>;
-}
-
-/// This should be used to interact with all OS keyrings.
-pub struct KeyringInterface {
-	keyring: Box<dyn Keyring + Send>,
-}
-
-impl KeyringInterface {
-	pub fn new() -> Result<Self> {
-		#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
-		return Err(crate::Error::KeyringNotSupported);
-
-		#[cfg(target_os = "linux")]
-		let keyring = Box::new(self::linux::LinuxKeyring::new()?);
-
-		#[cfg(any(target_os = "macos", target_os = "ios"))]
-		let keyring = Box::new(self::apple::AppleKeyring {});
-
-		#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
-		Ok(Self { keyring })
-	}
-
-	pub fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
-		self.keyring.insert(identifier, value)
-	}
-
-	pub fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
-		self.keyring.retrieve(identifier)
-	}
-
-	pub fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
-		self.keyring.delete(identifier)
-	}
 }

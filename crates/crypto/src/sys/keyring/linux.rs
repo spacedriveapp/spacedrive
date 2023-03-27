@@ -4,23 +4,32 @@
 
 use secret_service::{Collection, EncryptionType, SecretService};
 
-use crate::{
-	keys::keyring::{Identifier, Keyring},
-	types::SecretKeyString,
-	Error, Protected, Result,
-};
+use super::{Identifier, Keyring};
+use crate::{Error, Protected, Result};
+
+impl<'a> Identifier<'a> {
+	#[must_use]
+	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
+		[
+			("Application", self.application),
+			("Library", self.id),
+			("Usage", self.usage),
+		]
+		.into_iter()
+		.collect()
+	}
+
+	#[must_use]
+	pub fn generate_linux_label(&self) -> String {
+		format!("{} - {}", self.application, self.usage)
+	}
+}
 
 pub struct LinuxKeyring<'a> {
 	pub service: SecretService<'a>,
 }
 
 impl<'a> LinuxKeyring<'a> {
-	pub fn new() -> Result<Self> {
-		Ok(Self {
-			service: SecretService::new(EncryptionType::Dh)?,
-		})
-	}
-
 	fn get_collection(&self) -> Result<Collection<'_>> {
 		let collection = self.service.get_default_collection()?;
 
@@ -34,11 +43,20 @@ impl<'a> LinuxKeyring<'a> {
 }
 
 impl<'a> Keyring for LinuxKeyring<'a> {
-	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
+	fn new() -> Result<Self>
+	where
+		Self: Sized,
+	{
+		Ok(Self {
+			service: SecretService::new(EncryptionType::Dh)?,
+		})
+	}
+
+	fn insert(&self, identifier: Identifier<'_>, value: Protected<Vec<u8>>) -> Result<()> {
 		self.get_collection()?.create_item(
 			&identifier.generate_linux_label(),
 			identifier.to_hashmap(),
-			value.expose().as_bytes(),
+			value.expose(),
 			true,
 			"text/plain",
 		)?;

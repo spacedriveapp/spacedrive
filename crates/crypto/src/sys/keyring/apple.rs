@@ -8,9 +8,23 @@ use security_framework::passwords::{
 	delete_generic_password, get_generic_password, set_generic_password,
 };
 
+impl<'a> Identifier<'a> {
+	#[must_use]
+	pub fn to_apple_account(self) -> String {
+		format!("{} - {}", self.id, self.usage)
+	}
+}
+
 pub struct AppleKeyring;
 
 impl Keyring for AppleKeyring {
+	fn new() -> Result<Self>
+	where
+		Self: Sized,
+	{
+		Ok(Self {})
+	}
+
 	fn insert(&self, identifier: Identifier<'_>, value: SecretKeyString) -> Result<()> {
 		set_generic_password(
 			identifier.application,
@@ -19,11 +33,13 @@ impl Keyring for AppleKeyring {
 		)
 		.map_err(Error::AppleKeyringError)
 	}
+
 	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
 		get_generic_password(identifier.application, &identifier.to_apple_account())
 			.map(Protected::new)
 			.map_err(Error::AppleKeyringError)
 	}
+
 	fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
 		delete_generic_password(identifier.application, &identifier.to_apple_account())
 			.map_err(Error::AppleKeyringError)
