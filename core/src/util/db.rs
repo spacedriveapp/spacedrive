@@ -1,8 +1,5 @@
-use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::{migrations::*, NewClientError};
-use sd_crypto::encoding;
-use sd_crypto::keys::keymanager::StoredKey;
 use thiserror::Error;
 
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
@@ -44,31 +41,31 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	Ok(client)
 }
 
-/// This writes a `StoredKey` to prisma
-/// If the key is marked as memory-only, it is skipped
-pub async fn write_storedkey_to_db(
-	db: &PrismaClient,
-	stored_key: &StoredKey,
-) -> Result<(), LibraryManagerError> {
-	if !stored_key.memory_only {
-		db.key()
-			.create(
-				stored_key.uuid.to_string(),
-				encoding::encode(&stored_key.version)?,
-				encoding::encode(&stored_key.key_type)?,
-				encoding::encode(&stored_key.algorithm)?,
-				encoding::encode(&stored_key.hashing_algorithm)?,
-				encoding::encode(&stored_key.content_salt)?,
-				encoding::encode(&stored_key.master_key)?,
-				encoding::encode(&stored_key.master_key_nonce)?,
-				encoding::encode(&stored_key.key_nonce)?,
-				encoding::encode(&stored_key.key)?,
-				encoding::encode(&stored_key.salt)?,
-				vec![],
-			)
-			.exec()
-			.await?;
-	}
+// /// This writes a `StoredKey` to prisma
+// /// If the key is marked as memory-only, it is skipped
+// pub async fn write_storedkey_to_db(
+// 	db: &PrismaClient,
+// 	stored_key: &StoredKey,
+// ) -> Result<(), LibraryManagerError> {
+// 	if !stored_key.memory_only {
+// 		db.key()
+// 			.create(
+// 				stored_key.uuid.to_string(),
+// 				encoding::encode(&stored_key.version)?,
+// 				encoding::encode(&stored_key.key_type)?,
+// 				encoding::encode(&stored_key.algorithm)?,
+// 				encoding::encode(&stored_key.hashing_algorithm)?,
+// 				encoding::encode(&stored_key.content_salt)?,
+// 				encoding::encode(&stored_key.master_key)?,
+// 				encoding::encode(&stored_key.master_key_nonce)?,
+// 				encoding::encode(&stored_key.key_nonce)?,
+// 				encoding::encode(&stored_key.key)?,
+// 				encoding::encode(&stored_key.salt)?,
+// 				vec![],
+// 			)
+// 			.exec()
+// 			.await?;
+// 	}
 
-	Ok(())
-}
+// 	Ok(())
+// }

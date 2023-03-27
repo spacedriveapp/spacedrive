@@ -1,4 +1,5 @@
 use crate::{
+	crypto::OnboardingConfig,
 	invalidate_query,
 	library::{Library, LibraryConfig},
 	prisma::statistics,
@@ -6,7 +7,7 @@ use crate::{
 };
 
 use sd_crypto::{
-	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
+	types::{Algorithm, HashingAlgorithm},
 	Protected,
 };
 

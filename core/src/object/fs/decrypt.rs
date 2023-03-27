@@ -1,12 +1,10 @@
-use sd_crypto::{crypto::Decryptor, header::FileHeader, primitives::FILE_KEYSLOT_CONTEXT};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
-use tokio::fs::File;
 
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 
-use super::{context_menu_fs_info, FsInfo, BYTES_EXT, ENCRYPTED_FILE_MAGIC_BYTES};
+use super::{context_menu_fs_info, FsInfo};
 pub struct FileDecryptorJob;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobState {}
@@ -61,47 +59,48 @@ impl StatefulJob for FileDecryptorJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let info = &step.fs_info;
-		let key_manager = &ctx.library.key_manager;
+		// let key_manager = &ctx.library.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
-		let output_path = state.init.output_path.clone().map_or_else(
-			|| {
-				let mut path = info.fs_path.clone();
-				let extension = path.extension().map_or("decrypted", |ext| {
-					if ext == BYTES_EXT {
-						""
-					} else {
-						"decrypted"
-					}
-				});
-				path.set_extension(extension);
-				path
-			},
-			|p| p,
-		);
+		// let output_path = state.init.output_path.clone().map_or_else(
+		// 	|| {
+		// 		let mut path = info.fs_path.clone();
+		// 		let extension = path.extension().map_or("decrypted", |ext| {
+		// 			if ext == BYTES_EXT {
+		// 				""
+		// 			} else {
+		// 				"decrypted"
+		// 			}
+		// 		});
+		// 		path.set_extension(extension);
+		// 		path
+		// 	},
+		// 	|p| p,
+		// );
 
-		let mut reader = File::open(info.fs_path.clone()).await?;
-		let mut writer = File::create(output_path).await?;
+		// let mut reader = File::open(info.fs_path.clone()).await?;
+		// let mut writer = File::create(output_path).await?;
 
-		let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
+		// let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
 
-		let keys = key_manager.enumerate_hashed_keys();
-		let master_key = header.decrypt_master_key(keys, FILE_KEYSLOT_CONTEXT)?;
+		// let keys = key_manager.enumerate_hashed_keys();
+		// let master_key = header.decrypt_master_key(keys, FILE_KEYSLOT_CONTEXT)?;
 
-		let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm())?;
+		// let decryptor = Decryptor::new(master_key, header.get_nonce(), header.get_algorithm())?;
 
-		decryptor
-			.decrypt_streams_async(&mut reader, &mut writer, header.get_aad().inner())
-			.await?;
+		// decryptor
+		// 	.decrypt_streams_async(&mut reader, &mut writer, header.get_aad())
+		// 	.await?;
 
-		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
-		// for now this can't easily be implemented, as we don't know what the new object id for the file will be (we know the old one, but it may differ)
+		// // need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
+		// // for now this can't easily be implemented, as we don't know what the new object id for the file will be (we know the old one, but it may differ)
 
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-			state.step_number + 1,
-		)]);
+		// ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+		// 	state.step_number + 1,
+		// )]);
 
-		Ok(())
+		// Ok(())
+		todo!()
 	}
 
 	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {

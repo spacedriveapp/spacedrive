@@ -14,7 +14,7 @@ use std::{
 	sync::Arc,
 };
 
-use sd_crypto::keys::keymanager::KeyManager;
+// use sd_crypto::keys::keymanager::KeyManager;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -33,7 +33,7 @@ pub struct Library {
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
-	pub key_manager: Arc<KeyManager>,
+	// pub key_manager: Arc<KeyManager>,
 	/// last id by location keeps track of the last id by location for the library
 	pub last_file_path_id_manager: Arc<LastFilePathIdManager>,
 	/// node_local_id holds the local ID of the node which is running the library.

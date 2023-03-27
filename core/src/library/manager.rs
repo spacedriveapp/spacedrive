@@ -1,21 +1,17 @@
 use crate::{
+	crypto::OnboardingConfig,
 	invalidate_query,
 	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
-	prisma::{node, PrismaClient},
+	prisma::node,
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db::{load_and_migrate, write_storedkey_to_db},
+		db::load_and_migrate,
 		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
 };
 
-use sd_crypto::{
-	encoding,
-	keys::keymanager::{KeyManager, StoredKey},
-	types::{Nonce, OnboardingConfig, Salt},
-};
 use std::{
 	env, fs, io,
 	path::{Path, PathBuf},
@@ -71,53 +67,53 @@ impl From<LibraryManagerError> for rspc::Error {
 	}
 }
 
-pub async fn seed_keymanager(
-	client: &PrismaClient,
-	km: &Arc<KeyManager>,
-) -> Result<(), LibraryManagerError> {
-	let mut default = None;
+// pub async fn seed_keymanager(
+// 	client: &PrismaClient,
+// 	km: &Arc<KeyManager>,
+// ) -> Result<(), LibraryManagerError> {
+// 	let mut default = None;
 
-	// collect and serialize the stored keys
-	let stored_keys: Vec<StoredKey> = client
-		.key()
-		.find_many(vec![])
-		.exec()
-		.await?
-		.iter()
-		.map(|key| {
-			let key = key.clone();
-			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
+// 	// collect and serialize the stored keys
+// 	let stored_keys: Vec<StoredKey> = client
+// 		.key()
+// 		.find_many(vec![])
+// 		.exec()
+// 		.await?
+// 		.iter()
+// 		.map(|key| {
+// 			let key = key.clone();
+// 			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
 
-			if key.default {
-				default = Some(uuid);
-			}
+// 			if key.default {
+// 				default = Some(uuid);
+// 			}
 
-			Ok(StoredKey {
-				uuid,
-				version: encoding::decode(&key.version)?,
-				key_type: encoding::decode(&key.key_type)?,
-				algorithm: encoding::decode(&key.algorithm)?,
-				content_salt: encoding::decode(&key.content_salt)?,
-				master_key: encoding::decode(&key.master_key)?,
-				master_key_nonce: encoding::decode(&key.master_key_nonce)?,
-				key_nonce: encoding::decode(&key.key_nonce)?,
-				key: encoding::decode(&key.key),
-				hashing_algorithm: encoding::decode(&key.hashing_algorithm)?,
-				salt: encoding::decode(&key.salt)?,
-				memory_only: false,
-			})
-		})
-		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
-		.unwrap();
+// 			Ok(StoredKey {
+// 				uuid,
+// 				version: encoding::decode(&key.version)?,
+// 				key_type: encoding::decode(&key.key_type)?,
+// 				algorithm: encoding::decode(&key.algorithm)?,
+// 				content_salt: encoding::decode(&key.content_salt)?,
+// 				master_key: encoding::decode(&key.master_key)?,
+// 				master_key_nonce: encoding::decode(&key.master_key_nonce)?,
+// 				key_nonce: encoding::decode(&key.key_nonce)?,
+// 				key: encoding::decode(&key.key),
+// 				hashing_algorithm: encoding::decode(&key.hashing_algorithm)?,
+// 				salt: encoding::decode(&key.salt)?,
+// 				memory_only: false,
+// 			})
+// 		})
+// 		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
+// 		.unwrap();
 
-	// insert all keys from the DB into the keymanager's keystore
-	km.populate_keystore(stored_keys).await?;
+// 	// insert all keys from the DB into the keymanager's keystore
+// 	km.populate_keystore(stored_keys).await?;
 
-	// if any key had an associated default tag
-	default.map(|k| km.set_default(k));
+// 	// if any key had an associated default tag
+// 	default.map(|k| km.set_default(k));
 
-	Ok(())
-}
+// 	Ok(())
+// }
 
 impl LibraryManager {
 	pub(crate) async fn new(
@@ -198,12 +194,12 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// setup master password
-		let verification_key = KeyManager::onboarding(km_config, library.id)?;
+		// let verification_key = KeyManager::onboarding(km_config, library.id)?;
 
-		write_storedkey_to_db(&library.db, &verification_key).await?;
+		// write_storedkey_to_db(&library.db, &verification_key).await?;
 
 		// populate KM with the verification key
-		seed_keymanager(&library.db, &library.key_manager).await?;
+		// seed_keymanager(&library.db, &library.key_manager).await?;
 
 		invalidate_query!(library, "library.list");
 
@@ -330,8 +326,8 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		seed_keymanager(&db, &key_manager).await?;
+		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
+		// seed_keymanager(&db, &key_manager).await?;
 
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
 
@@ -351,7 +347,7 @@ impl LibraryManager {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager,
+			// key_manager,
 			sync: Arc::new(sync_manager),
 			db,
 			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
