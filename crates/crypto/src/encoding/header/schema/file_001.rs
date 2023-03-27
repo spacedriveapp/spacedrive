@@ -2,9 +2,8 @@ use bincode::impl_borrow_decode;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	encoding,
-	header::file::{Header, HeaderObjectName},
-	keys::Hasher,
+	encoding::{self, Header, HeaderObjectName},
+	hashing::Hasher,
 	types::{Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
 	utils::generate_fixed,
 	Error, Protected, Result,

@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use sd_crypto::{
-	keys::Hasher,
+	hashing::Hasher,
 	types::{DerivationContext, Key, Salt},
 };
 

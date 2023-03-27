@@ -34,9 +34,6 @@ pub const ENCRYPTED_KEY_LEN: usize = KEY_LEN + AEAD_TAG_LEN;
 /// The length of plain master/hashed keys
 pub const KEY_LEN: usize = 32;
 
-#[cfg(feature = "encoding")]
-pub use crate::header::file::LATEST_FILE_HEADER;
-
 pub(super) const ARGON2ID_STANDARD: (u32, u32, u32) = (131_072, 8, 4);
 pub(super) const ARGON2ID_HARDENED: (u32, u32, u32) = (262_144, 8, 4);
 pub(super) const ARGON2ID_PARANOID: (u32, u32, u32) = (524_288, 8, 4);

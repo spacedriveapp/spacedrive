@@ -2,9 +2,8 @@ use std::io::{self, Seek};
 
 use sd_crypto::{
 	crypto::Encryptor,
-	header::{FileHeader, HeaderObjectName},
-	keys::Hasher,
-	primitives::LATEST_FILE_HEADER,
+	encoding::{FileHeader, HeaderObjectName, LATEST_FILE_HEADER},
+	hashing::Hasher,
 	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	Protected,
 };

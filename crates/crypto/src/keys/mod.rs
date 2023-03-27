@@ -3,5 +3,5 @@
 mod hashing;
 pub use hashing::Hasher;
 
-#[cfg(feature = "os-keyrings")]
-pub mod keyring;
+// #[cfg(feature = "os-keyrings")]
+// pub mod keyring;

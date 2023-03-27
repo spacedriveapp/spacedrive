@@ -2,6 +2,12 @@ use bincode::config::Configuration;
 
 use crate::{Error, Result};
 
+pub mod header;
+
+pub use header::file::{
+	FileHeader, FileHeaderVersion, Header, HeaderObjectName, LATEST_FILE_HEADER,
+};
+
 pub const CONFIG: Configuration = bincode::config::standard();
 
 pub fn decode<T>(bytes: &[u8]) -> Result<T>

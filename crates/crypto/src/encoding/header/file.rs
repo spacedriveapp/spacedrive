@@ -108,7 +108,7 @@ pub struct FileHeader {
 ///
 /// By isolating the two, we know which schema we need to re-build for a given version.
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct HeaderBundle {
+struct HeaderBundle {
 	pub version: FileHeaderVersion,
 	pub bytes: Vec<u8>,
 }
@@ -361,11 +361,12 @@ mod tests {
 	use std::io::{Cursor, Seek};
 
 	use crate::{
-		header::{FileHeader, HeaderObjectName},
-		keys::Hasher,
-		primitives::LATEST_FILE_HEADER,
+		encoding::{FileHeader, LATEST_FILE_HEADER},
+		hashing::Hasher,
 		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
 	};
+
+	use super::HeaderObjectName;
 
 	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 

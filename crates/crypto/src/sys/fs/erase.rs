@@ -14,7 +14,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 /// can guarantee a perfect erasure on solid-state drives.
 ///
 /// This also does not factor in temporary files, caching, thumbnails, etc.
-pub async fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
+pub async fn erase_async<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
 where
 	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin + Send,
 {
