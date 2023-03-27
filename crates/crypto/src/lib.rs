@@ -23,6 +23,9 @@ pub mod protected;
 pub mod types;
 pub mod utils;
 
+#[cfg(feature = "sys")]
+pub mod sys;
+
 #[cfg(feature = "encoding")]
 pub mod encoding;
 

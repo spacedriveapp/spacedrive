@@ -87,7 +87,7 @@ impl StatefulJob for FileEraserJob {
 					.await?;
 				let file_len = file.metadata().await?.len();
 
-				sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes)
+				sd_crypto::sys::fs::erase_async(&mut file, file_len as usize, state.init.passes)
 					.await?;
 				file.set_len(0).await?;
 				file.flush().await?;

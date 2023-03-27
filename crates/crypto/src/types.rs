@@ -301,84 +301,29 @@ impl TryFrom<Protected<Vec<u8>>> for Key {
 
 /// This should be used for providing a secret key to functions.
 ///
-/// You may also generate a secret key with `SecretKey::generate()`
-#[derive(Clone)]
-pub struct SecretKey(Protected<[u8; SECRET_KEY_LEN]>);
+// /// You may also generate a secret key with `SecretKey::generate()`
+pub enum SecretKey {
+	Standard(Protected<[u8; SECRET_KEY_LEN]>),
+	Null,
+}
 
 impl SecretKey {
 	#[must_use]
 	pub const fn new(v: [u8; SECRET_KEY_LEN]) -> Self {
-		Self(Protected::new(v))
+		Self::Standard(Protected::new(v))
 	}
 
 	#[must_use]
-	pub const fn expose(&self) -> &[u8; SECRET_KEY_LEN] {
-		self.0.expose()
+	pub const fn expose(&self) -> &[u8] {
+		match self {
+			Self::Standard(v) => v.expose(),
+			Self::Null => &[],
+		}
 	}
 
 	#[must_use]
 	pub fn generate() -> Self {
 		Self::new(generate_fixed())
-	}
-
-	#[must_use]
-	pub fn to_vec(self) -> Vec<u8> {
-		self.0.to_vec()
-	}
-}
-
-/// This should be used for passing a secret key string around.
-///
-/// It is `SECRET_KEY_LEN` bytes, encoded in hex and delimited with `-` every 6 characters.
-#[derive(Clone)]
-pub struct SecretKeyString(Protected<String>);
-
-impl SecretKeyString {
-	#[must_use]
-	pub const fn new(v: String) -> Self {
-		Self(Protected::new(v))
-	}
-
-	#[must_use]
-	pub const fn expose(&self) -> &String {
-		self.0.expose()
-	}
-}
-
-impl From<SecretKey> for SecretKeyString {
-	fn from(v: SecretKey) -> Self {
-		let hex_string: String = hex::encode_upper(v.0.expose())
-			.chars()
-			.enumerate()
-			.map(|(i, c)| {
-				if (i + 1) % 6 == 0 && i != 35 {
-					c.to_string() + "-"
-				} else {
-					c.to_string()
-				}
-			})
-			.collect();
-
-		Self::new(hex_string)
-	}
-}
-
-impl From<SecretKeyString> for SecretKey {
-	fn from(v: SecretKeyString) -> Self {
-		let mut secret_key_sanitized = v.expose().clone();
-		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
-
-		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
-		// could maybe do this better (and make use of the subtle crate)
-
-		let secret_key = hex::decode(secret_key_sanitized)
-			.ok()
-			.map_or(Vec::new(), |v| v);
-
-		secret_key
-			.to_array()
-			.ok()
-			.map_or_else(Self::generate, Self::new)
 	}
 }
 

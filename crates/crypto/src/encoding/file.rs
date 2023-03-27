@@ -118,8 +118,8 @@ macro_rules! generate_header_versions {
 		$default:tt, $default_schema:ident,
 		$(($version:tt, $schema:ident, $keyslot_schema:ident)),*
 	) => {
-		/// This defines the latest/default file header version
-		pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::$default;
+
+		// pub const FileHeaderVersion::default(): FileHeaderVersion = FileHeaderVersion::$default;
 
 		// This defines all possible file header versions
 		#[derive(Clone, Copy, bincode::Encode, bincode::Decode)]
@@ -127,6 +127,13 @@ macro_rules! generate_header_versions {
 			$(
 				$version,
 			)*
+		}
+
+		/// This will always be the latest file header version.
+		impl Default for FileHeaderVersion {
+			fn default() -> Self {
+				Self::$default
+			}
 		}
 
 		impl std::fmt::Display for FileHeaderVersion {
@@ -361,9 +368,9 @@ mod tests {
 	use std::io::{Cursor, Seek};
 
 	use crate::{
-		encoding::{FileHeader, LATEST_FILE_HEADER},
+		encoding::{FileHeader, FileHeaderVersion},
 		hashing::Hasher,
-		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
+		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt, SecretKey},
 	};
 
 	use super::HeaderObjectName;
@@ -392,7 +399,7 @@ mod tests {
 		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -420,7 +427,7 @@ mod tests {
 	#[test]
 	fn serialize_and_deserialize_no_extras() {
 		let mut writer = Cursor::new(vec![]);
-		let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
@@ -438,7 +445,7 @@ mod tests {
 		let mk = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
@@ -463,7 +470,7 @@ mod tests {
 		let mk = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
@@ -495,7 +502,7 @@ mod tests {
 	#[should_panic(expected = "NoKeyslots")]
 	fn serialize_and_deserialize_no_keyslot_attempt_decrypt() {
 		let mut writer = Cursor::new(vec![]);
-		let header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header.write(&mut writer, MAGIC_BYTES).unwrap();
 
@@ -517,12 +524,12 @@ mod tests {
 			HASHING_ALGORITHM,
 			PASSWORD.to_vec().into(),
 			content_salt,
-			None,
+			SecretKey::Null,
 		)
 		.unwrap();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -559,12 +566,12 @@ mod tests {
 			HASHING_ALGORITHM,
 			PASSWORD.to_vec().into(),
 			content_salt,
-			None,
+			SecretKey::Null,
 		)
 		.unwrap();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(HASHING_ALGORITHM, content_salt, hashed_pw, mk, CONTEXT)
@@ -584,7 +591,7 @@ mod tests {
 	#[should_panic(expected = "MagicByteMismatch")]
 	fn serialize_and_deserialize_with_bad_magic_bytes() {
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -611,7 +618,7 @@ mod tests {
 		let hashed_pw2 = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -653,7 +660,7 @@ mod tests {
 	fn serialize_and_deserialize_with_object() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -687,7 +694,7 @@ mod tests {
 	fn serialize_and_deserialize_with_object_bad_identifier() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -718,7 +725,7 @@ mod tests {
 	fn serialize_and_deserialize_with_two_objects() {
 		let mk = Key::generate();
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -761,7 +768,7 @@ mod tests {
 	fn serialize_and_deserialize_with_two_objects_same_name() {
 		let mk = Key::generate();
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -787,7 +794,7 @@ mod tests {
 	fn serialize_and_deserialize_with_too_many_keyslots() {
 		let mk = Key::generate();
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -825,7 +832,7 @@ mod tests {
 	fn serialize_and_deserialize_with_three_objects() {
 		let mk = Key::generate();
 
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_object(OBJECT1_NAME, CONTEXT, mk.clone(), &OBJECT1_DATA)
@@ -847,7 +854,7 @@ mod tests {
 		let hashed_pw2 = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(
@@ -911,7 +918,7 @@ mod tests {
 		let hashed_pw2 = Key::generate();
 
 		let mut writer = Cursor::new(vec![]);
-		let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 		header
 			.add_keyslot(

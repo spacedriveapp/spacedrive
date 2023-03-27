@@ -2,11 +2,10 @@ use bincode::config::Configuration;
 
 use crate::{Error, Result};
 
-pub mod header;
+mod file;
+mod schema;
 
-pub use header::file::{
-	FileHeader, FileHeaderVersion, Header, HeaderObjectName, LATEST_FILE_HEADER,
-};
+pub use file::{FileHeader, FileHeaderVersion, Header, HeaderObjectName};
 
 pub const CONFIG: Configuration = bincode::config::standard();
 

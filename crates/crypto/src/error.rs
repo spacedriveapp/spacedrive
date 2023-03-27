@@ -64,16 +64,16 @@ pub enum Error {
 	StringParse(#[from] FromUtf8Error),
 
 	// keyring
-	#[cfg(all(target_os = "linux", feature = "os-keyrings"))]
+	#[cfg(all(target_os = "linux", feature = "sys"))]
 	#[error("error with the linux keyring: {0}")]
 	LinuxKeyringError(#[from] secret_service::Error),
-	#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "os-keyrings"))]
+	#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "sys"))]
 	#[error("error with the apple keyring: {0}")]
 	AppleKeyringError(#[from] security_framework::base::Error),
-	#[cfg(feature = "os-keyrings")]
+	#[cfg(feature = "sys")]
 	#[error("generic keyring error")]
 	KeyringError,
-	#[cfg(feature = "os-keyrings")]
+	#[cfg(feature = "sys")]
 	#[error("keyring not available on this platform")]
 	KeyringNotSupported,
 }

@@ -1,10 +1,10 @@
 use std::io::{self, Seek};
 
 use sd_crypto::{
-	crypto::Encryptor,
-	encoding::{FileHeader, HeaderObjectName, LATEST_FILE_HEADER},
+	crypto::{Decryptor, Encryptor},
+	encoding::{FileHeader, FileHeaderVersion, HeaderObjectName},
 	hashing::Hasher,
-	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt},
+	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt, SecretKey},
 	Protected,
 };
 
@@ -34,10 +34,10 @@ where
 	// These should ideally be done by a key management system
 	let content_salt = Salt::generate();
 	let hashed_password =
-		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, None).unwrap();
+		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, SecretKey::Null).unwrap();
 
 	// Create the header for the encrypted file
-	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM);
+	let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
 
 	// Create a keyslot to be added to the header
 	header
@@ -72,9 +72,10 @@ where
 		.unwrap();
 }
 
-fn decrypt<R>(reader: &mut R) -> Vec<u8>
+fn decrypt<R, W>(reader: &mut R, writer: &mut W) -> Vec<u8>
 where
 	R: io::Read + io::Seek,
+	W: io::Write,
 {
 	let password = Protected::new(b"password".to_vec());
 
@@ -83,6 +84,18 @@ where
 
 	let master_key = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
+		.unwrap();
+
+	let decryptor = Decryptor::new(
+		master_key.clone(),
+		header.get_nonce(),
+		header.get_algorithm(),
+	)
+	.unwrap();
+
+	// Decrypt data the from the reader, and write it to the writer
+	decryptor
+		.decrypt_streams(reader, writer, header.get_aad())
 		.unwrap();
 
 	// Decrypt the object
@@ -101,12 +114,13 @@ fn main() {
 	// Open both the source and the output file
 	let mut source = io::Cursor::new(vec![5u8; 256]);
 	let mut dest = io::Cursor::new(vec![]);
+	let mut source_comparison = io::Cursor::new(vec![]);
 
 	encrypt(&mut source, &mut dest);
 
 	dest.rewind().unwrap();
 
-	let object_data = decrypt(&mut dest);
+	let object_data = decrypt(&mut dest, &mut source_comparison);
 
 	assert_eq!(&object_data, &OBJECT_DATA);
 }

@@ -4,7 +4,10 @@ use crate::{
 	crypto::{Decryptor, Encryptor},
 	encoding::{self, Header, HeaderObjectName},
 	hashing::Hasher,
-	types::{Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt},
+	types::{
+		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt,
+		SecretKey,
+	},
 	utils::generate_fixed,
 	Error, Protected, Result,
 };
@@ -403,7 +406,7 @@ impl Header for FileHeader001 {
 					z.hashing_algorithm,
 					password.clone(),
 					z.content_salt,
-					None,
+					SecretKey::Null,
 				)
 				.ok()?;
 				z.decrypt(self.algorithm, k, self.aad, context).ok()

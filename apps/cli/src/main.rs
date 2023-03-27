@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use indoc::printdoc;
-use sd_crypto::{header::FileHeader, types::MagicBytes};
+use sd_crypto::{encoding::FileHeader, types::MagicBytes};
 use std::path::PathBuf;
 use tokio::fs::File;
 

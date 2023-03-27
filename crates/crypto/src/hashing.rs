@@ -42,7 +42,7 @@ impl Hasher {
 		algorithm: HashingAlgorithm,
 		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<SecretKey>,
+		secret: SecretKey,
 	) -> Result<Key> {
 		let d = algorithm.get_parameters();
 
@@ -56,10 +56,9 @@ impl Hasher {
 	fn argon2id(
 		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<SecretKey>,
+		secret: SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
 		let p = argon2::Params::new(params.0, params.1, params.2, None)
 			.map_err(|_| Error::PasswordHash)?;
 
@@ -81,10 +80,9 @@ impl Hasher {
 	fn blake3_balloon(
 		password: Protected<Vec<u8>>,
 		salt: Salt,
-		secret: Option<SecretKey>,
+		secret: SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
-		let secret: Protected<Vec<u8>> = secret.map_or(vec![], SecretKey::to_vec).into();
 		let p = balloon_hash::Params::new(params.0, params.1, params.2)
 			.map_err(|_| Error::PasswordHash)?;
 
@@ -206,8 +204,13 @@ mod tests {
 	#[test]
 	#[ignore]
 	fn argon2id_standard() {
-		let output =
-			Hasher::hash_password(ARGON2ID_STANDARD, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash_password(
+			ARGON2ID_STANDARD,
+			PASSWORD.to_vec().into(),
+			SALT,
+			SecretKey::Null,
+		)
+		.unwrap();
 
 		assert_eq!(output, ARGON2ID_EXPECTED[0]);
 	}
@@ -219,7 +222,7 @@ mod tests {
 			ARGON2ID_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 
@@ -229,8 +232,13 @@ mod tests {
 	#[test]
 	#[ignore]
 	fn argon2id_hardened() {
-		let output =
-			Hasher::hash_password(ARGON2ID_HARDENED, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash_password(
+			ARGON2ID_HARDENED,
+			PASSWORD.to_vec().into(),
+			SALT,
+			SecretKey::Null,
+		)
+		.unwrap();
 
 		assert_eq!(output, ARGON2ID_EXPECTED[1]);
 	}
@@ -242,7 +250,7 @@ mod tests {
 			ARGON2ID_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 
@@ -252,8 +260,13 @@ mod tests {
 	#[test]
 	#[ignore]
 	fn argon2id_paranoid() {
-		let output =
-			Hasher::hash_password(ARGON2ID_PARANOID, PASSWORD.to_vec().into(), SALT, None).unwrap();
+		let output = Hasher::hash_password(
+			ARGON2ID_PARANOID,
+			PASSWORD.to_vec().into(),
+			SALT,
+			SecretKey::Null,
+		)
+		.unwrap();
 
 		assert_eq!(output, ARGON2ID_EXPECTED[2]);
 	}
@@ -265,7 +278,7 @@ mod tests {
 			ARGON2ID_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 
@@ -279,7 +292,7 @@ mod tests {
 			BLAKE3_BALLOON_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
-			None,
+			SecretKey::Null,
 		)
 		.unwrap();
 
@@ -293,7 +306,7 @@ mod tests {
 			BLAKE3_BALLOON_STANDARD,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 
@@ -307,7 +320,7 @@ mod tests {
 			BLAKE3_BALLOON_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
-			None,
+			SecretKey::Null,
 		)
 		.unwrap();
 
@@ -321,7 +334,7 @@ mod tests {
 			BLAKE3_BALLOON_HARDENED,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 
@@ -335,7 +348,7 @@ mod tests {
 			BLAKE3_BALLOON_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,
-			None,
+			SecretKey::Null,
 		)
 		.unwrap();
 
@@ -349,7 +362,7 @@ mod tests {
 			BLAKE3_BALLOON_PARANOID,
 			PASSWORD.to_vec().into(),
 			SALT,
-			Some(SECRET_KEY),
+			SECRET_KEY,
 		)
 		.unwrap();
 

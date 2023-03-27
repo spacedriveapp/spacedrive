@@ -11,7 +11,7 @@ rust-version = "1.67.0"
 rspc = ["dep:rspc"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
 encoding = ["dep:bincode"]
-os-keyrings = ["dep:secret-service", "dep:security-framework"]
+sys = ["dep:secret-service", "dep:security-framework"]
 async = ["dep:tokio"]
 
 [dependencies]
@@ -36,7 +36,7 @@ chacha20poly1305 = "0.10.1"
 aead = { version = "0.5.1", features = ["stream"] }
 
 # cryptographic hygiene
-zeroize = "1.5.7"
+zeroize = "1.6.0"
 
 # error handling
 thiserror = "1.0.40"
@@ -67,7 +67,7 @@ secret-service = { version = "2.0.2", optional = true }
 
 # macos/ios OS keyring
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-security-framework = { version = "2.8.1", optional = true }
+security-framework = { version = "2.8.2", optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -105,11 +105,6 @@ path = "benches/hashing/blake3-kdf.rs"
 harness = false
 
 [[example]]
-name = "file"
-path = "examples/file.rs"
-required-features = ["encoding"]
-
-[[example]]
-name = "file_with_object"
-path = "examples/file_with_object.rs"
+name = "file_encryption"
+path = "examples/file_encryption.rs"
 required-features = ["encoding"]
