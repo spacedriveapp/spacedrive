@@ -18,9 +18,20 @@ pub use apple::AppleKeyring as KeyringInterface;
 /// This identifier is platform-agnostic and is used for identifying keys within OS keyrings
 #[derive(Clone, Copy)]
 pub struct Identifier<'a> {
-	pub application: &'a str,
 	pub id: &'a str,
+	pub application: &'a str,
 	pub usage: &'a str,
+}
+
+impl<'a> Identifier<'a> {
+	#[must_use]
+	pub const fn new(id: &'static str, application: &'static str, usage: &'static str) -> Self {
+		Self {
+			id,
+			application,
+			usage,
+		}
+	}
 }
 
 pub trait Keyring {
