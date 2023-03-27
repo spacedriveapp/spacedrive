@@ -2,12 +2,18 @@ use crate::{Protected, Result};
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
 pub mod portable;
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
+pub use portable::PortableKeyring as KeyringInterface;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::LinuxKeyring as KeyringInterface;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub mod apple;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use apple::AppleKeyring as KeyringInterface;
 
 /// This identifier is platform-agnostic and is used for identifying keys within OS keyrings
 #[derive(Clone, Copy)]

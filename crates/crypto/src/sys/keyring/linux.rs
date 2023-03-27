@@ -12,7 +12,7 @@ impl<'a> Identifier<'a> {
 	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
 		[
 			("Application", self.application),
-			("Library", self.id),
+			("ID", self.id),
 			("Usage", self.usage),
 		]
 		.into_iter()
@@ -33,10 +33,9 @@ impl<'a> LinuxKeyring<'a> {
 	fn get_collection(&self) -> Result<Collection<'_>> {
 		let collection = self.service.get_default_collection()?;
 
-		collection.is_locked()?.then(|| {
+		if collection.is_locked()? {
 			collection.unlock()?;
-			Ok::<_, Error>(())
-		});
+		}
 
 		Ok(collection)
 	}
@@ -68,9 +67,9 @@ impl<'a> Keyring for LinuxKeyring<'a> {
 		let collection = self.get_collection()?;
 		let items = collection.search_items(identifier.to_hashmap())?;
 
-		items.get(0).map_or(Err(Error::KeyringError), |k| {
-			Ok(Protected::new(k.get_secret()?))
-		})
+		items
+			.get(0)
+			.map_or(Err(Error::KeyringError), |k| Ok(k.get_secret()?.into()))
 	}
 
 	fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
