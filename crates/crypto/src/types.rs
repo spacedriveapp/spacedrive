@@ -4,6 +4,7 @@ use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
 use std::fmt::{Debug, Display};
 use subtle::{Choice, ConstantTimeEq};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ct::ConstantTimeEqNull;
 use crate::utils::{generate_fixed, ToArray};
@@ -190,7 +191,7 @@ where
 }
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "rspc", derive(rspc::Type))]
@@ -232,18 +233,18 @@ impl Algorithm {
 /// It can either be a random key, or a hashed key.
 ///
 /// You may also generate a secure random key with `Key::generate()`
-#[derive(Clone)]
-pub struct Key(Protected<[u8; KEY_LEN]>);
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+pub struct Key([u8; KEY_LEN]);
 
 impl Key {
 	#[must_use]
 	pub const fn new(v: [u8; KEY_LEN]) -> Self {
-		Self(Protected::new(v))
+		Self(v)
 	}
 
 	#[must_use]
 	pub const fn expose(&self) -> &[u8; KEY_LEN] {
-		self.0.expose()
+		&self.0
 	}
 
 	#[must_use]
@@ -285,12 +286,6 @@ impl From<blake3::Hash> for Key {
 	}
 }
 
-impl From<Protected<[u8; KEY_LEN]>> for Key {
-	fn from(value: Protected<[u8; KEY_LEN]>) -> Self {
-		Self(value)
-	}
-}
-
 impl TryFrom<Protected<Vec<u8>>> for Key {
 	type Error = Error;
 
@@ -302,21 +297,24 @@ impl TryFrom<Protected<Vec<u8>>> for Key {
 /// This should be used for providing a secret key to functions.
 ///
 // /// You may also generate a secret key with `SecretKey::generate()`
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub enum SecretKey {
-	Standard(Protected<[u8; SECRET_KEY_LEN]>),
+	Standard([u8; SECRET_KEY_LEN]),
+	Variable(Vec<u8>),
 	Null,
 }
 
 impl SecretKey {
 	#[must_use]
 	pub const fn new(v: [u8; SECRET_KEY_LEN]) -> Self {
-		Self::Standard(Protected::new(v))
+		Self::Standard(v)
 	}
 
 	#[must_use]
-	pub const fn expose(&self) -> &[u8] {
+	pub fn expose(&self) -> &[u8] {
 		match self {
-			Self::Standard(v) => v.expose(),
+			Self::Standard(v) => v,
+			Self::Variable(v) => v,
 			Self::Null => &[],
 		}
 	}
@@ -435,14 +433,6 @@ impl Salt {
 	}
 }
 
-impl TryFrom<Vec<u8>> for Salt {
-	type Error = Error;
-
-	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		Ok(Self(value.to_array()?))
-	}
-}
-
 impl Display for HashingAlgorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
@@ -468,6 +458,12 @@ impl Display for Algorithm {
 			Self::XChaCha20Poly1305 => write!(f, "XChaCha20-Poly1305"),
 			Self::Aes256Gcm => write!(f, "AES-256-GCM"),
 		}
+	}
+}
+
+impl Debug for Algorithm {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{self}")
 	}
 }
 
