@@ -9,10 +9,8 @@ rust-version = "1.67.0"
 
 [features]
 rspc = ["dep:rspc"]
-uuid = ["dep:uuid", "rspc?/uuid"]
-serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid?/serde"]
+serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
 encoding = ["dep:bincode"]
-keymanager = ["dep:dashmap", "os-keyrings", "uuid", "async", "tokio?/sync"]
 os-keyrings = ["dep:secret-service", "dep:security-framework"]
 async = ["dep:tokio"]
 
@@ -27,7 +25,10 @@ balloon-hash = "0.4.0"
 blake3 = { version = "1.3.3", features = ["traits-preview"] }
 
 # constant-time
-cmov = "0.2.0"
+subtle = "2.4.1"
+# remove git dep once 0.3.0+ releases
+cmov = { git = "https://github.com/RustCrypto/utils", rev = "fc010a560073b5a37c951c990c2a2439dc9dc9af" }
+
 
 # aeads
 aes-gcm = "0.10.1"
@@ -47,12 +48,6 @@ bincode = { version = "2.0.0-rc.2", optional = true }
 serde = { version = "1.0.158", features = ["derive"], optional = true }
 serde_json = { version = "1.0.94", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
-
-# for storedkey organisation and handling
-uuid = { version = "1.1.2", features = ["v4"], optional = true }
-
-# better concurrency for the keymanager
-dashmap = { version = "5.4.0", optional = true }
 
 # optional, for support with rspc
 rspc = { workspace = true, optional = true }

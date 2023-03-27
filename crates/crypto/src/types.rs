@@ -3,8 +3,9 @@
 use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
 use std::fmt::{Debug, Display};
+use subtle::{Choice, ConstantTimeEq};
 
-use crate::ct::{ConstantTimeEq, ConstantTimeEqNull};
+use crate::ct::ConstantTimeEqNull;
 use crate::utils::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
@@ -156,23 +157,23 @@ impl Nonce {
 
 	pub fn validate(&self, algorithm: Algorithm) -> crate::Result<()> {
 		let mut x = 1u8;
-		x.cmovz(0u8, u8::from(self.algorithm().ct_eq(&algorithm)));
-		x.cmovz(0u8, u8::from(self.inner().ct_ne_null()));
+		x.cmovz(&0, (self.algorithm().ct_eq(&algorithm)).unwrap_u8());
+		x.cmovz(&0, (self.inner().ct_ne_null()).unwrap_u8());
 
-		(x != 0u8).then_some(()).ok_or(Error::Validity)
+		bool::from(Choice::from(x))
+			.then_some(())
+			.ok_or(Error::Validity)
 	}
 }
 
 impl ConstantTimeEq for Nonce {
-	fn ct_eq(&self, rhs: &Self) -> bool {
+	fn ct_eq(&self, rhs: &Self) -> Choice {
 		// short circuit if algorithm (and therefore lengths) don't match
-		if self.algorithm().ct_ne(&rhs.algorithm()) {
-			return false;
+		if !bool::from(self.algorithm().ct_eq(&rhs.algorithm())) {
+			return Choice::from(0);
 		}
 
-		let mut x = 1u8;
-		x.cmovz(0u8, u8::from(self.inner().ct_eq(rhs.inner())));
-		x != 0u8
+		self.inner().ct_eq(rhs.inner())
 	}
 }
 
@@ -199,16 +200,14 @@ pub enum Algorithm {
 }
 
 impl ConstantTimeEq for Algorithm {
-	fn ct_eq(&self, rhs: &Self) -> bool {
-		let mut x = 1u8;
-		x.cmovz(0u8, u8::from((*self as u8) == (*rhs as u8)));
-		x != 0u8
+	fn ct_eq(&self, rhs: &Self) -> Choice {
+		(*self as u8).ct_eq(&(*rhs as u8))
 	}
 }
 
 impl PartialEq for Algorithm {
 	fn eq(&self, other: &Self) -> bool {
-		self.ct_eq(other)
+		self.ct_eq(other).into()
 	}
 }
 
@@ -253,22 +252,21 @@ impl Key {
 	}
 
 	pub fn validate(&self) -> crate::Result<()> {
-		self.expose()
-			.ct_ne_null()
+		bool::from(self.expose().ct_ne_null())
 			.then_some(())
 			.ok_or(Error::Validity)
 	}
 }
 
 impl ConstantTimeEq for Key {
-	fn ct_eq(&self, rhs: &Self) -> bool {
+	fn ct_eq(&self, rhs: &Self) -> Choice {
 		self.expose().ct_eq(rhs.expose())
 	}
 }
 
 impl PartialEq for Key {
 	fn eq(&self, other: &Self) -> bool {
-		self.ct_eq(other)
+		self.ct_eq(other).into()
 	}
 }
 
@@ -425,22 +423,22 @@ impl EncryptedKey {
 }
 
 impl ConstantTimeEq for EncryptedKey {
-	fn ct_eq(&self, rhs: &Self) -> bool {
+	fn ct_eq(&self, rhs: &Self) -> Choice {
 		// short circuit if algorithm (and therefore nonce lengths) don't match
-		if self.nonce().algorithm().ct_ne(&rhs.nonce().algorithm()) {
-			return false;
+		if !bool::from(self.nonce().algorithm().ct_eq(&rhs.nonce().algorithm())) {
+			return Choice::from(0);
 		}
 
 		let mut x = 1u8;
-		x.cmovz(0u8, u8::from(self.inner().ct_eq(rhs.inner())));
-		x.cmovz(0u8, u8::from(self.nonce().ct_eq(rhs.nonce())));
-		x != 0u8
+		x.cmovz(&0u8, self.inner().ct_eq(rhs.inner()).unwrap_u8());
+		x.cmovz(&0u8, self.nonce().ct_eq(rhs.nonce()).unwrap_u8());
+		Choice::from(x)
 	}
 }
 
 impl PartialEq for EncryptedKey {
 	fn eq(&self, other: &Self) -> bool {
-		self.ct_eq(other)
+		self.ct_eq(other).into()
 	}
 }
 
@@ -498,15 +496,6 @@ impl TryFrom<Vec<u8>> for Salt {
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
 		Ok(Self(value.to_array()?))
 	}
-}
-
-#[derive(Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
-pub struct OnboardingConfig {
-	pub password: Protected<String>,
-	pub algorithm: Algorithm,
-	pub hashing_algorithm: HashingAlgorithm,
 }
 
 impl Display for HashingAlgorithm {

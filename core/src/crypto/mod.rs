@@ -1,3 +1,22 @@
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::correctness)]
+#![warn(clippy::perf)]
+#![warn(clippy::style)]
+#![warn(clippy::suspicious)]
+#![warn(clippy::complexity)]
+#![warn(clippy::nursery)]
+#![warn(clippy::unwrap_used)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::module_name_repetitions)]
+#![warn(unused_qualifications)]
+#![forbid(unsafe_code)]
+
+use sd_crypto::{
+	types::{Algorithm, DerivationContext, HashingAlgorithm},
+	Protected,
+};
+
 /// Used for OS keyrings to identify our items.
 pub const KEYRING_APP_IDENTIFIER: &str = "Spacedrive";
 
@@ -20,4 +39,11 @@ pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
 pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
 
-pub(crate) mod keymanager;
+#[derive(Clone, serde::Deserialize)]
+pub struct OnboardingConfig {
+	pub password: Protected<String>,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+}
+
+// pub(crate) mod keymanager;
