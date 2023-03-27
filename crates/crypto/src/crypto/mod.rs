@@ -280,6 +280,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn aes_256_gcm_encrypt_and_decrypt_5_blocks() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -335,6 +336,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn aes_256_gcm_encrypt_and_decrypt_5_blocks_with_aad() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -361,8 +363,9 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[cfg(feature = "async")]
 	#[tokio::test]
+	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn aes_256_gcm_encrypt_and_decrypt_5_blocks_async() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -391,8 +394,9 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[cfg(feature = "async")]
 	#[tokio::test]
+	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn aes_256_gcm_encrypt_and_decrypt_5_blocks_with_aad_async() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -572,6 +576,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn xchacha20_poly1305_encrypt_and_decrypt_5_blocks() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -631,6 +636,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn xchacha20_poly1305_encrypt_and_decrypt_5_blocks_with_aad() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -659,8 +665,9 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[cfg(feature = "async")]
 	#[tokio::test]
+	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn xchacha20_poly1305_encrypt_and_decrypt_5_blocks_async() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
@@ -691,8 +698,9 @@ mod tests {
 		assert_eq!(buf, output);
 	}
 
-	#[cfg(feature = "async")]
 	#[tokio::test]
+	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn xchacha20_poly1305_encrypt_and_decrypt_5_blocks_with_aad_async() {
 		let buf = generate_vec(BLOCK_LEN * 5);
 
