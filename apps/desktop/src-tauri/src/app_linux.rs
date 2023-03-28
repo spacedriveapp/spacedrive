@@ -76,10 +76,8 @@ async fn auth_middleware<B>(
 where
 	B: Send,
 {
-	let mut req = request;
-
-	if query.token != auth_token {
-		let (mut parts, body) = req.into_parts();
+	let req = if query.token != auth_token {
+		let (mut parts, body) = request.into_parts();
 
 		let auth: TypedHeader<Authorization<Bearer>> = parts
 			.extract()
@@ -90,10 +88,12 @@ where
 			return Err(StatusCode::UNAUTHORIZED);
 		}
 
-		req = Request::from_parts(parts, body);
-	}
+		Request::from_parts(parts, body)
+	} else {
+		request
+	};
 
-	return Ok(next.run(req).await);
+	Ok(next.run(req).await)
 }
 
 fn tauri_plugin<R: Runtime>(auth_token: &str, listen_addr: SocketAddr) -> TauriPlugin<R> {
