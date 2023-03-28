@@ -61,6 +61,12 @@ jobs:
       - name: Setup Android SDK Tools
         uses: android-actions/setup-android@v2.0.2
 
+      - name: Cache NDK
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.ANDROID_HOME }}/ndk
+          key: ndk-23.1.7779620
+
       - name: Install NDK
         run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;23.1.7779620" --sdk_root=${ANDROID_SDK_ROOT}
 
@@ -70,19 +76,14 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
 
-      - name: Make Gradlew Executable
+      - name: Build Android
         working-directory: ./apps/mobile/android
-        run: chmod +x ./gradlew
+        run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
 
-      - name: Build Android App APK
-        working-directory: ./apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: Test Android App
+      - name: Test Android
         uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
@@ -143,22 +144,21 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ios/Pods
+            ./apps/mobile/ios/Pods
             ~/Library/Caches/CocoaPods
             ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
+          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+          restore-keys: pods-
 
       - name: Install Pods
         working-directory: ./apps/mobile/ios
         run: pod install --repo-update
 
-      - name: Build iOS App
+      - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11,OS=15.4' -derivedDataPath build
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -derivedDataPath build
 
-      - name: Test iOS App
+      - name: Test iOS
         uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
