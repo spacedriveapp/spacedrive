@@ -185,7 +185,9 @@ async fn inner_process_step(
 	ctx: &WorkerContext,
 ) -> Result<(), JobError> {
 	// assemble the file path
-	let path = data.location_path.join(&step.file_path.materialized_path[1..]);
+	let path = data
+		.location_path
+		.join(&step.file_path.materialized_path[1..]);
 	trace!("image_file {:?}", step);
 
 	// get cas_id, if none found skip
