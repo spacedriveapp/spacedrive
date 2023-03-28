@@ -14,7 +14,7 @@ use crate::{
 use std::{
 	collections::VecDeque,
 	hash::Hash,
-	path::{Path, PathBuf},
+	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 };
 
 use sd_file_ext::extensions::Extension;
@@ -149,7 +149,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 					// SAFETY: We know that the sub_path is a valid UTF-8 string because we validated it before
 					state.init.sub_path.to_str().unwrap().to_string()
 				} else {
-					"/".to_string()
+					MAIN_SEPARATOR_STR.to_string()
 				},
 				thumbnails_created: 0,
 			},

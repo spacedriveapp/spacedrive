@@ -16,6 +16,7 @@ use tokio::{
 	select,
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
+	time::Instant,
 };
 use tracing::{debug, error, warn};
 
@@ -39,6 +40,10 @@ type Handler = macos::MacOsEventHandler;
 type Handler = windows::WindowsEventHandler;
 
 pub(super) type IgnorePath = (PathBuf, bool);
+
+type INodeAndDevice = (u64, u64);
+type InstantLocationPathAndLibrary = (Instant, LocationPathAndLibrary);
+type LocationPathAndLibrary = (location_with_indexer_rules::Data, PathBuf, Library);
 
 #[async_trait]
 trait EventHandler {
@@ -336,23 +341,27 @@ impl Drop for LocationWatcher {
 *																								   *
 ***************************************************************************************************/
 #[cfg(test)]
-#[allow(unused)]
 mod tests {
-	#[cfg(target_os = "macos")]
-	use notify::event::DataChange;
-	use notify::{
-		event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-		Config, Event, EventKind, RecommendedWatcher, Watcher,
-	};
-	use std::io::ErrorKind;
 	use std::{
+		io::ErrorKind,
 		path::{Path, PathBuf},
 		time::Duration,
+	};
+
+	use notify::{
+		event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
+		Config, Event, EventKind, RecommendedWatcher, Watcher,
 	};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
 	use tracing_test::traced_test;
+
+	#[cfg(target_os = "macos")]
+	use notify::event::DataChange;
+
+	#[cfg(target_os = "linux")]
+	use notify::event::{AccessKind, AccessMode};
 
 	async fn setup_watcher() -> (
 		TempDir,

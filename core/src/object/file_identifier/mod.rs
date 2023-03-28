@@ -257,7 +257,6 @@ async fn identifier_job_step(
 							vec![
 								object::date_created::set(fp.date_created),
 								object::kind::set(kind),
-								object::size_in_bytes::set(size),
 							],
 						),
 					);

@@ -134,6 +134,8 @@ model FilePath {
     name              String
     extension         String
 
+    size_in_bytes     String   @default("0")
+
     inode  Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
     device Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
 
@@ -167,12 +169,8 @@ model FilePath {
 model Object {
     id                Int      @id @default(autoincrement())
     pub_id            Bytes    @unique
-    // basic metadata
-    name              String?
-    // Must have 'COLLATE NOCASE' in migration
-    extension         String?
     kind              Int      @default(0)
-    size_in_bytes     String   @default("0")
+
     key_id            Int?
     // handy ways to mark an object
     hidden            Boolean  @default(false)
@@ -192,10 +190,6 @@ model Object {
     note              String?
     // the original known creation date of this object
     date_created      DateTime @default(now())
-    // the last time this object was modified
-    date_modified     DateTime @default(now())
-    // when this object was first indexed
-    date_indexed      DateTime @default(now())
 
     tags       TagOnObject[]
     labels     LabelOnObject[]

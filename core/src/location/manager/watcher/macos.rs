@@ -2,10 +2,7 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		file_path_helper::{
-			check_existing_file_path, get_existing_file_or_directory, get_inode_and_device,
-			MaterializedPath,
-		},
+		file_path_helper::{check_existing_file_path, get_inode_and_device, MaterializedPath},
 		location_with_indexer_rules,
 	},
 };
@@ -33,15 +30,12 @@ use tracing::{error, trace, warn};
 
 use super::{
 	utils::{
-		create_dir, create_dir_or_file_by_path, create_file, remove_by_path, remove_event, rename,
-		update_file,
+		create_dir, create_dir_or_file_by_path, create_file, extract_inode_and_device_from_path,
+		remove_by_path, remove_event, rename, update_file,
 	},
-	EventHandler, LocationManagerError,
+	EventHandler, INodeAndDevice, InstantLocationPathAndLibrary, LocationManagerError,
+	LocationPathAndLibrary,
 };
-
-type INodeAndDevice = (u64, u64);
-type InstantLocationPathAndLibrary = (Instant, LocationPathAndLibrary);
-type LocationPathAndLibrary = (location_with_indexer_rules::Data, PathBuf, Library);
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
 const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
@@ -56,7 +50,7 @@ pub(super) struct MacOsEventHandler {
 	recently_created_files: BTreeMap<PathBuf, Instant>,
 	last_check: Instant,
 	latest_created_dir: Option<Event>,
-	rename_events_tx: mpsc::Sender<(location_with_indexer_rules::Data, PathBuf, Library)>,
+	rename_events_tx: mpsc::Sender<LocationPathAndLibrary>,
 	stop_tx: Option<oneshot::Sender<()>>,
 	handle: Option<JoinHandle<()>>,
 }
@@ -179,7 +173,7 @@ impl EventHandler for MacOsEventHandler {
 /// current location from anywhere else, we just receive the new path rename event, which means a
 /// creation.
 async fn handle_rename_events_loop(
-	mut rename_events_rx: mpsc::Receiver<(location_with_indexer_rules::Data, PathBuf, Library)>,
+	mut rename_events_rx: mpsc::Receiver<LocationPathAndLibrary>,
 	mut stop_rx: oneshot::Receiver<()>,
 ) {
 	let mut old_paths_map = HashMap::new();
@@ -228,21 +222,29 @@ async fn clear_paths_map(
 
 	for (created_at, (instant, (location, path, library))) in paths_map.drain() {
 		if instant.elapsed() > HUNDRED_MILLIS {
+			let mut flag = false;
 			match create_or_delete {
 				CreateOrDelete::Create => {
 					if let Err(e) = create_dir_or_file_by_path(&location, &path, &library).await {
 						error!("Failed to create file_path on MacOS : {e}");
+					} else {
+						trace!("Created file_path due timeout: {}", path.display());
+						flag = true;
 					}
-					trace!("Created file_path due timeout: {}", path.display())
 				}
 				CreateOrDelete::Delete => {
 					if let Err(e) = remove_by_path(&location, &path, &library).await {
 						error!("Failed to remove file_path: {e}");
+					} else {
+						trace!("Removed file_path due timeout: {}", path.display());
+						flag = true;
 					}
-					trace!("Removed file_path due timeout: {}", path.display())
 				}
 			}
-			invalidate_query!(&library, "locations.getExplorerData");
+
+			if flag {
+				invalidate_query!(&library, "locations.getExplorerData");
+			}
 		} else {
 			temp_buffer.push((created_at, (instant, (location, path, library))));
 		}
@@ -268,7 +270,7 @@ async fn handle_single_rename_event(
 			let inode_and_device = get_inode_and_device(&meta)?;
 
 			if !check_existing_file_path(
-				MaterializedPath::new(location.id, &location.path, &path, meta.is_dir())?,
+				&MaterializedPath::new(location.id, &location.path, &path, meta.is_dir())?,
 				&library.db,
 			)
 			.await?
@@ -308,11 +310,8 @@ async fn handle_single_rename_event(
 
 			trace!("Path doesn't exists: {}", path.display());
 
-			let file_path = get_existing_file_or_directory(&location, &path, &library.db).await?;
-			let inode_and_device = (
-				u64::from_le_bytes(file_path.inode[0..8].try_into().unwrap()),
-				u64::from_le_bytes(file_path.device[0..8].try_into().unwrap()),
-			);
+			let inode_and_device =
+				extract_inode_and_device_from_path(&location, &path, &library).await?;
 
 			if let Some((_, (new_path_location, new_path, new_path_library))) =
 				new_paths_map.remove(&inode_and_device)

@@ -231,7 +231,7 @@ where
 		.as_ref()
 		.expect("critical error: missing data on job state");
 
-	tracing::info!(
+	info!(
 		"scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",
 		location_path.as_ref().display(),

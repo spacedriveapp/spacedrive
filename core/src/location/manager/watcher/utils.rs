@@ -4,8 +4,8 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			extract_materialized_path, file_path_with_object, get_existing_file_path_with_object,
-			get_parent_dir, get_parent_dir_id, maybe_get_existing_file_or_directory,
+			extract_materialized_path, file_path_with_object, filter_existing_file_path_params,
+			get_parent_dir, get_parent_dir_id, loose_find_existing_file_path_params, FilePathError,
 			MaterializedPath,
 		},
 		location_with_indexer_rules,
@@ -38,13 +38,15 @@ use std::{
 
 use sd_file_ext::extensions::ImageExtension;
 
-use chrono::{DateTime, FixedOffset, Local, Utc};
+use chrono::{DateTime, Local};
 use int_enum::IntEnum;
 use notify::{event::RemoveKind, Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
 use uuid::Uuid;
+
+use super::INodeAndDevice;
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
@@ -206,25 +208,12 @@ pub(super) async fn create_file_by_path(
 		.find_first(vec![object::file_paths::some(vec![
 			file_path::cas_id::equals(Some(cas_id.clone())),
 		])])
+		.select(object_just_id_has_thumbnail::select())
 		.exec()
 		.await?;
 
-	let size_str = fs_metadata.len().to_string();
-
 	let object = if let Some(object) = existing_object {
-		db.object()
-			.update(
-				object::id::equals(object.id),
-				vec![
-					object::size_in_bytes::set(size_str),
-					object::date_indexed::set(
-						Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
-					),
-				],
-			)
-			.select(object_just_id_has_thumbnail::select())
-			.exec()
-			.await?
+		object
 	} else {
 		db.object()
 			.create(
@@ -234,7 +223,6 @@ pub(super) async fn create_file_by_path(
 						DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
 					),
 					object::kind::set(kind.int_value()),
-					object::size_in_bytes::set(size_str.clone()),
 				],
 			)
 			.select(object_just_id_has_thumbnail::select())
@@ -250,7 +238,6 @@ pub(super) async fn create_file_by_path(
 		.exec()
 		.await?;
 
-	trace!("object: {:#?}", object);
 	if !object.has_thumbnail && !created_file.extension.is_empty() {
 		generate_thumbnail(&created_file.extension, &cas_id, path, library).await;
 	}
@@ -260,17 +247,26 @@ pub(super) async fn create_file_by_path(
 	Ok(())
 }
 
+pub(super) async fn create_dir_or_file(
+	location: &location_with_indexer_rules::Data,
+	event: &Event,
+	library: &Library,
+) -> Result<Metadata, LocationManagerError> {
+	create_dir_or_file_by_path(location, &event.paths[0], library).await
+}
+
 pub(super) async fn create_dir_or_file_by_path(
 	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
 	library: &Library,
-) -> Result<(), LocationManagerError> {
+) -> Result<Metadata, LocationManagerError> {
 	let metadata = fs::metadata(path.as_ref()).await?;
 	if metadata.is_dir() {
 		create_dir_by_path(location, path, &metadata, library).await
 	} else {
 		create_file_by_path(location, path, &metadata, library).await
 	}
+	.map(|_| metadata)
 }
 
 pub(super) async fn file_creation_or_update(
@@ -278,11 +274,19 @@ pub(super) async fn file_creation_or_update(
 	event: &Event,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	if let Some(ref file_path) = get_existing_file_path_with_object(
-		&MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
-		&library.db,
-	)
-	.await?
+	if let Some(ref file_path) = library
+		.db
+		.file_path()
+		.find_first(filter_existing_file_path_params(&MaterializedPath::new(
+			location.id,
+			&location.path,
+			&event.paths[0],
+			false,
+		)?))
+		// include object for orphan check
+		.include(file_path_with_object::include())
+		.exec()
+		.await?
 	{
 		inner_update_file(location, file_path, event, library).await
 	} else {
@@ -297,11 +301,19 @@ pub(super) async fn update_file(
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	if location.node_id == library.node_local_id {
-		if let Some(ref file_path) = get_existing_file_path_with_object(
-			&MaterializedPath::new(location.id, &location.path, &event.paths[0], false)?,
-			&library.db,
-		)
-		.await?
+		if let Some(ref file_path) = library
+			.db
+			.file_path()
+			.find_first(filter_existing_file_path_params(&MaterializedPath::new(
+				location.id,
+				&location.path,
+				&event.paths[0],
+				false,
+			)?))
+			// include object for orphan check
+			.include(file_path_with_object::include())
+			.exec()
+			.await?
 		{
 			let ret = inner_update_file(location, file_path, event, library).await;
 			invalidate_query!(library, "locations.getExplorerData");
@@ -331,7 +343,7 @@ async fn inner_update_file(
 	let FileMetadata {
 		cas_id,
 		fs_metadata,
-		..
+		kind,
 	} = FileMetadata::new(&location.path, &file_path.materialized_path[1..]).await?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
@@ -344,8 +356,7 @@ async fn inner_update_file(
 					file_path::location_id_id(location.id, file_path.id),
 					vec![
 						file_path::cas_id::set(Some(old_cas_id.clone())),
-						// file_path::size_in_bytes::set(fs_metadata.len().to_string()),
-						// file_path::kind::set(kind.int_value()),
+						file_path::size_in_bytes::set(fs_metadata.len().to_string()),
 						file_path::date_modified::set(
 							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
 						),
@@ -362,16 +373,24 @@ async fn inner_update_file(
 				.exec()
 				.await?;
 
-			if file_path
-				.object
-				.as_ref()
-				.map(|o| o.has_thumbnail)
-				.unwrap_or_default()
-			{
+			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if !file_path.extension.is_empty() {
+				if object.has_thumbnail && !file_path.extension.is_empty() {
 					generate_thumbnail(&file_path.extension, &cas_id, &event.paths[0], library)
 						.await;
+				}
+
+				let int_kind = kind.int_value();
+				if object.kind != int_kind {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(object.id),
+							vec![object::kind::set(int_kind)],
+						)
+						.exec()
+						.await?;
 				}
 			}
 		}
@@ -442,8 +461,14 @@ pub(super) async fn rename(
 		None
 	};
 
-	if let Some(file_path) =
-		maybe_get_existing_file_or_directory(location, old_path, &library.db).await?
+	if let Some(file_path) = library
+		.db
+		.file_path()
+		.find_first(loose_find_existing_file_path_params(
+			&MaterializedPath::new(location.id, &location.path, old_path, true)?,
+		))
+		.exec()
+		.await?
 	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
@@ -529,12 +554,14 @@ pub(super) async fn remove_by_path(
 	let path = path.as_ref();
 
 	// if it doesn't exist either way, then we don't care
-	let Some(file_path) = maybe_get_existing_file_or_directory(
-		location,
-		path,
-		&library.db
-	).await? else {
-		return Ok(());
+	let Some(file_path) = library.db
+		.file_path()
+		.find_first(loose_find_existing_file_path_params(
+			&MaterializedPath::new(location.id, &location.path, path, true)?,
+		))
+		.exec()
+		.await? else {
+			return Ok(());
 	};
 
 	remove_by_file_path(location, path, &file_path, library).await
@@ -543,7 +570,7 @@ pub(super) async fn remove_by_path(
 pub(super) async fn remove_by_file_path(
 	location: &location_with_indexer_rules::Data,
 	path: impl AsRef<Path>,
-	file_path: &file_path_with_object::Data,
+	file_path: &file_path::Data,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	// check file still exists on disk
@@ -585,6 +612,12 @@ pub(super) async fn remove_by_file_path(
 		Err(e) => return Err(e.into()),
 	}
 
+	// If the file paths we just removed were the last ids in the DB, we decresed the last id from the id manager
+	library
+		.last_file_path_id_manager
+		.sync(location.id, &library.db)
+		.await?;
+
 	invalidate_query!(library, "locations.getExplorerData");
 
 	Ok(())
@@ -625,4 +658,28 @@ async fn generate_thumbnail(
 			}
 		}
 	}
+}
+
+pub(super) async fn extract_inode_and_device_from_path(
+	location: &location_with_indexer_rules::Data,
+	path: impl AsRef<Path>,
+	library: &Library,
+) -> Result<INodeAndDevice, LocationManagerError> {
+	let path = path.as_ref();
+	library
+		.db
+		.file_path()
+		.find_first(loose_find_existing_file_path_params(
+			&MaterializedPath::new(location.id, &location.path, path, true)?,
+		))
+		.select(file_path::select!( {inode device} ))
+		.exec()
+		.await?
+		.map(|file_path| {
+			(
+				u64::from_le_bytes(file_path.inode[0..8].try_into().unwrap()),
+				u64::from_le_bytes(file_path.device[0..8].try_into().unwrap()),
+			)
+		})
+		.ok_or_else(|| FilePathError::NotFound(path.to_path_buf()).into())
 }
