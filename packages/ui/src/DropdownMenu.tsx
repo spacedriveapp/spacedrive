@@ -14,7 +14,6 @@ interface DropdownMenuProps extends RadixDM.MenuContentProps {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
-	animate?: boolean;
 }
 
 const Root = ({
@@ -24,7 +23,6 @@ const Root = ({
 	asChild = true,
 	triggerClassName,
 	alignToTrigger,
-	animate,
 	...props
 }: PropsWithChildren<DropdownMenuProps>) => {
 	const [width, setWidth] = useState<number>();
@@ -40,12 +38,7 @@ const Root = ({
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
 				<RadixDM.Content
-					className={clsx(
-						contextMenuClassNames,
-						animate && 'animate-in fade-in data-[side=bottom]:slide-in-from-top-2',
-						width && 'min-w-0',
-						className
-					)}
+					className={clsx(contextMenuClassNames, width && 'min-w-0', className)}
 					align="start"
 					style={{ width }}
 					{...props}

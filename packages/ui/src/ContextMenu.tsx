@@ -13,7 +13,8 @@ export const contextMenuClassNames = clsx(
 	'my-2 min-w-[12rem] max-w-[16rem] px-1 py-0.5',
 	'bg-menu cool-shadow',
 	'border-menu-line border',
-	'cursor-default select-none rounded-md'
+	'cursor-default select-none rounded-md',
+	'animate-in fade-in'
 );
 
 const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
