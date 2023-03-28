@@ -1,19 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
-
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+set -euo pipefail
 
 function log_err() {
 	echo "$@" >&2
 }
 
 function script_failure() {
-	log_err "An error occurred$([ -z "$1" ] && " on line $1" || " (unknown)")."
+	log_err "An error occurred $(if [ -n "${1:-}" ]; then echo "on line $1"; else echo "(unknown)"; fi)."
 	log_err "Setup failed."
 }
 
-trap 'script_failure $LINENO' ERR
+trap 'script_failure ${LINENO:-}' ERR
 
 echo "Setting up this system for Spacedrive development."
 echo
@@ -37,18 +35,18 @@ else
 	echo "Skipping pnpm check."
 fi
 
-if [ "$CI" != "true" ]; then
+if [ "${CI:-}" != "true" ]; then
 	echo "Installing Rust tools"
 	cargo install cargo-watch
 fi
 
 echo
 
-if [ "$1" == "mobile" ]; then
+if [ "${1:-}" == "mobile" ]; then
 	echo "Setting up for mobile development."
 
 	# iOS targets
-	if [[ "$OSTYPE" == "darwin"* ]]; then
+	if [[ $OSTYPE == "darwin"* ]]; then
 		echo "Checking for Xcode..."
 		if ! /usr/bin/xcodebuild -version >/dev/null; then
 			log_err "Xcode was not detected."
@@ -86,7 +84,7 @@ if [ "$1" == "mobile" ]; then
 	echo
 fi
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+if [[ $OSTYPE == "linux-gnu"* ]]; then
 	if command -v apt-get >/dev/null; then
 		echo "Detected apt!"
 		echo "Installing dependencies with apt..."
@@ -97,6 +95,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		# FFmpeg dependencies
 		DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
 
+		# Webkit2gtk requires gstreamer plugins for video playback to work
+		DEBIAN_VIDEO_DEPS="gstreamer1.0-libav gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly"
+
 		# Bindgen dependencies - it's used by a dependency of Spacedrive
 		DEBIAN_BINDGEN_DEPS="pkg-config clang"
 
@@ -104,13 +105,16 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		DEBIAN_LIBP2P_DEPS="protobuf-compiler"
 
 		sudo apt-get -y update
-		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $DEBIAN_LIBP2P_DEPS
+		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $DEBIAN_LIBP2P_DEPS $DEBIAN_VIDEO_DEPS
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
 
 		# Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
 		ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips"
+
+		# Webkit2gtk requires gstreamer plugins for video playback to work
+		ARCH_VIDEO_DEPS="gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
 
 		# FFmpeg dependencies
 		ARCH_FFMPEG_DEPS="ffmpeg"
@@ -122,7 +126,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		ARCH_LIBP2P_DEPS="protobuf"
 
 		sudo pacman -Sy
-		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS
+		sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS $ARCH_VIDEO_DEPS
 	elif command -v dnf >/dev/null; then
 		echo "Detected dnf!"
 		echo "Installing dependencies with dnf..."
@@ -144,6 +148,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		# FFmpeg dependencies
 		FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
 
+		# Webkit2gtk requires gstreamer plugins for video playback to work
+		FEDORA_VIDEO_DEPS="gstreamer1-plugin-libav gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-good-extras gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-extras gstreamer1-plugins-ugly-free"
+
 		# Bindgen dependencies - it's used by a dependency of Spacedrive
 		FEDORA_BINDGEN_DEPS="clang"
 
@@ -162,13 +169,13 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 			exit 1
 		fi
 
-		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS
+		sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
 		sudo dnf group install "C Development Tools and Libraries"
 	else
 		log_err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
 		exit 1
 	fi
-elif [[ "$OSTYPE" == "darwin"* ]]; then
+elif [[ $OSTYPE == "darwin"* ]]; then
 	if ! command -v brew >/dev/null; then
 		log_err "Homebrew was not found. Please install it using the instructions at https://brew.sh and try again."
 		exit 1
