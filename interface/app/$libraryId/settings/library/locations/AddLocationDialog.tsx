@@ -1,17 +1,15 @@
 import { ErrorMessage } from '@hookform/error-message';
 import { RSPCError } from '@rspc/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChangeEvent, useEffect, useState } from 'react';
-import { Controller, UseFormReturn } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { Controller } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { CheckBox, Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { Dialog, RadixCheckbox, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { Platform, usePlatform } from '~/util/Platform';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
-
-type FormFieldValues<U> = U extends UseFormReturn<infer U> ? U : never;
 
 interface Props extends UseDialogProps {
 	path: string;
@@ -60,21 +58,16 @@ export const AddLocationDialog = (props: Props) => {
 		}
 	});
 
-	// Block to prevent single-use constants poluting parent scope
-	{
-		// Destructuring so eslint stop complaining about useEffect missing `form` dependency
-		const { watch, clearErrors } = form;
-		useEffect(() => {
-			// Clear custom remote error when user performs any change on the form
-			const subscription = watch(() => {
-				clearErrors(REMOTE_ERROR_FORM_FIELD);
-				setRemoteError(null);
-			});
-			return () => subscription.unsubscribe();
-		}, [watch, clearErrors]);
-	}
+	useEffect(() => {
+		// Clear custom remote error when user performs any change on the form
+		const subscription = form.watch(() => {
+			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+			setRemoteError(null);
+		});
+		return () => subscription.unsubscribe();
+	}, [form]);
 
-	const onLocationSubmit = async ({ path, indexer_rules_ids }: FormFieldValues<typeof form>) => {
+	const onLocationSubmit = form.handleSubmit(async ({ path, indexer_rules_ids }) => {
 		switch (remoteError) {
 			case null:
 				await createLocation.mutateAsync({ path, indexer_rules_ids });
@@ -97,7 +90,7 @@ export const AddLocationDialog = (props: Props) => {
 			default:
 				throw new Error('Unimplemented custom remote error handling');
 		}
-	};
+	});
 
 	const onLocationSubmitError = async (error: Error) => {
 		if ('cause' in error && error.cause instanceof RSPCError) {
@@ -143,12 +136,12 @@ export const AddLocationDialog = (props: Props) => {
 					? 'As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node.'
 					: ''
 			}
-			onSubmit={form.handleSubmit((fields) =>
-				onLocationSubmit(fields).then(
+			onSubmit={(event) =>
+				onLocationSubmit(event).then(
 					() => queryClient.invalidateQueries(['library.list']),
 					onLocationSubmitError
 				)
-			)}
+			}
 			ctaLabel="Add"
 		>
 			<div className="relative mb-3 flex flex-col">
@@ -167,34 +160,27 @@ export const AddLocationDialog = (props: Props) => {
 				/>
 			</div>
 
-			<div className="relative mb-3 flex flex-col">
+			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">File indexing rules:</p>
-				<div className="mb-3 grid w-full grid-cols-2 gap-4">
+				<div className="grid w-full grid-cols-2 gap-4 text-xs font-medium">
 					<Controller
 						name="indexer_rules_ids"
 						control={form.control}
 						render={({ field }) => (
 							<>
 								{indexerRulesList.data?.map((rule) => (
-									<div className="flex" key={rule.id}>
-										<CheckBox
-											value={rule.id}
-											checked={field.value.includes(rule.id)}
-											onChange={(event: ChangeEvent) => {
-												const checkBoxRef = event.target as HTMLInputElement;
-												const checkBoxValue = Number.parseInt(checkBoxRef.value);
-												if (checkBoxRef.checked) {
-													field.onChange([...field.value, checkBoxValue]);
-												} else {
-													field.onChange(
-														field.value.filter((fieldValue) => fieldValue !== checkBoxValue)
-													);
-												}
-											}}
-											className="bg-app-selected"
-										/>
-										<span className="mt-1 text-xs font-medium">{rule.name}</span>
-									</div>
+									<RadixCheckbox
+										key={rule.id}
+										label={rule.name}
+										checked={field.value.includes(rule.id)}
+										onCheckedChange={(checked) =>
+											field.onChange(
+												checked && checked !== 'indeterminate'
+													? [...field.value, rule.id]
+													: field.value.filter((fieldValue) => fieldValue !== rule.id)
+											)
+										}
+									/>
 								))}
 							</>
 						)}
@@ -205,7 +191,7 @@ export const AddLocationDialog = (props: Props) => {
 			<ErrorMessage
 				name={REMOTE_ERROR_FORM_FIELD}
 				render={({ message }) => (
-					<span className="inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
+					<span className="mt-5 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
 						{message}
 					</span>
 				)}
