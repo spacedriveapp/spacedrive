@@ -81,10 +81,3 @@ where
 		f.write_str("[REDACTED]")
 	}
 }
-
-impl<const I: usize> Protected<[u8; I]> {
-	#[must_use]
-	pub fn to_vec(self) -> Vec<u8> {
-		self.expose().to_vec()
-	}
-}

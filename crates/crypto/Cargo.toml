@@ -2,10 +2,14 @@
 name = "sd-crypto"
 version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
+keywords = ["crypto"]
 readme = "README.md"
-description = "A library to handle cryptographic functions within Spacedrive"
+description = """
+A cryptographic library that provides safe and high-level
+encryption, hashing, and encoding interfaces.
+"""
 edition = "2021"
-rust-version = "1.67.0"
+rust-version = "1.65.0"
 
 [features]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
@@ -34,7 +38,9 @@ chacha20poly1305 = "0.10.1"
 aead = { version = "0.5.1", features = ["stream"] }
 
 # cryptographic hygiene
-zeroize = { version = "1.6.0", features = ["derive"] }
+# `aarch64` feature allows zeroizing of SIMD registers
+# a no-op on non-aarch64 targets
+zeroize = { version = "1.6.0", features = ["derive", "aarch64"] }
 
 # error handling
 thiserror = "1.0.40"

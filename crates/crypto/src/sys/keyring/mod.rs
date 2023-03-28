@@ -140,7 +140,7 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(target_os = "linux")]
+	#[cfg(any(target_os = "linux", target_os = "ios"))]
 	fn full() {
 		let password = Protected::new("SuperSecurePassword".to_string());
 		let identifier = Identifier::new("0000-0000-0000-0000", "Password", "Crypto");

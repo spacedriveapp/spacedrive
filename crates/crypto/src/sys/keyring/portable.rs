@@ -19,6 +19,7 @@ const PORTABLE_KEYRING_LIMIT: usize = 64;
 // Ephemeral, session-only
 pub struct PortableKeyring {
 	key: Key,
+	algorithm: Algorithm,
 	inner: Mutex<HashMap<String, PortableKeyringItem>>,
 }
 
@@ -29,6 +30,7 @@ impl KeyringInterface for PortableKeyring {
 	fn new() -> Result<Self> {
 		let s = Self {
 			key: Key::generate(),
+			algorithm: Algorithm::default(),
 			inner: Mutex::new(HashMap::new()),
 		};
 
@@ -54,7 +56,7 @@ impl KeyringInterface for PortableKeyring {
 		let value = Decryptor::decrypt_tiny(
 			Hasher::derive_key(self.key.clone(), item.0, PORTABLE_KEYRING_CONTEXT),
 			item.1,
-			Algorithm::default(),
+			self.algorithm,
 			&item.2,
 			Aad::Null,
 		)?;
@@ -70,12 +72,12 @@ impl KeyringInterface for PortableKeyring {
 		}
 
 		let salt = Salt::generate();
-		let nonce = Nonce::generate(Algorithm::default());
+		let nonce = Nonce::generate(self.algorithm);
 
 		let bytes = Encryptor::encrypt_tiny(
 			Hasher::derive_key(self.key.clone(), salt, PORTABLE_KEYRING_CONTEXT),
 			nonce,
-			Algorithm::default(),
+			self.algorithm,
 			value.expose().as_bytes(),
 			Aad::Null,
 		)?;

@@ -16,7 +16,6 @@
 pub mod crypto;
 pub mod ct;
 pub mod error;
-// pub mod keys;
 pub mod hashing;
 pub mod primitives;
 pub mod protected;
@@ -29,13 +28,6 @@ pub mod sys;
 #[cfg(feature = "encoding")]
 pub mod encoding;
 
-// #[cfg(feature = "async")]
-// pub mod fs;
-
-// #[cfg(feature = "encoding")]
-// pub mod header;
-
-// Re-export so they can be used elsewhere/cleaner `use` declarations
 pub use self::error::{Error, Result};
 pub use aead::Payload;
 pub use protected::Protected;
