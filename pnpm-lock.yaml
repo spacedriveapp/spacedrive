@@ -376,6 +376,7 @@ importers:
     specifiers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
+      '@hookform/error-message': ^2.0.1
       '@hookform/resolvers': ^2.9.10
       '@radix-ui/react-progress': ^1.0.1
       '@radix-ui/react-slider': ^1.1.0
@@ -432,6 +433,7 @@ importers:
     dependencies:
       '@fontsource/inter': 4.5.15
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
+      '@hookform/error-message': 2.0.1_onwixewhqm6cnvx5lymjpv2ekm
       '@hookform/resolvers': 2.9.11_react-hook-form@7.43.5
       '@radix-ui/react-progress': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
@@ -4512,6 +4514,18 @@ packages:
       tailwindcss: ^3.0
     dependencies:
       tailwindcss: 3.2.4_postcss@8.4.21
+    dev: false
+
+  /@hookform/error-message/2.0.1_onwixewhqm6cnvx5lymjpv2ekm:
+    resolution: {integrity: sha512-U410sAr92xgxT1idlu9WWOVjndxLdgPUHEB8Schr27C9eh7/xUnITWpCMF93s+lGiG++D4JnbSnrb5A21AdSNg==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+      react-hook-form: ^7.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-hook-form: 7.43.5_react@18.2.0
     dev: false
 
   /@hookform/resolvers/2.9.11_react-hook-form@7.43.5:

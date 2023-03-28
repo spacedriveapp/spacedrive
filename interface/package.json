@@ -18,8 +18,8 @@
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
+		"@hookform/error-message": "^2.0.1",
 		"@hookform/resolvers": "^2.9.10",
-		"crypto-random-string": "^5.0.0",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
 		"@radix-ui/react-toast": "^1.1.2",
@@ -40,6 +40,7 @@
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.4.0",
 		"clsx": "^1.2.1",
+		"crypto-random-string": "^5.0.0",
 		"dayjs": "^1.11.5",
 		"phosphor-react": "^1.4.1",
 		"react": "^18.2.0",
