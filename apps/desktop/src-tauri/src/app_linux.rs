@@ -6,17 +6,19 @@ use std::{
 use sd_core::Node;
 
 use axum::{
-	extract::State,
+	extract::{Query, State, TypedHeader},
+	headers::authorization::{Authorization, Bearer},
 	http::{Request, StatusCode},
 	middleware::{self, Next},
-	response::{IntoResponse, Response},
+	response::Response,
 	routing::get,
+	RequestPartsExt,
 };
 use httpz::{Endpoint, HttpEndpoint};
 use rand::{distributions::Alphanumeric, Rng};
+use serde::Deserialize;
 use tauri::{plugin::TauriPlugin, Builder, Runtime};
 use tracing::debug;
-use url::Url;
 
 pub(super) async fn setup<R: Runtime>(
 	app: Builder<R>,
@@ -60,27 +62,38 @@ pub(super) async fn setup<R: Runtime>(
 	app.plugin(tauri_plugin(&auth_token, listen_addr))
 }
 
+#[derive(Deserialize)]
+struct QueryToken {
+	token: String,
+}
+
 async fn auth_middleware<B>(
+	Query(query): Query<QueryToken>,
 	State(auth_token): State<String>,
 	request: Request<B>,
 	next: Next<B>,
-) -> Response {
-	let url = Url::parse(&request.uri().to_string()).unwrap();
-	if let Some((_, v)) = url.query_pairs().find(|(k, _)| k == "token") {
-		if v == auth_token {
-			return next.run(request).await;
+) -> Result<Response, StatusCode>
+where
+	B: Send,
+{
+	let mut req = request;
+
+	if query.token != auth_token {
+		let (mut parts, body) = req.into_parts();
+
+		let auth: TypedHeader<Authorization<Bearer>> = parts
+			.extract()
+			.await
+			.map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+		if auth.token() != auth_token {
+			return Err(StatusCode::UNAUTHORIZED);
 		}
-	} else if let Some(v) = request
-		.headers()
-		.get("Authorization")
-		.and_then(|v| v.to_str().ok())
-	{
-		if v == auth_token {
-			return next.run(request).await;
-		}
+
+		req = Request::from_parts(parts, body);
 	}
 
-	(StatusCode::UNAUTHORIZED, "Unauthorized!").into_response()
+	return Ok(next.run(req).await);
 }
 
 fn tauri_plugin<R: Runtime>(auth_token: &str, listen_addr: SocketAddr) -> TauriPlugin<R> {
