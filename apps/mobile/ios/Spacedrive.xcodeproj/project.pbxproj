@@ -146,8 +146,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Spacedrive" */;
 			buildPhases = (
-				350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */,
 				BC1F37E21575379C81F561DC /* [CP] Check Pods Manifest.lock */,
+				350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */,
 				FD10A7F022414F080027D42C /* Start Packager */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
