@@ -8,7 +8,6 @@ edition = "2021"
 rust-version = "1.67.0"
 
 [features]
-rspc = ["dep:rspc"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
 encoding = ["dep:bincode"]
 sys = ["dep:linux-keyutils", "dep:security-framework"]
@@ -48,9 +47,6 @@ serde = { version = "1.0.158", features = ["derive"], optional = true }
 serde_json = { version = "1.0.94", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
 
-# optional, for support with rspc
-rspc = { workspace = true, optional = true }
-
 # for asynchronous crypto
 tokio = { workspace = true, features = [
     "io-util",
@@ -60,7 +56,6 @@ tokio = { workspace = true, features = [
 
 # linux OS keyring - using `v2.0.2` as newer versions broke a lot due to async/lifetimes
 [target.'cfg(target_os = "linux")'.dependencies]
-# secret-service = { version = "2.0.2", optional = true }
 linux-keyutils = { verison = "0.2.3", features = ["std"], optional = true }
 
 # macos/ios OS keyring

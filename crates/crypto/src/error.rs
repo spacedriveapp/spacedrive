@@ -3,13 +3,6 @@
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
-#[cfg(feature = "rspc")]
-impl From<Error> for rspc::Error {
-	fn from(err: Error) -> Self {
-		Self::new(rspc::ErrorCode::InternalServerError, err.to_string())
-	}
-}
-
 #[cfg(feature = "encoding")]
 impl From<Error> for bincode::error::EncodeError {
 	fn from(value: Error) -> Self {

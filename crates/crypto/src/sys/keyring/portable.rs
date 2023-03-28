@@ -11,8 +11,10 @@ use crate::{
 
 use super::{Identifier, KeyringInterface, KeyringName};
 
-pub const PORTABLE_KEYRING_CONTEXT: DerivationContext =
+const PORTABLE_KEYRING_CONTEXT: DerivationContext =
 	DerivationContext::new("crypto 2023-03-27 21:37:42 portable keyring context");
+
+const PORTABLE_KEYRING_LIMIT: usize = 64;
 
 // Ephemeral, session-only
 pub struct PortableKeyring {
@@ -20,7 +22,7 @@ pub struct PortableKeyring {
 	inner: Mutex<HashMap<String, PortableKeyringItem>>,
 }
 
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 struct PortableKeyringItem(#[zeroize(skip)] Salt, #[zeroize(skip)] Nonce, Vec<u8>);
 
 impl KeyringInterface for PortableKeyring {
@@ -41,8 +43,13 @@ impl KeyringInterface for PortableKeyring {
 	}
 
 	fn get(&self, id: &Identifier) -> Result<Protected<String>> {
-		let handle = self.inner.lock().map_err(|_| Error::KeyringError)?;
-		let item = handle.get(&id.hash()).ok_or(Error::KeyringError)?;
+		let item = self
+			.inner
+			.lock()
+			.map_err(|_| Error::KeyringError)?
+			.get(&id.hash())
+			.ok_or(Error::KeyringError)?
+			.clone();
 
 		let value = Decryptor::decrypt_tiny(
 			Hasher::derive_key(self.key.clone(), item.0, PORTABLE_KEYRING_CONTEXT),
@@ -58,6 +65,10 @@ impl KeyringInterface for PortableKeyring {
 	}
 
 	fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()> {
+		if self.inner.lock().map_err(|_| Error::KeyringError)?.len() + 1 > PORTABLE_KEYRING_LIMIT {
+			return Err(Error::KeyringError);
+		}
+
 		let salt = Salt::generate();
 		let nonce = Nonce::generate(Algorithm::default());
 

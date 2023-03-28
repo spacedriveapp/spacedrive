@@ -66,7 +66,7 @@ impl Identifier {
 	#[must_use]
 	pub fn hash(&self) -> String {
 		format!(
-			"{}@{}",
+			"{}:{}",
 			self.application,
 			Hasher::blake3_hex(&[self.id.as_bytes(), self.usage.as_bytes()].concat())
 		)

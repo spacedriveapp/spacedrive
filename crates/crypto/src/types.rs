@@ -51,7 +51,6 @@ impl DerivationContext {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -73,7 +72,6 @@ impl Params {
 	serde(tag = "name", content = "params")
 )]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	Blake3Balloon(Params),
@@ -108,7 +106,6 @@ impl HashingAlgorithm {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; XCHACHA20_POLY1305_NONCE_LEN]),
 	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
@@ -168,11 +165,6 @@ impl Nonce {
 
 impl ConstantTimeEq for Nonce {
 	fn ct_eq(&self, rhs: &Self) -> Choice {
-		// short circuit if algorithm (and therefore lengths) don't match
-		if !bool::from(self.algorithm().ct_eq(&rhs.algorithm())) {
-			return Choice::from(0);
-		}
-
 		self.inner().ct_eq(rhs.inner())
 	}
 }
@@ -193,7 +185,6 @@ where
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
@@ -340,7 +331,6 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
 	[u8; ENCRYPTED_KEY_LEN],
@@ -372,8 +362,8 @@ impl ConstantTimeEq for EncryptedKey {
 		}
 
 		let mut x = 1u8;
-		x.cmovz(&0u8, self.inner().ct_eq(rhs.inner()).unwrap_u8());
 		x.cmovz(&0u8, self.nonce().ct_eq(rhs.nonce()).unwrap_u8());
+		x.cmovz(&0u8, self.inner().ct_eq(rhs.inner()).unwrap_u8());
 		Choice::from(x)
 	}
 }
@@ -412,7 +402,6 @@ impl Aad {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
 pub struct Salt([u8; SALT_LEN]);
 
 impl Salt {
