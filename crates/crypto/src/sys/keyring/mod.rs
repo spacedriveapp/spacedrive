@@ -1,44 +1,160 @@
-use crate::{Protected, Result};
+use crate::{hashing::Hasher, Protected, Result};
+mod portable;
+use portable::PortableKeyring;
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
-pub mod portable;
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
-pub use portable::PortableKeyring as KeyringInterface;
+#[cfg(not(any(target_os = "linux", target_os = "ios")))]
+use portable::PortableKeyring as DefaultKeyring;
 
-#[cfg(target_os = "linux")]
-pub mod linux;
-#[cfg(target_os = "linux")]
-pub use linux::LinuxKeyring as KeyringInterface;
+#[cfg(all(target_os = "linux"))]
+mod linux;
+#[cfg(all(target_os = "linux"))]
+use linux::LinuxKeyring as DefaultKeyring;
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub mod apple;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub use apple::AppleKeyring as KeyringInterface;
+// #[cfg(target_os = "macos")]
+// pub mod macos;
+// #[cfg(target_os = "macos")]
+// pub use macos::MacosKeyring as DefaultKeyring;
 
-/// This identifier is platform-agnostic and is used for identifying keys within OS keyrings
-#[derive(Clone, Copy)]
-pub struct Identifier<'a> {
-	pub id: &'a str,
-	pub application: &'a str,
-	pub usage: &'a str,
-}
+#[cfg(all(target_os = "ios"))]
+pub mod ios;
+#[cfg(all(target_os = "ios"))]
+pub use ios::IosKeyring as DefaultKeyring;
 
-impl<'a> Identifier<'a> {
-	#[must_use]
-	pub const fn new(id: &'static str, application: &'static str, usage: &'static str) -> Self {
-		Self {
-			id,
-			application,
-			usage,
-		}
-	}
-}
-
-pub trait Keyring {
+pub(self) trait KeyringInterface {
 	fn new() -> Result<Self>
 	where
 		Self: Sized;
-	fn insert(&self, identifier: Identifier<'_>, value: Protected<Vec<u8>>) -> Result<()>;
-	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>>;
-	fn delete(&self, identifier: Identifier<'_>) -> Result<()>;
+
+	fn get(&self, id: &Identifier) -> Result<Protected<String>>;
+	fn remove(&self, id: &Identifier) -> Result<()>;
+	fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()>;
+	fn contains_key(&self, id: &Identifier) -> bool;
+	fn name(&self) -> KeyringName;
+}
+
+#[allow(dead_code)]
+pub enum KeyringName {
+	Portable,
+	Linux,
+	MacOS,
+	Ios,
+}
+
+#[derive(Clone, Copy)]
+pub enum KeyringType {
+	Default,
+	Portable,
+}
+
+#[derive(Clone)]
+pub struct Identifier {
+	id: String,
+	usage: String,
+	application: String,
+}
+
+impl Identifier {
+	#[must_use]
+	pub fn new(id: &'static str, usage: &'static str, application: &'static str) -> Self {
+		Self {
+			id: id.to_string(),
+			usage: usage.to_string(),
+			application: application.to_string(),
+		}
+	}
+
+	#[must_use]
+	pub fn hash(&self) -> String {
+		format!(
+			"{}@{}",
+			self.application,
+			Hasher::blake3_hex(&[self.id.as_bytes(), self.usage.as_bytes()].concat())
+		)
+	}
+}
+
+pub struct Keyring {
+	inner: Box<dyn KeyringInterface + Send + Sync>,
+}
+
+impl Keyring {
+	pub fn new(backend: KeyringType) -> Result<Self> {
+		let kr = match backend {
+			KeyringType::Default => Self {
+				inner: Box::new(DefaultKeyring::new()?),
+			},
+			KeyringType::Portable => Self {
+				inner: Box::new(PortableKeyring::new()?),
+			},
+		};
+
+		Ok(kr)
+	}
+
+	pub fn get(&self, id: &Identifier) -> Result<Protected<String>> {
+		self.inner.get(id)
+	}
+
+	#[must_use]
+	pub fn contains_key(&self, id: &Identifier) -> bool {
+		self.inner.contains_key(id)
+	}
+
+	pub fn remove(&self, id: &Identifier) -> Result<()> {
+		self.inner.remove(id)
+	}
+
+	pub fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()> {
+		self.inner.insert(id, value)
+	}
+
+	#[must_use]
+	pub fn name(&self) -> KeyringName {
+		self.inner.name()
+	}
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+	use crate::Protected;
+
+	use super::{Identifier, Keyring, KeyringType};
+
+	#[test]
+	fn full_portable() {
+		let password = Protected::new("SuperSecurePassword".to_string());
+		let identifier = Identifier::new("0000-0000-0000-0000", "Password", "Crypto");
+		let keyring = Keyring::new(KeyringType::Portable).unwrap();
+
+		keyring.insert(&identifier, password.clone()).unwrap();
+		assert!(keyring.contains_key(&identifier));
+
+		let pw = keyring.get(&identifier).unwrap();
+
+		assert_eq!(pw.expose(), password.expose());
+
+		keyring.remove(&identifier).unwrap();
+
+		assert!(!keyring.contains_key(&identifier));
+	}
+
+	#[test]
+	#[cfg(target_os = "linux")]
+	fn full() {
+		let password = Protected::new("SuperSecurePassword".to_string());
+		let identifier = Identifier::new("0000-0000-0000-0000", "Password", "Crypto");
+		let keyring = Keyring::new(KeyringType::Default).unwrap();
+
+		keyring.insert(&identifier, password.clone()).unwrap();
+		assert!(keyring.contains_key(&identifier));
+
+		let pw = keyring.get(&identifier).unwrap();
+
+		assert_eq!(pw.expose(), password.expose());
+
+		keyring.remove(&identifier).unwrap();
+
+		assert!(!keyring.contains_key(&identifier));
+	}
 }

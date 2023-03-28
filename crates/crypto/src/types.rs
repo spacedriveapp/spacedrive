@@ -105,7 +105,6 @@ impl HashingAlgorithm {
 /// This should be used for providing a nonce to encrypt/decrypt functions.
 ///
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
-// TODO(brxken128): evaluate this `Copy` - can be expensive
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
@@ -243,7 +242,7 @@ impl Key {
 	}
 
 	#[must_use]
-	pub const fn expose(&self) -> &[u8; KEY_LEN] {
+	pub const fn expose(&self) -> &[u8] {
 		&self.0
 	}
 
@@ -355,7 +354,7 @@ impl EncryptedKey {
 	}
 
 	#[must_use]
-	pub const fn inner(&self) -> &[u8; ENCRYPTED_KEY_LEN] {
+	pub const fn inner(&self) -> &[u8] {
 		&self.0
 	}
 
@@ -428,7 +427,7 @@ impl Salt {
 	}
 
 	#[must_use]
-	pub const fn inner(&self) -> &[u8; SALT_LEN] {
+	pub const fn inner(&self) -> &[u8] {
 		&self.0
 	}
 }

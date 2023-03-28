@@ -29,8 +29,9 @@
 //! ```
 //!
 use std::{fmt::Debug, mem::swap};
-use zeroize::Zeroize;
-#[derive(Clone)]
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct Protected<T>
 where
 	T: Zeroize,
@@ -61,14 +62,6 @@ impl From<Vec<u8>> for Protected<Vec<u8>> {
 	}
 }
 
-impl From<Protected<String>> for Protected<Vec<u8>> {
-	fn from(value: Protected<String>) -> Self {
-		Self {
-			data: value.expose().as_bytes().to_vec(),
-		}
-	}
-}
-
 impl<T> Protected<T>
 where
 	T: Zeroize + Default,
@@ -77,15 +70,6 @@ where
 		let mut out = Default::default();
 		swap(&mut self.data, &mut out);
 		out
-	}
-}
-
-impl<T> Drop for Protected<T>
-where
-	T: Zeroize,
-{
-	fn drop(&mut self) {
-		self.data.zeroize();
 	}
 }
 

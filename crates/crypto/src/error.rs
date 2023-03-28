@@ -66,14 +66,11 @@ pub enum Error {
 	// keyring
 	#[cfg(all(target_os = "linux", feature = "sys"))]
 	#[error("error with the linux keyring: {0}")]
-	LinuxKeyringError(#[from] secret_service::Error),
+	LinuxKeyringError(#[from] linux_keyutils::KeyError),
 	#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "sys"))]
 	#[error("error with the apple keyring: {0}")]
 	AppleKeyringError(#[from] security_framework::base::Error),
 	#[cfg(feature = "sys")]
 	#[error("generic keyring error")]
 	KeyringError,
-	#[cfg(feature = "sys")]
-	#[error("keyring not available on this platform")]
-	KeyringNotSupported,
 }

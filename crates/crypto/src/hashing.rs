@@ -27,14 +27,18 @@ impl Hasher {
 		blake3::hash(bytes).into()
 	}
 
+	/// This is the same as `Hasher::blake3`, but returns a lowercase hex `String`
+	///
+	/// This is not implemented for `Key` as a safety measure.
+	#[must_use]
+	pub fn blake3_hex(bytes: &[u8]) -> String {
+		blake3::hash(bytes).to_hex().to_string()
+	}
+
 	#[must_use]
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn derive_key(key: Key, salt: Salt, context: DerivationContext) -> Key {
-		let k = blake3::derive_key(
-			context.inner(),
-			&[key.expose().as_ref(), salt.inner()].concat(),
-		);
-
+		let k = blake3::derive_key(context.inner(), &[key.expose(), salt.inner()].concat());
 		Key::new(k)
 	}
 
@@ -197,8 +201,8 @@ mod tests {
 	]);
 
 	const BLAKE3_EXPECTED: Key = Key::new([
-		172, 142, 55, 39, 103, 92, 224, 135, 192, 227, 216, 190, 35, 235, 139, 125, 166, 15, 107,
-		109, 202, 244, 77, 31, 198, 143, 23, 134, 3, 174, 74, 175,
+		127, 38, 17, 186, 21, 139, 109, 206, 164, 166, 156, 34, 156, 48, 51, 88, 197, 224, 68, 147,
+		171, 234, 222, 225, 6, 164, 191, 164, 100, 213, 87, 135,
 	]);
 
 	#[test]
@@ -378,7 +382,7 @@ mod tests {
 
 	#[test]
 	fn blake3_hash() {
-		let output = Hasher::blake3(KEY.expose());
+		let output = Hasher::blake3(&PASSWORD);
 
 		assert_eq!(output, BLAKE3_EXPECTED);
 	}

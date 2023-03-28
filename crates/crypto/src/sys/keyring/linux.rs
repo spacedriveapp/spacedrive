@@ -1,84 +1,87 @@
-//! This is Spacedrive's Linux keyring implementation, which makes use of the Secret Service API.
-//!
-//! This does strictly require `DBus`, and either `gnome-keyring`, `kwallet` or another implementor of the Secret Service API.
+//! This is Spacedrive's Linux keyring implementation, which makes use of the `keyutils` API (provided by modern Linux kernels).
+use linux_keyutils::{KeyPermissionsBuilder, KeyRing, KeyRingIdentifier, Permission};
 
-use secret_service::{Collection, EncryptionType, SecretService};
-
-use super::{Identifier, Keyring};
 use crate::{Error, Protected, Result};
 
-impl<'a> Identifier<'a> {
-	#[must_use]
-	pub fn to_hashmap(self) -> std::collections::HashMap<&'a str, &'a str> {
-		[
-			("Application", self.application),
-			("ID", self.id),
-			("Usage", self.usage),
-		]
-		.into_iter()
-		.collect()
-	}
+use super::{Identifier, KeyringInterface, KeyringName};
 
-	#[must_use]
-	pub fn generate_linux_label(&self) -> String {
-		format!("{} - {}", self.application, self.usage)
+pub struct LinuxKeyring {
+	session: KeyRing,
+	persistent: KeyRing,
+}
+
+const WEEK: usize = 604_800;
+
+impl LinuxKeyring {
+	pub fn new() -> Result<Self> {
+		let session = KeyRing::from_special_id(KeyRingIdentifier::Session, false)?;
+		let persistent = KeyRing::get_persistent(KeyRingIdentifier::Session)?;
+
+		let s = Self {
+			session,
+			persistent,
+		};
+
+		Ok(s)
 	}
 }
 
-pub struct LinuxKeyring<'a> {
-	pub service: SecretService<'a>,
-}
+impl KeyringInterface for LinuxKeyring {
+	fn new() -> Result<Self> {
+		let session = KeyRing::from_special_id(KeyRingIdentifier::Session, false)?;
+		let persistent = KeyRing::get_persistent(KeyRingIdentifier::Session)?;
 
-impl<'a> LinuxKeyring<'a> {
-	fn get_collection(&self) -> Result<Collection<'_>> {
-		let collection = self.service.get_default_collection()?;
+		let s = Self {
+			session,
+			persistent,
+		};
 
-		if collection.is_locked()? {
-			collection.unlock()?;
-		}
-
-		Ok(collection)
-	}
-}
-
-impl<'a> Keyring for LinuxKeyring<'a> {
-	fn new() -> Result<Self>
-	where
-		Self: Sized,
-	{
-		Ok(Self {
-			service: SecretService::new(EncryptionType::Dh)?,
-		})
+		Ok(s)
 	}
 
-	fn insert(&self, identifier: Identifier<'_>, value: Protected<Vec<u8>>) -> Result<()> {
-		self.get_collection()?.create_item(
-			&identifier.generate_linux_label(),
-			identifier.to_hashmap(),
-			value.expose(),
-			true,
-			"text/plain",
-		)?;
+	fn contains_key(&self, id: &Identifier) -> bool {
+		self.session.search(&id.hash()).map_or(false, |_| true)
+	}
+
+	fn get(&self, id: &Identifier) -> Result<Protected<String>> {
+		let key = self.session.search(&id.hash())?;
+
+		self.session.link_key(key)?;
+		self.persistent.link_key(key)?;
+
+		let buffer = key.read_to_vec()?;
+
+		String::from_utf8(buffer)
+			.map(Protected::new)
+			.map_err(|_| Error::KeyringError)
+	}
+
+	fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()> {
+		let key = self.session.add_key(&id.hash(), value.expose())?;
+		key.set_timeout(WEEK)?;
+
+		let p = KeyPermissionsBuilder::builder()
+			.posessor(Permission::ALL)
+			.user(Permission::ALL)
+			.group(Permission::VIEW | Permission::READ)
+			.build();
+
+		key.set_perms(p)?;
+
+		self.persistent.link_key(key)?;
 
 		Ok(())
 	}
 
-	fn retrieve(&self, identifier: Identifier<'_>) -> Result<Protected<Vec<u8>>> {
-		let collection = self.get_collection()?;
-		let items = collection.search_items(identifier.to_hashmap())?;
+	fn remove(&self, id: &Identifier) -> Result<()> {
+		let key = self.session.search(&id.hash())?;
 
-		items
-			.get(0)
-			.map_or(Err(Error::KeyringError), |k| Ok(k.get_secret()?.into()))
+		key.invalidate()?;
+
+		Ok(())
 	}
 
-	fn delete(&self, identifier: Identifier<'_>) -> Result<()> {
-		self.get_collection()?
-			.search_items(identifier.to_hashmap())?
-			.get(0)
-			.map_or(Err(Error::KeyringError), |k| {
-				k.delete()?;
-				Ok(())
-			})
+	fn name(&self) -> KeyringName {
+		KeyringName::Linux
 	}
 }
