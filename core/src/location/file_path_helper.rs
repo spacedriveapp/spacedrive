@@ -600,18 +600,26 @@ pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathE
 	}
 }
 
-#[cfg(target_family = "windows")]
+
+#[allow(unused)]
 pub async fn get_inode_and_device_from_path(
 	path: impl AsRef<Path>,
 ) -> Result<(u64, u64), FilePathError> {
-	// TODO use this when it's stable and remove winapi-utils dependency
-	// let metadata = fs::metadata(path.as_ref()).await?;
+	#[cfg(target_family = "unix")]
+	{
+		// TODO use this when it's stable and remove winapi-utils dependency
+		let metadata = fs::metadata(path.as_ref()).await?;
 
-	// get_inode_and_device(&metadata)
+		get_inode_and_device(&metadata)
+	}
+	
 
-	use winapi_util::{file::information, Handle};
+	#[cfg(target_family = "windows")]
+	{
+		use winapi_util::{file::information, Handle};
 
-	let info = information(&Handle::from_path_any(path.as_ref())?)?;
+		let info = information(&Handle::from_path_any(path.as_ref())?)?;
 
-	Ok((info.file_index(), info.volume_serial_number()))
+		Ok((info.file_index(), info.volume_serial_number()))
+	}
 }
