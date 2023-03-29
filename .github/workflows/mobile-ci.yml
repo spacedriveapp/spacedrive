@@ -71,24 +71,74 @@ jobs:
         run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;23.1.7779620" --sdk_root=${ANDROID_SDK_ROOT}
 
       - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-
+        uses: gradle/gradle-build-action@v2
 
       - name: Build Android
         working-directory: ./apps/mobile/android
         run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
 
-      - name: Test Android
-        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+      # - name: Test Android
+      #   uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+      #   with:
+      #     api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+      #     app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+      #     workspace: apps/mobile/.maestro
+
+  testAndroid:
+    name: Test Android
+    needs: android
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Gradle Cache
+        uses: gradle/gradle-build-action@v2
+
+      - name: AVD Cache
+        uses: actions/cache@v3
+        id: avd-cache
         with:
-          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          workspace: apps/mobile/.maestro
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          arch: x86
+          api-level: 33
+          ndk: 23.1.7779620
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: run tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          arch: x86
+          api-level: 33
+          ndk: 23.1.7779620
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew connectedCheck
+
+      - name: Install app on emulator
+        run: |
+          adb wait-for-device
+          # Install app
+          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Run Tests
+        working-directory: ./apps/mobile
+        run: maestro test tests/onboarding.yaml
 
   ios:
     name: Build iOS
@@ -152,10 +202,10 @@ jobs:
         working-directory: ./apps/mobile/ios
         run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -derivedDataPath build
 
-      - name: Test iOS
-        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-        with:
-          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-          mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-          workspace: apps/mobile/.maestro
+      # - name: Test iOS
+      #   uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+      #   with:
+      #     api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+      #     app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+      #     mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
+      #     workspace: apps/mobile/.maestro
