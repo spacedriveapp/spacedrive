@@ -20,6 +20,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Generate AVD Snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          ndk: 23.1.7779620
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot"
+
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.2
         with:
@@ -90,7 +101,7 @@ jobs:
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          arch: arm64-v8a
+          api-level: 33
           ndk: 23.1.7779620
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
@@ -103,7 +114,7 @@ jobs:
       - name: Run Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          arch: arm64-v8a
+          api-level: 33
           ndk: 23.1.7779620
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
