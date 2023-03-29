@@ -81,7 +81,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 				/>
 			</div>
 
-			{right && <div className="flex h-full min-w-[12px] items-center px-1">{right}</div>}
+			{right && (
+				<div
+					className={clsx(
+						'flex h-full min-w-[12px] items-center',
+						size === 'lg' ? 'px-[5px]' : 'px-1'
+					)}
+				>
+					{right}
+				</div>
+			)}
 		</div>
 	)
 );
