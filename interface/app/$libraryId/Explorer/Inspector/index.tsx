@@ -127,7 +127,6 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 									<DropdownMenu.Root
 										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
 										side="left"
-										animate
 										sideOffset={5}
 										alignOffset={-10}
 									>

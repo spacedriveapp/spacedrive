@@ -69,37 +69,36 @@ export default (props: { objectId: number }) => {
 							const tag = tags.data[virtualRow.index];
 							const active = !!tagsForObject.data?.find((t) => t.id === tag?.id);
 
+							if (!tag) return null;
 							return (
-								tag && (
-									<Menu.Item
-										key={virtualRow.index}
+								<Menu.Item
+									key={virtualRow.index}
+									style={{
+										position: 'absolute',
+										top: 0,
+										left: 0,
+										width: '100%',
+										height: `${virtualRow.size}px`,
+										transform: `translateY(${virtualRow.start}px)`
+									}}
+									onClick={(e) => {
+										e.preventDefault();
+										assignTag.mutate({
+											tag_id: tag.id,
+											object_id: props.objectId,
+											unassign: active
+										});
+									}}
+								>
+									<div
+										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
 										style={{
-											position: 'absolute',
-											top: 0,
-											left: 0,
-											width: '100%',
-											height: `${virtualRow.size}px`,
-											transform: `translateY(${virtualRow.start}px)`
+											backgroundColor: active && tag.color ? tag.color : 'transparent',
+											borderColor: tag.color || '#efefef'
 										}}
-										onClick={(e) => {
-											e.preventDefault();
-											assignTag.mutate({
-												tag_id: tag.id,
-												object_id: props.objectId,
-												unassign: active
-											});
-										}}
-									>
-										<div
-											className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
-											style={{
-												backgroundColor: active && tag.color ? tag.color : 'transparent',
-												borderColor: tag.color || '#efefef'
-											}}
-										/>
-										<span className="truncate">{tag.name}</span>
-									</Menu.Item>
-								)
+									/>
+									<span className="truncate">{tag.name}</span>
+								</Menu.Item>
 							);
 						})}
 					</div>
