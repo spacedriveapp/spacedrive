@@ -68,7 +68,7 @@ jobs:
           key: ndk-23.1.7779620
 
       - name: Install NDK
-        run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;23.1.7779620" --sdk_root=${ANDROID_SDK_ROOT}
+        run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
 
       - name: Cache Gradle
         uses: gradle/gradle-build-action@v2
@@ -105,7 +105,10 @@ jobs:
           disable-animations: false
           script: echo "Generated AVD snapshot"
 
-      - name: Run Emulator
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Run Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           arch: arm64-v8a
@@ -116,7 +119,7 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            adb install -r Spacedrive.apk
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb wait-for-device
             maestro test apps/mobile/tests/onboarding.yaml
 
@@ -255,4 +258,5 @@ jobs:
           app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
           mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
           workspace: apps/mobile/tests
-# TODO: IOS Simulator on Github Actions..
+
+      # TODO: IOS Simulator on Github Actions..
