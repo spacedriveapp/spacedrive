@@ -3,7 +3,7 @@
 set -e
 
 # Xcode sanitizes the environment, so we need them here, maybe move them to build step...
-export PROTOC=/opt/homebrew/bin/protoc
+export PROTOC=/usr/local/bin/protoc
 export PATH="$HOME/.cargo/bin:$PATH"
 
 TARGET_DIRECTORY=../../../target
