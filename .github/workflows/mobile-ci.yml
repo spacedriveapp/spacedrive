@@ -70,7 +70,7 @@ jobs:
       - name: Install NDK
         run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;23.1.7779620" --sdk_root=${ANDROID_SDK_ROOT}
 
-      - name: Cache Gradle dependencies
+      - name: Cache Gradle
         uses: gradle/gradle-build-action@v2
 
       - name: Build Android
@@ -82,14 +82,6 @@ jobs:
         with:
           name: Spacedrive.apk
           path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-
-      - name: Test Android
-        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-        with:
-          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          workspace: apps/mobile/tests
-          async: true
 
   testAndroid:
     name: Test Android
@@ -104,10 +96,13 @@ jobs:
         with:
           name: Spacedrive.apk
 
-      - name: Gradle Cache
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Cache Gradle
         uses: gradle/gradle-build-action@v2
 
-      - name: AVD Cache
+      - name: Cache AVD
         uses: actions/cache@v3
         id: avd-cache
         with:
@@ -137,88 +132,88 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew connectedCheck
+          script: |
+            adb install -r Spacedrive.apk
+            adb wait-for-device
+            maestro test apps/mobile/tests/onboarding.yaml
 
-      - name: Install app on emulator
-        run: |
-          adb wait-for-device
-          # Install app
-          adb install -r Spacedrive.apk
+      # - name: Install app on emulator
+      #   run: |
+      #     adb wait-for-device
+      #     # Install app
+      #     adb install -r Spacedrive.apk
 
-      - name: Install Maestro
-        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+      # - name: Run Tests
+      #   working-directory: ./apps/mobile
+      #   run: maestro test tests/onboarding.yaml
 
-      - name: Run Tests
-        working-directory: ./apps/mobile
-        run: maestro test tests/onboarding.yaml
-# ios:
-#   name: Build iOS
-#   runs-on: macos-12
-#   steps:
-#     - name: Checkout repository
-#       uses: actions/checkout@v3
+  ios:
+    name: Build iOS
+    runs-on: macos-12
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-#     - name: Install Xcode
-#       uses: maxim-lobanov/setup-xcode@v1.5.1
-#       with:
-#         xcode-version: latest-stable
+      - name: Install Xcode
+        uses: maxim-lobanov/setup-xcode@v1.5.1
+        with:
+          xcode-version: latest-stable
 
-#     - name: Install pnpm
-#       uses: pnpm/action-setup@v2.2.2
-#       with:
-#         version: 7.x.x
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.x.x
 
-#     - name: Install Node.js
-#       uses: actions/setup-node@v3
-#       with:
-#         node-version: 18
-#         cache: 'pnpm'
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'pnpm'
 
-#     - name: Install Rust stable
-#       uses: actions-rs/toolchain@v1
-#       with:
-#         toolchain: stable
-#         profile: minimal
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
 
-#     - name: Cache Rust deps
-#       uses: Swatinem/rust-cache@v2
-#       with:
-#         save-if: ${{ inputs.save-cache }} == "true"
+      - name: Cache Rust deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ inputs.save-cache }} == "true"
 
-#     - name: Run 'setup-system.sh' script
-#       shell: bash
-#       run: ./.github/scripts/setup-system.sh mobile
+      - name: Run 'setup-system.sh' script
+        shell: bash
+        run: ./.github/scripts/setup-system.sh mobile
 
-#     - name: Generate Prisma client
-#       uses: ./.github/actions/generate-prisma-client
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
 
-#     - name: Install pnpm dependencies
-#       run: pnpm i --frozen-lockfile
+      - name: Install pnpm dependencies
+        run: pnpm i --frozen-lockfile
 
-#     - name: Cache Pods
-#       uses: actions/cache@v3
-#       with:
-#         path: |
-#           ./apps/mobile/ios/Pods
-#           ~/Library/Caches/CocoaPods
-#           ~/.cocoapods
-#         key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
-#         restore-keys: pods-
+      - name: Cache Pods
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./apps/mobile/ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+          restore-keys: pods-
 
-#     - name: Install Pods
-#       working-directory: ./apps/mobile/ios
-#       run: pod install --repo-update
+      - name: Install Pods
+        working-directory: ./apps/mobile/ios
+        run: pod install --repo-update
 
-#     - name: Build iOS
-#       working-directory: ./apps/mobile/ios
-#       run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -derivedDataPath build
+      - name: Build iOS
+        working-directory: ./apps/mobile/ios
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -derivedDataPath build
 
-#     - name: Test iOS
-#       uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-#       with:
-#         api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-#         app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-#         mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-#         workspace: apps/mobile/tests
-
+      - name: Test iOS
+        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+        with:
+          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+          mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
+          workspace: apps/mobile/tests
 # TODO: IOS Simulator on Github Actions..
