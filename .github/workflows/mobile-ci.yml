@@ -202,10 +202,10 @@ jobs:
         working-directory: ./apps/mobile/ios
         run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -derivedDataPath build
 
-      # - name: Test iOS
-      #   uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-      #   with:
-      #     api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-      #     app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-      #     mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-      #     workspace: apps/mobile/.maestro
+      - name: Test iOS
+        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+        with:
+          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+          mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
+          workspace: apps/mobile/tests
