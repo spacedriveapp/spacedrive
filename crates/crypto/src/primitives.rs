@@ -14,6 +14,9 @@ pub const XCHACHA20_POLY1305_NONCE_LEN: usize = 20;
 /// The nonce size for AES-256-GCM, minus the last 4 bytes (due to STREAM with a 31+1 bit counter)
 pub const AES_256_GCM_NONCE_LEN: usize = 8;
 
+/// The nonce size for AES-256-GCM-SIV, minus the last 4 bytes (due to STREAM with a 31+1 bit counter)
+pub const AES_256_GCM_SIV_NONCE_LEN: usize = 8;
+
 /// The length of a secret key, in bytes.
 pub const SECRET_KEY_LEN: usize = 18;
 

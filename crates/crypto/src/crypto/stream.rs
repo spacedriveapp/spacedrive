@@ -12,6 +12,7 @@ use aead::{
 	Payload,
 };
 use aes_gcm::Aes256Gcm;
+use aes_gcm_siv::Aes256GcmSiv;
 use chacha20poly1305::XChaCha20Poly1305;
 
 #[cfg(feature = "async")]
@@ -300,8 +301,9 @@ impl_stream!(
 	encrypt_bytes,
 	Vec<u8>,
 	BLOCK_LEN,
-	XChaCha20Poly1305,
-	Aes256Gcm
+	Aes256Gcm,
+	Aes256GcmSiv,
+	XChaCha20Poly1305
 );
 
 impl_stream!(
@@ -316,6 +318,7 @@ impl_stream!(
 	decrypt_bytes,
 	Protected<Vec<u8>>,
 	(BLOCK_LEN + AEAD_TAG_LEN),
-	XChaCha20Poly1305,
-	Aes256Gcm
+	Aes256Gcm,
+	Aes256GcmSiv,
+	XChaCha20Poly1305
 );

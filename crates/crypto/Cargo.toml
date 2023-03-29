@@ -8,6 +8,7 @@ description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
 """
+license = "AGPL-3.0"
 edition = "2021"
 rust-version = "1.65.0"
 
@@ -34,6 +35,7 @@ cmov = { git = "https://github.com/RustCrypto/utils", rev = "fc010a560073b5a37c9
 
 # aeads
 aes-gcm = "0.10.1"
+aes-gcm-siv = "0.11.1"
 chacha20poly1305 = "0.10.1"
 aead = { version = "0.5.1", features = ["stream"] }
 
@@ -74,6 +76,11 @@ criterion = "0.4.0"
 [[bench]]
 name = "aes-256-gcm"
 path = "benches/crypto/aes-256-gcm.rs"
+harness = false
+
+[[bench]]
+name = "aes-256-gcm-siv"
+path = "benches/crypto/aes-256-gcm-siv.rs"
 harness = false
 
 [[bench]]

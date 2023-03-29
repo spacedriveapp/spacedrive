@@ -11,9 +11,10 @@ use crate::utils::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	AAD_LEN, AES_256_GCM_NONCE_LEN, ARGON2ID_HARDENED, ARGON2ID_PARANOID, ARGON2ID_STANDARD,
-	BLAKE3_BALLOON_HARDENED, BLAKE3_BALLOON_PARANOID, BLAKE3_BALLOON_STANDARD, ENCRYPTED_KEY_LEN,
-	KEY_LEN, SALT_LEN, SECRET_KEY_LEN, XCHACHA20_POLY1305_NONCE_LEN,
+	AAD_LEN, AES_256_GCM_NONCE_LEN, AES_256_GCM_SIV_NONCE_LEN, ARGON2ID_HARDENED,
+	ARGON2ID_PARANOID, ARGON2ID_STANDARD, BLAKE3_BALLOON_HARDENED, BLAKE3_BALLOON_PARANOID,
+	BLAKE3_BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
+	XCHACHA20_POLY1305_NONCE_LEN,
 };
 
 pub struct MagicBytes<const I: usize>([u8; I]);
@@ -107,8 +108,9 @@ impl HashingAlgorithm {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 pub enum Nonce {
-	XChaCha20Poly1305([u8; XCHACHA20_POLY1305_NONCE_LEN]),
 	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
+	Aes256GcmSiv([u8; AES_256_GCM_SIV_NONCE_LEN]),
+	XChaCha20Poly1305([u8; XCHACHA20_POLY1305_NONCE_LEN]),
 }
 
 impl Nonce {
@@ -116,6 +118,7 @@ impl Nonce {
 	pub fn generate(algorithm: Algorithm) -> Self {
 		match algorithm {
 			Algorithm::Aes256Gcm => Self::Aes256Gcm(generate_fixed()),
+			Algorithm::Aes256GcmSiv => Self::Aes256GcmSiv(generate_fixed()),
 			Algorithm::XChaCha20Poly1305 => Self::XChaCha20Poly1305(generate_fixed()),
 		}
 	}
@@ -123,7 +126,7 @@ impl Nonce {
 	#[must_use]
 	pub const fn inner(&self) -> &[u8] {
 		match self {
-			Self::Aes256Gcm(x) => x,
+			Self::Aes256Gcm(x) | Self::Aes256GcmSiv(x) => x,
 			Self::XChaCha20Poly1305(x) => x,
 		}
 	}
@@ -131,7 +134,7 @@ impl Nonce {
 	#[must_use]
 	pub const fn len(&self) -> usize {
 		match self {
-			Self::Aes256Gcm(x) => x.len(),
+			Self::Aes256Gcm(x) | Self::Aes256GcmSiv(x) => x.len(),
 			Self::XChaCha20Poly1305(x) => x.len(),
 		}
 	}
@@ -139,7 +142,7 @@ impl Nonce {
 	#[must_use]
 	pub const fn is_empty(&self) -> bool {
 		match self {
-			Self::Aes256Gcm(x) => x.is_empty(),
+			Self::Aes256Gcm(x) | Self::Aes256GcmSiv(x) => x.is_empty(),
 			Self::XChaCha20Poly1305(x) => x.is_empty(),
 		}
 	}
@@ -148,6 +151,7 @@ impl Nonce {
 	pub const fn algorithm(&self) -> Algorithm {
 		match self {
 			Self::Aes256Gcm(_) => Algorithm::Aes256Gcm,
+			Self::Aes256GcmSiv(_) => Algorithm::Aes256GcmSiv,
 			Self::XChaCha20Poly1305(_) => Algorithm::XChaCha20Poly1305,
 		}
 	}
@@ -175,7 +179,7 @@ where
 {
 	fn from(value: Nonce) -> Self {
 		match value {
-			Nonce::Aes256Gcm(x) => Self::clone_from_slice(&x),
+			Nonce::Aes256Gcm(x) | Nonce::Aes256GcmSiv(x) => Self::clone_from_slice(&x),
 			Nonce::XChaCha20Poly1305(x) => Self::clone_from_slice(&x),
 		}
 	}
@@ -186,8 +190,9 @@ where
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
 pub enum Algorithm {
-	XChaCha20Poly1305,
 	Aes256Gcm,
+	Aes256GcmSiv,
+	XChaCha20Poly1305,
 }
 
 impl ConstantTimeEq for Algorithm {
@@ -213,6 +218,7 @@ impl Algorithm {
 	pub const fn nonce_len(&self) -> usize {
 		match self {
 			Self::Aes256Gcm => AES_256_GCM_NONCE_LEN,
+			Self::Aes256GcmSiv => AES_256_GCM_SIV_NONCE_LEN,
 			Self::XChaCha20Poly1305 => XCHACHA20_POLY1305_NONCE_LEN,
 		}
 	}
@@ -443,8 +449,9 @@ impl Display for Params {
 impl Display for Algorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
-			Self::XChaCha20Poly1305 => write!(f, "XChaCha20-Poly1305"),
 			Self::Aes256Gcm => write!(f, "AES-256-GCM"),
+			Self::Aes256GcmSiv => write!(f, "AES-256-GCM-SIV"),
+			Self::XChaCha20Poly1305 => write!(f, "XChaCha20-Poly1305"),
 		}
 	}
 }
