@@ -29,9 +29,6 @@ const styles = cva(
 	],
 	{
 		variants: {
-			pressEffect: {
-				true: 'active:translate-y-[1px]'
-			},
 			size: {
 				icon: '!p-1',
 				lg: 'text-md py-1.5 px-3 font-medium',

@@ -90,6 +90,8 @@ impl SyncManager {
 			for op in ops {
 				self.tx.send(SyncMessage::Created(op)).ok();
 			}
+
+			res
 		};
 		#[cfg(not(feature = "sync-messages"))]
 		let res = tx._batch([queries]).await?.remove(0);
