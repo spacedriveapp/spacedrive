@@ -51,7 +51,11 @@ To quickly run only the desktop app after `prep` you can use:
 
 - `pnpm desktop dev`
 
-To run the landing page
+To run the desktop app alongside react-devtools (MacOS and Linux):
+
+- `( pnpm desktop react-devtools & pnpm desktop dev; kill %1; )`
+
+To run the landing page:
 
 - `pnpm web dev` - runs the web app for the embed
 - `pnpm landing dev`

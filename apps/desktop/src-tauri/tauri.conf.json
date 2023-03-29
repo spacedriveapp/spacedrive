@@ -6,6 +6,7 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
+		"beforeDevCommand": "pnpm dev-vite",
 		"beforeBuildCommand": "pnpm exec vite build"
 	},
 	"tauri": {
