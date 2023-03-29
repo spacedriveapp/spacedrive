@@ -10,11 +10,9 @@ cargo {
     module  = "../../crates/android"
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
-    profile = 'release'
+    profile = 'release' // 'debug'
     // targets = ["arm", "arm64", "x86", "x86_64"]
-    targets = ["x86"]
-    // profile = 'debug'
-    // targets = ["arm64"]
+    targets = reactNativeArchitectures()
     targetDirectory = "../.././../../target" // Monorepo moment
 
 }
