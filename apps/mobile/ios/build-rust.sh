@@ -3,6 +3,7 @@
 set -e
 
 export PROTOC=/opt/homebrew/bin/protoc
+export PATH="$HOME/.cargo/bin:$PATH"   # Add Rust toolchain to PATH
 
 TARGET_DIRECTORY=../../../target
 

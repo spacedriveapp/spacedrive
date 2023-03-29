@@ -64,7 +64,7 @@ jobs:
       - name: Cache NDK
         uses: actions/cache@v3
         with:
-          path: ${{ env.ANDROID_HOME }}/ndk
+          path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
           key: ndk-23.1.7779620
 
       - name: Install NDK
@@ -133,10 +133,6 @@ jobs:
 
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
-
-      - name: Check Cargo? (temp)
-        working-directory: ./apps/mobile
-        run: cargo check
 
       - name: Cache Pods
         uses: actions/cache@v3
