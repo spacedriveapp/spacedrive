@@ -110,17 +110,18 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 						<Divider />
 						<MetaContainer>
-							<div className="flex flex-wrap gap-1">
+							<div className="flex flex-wrap gap-1 overflow-hidden">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
 								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
-									<InfoPill
-										className="!text-white"
-										key={tag.id}
-										style={{ backgroundColor: tag.color + 'CC' }}
-									>
-										{tag.name}
-									</InfoPill>
+									<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
+										<InfoPill
+											className="truncate !text-white"
+											style={{ backgroundColor: tag.color + 'CC' }}
+										>
+											{tag.name}
+										</InfoPill>
+									</Tooltip>
 								))}
 								<PlaceholderPill>Add Tag</PlaceholderPill>
 							</div>
