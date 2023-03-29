@@ -37,7 +37,11 @@ export default (props: UseDialogProps) => {
 			ctaLabel="Create"
 		>
 			<div className="relative mt-3 ">
-				<ColorPicker className="!absolute left-[9px] top-[-5px]" {...form.register('color')} />
+				<ColorPicker
+					className="!absolute left-[9px] top-[7px]"
+					control={form.control}
+					name="color"
+				/>
 				<Input
 					{...form.register('name', { required: true })}
 					className="w-full pl-[40px]"

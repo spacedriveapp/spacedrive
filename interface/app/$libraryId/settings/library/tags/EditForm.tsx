@@ -39,7 +39,11 @@ export default ({ tag, onDelete }: Props) => {
 				<div className="flex flex-col">
 					<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">Color</span>
 					<div className="relative">
-						<ColorPicker className="!absolute left-[9px] top-[-5px]" {...form.register('color')} />
+						<ColorPicker
+							className="!absolute left-[9px] top-[7px]"
+							control={form.control}
+							name="color"
+						/>
 						<Input className="w-28 pl-[40px]" {...form.register('color')} />
 					</div>
 				</div>
