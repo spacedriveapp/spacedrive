@@ -12,8 +12,8 @@ cargo {
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release' // 'debug'
-    // targets = ["arm", "arm64", "x86", "x86_64"]
-    targets = reactNativeArchitectures()
+    targets = ["arm", "arm64", "x86", "x86_64"]
+    // targets = ['arm64']
     targetDirectory = "../.././../../target" // Monorepo moment
 
 }
