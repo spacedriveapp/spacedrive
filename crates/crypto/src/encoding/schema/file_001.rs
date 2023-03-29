@@ -373,17 +373,23 @@ impl Header for FileHeader001 {
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
-	fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key> {
+	fn decrypt_master_key(
+		&self,
+		keys: Vec<Key>,
+		context: DerivationContext,
+	) -> Result<(Key, usize)> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
 		keys.iter()
-			.find_map(|k| {
-				self.keyslots
-					.0
-					.iter()
-					.find_map(|z| z.decrypt(self.algorithm, k.clone(), self.aad, context).ok())
+			.enumerate()
+			.find_map(|(i, k)| {
+				self.keyslots.0.iter().find_map(|z| {
+					z.decrypt(self.algorithm, k.clone(), self.aad, context)
+						.ok()
+						.map(|x| (x, i))
+				})
 			})
 			.ok_or(Error::Decrypt)
 	}
@@ -393,7 +399,7 @@ impl Header for FileHeader001 {
 		&self,
 		password: Protected<Vec<u8>>,
 		context: DerivationContext,
-	) -> Result<Key> {
+	) -> Result<(Key, usize)> {
 		if self.keyslots.0.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
@@ -401,7 +407,8 @@ impl Header for FileHeader001 {
 		self.keyslots
 			.0
 			.iter()
-			.find_map(|z| {
+			.enumerate()
+			.find_map(|(i, z)| {
 				let k = Hasher::hash_password(
 					z.hashing_algorithm,
 					password.clone(),
@@ -409,7 +416,9 @@ impl Header for FileHeader001 {
 					SecretKey::Null,
 				)
 				.ok()?;
-				z.decrypt(self.algorithm, k, self.aad, context).ok()
+				z.decrypt(self.algorithm, k, self.aad, context)
+					.ok()
+					.map(|x| (x, i))
 			})
 			.ok_or(Error::Decrypt)
 	}

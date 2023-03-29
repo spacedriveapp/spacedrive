@@ -82,9 +82,11 @@ where
 	// Deserialize the header from the encrypted file
 	let header = FileHeader::from_reader(reader, MAGIC_BYTES).unwrap();
 
-	let master_key = header
+	let (master_key, index) = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
 		.unwrap();
+
+	println!("key is in slot: {index}");
 
 	let decryptor = Decryptor::new(
 		master_key.clone(),

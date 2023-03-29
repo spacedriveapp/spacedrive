@@ -65,12 +65,16 @@ pub trait Header {
 	fn get_algorithm(&self) -> Algorithm;
 	fn count_objects(&self) -> usize;
 	fn count_keyslots(&self) -> usize;
-	fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key>;
+	fn decrypt_master_key(
+		&self,
+		keys: Vec<Key>,
+		context: DerivationContext,
+	) -> Result<(Key, usize)>;
 	fn decrypt_master_key_with_password(
 		&self,
 		password: Protected<Vec<u8>>,
 		context: DerivationContext,
-	) -> Result<Key>;
+	) -> Result<(Key, usize)>;
 	fn decrypt_object(
 		&self,
 		name: HeaderObjectName,
@@ -302,7 +306,11 @@ impl FileHeader {
 		self.version
 	}
 
-	pub fn decrypt_master_key(&self, keys: Vec<Key>, context: DerivationContext) -> Result<Key> {
+	pub fn decrypt_master_key(
+		&self,
+		keys: Vec<Key>,
+		context: DerivationContext,
+	) -> Result<(Key, usize)> {
 		self.inner.decrypt_master_key(keys, context)
 	}
 
@@ -310,7 +318,7 @@ impl FileHeader {
 		&self,
 		password: Protected<Vec<u8>>,
 		context: DerivationContext,
-	) -> Result<Key> {
+	) -> Result<(Key, usize)> {
 		self.inner
 			.decrypt_master_key_with_password(password, context)
 	}
@@ -416,7 +424,7 @@ mod tests {
 		writer.rewind().unwrap();
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
-		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let (decrypted_mk, _) = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
 
 		assert_eq!(header.count_keyslots(), 1);
 		assert_eq!(header.count_objects(), 0);
@@ -546,7 +554,7 @@ mod tests {
 		writer.rewind().unwrap();
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
-		let decrypted_mk = header
+		let (decrypted_mk, _) = header
 			.decrypt_master_key_with_password(PASSWORD.to_vec().into(), CONTEXT)
 			.unwrap();
 
@@ -645,8 +653,8 @@ mod tests {
 		writer.rewind().unwrap();
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
-		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
-		let decrypted_mk2 = header
+		let (decrypted_mk, _) = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let (decrypted_mk2, _) = header
 			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
 			.unwrap();
 
@@ -890,8 +898,8 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
-		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
-		let decrypted_mk2 = header
+		let (decrypted_mk, _) = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let (decrypted_mk2, _) = header
 			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
 			.unwrap();
 
@@ -956,8 +964,8 @@ mod tests {
 			.await
 			.unwrap();
 
-		let decrypted_mk = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
-		let decrypted_mk2 = header
+		let (decrypted_mk, _) = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let (decrypted_mk2, _) = header
 			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
 			.unwrap();
 
