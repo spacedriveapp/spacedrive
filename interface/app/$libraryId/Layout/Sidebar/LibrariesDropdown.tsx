@@ -27,9 +27,8 @@ export default () => {
 			}
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
-			className="dark:bg-sidebar-box dark:border-sidebar-line dark:divide-menu-selected/30 mt-1 shadow-none"
+			className="dark:bg-sidebar-box dark:border-sidebar-line dark:divide-menu-selected/30 data-[side=bottom]:slide-in-from-top-2 mt-1 shadow-none"
 			alignToTrigger
-			animate
 		>
 			{libraries.data?.map((lib) => (
 				<DropdownMenu.Item
@@ -40,7 +39,7 @@ export default () => {
 					{lib.config.name}
 				</DropdownMenu.Item>
 			))}
-			<DropdownMenu.Separator className="mx-0 my-0.5" />
+			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
 				label="	New Library"
 				icon={Plus}
