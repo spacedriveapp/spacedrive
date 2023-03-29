@@ -73,11 +73,18 @@ impl From<LocationError> for rspc::Error {
 			}
 
 			// User's fault errors
-			LocationError::NotDirectory(_)
 			// | LocationError::MissingLocalPath(_)
-			| LocationError::NeedRelink { .. }
-			| LocationError::AddLibraryToMetadata(_) => {
+			LocationError::NotDirectory(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+			}
+
+			// Custom error message is used to differenciate these errors in the frontend
+			// TODO: A better solution would be for rspc to support sending custom data alongside errors
+			LocationError::NeedRelink { .. } => {
+				rspc::Error::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), err)
+			}
+			LocationError::AddLibraryToMetadata(_) => {
+				rspc::Error::with_cause(ErrorCode::Conflict, "ADD_LIBRARY".to_owned(), err)
 			}
 
 			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),

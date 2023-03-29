@@ -1,28 +1,28 @@
 import * as RadixCM from '@radix-ui/react-context-menu';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretRight, Icon } from 'phosphor-react';
+import { CaretRight, Icon, IconProps } from 'phosphor-react';
 import { PropsWithChildren, Suspense } from 'react';
 
-interface Props extends RadixCM.MenuContentProps {
+interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
 }
 
-const MENU_CLASSES = `
-  flex flex-col z-50
-  min-w-[8rem] px-1 py-0.5 my-2
-  text-left text-sm text-menu-ink
-  bg-menu cool-shadow
-	border border-menu-line
-  select-none cursor-default rounded-md
-`;
+export const contextMenuClasses = clsx(
+	'z-50 flex flex-col',
+	'my-2 min-w-[8rem] px-1 py-0.5',
+	'text-menu-ink text-left text-sm',
+	'bg-menu cool-shadow',
+	'border-menu-line border',
+	'cursor-default select-none rounded-md'
+);
 
-export const Root = ({ trigger, children, className, ...props }: PropsWithChildren<Props>) => {
+const Root = ({ trigger, children, className, ...props }: PropsWithChildren<ContextMenuProps>) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
 			<RadixCM.Portal>
-				<RadixCM.Content {...props} className={clsx(MENU_CLASSES, className)}>
+				<RadixCM.Content {...props} className={clsx(contextMenuClasses, className)}>
 					{children}
 				</RadixCM.Content>
 			</RadixCM.Portal>
@@ -30,33 +30,39 @@ export const Root = ({ trigger, children, className, ...props }: PropsWithChildr
 	);
 };
 
-export const Separator = () => (
-	<RadixCM.Separator className="border-b-menu-line pointer-events-none mx-2 border-0 border-b" />
+export const contextMenuSeparatorClassNames =
+	'border-b-menu-line pointer-events-none mx-2 my-1 border-0 border-b';
+
+const Separator = (props: { className?: string }) => (
+	<RadixCM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
 );
 
-export const SubMenu = ({
+export const contextSubMenuTriggerClassNames =
+	"[&[data-state='open']_div]:bg-accent text-menu-ink py-[3px]  focus:outline-none [&[data-state='open']_div]:text-white";
+
+const SubMenu = ({
 	label,
 	icon,
 	className,
 	...props
-}: RadixCM.MenuSubContentProps & ItemProps) => {
+}: RadixCM.MenuSubContentProps & ContextMenuItemProps) => {
 	return (
 		<RadixCM.Sub>
-			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-accent text-menu-ink py-[3px]  focus:outline-none [&[data-state='open']_div]:text-white">
+			<RadixCM.SubTrigger className={contextSubMenuTriggerClassNames}>
 				<DivItem rightArrow {...{ label, icon }} />
 			</RadixCM.SubTrigger>
 			<RadixCM.Portal>
 				<Suspense fallback={null}>
-					<RadixCM.SubContent {...props} className={clsx(MENU_CLASSES, '-mt-2', className)} />
+					<RadixCM.SubContent {...props} className={clsx(contextMenuClasses, '-mt-2', className)} />
 				</Suspense>
 			</RadixCM.Portal>
 		</RadixCM.Sub>
 	);
 };
 
-const itemStyles = cva(
+export const contextMenuItemStyles = cva(
 	[
-		'flex flex-1 flex-row items-center justify-start',
+		'flex flex-1 flex-row items-center justify-start overflow-hidden',
 		'space-x-2 px-2 py-[3px]',
 		'cursor-default rounded',
 		'focus:outline-none'
@@ -78,46 +84,49 @@ const itemStyles = cva(
 	}
 );
 
-interface ItemProps extends VariantProps<typeof itemStyles> {
+export interface ContextMenuItemProps extends VariantProps<typeof contextMenuItemStyles> {
 	icon?: Icon;
+	iconProps?: IconProps;
 	rightArrow?: boolean;
 	label?: string;
 	keybind?: string;
 }
 
-export const Item = ({
+const Item = ({
 	icon,
 	label,
 	rightArrow,
 	children,
 	keybind,
 	variant,
-
 	...props
-}: ItemProps & RadixCM.MenuItemProps) => {
+}: ContextMenuItemProps & RadixCM.MenuItemProps) => {
 	return (
-		<RadixCM.Item
-			{...props}
-			className="text-menu-ink group !cursor-default  select-none py-0.5 focus:outline-none active:opacity-80"
-		>
-			<div className={itemStyles({ variant })}>
+		<RadixCM.Item {...props} className="">
+			<div className={contextMenuItemStyles({ variant })}>
 				{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
 			</div>
 		</RadixCM.Item>
 	);
 };
 
-const DivItem = ({ variant, ...props }: ItemProps) => (
-	<div className={itemStyles({ variant })}>
+const DivItem = ({ variant, ...props }: ContextMenuItemProps) => (
+	<div className={contextMenuItemStyles({ variant })}>
 		<ItemInternals {...props} />
 	</div>
 );
 
-const ItemInternals = ({ icon, label, rightArrow, keybind }: ItemProps) => {
+export const ItemInternals = ({
+	icon,
+	label,
+	rightArrow,
+	keybind,
+	iconProps
+}: ContextMenuItemProps) => {
 	const ItemIcon = icon;
 	return (
 		<>
-			{ItemIcon && <ItemIcon size={18} />}
+			{ItemIcon && <ItemIcon size={18} {...iconProps} />}
 			{label && <p>{label}</p>}
 
 			{keybind && (
@@ -133,4 +142,11 @@ const ItemInternals = ({ icon, label, rightArrow, keybind }: ItemProps) => {
 			)}
 		</>
 	);
+};
+
+export const ContextMenu = {
+	Root,
+	Item,
+	Separator,
+	SubMenu
 };

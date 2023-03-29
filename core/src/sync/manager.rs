@@ -2,23 +2,29 @@ use crate::prisma::*;
 use sd_sync::*;
 use serde_json::{from_value, json, to_vec, Value};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
 
 use super::ModelSyncData;
+
+#[derive(Clone)]
+pub enum SyncMessage {
+	Ingested(CRDTOperation),
+	Created(CRDTOperation),
+}
 
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
 	node: Uuid,
 	_clocks: HashMap<Uuid, NTP64>,
 	clock: HLC,
-	tx: Sender<CRDTOperation>,
+	pub tx: Sender<SyncMessage>,
 }
 
 impl SyncManager {
-	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<CRDTOperation>) {
-		let (tx, rx) = mpsc::channel(64);
+	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<SyncMessage>) {
+		let (tx, rx) = broadcast::channel(64);
 
 		(
 			Self {
@@ -77,11 +83,16 @@ impl SyncManager {
 			})
 			.collect::<Vec<_>>();
 
-		let (res, _) = tx._batch((queries, (owned, shared))).await?;
+		#[cfg(feature = "sync-messages")]
+		let res = {
+			let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
-		for op in ops {
-			self.tx.send(op).await.ok();
-		}
+			for op in ops {
+				self.tx.send(SyncMessage::Created(op)).ok();
+			}
+		};
+		#[cfg(not(feature = "sync-messages"))]
+		let res = tx._batch([queries]).await?.remove(0);
 
 		Ok(res)
 	}
@@ -134,7 +145,7 @@ impl SyncManager {
 			_ => todo!(),
 		};
 
-		self.tx.send(op).await.ok();
+		self.tx.send(SyncMessage::Created(op)).ok();
 
 		Ok(ret)
 	}
@@ -171,7 +182,18 @@ impl SyncManager {
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
 
-		match ModelSyncData::from_op(op.typ).unwrap() {
+		db.node()
+			.upsert(
+				node::pub_id::equals(op.node.as_bytes().to_vec()),
+				node::create_unchecked(op.node.as_bytes().to_vec(), "TEMP".to_string(), vec![]),
+				vec![],
+			)
+			.exec()
+			.await?;
+
+		let msg = SyncMessage::Ingested(op.clone());
+
+		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => {
 				let location = db
 					.location()
@@ -298,6 +320,33 @@ impl SyncManager {
 			},
 			_ => todo!(),
 		}
+
+		match op.typ {
+			CRDTOperationType::Shared(shared_op) => {
+				let kind = match &shared_op.data {
+					SharedOperationData::Create(_) => "c",
+					SharedOperationData::Update { .. } => "u",
+					SharedOperationData::Delete => "d",
+				};
+
+				db.shared_operation()
+					.create(
+						op.id.as_bytes().to_vec(),
+						op.timestamp.0 as i64,
+						shared_op.model.to_string(),
+						to_vec(&shared_op.record_id).unwrap(),
+						kind.to_string(),
+						to_vec(&shared_op.data).unwrap(),
+						node::pub_id::equals(op.node.as_bytes().to_vec()),
+						vec![],
+					)
+					.exec()
+					.await?;
+			}
+			_ => {}
+		}
+
+		self.tx.send(msg).ok();
 
 		Ok(())
 	}
