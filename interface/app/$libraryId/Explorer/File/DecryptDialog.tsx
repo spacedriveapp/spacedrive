@@ -134,7 +134,6 @@ export default (props: Props) => {
 					<>
 						<PasswordInput
 							placeholder="Password"
-							size="sm"
 							{...form.register('password', { required: true })}
 						/>
 

@@ -64,7 +64,7 @@ export default function OnboardingNewLibrary() {
 					<>
 						<Input
 							{...form.register('name')}
-							size="md"
+							size="lg"
 							autoFocus
 							className="mt-6 w-[300px]"
 							placeholder={'e.g. "James\' Library"'}

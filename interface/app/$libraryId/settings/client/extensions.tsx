@@ -61,7 +61,7 @@ export const Component = () => {
 			<Heading
 				title="Extensions"
 				description="Install extensions to extend the functionality of this client."
-				rightArea={<SearchInput outerClassnames="mt-1.5" placeholder="Search extensions" />}
+				rightArea={<SearchInput className="mt-1.5" placeholder="Search extensions" />}
 			/>
 
 			<GridLayout>

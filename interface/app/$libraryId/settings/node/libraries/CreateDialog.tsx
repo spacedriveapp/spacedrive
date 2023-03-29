@@ -101,11 +101,7 @@ export default (props: UseDialogProps) => {
 		>
 			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">Library name</p>
-				<Input
-					className="w-full grow"
-					placeholder="My Cool Library"
-					{...form.register('name', { required: true })}
-				/>
+				<Input placeholder="My Cool Library" {...form.register('name', { required: true })} />
 			</div>
 
 			<div className="mt-3 mb-1 flex flex-row items-center">
@@ -130,63 +126,53 @@ export default (props: UseDialogProps) => {
 				<div className="my-1 h-[2px] w-full bg-gray-500" />
 
 				<p className="my-2 text-sm font-bold">Master password</p>
-				<div className="relative mb-2 flex grow">
-					<Input
-						className="grow !py-0.5"
-						placeholder="Password"
-						type={showMasterPassword1 ? 'text' : 'password'}
-						{...form.register('password')}
-					/>
-					<Button
-						onClick={() => {
-							const password = generatePassword(32);
+				<Input
+					placeholder="Password"
+					type={showMasterPassword1 ? 'text' : 'password'}
+					right={
+						<div className="flex">
+							<Button
+								onClick={() => {
+									const password = generatePassword(32);
 
-							form.setValue('password', password);
-							form.setValue('password_validate', password);
+									form.setValue('password', password);
+									form.setValue('password_validate', password);
 
-							setShowMasterPassword1(true);
-							setShowMasterPassword2(true);
-						}}
-						size="icon"
-						className="absolute right-[65px] top-[5px] border-none"
-					>
-						<ArrowsClockwise className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => {
-							navigator.clipboard.writeText(form.watch('password') as string);
-						}}
-						size="icon"
-						className="absolute right-[35px] top-[5px] border-none"
-					>
-						<Clipboard className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<MP1CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+									setShowMasterPassword1(true);
+									setShowMasterPassword2(true);
+								}}
+								size="icon"
+							>
+								<ArrowsClockwise className="h-4 w-4" />
+							</Button>
+							<Button
+								onClick={() => {
+									navigator.clipboard.writeText(form.watch('password') as string);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+							<Button onClick={() => setShowMasterPassword1(!showMasterPassword1)} size="icon">
+								<MP1CurrentEyeIcon className="h-4 w-4" />
+							</Button>
+						</div>
+					}
+					{...form.register('password')}
+				/>
 			</div>
 			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">Master password (again)</p>
-				<div className="relative mb-2 flex grow">
-					<Input
-						className="grow !py-0.5"
-						placeholder="Password"
-						type={showMasterPassword2 ? 'text' : 'password'}
-						{...form.register('password_validate')}
-					/>
-					<Button
-						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<MP2CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+				<Input
+					placeholder="Password"
+					type={showMasterPassword2 ? 'text' : 'password'}
+					right={
+						<Button onClick={() => setShowMasterPassword2(!showMasterPassword2)} size="icon">
+							<MP2CurrentEyeIcon className="h-4 w-4" />
+						</Button>
+					}
+					{...form.register('password_validate')}
+				/>
 			</div>
 
 			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
