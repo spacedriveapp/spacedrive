@@ -8,7 +8,6 @@
 		"vite": "vite",
 		"dev": "tauri dev",
 		"dev-vite": "vite --clearScreen=false --mode development",
-		"react-devtools": "react-devtools",
 		"tauri": "tauri",
 		"build": "node ./src-tauri/build.js",
 		"dmg": "open ../../target/release/bundle/dmg/",
