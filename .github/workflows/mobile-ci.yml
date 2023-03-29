@@ -88,7 +88,7 @@ jobs:
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
           app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          workspace: apps/mobile
+          workspace: apps/mobile/.maestro
 
   ios:
     name: Build iOS
@@ -158,4 +158,4 @@ jobs:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
           app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
           mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-          workspace: apps/mobile
+          workspace: apps/mobile/.maestro
