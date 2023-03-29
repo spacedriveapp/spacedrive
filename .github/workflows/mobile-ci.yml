@@ -87,8 +87,8 @@ jobs:
         uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          app-file: ./apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          workspace: ./apps/mobile/tests
+          app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          workspace: apps/mobile
 
   ios:
     name: Build iOS
@@ -96,6 +96,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install Xcode
+        uses: maxim-lobanov/setup-xcode@v1.5.1
+        with:
+          xcode-version: latest-stable
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.2
@@ -129,16 +134,9 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
 
-      - name: Install Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest
-
-      # - name: Setup Ruby
-      #   uses: ruby/setup-ruby@v1
-      #   with:
-      #     ruby-version: 3.1.3
-      #     bundler-cache: true
+      - name: Check Cargo? (temp)
+        working-directory: ./apps/mobile
+        run: cargo check
 
       - name: Cache Pods
         uses: actions/cache@v3
@@ -162,6 +160,6 @@ jobs:
         uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          app-file: ./apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-          mapping-file: ./apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-          workspace: ./apps/mobile/tests
+          app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+          mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
+          workspace: apps/mobile
