@@ -5,15 +5,9 @@ import { PropsWithChildren, createElement, forwardRef, isValidElement, useState 
 import { Button } from './Button';
 
 export interface InputBaseProps extends VariantProps<typeof inputStyles> {
-	label?: string;
-	error?: string | boolean;
 	icon?: Icon | React.ReactNode;
 	iconPosition?: 'left' | 'right';
 	right?: React.ReactNode;
-	outerClassName?: string;
-	labelClassName?: string;
-	iconClassName?: string;
-	rightClassName?: string;
 }
 
 export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 'size'>;
@@ -22,7 +16,6 @@ export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 export const inputStyles = cva(
 	[
-		'w-full',
 		'rounded-md border text-sm leading-7',
 		'shadow-sm outline-none transition-all focus-within:ring-2'
 	],
@@ -48,82 +41,47 @@ export const inputStyles = cva(
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-	(
-		{
-			variant,
-			size,
-			label,
-			error,
-			icon,
-			right,
-			className,
-			outerClassName,
-			labelClassName,
-			iconClassName,
-			rightClassName,
-			iconPosition = 'left',
-			required,
-			...props
-		},
-		ref
-	) => (
-		<div className={outerClassName}>
-			{label && (
-				<label htmlFor={props.id} className={clsx('mb-1 flex text-sm font-medium', labelClassName)}>
-					{label}
-					{required && <span className="ml-1 text-red-500">*</span>}
-				</label>
+	({ variant, size, right, icon, iconPosition = 'left', className, required, ...props }, ref) => (
+		<div
+			className={clsx(
+				'group flex',
+				inputStyles({ variant, size: right && !size ? 'md' : size, className })
 			)}
-
+		>
 			<div
 				className={clsx(
-					'group flex',
-					error && 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30',
-					inputStyles({ variant, size: right && !size ? 'md' : size, className })
+					'flex h-full flex-1 overflow-hidden',
+					iconPosition === 'right' && 'flex-row-reverse'
 				)}
 			>
-				<div
-					className={clsx(
-						'flex h-full flex-1 overflow-hidden',
-						iconPosition === 'right' && 'flex-row-reverse'
-					)}
-				>
-					{icon && (
-						<div
-							className={clsx(
-								'flex h-full items-center',
-								iconPosition === 'left' ? 'pr-2 pl-[10px]' : 'pl-2 pr-[10px]',
-								iconClassName
-							)}
-						>
-							{isValidElement(icon)
-								? icon
-								: createElement<IconProps>(icon as Icon, {
-										size: 18,
-										className: 'text-gray-350'
-								  })}
-						</div>
-					)}
-
-					<input
+				{icon && (
+					<div
 						className={clsx(
-							'placeholder:text-ink-faint flex-1 truncate border-none bg-transparent px-3 text-sm outline-none',
-							(right || (icon && iconPosition === 'right')) && 'pr-0',
-							icon && iconPosition === 'left' && 'pl-0'
+							'flex h-full items-center',
+							iconPosition === 'left' ? 'pr-2 pl-[10px]' : 'pl-2 pr-[10px]'
 						)}
-						ref={ref}
-						{...props}
-					/>
-				</div>
-
-				{right && (
-					<div className={clsx('flex h-full items-center px-1', rightClassName)}>{right}</div>
+					>
+						{isValidElement(icon)
+							? icon
+							: createElement<IconProps>(icon as Icon, {
+									size: 18,
+									className: 'text-gray-350'
+							  })}
+					</div>
 				)}
+
+				<input
+					className={clsx(
+						'placeholder:text-ink-faint flex-1 truncate border-none bg-transparent px-3 text-sm outline-none',
+						(right || (icon && iconPosition === 'right')) && 'pr-0',
+						icon && iconPosition === 'left' && 'pl-0'
+					)}
+					ref={ref}
+					{...props}
+				/>
 			</div>
 
-			{error && typeof error === 'string' && (
-				<span className="whitespace-pre-line text-xs text-red-500">{error}</span>
-			)}
+			{right && <div className="flex h-full min-w-[12px] items-center px-1">{right}</div>}
 		</div>
 	)
 );
