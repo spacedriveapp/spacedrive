@@ -1,9 +1,4 @@
-use std::{
-	net::{SocketAddr, TcpListener},
-	sync::Arc,
-};
-
-use sd_core::Node;
+use std::net::{SocketAddr, TcpListener};
 
 use axum::{
 	extract::{Query, State, TypedHeader},
@@ -17,16 +12,14 @@ use axum::{
 use httpz::{Endpoint, HttpEndpoint};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::Deserialize;
-use tauri::{plugin::TauriPlugin, Builder, Runtime};
+use tauri::{async_runtime::Receiver, plugin::TauriPlugin, Builder, Runtime};
 use tracing::debug;
 
 pub(super) async fn setup<R: Runtime>(
 	app: Builder<R>,
-	node: Arc<Node>,
+	mut rx: Receiver<()>,
 	endpoint: Endpoint<impl HttpEndpoint>,
 ) -> Builder<R> {
-	let signal = server::utils::axum_shutdown_signal(node);
-
 	let auth_token: String = rand::thread_rng()
 		.sample_iter(&Alphanumeric)
 		.take(10)
@@ -54,7 +47,9 @@ pub(super) async fn setup<R: Runtime>(
 		axum::Server::from_tcp(listener)
 			.expect("error creating HTTP server!")
 			.serve(axum_app.into_make_service())
-			.with_graceful_shutdown(signal)
+			.with_graceful_shutdown(async {
+				rx.recv().await;
+			})
 			.await
 			.expect("Error with HTTP server!");
 	});
