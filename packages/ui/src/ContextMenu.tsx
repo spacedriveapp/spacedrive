@@ -64,7 +64,6 @@ const contextMenuItemStyles = cva(
 		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
 		'text-ink text-sm',
 		'group-radix-highlighted:text-white dark:group-radix-highlighted:text-ink',
-		'group-radix-highlighted:text-white dark:group-radix-highlighted:text-ink',
 		'group-radix-disabled:text-ink/50 group-radix-disabled:pointer-events-none',
 		'group-radix-state-open:bg-accent group-radix-state-open:text-white dark:group-radix-state-open:text-ink'
 	],
