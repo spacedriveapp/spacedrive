@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { FieldValues, UseControllerProps, useController } from 'react-hook-form';
 import { Popover, inputStyles } from '@sd/ui';
@@ -12,7 +13,10 @@ export default <T extends FieldValues>({ className, ...props }: Props<T>) => {
 	return (
 		<Popover
 			trigger={
-				<div className="h-4 w-4 rounded-full shadow" style={{ backgroundColor: field.value }} />
+				<div
+					className={clsx('h-4 w-4 rounded-full shadow', className)}
+					style={{ backgroundColor: field.value }}
+				/>
 			}
 			className="p-3"
 			sideOffset={5}
@@ -21,7 +25,7 @@ export default <T extends FieldValues>({ className, ...props }: Props<T>) => {
 			<HexColorInput
 				color={field.value}
 				onChange={field.onChange}
-				className={inputStyles({ size: 'md', className: 'bg-app mt-5 px-3' })}
+				className={inputStyles({ size: 'sm', className: '!mt-5 bg-app' })}
 			/>
 		</Popover>
 	);
