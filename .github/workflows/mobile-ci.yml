@@ -75,13 +75,7 @@ jobs:
 
       - name: Build Android
         working-directory: ./apps/mobile/android
-        run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
-
-      # - name: Upload APK
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: Spacedrive.apk
-      #     path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+        run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=arm64 --no-daemon
 
       - name: Cache AVD
         uses: actions/cache@v3
@@ -122,72 +116,6 @@ jobs:
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb wait-for-device
             maestro test apps/mobile/tests/onboarding.yaml
-
-  # testAndroid:
-  #   name: Test Android
-  #   needs: android
-  #   runs-on: macos-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
-
-  #     - name: Download APK
-  #       uses: actions/download-artifact@v2
-  #       with:
-  #         name: Spacedrive.apk
-
-  #     - name: Install Maestro
-  #       run: curl -Ls "https://get.maestro.mobile.dev" | bash
-
-  #     - name: Cache Gradle
-  #       uses: gradle/gradle-build-action@v2
-
-  #     - name: Cache AVD
-  #       uses: actions/cache@v3
-  #       id: avd-cache
-  #       with:
-  #         path: |
-  #           ~/.android/avd/*
-  #           ~/.android/adb*
-  #         key: avd-33
-
-  #     - name: Generate AVD Snapshot
-  #       if: steps.avd-cache.outputs.cache-hit != 'true'
-  #       uses: reactivecircus/android-emulator-runner@v2
-  #       with:
-  #         arch: arm64-v8a
-  #         api-level: 33
-  #         ndk: 23.1.7779620
-  #         cmake: 3.22.1
-  #         force-avd-creation: false
-  #         emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-  #         disable-animations: false
-  #         script: echo "Generated AVD snapshot"
-
-  #     - name: Run Emulator
-  #       uses: reactivecircus/android-emulator-runner@v2
-  #       with:
-  #         arch: arm64-v8a
-  #         api-level: 33
-  #         ndk: 23.1.7779620
-  #         cmake: 3.22.1
-  #         force-avd-creation: false
-  #         emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-  #         disable-animations: true
-  #         script: |
-  #           adb install -r Spacedrive.apk
-  #           adb wait-for-device
-  #           maestro test apps/mobile/tests/onboarding.yaml
-
-  #     # - name: Install app on emulator
-  #     #   run: |
-  #     #     adb wait-for-device
-  #     #     # Install app
-  #     #     adb install -r Spacedrive.apk
-
-  #     # - name: Run Tests
-  #     #   working-directory: ./apps/mobile
-  #     #   run: maestro test tests/onboarding.yaml
 
   ios:
     name: Build iOS

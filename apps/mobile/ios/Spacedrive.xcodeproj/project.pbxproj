@@ -429,7 +429,7 @@
 					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.test2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
 				PRODUCT_NAME = Spacedrive;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
@@ -525,7 +525,7 @@
 					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.test2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
 				PRODUCT_NAME = Spacedrive;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
