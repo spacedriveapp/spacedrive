@@ -77,12 +77,18 @@ jobs:
         working-directory: ./apps/mobile/android
         run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
 
-      # - name: Test Android
-      #   uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-      #   with:
-      #     api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-      #     app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-      #     workspace: apps/mobile/.maestro
+      - name: Upload APK
+        uses: actions/upload-artifact@v2
+        with:
+          name: Spacedrive.apk
+          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Test Android
+        uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
+        with:
+          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          app-file: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          workspace: apps/mobile/tests
 
   testAndroid:
     name: Test Android
@@ -91,6 +97,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Download APK
+        uses: actions/download-artifact@v2
+        with:
+          name: Spacedrive.apk
 
       - name: Gradle Cache
         uses: gradle/gradle-build-action@v2
@@ -116,7 +127,7 @@ jobs:
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
-      - name: run tests
+      - name: Run Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           arch: x86
@@ -131,7 +142,7 @@ jobs:
         run: |
           adb wait-for-device
           # Install app
-          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          adb install -r Spacedrive.apk
 
       - name: Install Maestro
         run: curl -Ls "https://get.maestro.mobile.dev" | bash
