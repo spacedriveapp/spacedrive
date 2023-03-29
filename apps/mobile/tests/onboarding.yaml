@@ -1,8 +1,6 @@
 appId: com.spacedrive.app
 ---
-- launchApp:
-  #   Not required on fresh app, but useful for debugging
-  #   clearState: true
+- launchApp
 - tapOn: 'Get Started'
 - tapOn:
     id: 'library-name'
