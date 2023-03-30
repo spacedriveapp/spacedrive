@@ -8,9 +8,9 @@ use crate::{
 			get_parent_dir, get_parent_dir_id, loose_find_existing_file_path_params, FilePathError,
 			MaterializedPath,
 		},
-		location_with_indexer_rules,
+		find_location, location_with_indexer_rules,
 		manager::LocationManagerError,
-		scan_location_sub_path,
+		scan_location_sub_path, LocationId,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -20,7 +20,7 @@ use crate::{
 		},
 		validation::hash::file_checksum,
 	},
-	prisma::{file_path, object},
+	prisma::{file_path, location, object},
 };
 
 #[cfg(target_family = "unix")]
@@ -40,7 +40,7 @@ use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, Local};
 use int_enum::IntEnum;
-use notify::{event::RemoveKind, Event, EventKind};
+use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
@@ -60,23 +60,16 @@ pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> boo
 }
 
 pub(super) async fn create_dir(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	let path = &event.paths[0];
-	create_dir_by_path(location, path, &fs::metadata(path).await?, library).await
-}
-
-pub(super) async fn create_dir_by_path(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	if location.node_id != library.node_local_id {
-		return Ok(());
-	}
+	let location = find_location(library, location_id)
+		.include(location_with_indexer_rules::include())
+		.exec()
+		.await?
+		.ok_or(LocationManagerError::MissingLocation(location_id))?;
 
 	let path = path.as_ref();
 
@@ -91,13 +84,13 @@ pub(super) async fn create_dir_by_path(
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
 		{
-			get_inode_and_device(&metadata)?
+			get_inode_and_device(metadata)?
 		}
 
 		#[cfg(target_family = "windows")]
 		{
 			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = &metadata; // To avoid unused variable warning
+			let _ = metadata; // To avoid unused variable warning
 			get_inode_and_device_from_path(&path).await?
 		}
 	};
@@ -125,7 +118,7 @@ pub(super) async fn create_dir_by_path(
 	info!("Created path: {}", created_path.materialized_path);
 
 	// scan the new directory
-	scan_location_sub_path(library, location.clone(), &created_path.materialized_path).await;
+	scan_location_sub_path(library, location, &created_path.materialized_path).await;
 
 	invalidate_query!(library, "locations.getExplorerData");
 
@@ -133,45 +126,34 @@ pub(super) async fn create_dir_by_path(
 }
 
 pub(super) async fn create_file(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	let path = &event.paths[0];
-	create_file_by_path(location, path, &fs::metadata(path).await?, library).await
-}
-
-pub(super) async fn create_file_by_path(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
-	if location.node_id != library.node_local_id {
-		return Ok(());
-	}
+	let location_path = extract_location_path(location_id, library).await?;
 
 	trace!(
 		"Location: <root_path ='{}'> creating file: {}",
-		&location.path,
+		location_path.display(),
 		path.display()
 	);
 
 	let db = &library.db;
 
-	let materialized_path = MaterializedPath::new(location.id, &location.path, path, false)?;
+	let materialized_path = MaterializedPath::new(location_id, &location_path, path, false)?;
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
 		{
-			get_inode_and_device(&metadata)?
+			get_inode_and_device(metadata)?
 		}
 
 		#[cfg(target_family = "windows")]
 		{
 			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = &metadata; // To avoid unused variable warning
+			let _ = metadata; // To avoid unused variable warning
 			get_inode_and_device_from_path(path).await?
 		}
 	};
@@ -201,7 +183,11 @@ pub(super) async fn create_file_by_path(
 		cas_id,
 		kind,
 		fs_metadata,
-	} = FileMetadata::new(&location.path, &created_file.materialized_path[1..]).await?;
+	} = FileMetadata::new(
+		&location_path,
+		&MaterializedPath::from((location_id, &created_file.materialized_path)),
+	)
+	.await?;
 
 	let existing_object = db
 		.object()
@@ -232,7 +218,7 @@ pub(super) async fn create_file_by_path(
 
 	db.file_path()
 		.update(
-			file_path::location_id_id(location.id, created_file.id),
+			file_path::location_id_id(location_id, created_file.id),
 			vec![file_path::object_id::set(Some(object.id))],
 		)
 		.exec()
@@ -248,39 +234,34 @@ pub(super) async fn create_file_by_path(
 }
 
 pub(super) async fn create_dir_or_file(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
-	library: &Library,
-) -> Result<Metadata, LocationManagerError> {
-	create_dir_or_file_by_path(location, &event.paths[0], library).await
-}
-
-pub(super) async fn create_dir_or_file_by_path(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<Metadata, LocationManagerError> {
 	let metadata = fs::metadata(path.as_ref()).await?;
 	if metadata.is_dir() {
-		create_dir_by_path(location, path, &metadata, library).await
+		create_dir(location_id, path, &metadata, library).await
 	} else {
-		create_file_by_path(location, path, &metadata, library).await
+		create_file(location_id, path, &metadata, library).await
 	}
 	.map(|_| metadata)
 }
 
 pub(super) async fn file_creation_or_update(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
+	location_id: LocationId,
+	full_path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
+	let full_path = full_path.as_ref();
+	let location_path = extract_location_path(location_id, library).await?;
+
 	if let Some(ref file_path) = library
 		.db
 		.file_path()
 		.find_first(filter_existing_file_path_params(&MaterializedPath::new(
-			location.id,
-			&location.path,
-			&event.paths[0],
+			location_id,
+			&location_path,
+			full_path,
 			false,
 		)?))
 		// include object for orphan check
@@ -288,63 +269,73 @@ pub(super) async fn file_creation_or_update(
 		.exec()
 		.await?
 	{
-		inner_update_file(location, file_path, event, library).await
+		inner_update_file(location_id, file_path, full_path, library).await
 	} else {
-		// We received None because it is a new file
-		create_file(location, event, library).await
+		create_file(
+			location_id,
+			full_path,
+			&fs::metadata(full_path).await?,
+			library,
+		)
+		.await
 	}
 }
 
 pub(super) async fn update_file(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
+	location_id: LocationId,
+	full_path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	if location.node_id == library.node_local_id {
-		if let Some(ref file_path) = library
-			.db
-			.file_path()
-			.find_first(filter_existing_file_path_params(&MaterializedPath::new(
-				location.id,
-				&location.path,
-				&event.paths[0],
-				false,
-			)?))
-			// include object for orphan check
-			.include(file_path_with_object::include())
-			.exec()
-			.await?
-		{
-			let ret = inner_update_file(location, file_path, event, library).await;
-			invalidate_query!(library, "locations.getExplorerData");
-			ret
-		} else {
-			Err(LocationManagerError::UpdateNonExistingFile(
-				event.paths[0].clone(),
-			))
-		}
+	let full_path = full_path.as_ref();
+	let location_path = extract_location_path(location_id, library).await?;
+
+	if let Some(ref file_path) = library
+		.db
+		.file_path()
+		.find_first(filter_existing_file_path_params(&MaterializedPath::new(
+			location_id,
+			&location_path,
+			full_path,
+			false,
+		)?))
+		// include object for orphan check
+		.include(file_path_with_object::include())
+		.exec()
+		.await?
+	{
+		let ret = inner_update_file(location_id, file_path, full_path, library).await;
+		invalidate_query!(library, "locations.getExplorerData");
+		ret
 	} else {
-		Err(LocationManagerError::LocationMissingLocalPath(location.id))
+		Err(LocationManagerError::UpdateNonExistingFile(
+			full_path.to_path_buf(),
+		))
 	}
 }
 
 async fn inner_update_file(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	file_path: &file_path_with_object::Data,
-	event: &Event,
+	full_path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
+	let full_path = full_path.as_ref();
+	let location_path = extract_location_path(location_id, library).await?;
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
-		&location.path,
-		event.paths[0].display()
+		location_path.display(),
+		full_path.display()
 	);
 
 	let FileMetadata {
 		cas_id,
 		fs_metadata,
 		kind,
-	} = FileMetadata::new(&location.path, &file_path.materialized_path[1..]).await?;
+	} = FileMetadata::new(
+		&location_path,
+		&MaterializedPath::from((location_id, &file_path.materialized_path)),
+	)
+	.await?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
@@ -353,7 +344,7 @@ async fn inner_update_file(
 				.db
 				.file_path()
 				.update(
-					file_path::location_id_id(location.id, file_path.id),
+					file_path::location_id_id(location_id, file_path.id),
 					vec![
 						file_path::cas_id::set(Some(old_cas_id.clone())),
 						file_path::size_in_bytes::set(fs_metadata.len().to_string()),
@@ -363,7 +354,7 @@ async fn inner_update_file(
 						file_path::integrity_checksum::set(
 							if file_path.integrity_checksum.is_some() {
 								// If a checksum was already computed, we need to recompute it
-								Some(file_checksum(&event.paths[0]).await?)
+								Some(file_checksum(full_path).await?)
 							} else {
 								None
 							},
@@ -376,8 +367,7 @@ async fn inner_update_file(
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
 				if object.has_thumbnail && !file_path.extension.is_empty() {
-					generate_thumbnail(&file_path.extension, &cas_id, &event.paths[0], library)
-						.await;
+					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 				}
 
 				let int_kind = kind.int_value();
@@ -393,32 +383,23 @@ async fn inner_update_file(
 						.await?;
 				}
 			}
+			invalidate_query!(library, "locations.getExplorerData");
 		}
 	}
-
-	invalidate_query!(library, "locations.getExplorerData");
 
 	Ok(())
 }
 
-pub(super) async fn rename_both_event(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	rename(&event.paths[1], &event.paths[0], location, library).await
-}
-
 pub(super) async fn rename(
+	location_id: LocationId,
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
-	location: &location_with_indexer_rules::Data,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	let location_path = Path::new(&location.path);
+	let location_path = extract_location_path(location_id, library).await?;
 
 	let old_path_materialized =
-		extract_materialized_path(location.id, location_path, old_path.as_ref())?;
+		extract_materialized_path(location_id, &location_path, old_path.as_ref())?;
 	let mut old_path_materialized_str = format!(
 		"{MAIN_SEPARATOR_STR}{}",
 		old_path_materialized
@@ -427,7 +408,7 @@ pub(super) async fn rename(
 	);
 
 	let new_path_materialized =
-		extract_materialized_path(location.id, location_path, new_path.as_ref())?;
+		extract_materialized_path(location_id, &location_path, new_path.as_ref())?;
 	let mut new_path_materialized_str = format!(
 		"{MAIN_SEPARATOR_STR}{}",
 		new_path_materialized
@@ -447,8 +428,8 @@ pub(super) async fn rename(
 		Some(
 			get_parent_dir_id(
 				&MaterializedPath::new(
-					location.id,
-					location_path,
+					location_id,
+					&location_path,
 					new_path,
 					true,
 				)?,
@@ -465,7 +446,7 @@ pub(super) async fn rename(
 		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&MaterializedPath::new(location.id, &location.path, old_path, true)?,
+			&MaterializedPath::new(location_id, &location_path, old_path, true)?,
 		))
 		.exec()
 		.await?
@@ -487,7 +468,7 @@ pub(super) async fn rename(
 						WHERE location_id = {}",
 					PrismaValue::String(old_path_materialized_str.clone()),
 					PrismaValue::String(new_path_materialized_str.clone()),
-					PrismaValue::Int(location.id as i64)
+					PrismaValue::Int(location_id as i64)
 				))
 				.exec()
 				.await?;
@@ -535,40 +516,30 @@ pub(super) async fn rename(
 	Ok(())
 }
 
-pub(super) async fn remove_event(
-	location: &location_with_indexer_rules::Data,
-	event: &Event,
-	remove_kind: RemoveKind,
+pub(super) async fn remove(
+	location_id: LocationId,
+	full_path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
-	trace!("removed {remove_kind:#?}");
-
-	remove_by_path(location, &event.paths[0], library).await
-}
-
-pub(super) async fn remove_by_path(
-	location: &location_with_indexer_rules::Data,
-	path: impl AsRef<Path>,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	let path = path.as_ref();
+	let full_path = full_path.as_ref();
+	let location_path = extract_location_path(location_id, library).await?;
 
 	// if it doesn't exist either way, then we don't care
 	let Some(file_path) = library.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&MaterializedPath::new(location.id, &location.path, path, true)?,
+			&MaterializedPath::new(location_id, &location_path, full_path, true)?,
 		))
 		.exec()
 		.await? else {
 			return Ok(());
 	};
 
-	remove_by_file_path(location, path, &file_path, library).await
+	remove_by_file_path(location_id, full_path, &file_path, library).await
 }
 
 pub(super) async fn remove_by_file_path(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	path: impl AsRef<Path>,
 	file_path: &file_path::Data,
 	library: &Library,
@@ -583,7 +554,7 @@ pub(super) async fn remove_by_file_path(
 			if file_path.is_dir {
 				delete_directory(
 					library,
-					location.id,
+					location_id,
 					Some(file_path.materialized_path.clone()),
 				)
 				.await?;
@@ -591,7 +562,7 @@ pub(super) async fn remove_by_file_path(
 				library
 					.db
 					.file_path()
-					.delete(file_path::location_id_id(location.id, file_path.id))
+					.delete(file_path::location_id_id(location_id, file_path.id))
 					.exec()
 					.await?;
 
@@ -615,7 +586,7 @@ pub(super) async fn remove_by_file_path(
 	// If the file paths we just removed were the last ids in the DB, we decresed the last id from the id manager
 	library
 		.last_file_path_id_manager
-		.sync(location.id, &library.db)
+		.sync(location_id, &library.db)
 		.await?;
 
 	invalidate_query!(library, "locations.getExplorerData");
@@ -626,10 +597,10 @@ pub(super) async fn remove_by_file_path(
 async fn generate_thumbnail(
 	extension: &str,
 	cas_id: &str,
-	file_path: impl AsRef<Path>,
+	path: impl AsRef<Path>,
 	library: &Library,
 ) {
-	let file_path = file_path.as_ref();
+	let path = path.as_ref();
 	let output_path = library
 		.config()
 		.data_directory()
@@ -639,7 +610,7 @@ async fn generate_thumbnail(
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(&extension) {
-			if let Err(e) = generate_image_thumbnail(file_path, &output_path).await {
+			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
 				error!("Failed to image thumbnail on location manager: {e:#?}");
 			}
 		}
@@ -652,7 +623,7 @@ async fn generate_thumbnail(
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {
 			if can_generate_thumbnail_for_video(&extension) {
-				if let Err(e) = generate_video_thumbnail(file_path, &output_path).await {
+				if let Err(e) = generate_video_thumbnail(path, &output_path).await {
 					error!("Failed to video thumbnail on location manager: {e:#?}");
 				}
 			}
@@ -661,16 +632,22 @@ async fn generate_thumbnail(
 }
 
 pub(super) async fn extract_inode_and_device_from_path(
-	location: &location_with_indexer_rules::Data,
+	location_id: LocationId,
 	path: impl AsRef<Path>,
 	library: &Library,
 ) -> Result<INodeAndDevice, LocationManagerError> {
 	let path = path.as_ref();
+	let location = find_location(library, location_id)
+		.select(location::select!({ path }))
+		.exec()
+		.await?
+		.ok_or(LocationManagerError::MissingLocation(location_id))?;
+
 	library
 		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&MaterializedPath::new(location.id, &location.path, path, true)?,
+			&MaterializedPath::new(location_id, &location.path, path, true)?,
 		))
 		.select(file_path::select!( {inode device} ))
 		.exec()
@@ -682,4 +659,19 @@ pub(super) async fn extract_inode_and_device_from_path(
 			)
 		})
 		.ok_or_else(|| FilePathError::NotFound(path.to_path_buf()).into())
+}
+
+pub(super) async fn extract_location_path(
+	location_id: LocationId,
+	library: &Library,
+) -> Result<PathBuf, LocationManagerError> {
+	find_location(library, location_id)
+		.select(location::select!({ path }))
+		.exec()
+		.await?
+		.map_or(
+			Err(LocationManagerError::MissingLocation(location_id)),
+			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
+			|location| Ok(PathBuf::from(location.path)),
+		)
 }

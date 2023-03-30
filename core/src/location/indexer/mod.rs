@@ -71,7 +71,7 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
-	materialized_path: MaterializedPath,
+	materialized_path: MaterializedPath<'static>,
 	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
@@ -187,9 +187,9 @@ async fn execute_indexer_step(
 				file_path::create_unchecked(
 					entry.file_id,
 					location.id,
-					materialized_path,
-					name,
-					extension,
+					materialized_path.into_owned(),
+					name.into_owned(),
+					extension.into_owned(),
 					entry.inode.to_le_bytes().into(),
 					entry.device.to_le_bytes().into(),
 					vec![

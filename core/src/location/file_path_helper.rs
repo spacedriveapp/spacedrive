@@ -1,6 +1,7 @@
 use crate::prisma::{file_path, location, PrismaClient};
 
 use std::{
+	borrow::Cow,
 	fmt::{Display, Formatter},
 	fs::Metadata,
 	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
@@ -45,15 +46,15 @@ file_path::select!(file_path_just_materialized_path_cas_id {
 file_path::include!(file_path_with_object { object });
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct MaterializedPath {
-	pub(super) materialized_path: String,
+pub struct MaterializedPath<'a> {
+	pub(super) materialized_path: Cow<'a, str>,
 	pub(super) is_dir: bool,
 	pub(super) location_id: LocationId,
-	pub(super) name: String,
-	pub(super) extension: String,
+	pub(super) name: Cow<'a, str>,
+	pub(super) extension: Cow<'a, str>,
 }
 
-impl MaterializedPath {
+impl MaterializedPath<'static> {
 	pub fn new(
 		location_id: LocationId,
 		location_path: impl AsRef<Path>,
@@ -95,29 +96,30 @@ impl MaterializedPath {
 		};
 
 		Ok(Self {
-			materialized_path,
+			materialized_path: Cow::Owned(materialized_path),
 			is_dir,
 			location_id,
-			name: Self::prepare_name(full_path),
-			extension,
+			name: Cow::Owned(Self::prepare_name(full_path).to_string()),
+			extension: Cow::Owned(extension),
 		})
 	}
+}
 
+impl<'a> MaterializedPath<'a> {
 	pub fn location_id(&self) -> LocationId {
 		self.location_id
 	}
 
-	fn prepare_name(path: &Path) -> String {
+	fn prepare_name(path: &Path) -> &str {
 		// Not using `impl AsRef<Path>` here because it's an private method
 		path.file_stem()
 			.unwrap_or_default()
 			.to_str()
 			.unwrap_or_default()
-			.to_string()
 	}
 
 	pub fn parent(&self) -> Self {
-		let parent_path = Path::new(&self.materialized_path)
+		let parent_path = Path::new(self.materialized_path.as_ref())
 			.parent()
 			.unwrap_or_else(|| Path::new(MAIN_SEPARATOR_STR));
 
@@ -131,43 +133,80 @@ impl MaterializedPath {
 		}
 
 		Self {
-			materialized_path: parent_path_str,
+			materialized_path: Cow::Owned(parent_path_str),
 			is_dir: true,
 			location_id: self.location_id,
 			// NOTE: This way we don't use the same name for "/" `file_path`, that uses the location
 			// name in the database, check later if this is a problem
-			name: Self::prepare_name(parent_path),
-			extension: String::new(),
+			name: Cow::Owned(Self::prepare_name(parent_path).to_string()),
+			extension: Cow::Owned(String::new()),
 		}
 	}
 }
 
-impl From<MaterializedPath> for String {
+impl<'a, S: AsRef<str> + 'a> From<(LocationId, &'a S)> for MaterializedPath<'a> {
+	fn from((location_id, materialized_path): (LocationId, &'a S)) -> Self {
+		let materialized_path = materialized_path.as_ref();
+		let is_dir = materialized_path.ends_with(MAIN_SEPARATOR);
+		let length = materialized_path.len();
+
+		let (name, extension) = if length == 1 {
+			// The case for the root path
+			(materialized_path, "")
+		} else if is_dir {
+			let first_name_char = materialized_path[..(length - 1)]
+				.rfind(MAIN_SEPARATOR)
+				.unwrap_or(0) + 1;
+			(&materialized_path[first_name_char..(length - 1)], "")
+		} else {
+			let first_name_char = materialized_path.rfind(MAIN_SEPARATOR).unwrap_or(0) + 1;
+			if let Some(last_dot_relative_idx) = materialized_path[first_name_char..].rfind('.') {
+				let last_dot_idx = first_name_char + last_dot_relative_idx;
+				(
+					&materialized_path[first_name_char..last_dot_idx],
+					&materialized_path[last_dot_idx + 1..],
+				)
+			} else {
+				(&materialized_path[first_name_char..], "")
+			}
+		};
+
+		Self {
+			materialized_path: Cow::Borrowed(materialized_path),
+			location_id,
+			is_dir,
+			name: Cow::Borrowed(name),
+			extension: Cow::Borrowed(extension),
+		}
+	}
+}
+
+impl From<MaterializedPath<'_>> for String {
 	fn from(path: MaterializedPath) -> Self {
-		path.materialized_path
+		path.materialized_path.into_owned()
 	}
 }
 
-impl From<&MaterializedPath> for String {
+impl From<&MaterializedPath<'_>> for String {
 	fn from(path: &MaterializedPath) -> Self {
-		path.materialized_path.clone()
+		path.materialized_path.to_string()
 	}
 }
 
-impl AsRef<str> for MaterializedPath {
+impl AsRef<str> for MaterializedPath<'_> {
 	fn as_ref(&self) -> &str {
 		self.materialized_path.as_ref()
 	}
 }
 
-impl AsRef<Path> for MaterializedPath {
+impl AsRef<Path> for &MaterializedPath<'_> {
 	fn as_ref(&self) -> &Path {
 		// Skipping / because it's not a valid path to be joined
 		Path::new(&self.materialized_path[1..])
 	}
 }
 
-impl Display for MaterializedPath {
+impl Display for MaterializedPath<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", self.materialized_path)
 	}
@@ -273,7 +312,7 @@ impl LastFilePathIdManager {
 			location_id,
 			name,
 			extension,
-		}: MaterializedPath,
+		}: MaterializedPath<'_>,
 		parent_id: Option<i32>,
 		inode: u64,
 		device: u64,
@@ -294,9 +333,9 @@ impl LastFilePathIdManager {
 			.create(
 				next_id,
 				location::id::equals(location_id),
-				materialized_path,
-				name,
-				extension,
+				materialized_path.into_owned(),
+				name.into_owned(),
+				extension.into_owned(),
 				inode.to_le_bytes().into(),
 				device.to_le_bytes().into(),
 				vec![
@@ -370,7 +409,7 @@ pub async fn filter_file_paths_by_many_full_path_params(
 
 #[cfg(feature = "location-watcher")]
 pub async fn check_existing_file_path(
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
 ) -> Result<bool, FilePathError> {
 	db.file_path()
@@ -391,15 +430,15 @@ pub fn filter_existing_file_path_params(
 ) -> Vec<file_path::WhereParam> {
 	let mut params = vec![
 		file_path::location_id::equals(*location_id),
-		file_path::materialized_path::equals(materialized_path.clone()),
+		file_path::materialized_path::equals(materialized_path.to_string()),
 		file_path::is_dir::equals(*is_dir),
-		file_path::extension::equals(extension.clone()),
+		file_path::extension::equals(extension.to_string()),
 	];
 
 	// This is due to a limitation of MaterializedPath, where we don't know the location name to use
 	// as the file_path name at the root of the location "/" or "\" on Windows
 	if materialized_path != MAIN_SEPARATOR_STR {
-		params.push(file_path::name::equals(name.clone()));
+		params.push(file_path::name::equals(name.to_string()));
 	}
 
 	params
@@ -417,7 +456,7 @@ pub fn loose_find_existing_file_path_params(
 		..
 	}: &MaterializedPath,
 ) -> Vec<file_path::WhereParam> {
-	let mut materialized_path_str = materialized_path.clone();
+	let mut materialized_path_str = materialized_path.to_string();
 	if *is_dir {
 		materialized_path_str.pop();
 	}
@@ -430,14 +469,14 @@ pub fn loose_find_existing_file_path_params(
 	// This is due to a limitation of MaterializedPath, where we don't know the location name to use
 	// as the file_path name at the root of the location "/" or "\" on Windows
 	if materialized_path != MAIN_SEPARATOR_STR {
-		params.push(file_path::name::equals(name.clone()));
+		params.push(file_path::name::equals(name.to_string()));
 	}
 
 	params
 }
 
 pub async fn get_existing_file_path_id(
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
 ) -> Result<Option<i32>, FilePathError> {
 	db.file_path()
@@ -450,7 +489,7 @@ pub async fn get_existing_file_path_id(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'static>,
 	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
 	db.file_path()
@@ -464,7 +503,7 @@ pub async fn get_parent_dir(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir_id(
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'static>,
 	db: &PrismaClient,
 ) -> Result<Option<i32>, FilePathError> {
 	get_existing_file_path_id(&materialized_path.parent(), db).await
@@ -600,7 +639,6 @@ pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathE
 	}
 }
 
-
 #[allow(unused)]
 pub async fn get_inode_and_device_from_path(
 	path: impl AsRef<Path>,
@@ -612,7 +650,6 @@ pub async fn get_inode_and_device_from_path(
 
 		get_inode_and_device(&metadata)
 	}
-	
 
 	#[cfg(target_family = "windows")]
 	{
