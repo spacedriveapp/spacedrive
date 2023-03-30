@@ -11,7 +11,8 @@ import {
 	isObject,
 	useLibraryQuery
 } from '@sd/client';
-import { Button, Divider, Tooltip, tw } from '@sd/ui';
+import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -110,19 +111,29 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 						<Divider />
 						<MetaContainer>
-							<div className="flex flex-wrap gap-1">
+							<div className="flex flex-wrap gap-1 overflow-hidden">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
 								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
-									<InfoPill
-										className="!text-white"
-										key={tag.id}
-										style={{ backgroundColor: tag.color + 'CC' }}
-									>
-										{tag.name}
-									</InfoPill>
+									<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
+										<InfoPill
+											className="truncate !text-white"
+											style={{ backgroundColor: tag.color + 'CC' }}
+										>
+											{tag.name}
+										</InfoPill>
+									</Tooltip>
 								))}
-								<PlaceholderPill>Add Tag</PlaceholderPill>
+								{objectData?.id && (
+									<DropdownMenu.Root
+										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+										side="left"
+										sideOffset={5}
+										alignOffset={-10}
+									>
+										<AssignTagMenuItems objectId={objectData.id} />
+									</DropdownMenu.Root>
+								)}
 							</div>
 						</MetaContainer>
 						<Divider />
