@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import { PropsWithChildren, useId } from 'react';
 import { useFormContext } from 'react-hook-form';
 
@@ -28,7 +27,7 @@ export const FormField = (props: FormFieldProps) => {
 	const state = ctx.getFieldState(props.name);
 
 	return (
-		<div className={clsx(props.className)}>
+		<div className={props.className}>
 			{props.label && (
 				<label htmlFor={props.id} className="mb-1 flex text-sm font-medium">
 					{props.label}
