@@ -3,6 +3,7 @@ use crate::{library::Library, location::LocationId, prisma::location};
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
+	time::Duration,
 };
 
 use async_trait::async_trait;
@@ -12,7 +13,7 @@ use tokio::{
 	select,
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
-	time::Instant,
+	time::{interval_at, Instant, MissedTickBehavior},
 };
 use tracing::{debug, error, warn};
 use uuid::Uuid;
@@ -41,13 +42,21 @@ pub(super) type IgnorePath = (PathBuf, bool);
 type INodeAndDevice = (u64, u64);
 type InstantAndPath = (Instant, PathBuf);
 
+const ONE_SECOND: Duration = Duration::from_secs(1);
+const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
+
 #[async_trait]
 trait EventHandler<'lib> {
 	fn new(location_id: LocationId, library: &'lib Library) -> Self
 	where
 		Self: Sized;
 
+	/// Handle a file system event.
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError>;
+
+	/// As Event Handlers have some inner state, from time to time we need to call this tick method
+	/// so the event handler can update its state.
+	async fn tick(&mut self);
 }
 
 #[derive(Debug)]
@@ -117,6 +126,10 @@ impl LocationWatcher {
 
 		let mut paths_to_ignore = HashSet::new();
 
+		let mut handler_interval = interval_at(Instant::now() + HUNDRED_MILLIS, HUNDRED_MILLIS);
+		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
+		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
 		loop {
 			select! {
 				Some(event) = events_rx.recv() => {
@@ -147,6 +160,10 @@ impl LocationWatcher {
 					} else {
 						paths_to_ignore.remove(&path);
 					}
+				}
+
+				_ = handler_interval.tick() => {
+					event_handler.tick().await;
 				}
 
 				_ = &mut stop_rx => {

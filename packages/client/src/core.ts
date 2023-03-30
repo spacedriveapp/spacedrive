@@ -79,7 +79,7 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
-        { key: "locations.online", input: never, result: number[][] } | 
+        { key: "locations.online", input: never, result: string[] } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };

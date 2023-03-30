@@ -11,7 +11,6 @@ use crate::{invalidate_query, library::Library, location::manager::LocationManag
 use std::{
 	collections::{BTreeMap, HashMap},
 	path::PathBuf,
-	time::Duration,
 };
 
 use async_trait::async_trait;
@@ -24,10 +23,8 @@ use tracing::{error, trace};
 
 use super::{
 	utils::{create_dir, file_creation_or_update, remove, rename},
-	EventHandler, LocationId,
+	EventHandler, LocationId, HUNDRED_MILLIS,
 };
-
-const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 #[derive(Debug)]
 pub(super) struct LinuxEventHandler<'lib> {
@@ -98,6 +95,10 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			}
 		}
 
+		Ok(())
+	}
+
+	async fn tick(&mut self) {
 		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
 			self.last_check_rename = Instant::now();
 			handle_rename_from_eviction(
@@ -111,8 +112,6 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			self.recently_renamed_from
 				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
 		}
-
-		Ok(())
 	}
 }
 

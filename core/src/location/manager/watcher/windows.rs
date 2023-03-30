@@ -8,13 +8,16 @@
 //! in the database. If not, we remove the file from the database.
 
 use crate::{
-	invalidate_query, library::Library, location::file_path_helper::get_inode_and_device_from_path,
+	invalidate_query,
+	library::Library,
+	location::{
+		file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError, LocationId,
+	},
 };
 
 use std::{
 	collections::{BTreeMap, HashMap},
 	path::PathBuf,
-	time::Duration,
 };
 
 use async_trait::async_trait;
@@ -27,11 +30,8 @@ use tracing::{error, trace};
 
 use super::{
 	utils::{create_dir_or_file, extract_inode_and_device_from_path, remove, rename, update_file},
-	EventHandler, INodeAndDevice, InstantAndPath, LocationId, LocationManagerError,
+	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
-
-const ONE_SECOND: Duration = Duration::from_secs(1);
-const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 /// Windows file system event handler
 #[derive(Debug)]
@@ -152,6 +152,10 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			}
 		}
 
+		Ok(())
+	}
+
+	async fn tick(&mut self) {
 		// Cleaning out recently created files that are older than 1 second
 		if self.last_check_recently_files.elapsed() > ONE_SECOND {
 			self.last_check_recently_files = Instant::now();
@@ -183,8 +187,6 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			)
 			.await;
 		}
-
-		Ok(())
 	}
 }
 
