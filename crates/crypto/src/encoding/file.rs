@@ -65,6 +65,7 @@ pub trait Header {
 	fn get_algorithm(&self) -> Algorithm;
 	fn count_objects(&self) -> usize;
 	fn count_keyslots(&self) -> usize;
+	fn remove_keyslot(&mut self, index: usize) -> Result<()>;
 	fn decrypt_master_key(
 		&self,
 		keys: Vec<Key>,
@@ -304,6 +305,10 @@ impl FileHeader {
 	#[must_use]
 	pub const fn get_version(&self) -> FileHeaderVersion {
 		self.version
+	}
+
+	pub fn remove_keyslot(&mut self, index: usize) -> Result<()> {
+		self.inner.remove_keyslot(index)
 	}
 
 	pub fn decrypt_master_key(
@@ -662,6 +667,76 @@ mod tests {
 		assert_eq!(header.count_objects(), 0);
 		assert_eq!(decrypted_mk, mk);
 		assert_eq!(decrypted_mk2, mk);
+	}
+
+	#[test]
+	fn serialize_and_deserialize_with_two_keyslots_delete_both() {
+		let mk = Key::generate();
+		let content_salt = Salt::generate();
+		let hashed_pw = Key::generate(); // not hashed, but that'd be expensive
+		let hashed_pw2 = Key::generate();
+
+		let mut writer = Cursor::new(vec![]);
+		let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
+			.unwrap();
+
+		header
+			.add_keyslot(
+				HASHING_ALGORITHM,
+				content_salt,
+				hashed_pw2.clone(),
+				mk.clone(),
+				CONTEXT,
+			)
+			.unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		let pos1 = writer.position();
+
+		writer.rewind().unwrap();
+
+		let mut header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+		let (decrypted_mk, _) = header.decrypt_master_key(vec![hashed_pw], CONTEXT).unwrap();
+		let (decrypted_mk2, _) = header
+			.decrypt_master_key(vec![hashed_pw2], CONTEXT)
+			.unwrap();
+
+		assert_eq!(header.count_keyslots(), 2);
+		assert_eq!(header.count_objects(), 0);
+		assert_eq!(decrypted_mk, mk);
+		assert_eq!(decrypted_mk2, mk);
+
+		header.remove_keyslot(0).unwrap();
+
+		assert_eq!(header.count_keyslots(), 1);
+
+		header.remove_keyslot(0).unwrap();
+
+		assert_eq!(header.count_keyslots(), 0);
+
+		writer.rewind().unwrap();
+
+		header.write(&mut writer, MAGIC_BYTES).unwrap();
+
+		let pos2 = writer.position();
+
+		assert_eq!(pos1, pos2);
+
+		writer.rewind().unwrap();
+
+		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
+
+		assert_eq!(header.count_keyslots(), 0);
 	}
 
 	#[test]

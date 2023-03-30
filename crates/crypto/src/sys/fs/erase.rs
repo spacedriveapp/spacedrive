@@ -2,8 +2,10 @@ use std::io::{Read, Seek, Write};
 
 use crate::{primitives::BLOCK_LEN, Result};
 
-use rand::{RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaCha20Rng,
+};
 
 #[cfg(feature = "async")]
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};

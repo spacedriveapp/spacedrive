@@ -1,4 +1,7 @@
-use rand::{RngCore, SeedableRng};
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaCha20Rng,
+};
 use zeroize::Zeroize;
 
 use crate::{Error, Result};
@@ -34,7 +37,7 @@ impl ToArray for &[u8] {
 #[must_use]
 pub fn generate_fixed<const I: usize>() -> [u8; I] {
 	let mut bytes = [0u8; I];
-	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
+	ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 	bytes
 }
 
@@ -42,7 +45,7 @@ pub fn generate_fixed<const I: usize>() -> [u8; I] {
 #[must_use]
 pub fn generate_vec(size: usize) -> Vec<u8> {
 	let mut bytes = vec![0u8; size];
-	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
+	ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 	bytes
 }
 

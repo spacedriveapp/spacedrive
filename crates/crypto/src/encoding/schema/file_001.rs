@@ -34,7 +34,7 @@ pub struct Keyslot001 {
 }
 
 impl Keyslot001 {
-	pub fn random() -> Self {
+	fn random() -> Self {
 		Self {
 			content_salt: Salt::generate(),
 			hashing_algorithm: HashingAlgorithm::default(),
@@ -286,6 +286,15 @@ impl Header for FileHeader001 {
 		encoding::encode(self)
 	}
 
+	fn remove_keyslot(&mut self, index: usize) -> Result<()> {
+		if index > self.keyslots.0.len() - 1 {
+			return Err(Error::Validity);
+		}
+
+		self.keyslots.0.remove(index);
+		Ok(())
+	}
+
 	fn decrypt_object(
 		&self,
 		name: HeaderObjectName,
@@ -441,5 +450,46 @@ impl Header for FileHeader001 {
 
 	fn count_keyslots(&self) -> usize {
 		self.keyslots.0.len()
+	}
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+	use crate::{
+		encoding::{self, schema::file_001::Keyslot001},
+		types::{Aad, Algorithm, Nonce},
+	};
+
+	use super::{FileHeader001, KeyslotArea001};
+
+	#[test]
+	fn maximum_size() {
+		let s = FileHeader001 {
+			algorithm: Algorithm::XChaCha20Poly1305,
+			nonce: Nonce::generate(Algorithm::XChaCha20Poly1305),
+			aad: Aad::generate(),
+			keyslots: KeyslotArea001(vec![Keyslot001::random()]),
+			objects: vec![],
+		};
+
+		let bytes = encoding::encode(&s).unwrap();
+
+		assert_eq!(bytes.len(), 264);
+	}
+
+	#[test]
+	fn maximum_size_alt() {
+		let s = FileHeader001 {
+			algorithm: Algorithm::XChaCha20Poly1305,
+			nonce: Nonce::generate(Algorithm::XChaCha20Poly1305),
+			aad: Aad::generate(),
+			keyslots: KeyslotArea001(vec![Keyslot001::random(), Keyslot001::random()]),
+			objects: vec![],
+		};
+
+		let bytes = encoding::encode(&s).unwrap();
+
+		assert_eq!(bytes.len(), 264);
 	}
 }
