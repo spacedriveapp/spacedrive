@@ -101,13 +101,7 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 	async fn tick(&mut self) {
 		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
 			self.last_check_rename = Instant::now();
-			handle_rename_from_eviction(
-				self.location_id,
-				&mut self.rename_from,
-				&mut self.rename_from_buffer,
-				self.library,
-			)
-			.await;
+			self.handle_rename_from_eviction().await;
 
 			self.recently_renamed_from
 				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
@@ -115,28 +109,25 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 	}
 }
 
-async fn handle_rename_from_eviction(
-	location_id: LocationId,
-	to_remove_files: &mut HashMap<PathBuf, Instant>,
-	temp_buffer: &mut Vec<(PathBuf, Instant)>,
-	library: &Library,
-) {
-	temp_buffer.clear();
+impl LinuxEventHandler<'_> {
+	async fn handle_rename_from_eviction(&mut self) {
+		self.rename_from_buffer.clear();
 
-	for (path, instant) in to_remove_files.drain() {
-		if instant.elapsed() > HUNDRED_MILLIS {
-			if let Err(e) = remove(location_id, &path, library).await {
-				error!("Failed to remove file_path: {e}");
+		for (path, instant) in self.rename_from.drain() {
+			if instant.elapsed() > HUNDRED_MILLIS {
+				if let Err(e) = remove(self.location_id, &path, self.library).await {
+					error!("Failed to remove file_path: {e}");
+				} else {
+					trace!("Removed file_path due timeout: {}", path.display());
+					invalidate_query!(self.library, "locations.getExplorerData");
+				}
 			} else {
-				trace!("Removed file_path due timeout: {}", path.display());
-				invalidate_query!(library, "locations.getExplorerData");
+				self.rename_from_buffer.push((path, instant));
 			}
-		} else {
-			temp_buffer.push((path, instant));
 		}
-	}
 
-	for (path, instant) in temp_buffer.drain(..) {
-		to_remove_files.insert(path, instant);
+		for (path, instant) in self.rename_from_buffer.drain(..) {
+			self.rename_from.insert(path, instant);
+		}
 	}
 }

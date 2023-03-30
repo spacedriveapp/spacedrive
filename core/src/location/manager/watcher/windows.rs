@@ -179,39 +179,31 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				}
 				to_retain
 			});
-			handle_removes_eviction(
-				self.location_id,
-				&mut self.to_remove_files,
-				&mut self.removal_buffer,
-				self.library,
-			)
-			.await;
+			self.handle_removes_eviction().await;
 		}
 	}
 }
 
-async fn handle_removes_eviction(
-	location_id: LocationId,
-	to_remove_files: &mut HashMap<INodeAndDevice, InstantAndPath>,
-	temp_buffer: &mut Vec<(INodeAndDevice, InstantAndPath)>,
-	library: &Library,
-) {
-	temp_buffer.clear();
+impl WindowsEventHandler<'_> {
+	async fn handle_removes_eviction(&mut self) {
+		self.removal_buffer.clear();
 
-	for (inode_and_device, (instant, path)) in to_remove_files.drain() {
-		if instant.elapsed() > HUNDRED_MILLIS {
-			if let Err(e) = remove(location_id, &path, library).await {
-				error!("Failed to remove file_path: {e}");
+		for (inode_and_device, (instant, path)) in self.to_remove_files.drain() {
+			if instant.elapsed() > HUNDRED_MILLIS {
+				if let Err(e) = remove(self.location_id, &path, self.library).await {
+					error!("Failed to remove file_path: {e}");
+				} else {
+					trace!("Removed file_path due timeout: {}", path.display());
+					invalidate_query!(self.library, "locations.getExplorerData");
+				}
 			} else {
-				trace!("Removed file_path due timeout: {}", path.display());
-				invalidate_query!(library, "locations.getExplorerData");
+				self.removal_buffer
+					.push((inode_and_device, (instant, path)));
 			}
-		} else {
-			temp_buffer.push((inode_and_device, (instant, path)));
 		}
-	}
 
-	for (key, value) in temp_buffer.drain(..) {
-		to_remove_files.insert(key, value);
+		for (key, value) in self.removal_buffer.drain(..) {
+			self.to_remove_files.insert(key, value);
+		}
 	}
 }
