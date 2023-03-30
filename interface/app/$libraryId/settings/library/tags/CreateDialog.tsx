@@ -22,7 +22,7 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 	const createTag = useLibraryMutation('tags.create', {
 		onSuccess: (tag) => {
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
-			if (props.assignToObject) {
+			if (props.assignToObject !== undefined) {
 				assignTag.mutate({ tag_id: tag.id, object_id: props.assignToObject, unassign: false });
 			}
 		},
