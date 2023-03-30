@@ -1,10 +1,10 @@
-import { useClientContext, useLibraryMutation, usePlausibleEvent } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import ColorPicker from '~/components/ColorPicker';
 import { usePlatform } from '~/util/Platform';
 
-export default (props: UseDialogProps) => {
+export default (props: UseDialogProps & { assignToObject?: number }) => {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
@@ -20,11 +20,20 @@ export default (props: UseDialogProps) => {
 	});
 
 	const createTag = useLibraryMutation('tags.create', {
-		onSuccess: () => {
+		onSuccess: (tag) => {
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
+			if (props.assignToObject !== undefined) {
+				assignTag.mutate({ tag_id: tag.id, object_id: props.assignToObject, unassign: false });
+			}
 		},
 		onError: (e) => {
 			console.error('error', e);
+		}
+	});
+
+	const assignTag = useLibraryMutation('tags.assign', {
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagAssign' } });
 		}
 	});
 

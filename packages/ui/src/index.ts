@@ -1,8 +1,8 @@
 export { cva, cx } from 'class-variance-authority';
 export * from './Button';
 export * from './CheckBox';
-export { ContextMenu } from './ContextMenu';
-export { DropdownMenu } from './DropdownMenu';
+export { ContextMenu, useContextMenu } from './ContextMenu';
+export { DropdownMenu, useDropdownMenu } from './DropdownMenu';
 export * from './Dialog';
 export * as Dropdown from './Dropdown';
 export * from './Input';
