@@ -490,7 +490,7 @@ pub async fn get_existing_file_path_id(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
-	materialized_path: &MaterializedPath<'static>,
+	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
 ) -> Result<Option<file_path::Data>, FilePathError> {
 	db.file_path()
@@ -504,7 +504,7 @@ pub async fn get_parent_dir(
 
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir_id(
-	materialized_path: &MaterializedPath<'static>,
+	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
 ) -> Result<Option<i32>, FilePathError> {
 	get_existing_file_path_id(&materialized_path.parent(), db).await
