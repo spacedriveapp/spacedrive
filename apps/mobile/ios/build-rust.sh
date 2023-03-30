@@ -13,6 +13,13 @@ if [[ $CONFIGURATION != "Debug" ]]; then
   CARGO_FLAGS=--release
 fi
 
+# IF SPACEDRIVE_CI is "1", build for x86_64-apple-ios TODO: Also use this for non-Apple Silicon Macs
+if [[ $SPACEDRIVE_CI == "1" ]]; then
+  cargo build -p sd-mobile-ios --target x86_64-apple-ios
+  lipo -create -output $TARGET_DIRECTORY/libsd_mobile_ios-iossim.a $TARGET_DIRECTORY/x86_64-apple-ios/debug/libsd_mobile_ios.a
+  exit 0
+fi
+
 if [[ $PLATFORM_NAME = "iphonesimulator" ]]
 then
     cargo build -p sd-mobile-ios --target aarch64-apple-ios-sim

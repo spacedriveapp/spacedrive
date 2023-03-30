@@ -241,7 +241,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
-			shellScript = "env -i CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ./build-rust.sh\n";
+			shellScript = "env -i SPACEDRIVE_CI=$SPACEDRIVE_CI CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ./build-rust.sh\n";
 		};
 		65CB42BC732A49C59CCA544A /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
