@@ -193,5 +193,12 @@ jobs:
           brew install facebook/fb/idb-companion 
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-  # TODO: Debug/fix rust x86_64 build issue
-  # TODO: Test on IOS Simulator
+      - name: Run Simulator
+        uses: futureware-tech/simulator-action@v2
+        with:
+          model: 'iPhone 11'
+
+      - name: Run Tests
+        run: |
+          xcrun simctl install booted apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+          maestro test apps/mobile/tests/onboarding.yaml
