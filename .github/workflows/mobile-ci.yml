@@ -92,10 +92,9 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: default
-          ram-size: 4096M
-          ndk: 23.1.7779620
           arch: x86_64
+          target: google_apis
+          ndk: 23.1.7779620
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
@@ -111,10 +110,9 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: default
-          ram-size: 4096M
-          ndk: 23.1.7779620
           arch: x86_64
+          target: google_apis
+          ndk: 23.1.7779620
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
@@ -122,7 +120,7 @@ jobs:
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb wait-for-device
-            maestro test apps/mobile/tests/onboarding.yaml
+            bash ./apps/mobile/scripts/run-maestro-tests android
 
   ios:
     name: iOS
@@ -201,4 +199,4 @@ jobs:
       - name: Run Tests
         run: |
           xcrun simctl install booted apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-          maestro test apps/mobile/tests/onboarding.yaml
+          bash ./apps/mobile/scripts/run-maestro-tests ios
