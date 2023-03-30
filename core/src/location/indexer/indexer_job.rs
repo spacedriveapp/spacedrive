@@ -138,7 +138,10 @@ impl StatefulJob for IndexerJob {
 				.into_iter()
 				.map(|file_path| {
 					(
-						location_path.join(&MaterializedPath::from((location_id, &file_path.materialized_path))),
+						location_path.join(&MaterializedPath::from((
+							location_id,
+							&file_path.materialized_path,
+						))),
 						file_path.id,
 					)
 				}),

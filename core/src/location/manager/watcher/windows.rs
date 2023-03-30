@@ -68,7 +68,9 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
 		trace!("Received Windows event: {:#?}", event);
-		let Event { kind, mut paths, .. } = event;
+		let Event {
+			kind, mut paths, ..
+		} = event;
 
 		match kind {
 			EventKind::Create(CreateKind::Any) => {
@@ -159,14 +161,13 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 		if self.last_check_rename_and_remove.elapsed() > HUNDRED_MILLIS {
 			self.last_check_rename_and_remove = Instant::now();
-			self.rename_from_map
-				.retain(|_, (created_at, path)| {
-					let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
-					if !to_retain {
-						trace!("Removing from rename from map: {:#?}", path.display())
-					}
-					to_retain
-				});
+			self.rename_from_map.retain(|_, (created_at, path)| {
+				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
+				if !to_retain {
+					trace!("Removing from rename from map: {:#?}", path.display())
+				}
+				to_retain
+			});
 			self.rename_to_map.retain(|_, (created_at, path)| {
 				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
 				if !to_retain {
