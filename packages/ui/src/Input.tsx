@@ -4,13 +4,13 @@ import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
 import { PropsWithChildren, forwardRef, useState } from 'react';
 import { Button } from './Button';
 
-export interface InputBaseProps extends VariantProps<typeof styles> {}
+export interface InputBaseProps extends VariantProps<typeof inputStyles> {}
 
 export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 'size'>;
 
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
-const styles = cva(
+export const inputStyles = cva(
 	[
 		'w-full',
 		'rounded-md border px-3 text-sm leading-7',
@@ -37,7 +37,7 @@ const styles = cva(
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
 	({ variant, size, className, ...props }, ref) => (
-		<input {...props} ref={ref} className={styles({ variant, size, className })} />
+		<input {...props} ref={ref} className={inputStyles({ variant, size, className })} />
 	)
 );
 
@@ -48,14 +48,14 @@ export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClas
 			<Input
 				{...props}
 				ref={ref}
-				className={clsx(styles({ variant, size, className }), '!p-0.5 !pl-9')}
+				className={clsx(inputStyles({ variant, size, className }), '!p-0.5 !pl-9')}
 			/>
 		</div>
 	)
 );
 
 export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
-	return <textarea {...props} className={clsx(styles({ size, variant }), props.className)} />;
+	return <textarea {...props} className={clsx(inputStyles({ size, variant }), props.className)} />;
 };
 
 export function Label(props: PropsWithChildren<{ slug?: string }>) {

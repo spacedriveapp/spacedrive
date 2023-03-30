@@ -187,3 +187,26 @@ body {
 	border-radius: 9px;
 	box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
+
+.react-colorful__saturation {
+	border-radius: 4px !important;
+}
+
+.react-colorful__saturation-pointer {
+	width: 12px !important;
+	height: 12px !important;
+}
+
+.react-colorful__hue,
+.react-colorful__alpha {
+	margin-top: 12px !important;
+	height: 8px !important;
+	border-radius: 4px !important;
+}
+
+.react-colorful__hue-pointer,
+.react-colorful__alpha-pointer {
+	height: 18px !important;
+	width: 8px !important;
+	border-radius: 3px !important;
+}
