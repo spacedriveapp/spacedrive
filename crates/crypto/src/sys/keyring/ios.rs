@@ -30,7 +30,7 @@ impl KeyringInterface for IosKeyring {
 	}
 
 	fn contains_key(&self, id: &Identifier) -> bool {
-		todo!()
+		get_generic_password(&id.application, &id.to_apple_account()).map_or(false, |_| true)
 	}
 
 	fn insert(&self, id: &Identifier, value: String) -> Result<()> {
