@@ -27,6 +27,9 @@ export const inputStyles = cva(
 					'focus-within:ring-app-selected/30 focus-within:border-app-divider/80'
 				]
 			},
+			error: {
+				true: 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30'
+			},
 			size: {
 				sm: 'h-[30px]',
 				md: 'h-[34px]',
@@ -41,11 +44,14 @@ export const inputStyles = cva(
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-	({ variant, size, right, icon, iconPosition = 'left', className, required, ...props }, ref) => (
+	(
+		{ variant, size, right, icon, iconPosition = 'left', className, required, error, ...props },
+		ref
+	) => (
 		<div
 			className={clsx(
 				'group flex',
-				inputStyles({ variant, size: right && !size ? 'md' : size, className })
+				inputStyles({ variant, size: right && !size ? 'md' : size, error, className })
 			)}
 		>
 			<div
@@ -99,11 +105,11 @@ export const SearchInput = forwardRef<HTMLInputElement, InputProps>((props, ref)
 	<Input {...props} ref={ref} icon={MagnifyingGlass} />
 ));
 
-export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
+export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
 	return (
 		<textarea
 			{...props}
-			className={clsx('h-auto px-3 py-2', inputStyles({ size, variant }), props.className)}
+			className={clsx('h-auto px-3 py-2', inputStyles({ size, variant, error }), props.className)}
 		/>
 	);
 };
