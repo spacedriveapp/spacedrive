@@ -7,13 +7,21 @@ import com.android.build.OutputFile
 
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 
+def cargoTargets = []
+
+if (System.getenv('SPACEDRIVE_CI') == "1") {
+    cargoTargets = ["x86_64"]
+} else {
+    cargoTargets = ["arm", "arm64", "x86", "x86_64"]
+}
+
+
 cargo {
     module  = "../../crates/android"
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release' // 'debug'
-    targets = ["arm", "arm64", "x86", "x86_64"]
-    // targets = ['arm64']
+    targets = cargoTargets
     targetDirectory = "../.././../../target" // Monorepo moment
 
 }
@@ -24,7 +32,7 @@ tasks.whenTaskAdded { task ->
     }
 }
 
-// SPACEDRIVE CODE END
+// END SPACEDRIVE CODE
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 def expoDebuggableVariants = ['debug']
@@ -127,6 +135,11 @@ def jscFlavor = 'org.webkit:android-jsc:+'
  * file and works together with the --active-arch-only flag of react-native run-android.
  */
 def reactNativeArchitectures() {
+    // SPACEDRIVE CODE
+    if (System.getenv('SPACEDRIVE_CI') == "1") {
+        return ["x86_64"]
+    }
+    // END SPACEDRIVE CODE
     def value = project.getProperties().get("reactNativeArchitectures")
     return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
 }

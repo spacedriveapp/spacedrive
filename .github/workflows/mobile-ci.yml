@@ -16,22 +16,17 @@ jobs:
   android:
     name: Android
     runs-on: macos-12
+    env:
+      SPACEDRIVE_CI: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Generate AVD Snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3.10.0
         with:
-          api-level: 33
-          target: google_apis
-          ndk: 23.1.7779620
-          arch: arm64-v8a
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: echo "Generated AVD snapshot"
+          java-version: '18'
+          distribution: 'temurin'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.2
@@ -64,12 +59,6 @@ jobs:
 
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v3.10.0
-        with:
-          java-version: '18'
-          distribution: 'temurin'
 
       - name: Setup Android SDK Tools
         uses: android-actions/setup-android@v2.0.2
@@ -106,14 +95,16 @@ jobs:
           api-level: 33
           target: google_apis
           ndk: 23.1.7779620
-          arch: arm64-v8a
+          arch: x86_64
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "Generated AVD snapshot"
 
       - name: Install Maestro
-        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -121,7 +112,7 @@ jobs:
           api-level: 33
           target: google_apis
           ndk: 23.1.7779620
-          arch: arm64-v8a
+          arch: x86_64
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
@@ -192,12 +183,5 @@ jobs:
   #       working-directory: ./apps/mobile/ios
   #       run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -configuration Debug -sdk iphonesimulator -derivedDataPath build
 
-  #     - name: Test iOS
-  #       uses: mobile-dev-inc/action-maestro-cloud@v1.2.3
-  #       with:
-  #         api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-  #         app-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
-  #         mapping-file: apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app.dSYM
-  #         workspace: apps/mobile/tests
-
-  # TODO: IOS Simulator on Github Actions..
+  # TODO: Debug/fix rust x86_64 build issue
+  # TODO: Test on IOS Simulator
