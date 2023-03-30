@@ -22,7 +22,6 @@ sync-messages = []
 [dependencies]
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [
-  "rspc",
   "serde",
   "encoding",
   "async",

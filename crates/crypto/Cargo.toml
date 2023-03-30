@@ -20,7 +20,6 @@ async = ["dep:tokio"]
 
 [dependencies]
 # rng
-rand = "0.8.5"
 rand_chacha = "0.3.1"
 
 # hashing
@@ -62,7 +61,7 @@ tokio = { workspace = true, features = [
     "macros",
 ], optional = true }
 
-# linux OS keyring - using `v2.0.2` as newer versions broke a lot due to async/lifetimes
+# linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
 linux-keyutils = { verison = "0.2.3", features = ["std"], optional = true }
 
