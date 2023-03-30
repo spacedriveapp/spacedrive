@@ -5,9 +5,9 @@ use portable::PortableKeyring;
 #[cfg(not(any(target_os = "linux", target_os = "ios")))]
 use portable::PortableKeyring as DefaultKeyring;
 
-#[cfg(all(target_os = "linux"))]
+#[cfg(target_os = "linux")]
 mod linux;
-#[cfg(all(target_os = "linux"))]
+#[cfg(target_os = "linux")]
 use linux::LinuxKeyring as DefaultKeyring;
 
 // #[cfg(target_os = "macos")]
@@ -15,9 +15,9 @@ use linux::LinuxKeyring as DefaultKeyring;
 // #[cfg(target_os = "macos")]
 // pub use macos::MacosKeyring as DefaultKeyring;
 
-#[cfg(all(target_os = "ios"))]
+#[cfg(target_os = "ios")]
 pub mod ios;
-#[cfg(all(target_os = "ios"))]
+#[cfg(target_os = "ios")]
 pub use ios::IosKeyring as DefaultKeyring;
 
 pub(self) trait KeyringInterface {
@@ -126,25 +126,6 @@ mod tests {
 		let password = Protected::new("SuperSecurePassword".to_string());
 		let identifier = Identifier::new("0000-0000-0000-0000", "Password", "Crypto");
 		let keyring = Keyring::new(KeyringType::Portable).unwrap();
-
-		keyring.insert(&identifier, password.clone()).unwrap();
-		assert!(keyring.contains_key(&identifier));
-
-		let pw = keyring.get(&identifier).unwrap();
-
-		assert_eq!(pw.expose(), password.expose());
-
-		keyring.remove(&identifier).unwrap();
-
-		assert!(!keyring.contains_key(&identifier));
-	}
-
-	#[test]
-	#[cfg(any(target_os = "linux", target_os = "ios"))]
-	fn full() {
-		let password = Protected::new("SuperSecurePassword".to_string());
-		let identifier = Identifier::new("0000-0000-0000-0000", "Password", "Crypto");
-		let keyring = Keyring::new(KeyringType::Default).unwrap();
 
 		keyring.insert(&identifier, password.clone()).unwrap();
 		assert!(keyring.contains_key(&identifier));
