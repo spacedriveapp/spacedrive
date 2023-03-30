@@ -266,25 +266,26 @@ impl LastFilePathIdManager {
 		Ok(())
 	}
 
-	pub async fn get_max_file_path_id(
+	pub async fn increment(
 		&self,
 		location_id: LocationId,
+		by: i32,
 		db: &PrismaClient,
 	) -> Result<i32, FilePathError> {
 		Ok(match self.last_id_by_location.entry(location_id) {
-			Entry::Occupied(entry) => *entry.get(),
+			Entry::Occupied(mut entry) => {
+				let first_free_id = *entry.get() + 1;
+				*entry.get_mut() += by + 1;
+				first_free_id
+			}
 			Entry::Vacant(entry) => {
 				// I wish I could use `or_try_insert_with` method instead of this crappy match,
 				// but we don't have async closures yet ):
-				let id = Self::fetch_max_file_path_id(location_id, db).await?;
-				entry.insert(id);
-				id
+				let first_free_id = Self::fetch_max_file_path_id(location_id, db).await? + 1;
+				entry.insert(first_free_id + by);
+				first_free_id
 			}
 		})
-	}
-
-	pub async fn set_max_file_path_id(&self, location_id: LocationId, id: i32) {
-		self.last_id_by_location.insert(location_id, id);
 	}
 
 	async fn fetch_max_file_path_id(

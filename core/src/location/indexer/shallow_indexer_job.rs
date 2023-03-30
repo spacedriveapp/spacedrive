@@ -206,24 +206,17 @@ impl StatefulJob for ShallowIndexerJob {
 			// the max file path id later
 			.collect::<Vec<_>>();
 
+		let total_paths = new_paths.len();
+
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = last_file_path_id_manager
-			.get_max_file_path_id(location_id, db)
+			.increment(location_id, total_paths as i32, db)
 			.await
-			.map_err(IndexerError::from)?
-			+ 1;
-
-		let total_paths = new_paths.len();
-		let last_file_id = first_file_id + total_paths as i32;
-
-		// Setting our global state for file_path ids
-		last_file_path_id_manager
-			.set_max_file_path_id(location_id, last_file_id)
-			.await;
+			.map_err(IndexerError::from)?;
 
 		new_paths
 			.iter_mut()
-			.zip(first_file_id..last_file_id)
+			.zip(first_file_id..)
 			.for_each(|(entry, file_id)| {
 				entry.file_id = file_id;
 			});
