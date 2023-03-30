@@ -44,10 +44,7 @@ export const inputStyles = cva(
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-	(
-		{ variant, size, right, icon, iconPosition = 'left', className, required, error, ...props },
-		ref
-	) => (
+	({ variant, size, right, icon, iconPosition = 'left', className, error, ...props }, ref) => (
 		<div
 			className={clsx(
 				'group flex',
