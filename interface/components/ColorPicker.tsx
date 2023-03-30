@@ -25,7 +25,7 @@ export default <T extends FieldValues>({ className, ...props }: Props<T>) => {
 			<HexColorInput
 				color={field.value}
 				onChange={field.onChange}
-				className={inputStyles({ size: 'sm', className: '!mt-5 bg-app' })}
+				className={inputStyles({ size: 'md', className: '!mt-5 bg-app px-3' })}
 			/>
 		</Popover>
 	);

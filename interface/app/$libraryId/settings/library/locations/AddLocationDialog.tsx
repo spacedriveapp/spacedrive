@@ -155,7 +155,8 @@ export const AddLocationDialog = (props: Props) => {
 					}
 					readOnly={platform.platform !== 'web'}
 					required
-					className="grow cursor-pointer !py-0.5"
+					className="cursor-pointer"
+					size="md"
 					{...form.register('path')}
 				/>
 			</div>

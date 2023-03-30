@@ -140,6 +140,7 @@ export function HomeCTA() {
 										'hidden': waitlistSubmitted,
 										'rounded-r-none': !waitlistSubmitted
 									})}
+									size="lg"
 									disabled={waitlistSubmitted}
 								/>
 								{!waitlistSubmitted && (
