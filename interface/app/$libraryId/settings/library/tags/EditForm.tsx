@@ -36,18 +36,15 @@ export default ({ tag, onDelete }: Props) => {
 	return (
 		<Form form={form}>
 			<div className="mb-10 flex flex-row space-x-3">
-				<div className="flex flex-col">
-					<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">Color</span>
-					<Input
-						className="w-28"
-						icon={<ColorPicker control={form.control} name="color" />}
-						{...form.register('color')}
-					/>
-				</div>
-				<div className="flex flex-col">
-					<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">Name</span>
-					<Input {...form.register('name')} />
-				</div>
+				<Input
+					label="Color"
+					className="w-28"
+					icon={<ColorPicker control={form.control} name="color" />}
+					{...form.register('color')}
+				/>
+
+				<Input label="Name" {...form.register('name')} />
+
 				<div className="flex grow" />
 				<Button
 					variant="gray"
