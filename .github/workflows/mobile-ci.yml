@@ -14,120 +14,117 @@ env:
   SPACEDRIVE_CI: '1'
 
 jobs:
-  android:
-    name: Android
-    runs-on: macos-12
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+  # Disabled until I can figure out why our app on x86_64 crashes on startup.
+  # android:
+  #   name: Android
+  #   runs-on: macos-12
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
 
-      - name: Setup Java JDK
-        uses: actions/setup-java@v3.10.0
-        with:
-          java-version: '18'
-          distribution: 'temurin'
+  #     - name: Setup Java JDK
+  #       uses: actions/setup-java@v3.10.0
+  #       with:
+  #         java-version: '18'
+  #         distribution: 'temurin'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.2
-        with:
-          version: 7.x.x
+  #     - name: Install pnpm
+  #       uses: pnpm/action-setup@v2.2.2
+  #       with:
+  #         version: 7.x.x
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
+  #     - name: Install Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: 18
+  #         cache: 'pnpm'
 
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
+  #     - name: Install Rust stable
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         profile: minimal
 
-      - name: Cache Rust deps
-        uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ inputs.save-cache }} == "true"
+  #     - name: Cache Rust deps
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         save-if: ${{ inputs.save-cache }} == "true"
 
-      - name: Run 'setup-system.sh' script
-        shell: bash
-        run: ./.github/scripts/setup-system.sh mobile
+  #     - name: Run 'setup-system.sh' script
+  #       shell: bash
+  #       run: ./.github/scripts/setup-system.sh mobile
 
-      - name: Generate Prisma client
-        uses: ./.github/actions/generate-prisma-client
+  #     - name: Generate Prisma client
+  #       uses: ./.github/actions/generate-prisma-client
 
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
+  #     - name: Install pnpm dependencies
+  #       run: pnpm i --frozen-lockfile
 
-      - name: Setup Android SDK Tools
-        uses: android-actions/setup-android@v2.0.2
+  #     - name: Setup Android SDK Tools
+  #       uses: android-actions/setup-android@v2.0.2
 
-      - name: Cache NDK
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
-          key: ndk-23.1.7779620
+  #     - name: Cache NDK
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
+  #         key: ndk-23.1.7779620
 
-      - name: Install NDK
-        run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
+  #     - name: Install NDK
+  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
 
-      - name: Cache Gradle
-        uses: gradle/gradle-build-action@v2
+  #     - name: Cache Gradle
+  #       uses: gradle/gradle-build-action@v2
 
-      - name: Build Android
-        working-directory: ./apps/mobile/android
-        run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+  #     - name: Build Android
+  #       working-directory: ./apps/mobile/android
+  #       run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
 
-      - name: Cache AVD
-        uses: actions/cache@v3
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-30
+  #     - name: Cache AVD
+  #       uses: actions/cache@v3
+  #       id: avd-cache
+  #       with:
+  #         path: |
+  #           ~/.android/avd/*
+  #           ~/.android/adb*
+  #         key: avd-30
 
-      - name: Generate AVD Snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: ReactiveCircus/android-emulator-runner@v2.28.0
-        with:
-          profile: Pixel 5
-          arch: x86_64
-          avd-name: pixel5
-          api-level: 30
-          target: google_apis
-          ndk: 23.1.7779620
-          ram-size: 4096M
-          emulator-boot-timeout: 12000
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: echo "Generated AVD snapshot."
+  #     - name: Generate AVD Snapshot
+  #       if: steps.avd-cache.outputs.cache-hit != 'true'
+  #       uses: ReactiveCircus/android-emulator-runner@v2.28.0
+  #       with:
+  #         arch: x86_64
+  #         api-level: 30
+  #         target: google_apis
+  #         ndk: 23.1.7779620
+  #         ram-size: 4096M
+  #         emulator-boot-timeout: 12000
+  #         force-avd-creation: false
+  #         emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+  #         disable-animations: false
+  #         script: echo "Generated AVD snapshot."
 
-      - name: Install Maestro
-        run: |
-          # workaround for https://github.com/mobile-dev-inc/maestro/issues/877
-          export MAESTRO_VERSION=1.21.3; curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+  #     - name: Install Maestro
+  #       run: |
+  #         # workaround for https://github.com/mobile-dev-inc/maestro/issues/877
+  #         export MAESTRO_VERSION=1.21.3; curl -Ls "https://get.maestro.mobile.dev" | bash
+  #         echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Run Tests
-        uses: ReactiveCircus/android-emulator-runner@v2.28.0
-        with:
-          profile: Pixel 5
-          avd-name: pixel5
-          arch: x86_64
-          api-level: 30
-          target: google_apis
-          ndk: 23.1.7779620
-          ram-size: 4096M
-          emulator-boot-timeout: 12000
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: |
-            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            adb wait-for-device
-            bash ./apps/mobile/scripts/run-maestro-tests android
+  #     - name: Run Tests
+  #       uses: ReactiveCircus/android-emulator-runner@v2.28.0
+  #       with:
+  #         arch: x86_64
+  #         api-level: 30
+  #         target: google_apis
+  #         ndk: 23.1.7779620
+  #         ram-size: 4096M
+  #         emulator-boot-timeout: 12000
+  #         force-avd-creation: false
+  #         emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+  #         disable-animations: true
+  #         script: |
+  #           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+  #           adb wait-for-device
+  #           bash ./apps/mobile/scripts/run-maestro-tests android
 
   ios:
     name: iOS

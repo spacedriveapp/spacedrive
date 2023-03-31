@@ -2,7 +2,6 @@ appId: com.spacedrive.app
 ---
 - launchApp:
     clearState: true
-- waitForAnimationToEnd
 - tapOn: 'Get Started'
 - tapOn:
     id: 'library-name'
@@ -17,7 +16,11 @@ appId: com.spacedrive.app
 - inputText: '12345678'
 - tapOn: 'Confirm Password'
 - tapOn: 'Continue'
+# Library creation can take a while...
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-toggle'
+    timeout: 180000 # 3 minutes
 - tapOn:
     id: 'drawer-toggle'
-- waitForAnimationToEnd
 - assertVisible: 'TestLib'
