@@ -11,7 +11,7 @@ type Props = {
 
 const InfoTagPills = ({ data, style }: Props) => {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	let filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
 
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: Boolean(objectData)

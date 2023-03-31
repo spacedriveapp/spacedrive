@@ -23,7 +23,7 @@ type KindType = keyof typeof icons | 'Unknown';
 function getExplorerItemData(data: ExplorerItem) {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	let filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
 
 	return {
 		casId: filePath?.cas_id || null,
