@@ -99,10 +99,12 @@ export default (props: UseDialogProps) => {
 			submitDisabled={!form.formState.isValid}
 			ctaLabel="Create"
 		>
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">Library name</p>
-				<Input placeholder="My Cool Library" {...form.register('name', { required: true })} />
-			</div>
+			<Input
+				label="Library name"
+				placeholder="My Cool Library"
+				className="mt-2"
+				{...form.register('name', { required: true })}
+			/>
 
 			<div className="mt-3 mb-1 flex flex-row items-center">
 				<div className="space-x-2">
@@ -125,10 +127,12 @@ export default (props: UseDialogProps) => {
 				<p className="mt-2 mb-1 text-center text-[0.95rem] font-bold">Key Manager</p>
 				<div className="my-1 h-[2px] w-full bg-gray-500" />
 
-				<p className="my-2 text-sm font-bold">Master password</p>
 				<Input
+					label="Master password"
 					placeholder="Password"
 					type={showMasterPassword1 ? 'text' : 'password'}
+					className="mt-2"
+					{...form.register('password')}
 					right={
 						<div className="flex">
 							<Button
@@ -158,22 +162,21 @@ export default (props: UseDialogProps) => {
 							</Button>
 						</div>
 					}
-					{...form.register('password')}
 				/>
 			</div>
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">Master password (again)</p>
-				<Input
-					placeholder="Password"
-					type={showMasterPassword2 ? 'text' : 'password'}
-					right={
-						<Button onClick={() => setShowMasterPassword2(!showMasterPassword2)} size="icon">
-							<MP2CurrentEyeIcon className="h-4 w-4" />
-						</Button>
-					}
-					{...form.register('password_validate')}
-				/>
-			</div>
+
+			<Input
+				label="Master password (again)"
+				placeholder="Password"
+				type={showMasterPassword2 ? 'text' : 'password'}
+				className="mt-2"
+				right={
+					<Button onClick={() => setShowMasterPassword2(!showMasterPassword2)} size="icon">
+						<MP2CurrentEyeIcon className="h-4 w-4" />
+					</Button>
+				}
+				{...form.register('password_validate')}
+			/>
 
 			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">

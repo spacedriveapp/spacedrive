@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { useFormContext } from 'react-hook-form';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
@@ -11,7 +12,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 
 	return (
 		<FormField {...formFieldProps}>
-			<Root.Input {...childProps} ref={ref} />
+			<Root.Input {...childProps} ref={ref} error={formFieldProps.error !== undefined} />
 		</FormField>
 	);
 });
@@ -21,7 +22,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, InputProps>((props, re
 
 	return (
 		<FormField {...formFieldProps}>
-			<Root.PasswordInput {...childProps} ref={ref} />
+			<Root.PasswordInput {...childProps} ref={ref} error={formFieldProps.error !== undefined} />
 		</FormField>
 	);
 });

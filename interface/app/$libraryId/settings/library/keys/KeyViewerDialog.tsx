@@ -109,37 +109,41 @@ export default (props: UseDialogProps) => {
 			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Content Salt (hex)</span>
-					<div className="relative flex grow">
-						<Input value={contentSalt} disabled className="grow !py-0.5" />
-						<Button
-							type="button"
-							onClick={() => {
-								navigator.clipboard.writeText(contentSalt);
-							}}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<Clipboard className="h-4 w-4" />
-						</Button>
-					</div>
+					<Input
+						value={contentSalt}
+						disabled
+						right={
+							<Button
+								type="button"
+								onClick={() => {
+									navigator.clipboard.writeText(contentSalt);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+						}
+					/>
 				</div>
 			</div>
 			<div className="mt-4 mb-3 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Key Value</span>
-					<div className="relative flex grow">
-						<Input value={keyValue} disabled className="grow !py-0.5" />
-						<Button
-							type="button"
-							onClick={() => {
-								navigator.clipboard.writeText(keyValue);
-							}}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<Clipboard className="h-4 w-4" />
-						</Button>
-					</div>
+					<Input
+						value={keyValue}
+						disabled
+						right={
+							<Button
+								type="button"
+								onClick={() => {
+									navigator.clipboard.writeText(keyValue);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+						}
+					/>
 				</div>
 			</div>
 		</Dialog>
