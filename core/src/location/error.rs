@@ -1,5 +1,3 @@
-use crate::LocationManagerError;
-
 use std::path::PathBuf;
 
 use rspc::{self, ErrorCode};
@@ -7,7 +5,9 @@ use thiserror::Error;
 use tokio::io;
 use uuid::Uuid;
 
-use super::{file_path_helper::FilePathError, metadata::LocationMetadataError};
+use super::{
+	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
+};
 
 /// Error type for location related errors
 #[derive(Error, Debug)]

@@ -1,12 +1,9 @@
-use crate::{
-	library::Library,
-	location::{find_location, location_with_indexer_rules, LocationId},
-	prisma::location,
-};
+use crate::{library::Library, location::LocationId, prisma::location};
 
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
+	time::Duration,
 };
 
 use async_trait::async_trait;
@@ -16,8 +13,10 @@ use tokio::{
 	select,
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
+	time::{interval_at, Instant, MissedTickBehavior},
 };
 use tracing::{debug, error, warn};
+use uuid::Uuid;
 
 use super::LocationManagerError;
 
@@ -30,28 +29,34 @@ mod utils;
 use utils::check_event;
 
 #[cfg(target_os = "linux")]
-type Handler = linux::LinuxEventHandler;
+type Handler<'lib> = linux::LinuxEventHandler<'lib>;
 
 #[cfg(target_os = "macos")]
-type Handler = macos::MacOsEventHandler;
+type Handler<'lib> = macos::MacOsEventHandler<'lib>;
 
 #[cfg(target_os = "windows")]
-type Handler = windows::WindowsEventHandler;
+type Handler<'lib> = windows::WindowsEventHandler<'lib>;
 
 pub(super) type IgnorePath = (PathBuf, bool);
 
+type INodeAndDevice = (u64, u64);
+type InstantAndPath = (Instant, PathBuf);
+
+const ONE_SECOND: Duration = Duration::from_secs(1);
+const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
+
 #[async_trait]
-trait EventHandler {
-	fn new() -> Self
+trait EventHandler<'lib> {
+	fn new(location_id: LocationId, library: &'lib Library) -> Self
 	where
 		Self: Sized;
 
-	async fn handle_event(
-		&mut self,
-		location: location_with_indexer_rules::Data,
-		library: &Library,
-		event: Event,
-	) -> Result<(), LocationManagerError>;
+	/// Handle a file system event.
+	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError>;
+
+	/// As Event Handlers have some inner state, from time to time we need to call this tick method
+	/// so the event handler can update its state.
+	async fn tick(&mut self);
 }
 
 #[derive(Debug)]
@@ -93,6 +98,7 @@ impl LocationWatcher {
 
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
+			Uuid::from_slice(&location.pub_id)?,
 			library,
 			events_rx,
 			ignore_path_rx,
@@ -110,14 +116,19 @@ impl LocationWatcher {
 
 	async fn handle_watch_events(
 		location_id: LocationId,
+		location_pub_id: Uuid,
 		library: Library,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
-		let mut event_handler = Handler::new();
+		let mut event_handler = Handler::new(location_id, &library);
 
 		let mut paths_to_ignore = HashSet::new();
+
+		let mut handler_interval = interval_at(Instant::now() + HUNDRED_MILLIS, HUNDRED_MILLIS);
+		// In case of doubt check: https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
+		handler_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
 		loop {
 			select! {
@@ -126,6 +137,7 @@ impl LocationWatcher {
 						Ok(event) => {
 							if let Err(e) = Self::handle_single_event(
 								location_id,
+								location_pub_id,
 								event,
 								&mut event_handler,
 								&library,
@@ -150,6 +162,10 @@ impl LocationWatcher {
 					}
 				}
 
+				_ = handler_interval.tick() => {
+					event_handler.tick().await;
+				}
+
 				_ = &mut stop_rx => {
 					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
@@ -158,32 +174,33 @@ impl LocationWatcher {
 		}
 	}
 
-	async fn handle_single_event(
+	async fn handle_single_event<'lib>(
 		location_id: LocationId,
+		location_pub_id: Uuid,
 		event: Event,
-		event_handler: &mut impl EventHandler,
-		library: &Library,
+		event_handler: &mut impl EventHandler<'lib>,
+		library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		if !check_event(&event, ignore_paths) {
 			return Ok(());
 		}
 
-		let Some(location) = find_location(library, location_id)
-			.include(location_with_indexer_rules::include())
-			.exec()
-			.await?
-		else {
-			warn!("Tried to handle event for unknown location: <id='{location_id}'>");
-            return Ok(());
-        };
+		// let Some(location) = find_location(library, location_id)
+		// 	.include(location_with_indexer_rules::include())
+		// 	.exec()
+		// 	.await?
+		// else {
+		// 	warn!("Tried to handle event for unknown location: <id='{location_id}'>");
+		//     return Ok(());
+		// };
 
-		if !library.location_manager().is_online(&location.pub_id).await {
+		if !library.location_manager().is_online(&location_pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());
 		}
 
-		event_handler.handle_event(location, library, event).await
+		event_handler.handle_event(event).await
 	}
 
 	pub(super) fn ignore_path(
@@ -265,7 +282,7 @@ impl Drop for LocationWatcher {
 
 /***************************************************************************************************
 * Some tests to validate our assumptions of events through different file systems				   *
-***************************************************************************************************
+****************************************************************************************************
 *	Events dispatched on Linux:																	   *
 *		Create File:																			   *
 *			1) EventKind::Create(CreateKind::File)												   *
@@ -334,25 +351,29 @@ impl Drop for LocationWatcher {
 *	Events dispatched on iOS:																	   *
 *	TODO																						   *
 *																								   *
-**************************************************************************************************/
+***************************************************************************************************/
 #[cfg(test)]
-#[allow(unused)]
 mod tests {
-	#[cfg(target_os = "macos")]
-	use notify::event::DataChange;
-	use notify::{
-		event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-		Config, Event, EventKind, RecommendedWatcher, Watcher,
-	};
-	use std::io::ErrorKind;
 	use std::{
+		io::ErrorKind,
 		path::{Path, PathBuf},
 		time::Duration,
+	};
+
+	use notify::{
+		event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
+		Config, Event, EventKind, RecommendedWatcher, Watcher,
 	};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
 	use tracing_test::traced_test;
+
+	#[cfg(target_os = "macos")]
+	use notify::event::DataChange;
+
+	#[cfg(target_os = "linux")]
+	use notify::event::{AccessKind, AccessMode};
 
 	async fn setup_watcher() -> (
 		TempDir,
