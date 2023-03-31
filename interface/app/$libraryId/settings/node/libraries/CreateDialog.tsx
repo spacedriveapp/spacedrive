@@ -103,7 +103,6 @@ export default (props: UseDialogProps) => {
 				label="Library name"
 				placeholder="My Cool Library"
 				className="mt-2"
-				required
 				{...form.register('name', { required: true })}
 			/>
 
