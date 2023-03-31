@@ -75,7 +75,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{item?.name}</Text>
+						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{filePathData?.name}</Text>
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
@@ -85,7 +85,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={formatBytes(Number(objectData?.size_in_bytes || 0))}
+							value={formatBytes(Number(filePathData?.size_in_bytes || 0))}
 						/>
 						{/* Duration */}
 						{fullObjectData.data?.media_data?.duration_seconds && (
@@ -105,7 +105,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							icon={Barcode}
 							title="Indexed"
-							value={dayjs(item?.date_indexed).format('MMM Do YYYY')}
+							value={dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
 						/>
 
 						{filePathData && (

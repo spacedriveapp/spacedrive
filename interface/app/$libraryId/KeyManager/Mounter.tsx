@@ -1,7 +1,16 @@
-import { Eye, EyeSlash, Info } from 'phosphor-react';
+import { Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { Algorithm, HASHING_ALGOS, HashingAlgoSlug, useLibraryMutation } from '@sd/client';
-import { Button, CategoryHeading, Input, Select, SelectOption, Slider, Switch, tw } from '@sd/ui';
+import {
+	Button,
+	CategoryHeading,
+	PasswordInput,
+	Select,
+	SelectOption,
+	Slider,
+	Switch,
+	tw
+} from '@sd/ui';
 import { Tooltip } from '@sd/ui';
 import { generatePassword } from '~/util';
 
@@ -9,7 +18,6 @@ const KeyHeading = tw(CategoryHeading)`mb-1`;
 
 export default () => {
 	const ref = useRef<HTMLInputElement>(null);
-	const [showKey, setShowKey] = useState(false);
 	const [librarySync, setLibrarySync] = useState(true);
 	const [autoMount, setAutoMount] = useState(false);
 
@@ -20,7 +28,6 @@ export default () => {
 	const [hashingAlgo, setHashingAlgo] = useState<HashingAlgoSlug>('Argon2id-s');
 
 	const createKey = useLibraryMutation('keys.add');
-	const CurrentEyeIcon = showKey ? EyeSlash : Eye;
 
 	// this keeps the input focused when switching tabs
 	// feel free to replace with something cleaner
@@ -33,25 +40,8 @@ export default () => {
 	return (
 		<div className="mb-1 p-3">
 			<KeyHeading>Mount key</KeyHeading>
-			<div className="flex space-x-2">
-				<div className="relative flex grow">
-					<Input
-						ref={ref}
-						value={key}
-						onChange={(e) => setKey(e.target.value)}
-						autoFocus
-						type={showKey ? 'text' : 'password'}
-						className="grow !py-0.5"
-					/>
-					<Button
-						onClick={() => setShowKey(!showKey)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
-			</div>
+
+			<PasswordInput ref={ref} value={key} onChange={(e) => setKey(e.target.value)} autoFocus />
 
 			<div className="flex flex-row space-x-2">
 				<div className="relative mt-2 flex grow">

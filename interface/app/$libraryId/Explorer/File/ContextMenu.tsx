@@ -18,14 +18,14 @@ import {
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
-	useLibraryQuery,
-	usePlausibleEvent
+	useLibraryQuery
 } from '@sd/client';
-import { ContextMenu, Input, dialogManager } from '@sd/ui';
+import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -158,9 +158,11 @@ export default ({ data, ...props }: Props) => {
 
 				<ContextMenu.Separator />
 
-				<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
-					<AssignTagMenuItems objectId={objectData?.id || 0} />
-				</ContextMenu.SubMenu>
+				{objectData && (
+					<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
+						<AssignTagMenuItems objectId={objectData.id} />
+					</ContextMenu.SubMenu>
+				)}
 
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
 					<ContextMenu.Item
@@ -245,57 +247,5 @@ export default ({ data, ...props }: Props) => {
 				/>
 			</ContextMenu.Root>
 		</div>
-	);
-};
-
-const AssignTagMenuItems = (props: { objectId: number }) => {
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
-
-	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
-	const assignTag = useLibraryMutation('tags.assign', {
-		onSuccess: () => {
-			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-		}
-	});
-
-	return (
-		<>
-			{tags.data?.length === 0 && (
-				<div className="m-1 pb-10">
-					<Input autoFocus defaultValue="New tag" />
-				</div>
-			)}
-			{tags.data?.map((tag, index) => {
-				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
-
-				return (
-					<ContextMenu.Item
-						key={tag.id}
-						keybind={`${index + 1}`}
-						onClick={(e) => {
-							e.preventDefault();
-							if (props.objectId === null) return;
-
-							assignTag.mutate({
-								tag_id: tag.id,
-								object_id: props.objectId,
-								unassign: active
-							});
-						}}
-					>
-						<div
-							className="mr-0.5 block h-[15px] w-[15px] rounded-full border"
-							style={{
-								backgroundColor: active ? tag.color || '#efefef' : 'transparent' || '#efefef',
-								borderColor: tag.color || '#efefef'
-							}}
-						/>
-						<p>{tag.name}</p>
-					</ContextMenu.Item>
-				);
-			})}
-		</>
 	);
 };

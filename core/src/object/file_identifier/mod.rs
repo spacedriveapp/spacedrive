@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	library::Library,
-	location::file_path_helper::{file_path_for_file_identifier, FilePathError},
+	location::file_path_helper::{file_path_for_file_identifier, FilePathError, MaterializedPath},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
@@ -48,9 +48,9 @@ impl FileMetadata {
 	/// Assembles `create_unchecked` params for a given file path
 	pub async fn new(
 		location_path: impl AsRef<Path>,
-		materialized_path: impl AsRef<Path>, // TODO: use dedicated CreateUnchecked type
+		materialized_path: &MaterializedPath<'_>, // TODO: use dedicated CreateUnchecked type
 	) -> Result<FileMetadata, io::Error> {
-		let path = location_path.as_ref().join(materialized_path.as_ref());
+		let path = location_path.as_ref().join(materialized_path);
 
 		let fs_metadata = fs::metadata(&path).await?;
 
@@ -67,7 +67,7 @@ impl FileMetadata {
 
 		let cas_id = generate_cas_id(&path, fs_metadata.len()).await?;
 
-		info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, kind);
+		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
@@ -104,9 +104,13 @@ async fn identifier_job_step(
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
-		FileMetadata::new(&location.path, &file_path.materialized_path)
-			.await
-			.map(|params| (file_path.id, (params, file_path)))
+		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
+		FileMetadata::new(
+			&location.path,
+			&MaterializedPath::from((location.id, &file_path.materialized_path)),
+		)
+		.await
+		.map(|params| (file_path.id, (params, file_path)))
 	}))
 	.await
 	.into_iter()
@@ -256,7 +260,6 @@ async fn identifier_job_step(
 							vec![
 								object::date_created::set(fp.date_created),
 								object::kind::set(kind),
-								object::size_in_bytes::set(size),
 							],
 						),
 					);

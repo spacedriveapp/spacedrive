@@ -359,15 +359,15 @@ pub async fn scan_location(
 	Ok(())
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "location-watcher")]
 pub async fn scan_location_sub_path(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
-		return Ok(());
+		return;
 	}
 
 	library
@@ -400,8 +400,6 @@ pub async fn scan_location_sub_path(
 			IndexerJob {},
 		))
 		.await;
-
-	Ok(())
 }
 
 pub async fn light_scan_location(

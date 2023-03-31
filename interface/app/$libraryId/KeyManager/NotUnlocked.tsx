@@ -22,7 +22,6 @@ export default () => {
 	return (
 		<div className="space-y-2 p-2">
 			<PasswordInput
-				size="sm"
 				placeholder="Master Password"
 				value={masterPassword}
 				onChange={(e) => setMasterPassword(e.target.value)}
@@ -31,7 +30,6 @@ export default () => {
 
 			{enterSkManually && (
 				<PasswordInput
-					size="sm"
 					placeholder="Secret Key"
 					value={secretKey}
 					onChange={(e) => setSecretKey(e.target.value)}

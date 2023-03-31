@@ -3,7 +3,6 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import '@sd/ui/style';
 import '~/patches';
-import '~/patches';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);

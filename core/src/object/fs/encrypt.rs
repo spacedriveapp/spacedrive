@@ -41,7 +41,6 @@ pub struct Metadata {
 	pub important: bool,
 	pub note: Option<String>,
 	pub date_created: chrono::DateTime<FixedOffset>,
-	pub date_modified: chrono::DateTime<FixedOffset>,
 }
 
 const JOB_NAME: &str = "file_encryptor";
@@ -148,7 +147,7 @@ impl StatefulJob for FileEncryptorJob {
 
 			if state.init.metadata || state.init.preview_media {
 				// if any are requested, we can make the query as it'll be used at least once
-				if let Some(object) = info.path_data.object.clone() {
+				if let Some(ref object) = info.path_data.object {
 					if state.init.metadata {
 						let metadata = Metadata {
 							path_id: state.init.path_id,
@@ -156,9 +155,8 @@ impl StatefulJob for FileEncryptorJob {
 							hidden: object.hidden,
 							favorite: object.favorite,
 							important: object.important,
-							note: object.note,
+							note: object.note.clone(),
 							date_created: object.date_created,
-							date_modified: object.date_modified,
 						};
 
 						header

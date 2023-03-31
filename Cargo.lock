@@ -6626,7 +6626,7 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "async-trait",
- "base64 0.13.1",
+ "base64 0.21.0",
  "blake3",
  "chrono",
  "ctor",
@@ -6658,6 +6658,7 @@ dependencies = [
  "serde_json",
  "serde_with 2.2.0",
  "specta",
+ "static_assertions",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -6668,6 +6669,7 @@ dependencies = [
  "uhlc",
  "uuid 1.2.1",
  "webp",
+ "winapi-util",
 ]
 
 [[package]]
@@ -7673,9 +7675,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.26.4"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7890fff842b8db56f2033ebee8f6efe1921475c3830c115995552914fb967580"
+checksum = "f69e0d827cce279e61c2f3399eb789271a8f136d8245edef70f06e3c9601a670"
 dependencies = [
  "cfg-if",
  "core-foundation-sys",

@@ -94,16 +94,14 @@ export const Component = () => {
 			>
 				<div className="flex space-x-4">
 					<FlexCol>
-						<Label>Display Name</Label>
-						<Input {...form.register('displayName')} />
+						<Input label="Display Name" {...form.register('displayName')} />
 						<InfoText>
 							The name of this Location, this is what will be displayed in the sidebar. Will not
 							rename the actual folder on disk.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<Label>Local Path</Label>
-						<Input {...form.register('localPath')} />
+						<Input label="Local Path" {...form.register('localPath')} />
 						<InfoText>
 							The path to this Location, this is where the files will be stored on disk.
 						</InfoText>

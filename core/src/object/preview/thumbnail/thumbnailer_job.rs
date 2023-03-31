@@ -167,7 +167,7 @@ impl StatefulJob for ThumbnailerJob {
 
 async fn get_files_by_extensions(
 	db: &PrismaClient,
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {

@@ -50,7 +50,7 @@ impl Hash for FileIdentifierJobInit {
 pub struct FileIdentifierJobState {
 	cursor: FilePathIdAndLocationIdCursor,
 	report: FileIdentifierReport,
-	maybe_sub_materialized_path: Option<MaterializedPath>,
+	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
 }
 
 #[async_trait::async_trait]
@@ -192,7 +192,7 @@ impl StatefulJob for FileIdentifierJob {
 fn orphan_path_filters(
 	location_id: i32,
 	file_path_id: Option<i32>,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	let mut params = vec![
 		file_path::object_id::equals(None),
@@ -216,7 +216,7 @@ fn orphan_path_filters(
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
 		.count(orphan_path_filters(
@@ -232,7 +232,7 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
 	cursor: &FilePathIdAndLocationIdCursor,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",

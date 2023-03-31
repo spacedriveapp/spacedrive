@@ -14,7 +14,7 @@ export const Component = () => {
 				description="Manage your storage locations."
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
-						<SearchInput placeholder="Search locations" />
+						<SearchInput placeholder="Search locations" className="h-[33px]" />
 						<AddLocationButton variant="accent" size="md" />
 					</div>
 				}

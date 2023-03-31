@@ -26,7 +26,11 @@ export default (props: Props) => (
 					<Database className="h-4 w-4" />
 				</Tooltip>
 			</Button>
-			<ButtonLink className="!p-1.5" to="../../library/general" variant="gray">
+			<ButtonLink
+				className="!p-1.5"
+				to={`/${props.library.uuid}/settings/library/general`}
+				variant="gray"
+			>
 				<Tooltip label="Edit Library">
 					<Pencil className="h-4 w-4" />
 				</Tooltip>

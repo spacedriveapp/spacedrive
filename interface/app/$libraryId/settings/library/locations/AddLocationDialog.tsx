@@ -144,21 +144,19 @@ export const AddLocationDialog = (props: Props) => {
 			}
 			ctaLabel="Add"
 		>
-			<div className="relative mb-3 flex flex-col">
-				<p className="my-2 text-sm font-bold">Path:</p>
-				<Input
-					type="text"
-					onClick={() =>
-						openDirectoryPickerDialog(platform)
-							.then((path) => path && form.setValue('path', path))
-							.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
-					}
-					readOnly={platform.platform !== 'web'}
-					required
-					className="grow cursor-pointer !py-0.5"
-					{...form.register('path')}
-				/>
-			</div>
+			<Input
+				label="Path:"
+				readOnly={platform.platform !== 'web'}
+				className="mb-3 cursor-pointer"
+				size="md"
+				required
+				onClick={() =>
+					openDirectoryPickerDialog(platform)
+						.then((path) => path && form.setValue('path', path))
+						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
+				}
+				{...form.register('path')}
+			/>
 
 			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">File indexing rules:</p>
