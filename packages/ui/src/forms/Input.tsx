@@ -10,12 +10,9 @@ export interface InputProps extends UseFormFieldProps, Root.InputProps {
 export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 	const { formFieldProps, childProps } = useFormField(props);
 
-	const ctx = useFormContext();
-	const state = ctx.getFieldState(props.name);
-
 	return (
 		<FormField {...formFieldProps}>
-			<Root.Input {...childProps} ref={ref} error={state.error !== undefined} />
+			<Root.Input {...childProps} ref={ref} error={formFieldProps.error !== undefined} />
 		</FormField>
 	);
 });
@@ -23,12 +20,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 export const PasswordInput = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 	const { formFieldProps, childProps } = useFormField(props);
 
-	const ctx = useFormContext();
-	const state = ctx.getFieldState(props.name);
-
 	return (
 		<FormField {...formFieldProps}>
-			<Root.PasswordInput {...childProps} ref={ref} error={state.error !== undefined} />
+			<Root.PasswordInput {...childProps} ref={ref} error={formFieldProps.error !== undefined} />
 		</FormField>
 	);
 });

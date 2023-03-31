@@ -10,22 +10,22 @@ export interface UseFormFieldProps extends PropsWithChildren {
 
 export const useFormField = <P extends UseFormFieldProps>(props: P) => {
 	const { name, label, required, className, ...otherProps } = props;
+	const { formState, getFieldState } = useFormContext();
+	const state = getFieldState(props.name, formState);
 	const id = useId();
 
 	return {
-		formFieldProps: { id, name, label, required, className },
+		formFieldProps: { id, name, label, required, className, error: state.error?.message },
 		childProps: { ...otherProps, id, name }
 	};
 };
 
 interface FormFieldProps extends UseFormFieldProps {
 	id: string;
+	error?: string;
 }
 
 export const FormField = (props: FormFieldProps) => {
-	const ctx = useFormContext();
-	const state = ctx.getFieldState(props.name);
-
 	return (
 		<div className={props.className}>
 			{props.label && (
@@ -35,9 +35,7 @@ export const FormField = (props: FormFieldProps) => {
 				</label>
 			)}
 			{props.children}
-			{state.error?.message && (
-				<span className="mt-1 text-xs text-red-500">{state.error?.message}</span>
-			)}
+			{props.error && <span className="mt-1 text-xs text-red-500">{props.error}</span>}
 		</div>
 	);
 };
