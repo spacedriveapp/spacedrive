@@ -135,11 +135,6 @@ def jscFlavor = 'org.webkit:android-jsc:+'
  * file and works together with the --active-arch-only flag of react-native run-android.
  */
 def reactNativeArchitectures() {
-    // SPACEDRIVE CODE
-    if (System.getenv('SPACEDRIVE_CI') == "1") {
-        return ["x86_64"]
-    }
-    // END SPACEDRIVE CODE
     def value = project.getProperties().get("reactNativeArchitectures")
     return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
 }

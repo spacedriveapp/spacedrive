@@ -76,7 +76,7 @@ jobs:
 
       - name: Build Android
         working-directory: ./apps/mobile/android
-        run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
+        run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
 
       - name: Cache AVD
         uses: actions/cache@v3
@@ -89,16 +89,20 @@ jobs:
 
       - name: Generate AVD Snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: ReactiveCircus/android-emulator-runner@v2.28.0
         with:
-          api-level: 30
+          profile: Pixel 5
           arch: x86_64
+          avd-name: pixel5
+          api-level: 30
           target: google_apis
           ndk: 23.1.7779620
+          ram-size: 4096M
+          emulator-boot-timeout: 12000
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: echo "Generated AVD snapshot"
+          script: echo "Generated AVD snapshot."
 
       - name: Install Maestro
         run: |
@@ -107,16 +111,19 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Tests
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: ReactiveCircus/android-emulator-runner@v2.28.0
         with:
-          api-level: 30
+          profile: Pixel 5
+          avd-name: pixel5
           arch: x86_64
+          api-level: 30
           target: google_apis
           ndk: 23.1.7779620
+          ram-size: 4096M
+          emulator-boot-timeout: 12000
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          disable-spellchecker: true
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb wait-for-device
@@ -182,7 +189,7 @@ jobs:
 
       - name: Build iOS
         working-directory: ./apps/mobile/ios
-        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -destination 'platform=iOS Simulator,name=iPhone 11' -configuration Debug -derivedDataPath build
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
 
       - name: Install Maestro
         run: |
@@ -198,5 +205,5 @@ jobs:
 
       - name: Run Tests
         run: |
-          xcrun simctl install booted apps/mobile/ios/build/Build/Products/Debug-iphonesimulator/Spacedrive.app
+          xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
           bash ./apps/mobile/scripts/run-maestro-tests ios

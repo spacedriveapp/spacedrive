@@ -1,6 +1,8 @@
 appId: com.spacedrive.app
 ---
-- launchApp
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
 - tapOn: 'Get Started'
 - tapOn:
     id: 'library-name'
@@ -17,4 +19,5 @@ appId: com.spacedrive.app
 - tapOn: 'Continue'
 - tapOn:
     id: 'drawer-toggle'
+- waitForAnimationToEnd
 - assertVisible: 'TestLib'
