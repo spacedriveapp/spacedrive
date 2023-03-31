@@ -104,7 +104,7 @@ export default (props: { objectId: number }) => {
 					</div>
 				</div>
 			) : (
-				<div className="text-ink-faint py-1 text-center text-xs">
+				<div className="py-1 text-center text-xs text-ink-faint">
 					{tags.data ? 'No tags' : 'Failed to load tags'}
 				</div>
 			)}
