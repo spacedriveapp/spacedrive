@@ -1,7 +1,10 @@
 use crate::prisma::*;
-use sd_sync::*;
-use serde_json::{from_value, json, to_vec, Value};
+
 use std::{collections::HashMap, sync::Arc};
+
+use sd_sync::*;
+
+use serde_json::{from_value, json, to_vec, Value};
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
@@ -220,6 +223,8 @@ impl SyncManager {
 									}),
 								)
 								.unwrap(),
+								serde_json::from_value(data.remove("inode").unwrap()).unwrap(),
+								serde_json::from_value(data.remove("device").unwrap()).unwrap(),
 								data.into_iter()
 									.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
 									.collect(),

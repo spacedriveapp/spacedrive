@@ -3,8 +3,9 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_just_id_materialized_path, find_many_file_paths_by_full_path,
-		get_existing_file_path_id, MaterializedPath,
+		file_path_just_id_materialized_path, filter_existing_file_path_params,
+		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
+		MaterializedPath,
 	},
 	prisma::location,
 };
@@ -74,13 +75,6 @@ impl StatefulJob for ShallowIndexerJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
-		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = last_file_path_id_manager
-			.get_max_file_path_id(location_id, db)
-			.await
-			.map_err(IndexerError::from)?
-			+ 1;
-
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
 		for location_rule in &state.init.location.indexer_rules {
@@ -92,7 +86,7 @@ impl StatefulJob for ShallowIndexerJob {
 				.push(indexer_rule);
 		}
 
-		let (to_walk_path, parent_id) = if state.init.sub_path != Path::new("") {
+		let (to_walk_path, parent_file_path) = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(location_path, &state.init.sub_path)
 				.await
 				.map_err(IndexerError::from)?;
@@ -100,28 +94,33 @@ impl StatefulJob for ShallowIndexerJob {
 				.await
 				.map_err(IndexerError::from)?;
 
+			let materialized_path =
+				MaterializedPath::new(location_id, location_path, &full_path, true)
+					.map_err(IndexerError::from)?;
+
 			(
-				location_path.join(&state.init.sub_path),
-				get_existing_file_path_id(
-					MaterializedPath::new(location_id, location_path, &full_path, true)
-						.map_err(IndexerError::from)?,
-					db,
-				)
-				.await
-				.map_err(IndexerError::from)?
-				.expect("Sub path should already exist in the database"),
+				full_path,
+				db.file_path()
+					.find_first(filter_existing_file_path_params(&materialized_path))
+					.select(file_path_just_id_materialized_path::select())
+					.exec()
+					.await
+					.map_err(IndexerError::from)?
+					.expect("Sub path should already exist in the database"),
 			)
 		} else {
 			(
 				location_path.to_path_buf(),
-				get_existing_file_path_id(
-					MaterializedPath::new(location_id, location_path, location_path, true)
-						.map_err(IndexerError::from)?,
-					db,
-				)
-				.await
-				.map_err(IndexerError::from)?
-				.expect("Location root path should already exist in the database"),
+				db.file_path()
+					.find_first(filter_existing_file_path_params(
+						&MaterializedPath::new(location_id, location_path, location_path, true)
+							.map_err(IndexerError::from)?,
+					))
+					.select(file_path_just_id_materialized_path::select())
+					.exec()
+					.await
+					.map_err(IndexerError::from)?
+					.expect("Location root path should already exist in the database"),
 			)
 		};
 
@@ -141,22 +140,42 @@ impl StatefulJob for ShallowIndexerJob {
 		)
 		.await?;
 
-		let already_existing_file_paths = find_many_file_paths_by_full_path(
-			&location::Data::from(&state.init.location),
-			&found_paths
-				.iter()
-				.map(|entry| &entry.path)
-				.collect::<Vec<_>>(),
-			db,
-		)
-		.await
-		.map_err(IndexerError::from)?
-		.select(file_path_just_id_materialized_path::select())
-		.exec()
-		.await?
-		.into_iter()
-		.map(|file_path| file_path.materialized_path)
-		.collect::<HashSet<_>>();
+		let (already_existing_file_paths, mut to_retain) = db
+			.file_path()
+			.find_many(
+				filter_file_paths_by_many_full_path_params(
+					&location::Data::from(&state.init.location),
+					&found_paths
+						.iter()
+						.map(|entry| &entry.path)
+						.collect::<Vec<_>>(),
+				)
+				.await
+				.map_err(IndexerError::from)?,
+			)
+			.select(file_path_just_id_materialized_path::select())
+			.exec()
+			.await?
+			.into_iter()
+			.map(|file_path| (file_path.materialized_path, file_path.id))
+			.unzip::<_, _, HashSet<_>, Vec<_>>();
+
+		let parent_id = parent_file_path.id;
+
+		// Adding our parent path id
+		to_retain.push(parent_id);
+
+		// Removing all other file paths that are not in the filesystem anymore
+		let removed_paths =
+			retain_file_paths_in_location(location_id, to_retain, Some(parent_file_path), db)
+				.await
+				.map_err(IndexerError::from)?;
+
+		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
+		last_file_path_id_manager
+			.sync(location_id, db)
+			.await
+			.map_err(IndexerError::from)?;
 
 		// Filter out paths that are already in the databases
 		let mut new_paths = found_paths
@@ -177,6 +196,8 @@ impl StatefulJob for ShallowIndexerJob {
 								created_at: entry.created_at,
 								file_id: 0, // To be set later
 								parent_id: Some(parent_id),
+								inode: entry.inode,
+								device: entry.device,
 							})
 						},
 					)
@@ -186,16 +207,16 @@ impl StatefulJob for ShallowIndexerJob {
 			.collect::<Vec<_>>();
 
 		let total_paths = new_paths.len();
-		let last_file_id = first_file_id + total_paths as i32;
 
-		// Setting our global state for file_path ids
-		last_file_path_id_manager
-			.set_max_file_path_id(location_id, last_file_id)
-			.await;
+		// grab the next id so we can increment in memory for batch inserting
+		let first_file_id = last_file_path_id_manager
+			.increment(location_id, total_paths as i32, db)
+			.await
+			.map_err(IndexerError::from)?;
 
 		new_paths
 			.iter_mut()
-			.zip(first_file_id..last_file_id)
+			.zip(first_file_id..)
 			.for_each(|(entry, file_id)| {
 				entry.file_id = file_id;
 			});
@@ -207,6 +228,7 @@ impl StatefulJob for ShallowIndexerJob {
 			scan_read_time: scan_start.elapsed(),
 			total_paths,
 			indexed_paths: 0,
+			removed_paths,
 		});
 
 		state.steps = new_paths

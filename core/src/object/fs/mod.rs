@@ -1,6 +1,6 @@
 use crate::{
 	job::JobError,
-	location::file_path_helper::file_path_with_object,
+	location::file_path_helper::{file_path_with_object, MaterializedPath},
 	prisma::{file_path, location, PrismaClient},
 };
 
@@ -76,7 +76,10 @@ pub async fn context_menu_fs_info(
 	Ok(FsInfo {
 		fs_path: get_path_from_location_id(db, location_id)
 			.await?
-			.join(&path_data.materialized_path),
+			.join(&MaterializedPath::from((
+				location_id,
+				&path_data.materialized_path,
+			))),
 		path_data,
 	})
 }

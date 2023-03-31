@@ -59,6 +59,7 @@ pub struct IndexerJobData {
 	scan_read_time: Duration,
 	total_paths: usize,
 	indexed_paths: i64,
+	removed_paths: i64,
 }
 
 /// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
@@ -70,10 +71,12 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
-	materialized_path: MaterializedPath,
+	materialized_path: MaterializedPath<'static>,
 	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
+	inode: u64,
+	device: u64,
 }
 
 impl IndexerJobData {
@@ -175,6 +178,8 @@ async fn execute_indexer_step(
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
+						("inode", json!(entry.inode)),
+						("device", json!(entry.device)),
 						("parent_id", json!(entry.parent_id)),
 						("date_created", json!(entry.created_at)),
 					],
@@ -182,9 +187,11 @@ async fn execute_indexer_step(
 				file_path::create_unchecked(
 					entry.file_id,
 					location.id,
-					materialized_path,
-					name,
-					extension,
+					materialized_path.into_owned(),
+					name.into_owned(),
+					extension.into_owned(),
+					entry.inode.to_le_bytes().into(),
+					entry.device.to_le_bytes().into(),
 					vec![
 						is_dir::set(is_dir),
 						parent_id::set(entry.parent_id),
@@ -224,7 +231,7 @@ where
 		.as_ref()
 		.expect("critical error: missing data on job state");
 
-	tracing::info!(
+	info!(
 		"scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",
 		location_path.as_ref().display(),
@@ -236,7 +243,7 @@ where
 			.expect("critical error: non-negative duration"),
 	);
 
-	if data.indexed_paths > 0 {
+	if data.indexed_paths > 0 || data.removed_paths > 0 {
 		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 

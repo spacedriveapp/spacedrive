@@ -3,7 +3,9 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	location::{
-		file_path_helper::{file_path_just_materialized_path_cas_id, FilePathError},
+		file_path_helper::{
+			file_path_just_materialized_path_cas_id, FilePathError, MaterializedPath,
+		},
 		LocationId,
 	},
 };
@@ -148,7 +150,10 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
 		data.location_path
-			.join(&data.report.materialized_path)
+			.join(&MaterializedPath::from((
+				data.report.location_id,
+				&data.report.materialized_path
+			)))
 			.display()
 	);
 
@@ -185,7 +190,10 @@ async fn inner_process_step(
 	ctx: &WorkerContext,
 ) -> Result<(), JobError> {
 	// assemble the file path
-	let path = data.location_path.join(&step.file_path.materialized_path);
+	let path = data.location_path.join(&MaterializedPath::from((
+		data.report.location_id,
+		&step.file_path.materialized_path,
+	)));
 	trace!("image_file {:?}", step);
 
 	// get cas_id, if none found skip

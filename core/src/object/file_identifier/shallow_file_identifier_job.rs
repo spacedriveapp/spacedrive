@@ -77,7 +77,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				.map_err(FileIdentifierJobError::from)?;
 
 			get_existing_file_path_id(
-				MaterializedPath::new(location_id, location_path, &full_path, true)
+				&MaterializedPath::new(location_id, location_path, &full_path, true)
 					.map_err(FileIdentifierJobError::from)?,
 				db,
 			)
@@ -86,7 +86,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			.expect("Sub path should already exist in the database")
 		} else {
 			get_existing_file_path_id(
-				MaterializedPath::new(location_id, location_path, location_path, true)
+				&MaterializedPath::new(location_id, location_path, location_path, true)
 					.map_err(FileIdentifierJobError::from)?,
 				db,
 			)
