@@ -23,12 +23,14 @@ type KindType = keyof typeof icons | 'Unknown';
 function getExplorerItemData(data: ExplorerItem) {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
+	let filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+
 	return {
-		casId: (isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id) || null,
+		casId: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		kind: ObjectKind[objectData?.kind || 0] as KindType,
 		hasThumbnail: data.has_thumbnail,
-		extension: data.item.extension
+		extension: filePath?.extension
 	};
 }
 

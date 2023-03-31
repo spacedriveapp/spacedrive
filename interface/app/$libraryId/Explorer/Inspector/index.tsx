@@ -8,12 +8,12 @@ import {
 	ExplorerItem,
 	ObjectKind,
 	formatBytes,
-	isObject,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
+import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -37,8 +37,8 @@ interface Props extends ComponentProps<'div'> {
 }
 
 export const Inspector = ({ data, context, ...elementProps }: Props) => {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const filePathData = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
+	const objectData = data ? getItemObject(data) : null;
+	const filePathData = data ? getItemFilePath(data) : null;
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -79,10 +79,10 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 					>
 						<FileThumb size={240} data={data} />
 					</div>
-					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
+					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
-							{item?.name}
-							{item?.extension && `.${item.extension}`}
+							{filePathData?.name}
+							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
 						{objectData && (
 							<div className="mx-3 mt-1 mb-0.5 flex flex-row space-x-0.5">
@@ -113,7 +113,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
 								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
+								{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
 								{tags?.data?.map((tag) => (
 									<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
 										<InfoPill
@@ -141,7 +141,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							<MetaTextLine>
 								<InspectorIcon component={Cube} />
 								<span className="mr-1.5">Size</span>
-								<MetaValue>{formatBytes(Number(objectData?.size_in_bytes || 0))}</MetaValue>
+								<MetaValue>{formatBytes(Number(filePathData?.size_in_bytes || 0))}</MetaValue>
 							</MetaTextLine>
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
@@ -164,7 +164,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
 									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>{dayjs(item?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 						</MetaContainer>

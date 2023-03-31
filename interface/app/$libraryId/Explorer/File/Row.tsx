@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { HTMLAttributes } from 'react';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { InfoPill } from '../Inspector';
-import { getExplorerItemData } from '../util';
+import { getExplorerItemData, getItemFilePath } from '../util';
 import ContextMenu from './ContextMenu';
 import { columns } from './RowHeader';
 import FileThumb from './Thumb';
@@ -45,6 +45,8 @@ interface CellProps {
 
 const Cell = ({ colKey, data }: CellProps) => {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const filePathData = data ? getItemFilePath(data) : null;
+
 	const { cas_id } = getExplorerItemData(data);
 
 	switch (colKey) {
@@ -55,25 +57,25 @@ const Cell = ({ colKey, data }: CellProps) => {
 						<FileThumb data={data} size={35} />
 					</div>
 					<span className="truncate text-xs">
-						{data.item.name}
-						{data.item.extension && `.${data.item.extension}`}
+						{filePathData?.name}
+						{filePathData?.extension && `.${filePathData?.extension}`}
 					</span>
 				</div>
 			);
 		case 'size':
 			return (
-				<span className="text-ink-dull text-left text-xs font-medium">
-					{byteSize(Number(objectData?.size_in_bytes || 0)).toString()}
+				<span className="text-left text-xs font-medium text-ink-dull">
+					{byteSize(Number(filePathData?.size_in_bytes || 0)).toString()}
 				</span>
 			);
 		case 'date_created':
 			return (
-				<span className="text-ink-dull text-left text-xs font-medium">
+				<span className="text-left text-xs font-medium text-ink-dull">
 					{dayjs(data.item?.date_created).format('MMM Do YYYY')}
 				</span>
 			);
 		case 'cas_id':
-			return <span className="text-ink-dull truncate text-left text-xs font-medium">{cas_id}</span>;
+			return <span className="truncate text-left text-xs font-medium text-ink-dull">{cas_id}</span>;
 		case 'extension':
 			return (
 				<div className="flex flex-row items-center space-x-3">

@@ -60,8 +60,7 @@ export const ActionsModal = () => {
 
 	const { modalRef, data } = useActionsModalStore();
 
-	const item = data?.item;
-
+	const filePath = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	return (
@@ -77,16 +76,16 @@ export const ActionsModal = () => {
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text style={tw`text-base font-bold text-gray-200`} numberOfLines={1}>
-									{item?.name}
-									{item?.extension && `.${item?.extension}`}
+									{filePath?.name}
+									{filePath?.extension && `.${filePath?.extension}`}
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-ink-faint text-xs`}>
-										{formatBytes(Number(objectData?.size_in_bytes || 0))},
+										{formatBytes(Number(filePath?.size_in_bytes || 0))},
 									</Text>
 									<Text style={tw`text-ink-faint text-xs`}>
 										{' '}
-										{dayjs(item?.date_created).format('MMM Do YYYY')}
+										{dayjs(filePath?.date_created).format('MMM Do YYYY')}
 									</Text>
 								</View>
 								<InfoTagPills data={data} />
