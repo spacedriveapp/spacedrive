@@ -2,7 +2,7 @@ import { ComponentMeta, ComponentStory } from '@storybook/react';
 import { Root } from './Dropdown';
 
 export default {
-	title: 'UI/Dropdown',
+	title: 'Dropdown',
 	component: Root,
 	argTypes: {},
 	parameters: {

@@ -2,7 +2,7 @@ import { Meta, StoryFn } from '@storybook/react';
 import { Button } from './Button';
 
 export default {
-	title: 'UI/Button',
+	title: 'Button',
 	component: Button,
 	argTypes: {},
 	parameters: {
