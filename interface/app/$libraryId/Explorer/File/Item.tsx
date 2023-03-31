@@ -3,6 +3,7 @@ import { HTMLAttributes } from 'react';
 import { ExplorerItem, ObjectKind, formatBytes, isObject, isPath } from '@sd/client';
 import { tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getItemFilePath, getItemObject } from '../util';
 import ContextMenu from './ContextMenu';
 import FileThumb from './Thumb';
 
@@ -15,7 +16,8 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 const ItemMetaContainer = tw.div`flex flex-col justify-center`;
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const objectData = data ? getItemObject(data) : null;
+	const filePathData = data ? getItemFilePath(data) : null;
 
 	const explorerStore = useExplorerStore();
 
@@ -53,16 +55,16 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 							selected && 'bg-accent text-white'
 						)}
 					>
-						{data.item.name}
-						{data.item.extension && `.${data.item.extension}`}
+						{filePathData?.name}
+						{filePathData?.extension && `.${filePathData.extension}`}
 					</span>
 					{explorerStore.showBytesInGridView && (
 						<span
 							className={clsx(
-								'text-tiny text-ink-dull cursor-default truncate rounded-md px-1.5 py-[1px] text-center '
+								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 							)}
 						>
-							{formatBytes(Number(objectData?.size_in_bytes || 0))}
+							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
 						</span>
 					)}
 				</ItemMetaContainer>

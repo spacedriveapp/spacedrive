@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isObject } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -10,9 +10,9 @@ type FileItemProps = {
 };
 
 const FileItem = ({ data }: FileItemProps) => {
-	const { item } = data;
-
 	const gridItemSize = Layout.window.width / getExplorerStore().gridNumColumns;
+
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
 
 	return (
 		<View
@@ -24,8 +24,8 @@ const FileItem = ({ data }: FileItemProps) => {
 			<FileThumb data={data} />
 			<View style={tw`mt-1 px-1.5 py-[1px]`}>
 				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-white`}>
-					{item?.name}
-					{item?.extension && `.${item.extension}`}
+					{filePath?.name}
+					{filePath?.extension && `.${filePath.extension}`}
 				</Text>
 			</View>
 		</View>

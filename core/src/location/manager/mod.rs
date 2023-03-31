@@ -104,7 +104,7 @@ pub enum LocationManagerError {
 	CorruptedLocationPubId(#[from] uuid::Error),
 }
 
-type OnlineLocations = BTreeSet<Uuid>;
+type OnlineLocations = BTreeSet<Vec<u8>>;
 
 #[derive(Debug)]
 pub struct LocationManager {
@@ -500,7 +500,7 @@ impl LocationManager {
 
 	pub async fn is_online(&self, id: &Uuid) -> bool {
 		let online_locations = self.online_locations.read().await;
-		online_locations.contains(id)
+		online_locations.iter().any(|v| v == id.as_bytes())
 	}
 
 	pub async fn get_online(&self) -> OnlineLocations {
@@ -512,13 +512,16 @@ impl LocationManager {
 	}
 
 	pub async fn add_online(&self, id: Uuid) {
-		self.online_locations.write().await.insert(id);
+		self.online_locations
+			.write()
+			.await
+			.insert(id.as_bytes().to_vec());
 		self.broadcast_online().await;
 	}
 
 	pub async fn remove_online(&self, id: &Uuid) {
 		let mut online_locations = self.online_locations.write().await;
-		online_locations.remove(id);
+		online_locations.retain(|v| v != id.as_bytes());
 		self.broadcast_online().await;
 	}
 

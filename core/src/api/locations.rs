@@ -216,7 +216,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 
 				async_stream::stream! {
 					let online = location_manager.get_online().await;
-					// dbg!(&online);
+
 					yield online;
 
 					while let Ok(locations) = rx.recv().await {
