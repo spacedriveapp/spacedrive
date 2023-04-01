@@ -1,10 +1,11 @@
+use rand::seq::SliceRandom;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaCha20Rng,
 };
 use zeroize::Zeroize;
 
-use crate::{Error, Result};
+use crate::{Error, Protected, Result};
 
 pub(crate) trait ToArray {
 	fn to_array<const I: usize>(self) -> Result<[u8; I]>;
@@ -47,6 +48,25 @@ pub fn generate_vec(size: usize) -> Vec<u8> {
 	let mut bytes = vec![0u8; size];
 	ChaCha20Rng::from_entropy().fill_bytes(&mut bytes);
 	bytes
+}
+
+pub const WORDS: &str = include_str!("../assets/eff_large_wordlist.txt");
+
+#[must_use]
+pub fn generate_passphrase(len: usize, delimiter: char) -> Protected<String> {
+	let words: Vec<&str> = WORDS.lines().collect();
+	let mut output = String::new();
+
+	let mut rng = ChaCha20Rng::from_entropy();
+
+	(0..len).for_each(|i| {
+		output.push_str(words.choose(&mut rng).expect("terrible issue"));
+		if i < len - 1 && len != 1 {
+			output.push(delimiter);
+		}
+	});
+
+	Protected::new(output)
 }
 
 #[cfg(test)]
