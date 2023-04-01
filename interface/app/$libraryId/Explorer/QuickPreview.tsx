@@ -55,6 +55,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: DialogProps) {
 		});
 	};
 
+	let name = 'Unkown Object';
 	let preview: null | ReactElement = null;
 	const previewClasses = 'relative inset-y-2/4 max-h-full max-w-full translate-y-[-50%]';
 	if (previewItem.current) {
@@ -62,17 +63,19 @@ export function QuickPreview({ libraryUuid, transformOrigin }: DialogProps) {
 
 		const quickViewObject = previewItem.current.item;
 		if (quickViewObject) {
+			if ('name' in quickViewObject) name = quickViewObject.name;
+
 			const locationId =
 				'location_id' in quickViewObject ? quickViewObject.location_id : explorerStore.locationId;
 			if (locationId) {
 				const previewSrc = platform.getFileUrl(libraryUuid, locationId, quickViewObject.id);
-				if (quickViewObject.extension === 'pdf') {
+				const { kind, extension } = getExplorerItemData(previewItem.current);
+				if (extension === 'pdf') {
 					if (navigator.pdfViewerEnabled)
 						preview = (
 							<object data={previewSrc} type="application/pdf" className="h-full w-full border-0" />
 						);
 				} else {
-					const { kind } = getExplorerItemData(previewItem.current);
 					switch (kind) {
 						case 'Image':
 							preview = (
@@ -167,7 +170,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: DialogProps) {
 											<Dialog.Title className="mx-auto my-1 font-bold">
 												Preview -{' '}
 												<span className="text-ink-dull inline-block max-w-xs truncate align-sub text-sm">
-													{previewItem.current?.item?.name ?? 'Unkown Object'}
+													{name}
 												</span>
 											</Dialog.Title>
 										</nav>

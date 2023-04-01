@@ -1,6 +1,7 @@
 use crate::{location::file_path_helper::MaterializedPath, prisma::file_path, Node};
 
 use std::{
+	cmp::min,
 	io,
 	path::{Path, PathBuf},
 	str::FromStr,
@@ -302,7 +303,7 @@ async fn handle_file(
 			// prevent max_length;
 			// specially on webview2
 			if range.length > file_size / 3 {
-			// max size sent (400kb / request)
+				// max size sent (400kb / request)
 				// as it's local file system we can afford to read more often
 				content_lenght = min(file_size - range.start, 1024 * 400);
 			}
