@@ -1,4 +1,4 @@
-use bincode::config::Configuration;
+use bincode::{config::Configuration, de::read::Reader};
 
 use crate::{Error, Result};
 
@@ -16,6 +16,13 @@ where
 	bincode::decode_from_slice::<T, Configuration>(bytes, CONFIG)
 		.map(|t| t.0)
 		.map_err(Error::BincodeDecode)
+}
+
+pub fn decode_from_reader<R: Reader, T>(reader: R) -> Result<T>
+where
+	T: bincode::Decode,
+{
+	bincode::decode_from_reader::<T, R, Configuration>(reader, CONFIG).map_err(Error::BincodeDecode)
 }
 
 pub fn encode<T>(object: &T) -> Result<Vec<u8>>
