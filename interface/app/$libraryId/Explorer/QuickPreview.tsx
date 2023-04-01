@@ -63,7 +63,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: DialogProps) {
 
 		const quickViewObject = previewItem.current.item;
 		if (quickViewObject) {
-			if ('name' in quickViewObject) name = quickViewObject.name;
+			if ('name' in quickViewObject && quickViewObject.name) name = quickViewObject.name;
 
 			const locationId =
 				'location_id' in quickViewObject ? quickViewObject.location_id : explorerStore.locationId;

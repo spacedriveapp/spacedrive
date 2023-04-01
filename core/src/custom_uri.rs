@@ -1,12 +1,14 @@
 use crate::{location::file_path_helper::MaterializedPath, prisma::file_path, Node};
 
 use std::{
-	cmp::min,
 	io,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
+
+#[cfg(not(target_os = "linux"))]
+use std::cmp::min;
 
 use http_range::HttpRange;
 use httpz::{
