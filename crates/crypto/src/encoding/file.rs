@@ -193,10 +193,10 @@ macro_rules! generate_header_versions {
 					)*
 				};
 
-				Ok((Self {
+				Ok(Self {
 					inner: header,
 					version: bundle.version,
-				}))
+				})
 			}
 
 			/// This deserializes a header directly from a reader, and leaves said reader at the start of the encrypted data.
@@ -227,10 +227,10 @@ macro_rules! generate_header_versions {
 					)*
 				};
 
-				Ok((Self {
+				Ok(Self {
 					inner: header,
 					version: bundle.version,
-				}))
+				})
 			}
 		}
 	};
