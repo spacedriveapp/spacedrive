@@ -20,6 +20,7 @@ async = ["dep:tokio"]
 
 [dependencies]
 # rng
+rand = "0.8.5"
 rand_chacha = "0.3.1"
 
 # hashing
@@ -47,7 +48,7 @@ zeroize = { version = "1.6.0", features = ["derive", "aarch64"] }
 thiserror = "1.0.40"
 
 # header serialization
-bincode = { version = "2.0.0-rc.2", optional = true }
+bincode = { version = "2.0.0-rc.3", optional = true }
 
 # generic serialization
 serde = { version = "1.0.158", features = ["derive"], optional = true }
@@ -63,7 +64,7 @@ tokio = { workspace = true, features = [
 
 # linux OS keyring
 [target.'cfg(target_os = "linux")'.dependencies]
-linux-keyutils = { verison = "0.2.3", features = ["std"], optional = true }
+linux-keyutils = { version = "0.2.3", features = ["std"], optional = true }
 
 # macos/ios OS keyring
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
