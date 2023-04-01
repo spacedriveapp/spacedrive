@@ -43,21 +43,6 @@ use crate::{
 
 use super::schema::FileHeader001;
 
-#[derive(Clone)]
-pub struct HeaderObjectName(&'static str);
-
-impl HeaderObjectName {
-	#[must_use]
-	pub const fn new(name: &'static str) -> Self {
-		Self(name)
-	}
-
-	#[must_use]
-	pub const fn inner(&self) -> &[u8] {
-		self.0.as_bytes()
-	}
-}
-
 pub trait Header {
 	fn serialize(&self) -> Result<Vec<u8>>;
 	fn get_aad(&self) -> Aad;
@@ -78,7 +63,7 @@ pub trait Header {
 	) -> Result<(Key, usize)>;
 	fn decrypt_object(
 		&self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>>;
@@ -92,7 +77,7 @@ pub trait Header {
 	) -> Result<()>;
 	fn add_object(
 		&mut self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 		data: &[u8],
@@ -340,7 +325,7 @@ impl FileHeader {
 
 	pub fn decrypt_object(
 		&self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
@@ -349,7 +334,7 @@ impl FileHeader {
 
 	pub fn add_object(
 		&mut self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 		data: &[u8],
@@ -386,8 +371,6 @@ mod tests {
 		types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt, SecretKey},
 	};
 
-	use super::HeaderObjectName;
-
 	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
 	// don't do this in production code - use separate contexts for keys and objects
@@ -399,8 +382,8 @@ mod tests {
 
 	const PASSWORD: [u8; 16] = [5u8; 16];
 
-	const OBJECT1_NAME: HeaderObjectName = HeaderObjectName::new("Object1");
-	const OBJECT2_NAME: HeaderObjectName = HeaderObjectName::new("Object2");
+	const OBJECT1_NAME: &str = "Object1";
+	const OBJECT2_NAME: &str = "Object2";
 
 	const OBJECT1_DATA: [u8; 16] = [4u8; 16];
 	const OBJECT2_DATA: [u8; 16] = [5u8; 16];
@@ -799,9 +782,7 @@ mod tests {
 
 		let header = FileHeader::from_reader(&mut writer, MAGIC_BYTES).unwrap();
 
-		header
-			.decrypt_object(HeaderObjectName::new("NonExistent"), CONTEXT, mk)
-			.unwrap();
+		header.decrypt_object("NonExistent", CONTEXT, mk).unwrap();
 	}
 
 	#[test]
@@ -925,9 +906,7 @@ mod tests {
 			.add_object(OBJECT2_NAME, CONTEXT, mk.clone(), &OBJECT2_DATA)
 			.unwrap();
 
-		header
-			.add_object(HeaderObjectName::new("dg"), CONTEXT, mk, &[0u8; 4])
-			.unwrap();
+		header.add_object("dg", CONTEXT, mk, &[0u8; 4]).unwrap();
 	}
 
 	#[test]

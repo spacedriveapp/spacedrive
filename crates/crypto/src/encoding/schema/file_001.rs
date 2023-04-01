@@ -2,7 +2,7 @@ use bincode::impl_borrow_decode;
 
 use crate::{
 	crypto::{Decryptor, Encryptor},
-	encoding::{self, Header, HeaderObjectName},
+	encoding::{self, Header},
 	hashing::Hasher,
 	types::{
 		Aad, Algorithm, DerivationContext, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt,
@@ -143,7 +143,7 @@ pub struct HeaderObjectIdentifier {
 
 impl HeaderObjectIdentifier {
 	pub fn new(
-		name: &HeaderObjectName,
+		name: &'static str,
 		master_key: Key,
 		algorithm: Algorithm,
 		context: DerivationContext,
@@ -160,7 +160,7 @@ impl HeaderObjectIdentifier {
 			Hasher::derive_key(master_key, salt, context),
 			nonce,
 			algorithm,
-			Hasher::blake3(name.inner()),
+			Hasher::blake3(name.as_bytes()),
 			aad,
 		)?;
 
@@ -249,7 +249,7 @@ impl FileHeader001 {
 
 impl FileHeaderObject001 {
 	pub fn new(
-		name: &HeaderObjectName,
+		name: &'static str,
 		algorithm: Algorithm,
 		master_key: Key,
 		context: DerivationContext,
@@ -297,11 +297,11 @@ impl Header for FileHeader001 {
 
 	fn decrypt_object(
 		&self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 	) -> Result<Protected<Vec<u8>>> {
-		let rhs = Hasher::blake3(name.inner());
+		let rhs = Hasher::blake3(name.as_bytes());
 
 		self.objects
 			.iter()
@@ -345,7 +345,7 @@ impl Header for FileHeader001 {
 
 	fn add_object(
 		&mut self,
-		name: HeaderObjectName,
+		name: &'static str,
 		context: DerivationContext,
 		master_key: Key,
 		data: &[u8],
@@ -354,7 +354,7 @@ impl Header for FileHeader001 {
 			return Err(Error::TooManyObjects);
 		}
 
-		let rhs = Hasher::blake3(name.inner());
+		let rhs = Hasher::blake3(name.as_bytes());
 
 		if self
 			.objects
