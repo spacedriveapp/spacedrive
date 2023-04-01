@@ -17,7 +17,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
 	// crypto primitive errors (STREAM, hashing)
 	#[error("there was an error while password hashing")]
-	PasswordHash,
+	Hashing,
 	#[error("error while encrypting")]
 	Encrypt,
 	#[error("error while decrypting (could be: wrong password, wrong data, wrong aad, etc)")]
@@ -46,6 +46,9 @@ pub enum Error {
 	#[error("error while decoding with bincode: {0}")]
 	BincodeDecode(#[from] bincode::error::DecodeError),
 
+	#[error("keystore error")]
+	Keystore,
+
 	// general errors
 	#[error("expected length differs from provided length")]
 	LengthMismatch,
@@ -59,11 +62,11 @@ pub enum Error {
 	// keyring
 	#[cfg(all(target_os = "linux", feature = "sys"))]
 	#[error("error with the linux keyring: {0}")]
-	LinuxKeyringError(#[from] linux_keyutils::KeyError),
+	LinuxKeyring(#[from] linux_keyutils::KeyError),
 	#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "sys"))]
 	#[error("error with the apple keyring: {0}")]
-	AppleKeyringError(#[from] security_framework::base::Error),
+	AppleKeyring(#[from] security_framework::base::Error),
 	#[cfg(feature = "sys")]
 	#[error("generic keyring error")]
-	KeyringError,
+	Keyring,
 }

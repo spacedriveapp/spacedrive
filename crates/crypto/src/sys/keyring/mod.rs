@@ -32,7 +32,6 @@ pub(self) trait KeyringInterface {
 	fn name(&self) -> KeyringName;
 }
 
-#[allow(dead_code)]
 pub enum KeyringName {
 	Portable,
 	Linux,

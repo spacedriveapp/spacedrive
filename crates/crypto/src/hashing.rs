@@ -63,8 +63,8 @@ impl Hasher {
 		secret: SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
-		let p = argon2::Params::new(params.0, params.1, params.2, None)
-			.map_err(|_| Error::PasswordHash)?;
+		let p =
+			argon2::Params::new(params.0, params.1, params.2, None).map_err(|_| Error::Hashing)?;
 
 		let mut key = [0u8; KEY_LEN];
 		let argon2 = Argon2::new_with_secret(
@@ -73,11 +73,11 @@ impl Hasher {
 			argon2::Version::V0x13,
 			p,
 		)
-		.map_err(|_| Error::PasswordHash)?;
+		.map_err(|_| Error::Hashing)?;
 
 		argon2
 			.hash_password_into(password.expose(), salt.inner(), &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
+			.map_or(Err(Error::Hashing), |_| Ok(Key::new(key)))
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
@@ -87,8 +87,8 @@ impl Hasher {
 		secret: SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
-		let p = balloon_hash::Params::new(params.0, params.1, params.2)
-			.map_err(|_| Error::PasswordHash)?;
+		let p =
+			balloon_hash::Params::new(params.0, params.1, params.2).map_err(|_| Error::Hashing)?;
 
 		let mut key = [0u8; KEY_LEN];
 
@@ -100,7 +100,7 @@ impl Hasher {
 
 		balloon
 			.hash_into(password.expose(), salt.inner(), &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
+			.map_or(Err(Error::Hashing), |_| Ok(Key::new(key)))
 	}
 }
 

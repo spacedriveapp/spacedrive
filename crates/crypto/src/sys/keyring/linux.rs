@@ -53,7 +53,7 @@ impl KeyringInterface for LinuxKeyring {
 
 		String::from_utf8(buffer)
 			.map(Protected::new)
-			.map_err(|_| Error::KeyringError)
+			.map_err(|_| Error::Keyring)
 	}
 
 	fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()> {

@@ -2,6 +2,7 @@
 
 use crate::Result;
 
+pub mod keystore;
 mod stream;
 
 pub use self::stream::{Decryptor, Encryptor};
