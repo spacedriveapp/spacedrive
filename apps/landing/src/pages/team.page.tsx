@@ -4,10 +4,10 @@ import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';
 
-const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
+export const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
 const investorImages = resolveFilesGlob(import.meta.globEager('../assets/images/investors/*'));
 
-const teamMembers: Array<TeamMemberProps> = [
+export const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Jamie Pine',
 		role: 'Founder, Engineer & Designer',
@@ -219,7 +219,7 @@ function Page() {
 					</a>
 					<div className="fade-in-heading animation-delay-5">
 						<h2 className="mt-10 text-2xl leading-relaxed sm:mt-20 ">Meet the team</h2>
-						<div className="xs:grid-cols-3 my-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-4">
+						<div className="my-10 grid grid-cols-2 gap-x-5 gap-y-10 xs:grid-cols-3 sm:grid-cols-4">
 							{teamMembers.map((member) => (
 								<TeamMember key={member.name} {...member} />
 							))}
