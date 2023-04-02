@@ -15,7 +15,7 @@ import { getExplorerItemData } from './util';
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-interface QuickPreviewProps extends Dialog.DialogProps {
+export interface QuickPreviewProps extends Dialog.DialogProps {
 	libraryUuid: string;
 	transformOrigin?: string;
 }
@@ -26,7 +26,7 @@ interface FilePreviewProps {
 	explorerItem: ExplorerItem;
 }
 
-export function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
+function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
 	const className = clsx('relative inset-y-2/4 max-h-full max-w-full translate-y-[-50%]');
 	const fileThumb = <FileThumb size={1} data={explorerItem} className={className} />;
 	switch (kind) {

@@ -267,32 +267,39 @@ async fn handle_file(
 		}
 	};
 
-	let mut status_code = 200;
 	let mut content_lenght = file.metadata().await?.len();
-	let buf = if method == Method::HEAD {
-		vec![]
-	} else if method == Method::POST {
-		// GET is the only method for which range handling is defined, according to the spec
-		read_file(file, content_lenght, None).await?
-	} else if let Some(range) = req.headers().get("range") {
-		let file_size = content_lenght;
-
-		let range = HttpRange::parse(
-			range.to_str().map_err(|_| {
-				HandleCustomUriError::RangeNotSatisfiable("Error decoding range header!")
-			})?,
-			file_size,
-		)
-		.map_err(|_| HandleCustomUriError::RangeNotSatisfiable("Error parsing range header!"))?;
-
-		// let support only 1 range for now
-		if range.len() > 1 {
-			return Err(HandleCustomUriError::RangeNotSatisfiable(
-				"Multiple ranges are not supported!",
-			));
+	// GET is the only method for which range handling is defined, according to the spec
+	// https://httpwg.org/specs/rfc9110.html#field.range
+	let range = if method == Method::GET {
+		if let Some(range) = req.headers().get("range") {
+			range
+				.to_str()
+				.ok()
+				.and_then(|range| HttpRange::parse(range, content_lenght).ok())
+				.ok_or_else(|| {
+					HandleCustomUriError::RangeNotSatisfiable("Error decoding range header!")
+				})
+				.and_then(|range| {
+					// Let's support only 1 range for now
+					if range.len() > 1 {
+						Err(HandleCustomUriError::RangeNotSatisfiable(
+							"Multiple ranges are not supported!",
+						))
+					} else {
+						Ok(range.first().cloned())
+					}
+				})?
+		} else {
+			None
 		}
+	} else {
+		None
+	};
 
-		if let Some(range) = range.first() {
+	let mut status_code = 200;
+	let buf = match range {
+		Some(range) => {
+			let file_size = content_lenght;
 			content_lenght = range.length;
 
 			// TODO: For some reason webkit2gtk doesn't like this at all.
@@ -325,11 +332,9 @@ async fn handle_file(
 			// FIXME: Add ETag support (caching on the webview)
 
 			read_file(file, content_lenght, Some(range.start)).await?
-		} else {
-			read_file(file, content_lenght, None).await?
 		}
-	} else {
-		read_file(file, content_lenght, None).await?
+		_ if method == Method::HEAD => vec![],
+		_ => read_file(file, content_lenght, None).await?,
 	};
 
 	Ok(builder
