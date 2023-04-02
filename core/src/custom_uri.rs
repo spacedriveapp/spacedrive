@@ -91,8 +91,7 @@ async fn handle_thumbnail(
 ) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
 	let method = req.method();
 	let mut builder = Response::builder();
-	let options_response = cors(method, &mut builder);
-	if let Some(response) = options_response {
+	if let Some(response) = cors(method, &mut builder) {
 		return Ok(response?);
 	}
 
@@ -135,8 +134,7 @@ async fn handle_file(
 ) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
 	let method = req.method();
 	let mut builder = Response::builder();
-	let options_response = cors(method, &mut builder);
-	if let Some(response) = options_response {
+	if let Some(response) = cors(method, &mut builder) {
 		return Ok(response?);
 	}
 
@@ -402,7 +400,7 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.body(msg.as_bytes().to_vec())
 			}
 			HandleCustomUriError::RangeNotSatisfiable(msg) => {
-				error!("Bad request: {}", msg);
+				error!("Invalid Range header in request: {}", msg);
 				builder
 					.status(StatusCode::RANGE_NOT_SATISFIABLE)
 					.body(msg.as_bytes().to_vec())
