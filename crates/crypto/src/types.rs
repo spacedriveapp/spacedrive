@@ -50,8 +50,10 @@ impl DerivationContext {
 ///
 /// The greater the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
+#[br(repr = u8)]
+#[bw(repr = u8)]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -72,7 +74,7 @@ impl Params {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	Blake3Balloon(Params),
@@ -106,7 +108,7 @@ impl HashingAlgorithm {
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
 pub enum Nonce {
 	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
 	Aes256GcmSiv([u8; AES_256_GCM_SIV_NONCE_LEN]),
@@ -188,7 +190,9 @@ where
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
+#[br(repr = u8)]
+#[bw(repr = u8)]
 pub enum Algorithm {
 	Aes256Gcm,
 	Aes256GcmSiv,
@@ -336,7 +340,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 /// This also stores the associated `Nonce`, in order to make the API a lot cleaner.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
 	[u8; ENCRYPTED_KEY_LEN],
@@ -381,7 +385,7 @@ impl PartialEq for EncryptedKey {
 }
 
 #[derive(Clone, Copy)]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
 pub enum Aad {
 	Standard([u8; AAD_LEN]),
 	Null,
@@ -407,7 +411,7 @@ impl Aad {
 /// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "encoding", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "encoding", binrw::binrw)]
 pub struct Salt([u8; SALT_LEN]);
 
 impl Salt {

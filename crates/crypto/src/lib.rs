@@ -10,7 +10,8 @@
 #![warn(clippy::unwrap_used)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
-#![warn(unused_qualifications, rust_2018_idioms)]
+#![warn(unused_qualifications)]
+#![warn(rust_2018_idioms)]
 #![forbid(unsafe_code)]
 
 pub mod crypto;

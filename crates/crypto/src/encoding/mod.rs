@@ -3,9 +3,8 @@ use bincode::{config::Configuration, de::read::Reader};
 use crate::{Error, Result};
 
 mod file;
-mod schema;
 
-pub use file::{FileHeader, FileHeaderVersion, Header, HeaderObjectName};
+pub use file::header::Header;
 
 pub const CONFIG: Configuration = bincode::config::standard();
 

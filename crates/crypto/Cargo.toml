@@ -49,6 +49,7 @@ thiserror = "1.0.40"
 
 # header serialization
 bincode = { version = "2.0.0-rc.3", optional = true }
+binrw = "0.11.1"
 
 # generic serialization
 serde = { version = "1.0.158", features = ["derive"], optional = true }

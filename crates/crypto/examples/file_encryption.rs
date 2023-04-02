@@ -1,14 +1,15 @@
 use std::io::{self, Seek};
 
+use binrw::{BinRead, BinWrite};
 use sd_crypto::{
 	crypto::{Decryptor, Encryptor},
-	encoding::{FileHeader, FileHeaderVersion, HeaderObjectName},
+	encoding::Header,
 	hashing::Hasher,
 	types::{Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Salt, SecretKey},
 	Protected,
 };
 
-const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
+// const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
 
 const HEADER_KEY_CONTEXT: DerivationContext =
 	DerivationContext::new("crypto 2023-03-21 11:24:53 example header key context");
@@ -24,7 +25,7 @@ const OBJECT_DATA: [u8; 15] = *b"a nice mountain";
 fn encrypt<R, W>(reader: &mut R, writer: &mut W)
 where
 	R: io::Read,
-	W: io::Write,
+	W: io::Write + io::Seek,
 {
 	let password = Protected::new(b"password".to_vec());
 
@@ -37,7 +38,7 @@ where
 		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, SecretKey::Null).unwrap();
 
 	// Create the header for the encrypted file
-	let mut header = FileHeader::new(FileHeaderVersion::default(), ALGORITHM);
+	let mut header = Header::new(ALGORITHM);
 
 	// Create a keyslot to be added to the header
 	header
@@ -52,7 +53,7 @@ where
 
 	header
 		.add_object(
-			HeaderObjectName::new("FileMetadata"),
+			"FileMetadata",
 			HEADER_OBJECT_CONTEXT,
 			master_key.clone(),
 			&OBJECT_DATA,
@@ -60,15 +61,15 @@ where
 		.unwrap();
 
 	// Write the header to the file
-	header.write(writer, MAGIC_BYTES).unwrap();
+	header.write(writer).unwrap();
 
 	// Use the nonce created by the header to initialize an encryptor
-	let encryptor = Encryptor::new(master_key, header.get_nonce(), header.get_algorithm()).unwrap();
+	let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
 	encryptor
-		.encrypt_streams(reader, writer, header.get_aad())
+		.encrypt_streams(reader, writer, header.aad)
 		.unwrap();
 }
 
@@ -80,7 +81,7 @@ where
 	let password = Protected::new(b"password".to_vec());
 
 	// Deserialize the header from the encrypted file
-	let header = FileHeader::from_reader(reader, MAGIC_BYTES).unwrap();
+	let header = Header::read_le(reader).unwrap();
 
 	let (master_key, index) = header
 		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
@@ -88,25 +89,16 @@ where
 
 	println!("key is in slot: {index}");
 
-	let decryptor = Decryptor::new(
-		master_key.clone(),
-		header.get_nonce(),
-		header.get_algorithm(),
-	)
-	.unwrap();
+	let decryptor = Decryptor::new(master_key.clone(), header.nonce, header.algorithm).unwrap();
 
 	// Decrypt data the from the reader, and write it to the writer
 	decryptor
-		.decrypt_streams(reader, writer, header.get_aad())
+		.decrypt_streams(reader, writer, header.aad)
 		.unwrap();
 
 	// Decrypt the object
 	let object = header
-		.decrypt_object(
-			HeaderObjectName::new("FileMetadata"),
-			HEADER_OBJECT_CONTEXT,
-			master_key,
-		)
+		.decrypt_object("FileMetadata", HEADER_OBJECT_CONTEXT, master_key)
 		.unwrap();
 
 	object.into_inner()
