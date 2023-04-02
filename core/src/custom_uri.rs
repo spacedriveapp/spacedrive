@@ -2,6 +2,7 @@ use crate::{location::file_path_helper::MaterializedPath, prisma::file_path, Nod
 
 use std::{
 	io,
+	mem::take,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -66,25 +67,20 @@ async fn read_file(mut file: File, length: u64, start: Option<u64>) -> io::Resul
 
 fn cors(
 	method: &Method,
-) -> (
-	Option<Builder>,
-	Option<Result<Response<Vec<u8>>, httpz::http::Error>>,
-) {
-	let response = Response::builder().header("Access-Control-Allow-Origin", "*");
+	builder: &mut Builder,
+) -> Option<Result<Response<Vec<u8>>, httpz::http::Error>> {
+	*builder = take(builder).header("Access-Control-Allow-Origin", "*");
 	if method == Method::OPTIONS {
-		(
-			None,
-			Some(
-				response
-					.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
-					.header("Access-Control-Allow-Headers", "*")
-					.header("Access-Control-Max-Age", "86400")
-					.status(StatusCode::OK)
-					.body(vec![]),
-			),
+		Some(
+			take(builder)
+				.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
+				.header("Access-Control-Allow-Headers", "*")
+				.header("Access-Control-Max-Age", "86400")
+				.status(StatusCode::OK)
+				.body(vec![]),
 		)
 	} else {
-		(Some(response), None)
+		None
 	}
 }
 
@@ -94,7 +90,8 @@ async fn handle_thumbnail(
 	req: &Request,
 ) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
 	let method = req.method();
-	let (builder, options_response) = cors(method);
+	let mut builder = Response::builder();
+	let options_response = cors(method, &mut builder);
 	if let Some(response) = options_response {
 		return Ok(response?);
 	}
@@ -121,7 +118,6 @@ async fn handle_thumbnail(
 	let content_lenght = file.metadata().await?.len();
 
 	Ok(builder
-		.expect("Builder should be set!")
 		.header("Content-Type", "image/webp")
 		.header("Content-Length", content_lenght)
 		.status(StatusCode::OK)
@@ -138,7 +134,8 @@ async fn handle_file(
 	req: &Request,
 ) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
 	let method = req.method();
-	let (_builder, options_response) = cors(method);
+	let mut builder = Response::builder();
+	let options_response = cors(method, &mut builder);
 	if let Some(response) = options_response {
 		return Ok(response?);
 	}
@@ -270,7 +267,6 @@ async fn handle_file(
 		}
 	};
 
-	let mut builder = _builder.expect("Builder should be set!");
 	let mut status_code = 200;
 	let mut content_lenght = file.metadata().await?.len();
 	let buf = if method == Method::HEAD {
