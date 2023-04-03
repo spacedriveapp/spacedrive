@@ -5,29 +5,14 @@ use crate::{
 	Error, Protected, Result,
 };
 
-#[binrw::binrw]
-#[bw(little)]
-#[br(little)]
 pub struct Header {
 	pub version: HeaderVersion,
-	pub aad: Aad,
 	pub algorithm: Algorithm,
 	pub nonce: Nonce,
-	#[bw(try_calc(u8::try_from(keyslots.len())))]
-	keyslots_len: u8,
-	#[bw(try_calc(u8::try_from(objects.len())))]
-	objects_len: u8,
-	#[br(count = keyslots_len)]
-	#[bw(pad_size_to = 202)]
-	#[br(if (keyslots_len >= 1))]
 	pub keyslots: Vec<Keyslot>,
-	#[br(count = objects_len)]
 	pub objects: Vec<HeaderObject>,
 }
 
-#[binrw::binrw]
-#[br(repr = u8)]
-#[bw(repr = u8)]
 pub enum HeaderVersion {
 	V1,
 }
@@ -40,7 +25,6 @@ impl Header {
 	pub fn new(algorithm: Algorithm) -> Self {
 		Self {
 			version: HeaderVersion::V1,
-			aad: Aad::generate(),
 			algorithm,
 			nonce: Nonce::generate(algorithm),
 			keyslots: vec![],
@@ -49,6 +33,12 @@ impl Header {
 	}
 
 	pub fn from_reader() -> Result<(Self, Aad)> {
+		todo!()
+	}
+
+	#[must_use]
+	pub fn generate_aad(&self) -> Aad {
+		// Aad::Null
 		todo!()
 	}
 
@@ -73,7 +63,12 @@ impl Header {
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.decrypt_id(master_key.clone(), self.algorithm, context, self.aad)
+					.decrypt_id(
+						master_key.clone(),
+						self.algorithm,
+						context,
+						self.generate_aad(),
+					)
 					.ok()
 					.and_then(|i| (i == rhs).then_some(o))
 			})
@@ -81,7 +76,7 @@ impl Header {
 			.collect::<Vec<_>>()
 			.first()
 			.ok_or(Error::NoObjects)?
-			.decrypt(self.algorithm, self.aad, master_key)
+			.decrypt(self.algorithm, self.generate_aad(), master_key)
 	}
 
 	pub fn add_keyslot(
@@ -102,7 +97,7 @@ impl Header {
 			hash_salt,
 			hashed_password,
 			master_key,
-			self.aad,
+			self.generate_aad(),
 			context,
 		)?);
 
@@ -127,7 +122,12 @@ impl Header {
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.decrypt_id(master_key.clone(), self.algorithm, context, self.aad)
+					.decrypt_id(
+						master_key.clone(),
+						self.algorithm,
+						context,
+						self.generate_aad(),
+					)
 					.ok()
 					.map(|i| i == rhs)
 			})
@@ -141,7 +141,7 @@ impl Header {
 			self.algorithm,
 			master_key,
 			context,
-			self.aad,
+			self.generate_aad(),
 			data,
 		)?);
 		Ok(())
@@ -161,7 +161,7 @@ impl Header {
 			.enumerate()
 			.find_map(|(i, k)| {
 				self.keyslots.iter().find_map(|z| {
-					z.decrypt(self.algorithm, k.clone(), self.aad, context)
+					z.decrypt(self.algorithm, k.clone(), self.generate_aad(), context)
 						.ok()
 						.map(|x| (x, i))
 				})
@@ -190,7 +190,7 @@ impl Header {
 					SecretKey::Null,
 				)
 				.ok()?;
-				z.decrypt(self.algorithm, k, self.aad, context)
+				z.decrypt(self.algorithm, k, self.generate_aad(), context)
 					.ok()
 					.map(|x| (x, i))
 			})
@@ -198,19 +198,19 @@ impl Header {
 	}
 }
 
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-	use crate::encoding::Header;
-	use binrw::BinWrite;
-	use std::io::Cursor;
+// #[cfg(test)]
+// #[allow(clippy::unwrap_used)]
+// mod tests {
+// 	use crate::encoding::Header;
+// 	use binrw::BinWrite;
+// 	use std::io::Cursor;
 
-	#[test]
-	fn t() {
-		let mut w = Cursor::new(vec![]);
-		Header::new(crate::types::Algorithm::XChaCha20Poly1305)
-			.write_le(&mut w)
-			.unwrap();
-		assert_eq!(w.into_inner().len(), 258);
-	}
-}
+// 	#[test]
+// 	fn t() {
+// 		let mut w = Cursor::new(vec![]);
+// 		Header::new(crate::types::Algorithm::XChaCha20Poly1305)
+// 			.write_le(&mut w)
+// 			.unwrap();
+// 		assert_eq!(w.into_inner().len(), 258);
+// 	}
+// }

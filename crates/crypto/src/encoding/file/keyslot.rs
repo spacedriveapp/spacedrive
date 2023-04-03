@@ -6,7 +6,6 @@ use crate::{
 	Result,
 };
 
-#[binrw::binrw]
 pub struct Keyslot {
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub hash_salt: Salt,                     // salt to hash the password with
@@ -74,18 +73,18 @@ impl Keyslot {
 	}
 }
 
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-	use std::io::Cursor;
+// #[cfg(test)]
+// #[allow(clippy::unwrap_used)]
+// mod tests {
+// 	use std::io::Cursor;
 
-	use super::Keyslot;
-	use binrw::BinWrite;
+// 	use super::Keyslot;
+// 	use binrw::BinWrite;
 
-	#[test]
-	fn t() {
-		let mut w = Cursor::new(vec![]);
-		Keyslot::random().write_le(&mut w).unwrap();
-		assert_eq!(w.into_inner().len(), 101);
-	}
-}
+// 	#[test]
+// 	fn t() {
+// 		let mut w = Cursor::new(vec![]);
+// 		Keyslot::random().write_le(&mut w).unwrap();
+// 		assert_eq!(w.into_inner().len(), 101);
+// 	}
+// }

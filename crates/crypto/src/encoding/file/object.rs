@@ -6,20 +6,14 @@ use crate::{
 };
 
 #[derive(Clone)]
-#[binrw::binrw]
 pub struct HeaderObjectIdentifier {
 	key: EncryptedKey, // technically a key, although used as an identifier here
 	salt: Salt,
 }
 
-#[binrw::binrw]
 pub struct HeaderObject {
 	pub identifier: HeaderObjectIdentifier,
 	pub nonce: Nonce,
-
-	#[bw(try_calc(u8::try_from(data.len())))]
-	data_len: u8,
-	#[br(count = data_len)]
 	pub data: Vec<u8>,
 }
 
