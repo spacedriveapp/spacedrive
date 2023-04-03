@@ -125,7 +125,7 @@ if ($env:CI -eq $True) {
 }
 
 # Install chocolatey if it isn't already installed
-if (!(Get-Command clang -ea 0)) {
+if (!(Get-Command choco -ea 0)) {
    Write-Host
    Write-Host 'Installing Chocolatey...' -ForegroundColor Yellow
    Set-ExecutionPolicy Bypass -Scope Process -Force
