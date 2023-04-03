@@ -97,7 +97,7 @@ export function JobsManager() {
 
 	return (
 		<div className="h-full overflow-hidden pb-10">
-			<div className="border-app-line/50 bg-app-button/70 z-20 flex h-10 w-full items-center rounded-t-md border-b px-2">
+			<div className="z-20 flex h-10 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/70 px-2">
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="grow" />
 
@@ -124,7 +124,7 @@ export function JobsManager() {
 							<Job key={job.id} job={job} />
 						))}
 						{jobs.data?.length === 0 && runningJobs.data?.length === 0 && (
-							<div className="text-ink-dull flex h-32 items-center justify-center">No jobs.</div>
+							<div className="flex h-32 items-center justify-center text-ink-dull">No jobs.</div>
 						)}
 					</div>
 				</div>
@@ -142,7 +142,7 @@ function Job({ job }: { job: JobReport }) {
 	return (
 		// Do we actually need bg-opacity-60 here? Where is the bg?
 		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-		<div className="border-app-line/50 flex items-center border-b bg-opacity-60 p-2 pl-4">
+		<div className="flex items-center border-b border-app-line/50 bg-opacity-60 p-2 pl-4">
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
 			</Tooltip>
@@ -155,7 +155,7 @@ function Job({ job }: { job: JobReport }) {
 						<ProgressBar value={job.completed_task_count} total={job.task_count} />
 					</div>
 				)}
-				<div className="text-ink-faint flex items-center truncate">
+				<div className="flex items-center truncate text-ink-faint">
 					<span className="text-xs">
 						{isRunning ? 'Elapsed' : job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
 						{job.seconds_elapsed

@@ -144,10 +144,10 @@ interface CategoryButtonProps {
 function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
 		<Card className="items-center !px-3">
-			<Icon weight="fill" className="text-ink-dull mr-3 h-6 w-6 opacity-20" />
+			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-ink-faint text-xs">23,324 items</p>
+				<p className="text-xs text-ink-faint">23,324 items</p>
 			</div>
 		</Card>
 	);

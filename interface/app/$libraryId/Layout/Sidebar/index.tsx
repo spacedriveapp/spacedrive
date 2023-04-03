@@ -51,7 +51,7 @@ export default () => {
 	return (
 		<div
 			className={clsx(
-				'border-sidebar-divider bg-sidebar relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2 border-r px-2.5 pb-2',
+				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2',
 				macOnly(os, 'bg-opacity-[0.65]')
 			)}
 		>
@@ -121,9 +121,9 @@ const LibrarySection = () => {
 				})}
 				{(locations.data?.length || 0) < 4 && (
 					<AddLocationButton
-						className="border-sidebar-line hover:border-sidebar-selected cursor-normal
-						text-ink-faint mt-1 w-full rounded border border-dashed px-2 py-1
-						text-center text-xs font-medium transition"
+						className="cursor-normal mt-1 w-full
+						rounded border border-dashed border-sidebar-line px-2 py-1 text-center text-xs
+						font-medium text-ink-faint transition hover:border-sidebar-selected"
 					/>
 				)}
 			</Section>
@@ -246,7 +246,7 @@ const Footer = () => {
 						<Button
 							size="icon"
 							variant="subtle"
-							className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
+							className="text-ink-faint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
 							disabled={!library}
 						>
 							{library && (

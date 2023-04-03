@@ -109,8 +109,8 @@ function Page() {
 				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
 					Build the future of files.
 				</h1>
-				<div className="fade-in animation-delay-1 z-30 flex flex-col items-center">
-					<p className="text-gray-350 z-40 text-center text-lg">
+				<div className="animation-delay-1 z-30 flex flex-col items-center fade-in">
+					<p className="z-40 text-center text-lg text-gray-350">
 						Spacedrive is redefining the way we think about our personal data, building a open
 						ecosystem to help preserve your digital legacy and make cross-platform file management a
 						breeze.
@@ -129,11 +129,11 @@ function Page() {
 						{values.map((value, index) => (
 							<div
 								key={value.title + index}
-								className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
+								className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
 							>
 								<value.icon className="text-[32px]" weight="bold" />
 								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
-								<p className="text-gray-350 mt-1 mb-0">{value.desc}</p>
+								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
 							</div>
 						))}
 					</div>
@@ -147,7 +147,7 @@ function Page() {
 							<div
 								key={value.title + index}
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
-								className="bg-gray-550/30 flex flex-col rounded-md border p-8"
+								className="flex flex-col rounded-md border bg-gray-550/30 p-8"
 							>
 								<value.icon className="text-[32px]" weight="bold" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
@@ -162,14 +162,14 @@ function Page() {
 					<p className="mt-2 mb-4">If any open positions suit you, apply now!</p>
 					<div className="mt-5 grid w-full grid-cols-1 gap-4">
 						{positions.length === 0 ? (
-							<p className="text-gray-350 m-0 text-center">
+							<p className="m-0 text-center text-gray-350">
 								There are no positions open at this time. Please check back later!
 							</p>
 						) : (
 							positions.map((value, index) => (
 								<div
 									key={value.name + index}
-									className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
+									className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
 								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
@@ -184,7 +184,7 @@ function Page() {
 											</span>
 										</div>
 									</div>
-									<p className="text-gray-350 mt-3 mb-0">{value.description}</p>
+									<p className="mt-3 mb-0 text-gray-350">{value.description}</p>
 								</div>
 							))
 						)}

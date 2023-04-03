@@ -5,14 +5,14 @@ export const Component = () => {
 	const navigate = useNavigate();
 
 	return (
-		<div className="bg-app/80 w-full">
+		<div className="w-full bg-app/80">
 			<div
 				role="alert"
 				className="flex h-full w-full flex-col items-center justify-center rounded-lg p-4"
 			>
-				<p className="text-ink-faint m-3 text-sm font-semibold uppercase">Error: 404</p>
+				<p className="m-3 text-sm font-semibold uppercase text-ink-faint">Error: 404</p>
 				<h1 className="text-4xl font-bold">There's nothing here.</h1>
-				<p className="text-ink-dull mt-2 text-sm">
+				<p className="mt-2 text-sm text-ink-dull">
 					Its likely that this page has not been built yet, if so we're on it!
 				</p>
 				<div className="flex flex-row space-x-2">

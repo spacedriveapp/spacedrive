@@ -21,8 +21,8 @@ export default () => {
 								'radix-state-closed:animate-toast-hide',
 								'radix-swipe-end:animate-toast-swipe-out',
 								'translate-x-radix-toast-swipe-move-x',
-								'radix-swipe-cancel:translate-x-0 radix-swipe-cancel:duration-200 radix-swipe-cancel:ease-[ease]',
-								'focus-visible:ring-accent/75 border-2 border-white/10 shadow-2xl focus:outline-none focus-visible:ring'
+								'radix-swipe-cancel:ease-[ease] radix-swipe-cancel:translate-x-0 radix-swipe-cancel:duration-200',
+								'border-2 border-white/10 shadow-2xl focus:outline-none focus-visible:ring focus-visible:ring-accent/75'
 							)}
 						>
 							<div className="flex">
@@ -44,7 +44,7 @@ export default () => {
 											{toast.actionButton && (
 												<ToastPrimitive.Action
 													altText="view now"
-													className="text-accent focus-visible:ring-accent/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring"
+													className="flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-accent hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-accent/75"
 													onClick={(e) => {
 														e.preventDefault();
 														toast.actionButton?.onClick();
@@ -56,7 +56,7 @@ export default () => {
 											)}
 										</div>
 										<div className="flex h-0 flex-1">
-											<ToastPrimitive.Close className="text-ink-faint focus-visible:ring-accent/75 flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring">
+											<ToastPrimitive.Close className="flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-ink-faint hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-accent/75">
 												Dismiss
 											</ToastPrimitive.Close>
 										</div>

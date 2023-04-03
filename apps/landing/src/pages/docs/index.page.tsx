@@ -20,7 +20,7 @@ function Page({ navigation }: { navigation: DocsNavigation }) {
 							need to get started with Spacedrive.
 						</p>
 						<a
-							className="text-primary-600 hover:text-primary-500 transition"
+							className="text-primary-600 transition hover:text-primary-500"
 							href="/docs/product/getting-started/introduction"
 						>
 							Get Started →

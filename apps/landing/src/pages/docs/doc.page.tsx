@@ -9,7 +9,7 @@ import { SingleDocResponse } from './api';
 
 function BottomCard(props: PropsWithChildren) {
 	return (
-		<div className="hover:border-primary hover:!text-primary hover:shadow-primary/10 group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:shadow-xl">
+		<div className="group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:border-primary hover:!text-primary hover:shadow-xl hover:shadow-primary/10">
 			{props.children}
 		</div>
 	);
@@ -31,7 +31,7 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 
 			<DocsLayout doc={doc} navigation={navigation}>
 				<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">
-					<h5 className="text-primary mb-2 text-sm font-semibold lg:min-w-[700px]">
+					<h5 className="mb-2 text-sm font-semibold text-primary lg:min-w-[700px]">
 						{doc.categoryName}
 					</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />

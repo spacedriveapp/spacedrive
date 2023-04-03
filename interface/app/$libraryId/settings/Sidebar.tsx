@@ -26,7 +26,7 @@ export default () => {
 	const os = useOperatingSystem();
 
 	return (
-		<div className="border-app-line/50 custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r pb-5">
+		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
 			{os !== 'browser' ? (
 				<div data-tauri-drag-region className="h-5 w-full" />
 			) : (

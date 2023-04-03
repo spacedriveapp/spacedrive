@@ -147,7 +147,7 @@ export function Dialog<S extends FieldValues>({
 					<DialogPrimitive.Portal forceMount>
 						<DialogPrimitive.Overlay asChild forceMount>
 							<animated.div
-								className="z-49 bg-app/50 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
+								className="z-49 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
 								style={{
 									opacity: styles.opacity
 								}}
@@ -166,18 +166,18 @@ export function Dialog<S extends FieldValues>({
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}
-									className="bg-app-box border-app-line text-ink shadow-app-shade !pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border"
+									className="!pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 								>
 									<div className="p-5">
 										<DialogPrimitive.Title className="mb-2 font-bold">
 											{props.title}
 										</DialogPrimitive.Title>
-										<DialogPrimitive.Description className="text-ink-dull text-sm">
+										<DialogPrimitive.Description className="text-sm text-ink-dull">
 											{props.description}
 										</DialogPrimitive.Description>
 										{props.children}
 									</div>
-									<div className="bg-app-selected border-app-line flex flex-row justify-end space-x-2 border-t p-3">
+									<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 										{form.formState.isSubmitting && <Loader />}
 										<div className="grow" />
 										<DialogPrimitive.Close asChild>

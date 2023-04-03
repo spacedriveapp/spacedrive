@@ -16,7 +16,7 @@ export const ProgressBar = memo((props: ProgressBarProps) => {
 		>
 			<ProgressPrimitive.Indicator
 				style={{ width: `${percentage}%` }}
-				className="bg-accent h-full duration-300 ease-in-out "
+				className="h-full bg-accent duration-300 ease-in-out "
 			/>
 		</ProgressPrimitive.Root>
 	);

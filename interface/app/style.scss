@@ -61,7 +61,7 @@ body {
 		@apply rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box rounded-[6px];
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .page-scroll {
@@ -73,7 +73,7 @@ body {
 		@apply my-[10px] rounded-[6px]  bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box rounded-[6px];
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .inspector-scroll {
@@ -86,7 +86,7 @@ body {
 		@apply my-[8px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app/70 rounded-[6px] opacity-0;
+		@apply rounded-[6px] bg-app/70 opacity-0;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {
