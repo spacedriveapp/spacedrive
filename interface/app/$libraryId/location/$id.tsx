@@ -24,7 +24,7 @@ export const Component = () => {
 	useEffect(() => {
 		explorerState.locationId = location_id;
 		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path });
-	}, [location_id, path]);
+	}, [explorerState, location_id, path, quickRescan]);
 
 	if (location_id === null) throw new Error(`location_id is null!`);
 
