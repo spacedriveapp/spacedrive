@@ -31,7 +31,9 @@ export default function OnboardingCreatingLibrary() {
 				library
 			]);
 
-			submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			if (obStore.shareTelemetry) {
+				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			}
 
 			resetOnboardingStore();
 			navigate(`/${library.uuid}/overview`);
