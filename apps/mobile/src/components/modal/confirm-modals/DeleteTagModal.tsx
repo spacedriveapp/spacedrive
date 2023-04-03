@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
@@ -11,8 +11,11 @@ type Props = {
 const DeleteTagModal = ({ trigger, onSubmit, tagId }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const { mutate: deleteTag, isLoading: deleteTagLoading } = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagDelete' } });
 			onSubmit?.();
 		},
 		onSettled: () => {

@@ -18,11 +18,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
-import { proxy, useSnapshot } from 'valtio';
+import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
 	getDebugState,
+	initPlausible,
 	rspc,
 	useClientContext,
 	useInvalidateQuery,
@@ -48,6 +49,8 @@ const NavigatorTheme: Theme = {
 	}
 };
 
+initPlausible({ platformType: 'mobile' });
+
 function AppNavigation() {
 	const { library } = useClientContext();
 
@@ -59,10 +62,7 @@ function AppNavigation() {
 
 	const [currentPath, setCurrentPath] = useState<string>('/');
 
-	usePlausiblePageViewMonitor({
-		currentPath,
-		platformType: 'mobile'
-	});
+	usePlausiblePageViewMonitor({ currentPath });
 
 	return (
 		<NavigationContainer
@@ -81,7 +81,7 @@ function AppNavigation() {
 					if (navRef.getRootState().routeNames.includes('GetStarted')) {
 						return;
 					}
-					// console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
+					console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
 					currentRouteName && setCurrentPath(currentRouteName);
 				}
 			}}
