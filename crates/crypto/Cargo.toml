@@ -31,7 +31,7 @@ blake3 = { version = "1.3.3", features = ["traits-preview"] }
 # constant-time
 subtle = "2.4.1"
 # remove git dep once 0.3.0+ releases
-cmov = { git = "https://github.com/RustCrypto/utils", rev = "fc010a560073b5a37c951c990c2a2439dc9dc9af" }
+cmov = "3.0.0"
 
 # aeads
 aes-gcm = "0.10.1"
@@ -47,13 +47,12 @@ zeroize = { version = "1.6.0", features = ["derive", "aarch64"] }
 # error handling
 thiserror = "1.0.40"
 
-# header serialization
-bincode = { version = "2.0.0-rc.3", optional = true }
 
 # generic serialization
 serde = { version = "1.0.158", features = ["derive"], optional = true }
 serde_json = { version = "1.0.94", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
+bincode = { version = "2.0.0-rc.3", optional = true }
 
 # for asynchronous crypto
 tokio = { workspace = true, features = [
