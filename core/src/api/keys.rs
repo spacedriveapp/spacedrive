@@ -1,8 +1,7 @@
 // use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
-use sd_crypto::types::{Algorithm, HashingAlgorithm};
-use sd_crypto::Protected;
-use serde::Deserialize;
-use specta::Type;
+// use sd_crypto::types::{Algorithm, HashingAlgorithm};
+// use serde::Deserialize;
+// use specta::Type;
 use std::path::PathBuf;
 // use tokio::fs::File;
 // use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -13,40 +12,40 @@ use uuid::Uuid;
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
-#[derive(Type, Deserialize)]
-pub struct KeyAddArgs {
-	algorithm: Algorithm,
-	hashing_algorithm: HashingAlgorithm,
-	key: Protected<String>,
-	library_sync: bool,
-	automount: bool,
-}
+// #[derive(Type, Deserialize)]
+// pub struct KeyAddArgs {
+// 	algorithm: Algorithm,
+// 	hashing_algorithm: HashingAlgorithm,
+// 	key: String,
+// 	library_sync: bool,
+// 	automount: bool,
+// }
 
-#[derive(Type, Deserialize)]
-pub struct UnlockKeyManagerArgs {
-	password: Protected<String>,
-	secret_key: Protected<String>,
-}
+// #[derive(Type, Deserialize)]
+// pub struct UnlockKeyManagerArgs {
+// 	password: String,
+// 	secret_key: String,
+// }
 
-#[derive(Type, Deserialize)]
-pub struct RestoreBackupArgs {
-	password: Protected<String>,
-	secret_key: Protected<String>,
-	path: PathBuf,
-}
+// #[derive(Type, Deserialize)]
+// pub struct RestoreBackupArgs {
+// 	password: String,
+// 	secret_key: String,
+// 	path: PathBuf,
+// }
 
-#[derive(Type, Deserialize)]
-pub struct MasterPasswordChangeArgs {
-	password: Protected<String>,
-	algorithm: Algorithm,
-	hashing_algorithm: HashingAlgorithm,
-}
+// #[derive(Type, Deserialize)]
+// pub struct MasterPasswordChangeArgs {
+// 	password: String,
+// 	algorithm: Algorithm,
+// 	hashing_algorithm: HashingAlgorithm,
+// }
 
-#[derive(Type, Deserialize)]
-pub struct AutomountUpdateArgs {
-	uuid: Uuid,
-	status: bool,
-}
+// #[derive(Type, Deserialize)]
+// pub struct AutomountUpdateArgs {
+// 	uuid: Uuid,
+// 	status: bool,
+// }
 
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
@@ -145,7 +144,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("updateAutomountStatus", |t| {
-			t(|_, args: AutomountUpdateArgs, library| async move {
+			t(|_, args: String, library| async move {
 				// if !library.key_manager.is_memory_only(args.uuid).await? {
 				// 	todo!();
 				// 	invalidate_query!(library, "keys.list");
@@ -177,7 +176,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("unlockKeyManager", |t| {
-			t(|_, args: UnlockKeyManagerArgs, library| async move {
+			t(|_, args: String, library| async move {
 				// let secret_key = (!args.secret_key.expose().is_empty())
 				// 	.then_some(args.secret_key)
 				// 	.map(|s| SecretKeyString::new(s.into_inner()));
@@ -262,7 +261,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		// this also mounts the key
 		.library_mutation("add", |t| {
-			t(|_, args: KeyAddArgs, library| async move {
+			t(|_, args: String, library| async move {
 				// // register the key with the keymanager
 				// let uuid = library
 				// 	.key_manager
@@ -324,7 +323,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("restoreKeystore", |t| {
-			t(|_, args: RestoreBackupArgs, library| async move {
+			t(|_, args: String, library| async move {
 				// let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
 
 				// let mut backup = Vec::new();
@@ -358,7 +357,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {
-			t(|_, args: MasterPasswordChangeArgs, library| async move {
+			t(|_, args: String, library| async move {
 				// let verification_key = library
 				// 	.key_manager
 				// 	.change_master_password(

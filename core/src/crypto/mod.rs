@@ -12,10 +12,11 @@
 #![warn(unused_qualifications)]
 #![forbid(unsafe_code)]
 
-use sd_crypto::{
-	types::{Algorithm, DerivationContext, HashingAlgorithm},
-	Protected,
-};
+use sd_crypto::types::{Algorithm, DerivationContext, HashingAlgorithm};
+
+pub mod error;
+pub mod key_manager;
+pub use error::Result;
 
 /// Used for OS keyrings to identify our items.
 pub const KEYRING_APP_IDENTIFIER: &str = "Spacedrive";
@@ -41,7 +42,7 @@ pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 
 #[derive(Clone, serde::Deserialize)]
 pub struct OnboardingConfig {
-	pub password: Protected<String>,
+	pub password: String,
 	pub algorithm: Algorithm,
 	pub hashing_algorithm: HashingAlgorithm,
 }
