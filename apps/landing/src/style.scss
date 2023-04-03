@@ -186,6 +186,12 @@ html {
 .slot-block-content {
 	@apply my-1 mx-0 mb-0 text-white;
 }
+.slot-block-title-icon {
+	@apply my-0 h-5 w-5 text-white;
+}
+.slot-block-title-container {
+	@apply flex flex-row items-center gap-x-1;
+}
 
 .doc-sidebar-button:hover,
 .doc-sidebar-button.nav-active {

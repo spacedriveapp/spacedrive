@@ -1,10 +1,20 @@
 import parseMarkdownMetadata from 'markdown-yaml-metadata-parser';
 import { marked } from 'marked';
+import { Fire, Info } from 'phosphor-react';
+import { renderToString } from 'react-dom/server';
 
 export interface MarkdownPageData {
 	name?: string;
 	index?: number;
 	new?: boolean;
+	// for blog posts
+	title?: string;
+	author?: string;
+	date?: string;
+	tags?: string;
+	image?: string;
+	imageCaption?: string;
+	readTime?: string;
 }
 
 interface MarkdownParsed {
@@ -51,9 +61,19 @@ export function parseMarkdown(markdownRaw: string): MarkdownParsed {
 
 				switch (kind) {
 					case 'slot':
-						return `<div class="slot-block ${name}"><h5 class="slot-block-title">${
-							extra || name
-						}</h5><p class="slot-block-content">${content}</p></div>`;
+						return (
+							// prettier-ignore
+							`<div class="slot-block ${name}">
+                                                                <div class="slot-block-title-container">
+                                                                        ${name === 'warning'
+                                                                                ? renderToString(<Fire className="slot-block-title-icon" />)
+                                                                                : renderToString(<Info className="slot-block-title-icon" />)
+                                                                        }
+                                                                        <h5 class="slot-block-title">${extra || name}</h5>
+                                                                </div>
+                                                                <p class="slot-block-content">${content}</p>
+                                                        </div>`
+						);
 						break;
 
 					default:
