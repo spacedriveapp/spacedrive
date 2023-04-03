@@ -13,6 +13,11 @@ env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
   SPACEDRIVE_CI: '1'
 
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Disabled until I can figure out why our app on x86_64 crashes on startup.
   # android:
