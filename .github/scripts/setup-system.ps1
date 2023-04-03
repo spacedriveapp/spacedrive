@@ -181,3 +181,5 @@ Get-ChildItem "$HOME\$foldername\bin" -Recurse -Filter *.dll | Copy-Item -Destin
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!'
+Write-Host -NoNewline 'Press any key to continue...'
+$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
