@@ -13,19 +13,19 @@ members = [
 ]
 
 [workspace.dependencies]
-prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c965b89f1a07a6931d90f4b5556421f7ffcda03b", features = [
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
   "sqlite",
 ], default-features = false }
 

@@ -4,7 +4,7 @@ import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
-import { AnimatedButton } from '~/components/primitive/Button';
+import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -37,9 +37,9 @@ function LibraryItem({
 				<DeleteLibraryModal
 					libraryUuid={library.uuid}
 					trigger={
-						<AnimatedButton style={tw`mx-2`}>
+						<FakeButton style={tw`mx-2`}>
 							<Trash size={18} color="white" />
-						</AnimatedButton>
+						</FakeButton>
 					}
 				/>
 			</Animated.View>

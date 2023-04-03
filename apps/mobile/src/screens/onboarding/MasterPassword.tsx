@@ -79,7 +79,13 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 						control={form.control}
 						name="password"
 						render={({ field: { onBlur, onChange, value } }) => (
-							<PasswordInput onChangeText={onChange} onBlur={onBlur} value={value} isNewPassword />
+							<PasswordInput
+								testID="master-password"
+								onChangeText={onChange}
+								onBlur={onBlur}
+								value={value}
+								isNewPassword
+							/>
 						)}
 					/>
 				</View>
@@ -90,6 +96,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							name="password_validate"
 							render={({ field: { onBlur, onChange, value } }) => (
 								<PasswordInput
+									testID="master-password-confirm"
 									onChangeText={onChange}
 									onBlur={onBlur}
 									value={value}

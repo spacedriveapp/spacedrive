@@ -46,6 +46,7 @@ const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary
 					control={form.control}
 					render={({ field: { onBlur, onChange, value } }) => (
 						<Input
+							testID="library-name"
 							style={tw`my-3`}
 							placeholder='e.g. "James Library"'
 							onBlur={onBlur}
