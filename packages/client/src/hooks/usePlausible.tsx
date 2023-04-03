@@ -363,10 +363,13 @@ export interface PageViewMonitorProps {
  *  });
  * ```
  */
-export const usePlausiblePageViewMonitor = (props: PageViewMonitorProps) => {
-	const plausibleEvent = usePlausibleEvent({ platformType: props.platformType });
+export const usePlausiblePageViewMonitor = ({
+	currentPath,
+	platformType
+}: PageViewMonitorProps) => {
+	const plausibleEvent = usePlausibleEvent({ platformType });
 
-	let path = props.currentPath;
+	let path = currentPath;
 	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
 
 	useEffect(() => {

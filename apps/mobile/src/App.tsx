@@ -77,7 +77,11 @@ function AppNavigation() {
 				if (previousRouteName !== currentRouteName) {
 					// Save the current route name for later comparison
 					routeNameRef.current = currentRouteName;
-					console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
+					// Don't track onboarding screens
+					if (navRef.getRootState().routeNames.includes('GetStarted')) {
+						return;
+					}
+					// console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
 					currentRouteName && setCurrentPath(currentRouteName);
 				}
 			}}
