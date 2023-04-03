@@ -12,6 +12,11 @@ on:
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typescript:
     name: TypeScript
