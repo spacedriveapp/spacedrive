@@ -63,6 +63,9 @@ if (!(Get-Command pnpm -ea 0)) {
    Write-Host 'pnpm is not installed. Installing now.'
    Write-Host 'Running the pnpm installer...'
 
+   # Currently pnpm >= 8 is not supported due to incompatbilities with some dependencies
+   $env:PNPM_VERSION = 'latest-7'
+
    #pnpm installer taken from https://pnpm.io
    Invoke-WebRequest https://get.pnpm.io/install.ps1 -useb | Invoke-Expression
 
