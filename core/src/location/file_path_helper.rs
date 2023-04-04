@@ -308,7 +308,7 @@ impl LastFilePathIdManager {
 	#[cfg(feature = "location-watcher")]
 	pub async fn create_file_path(
 		&self,
-		library @ Library { db, sync, .. }: &Library,
+		Library { db, sync, .. }: &Library,
 		MaterializedPath {
 			materialized_path,
 			is_dir,
@@ -342,41 +342,43 @@ impl LastFilePathIdManager {
 
 		let next_id = *last_id_ref + 1;
 
-		let created_path = library
-			.sync
+		let params = [
+			("materialized_path", json!(materialized_path)),
+			("name", json!(name)),
+			("extension", json!(extension)),
+			("inode", json!(inode.to_le_bytes())),
+			("device", json!(device.to_le_bytes())),
+			("is_dir", json!(is_dir)),
+		]
+		.into_iter()
+		.map(Some)
+		.chain([parent_id.map(|parent_id| {
+			(
+				"parent_id",
+				json!(sync::file_path::SyncId {
+					location: sync::location::SyncId {
+						pub_id: location.pub_id.clone()
+					},
+					id: parent_id
+				}),
+			)
+		})])
+		.flatten()
+		.collect::<Vec<_>>();
+
+		let created_path = sync
 			.write_op(
-				&library.db,
-				library.sync.unique_shared_create(
+				&db,
+				sync.unique_shared_create(
 					sync::file_path::SyncId {
 						location: sync::location::SyncId {
 							pub_id: location.pub_id.clone(),
 						},
 						id: next_id,
 					},
-					[
-						("materialized_path", json!(materialized_path)),
-						("name", json!(name)),
-						("extension", json!(extension)),
-						("inode", json!(inode.to_le_bytes())),
-						("device", json!(device.to_le_bytes())),
-						("is_dir", json!(is_dir)),
-					]
-					.into_iter()
-					.map(Some)
-					.chain([parent_id.map(|parent_id| {
-						(
-							"parent_id",
-							json!(sync::file_path::SyncId {
-								location: sync::location::SyncId {
-									pub_id: location.pub_id.clone()
-								},
-								id: parent_id
-							}),
-						)
-					})])
-					.flatten(),
+					params,
 				),
-				library.db.file_path().create(
+				db.file_path().create(
 					next_id,
 					location::id::equals(location_id),
 					materialized_path.into_owned(),
