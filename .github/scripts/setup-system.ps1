@@ -1,7 +1,7 @@
 # Check if PowerShell is running as administrator
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-   # Start a new PowerShell process with administrator privileges
-   Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $MyInvocation.MyCommand.Definition
+   # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
+   Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
    # Exit the current PowerShell process
    Exit
 }
@@ -9,8 +9,8 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
-# Get current running dir
-$currentLocation = $((Get-Location).path)
+# Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\.github\scripts)
+$projectRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 
 Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @'
@@ -183,10 +183,10 @@ Write-Host
 Write-Host 'Copying Required .dll files...' -ForegroundColor Yellow
 
 # Create target\debug folder, continue if already exists
-New-Item -Path $currentLocation\target\debug -ItemType Directory -ErrorAction SilentlyContinue
+New-Item -Path $projectRoot\target\debug -ItemType Directory -ErrorAction SilentlyContinue
 
 # Copies all .dll required for rust-ffmpeg to target\debug folder
-Get-ChildItem "$HOME\$foldername\bin" -Recurse -Filter *.dll | Copy-Item -Destination "$currentLocation\target\debug"
+Get-ChildItem "$HOME\$foldername\bin" -Recurse -Filter *.dll | Copy-Item -Destination "$projectRoot\target\debug"
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!'
