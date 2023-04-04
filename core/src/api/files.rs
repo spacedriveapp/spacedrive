@@ -2,6 +2,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::Library,
+	location::{find_location, LocationError},
 	object::fs::{
 		copy::{FileCopierJob, FileCopierJobInit},
 		cut::{FileCutterJob, FileCutterJobInit},
@@ -13,9 +14,9 @@ use crate::{
 	prisma::object,
 };
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
-use tokio::sync::oneshot;
+use tokio::{fs, sync::oneshot};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -177,6 +178,34 @@ pub(crate) fn mount() -> RouterBuilder {
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
+			})
+		})
+		.library_mutation("renameFile", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct RenameFileArgs {
+				pub location_id: i32,
+				pub file_name: String,
+				pub new_file_name: String,
+			}
+
+			t(|_, args: RenameFileArgs, library: Library| async move {
+				let location = find_location(&library, args.location_id)
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+				match fs::rename(
+					location.path.clone() + &args.file_name,
+					location.path.clone() + &args.new_file_name,
+				)
+				.await
+				{
+					Ok(_) => Ok(()),
+					Err(e) => Err(rspc::Error::new(
+						ErrorCode::Conflict,
+						format!("Failed to rename file: {}", e),
+					)),
+				}
 			})
 		})
 }

@@ -34,6 +34,7 @@ import EraseDialog from './EraseDialog';
 
 interface Props extends PropsWithChildren {
 	data: ExplorerItem;
+	onRename: () => void;
 }
 
 export default ({ data, ...props }: Props) => {
@@ -85,7 +86,7 @@ export default ({ data, ...props }: Props) => {
 
 				<ContextMenu.Separator />
 
-				<ContextMenu.Item label="Rename" />
+				<ContextMenu.Item label="Rename" onClick={props.onRename} />
 				<ContextMenu.Item
 					label="Duplicate"
 					keybind="⌘D"
