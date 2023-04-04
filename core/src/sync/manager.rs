@@ -460,7 +460,7 @@ impl SyncManager {
 	>(
 		&self,
 		id: TSyncId,
-		values: impl IntoIterator<Item = (&'static str, Value)>,
+		values: impl IntoIterator<Item = (&'static str, Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
 			model: TModel::MODEL.to_string(),
