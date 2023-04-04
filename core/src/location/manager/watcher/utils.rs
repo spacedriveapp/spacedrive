@@ -21,6 +21,7 @@ use crate::{
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
+	sync,
 };
 
 #[cfg(target_family = "unix")]
@@ -42,6 +43,7 @@ use chrono::{DateTime, Local};
 use int_enum::IntEnum;
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
+use serde_json::json;
 use tokio::{fs, io::ErrorKind};
 use tracing::{error, info, trace, warn};
 use uuid::Uuid;
@@ -107,7 +109,7 @@ pub(super) async fn create_dir(
 	let created_path = library
 		.last_file_path_id_manager
 		.create_file_path(
-			&library.db,
+			&library,
 			materialized_path,
 			Some(parent_directory.id),
 			inode,
@@ -168,7 +170,7 @@ pub(super) async fn create_file(
 	let created_file = library
 		.last_file_path_id_manager
 		.create_file_path(
-			db,
+			library,
 			materialized_path,
 			Some(parent_directory.id),
 			inode,
@@ -317,10 +319,18 @@ async fn inner_update_file(
 	location_id: LocationId,
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library @ Library { db, sync, .. }: &Library,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
-	let location_path = extract_location_path(location_id, library).await?;
+	let location = db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.exec()
+		.await?
+		.ok_or_else(|| LocationManagerError::MissingLocation(location_id))?;
+
+	let location_path = PathBuf::from(location.path);
+
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
 		location_path.display(),
@@ -339,30 +349,67 @@ async fn inner_update_file(
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+				(
+					("cas_id", json!(old_cas_id)),
+					file_path::cas_id::set(Some(old_cas_id.clone())),
+				),
+				(
+					("size_in_bytes", json!(fs_metadata.len().to_string())),
+					file_path::size_in_bytes::set(fs_metadata.len().to_string()),
+				),
+				{
+					let date = DateTime::<Local>::from(fs_metadata.created().unwrap()).into();
+
+					(
+						("date_modified", json!(date)),
+						file_path::date_modified::set(date),
+					)
+				},
+				{
+					// TODO: Should this be a skip rather than a null-set?
+					let checksum = if file_path.integrity_checksum.is_some() {
+						// If a checksum was already computed, we need to recompute it
+						Some(file_checksum(full_path).await?)
+					} else {
+						None
+					};
+
+					(
+						("integrity_checksum", json!(checksum)),
+						file_path::integrity_checksum::set(checksum),
+					)
+				},
+			]
+			.into_iter()
+			.unzip();
+
 			// file content changed
-			library
-				.db
-				.file_path()
-				.update(
-					file_path::location_id_id(location_id, file_path.id),
-					vec![
-						file_path::cas_id::set(Some(old_cas_id.clone())),
-						file_path::size_in_bytes::set(fs_metadata.len().to_string()),
-						file_path::date_modified::set(
-							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
-						),
-						file_path::integrity_checksum::set(
-							if file_path.integrity_checksum.is_some() {
-								// If a checksum was already computed, we need to recompute it
-								Some(file_checksum(full_path).await?)
-							} else {
-								None
-							},
-						),
-					],
-				)
-				.exec()
-				.await?;
+			sync.write_ops(
+				db,
+				(
+					sync_params
+						.into_iter()
+						.map(|(field, value)| {
+							sync.shared_update(
+								sync::file_path::SyncId {
+									location: sync::location::SyncId {
+										pub_id: location.pub_id.clone(),
+									},
+									id: file_path.id,
+								},
+								field,
+								value,
+							)
+						})
+						.collect(),
+					db.file_path().update(
+						file_path::location_id_id(location_id, file_path.id),
+						db_params,
+					),
+				),
+			)
+			.await?;
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
@@ -371,18 +418,26 @@ async fn inner_update_file(
 				}
 
 				let int_kind = kind.int_value();
+
 				if object.kind != int_kind {
-					library
-						.db
-						.object()
-						.update(
+					sync.write_op(
+						db,
+						sync.shared_update(
+							sync::object::SyncId {
+								pub_id: object.pub_id.clone(),
+							},
+							"kind",
+							json!(int_kind),
+						),
+						db.object().update(
 							object::id::equals(object.id),
 							vec![object::kind::set(int_kind)],
-						)
-						.exec()
-						.await?;
+						),
+					)
+					.await?;
 				}
 			}
+
 			invalidate_query!(library, "locations.getExplorerData");
 		}
 	}
