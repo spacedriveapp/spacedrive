@@ -23,5 +23,5 @@ module.exports = {
 	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
 	pluginSearchDirs: false,
 	plugins: ['@trivago/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss'],
-	tailwindConfig: 'packages/ui/tailwind.config.js'
+	tailwindConfig: './packages/ui/tailwind.config.js'
 };

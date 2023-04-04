@@ -29,17 +29,17 @@ export function ErrorPage({
 		<div
 			data-tauri-drag-region
 			role="alert"
-			className="border-app-divider bg-app flex h-screen w-screen flex-col items-center justify-center rounded-lg border p-4"
+			className="flex h-screen w-screen flex-col items-center justify-center rounded-lg border border-app-divider bg-app p-4"
 		>
-			<p className="text-ink-faint m-3 text-sm font-bold">APP CRASHED</p>
-			<h1 className="text-ink text-2xl font-bold">We're past the event horizon...</h1>
-			<pre className="text-ink m-2">Error: {message}</pre>
+			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
+			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
+			<pre className="m-2 text-ink">Error: {message}</pre>
 			{debug.enabled && (
-				<pre className="text-ink-dull m-2 text-sm">
+				<pre className="m-2 text-sm text-ink-dull">
 					Check the console (CMD/CTRL + OPTION + i) for stack trace.
 				</pre>
 			)}
-			<div className="text-ink flex flex-row space-x-2">
+			<div className="flex flex-row space-x-2 text-ink">
 				{reloadBtn && (
 					<Button variant="accent" className="mt-2" onClick={reloadBtn}>
 						Reload

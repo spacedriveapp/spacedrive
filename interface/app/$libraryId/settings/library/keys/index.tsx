@@ -54,7 +54,7 @@ export const KeyMounterDropdown = ({
 										'flex flex-col',
 										'z-50 m-2 space-y-1',
 										'cursor-default select-none rounded-lg',
-										'text-ink text-left text-sm',
+										'text-left text-sm text-ink',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -138,7 +138,7 @@ export const Component = () => {
 				</Button>
 				{!enterSkManually && (
 					<div className="relative flex grow">
-						<p className="text-accent mt-2" onClick={() => setEnterSkManually(true)}>
+						<p className="mt-2 text-accent" onClick={() => setEnterSkManually(true)}>
 							or enter secret key manually
 						</p>
 					</div>
@@ -162,12 +162,12 @@ export const Component = () => {
 								variant="subtle"
 								className="text-ink-faint"
 							>
-								<Lock className="text-ink-faint h-4 w-4" />
+								<Lock className="h-4 w-4 text-ink-faint" />
 							</Button>
 							<KeyMounterDropdown
 								trigger={
 									<Button size="icon" variant="subtle" className="text-ink-faint">
-										<Plus className="text-ink-faint h-4 w-4" />
+										<Plus className="h-4 w-4 text-ink-faint" />
 									</Button>
 								}
 							>

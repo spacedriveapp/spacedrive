@@ -24,7 +24,7 @@ export const PasswordMeter = (props: PasswordMeterProps) => {
 				{scoreText}
 			</span>
 			<div className="flex grow">
-				<div className="bg-app-box/50 mt-2 w-full rounded-full">
+				<div className="mt-2 w-full rounded-full bg-app-box/50">
 					<div
 						style={{
 							width: `${score !== 0 ? score * 25 : 12.5}%`

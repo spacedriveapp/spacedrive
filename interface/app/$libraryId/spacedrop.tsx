@@ -52,13 +52,13 @@ function DropItem(props: DropItemProps) {
 
 	return (
 		<div
-			className={clsx(classes.honeycombItem, 'bg-app-box/20 hover:bg-app-box/50 overflow-hidden')}
+			className={clsx(classes.honeycombItem, 'overflow-hidden bg-app-box/20 hover:bg-app-box/50')}
 		>
 			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer> */}
-				<div className="bg-app-button h-14 w-14 rounded-full">{icon}</div>
+				<div className="h-14 w-14 rounded-full bg-app-button">{icon}</div>
 				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
 				</SubtleButtonContainer>

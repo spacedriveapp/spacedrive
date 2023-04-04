@@ -1,4 +1,3 @@
-/* eslint-disable tailwindcss/classnames-order */
 import { Helmet } from 'react-helmet';
 import { BlogTag } from '../../components/BlogTag';
 import { BlogPosts } from './api';

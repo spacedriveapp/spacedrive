@@ -19,9 +19,9 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 						'flex flex-col',
 						'z-50 m-2 min-w-[11rem]',
 						'cursor-default select-none rounded-lg',
-						'text-ink text-left text-sm',
+						'text-left text-sm text-ink',
 						'bg-app-overlay',
-						'border-app-line border',
+						'border border-app-line',
 						'shadow-2xl',
 						'animate-in fade-in',
 						className

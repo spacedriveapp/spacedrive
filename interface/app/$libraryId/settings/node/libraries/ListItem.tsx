@@ -18,7 +18,7 @@ export default (props: Props) => (
 				{props.library.config.name}
 				{props.current && <Pill>Current</Pill>}
 			</h3>
-			<p className="text-ink-dull mt-0.5 text-xs">{props.library.uuid}</p>
+			<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 		</div>
 		<div className="flex flex-row items-center space-x-2">
 			<Button className="!p-1.5" variant="gray">
