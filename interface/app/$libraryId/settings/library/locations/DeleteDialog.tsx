@@ -10,8 +10,7 @@ interface Props extends UseDialogProps {
 
 export default (props: Props) => {
 	const dialog = useDialog(props);
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm();
 

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useBridgeMutation } from '@sd/client';
+import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import Dialog from '~/components/layout/Dialog';
 import { currentLibraryStore } from '~/utils/nav';
@@ -17,6 +17,8 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 	const [libName, setLibName] = useState('');
 	const [isOpen, setIsOpen] = useState(false);
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
@@ -29,6 +31,8 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 
 				// Switch to the new library
 				currentLibraryStore.id = lib.uuid;
+
+				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 
 				onSubmit?.();
 			},
