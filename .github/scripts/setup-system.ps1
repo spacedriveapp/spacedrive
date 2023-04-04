@@ -125,6 +125,9 @@ if ($env:CI -eq $True) {
    Write-Host 'Ensure you add LLVM to your PATH.'
 
    Start-Process "$temp\llvm.exe" -Wait
+} else {
+   Write-Host
+   Write-Host 'LLVM is installed.'
 }
 
 # Install chocolatey if it isn't already installed
@@ -134,6 +137,9 @@ if (!(Get-Command choco -ea 0)) {
    Set-ExecutionPolicy Bypass -Scope Process -Force
    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+} else {
+   Write-Host
+   Write-Host 'Chocolatey is installed.'
 }
 
 Write-Host
