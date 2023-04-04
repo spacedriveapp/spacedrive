@@ -135,7 +135,7 @@ if (!(Get-Command choco -ea 0)) {
 
 Write-Host
 Write-Host 'Install protobuf compiler...' -ForegroundColor Yellow
-choco install protoc
+choco install -y protoc
 
 Write-Host
 Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
