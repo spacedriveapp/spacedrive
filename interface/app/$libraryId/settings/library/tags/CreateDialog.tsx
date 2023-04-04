@@ -6,8 +6,7 @@ import { usePlatform } from '~/util/Platform';
 
 export default (props: UseDialogProps & { assignToObject?: number }) => {
 	const dialog = useDialog(props);
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
 		schema: z.object({

@@ -13,6 +13,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 export default function TabNavigator() {
 	return (
 		<Tab.Navigator
+			id="tab"
 			initialRouteName="OverviewStack"
 			screenOptions={{
 				headerShown: false,
