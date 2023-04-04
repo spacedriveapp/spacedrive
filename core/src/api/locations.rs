@@ -210,7 +210,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 		})
 		.subscription("online", |t| {
 			t(|ctx, _: ()| {
-				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+				let location_manager = ctx.location_manager.clone();
 
 				let mut rx = location_manager.online_rx();
 

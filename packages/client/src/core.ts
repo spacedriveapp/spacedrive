@@ -240,10 +240,7 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 
 export type OwnedOperationItem = { id: any, data: OwnedOperationData }
 
-/**
- *  TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: PeerMetadata } | { type: "SyncOperation", library_id: string, operations: CRDTOperation[] }
+export type P2PEvent = { type: "DiscoveredPeer", peer_id: string, metadata: PeerMetadata } | { type: "SpacedropRequest", id: string, peer_id: string, name: string }
 
 /**
  *  These parameters define the password-hashing level.

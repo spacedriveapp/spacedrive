@@ -33,9 +33,9 @@ pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	pub libraries: RwLock<Vec<Library>>,
+	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	pub node_context: NodeContext,
+	node_context: NodeContext,
 }
 
 #[derive(Error, Debug)]
