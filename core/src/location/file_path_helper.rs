@@ -1,3 +1,4 @@
+use crate::location::Library;
 use crate::prisma::{file_path, location, PrismaClient};
 
 use std::{
@@ -11,6 +12,7 @@ use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
 use prisma_client_rust::{Direction, QueryError};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
@@ -306,7 +308,7 @@ impl LastFilePathIdManager {
 	#[cfg(feature = "location-watcher")]
 	pub async fn create_file_path(
 		&self,
-		db: &PrismaClient,
+		library @ Library { db, sync, .. }: &Library,
 		MaterializedPath {
 			materialized_path,
 			is_dir,
@@ -319,6 +321,9 @@ impl LastFilePathIdManager {
 		device: u64,
 	) -> Result<file_path::Data, FilePathError> {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
+
+		use crate::sync;
+
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
 			Entry::Occupied(ocupied) => ocupied.into_ref(),
 			Entry::Vacant(vacant) => {
@@ -327,24 +332,64 @@ impl LastFilePathIdManager {
 			}
 		};
 
+		let location = db
+			.location()
+			.find_unique(location::id::equals(location_id))
+			.select(location::select!({ id pub_id }))
+			.exec()
+			.await?
+			.unwrap();
+
 		let next_id = *last_id_ref + 1;
 
-		let created_path = db
-			.file_path()
-			.create(
-				next_id,
-				location::id::equals(location_id),
-				materialized_path.into_owned(),
-				name.into_owned(),
-				extension.into_owned(),
-				inode.to_le_bytes().into(),
-				device.to_le_bytes().into(),
-				vec![
-					file_path::parent_id::set(parent_id),
-					file_path::is_dir::set(is_dir),
-				],
+		let created_path = library
+			.sync
+			.write_op(
+				&library.db,
+				library.sync.unique_shared_create(
+					sync::file_path::SyncId {
+						location: sync::location::SyncId {
+							pub_id: location.pub_id.clone(),
+						},
+						id: next_id,
+					},
+					[
+						("materialized_path", json!(materialized_path)),
+						("name", json!(name)),
+						("extension", json!(extension)),
+						("inode", json!(inode.to_le_bytes())),
+						("device", json!(device.to_le_bytes())),
+						("is_dir", json!(is_dir)),
+					]
+					.into_iter()
+					.map(Some)
+					.chain([parent_id.map(|parent_id| {
+						(
+							"parent_id",
+							json!(sync::file_path::SyncId {
+								location: sync::location::SyncId {
+									pub_id: location.pub_id.clone()
+								},
+								id: parent_id
+							}),
+						)
+					})])
+					.flatten(),
+				),
+				library.db.file_path().create(
+					next_id,
+					location::id::equals(location_id),
+					materialized_path.into_owned(),
+					name.into_owned(),
+					extension.into_owned(),
+					inode.to_le_bytes().into(),
+					device.to_le_bytes().into(),
+					vec![
+						file_path::parent_id::set(parent_id),
+						file_path::is_dir::set(is_dir),
+					],
+				),
 			)
-			.exec()
 			.await?;
 
 		*last_id_ref = next_id;
