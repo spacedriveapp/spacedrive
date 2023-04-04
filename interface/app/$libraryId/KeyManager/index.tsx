@@ -39,7 +39,7 @@ const Unlocked = () => {
 							variant="subtle"
 							className="text-ink-faint"
 						>
-							<Lock className="text-ink-faint h-4 w-4" />
+							<Lock className="h-4 w-4 text-ink-faint" />
 						</Button>
 						<ButtonLink
 							to={`/${library.uuid}/settings/library/keys`}
@@ -47,7 +47,7 @@ const Unlocked = () => {
 							variant="subtle"
 							className="text-ink-faint"
 						>
-							<Gear className="text-ink-faint h-4 w-4" />
+							<Gear className="h-4 w-4 text-ink-faint" />
 						</ButtonLink>
 					</Tabs.List>
 				</div>
@@ -75,7 +75,7 @@ const Keys = () => {
 					</div>
 				</div>
 			</div>
-			<div className="border-app-line flex w-full rounded-b-md border-t p-2">
+			<div className="flex w-full rounded-b-md border-t border-app-line p-2">
 				<Button
 					size="sm"
 					variant="gray"

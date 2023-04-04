@@ -198,9 +198,8 @@ export default (props: TopBarProps) => {
 		<>
 			<div
 				data-tauri-drag-region
-				// eslint-disable-next-line tailwindcss/no-contradicting-classname
 				className={clsx(
-					'max-w bg-app duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent pl-3 transition-[background-color] transition-[border-color] ease-out',
+					'max-w duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent bg-app pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
