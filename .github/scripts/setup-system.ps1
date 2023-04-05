@@ -6,6 +6,18 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
    Exit
 }
 
+function Add-DirectoryToPath($directory) {
+   if ($env:Path.Split(';') -notcontains $directory) {
+      [Environment]::SetEnvironmentVariable('Path', "$($env:Path);$directory", [System.EnvironmentVariableTarget]::User)
+      $env:Path = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
+      [System.Environment]::SetEnvironmentVariable('Path', $env:Path, [System.EnvironmentVariableTarget]::Process)
+   }
+}
+
+function Wait-UserInput() {
+   if (-not $env:CI) { Read-Host 'Press Enter to continue' }
+}
+
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
 Set-StrictMode -Version Latest
 
@@ -22,17 +34,15 @@ Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @'
 
 To set up your machine for Spacedrive development, this script will do the following:
-
-1) Check for Rust and Cargo
-
-2) Install pnpm (if not installed)
-
-3) Install the latest version of Node.js using pnpm
-
-4) Install LLVM (compiler for ffmpeg-rust)
-
-4) Download ffmpeg and set as an environment variable
-
+1) Install Windows C++ build tools
+2) Install Edge Webview 2
+3) Install Rust and Cargo
+4) Install Node.js
+5) Install Rust tools
+6) Install pnpm
+7) Install LLVM (compiler for ffmpeg-rust)
+8) Install protbuf compiler and set as an environment variable
+9) Download ffmpeg and set as an environment variable
 '@
 
 # Check connectivity to GitHub
@@ -40,12 +50,14 @@ $ProgressPreference = 'SilentlyContinue'
 if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
    Write-Host
    Write-Host "Can't connect to github, maybe internet is down?"
-   Read-Host 'Press Enter to exit'
+   Write-Host
+   Wait-UserInput
    Exit 1
 }
 $ProgressPreference = 'Continue'
 
-# Install C++ and Rust build tools
+# Install C++ build tools, Rust and NodeJS
+# GitHub Actions already has all of this installed
 if (-not $env:CI) {
    if (-not (Get-Command winget -ea 0)) {
       Write-Host
@@ -54,7 +66,7 @@ if (-not $env:CI) {
 Follow the instructions here to install winget:
 https://learn.microsoft.com/windows/package-manager/winget/
 '@ -ForegroundColor Yellow
-      Read-Host 'Press Enter to exit'
+      Wait-UserInput
       Exit 1
    }
 
@@ -75,10 +87,17 @@ https://learn.microsoft.com/windows/package-manager/winget/
    Write-Host 'Installing Rust and Cargo...' -ForegroundColor Yellow
    try {
       winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
+      # Reset Path to ensure cargo is available for the rest of the script
+      $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User))
    } catch {}
 
-   # Reset Path to endure cargo is available
-   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable('Path', 'User'))
+   Write-Host
+   Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
+   try {
+      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
+      # Add NodeJS to the PATH
+      Add-DirectoryToPath "$env:SystemDrive\Program Files\nodejs"
+   } catch {}
 
    Write-Host
    Write-Host 'Installing Rust tools' -ForegroundColor Yellow
@@ -87,45 +106,15 @@ https://learn.microsoft.com/windows/package-manager/winget/
 
 Write-Host
 Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
-$pnpm_major = '7'
+$pnpm_major = '7' # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
 if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
    Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
 } else {
    Write-Host "pnpm $pnpm_major is not installed. Installing now."
    Write-Host 'Running the pnpm installer...'
 
-   # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
-   $env:PNPM_VERSION = "latest-$pnpm_major"
-
-   # pnpm installer taken from https://pnpm.io
-   Invoke-WebRequest https://get.pnpm.io/install.ps1 -useb | Invoke-Expression
-
-   # Reset the PATH env variables to make sure pnpm is accessible 
-   $env:PNPM_HOME = [System.Environment]::GetEnvironmentVariable('PNPM_HOME', 'User')
-   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable('Path', 'User'))
-}
-
-Write-Host
-Write-Host 'Checking for node...' -ForegroundColor Yellow
-# A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
-if ($env:CI) {
-   Write-Host 'Running with Ci, skipping Node install.' -ForegroundColor Green
-} else {
-   Write-Host 'Using pnpm to install the latest version of Node...' -ForegroundColor Yellow
-   Write-Host 'This will set your global Node version to the latest!'
-
-   # Runs the pnpm command to use the latest version of node, which also installs it
-   Start-Process -Wait -FilePath 'pnpm' -ArgumentList 'env use --global latest' -PassThru -Verb runAs
-
-   # Workaround issues
-   # https://github.com/pnpm/pnpm/issues/5266
-   # https://github.com/pnpm/pnpm/issues/5700
-   if (Test-Path "$env:PNPM_HOME\pnpm.exe" -PathType Leaf) {
-      try { pnpm add -g pnpm@"latest-$pnpm_major" 2>&1 | Out-Null } catch {}
-      Remove-Item "$env:PNPM_HOME\pnpm.exe"
-      $pnpm = (Get-ChildItem $env:PNPM_HOME -Recurse -File -Filter pnpm.js | Select-Object -First 1).fullname
-      node $pnpm add -g pnpm@"latest-$pnpm_major"
-   }
+   npm install -g "pnpm@latest-$pnpm_major"
+   Add-DirectoryToPath "$env:APPDATA\npm"
 }
 
 Write-Host
@@ -160,12 +149,12 @@ if ($env:CI) {
 
    if ($null -eq $downloadUri) {
       Write-Error "Error: Couldn't find a LLVM installer for version: $llvm_major"
-      Read-Host 'Press Enter to exit'
+      Wait-UserInput
       Exit 1
    }
 
-   $oldUninstaller = "$($env:SystemDrive)\Program Files\LLVM\Uninstall.exe"
-   if (Test-Path $env:PROTOC -PathType Leaf) {
+   $oldUninstaller = "$env:SystemDrive\Program Files\LLVM\Uninstall.exe"
+   if (Test-Path $oldUninstaller -PathType Leaf) {
       Write-Host 'Uninstalling incompatible LLVM' -ForegroundColor Yellow
       Write-Host 'This may take a while and will have no visual feedback, please wait...'
       &$oldUninstaller /S
@@ -175,10 +164,9 @@ if ($env:CI) {
 
    Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
    Write-Host 'This may take a while and will have no visual feedback, please wait...'
-   &"$temp\llvm.exe" /S
+   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
 
-   # Add LLVM to the PATH
-   [Environment]::SetEnvironmentVariable('Path', "$($env:Path);$($env:SystemDrive)\Program Files\LLVM\bin", 'Machine')
+   Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
    Remove-Item "$temp\llvm.exe"
 }
@@ -215,7 +203,7 @@ if ($protocVersion) {
 
    if (-not ($filename -and $downloadUri)) {
       Write-Error "Error: Couldn't find a protobuf compiler installer"
-      Read-Host 'Press Enter to exit'
+      Wait-UserInput
       Exit 1
    }
 
@@ -291,7 +279,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 
    if (-not ($filename -and $downloadUri)) {
       Write-Error "Error: Couldn't find a ffmpeg installer for version: $ffmpegVersion"
-      Read-Host 'Press Enter to exit'
+      Wait-UserInput
       Exit 1
    }
 
@@ -325,5 +313,6 @@ Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destinat
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-Write-Host 'You will need to re-run this script if you use `pnpm clean` or `cargo clean`' -ForegroundColor Red
-Read-Host 'Press Enter to exit'
+Write-Host 'You may need to restart your shell to ensure that all environment variables are set!' -ForegroundColor Yellow
+Write-Host 'You will need to re-run this script if you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
+Wait-UserInput
