@@ -1,7 +1,31 @@
-# Check if PowerShell is running as administrator
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+# Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
+Set-StrictMode -Version Latest
+
+function Wait-UserInput() {
+   if (-not $env:CI) { Read-Host 'Press Enter to continue' }
+}
+
+# Verify if environment is Windows 64-bit and if the user is an administrator
+if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
+      "$env:PROCESSOR_ARCHITECTURE" -eq 'ARM64'
+   ) -or (
+      (Get-CimInstance Win32_operatingsystem).OSArchitecture -ne '64-bit'
+      # Powershell >= 6 is cross-platform, check if running on Windows
+   ) -or (($PSVersionTable.PSVersion.Major -ge 6) -and (-not $IsWindows))
+) {
+   Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
+   if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
+      Write-Error 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
+   } else {
+      Write-Error 'This script is only supported on Windows 64-bit'
+   }
+   Wait-UserInput
+   Exit 1
+} elseif (
+   -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+) {
    # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
-   Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
+   Start-Process -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
    # Exit the current PowerShell process
    Exit
 }
@@ -14,36 +38,35 @@ function Add-DirectoryToPath($directory) {
    }
 }
 
-function Wait-UserInput() {
-   if (-not $env:CI) { Read-Host 'Press Enter to continue' }
-}
-
-# Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
-Set-StrictMode -Version Latest
-
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
 # Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\.github\scripts)
 $projectRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 
+# Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
+$pnpm_major = '7'
+
+# Currently LLVM >= 16 is not supported due to incompatibilities with ffmpeg-sys-next
+# See https://github.com/spacedriveapp/spacedrive/issues/677
+$llvm_major = '15'
+
 # Change CWD to project root
 Set-Location $projectRoot
 
 Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
-Write-Host @'
+Write-Host @"
 
 To set up your machine for Spacedrive development, this script will do the following:
 1) Install Windows C++ build tools
 2) Install Edge Webview 2
 3) Install Rust and Cargo
-4) Install Node.js
-5) Install Rust tools
-6) Install pnpm
-7) Install LLVM (compiler for ffmpeg-rust)
-8) Install protbuf compiler and set as an environment variable
-9) Download ffmpeg and set as an environment variable
-'@
+4) Install Rust tools
+5) Install Node.js, npm and pnpm $pnpm_major
+6) Install LLVM $llvm_major (compiler for ffmpeg-rust)
+7) Download protbuf compiler and set the PROTOC environment variable
+8) Download ffmpeg and set the FFMPEG_DIR environment variable
+"@
 
 # Check connectivity to GitHub
 $ProgressPreference = 'SilentlyContinue'
@@ -56,7 +79,7 @@ if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSuccee
 }
 $ProgressPreference = 'Continue'
 
-# Install C++ build tools, Rust and NodeJS
+# Install C++ build tools and Rust
 # GitHub Actions already has all of this installed
 if (-not $env:CI) {
    if (-not (Get-Command winget -ea 0)) {
@@ -92,36 +115,44 @@ https://learn.microsoft.com/windows/package-manager/winget/
    } catch {}
 
    Write-Host
-   Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
-   try {
-      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
-      # Add NodeJS to the PATH
-      Add-DirectoryToPath "$env:SystemDrive\Program Files\nodejs"
-   } catch {}
-
-   Write-Host
    Write-Host 'Installing Rust tools' -ForegroundColor Yellow
    cargo install cargo-watch
 }
 
-Write-Host
 Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
-$pnpm_major = '7' # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
 if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
    Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
 } else {
-   Write-Host "pnpm $pnpm_major is not installed. Installing now."
-   Write-Host 'Running the pnpm installer...'
+   # Check for pnpm installed with standalone installer
+   if (($null -ne $env:PNPM_HOME) -and (Test-Path $env:PNPM_HOME -PathType Container)) {
+      Write-Error 'You have a incompatible version of pnpm installed, please remove it and run this script again'
+      Write-Host 'https://pnpm.io/uninstall'
+      Wait-UserInput
+      Exit 1
+   }
 
-   npm install -g "pnpm@latest-$pnpm_major"
+   if (-not $env:CI) {
+      Write-Host
+      Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
+      try {
+         winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
+         # Add NodeJS to the PATH
+         Add-DirectoryToPath "$env:SystemDrive\Program Files\nodejs"
+      } catch {}
+   }
+
+   Write-Host
+   Write-Host 'Installing pnpm...'
+   # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
+   npm install -g 'pnpm@latest-7'
+   # Add NPM global modules to the PATH
    Add-DirectoryToPath "$env:APPDATA\npm"
 }
 
 Write-Host
 Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
-$llvm_major = '15'
 if ($env:CI) {
-   # The ci has LLVM installed already, so we instead just set the env variables.
+   # The CI has LLVM installed already, so we instead just set the env variables.
    Write-Host 'Running with Ci, skipping LLVM install.' -ForegroundColor Green
 
    # TODO: Check if CI LLVM version match our required major version
@@ -134,12 +165,12 @@ if ($env:CI) {
 ) {
    Write-Host "LLVM $llvm_major is installed." -ForegroundColor Green
 } else {
-   Write-Host "Downloading the LLVM $llvm_major installer..." -ForegroundColor Yellow
-
-   # Downloads latest installer for LLVM
+   $downloadUri = $null
    $releasesUri = 'https://api.github.com/repos/llvm/llvm-project/releases'
    $llvmVersion = "LLVM $llvm_major*"
    $filenamePattern = '*-win64.exe'
+
+   Write-Host "Downloading LLVM $llvm_major installer..." -ForegroundColor Yellow
    $releases = Invoke-RestMethod -Uri $releasesUri
    $downloadUri = $releases | ForEach-Object {
       if ($_.name -like $llvmVersion) {
@@ -155,16 +186,16 @@ if ($env:CI) {
 
    $oldUninstaller = "$env:SystemDrive\Program Files\LLVM\Uninstall.exe"
    if (Test-Path $oldUninstaller -PathType Leaf) {
-      Write-Host 'Uninstalling incompatible LLVM' -ForegroundColor Yellow
-      Write-Host 'This may take a while and will have no visual feedback, please wait...'
-      &$oldUninstaller /S
+      Write-Error 'You have a incompatible version of LLVM installed, please remove it and run this script again'
+      Wait-UserInput
+      Exit 1
    }
 
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\llvm.exe"
 
    Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
    Write-Host 'This may take a while and will have no visual feedback, please wait...'
-   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
+   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -NoNewWindow -Wait -ErrorAction Stop
 
    Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
@@ -186,9 +217,8 @@ if ($protocVersion) {
    $releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
    $filenamePattern = '*-win64.zip'
 
-   # Downloads a build of protobuf from GitHub
+   Write-Host 'Downloading protobuf compiler...' -ForegroundColor Yellow
    $releases = Invoke-RestMethod -Uri $releasesUri
-   # Downloads a build of protobuf from GitHub compatible with the declared protobuf version
    for ($i = 0; $i -lt $releases.Count; $i++) {
       $release = $releases[$i]
       foreach ($asset in $release.assets) {
@@ -223,7 +253,7 @@ if ($protocVersion) {
    [System.Environment]::SetEnvironmentVariable('PROTOC', "$foldername\bin\protoc.exe", [System.EnvironmentVariableTarget]::User)
 
    if ($env:CI) {
-      # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
+      # If running in CI, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
       Add-Content $env:GITHUB_ENV "PROTOC=$foldername\bin\protoc.exe`n"
       Add-Content $env:GITHUB_PATH "$foldername\bin`n"
    }
@@ -298,7 +328,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
    $env:FFMPEG_DIR = "$foldername"
 
    if ($env:CI) {
-      # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
+      # If running in CI, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
       Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$foldername`n"
       Add-Content $env:GITHUB_PATH "$foldername\bin`n"
    }
