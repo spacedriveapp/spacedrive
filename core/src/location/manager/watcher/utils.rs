@@ -673,7 +673,7 @@ async fn generate_thumbnail(
 				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
 			);
 		}
-		// Otherwise we good, thumbnail doesn't exist so we can generate it
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
 		debug!(
 			"Skipping thumbnail generation for {} because it already exists",
