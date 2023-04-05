@@ -61,13 +61,11 @@ https://learn.microsoft.com/windows/package-manager/winget/
    Write-Host
    Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
    Write-Host 'This will take a while...'
-   Start-Sleep -Milliseconds 150
    # Force install because BuildTools is itself a installer of multiple packages, let it decide if it is already installed or not
    winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 
    Write-Host
    Write-Host 'Installing Edge Webview 2...' -ForegroundColor Yellow
-   Start-Sleep -Milliseconds 150
    try {
       # This is normally already available, but on some early Windows 10 versions it isn't
       winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Microsoft.EdgeWebView2Runtime
@@ -75,21 +73,20 @@ https://learn.microsoft.com/windows/package-manager/winget/
 
    Write-Host
    Write-Host 'Installing Rust and Cargo...' -ForegroundColor Yellow
-   Start-Sleep -Milliseconds 150
    try {
       winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
    } catch {}
 
+   # Reset Path to endure cargo is available
+   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable('Path', 'User'))
+
    Write-Host
    Write-Host 'Installing Rust tools' -ForegroundColor Yellow
-   Start-Sleep -Milliseconds 150
    cargo install cargo-watch
 }
 
 Write-Host
 Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 $pnpm_major = '7'
 if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
    Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
@@ -110,15 +107,12 @@ if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -mat
 
 Write-Host
 Write-Host 'Checking for node...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 # A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
 if ($env:CI) {
    Write-Host 'Running with Ci, skipping Node install.' -ForegroundColor Green
 } else {
    Write-Host 'Using pnpm to install the latest version of Node...' -ForegroundColor Yellow
    Write-Host 'This will set your global Node version to the latest!'
-   Start-Sleep -Milliseconds 150
 
    # Runs the pnpm command to use the latest version of node, which also installs it
    Start-Process -Wait -FilePath 'pnpm' -ArgumentList 'env use --global latest' -PassThru -Verb runAs
@@ -136,8 +130,6 @@ if ($env:CI) {
 
 Write-Host
 Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 $llvm_major = '15'
 if ($env:CI) {
    # The ci has LLVM installed already, so we instead just set the env variables.
@@ -153,7 +145,6 @@ if ($env:CI) {
 ) {
    Write-Host "LLVM $llvm_major is installed." -ForegroundColor Green
 } else {
-   Write-Host
    Write-Host "Downloading the LLVM $llvm_major installer..." -ForegroundColor Yellow
 
    # Downloads latest installer for LLVM
@@ -173,23 +164,27 @@ if ($env:CI) {
       Exit 1
    }
 
+   $oldUninstaller = "$($env:SystemDrive)\Program Files\LLVM\Uninstall.exe"
+   if (Test-Path $env:PROTOC -PathType Leaf) {
+      Write-Host 'Uninstalling incompatible LLVM' -ForegroundColor Yellow
+      Write-Host 'This may take a while and will have no visual feedback, please wait...'
+      &$oldUninstaller /S
+   }
+
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\llvm.exe"
 
-   Write-Host
-   Write-Host 'Running the LLVM installer...' -ForegroundColor Yellow
-   Write-Host @'
-Please follow the instructions to install LLVM.
-Uninstall any previous versions of LLVM, if necessary.
-Ensure you add LLVM to your PATH.
-'@ -ForegroundColor Red
+   Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
+   Write-Host 'This may take a while and will have no visual feedback, please wait...'
+   &"$temp\llvm.exe" /S
 
-   Start-Process -Wait -FilePath "$temp\llvm.exe" -PassThru -Verb runAs
+   # Add LLVM to the PATH
+   [Environment]::SetEnvironmentVariable('Path', "$($env:Path);$($env:SystemDrive)\Program Files\LLVM\bin", 'Machine')
+
+   Remove-Item "$temp\llvm.exe"
 }
 
 Write-Host
-Write-Host 'Install protobuf compiler...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
+Write-Host 'Checking for protobuf compiler...' -ForegroundColor Yellow
 $protocVersion = $null
 if (($null -ne $env:PROTOC) -and (Test-Path $env:PROTOC -PathType Leaf)) {
    $protocVersion = &"$env:PROTOC" --version 2>&1 | Out-String
@@ -229,13 +224,11 @@ if ($protocVersion) {
 
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
-   Write-Host
    Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
 
    Expand-Archive "$temp\protobuf.zip" $foldername -ErrorAction SilentlyContinue
    Remove-Item "$temp\protobuf.zip"
 
-   Write-Host
    Write-Host 'Setting environment variables...' -ForegroundColor Yellow
 
    # Sets environment variable for protobuf
@@ -250,15 +243,11 @@ if ($protocVersion) {
 
 Write-Host
 Write-Host 'Update cargo packages...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 # Run first time to ensure packages are up to date
 cargo metadata --format-version 1 > $null
 
 Write-Host
 Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 # Get ffmpeg-sys-next version
 $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
    $_.name -like 'ffmpeg-sys-next'
@@ -310,16 +299,12 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
 
-   Write-Host
    Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
-
    # FFmpeg zip contains a subdirectory with the same name as the zip file
    Expand-Archive "$temp\ffmpeg.zip" $env:LOCALAPPDATA -ErrorAction SilentlyContinue
    Remove-Item "$temp\ffmpeg.zip"
 
-   Write-Host
    Write-Host 'Setting environment variables...' -ForegroundColor Yellow
-
    # Sets environment variable for ffmpeg
    [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$foldername", [System.EnvironmentVariableTarget]::User)
    $env:FFMPEG_DIR = "$foldername"
@@ -333,11 +318,8 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 
 Write-Host
 Write-Host 'Copying Required .dll files...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
 # Create target\debug folder, continue if already exists
 New-Item -Path $projectRoot\target\debug -ItemType Directory -ErrorAction SilentlyContinue
-
 # Copies all .dll required for rust-ffmpeg to target\debug folder
 Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destination "$projectRoot\target\debug"
 
