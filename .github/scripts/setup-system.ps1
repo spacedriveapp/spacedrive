@@ -35,38 +35,54 @@ To set up your machine for Spacedrive development, this script will do the follo
 
 '@
 
-$ProgressPreference = "SilentlyContinue"
-if (!((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
+# Check connectivity to GitHub
+$ProgressPreference = 'SilentlyContinue'
+if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
+   Write-Host
    Write-Host "Can't connect to github, maybe internet is down?"
    Read-Host 'Press Enter to exit'
    Exit 1
 }
-$ProgressPreference = "Continue"
+$ProgressPreference = 'Continue'
 
-Write-Host 'Checking for Rust and Cargo...' -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
+# Install C++ and Rust build tools
+if (-not $env:CI) {
+   if (-not (Get-Command winget -ea 0)) {
+      Write-Host
+      Write-Error 'winget not available'
+      Write-Host @'
+Follow the instructions here to install winget:
+https://learn.microsoft.com/windows/package-manager/winget/
+'@ -ForegroundColor Yellow
+      Read-Host 'Press Enter to exit'
+      Exit 1
+   }
 
-if (Get-Command cargo -ea 0) {
-   Write-Host 'Cargo is installed.' -ForegroundColor Green
-} else {
-   Write-Error @'
-Cargo is not installed.
+   Write-Host
+   Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
+   Write-Host 'This will take a while...'
+   Start-Sleep -Milliseconds 150
+   # Force install because BuildTools is itself a installer of multiple packages, let it decide if it is already installed or not
+   winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 
-To use Spacedrive on Windows, Cargo needs to be installed.
-The Visual Studio C++ Build tools are also required.
-Instructions can be found here:
+   Write-Host
+   Write-Host 'Installing Edge Webview 2...' -ForegroundColor Yellow
+   Start-Sleep -Milliseconds 150
+   try {
+      # This is normally already available, but on some early Windows 10 versions it isn't
+      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Microsoft.EdgeWebView2Runtime
+   } catch {}
 
-https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows
+   Write-Host
+   Write-Host 'Installing Rust and Cargo...' -ForegroundColor Yellow
+   Start-Sleep -Milliseconds 150
+   try {
+      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
+   } catch {}
 
-Once you have installed Cargo, re-run this script.
-
-'@
-   Read-Host 'Press Enter to exit'
-   Exit 1
-}
-
-if ($env:CI -ne $True) {
+   Write-Host
    Write-Host 'Installing Rust tools' -ForegroundColor Yellow
+   Start-Sleep -Milliseconds 150
    cargo install cargo-watch
 }
 
@@ -81,10 +97,10 @@ if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -mat
    Write-Host "pnpm $pnpm_major is not installed. Installing now."
    Write-Host 'Running the pnpm installer...'
 
-   # Currently pnpm >= 8 is not supported due to incompatbilities with some dependencies
+   # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
    $env:PNPM_VERSION = "latest-$pnpm_major"
 
-   #pnpm installer taken from https://pnpm.io
+   # pnpm installer taken from https://pnpm.io
    Invoke-WebRequest https://get.pnpm.io/install.ps1 -useb | Invoke-Expression
 
    # Reset the PATH env variables to make sure pnpm is accessible 
@@ -97,7 +113,7 @@ Write-Host 'Checking for node...' -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
 # A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
-if ($env:CI -eq $True) {
+if ($env:CI) {
    Write-Host 'Running with Ci, skipping Node install.' -ForegroundColor Green
 } else {
    Write-Host 'Using pnpm to install the latest version of Node...' -ForegroundColor Yellow
@@ -123,7 +139,7 @@ Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
 $llvm_major = '15'
-if ($env:CI -eq $True) {
+if ($env:CI) {
    # The ci has LLVM installed already, so we instead just set the env variables.
    Write-Host 'Running with Ci, skipping LLVM install.' -ForegroundColor Green
 
@@ -157,6 +173,8 @@ if ($env:CI -eq $True) {
       Exit 1
    }
 
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\llvm.exe"
+
    Write-Host
    Write-Host 'Running the LLVM installer...' -ForegroundColor Yellow
    Write-Host @'
@@ -164,8 +182,6 @@ Please follow the instructions to install LLVM.
 Uninstall any previous versions of LLVM, if necessary.
 Ensure you add LLVM to your PATH.
 '@ -ForegroundColor Red
-
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\llvm.exe"
 
    Start-Process -Wait -FilePath "$temp\llvm.exe" -PassThru -Verb runAs
 }
@@ -211,7 +227,7 @@ if ($protocVersion) {
    $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
    New-Item -Path $foldername -ItemType Directory -ErrorAction SilentlyContinue
 
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\protobuf.zip"
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
    Write-Host
    Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
@@ -223,15 +239,25 @@ if ($protocVersion) {
    Write-Host 'Setting environment variables...' -ForegroundColor Yellow
 
    # Sets environment variable for protobuf
-   [System.Environment]::SetEnvironmentVariable('PROTOC', "$foldername/bin/protoc.exe", [System.EnvironmentVariableTarget]::User)
+   [System.Environment]::SetEnvironmentVariable('PROTOC', "$foldername\bin\protoc.exe", [System.EnvironmentVariableTarget]::User)
+
+   if ($env:CI) {
+      # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
+      Add-Content $env:GITHUB_ENV "PROTOC=$foldername\bin\protoc.exe`n"
+      Add-Content $env:GITHUB_PATH "$foldername\bin`n"
+   }
 }
 
 Write-Host
-Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
+Write-Host 'Update cargo packages...' -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
 # Run first time to ensure packages are up to date
 cargo metadata --format-version 1 > $null
+
+Write-Host
+Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
+Start-Sleep -Milliseconds 150
 
 # Get ffmpeg-sys-next version
 $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
@@ -282,7 +308,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 
    $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
 
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\ffmpeg.zip"
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
 
    Write-Host
    Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
@@ -298,7 +324,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
    [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$foldername", [System.EnvironmentVariableTarget]::User)
    $env:FFMPEG_DIR = "$foldername"
 
-   if ($env:CI -eq $True) {
+   if ($env:CI) {
       # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
       Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$foldername`n"
       Add-Content $env:GITHUB_PATH "$foldername\bin`n"
