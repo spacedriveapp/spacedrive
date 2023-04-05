@@ -35,6 +35,14 @@ To set up your machine for Spacedrive development, this script will do the follo
 
 '@
 
+$ProgressPreference = "SilentlyContinue"
+if (!((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
+   Write-Host "Can't connect to github, maybe internet is down?"
+   Read-Host 'Press Enter to exit'
+   Exit 1
+}
+$ProgressPreference = "Continue"
+
 Write-Host 'Checking for Rust and Cargo...' -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
@@ -98,6 +106,16 @@ if ($env:CI -eq $True) {
 
    # Runs the pnpm command to use the latest version of node, which also installs it
    Start-Process -Wait -FilePath 'pnpm' -ArgumentList 'env use --global latest' -PassThru -Verb runAs
+
+   # Workaround issues
+   # https://github.com/pnpm/pnpm/issues/5266
+   # https://github.com/pnpm/pnpm/issues/5700
+   if (Test-Path "$env:PNPM_HOME\pnpm.exe" -PathType Leaf) {
+      try { pnpm add -g pnpm@"latest-$pnpm_major" 2>&1 | Out-Null } catch {}
+      Remove-Item "$env:PNPM_HOME\pnpm.exe"
+      $pnpm = (Get-ChildItem $env:PNPM_HOME -Recurse -File -Filter pnpm.js | Select-Object -First 1).fullname
+      node $pnpm add -g pnpm@"latest-$pnpm_major"
+   }
 }
 
 Write-Host
@@ -149,7 +167,7 @@ Ensure you add LLVM to your PATH.
 
    Start-BitsTransfer -Source $downloadUri -Destination "$temp\llvm.exe"
 
-   Start-Process "$temp\llvm.exe" -Wait
+   Start-Process -Wait -FilePath "$temp\llvm.exe" -PassThru -Verb runAs
 }
 
 Write-Host
@@ -211,6 +229,9 @@ if ($protocVersion) {
 Write-Host
 Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
+
+# Run first time to ensure packages are up to date
+cargo metadata --format-version 1 > $null
 
 # Get ffmpeg-sys-next version
 $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
@@ -275,6 +296,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 
    # Sets environment variable for ffmpeg
    [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$foldername", [System.EnvironmentVariableTarget]::User)
+   $env:FFMPEG_DIR = "$foldername"
 
    if ($env:CI -eq $True) {
       # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
