@@ -45,7 +45,7 @@ use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::INodeAndDevice;
@@ -109,9 +109,10 @@ pub(super) async fn create_dir(
 	let created_path = library
 		.last_file_path_id_manager
 		.create_file_path(
-			&library,
+			library,
 			materialized_path,
 			Some(parent_directory.id),
+			None,
 			inode,
 			device,
 		)
@@ -167,12 +168,20 @@ pub(super) async fn create_file(
         return Ok(())
     };
 
+	// generate provisional object
+	let FileMetadata {
+		cas_id,
+		kind,
+		fs_metadata,
+	} = FileMetadata::new(&location_path, &materialized_path).await?;
+
 	let created_file = library
 		.last_file_path_id_manager
 		.create_file_path(
 			library,
 			materialized_path,
 			Some(parent_directory.id),
+			Some(cas_id.clone()),
 			inode,
 			device,
 		)
@@ -180,21 +189,11 @@ pub(super) async fn create_file(
 
 	info!("Created path: {}", created_file.materialized_path);
 
-	// generate provisional object
-	let FileMetadata {
-		cas_id,
-		kind,
-		fs_metadata,
-	} = FileMetadata::new(
-		&location_path,
-		&MaterializedPath::from((location_id, &created_file.materialized_path)),
-	)
-	.await?;
-
 	let existing_object = db
 		.object()
 		.find_first(vec![object::file_paths::some(vec![
 			file_path::cas_id::equals(Some(cas_id.clone())),
+			file_path::id::not(created_file.id),
 		])])
 		.select(object_just_id_has_thumbnail::select())
 		.exec()
@@ -227,7 +226,12 @@ pub(super) async fn create_file(
 		.await?;
 
 	if !object.has_thumbnail && !created_file.extension.is_empty() {
-		generate_thumbnail(&created_file.extension, &cas_id, path, library).await;
+		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
+		let path = path.to_path_buf();
+		let library = library.clone();
+		tokio::spawn(async move {
+			generate_thumbnail(&created_file.extension, &cas_id, path, &library).await;
+		});
 	}
 
 	invalidate_query!(library, "locations.getExplorerData");
@@ -662,6 +666,21 @@ async fn generate_thumbnail(
 		.join(THUMBNAIL_CACHE_DIR_NAME)
 		.join(cas_id)
 		.with_extension("webp");
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
+			);
+		}
+		// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else {
+		debug!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return;
+	}
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(&extension) {
