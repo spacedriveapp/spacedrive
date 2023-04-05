@@ -134,7 +134,7 @@ const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextM
 			{label && <span className="flex-1 truncate">{label}</span>}
 
 			{keybind && (
-				<span className="text-menu-faint group-radix-highlighted:text-white text-xs font-medium">
+				<span className="text-xs font-medium text-menu-faint group-radix-highlighted:text-white">
 					{keybind}
 				</span>
 			)}

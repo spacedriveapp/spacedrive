@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
@@ -11,10 +11,13 @@ type Props = {
 const DeleteLocationModal = ({ trigger, onSubmit, locationId }: Props) => {
 	const modalRef = useRef<ModalRef>(null);
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
 		'locations.delete',
 		{
 			onSuccess: () => {
+				submitPlausibleEvent({ event: { type: 'locationDelete' } });
 				onSubmit?.();
 			},
 			onSettled: () => {

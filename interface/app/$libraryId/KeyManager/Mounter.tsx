@@ -77,7 +77,7 @@ export default () => {
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
 				<Tooltip label="This key will be registered with all devices running your Library">
-					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
+					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 				<div className="grow" />
 				<div className="space-x-2">
@@ -93,7 +93,7 @@ export default () => {
 				</div>
 				<span className="ml-3 text-xs font-medium">Automount</span>
 				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
-					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
+					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 			</div>
 

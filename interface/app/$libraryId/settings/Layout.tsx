@@ -40,7 +40,7 @@ export const Heading = (props: HeaderProps) => {
 				<p className="mt-1 text-sm text-gray-400">{props.description}</p>
 			</div>
 			{props.rightArea}
-			<hr className="border-gray-550 mt-4" />
+			<hr className="mt-4 border-gray-550" />
 		</div>
 	);
 };

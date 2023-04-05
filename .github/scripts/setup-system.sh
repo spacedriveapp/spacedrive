@@ -58,6 +58,7 @@ if [ "${1:-}" == "mobile" ]; then
 
 		rustup target add aarch64-apple-ios
 		rustup target add aarch64-apple-ios-sim
+		rustup target add x86_64-apple-ios # for CI
 	fi
 
 	# Android requires python

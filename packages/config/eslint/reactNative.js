@@ -1,5 +1,5 @@
 module.exports = {
-	extends: [require.resolve('./base.js')],
+	extends: [require.resolve('./base.js'), 'plugin:tailwindcss/recommended'],
 	env: {
 		'react-native/react-native': true
 	},
@@ -22,11 +22,15 @@ module.exports = {
 					// }
 				]
 			}
-		]
+		],
+		'tailwindcss/no-custom-classname': 'off',
+		'tailwindcss/no-contradicting-classname': 'warn'
 	},
 	settings: {
 		tailwindcss: {
-			config: 'apps/mobile/tailwind.config.js'
+			config: './apps/mobile/tailwind.config.js',
+			callees: ['classnames', 'clsx', 'ctl', 'cva', 'tw', `twStyle`],
+			tags: ['tw', 'twStyle']
 		}
 	}
 };

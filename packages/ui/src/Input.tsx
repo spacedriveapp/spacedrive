@@ -75,7 +75,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
 				<input
 					className={clsx(
-						'placeholder:text-ink-faint flex-1 truncate border-none bg-transparent px-3 text-sm outline-none',
+						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint',
 						(right || (icon && iconPosition === 'right')) && 'pr-0',
 						icon && iconPosition === 'left' && 'pl-0'
 					)}

@@ -7,6 +7,14 @@ export interface MarkdownPageData {
 	name?: string;
 	index?: number;
 	new?: boolean;
+	// for blog posts
+	title?: string;
+	author?: string;
+	date?: string;
+	tags?: string;
+	image?: string;
+	imageCaption?: string;
+	readTime?: string;
 }
 
 interface MarkdownParsed {

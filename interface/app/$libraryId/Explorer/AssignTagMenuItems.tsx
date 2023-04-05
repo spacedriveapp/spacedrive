@@ -5,12 +5,10 @@ import { useRef } from 'react';
 import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
 import { ContextMenu, DropdownMenu, dialogManager, useContextMenu, useDropdownMenu } from '@sd/ui';
 import { useScrolled } from '~/hooks/useScrolled';
-import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../settings/library/tags/CreateDialog';
 
 export default (props: { objectId: number }) => {
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });

@@ -125,7 +125,7 @@ export default (props: Props) => {
 						/>
 						<span className="ml-3 mt-0.5 text-xs font-medium">Automatically mount key</span>
 						<Tooltip label="The key linked with the file will be automatically mounted">
-							<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+							<Info className="ml-1.5 mt-0.5 h-4 w-4 text-ink-faint" />
 						</Tooltip>
 					</div>
 				)}
@@ -145,7 +145,7 @@ export default (props: Props) => {
 							/>
 							<span className="ml-3 mt-0.5 text-xs font-medium">Save to Key Manager</span>
 							<Tooltip label="This key will be saved to the key manager">
-								<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+								<Info className="ml-1.5 mt-0.5 h-4 w-4 text-ink-faint" />
 							</Tooltip>
 						</div>
 					</>

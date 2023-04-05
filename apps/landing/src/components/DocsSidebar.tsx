@@ -57,14 +57,14 @@ export default function DocsSidebar(props: Props) {
 									<li
 										className={clsx(
 											'flex border-l border-gray-600',
-											active && 'border-primary border-l-2'
+											active && 'border-l-2 border-primary'
 										)}
 										key={page.title}
 									>
 										<a
 											href={`/docs/${page.url}`}
 											className={clsx(
-												'text-gray-350 w-full rounded px-3 py-1 text-[14px] font-normal no-underline hover:text-gray-50',
+												'w-full rounded px-3 py-1 text-[14px] font-normal text-gray-350 no-underline hover:text-gray-50',
 												active && '!font-medium !text-white '
 											)}
 										>

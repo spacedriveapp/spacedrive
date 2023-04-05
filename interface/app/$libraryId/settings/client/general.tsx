@@ -26,7 +26,7 @@ export const Component = () => {
 						</div>
 					</div>
 
-					<hr className="border-app-line mt-2 mb-4" />
+					<hr className="mt-2 mb-4 border-app-line" />
 					<div className="grid grid-cols-3 gap-2">
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
@@ -50,7 +50,7 @@ export const Component = () => {
 					</div>
 					<div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />
-						<span className="text-ink-dull text-sm font-medium">Run daemon when app closed</span>
+						<span className="text-sm font-medium text-ink-dull">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">
 						<div
@@ -59,7 +59,7 @@ export const Component = () => {
 									platform.openLink(node.data.data_path);
 								}
 							}}
-							className="text-ink-faint text-sm font-medium"
+							className="text-sm font-medium text-ink-faint"
 						>
 							<b className="mr-2 inline truncate">
 								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder

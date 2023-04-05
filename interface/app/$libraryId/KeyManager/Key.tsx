@@ -63,7 +63,7 @@ export const KeyDropdown = ({
 										'flex flex-col',
 										'z-50 m-2 space-y-1 px-4 py-2',
 										'cursor-default select-none rounded-lg',
-										'text-ink text-left text-sm',
+										'text-left text-sm text-ink',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -96,7 +96,7 @@ export const Key = ({ data }: { data: Key }) => {
 	return (
 		<div
 			className={clsx(
-				'shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg px-2 py-1.5 text-sm shadow-lg'
+				'flex items-center justify-between rounded-lg bg-app-box px-2 py-1.5 text-sm shadow-lg shadow-app-shade/10'
 			)}
 		>
 			<div className="flex items-center">
@@ -124,19 +124,19 @@ export const Key = ({ data }: { data: Key }) => {
 					{data.stats ? (
 						<div className="mt-[1px] flex flex-row space-x-3">
 							{data.stats.objectCount && (
-								<div className="text-ink-dull text-[8pt] font-medium opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.objectCount} Objects
 								</div>
 							)}
 							{data.stats.containerCount && (
-								<div className="text-ink-dull text-[8pt] font-medium opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.containerCount} Containers
 								</div>
 							)}
 						</div>
 					) : (
 						!data.mounted && (
-							<div className="text-ink-dull text-[8pt] font-medium opacity-30">
+							<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 								{data.queue.has(data.id) ? 'Key mounting...' : 'Key not mounted'}
 							</div>
 						)
@@ -147,14 +147,14 @@ export const Key = ({ data }: { data: Key }) => {
 				{data.mounted && (
 					<Tooltip label="Browse files">
 						<Button size="icon">
-							<Eye className="text-ink-faint h-4 w-4" />
+							<Eye className="h-4 w-4 text-ink-faint" />
 						</Button>
 					</Tooltip>
 				)}
 				<KeyDropdown
 					trigger={
 						<Button size="icon">
-							<DotsThree className="text-ink-faint h-4 w-4" />
+							<DotsThree className="h-4 w-4 text-ink-faint" />
 						</Button>
 					}
 				>
@@ -220,7 +220,7 @@ export const KeyDropdownItem = (props: {
 }) => {
 	return (
 		<DropdownMenu.DropdownMenuItem
-			className="text-menu-ink !cursor-default select-none py-0.5 focus:outline-none active:opacity-80"
+			className="!cursor-default select-none py-0.5 text-menu-ink focus:outline-none active:opacity-80"
 			onClick={props.onClick}
 			hidden={props.hidden}
 		>
@@ -231,7 +231,7 @@ export const KeyDropdownItem = (props: {
 
 export const DummyKey = (props: { text: string }) => {
 	return (
-		<div className="shadow-app-shade/10 bg-app-box flex items-center justify-between rounded-lg p-2 py-1.5 text-sm shadow-lg">
+		<div className="flex items-center justify-between rounded-lg bg-app-box p-2 py-1.5 text-sm shadow-lg shadow-app-shade/10">
 			<div className="flex items-center">
 				<KeyIcon className="ml-1 mr-3 h-5 w-5 text-gray-400/80" />
 				<div className="flex flex-col ">

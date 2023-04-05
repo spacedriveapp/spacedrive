@@ -22,7 +22,11 @@ export default function Header() {
 			})}
 		>
 			<View style={tw`flex h-10 flex-row items-center`}>
-				<Pressable style={tw`h-full justify-center px-3`} onPress={() => navigation.openDrawer()}>
+				<Pressable
+					testID="drawer-toggle"
+					style={tw`h-full justify-center px-3`}
+					onPress={() => navigation.openDrawer()}
+				>
 					<MotiView
 						animate={{ rotate: isDrawerOpen ? '90deg' : '0deg' }}
 						transition={{ type: 'timing' }}

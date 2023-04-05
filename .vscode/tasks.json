@@ -4,28 +4,20 @@
 		{
 			"type": "cargo",
 			"command": "clippy",
-			"problemMatcher": [
-				"$rustc"
-			],
+			"problemMatcher": ["$rustc"],
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
 			"label": "rust: cargo clippy",
-			"args": [
-				"--all-targets",
-				"--all-features",
-				"--all"
-			]
+			"args": ["--all-targets", "--all-features", "--all"]
 		},
 		{
 			"type": "npm",
 			"script": "prep",
 			"label": "pnpm: prep",
 			"group": "none",
-			"problemMatcher": [
-				"$rustc"
-			]
+			"problemMatcher": ["$rustc"]
 		},
 		{
 			"type": "shell",
@@ -40,12 +32,7 @@
 			},
 			"isBackground": true,
 			"command": "pnpm",
-			"args": [
-				"desktop",
-				"vite",
-				"--clearScreen=false",
-				"--mode=development"
-			],
+			"args": ["desktop", "vite", "--clearScreen=false", "--mode=development"],
 			"runOptions": {
 				"instanceLimit": 1
 			}
@@ -55,49 +42,31 @@
 			"label": "ui:build",
 			"problemMatcher": "$tsc",
 			"command": "pnpm",
-			"args": [
-				"desktop",
-				"vite",
-				"build"
-			]
+			"args": ["desktop", "vite", "build"]
 		},
 		{
 			"type": "cargo",
 			"command": "run",
-			"args": [
-				"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-				"--no-default-features"
-			],
+			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--no-default-features"],
 			"env": {
 				"RUST_BACKTRACE": "short"
 			},
-			"problemMatcher": [
-				"$rustc"
-			],
+			"problemMatcher": ["$rustc"],
 			"group": "build",
 			"label": "rust: run spacedrive",
-			"dependsOn": [
-				"ui:dev"
-			]
+			"dependsOn": ["ui:dev"]
 		},
 		{
 			"type": "cargo",
 			"command": "run",
-			"args": [
-				"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-				"--release"
-			],
+			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--release"],
 			"env": {
 				"RUST_BACKTRACE": "short"
 			},
-			"problemMatcher": [
-				"$rustc"
-			],
+			"problemMatcher": ["$rustc"],
 			"group": "build",
 			"label": "rust: run spacedrive release",
-			"dependsOn": [
-				"ui:build"
-			]
+			"dependsOn": ["ui:build"]
 		}
 	]
 }

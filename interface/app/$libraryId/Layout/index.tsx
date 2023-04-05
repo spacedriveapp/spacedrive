@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
+	initPlausible,
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
@@ -17,10 +18,10 @@ const Layout = () => {
 
 	const os = useOperatingSystem();
 
-	usePlausiblePageViewMonitor({
-		currentPath: useLocation().pathname,
-		platformType: usePlatform().platform
+	initPlausible({
+		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
+	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
@@ -33,10 +34,10 @@ const Layout = () => {
 		<div
 			className={clsx(
 				// App level styles
-				'text-ink flex h-screen cursor-default select-none overflow-hidden',
-				os === 'browser' && 'bg-app border-app-line/50 border-t',
+				'flex h-screen cursor-default select-none overflow-hidden text-ink',
+				os === 'browser' && 'border-t border-app-line/50 bg-app',
 				os === 'macOS' && 'has-blur-effects rounded-[10px]',
-				os !== 'browser' && os !== 'windows' && 'border-app-frame border'
+				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
 			)}
 			onContextMenu={(e) => {
 				// TODO: allow this on some UI text at least / disable default browser context menu
@@ -48,7 +49,7 @@ const Layout = () => {
 			<div className="relative flex w-full">
 				{library ? (
 					<LibraryContextProvider library={library}>
-						<Suspense fallback={<div className="bg-app h-screen w-screen" />}>
+						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
 							<Outlet />
 						</Suspense>
 					</LibraryContextProvider>
