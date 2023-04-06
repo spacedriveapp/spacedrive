@@ -50,13 +50,19 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				return;
 			}
 
-			const newName = '/' + innerText;
-			if (filePathData && newName !== filePathData.materialized_path) {
-				renameFile.mutate({
-					location_id: filePathData.location_id,
-					file_name: filePathData.materialized_path,
-					new_file_name: newName
-				});
+			const newName = innerText;
+			if (filePathData) {
+				const oldName = filePathData.is_dir
+					? filePathData.name
+					: filePathData.name + '.' + filePathData.extension;
+
+				if (newName !== oldName) {
+					renameFile.mutate({
+						location_id: filePathData.location_id,
+						file_name: oldName,
+						new_file_name: newName
+					});
+				}
 			}
 		}
 	};

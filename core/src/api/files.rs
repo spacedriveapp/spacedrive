@@ -11,11 +11,12 @@ use crate::{
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
 		erase::{FileEraserJob, FileEraserJobInit},
 	},
-	prisma::object,
+	prisma::{location, object},
 };
 
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
+use std::path::Path;
 use tokio::{fs, sync::oneshot};
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -190,19 +191,19 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			t(|_, args: RenameFileArgs, library: Library| async move {
 				let location = find_location(&library, args.location_id)
-				    .select(location::select!({ path }))
-				    .exec()
-				    .await?
-				    .ok_or(LocationError::IdNotFound(args.location_id))?;
+					.select(location::select!({ path }))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
 				let location_path = Path::new(&location.path);
 				fs::rename(
-				    location_path.join(&args.file_name),
-				    location_path.join(&args.new_file_name),
+					location_path.join(&args.file_name),
+					location_path.join(&args.new_file_name),
 				)
 				.await
 				.map_err(|e| {
-				    rspc::Error::new(ErrorCode::Conflict, format!("Failed to rename file: {e}"))
+					rspc::Error::new(ErrorCode::Conflict, format!("Failed to rename file: {e}"))
 				})?;
 
 				invalidate_query!(library, "tags.getExplorerData");
