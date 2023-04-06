@@ -18,13 +18,14 @@ export function useExplorerParams() {
 export const Component = () => {
 	const { location_id, path, limit } = useExplorerParams();
 
-	const quickRescan = useLibraryMutation('locations.quickRescan');
+	// we destructure this since `mutate` is a stable reference but the object it's in is not
+	const { mutate: mutateQuickRescan, ...quickRescan } = useLibraryMutation('locations.quickRescan');
 	const explorerState = getExplorerStore();
 
 	useEffect(() => {
 		explorerState.locationId = location_id;
-		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path });
-	}, [explorerState, location_id, path, quickRescan]);
+		if (location_id !== null) mutateQuickRescan({ location_id, sub_path: path });
+	}, [explorerState, location_id, path, mutateQuickRescan]);
 
 	if (location_id === null) throw new Error(`location_id is null!`);
 
