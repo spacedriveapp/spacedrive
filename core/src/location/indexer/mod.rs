@@ -73,8 +73,8 @@ pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
 	created_at: DateTime<Utc>,
-	file_id: i32,
-	parent_id: Option<i32>,
+	file_pub_id: Vec<u8>,
+	parent_id: Option<Vec<u8>>,
 	inode: u64,
 	device: u64,
 }
@@ -168,10 +168,7 @@ async fn execute_indexer_step(
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						id: entry.file_id,
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone(),
-						},
+						pub_id: entry.file_pub_id.clone(),
 					},
 					[
 						("materialized_path", json!(materialized_path.clone())),
@@ -185,7 +182,7 @@ async fn execute_indexer_step(
 					],
 				),
 				file_path::create_unchecked(
-					entry.file_id,
+					entry.file_pub_id.clone(),
 					location.id,
 					materialized_path.into_owned(),
 					name.into_owned(),

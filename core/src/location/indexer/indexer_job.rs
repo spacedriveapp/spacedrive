@@ -7,7 +7,7 @@ use crate::{
 		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
 		MaterializedPath,
 	},
-	prisma::location,
+	prisma::{file_path, location},
 };
 
 use std::{collections::HashMap, path::Path};
@@ -16,6 +16,7 @@ use chrono::Utc;
 use itertools::Itertools;
 use tokio::time::Instant;
 use tracing::error;
+use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer,
@@ -90,7 +91,7 @@ impl StatefulJob for IndexerJob {
 				.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
+			dirs_ids.insert(full_path.clone(), sub_path_file_path.pub_id.clone());
 
 			(full_path, Some(sub_path_file_path))
 		} else {
@@ -132,7 +133,11 @@ impl StatefulJob for IndexerJob {
 					.await
 					.map_err(IndexerError::from)?,
 				)
-				.select(file_path_just_id_materialized_path::select())
+				.select(file_path::select!({
+					id
+					pub_id
+					materialized_path
+				}))
 				.exec()
 				.await?
 				.into_iter()
@@ -142,7 +147,7 @@ impl StatefulJob for IndexerJob {
 							location_id,
 							&file_path.materialized_path,
 						))),
-						file_path.id,
+						file_path.pub_id,
 					)
 				}),
 		);
@@ -150,7 +155,7 @@ impl StatefulJob for IndexerJob {
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths = retain_file_paths_in_location(
 			location_id,
-			dirs_ids.values().copied().collect(),
+			dirs_ids.values().cloned().collect(),
 			maybe_parent_file_path,
 			db,
 		)
@@ -182,7 +187,7 @@ impl StatefulJob for IndexerJob {
 							IndexerJobStepEntry {
 								materialized_path,
 								created_at: entry.created_at,
-								file_id: 0, // To be set later
+								file_pub_id: Uuid::new_v4().as_bytes().to_vec(),
 								parent_id: entry.path.parent().and_then(|parent_dir| {
 									/***************************************************************
 									 * If we're dealing with a new path which its parent already   *
@@ -208,21 +213,18 @@ impl StatefulJob for IndexerJob {
 			.await
 			.map_err(IndexerError::from)?;
 
-		new_paths
-			.iter_mut()
-			.zip(first_file_id..)
-			.for_each(|(entry, file_id)| {
-				// If the `parent_id` is still none here, is because the parent of this entry is also
-				// a new one in the DB
-				if entry.parent_id.is_none() {
-					entry.parent_id = entry
-						.full_path
-						.parent()
-						.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
-				}
-				entry.file_id = file_id;
-				dirs_ids.insert(entry.full_path.clone(), file_id);
-			});
+		new_paths.iter_mut().for_each(|entry| {
+			// If the `parent_id` is still none here, is because the parent of this entry is also
+			// a new one in the DB
+			if entry.parent_id.is_none() {
+				entry.parent_id = entry
+					.full_path
+					.parent()
+					.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
+			}
+
+			dirs_ids.insert(entry.full_path.clone(), entry.file_pub_id.clone());
+		});
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),

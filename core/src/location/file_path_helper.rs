@@ -16,16 +16,19 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
+use uuid::Uuid;
 
 use super::LocationId;
 
 // File Path selectables!
 file_path::select!(file_path_just_id_materialized_path {
 	id
+	pub_id
 	materialized_path
 });
 file_path::select!(file_path_for_file_identifier {
 	id
+	pub_id
 	materialized_path
 	date_created
 });
@@ -316,7 +319,7 @@ impl LastFilePathIdManager {
 			name,
 			extension,
 		}: MaterializedPath<'_>,
-		parent_id: Option<i32>,
+		parent_id: Option<(i32, Vec<u8>)>,
 		cas_id: Option<String>,
 		inode: u64,
 		device: u64,
@@ -341,7 +344,7 @@ impl LastFilePathIdManager {
 			.await?
 			.unwrap();
 
-		let next_id = *last_id_ref + 1;
+		let pub_id = Uuid::new_v4().as_bytes().to_vec();
 
 		let params = [
 			("cas_id", json!(cas_id)),
@@ -354,17 +357,9 @@ impl LastFilePathIdManager {
 		]
 		.into_iter()
 		.map(Some)
-		.chain([parent_id.map(|parent_id| {
-			(
-				"parent_id",
-				json!(sync::file_path::SyncId {
-					location: sync::location::SyncId {
-						pub_id: location.pub_id.clone()
-					},
-					id: parent_id
-				}),
-			)
-		})])
+		.chain([parent_id
+			.clone()
+			.map(|parent_id| ("parent_id", json!(parent_id.1)))])
 		.flatten()
 		.collect::<Vec<_>>();
 
@@ -373,15 +368,12 @@ impl LastFilePathIdManager {
 				db,
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone(),
-						},
-						id: next_id,
+						pub_id: pub_id.clone(),
 					},
 					params,
 				),
 				db.file_path().create(
-					next_id,
+					pub_id,
 					location::id::equals(location_id),
 					materialized_path.into_owned(),
 					name.into_owned(),
@@ -390,14 +382,12 @@ impl LastFilePathIdManager {
 					device.to_le_bytes().into(),
 					vec![
 						file_path::cas_id::set(cas_id),
-						file_path::parent_id::set(parent_id),
+						file_path::parent_id::set(parent_id.map(|(i, _)| i)),
 						file_path::is_dir::set(is_dir),
 					],
 				),
 			)
 			.await?;
-
-		*last_id_ref = next_id;
 
 		Ok(created_path)
 	}
@@ -634,13 +624,13 @@ pub async fn ensure_sub_path_is_directory(
 
 pub async fn retain_file_paths_in_location(
 	location_id: LocationId,
-	to_retain: Vec<i32>,
+	to_retain: Vec<Vec<u8>>,
 	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
 	db: &PrismaClient,
 ) -> Result<i64, FilePathError> {
 	let mut to_delete_params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::id::not_in_vec(to_retain),
+		file_path::pub_id::not_in_vec(to_retain),
 	];
 
 	if let Some(parent_file_path) = maybe_parent_file_path {
