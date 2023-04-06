@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef, useState } from 'react';
+import { useKey } from 'rooks';
 import { ExplorerItem, formatBytes, useLibraryMutation } from '@sd/client';
 import { tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -84,7 +85,6 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
 		switch (e.key) {
-			case 'Enter':
 			case 'Tab':
 				e.preventDefault();
 				blur();
@@ -105,13 +105,23 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	};
 
 	useEffect(() => {
-		setTimeout(() => {
-			if (allowRename && itemNameRef.current) {
-				itemNameRef.current.focus();
-				highlightFileName();
-			}
-		});
+		if (allowRename) {
+			getExplorerStore().isRenaming = true;
+			setTimeout(() => {
+				if (itemNameRef.current) {
+					itemNameRef.current.focus();
+					highlightFileName();
+				}
+			});
+		} else getExplorerStore().isRenaming = false;
 	}, [allowRename]);
+
+	useKey('Enter', (e) => {
+		if (allowRename) {
+			e.preventDefault();
+			blur();
+		} else if (selected) setAllowRename(true);
+	});
 
 	return (
 		// Prevent context menu deselecting current item

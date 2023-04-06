@@ -82,22 +82,30 @@ export const VirtualizedList = memo(({ data, onScroll }: Props) => {
 	// 		});
 	// }, [goingUp, selectedRowIndex, rowVirtualizer]);
 
-	useKey('ArrowUp', (e) => {
-		e.preventDefault();
-		setGoingUp(true);
-		if (explorerStore.selectedRowIndex !== -1 && explorerStore.selectedRowIndex !== 0)
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
-	});
+	useKey(
+		'ArrowUp',
+		(e) => {
+			e.preventDefault();
+			setGoingUp(true);
+			if (explorerStore.selectedRowIndex !== -1 && explorerStore.selectedRowIndex !== 0)
+				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
-	useKey('ArrowDown', (e) => {
-		e.preventDefault();
-		setGoingUp(false);
-		if (
-			explorerStore.selectedRowIndex !== -1 &&
-			explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-		)
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
-	});
+	useKey(
+		'ArrowDown',
+		(e) => {
+			e.preventDefault();
+			setGoingUp(false);
+			if (
+				explorerStore.selectedRowIndex !== -1 &&
+				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
+			)
+				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
 	const layoutMode = explorerStore.layoutMode;
 
