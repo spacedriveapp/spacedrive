@@ -13,18 +13,11 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import {
-	ExplorerItem,
-	isObject,
-	useLibraryContext,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import DecryptDialog from './DecryptDialog';
@@ -38,10 +31,8 @@ interface Props extends PropsWithChildren {
 }
 
 export default ({ data, ...props }: Props) => {
-	const { library } = useLibraryContext();
 	const store = useExplorerStore();
 	const params = useExplorerParams();
-	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
@@ -56,14 +47,7 @@ export default ({ data, ...props }: Props) => {
 				<ContextMenu.Item
 					label="Open"
 					keybind="⌘O"
-					onClick={() => {
-						// TODO: Replace this with a proper UI
-						window.location.href = platform.getFileUrl(
-							library.uuid,
-							store.locationId!,
-							data.item.id
-						);
-					}}
+					onClick={() => (getExplorerStore().quickViewObject = data)}
 					icon={Copy}
 				/>
 				<ContextMenu.Item label="Open with..." />

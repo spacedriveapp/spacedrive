@@ -51,7 +51,7 @@ export default () => {
 	return (
 		<div
 			className={clsx(
-				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2',
+				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col space-y-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2',
 				macOnly(os, 'bg-opacity-[0.65]')
 			)}
 		>
@@ -78,7 +78,7 @@ const WindowControls = () => {
 		);
 	}
 
-	return null;
+	return <div />;
 };
 
 const LibrarySection = () => {
@@ -119,13 +119,7 @@ const LibrarySection = () => {
 						</SidebarLink>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && (
-					<AddLocationButton
-						className="cursor-normal mt-1 w-full
-						rounded border border-dashed border-sidebar-line px-2 py-1 text-center text-xs
-						font-medium text-ink-faint transition hover:border-sidebar-selected"
-					/>
-				)}
+				{(locations.data?.length || 0) < 4 && <AddLocationButton />}
 			</Section>
 			{!!tags.data?.length && (
 				<Section

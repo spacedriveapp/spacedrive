@@ -10,6 +10,8 @@ export const AddLocationButton = (props: ButtonProps) => {
 		<>
 			<Button
 				{...props}
+				variant="dotted"
+				className="cursor-normal mt-1 w-full"
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => {

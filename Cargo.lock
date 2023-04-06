@@ -7320,7 +7320,6 @@ dependencies = [
  "sd-core",
  "sd-desktop-macos",
  "serde",
- "server",
  "tauri",
  "tauri-build",
  "tokio",

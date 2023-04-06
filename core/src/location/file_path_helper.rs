@@ -317,6 +317,7 @@ impl LastFilePathIdManager {
 			extension,
 		}: MaterializedPath<'_>,
 		parent_id: Option<i32>,
+		cas_id: Option<String>,
 		inode: u64,
 		device: u64,
 	) -> Result<file_path::Data, FilePathError> {
@@ -343,6 +344,7 @@ impl LastFilePathIdManager {
 		let next_id = *last_id_ref + 1;
 
 		let params = [
+			("cas_id", json!(cas_id)),
 			("materialized_path", json!(materialized_path)),
 			("name", json!(name)),
 			("extension", json!(extension)),
@@ -368,7 +370,7 @@ impl LastFilePathIdManager {
 
 		let created_path = sync
 			.write_op(
-				&db,
+				db,
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
 						location: sync::location::SyncId {
@@ -387,6 +389,7 @@ impl LastFilePathIdManager {
 					inode.to_le_bytes().into(),
 					device.to_le_bytes().into(),
 					vec![
+						file_path::cas_id::set(cas_id),
 						file_path::parent_id::set(parent_id),
 						file_path::is_dir::set(is_dir),
 					],
