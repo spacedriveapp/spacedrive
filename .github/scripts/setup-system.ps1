@@ -1,8 +1,31 @@
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
+$ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
 Set-StrictMode -Version Latest
 
-function Wait-UserInput() {
-   if (-not $env:CI) { Read-Host 'Press Enter to continue' }
+function Reset-Path {
+   $env:Path = [System.Environment]::ExpandEnvironmentVariables(
+      [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+   )
+}
+
+function Set-EnvVar($variable, $value = $null) {
+   if ($null -ne $value) {
+      [System.Environment]::SetEnvironmentVariable($variable, $value, 'User')
+      if ($env:CI -and ($variable -ne 'Path')) {
+         # If running in CI, we need to use GITHUB_ENV instead of the normal env variables
+         Add-Content $env:GITHUB_ENV "$variable=$value`n"
+      }
+   }
+   # The following is needed to make the environment variable available to the current PowerShell process
+   if ($variable -eq 'Path') {
+      Reset-Path
+   } else {
+      [System.Environment]::SetEnvironmentVariable(
+         $variable,
+         [System.Environment]::GetEnvironmentVariable($variable, 'User'),
+         [System.EnvironmentVariableTarget]::Process
+      )
+   }
 }
 
 # Verify if environment is Windows 64-bit and if the user is an administrator
@@ -13,30 +36,48 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
       # Powershell >= 6 is cross-platform, check if running on Windows
    ) -or (($PSVersionTable.PSVersion.Major -ge 6) -and (-not $IsWindows))
 ) {
+   $ErrorActionPreference = 'Continue'
    Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
    if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
-      Write-Error 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
+      throw 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
    } else {
-      Write-Error 'This script is only supported on Windows 64-bit'
+      throw 'This script is only supported on Windows 64-bit'
    }
-   Wait-UserInput
    Exit 1
 } elseif (
    -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ) {
    # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
-   Start-Process -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
-   # Exit the current PowerShell process
+   Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
+   # NOTICE: Any modified environment variables should be reloaded here, so the user doesn't have to restart the shell after running the script
+   Reset-Path
+   Set-EnvVar('PROTOC')
+   Set-EnvVar('FFMPEG_DIR')
    Exit
+}
+
+function Exit-WithError($err, $help = $null) {
+   if ($null -ne $help) {
+      Write-Host
+      Write-Host $help -ForegroundColor DarkRed
+   }
+   throw $err
+   Exit 1
 }
 
 function Add-DirectoryToPath($directory) {
    if ($env:Path.Split(';') -notcontains $directory) {
-      [Environment]::SetEnvironmentVariable('Path', "$($env:Path);$directory", [System.EnvironmentVariableTarget]::User)
-      $env:Path = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
-      [System.Environment]::SetEnvironmentVariable('Path', $env:Path, [System.EnvironmentVariableTarget]::Process)
+      Set-EnvVar 'Path' "$($env:Path);$directory"
+      if ($env:CI) {
+         # If running in CI, we need to use GITHUB_PATH instead of the normal PATH env variables
+         Add-Content $env:GITHUB_PATH "$directory`n"
+      }
    }
+   Reset-Path
 }
+
+# Reset PATH to ensure the script doesn't read any stale entries
+Reset-Path
 
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
@@ -71,11 +112,7 @@ To set up your machine for Spacedrive development, this script will do the follo
 # Check connectivity to GitHub
 $ProgressPreference = 'SilentlyContinue'
 if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
-   Write-Host
-   Write-Host "Can't connect to github, maybe internet is down?"
-   Write-Host
-   Wait-UserInput
-   Exit 1
+   throw "Can't connect to github, maybe internet is down?"
 }
 $ProgressPreference = 'Continue'
 
@@ -83,20 +120,16 @@ $ProgressPreference = 'Continue'
 # GitHub Actions already has all of this installed
 if (-not $env:CI) {
    if (-not (Get-Command winget -ea 0)) {
-      Write-Host
-      Write-Error 'winget not available'
-      Write-Host @'
+      Exit-WithError 'winget not available' @'
 Follow the instructions here to install winget:
 https://learn.microsoft.com/windows/package-manager/winget/
-'@ -ForegroundColor Yellow
-      Wait-UserInput
-      Exit 1
+'@
    }
 
    Write-Host
    Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
-   Write-Host 'This will take a while...'
-   # Force install because BuildTools is itself a installer of multiple packages, let it decide if it is already installed or not
+   Write-Host 'This will take some time and it involves downloading several gigabytes of data....' -ForegroundColor Cyan
+   # Force install because BuildTools is itself an installer for multiple packages, so let itself decide if it need to install anythin or not
    winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 
    Write-Host
@@ -110,8 +143,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
    Write-Host 'Installing Rust and Cargo...' -ForegroundColor Yellow
    try {
       winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
-      # Reset Path to ensure cargo is available for the rest of the script
-      $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User))
+      Reset-Path # Reset Path to ensure that cargo is available to the command bellow
    } catch {}
 
    Write-Host
@@ -119,20 +151,24 @@ https://learn.microsoft.com/windows/package-manager/winget/
    cargo install cargo-watch
 }
 
+Write-Host
 Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
 if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
    Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
 } else {
    # Check for pnpm installed with standalone installer
-   if (($null -ne $env:PNPM_HOME) -and (Test-Path $env:PNPM_HOME -PathType Container)) {
-      Write-Error 'You have a incompatible version of pnpm installed, please remove it and run this script again'
-      Write-Host 'https://pnpm.io/uninstall'
-      Wait-UserInput
-      Exit 1
+   if (($null -ne $env:PNPM_HOME) -and (Test-Path "$env:PNPM_HOME/pnpm.exe" -PathType Leaf)) {
+      Exit-WithError 'You have a incompatible version of pnpm installed, please remove it and run this script again' @'
+Follow the instructions here to uninstall pnpm:
+https://pnpm.io/uninstall
+'@
+   } else {
+      # Remove possible remaining envvars from old pnpm installation
+      [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::Machine)
+      [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::User)
    }
 
    if (-not $env:CI) {
-      Write-Host
       Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
       try {
          winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
@@ -141,12 +177,13 @@ if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -mat
       } catch {}
    }
 
-   Write-Host
    Write-Host 'Installing pnpm...'
    # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
    npm install -g 'pnpm@latest-7'
    # Add NPM global modules to the PATH
-   Add-DirectoryToPath "$env:APPDATA\npm"
+   if (Test-Path "$env:APPDATA\npm" -PathType Container) {
+      Add-DirectoryToPath "$env:APPDATA\npm"
+   }
 }
 
 Write-Host
@@ -179,23 +216,19 @@ if ($env:CI) {
    } | Select-Object -First 1
 
    if ($null -eq $downloadUri) {
-      Write-Error "Error: Couldn't find a LLVM installer for version: $llvm_major"
-      Wait-UserInput
-      Exit 1
+      Exit-WithError "Couldn't find a LLVM installer for version: $llvm_major"
    }
 
    $oldUninstaller = "$env:SystemDrive\Program Files\LLVM\Uninstall.exe"
    if (Test-Path $oldUninstaller -PathType Leaf) {
-      Write-Error 'You have a incompatible version of LLVM installed, please remove it and run this script again'
-      Wait-UserInput
-      Exit 1
+      Exit-WithError 'You have a incompatible version of LLVM installed' 'Uninstall the current version of LLVM and run this script again'
    }
 
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\llvm.exe"
 
    Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
-   Write-Host 'This may take a while and will have no visual feedback, please wait...'
-   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -NoNewWindow -Wait -ErrorAction Stop
+   Write-Host 'This may take a while and will have no visual feedback, please wait...' -ForegroundColor Cyan
+   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait -ErrorAction Stop
 
    Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
@@ -232,31 +265,22 @@ if ($protocVersion) {
    }
 
    if (-not ($filename -and $downloadUri)) {
-      Write-Error "Error: Couldn't find a protobuf compiler installer"
-      Wait-UserInput
-      Exit 1
+      Exit-WithError "Couldn't find a protobuf compiler installer"
    }
 
    $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
    New-Item -Path $foldername -ItemType Directory -ErrorAction SilentlyContinue
 
+   Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
    Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
-
    Expand-Archive "$temp\protobuf.zip" $foldername -ErrorAction SilentlyContinue
    Remove-Item "$temp\protobuf.zip"
 
-   Write-Host 'Setting environment variables...' -ForegroundColor Yellow
-
-   # Sets environment variable for protobuf
-   [System.Environment]::SetEnvironmentVariable('PROTOC', "$foldername\bin\protoc.exe", [System.EnvironmentVariableTarget]::User)
-
-   if ($env:CI) {
-      # If running in CI, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
-      Add-Content $env:GITHUB_ENV "PROTOC=$foldername\bin\protoc.exe`n"
-      Add-Content $env:GITHUB_PATH "$foldername\bin`n"
-   }
+   Write-Host 'Setting PROTOC environment variable...' -ForegroundColor Yellow
+   Set-EnvVar 'PROTOC' "$foldername\bin\protoc.exe"
+   Add-DirectoryToPath "$foldername\bin"
 }
 
 Write-Host
@@ -265,7 +289,7 @@ Write-Host 'Update cargo packages...' -ForegroundColor Yellow
 cargo metadata --format-version 1 > $null
 
 Write-Host
-Write-Host 'Downloading the latest ffmpeg build...' -ForegroundColor Yellow
+Write-Host 'Checking for ffmpeg build...' -ForegroundColor Yellow
 # Get ffmpeg-sys-next version
 $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
    $_.name -like 'ffmpeg-sys-next'
@@ -308,13 +332,12 @@ if (($null -ne $env:FFMPEG_DIR) -and (
    }
 
    if (-not ($filename -and $downloadUri)) {
-      Write-Error "Error: Couldn't find a ffmpeg installer for version: $ffmpegVersion"
-      Wait-UserInput
-      Exit 1
+      Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
    }
 
    $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
 
+   Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
 
    Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
@@ -322,16 +345,9 @@ if (($null -ne $env:FFMPEG_DIR) -and (
    Expand-Archive "$temp\ffmpeg.zip" $env:LOCALAPPDATA -ErrorAction SilentlyContinue
    Remove-Item "$temp\ffmpeg.zip"
 
-   Write-Host 'Setting environment variables...' -ForegroundColor Yellow
-   # Sets environment variable for ffmpeg
-   [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$foldername", [System.EnvironmentVariableTarget]::User)
-   $env:FFMPEG_DIR = "$foldername"
-
-   if ($env:CI) {
-      # If running in CI, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
-      Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$foldername`n"
-      Add-Content $env:GITHUB_PATH "$foldername\bin`n"
-   }
+   Write-Host 'Setting FFMPEG_DIR environment variable...' -ForegroundColor Yellow
+   Set-EnvVar 'FFMPEG_DIR' "$foldername"
+   Add-DirectoryToPath "$foldername\bin"
 }
 
 Write-Host
@@ -343,6 +359,5 @@ Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destinat
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-Write-Host 'You may need to restart your shell to ensure that all environment variables are set!' -ForegroundColor Yellow
 Write-Host 'You will need to re-run this script if you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
-Wait-UserInput
+if (-not $env:CI) { Read-Host 'Press Enter to continue' }
