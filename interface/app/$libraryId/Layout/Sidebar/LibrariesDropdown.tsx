@@ -6,7 +6,6 @@ import CreateDialog from '../../settings/node/libraries/CreateDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
-
 	return (
 		<DropdownMenu.Root
 			trigger={
