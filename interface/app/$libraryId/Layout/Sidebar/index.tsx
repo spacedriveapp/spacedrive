@@ -119,13 +119,7 @@ const LibrarySection = () => {
 						</SidebarLink>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && (
-					<AddLocationButton
-						className="cursor-normal mt-1 w-full
-						rounded border border-dashed border-sidebar-line px-2 py-1 text-center text-xs
-						font-medium text-ink-faint transition hover:border-sidebar-selected"
-					/>
-				)}
+				{(locations.data?.length || 0) < 4 && <AddLocationButton />}
 			</Section>
 			{!!tags.data?.length && (
 				<Section

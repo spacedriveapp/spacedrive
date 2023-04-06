@@ -46,6 +46,9 @@ const styles = cva(
 				outline: [
 					'border-sidebar-line/60 hover:border-sidebar-line active:border-sidebar-line active:border-sidebar-line/30'
 				],
+				dotted: [
+					`rounded border border-dashed border-sidebar-line/70 text-center text-xs font-medium text-ink-faint transition hover:border-sidebar-line hover:bg-sidebar-selected/5`
+				],
 				gray: [
 					'bg-app-button active:bg-app-selected hover:bg-app-hover',
 					'border-app-line hover:border-app-line active:border-app-active'
