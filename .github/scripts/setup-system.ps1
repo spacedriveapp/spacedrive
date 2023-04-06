@@ -21,9 +21,7 @@ function Set-EnvVar($variable, $value = $null) {
       Reset-Path
    } else {
       [System.Environment]::SetEnvironmentVariable(
-         $variable,
-         [System.Environment]::GetEnvironmentVariable($variable, 'User'),
-         [System.EnvironmentVariableTarget]::Process
+         $variable, [System.Environment]::GetEnvironmentVariable($variable, 'User'), 'Process'
       )
    }
 }
@@ -128,7 +126,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
 
    Write-Host
    Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
-   Write-Host 'This will take some time and it involves downloading several gigabytes of data....' -ForegroundColor Cyan
+   Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
    # Force install because BuildTools is itself an installer for multiple packages, so let itself decide if it need to install anythin or not
    winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 
@@ -271,7 +269,7 @@ if ($protocVersion) {
    $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
    New-Item -Path $foldername -ItemType Directory -ErrorAction SilentlyContinue
 
-   Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
+   Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
    Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
    Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
@@ -295,7 +293,7 @@ $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages
    $_.name -like 'ffmpeg-sys-next'
 } | Select-Object -ExpandProperty 'req' | ForEach-Object {
    $_ -replace '[~^<>=!*]+', ''
-} | Sort-Object -Unique
+} | Sort-Object -Unique | Select-Object -Last 1
 
 if (($null -ne $env:FFMPEG_DIR) -and (
       $ffmpegVersion.StartsWith(
@@ -359,5 +357,5 @@ Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destinat
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-Write-Host 'You will need to re-run this script if you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
+Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
 if (-not $env:CI) { Read-Host 'Press Enter to continue' }
