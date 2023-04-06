@@ -21,7 +21,6 @@ percent-encoding = "2.2.0"
 http = "0.2.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-server = { path = "../../server" }
 axum = { version = "0.6.4", features = ["headers", "query"] }
 rand = "0.8.5"
 
