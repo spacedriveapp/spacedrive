@@ -190,22 +190,24 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			t(|_, args: RenameFileArgs, library: Library| async move {
 				let location = find_location(&library, args.location_id)
-					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(args.location_id))?;
+				    .select(location::select!({ path }))
+				    .exec()
+				    .await?
+				    .ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				match fs::rename(
-					location.path.clone() + &args.file_name,
-					location.path.clone() + &args.new_file_name,
+				let location_path = Path::new(&location.path);
+				fs::rename(
+				    location_path.join(&args.file_name),
+				    location_path.join(&args.new_file_name),
 				)
 				.await
-				{
-					Ok(_) => Ok(()),
-					Err(e) => Err(rspc::Error::new(
-						ErrorCode::Conflict,
-						format!("Failed to rename file: {}", e),
-					)),
-				}
+				.map_err(|e| {
+				    rspc::Error::new(ErrorCode::Conflict, format!("Failed to rename file: {e}"))
+				})?;
+
+				invalidate_query!(library, "tags.getExplorerData");
+
+				Ok(())
 			})
 		})
 }
