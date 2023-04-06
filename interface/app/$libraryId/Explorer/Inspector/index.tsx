@@ -77,7 +77,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
 						)}
 					>
-						<FileThumb size={240} data={data} />
+						<FileThumb loadOriginal size={240} data={data} />
 					</div>
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
