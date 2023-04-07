@@ -13,18 +13,11 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import {
-	ExplorerItem,
-	isObject,
-	useLibraryContext,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import DecryptDialog from './DecryptDialog';
@@ -37,10 +30,8 @@ interface Props extends PropsWithChildren {
 }
 
 export default ({ data, ...props }: Props) => {
-	const { library } = useLibraryContext();
 	const store = useExplorerStore();
 	const params = useExplorerParams();
-	const platform = usePlatform();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
@@ -52,20 +43,13 @@ export default ({ data, ...props }: Props) => {
 	return (
 		<div className="relative">
 			<ContextMenu.Root trigger={props.children}>
+				<ContextMenu.Item label="Open" keybind="⌘O" />
 				<ContextMenu.Item
-					label="Open"
-					keybind="⌘O"
-					onClick={() => {
-						// TODO: Replace this with a proper UI
-						window.location.href = platform.getFileUrl(
-							library.uuid,
-							store.locationId!,
-							data.item.id
-						);
-					}}
-					icon={Copy}
+					label="Quick view"
+					keybind="␣"
+					onClick={() => (getExplorerStore().quickViewObject = data)}
 				/>
-				<ContextMenu.Item label="Open with..." />
+				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
 
 				<ContextMenu.Separator />
 
@@ -73,6 +57,7 @@ export default ({ data, ...props }: Props) => {
 					<>
 						<ContextMenu.Item
 							label="Details"
+							keybind="⌘I"
 							// icon={Sidebar}
 							onClick={() => (getExplorerStore().showInspector = true)}
 						/>
@@ -80,25 +65,9 @@ export default ({ data, ...props }: Props) => {
 					</>
 				)}
 
-				<ContextMenu.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Separator />
-
-				<ContextMenu.Item label="Rename" />
-				<ContextMenu.Item
-					label="Duplicate"
-					keybind="⌘D"
-					onClick={() => {
-						copyFiles.mutate({
-							source_location_id: store.locationId!,
-							source_path_id: data.item.id,
-							target_location_id: store.locationId!,
-							target_path: params.path,
-							target_file_name_suffix: ' copy'
-						});
-					}}
-				/>
+				<ContextMenu.Item label="Rename" keybind="Enter" />
 
 				<ContextMenu.Item
 					label="Cut"
@@ -126,6 +95,20 @@ export default ({ data, ...props }: Props) => {
 						};
 					}}
 					icon={Copy}
+				/>
+
+				<ContextMenu.Item
+					label="Duplicate"
+					keybind="⌘D"
+					onClick={() => {
+						copyFiles.mutate({
+							source_location_id: store.locationId!,
+							source_path_id: data.item.id,
+							target_location_id: store.locationId!,
+							target_path: params.path,
+							target_file_name_suffix: ' copy'
+						});
+					}}
 				/>
 
 				<ContextMenu.Item

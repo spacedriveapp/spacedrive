@@ -1,5 +1,10 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
+import {
+	DefaultTheme,
+	NavigationContainer,
+	Theme,
+	useNavigationContainerRef
+} from '@react-navigation/native';
 import { loggerLink } from '@rspc/client';
 import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -8,19 +13,21 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
-import { proxy, useSnapshot } from 'valtio';
+import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
 	getDebugState,
+	initPlausible,
 	rspc,
 	useClientContext,
-	useInvalidateQuery
+	useInvalidateQuery,
+	usePlausiblePageViewMonitor
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
@@ -42,14 +49,43 @@ const NavigatorTheme: Theme = {
 	}
 };
 
+initPlausible({ platformType: 'mobile' });
+
 function AppNavigation() {
 	const { library } = useClientContext();
 
 	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
 	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
 
+	const navRef = useNavigationContainerRef();
+	const routeNameRef = useRef<string>();
+
+	const [currentPath, setCurrentPath] = useState<string>('/');
+
+	usePlausiblePageViewMonitor({ currentPath });
+
 	return (
-		<NavigationContainer theme={NavigatorTheme}>
+		<NavigationContainer
+			ref={navRef}
+			onReady={() => {
+				routeNameRef.current = navRef.getCurrentRoute()?.name;
+			}}
+			theme={NavigatorTheme}
+			onStateChange={async () => {
+				const previousRouteName = routeNameRef.current;
+				const currentRouteName = navRef.getCurrentRoute()?.name;
+				if (previousRouteName !== currentRouteName) {
+					// Save the current route name for later comparison
+					routeNameRef.current = currentRouteName;
+					// Don't track onboarding screens
+					if (navRef.getRootState().routeNames.includes('GetStarted')) {
+						return;
+					}
+					console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
+					currentRouteName && setCurrentPath(currentRouteName);
+				}
+			}}
+		>
 			{!library ? (
 				<OnboardingNavigator />
 			) : (

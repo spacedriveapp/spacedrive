@@ -21,6 +21,7 @@ use crate::{
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
+	sync,
 };
 
 #[cfg(target_family = "unix")]
@@ -42,8 +43,9 @@ use chrono::{DateTime, Local};
 use int_enum::IntEnum;
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
+use serde_json::json;
 use tokio::{fs, io::ErrorKind};
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::INodeAndDevice;
@@ -107,9 +109,10 @@ pub(super) async fn create_dir(
 	let created_path = library
 		.last_file_path_id_manager
 		.create_file_path(
-			&library.db,
+			library,
 			materialized_path,
 			Some(parent_directory.id),
+			None,
 			inode,
 			device,
 		)
@@ -165,12 +168,20 @@ pub(super) async fn create_file(
         return Ok(())
     };
 
+	// generate provisional object
+	let FileMetadata {
+		cas_id,
+		kind,
+		fs_metadata,
+	} = FileMetadata::new(&location_path, &materialized_path).await?;
+
 	let created_file = library
 		.last_file_path_id_manager
 		.create_file_path(
-			db,
+			library,
 			materialized_path,
 			Some(parent_directory.id),
+			Some(cas_id.clone()),
 			inode,
 			device,
 		)
@@ -178,21 +189,11 @@ pub(super) async fn create_file(
 
 	info!("Created path: {}", created_file.materialized_path);
 
-	// generate provisional object
-	let FileMetadata {
-		cas_id,
-		kind,
-		fs_metadata,
-	} = FileMetadata::new(
-		&location_path,
-		&MaterializedPath::from((location_id, &created_file.materialized_path)),
-	)
-	.await?;
-
 	let existing_object = db
 		.object()
 		.find_first(vec![object::file_paths::some(vec![
 			file_path::cas_id::equals(Some(cas_id.clone())),
+			file_path::id::not(created_file.id),
 		])])
 		.select(object_just_id_has_thumbnail::select())
 		.exec()
@@ -225,7 +226,12 @@ pub(super) async fn create_file(
 		.await?;
 
 	if !object.has_thumbnail && !created_file.extension.is_empty() {
-		generate_thumbnail(&created_file.extension, &cas_id, path, library).await;
+		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
+		let path = path.to_path_buf();
+		let library = library.clone();
+		tokio::spawn(async move {
+			generate_thumbnail(&created_file.extension, &cas_id, path, &library).await;
+		});
 	}
 
 	invalidate_query!(library, "locations.getExplorerData");
@@ -317,10 +323,18 @@ async fn inner_update_file(
 	location_id: LocationId,
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library @ Library { db, sync, .. }: &Library,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
-	let location_path = extract_location_path(location_id, library).await?;
+	let location = db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.exec()
+		.await?
+		.ok_or_else(|| LocationManagerError::MissingLocation(location_id))?;
+
+	let location_path = PathBuf::from(location.path);
+
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
 		location_path.display(),
@@ -339,30 +353,67 @@ async fn inner_update_file(
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+				(
+					("cas_id", json!(old_cas_id)),
+					file_path::cas_id::set(Some(old_cas_id.clone())),
+				),
+				(
+					("size_in_bytes", json!(fs_metadata.len().to_string())),
+					file_path::size_in_bytes::set(fs_metadata.len().to_string()),
+				),
+				{
+					let date = DateTime::<Local>::from(fs_metadata.created().unwrap()).into();
+
+					(
+						("date_modified", json!(date)),
+						file_path::date_modified::set(date),
+					)
+				},
+				{
+					// TODO: Should this be a skip rather than a null-set?
+					let checksum = if file_path.integrity_checksum.is_some() {
+						// If a checksum was already computed, we need to recompute it
+						Some(file_checksum(full_path).await?)
+					} else {
+						None
+					};
+
+					(
+						("integrity_checksum", json!(checksum)),
+						file_path::integrity_checksum::set(checksum),
+					)
+				},
+			]
+			.into_iter()
+			.unzip();
+
 			// file content changed
-			library
-				.db
-				.file_path()
-				.update(
-					file_path::location_id_id(location_id, file_path.id),
-					vec![
-						file_path::cas_id::set(Some(old_cas_id.clone())),
-						file_path::size_in_bytes::set(fs_metadata.len().to_string()),
-						file_path::date_modified::set(
-							DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
-						),
-						file_path::integrity_checksum::set(
-							if file_path.integrity_checksum.is_some() {
-								// If a checksum was already computed, we need to recompute it
-								Some(file_checksum(full_path).await?)
-							} else {
-								None
-							},
-						),
-					],
-				)
-				.exec()
-				.await?;
+			sync.write_ops(
+				db,
+				(
+					sync_params
+						.into_iter()
+						.map(|(field, value)| {
+							sync.shared_update(
+								sync::file_path::SyncId {
+									location: sync::location::SyncId {
+										pub_id: location.pub_id.clone(),
+									},
+									id: file_path.id,
+								},
+								field,
+								value,
+							)
+						})
+						.collect(),
+					db.file_path().update(
+						file_path::location_id_id(location_id, file_path.id),
+						db_params,
+					),
+				),
+			)
+			.await?;
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
@@ -371,18 +422,26 @@ async fn inner_update_file(
 				}
 
 				let int_kind = kind.int_value();
+
 				if object.kind != int_kind {
-					library
-						.db
-						.object()
-						.update(
+					sync.write_op(
+						db,
+						sync.shared_update(
+							sync::object::SyncId {
+								pub_id: object.pub_id.clone(),
+							},
+							"kind",
+							json!(int_kind),
+						),
+						db.object().update(
 							object::id::equals(object.id),
 							vec![object::kind::set(int_kind)],
-						)
-						.exec()
-						.await?;
+						),
+					)
+					.await?;
 				}
 			}
+
 			invalidate_query!(library, "locations.getExplorerData");
 		}
 	}
@@ -607,6 +666,21 @@ async fn generate_thumbnail(
 		.join(THUMBNAIL_CACHE_DIR_NAME)
 		.join(cas_id)
 		.with_extension("webp");
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
+			);
+		}
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else {
+		debug!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return;
+	}
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(&extension) {

@@ -6,7 +6,7 @@ import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
-import { AnimatedButton } from '~/components/primitive/Button';
+import { FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { SettingsContainer, SettingsInputTitle } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
@@ -72,9 +72,9 @@ const LibraryGeneralSettingsScreen = ({
 							<DeleteLibraryModal
 								libraryUuid={library.uuid}
 								trigger={
-									<AnimatedButton size="sm" variant="danger">
+									<FakeButton size="sm" variant="danger">
 										<Trash color={tw.color('ink')} size={20} />
-									</AnimatedButton>
+									</FakeButton>
 								}
 							/>
 						}

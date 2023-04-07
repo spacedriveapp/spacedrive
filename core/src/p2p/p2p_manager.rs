@@ -185,8 +185,6 @@ impl P2PManager {
 										info!("spacedrop({id}): complete");
 									}
 									Header::Sync(library_id, len) => {
-										info!("Received Sync events from peer '{}' for library_id '{}' with length '{}'", event.peer_id, library_id, len);
-
 										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
 										event.stream.read_exact(&mut buf).await.unwrap();
 

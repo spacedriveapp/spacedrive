@@ -9,7 +9,11 @@ const OnboardingStack = createStackNavigator<OnboardingStackParamList>();
 
 export default function OnboardingNavigator() {
 	return (
-		<OnboardingStack.Navigator initialRouteName="GetStarted" screenOptions={{ headerShown: false }}>
+		<OnboardingStack.Navigator
+			id="onboarding"
+			initialRouteName="GetStarted"
+			screenOptions={{ headerShown: false }}
+		>
 			<OnboardingStack.Screen name="GetStarted" component={GetStartedScreen} />
 			<OnboardingStack.Screen name="NewLibrary" component={NewLibraryScreen} />
 			<OnboardingStack.Screen name="MasterPassword" component={MasterPasswordScreen} />

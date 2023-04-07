@@ -37,7 +37,7 @@ export const Component = () => {
 		<div
 			className={clsx(
 				macOnly(os, 'bg-opacity-[0.75]'),
-				'bg-sidebar text-ink flex h-screen flex-col'
+				'flex h-screen flex-col bg-sidebar text-ink'
 			)}
 		>
 			<DragRegion className="z-50 h-9" />
@@ -48,7 +48,7 @@ export const Component = () => {
 				<Progress />
 			</div>
 			<div className="flex justify-center p-4">
-				<p className="text-ink-dull text-xs opacity-50">&copy; 2022 Spacedrive Technology Inc.</p>
+				<p className="text-xs text-ink-dull opacity-50">&copy; 2022 Spacedrive Technology Inc.</p>
 			</div>
 			<div className="absolute -z-10">
 				<div className="relative h-screen w-screen">

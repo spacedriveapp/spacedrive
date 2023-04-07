@@ -152,14 +152,14 @@ function Page() {
 									<div
 										className={
 											'flex h-full w-full ' +
-											(item.completed ? 'bg-primary-500 z-10' : 'bg-gray-550')
+											(item.completed ? 'z-10 bg-primary-500' : 'bg-gray-550')
 										}
 									>
 										{item?.when !== undefined ? (
 											<div
 												className={clsx(
 													'absolute z-20 mt-5 h-4 w-4 -translate-y-1/2 -translate-x-1/4 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
-													items[i - 1]?.completed || i === 0 ? 'bg-primary-500 z-10' : 'bg-gray-550'
+													items[i - 1]?.completed || i === 0 ? 'z-10 bg-primary-500' : 'bg-gray-550'
 												)}
 											>
 												&zwj;
@@ -182,7 +182,7 @@ function Page() {
 						</>
 					))}
 				</section>
-				<section className="bg-gray-850 space-y-2 rounded-xl p-8">
+				<section className="space-y-2 rounded-xl bg-gray-850 p-8">
 					<h2 className="my-1">That's not all.</h2>
 					<p>
 						We're always open to ideas and feedback over{' '}

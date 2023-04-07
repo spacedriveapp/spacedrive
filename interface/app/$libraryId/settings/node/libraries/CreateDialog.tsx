@@ -17,12 +17,11 @@ import {
 	SelectOption,
 	Tooltip,
 	UseDialogProps,
+	forms,
 	useDialog
 } from '@sd/ui';
-import { forms } from '@sd/ui';
 import { PasswordMeter } from '~/components/PasswordMeter';
 import { generatePassword } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 const { Input, z, useZodForm } = forms;
 
@@ -37,8 +36,7 @@ const schema = z.object({
 
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
-	const platform = usePlatform();
-	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
 		schema,
@@ -62,7 +60,7 @@ export default (props: UseDialogProps) => {
 				library
 			]);
 
-			createLibraryEvent({
+			submitPlausibleEvent({
 				event: {
 					type: 'libraryCreate'
 				}
@@ -116,7 +114,7 @@ export default (props: UseDialogProps) => {
 				</div>
 				<span className="mt-1 text-xs font-medium">Share anonymous usage</span>
 				<Tooltip label="Share completely anonymous telemetry data to help the developers improve the app">
-					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
+					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 			</div>
 

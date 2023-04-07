@@ -37,9 +37,12 @@ const Root = ({
 }: PropsWithChildren<DropdownMenuProps>) => {
 	const [width, setWidth] = useState<number>();
 
-	const measureRef = useCallback((ref: HTMLButtonElement | null) => {
-		alignToTrigger && ref && setWidth(ref.getBoundingClientRect().width);
-	}, []);
+	const measureRef = useCallback(
+		(ref: HTMLButtonElement | null) => {
+			alignToTrigger && ref && setWidth(ref.getBoundingClientRect().width);
+		},
+		[alignToTrigger]
+	);
 
 	return (
 		<RadixDM.Root>

@@ -455,13 +455,12 @@ impl SyncManager {
 		}))
 	}
 	pub fn unique_shared_create<
-		const SIZE: usize,
 		TSyncId: SyncId<ModelTypes = TModel>,
 		TModel: SyncType<Marker = SharedSyncType>,
 	>(
 		&self,
 		id: TSyncId,
-		values: [(&'static str, Value); SIZE],
+		values: impl IntoIterator<Item = (&'static str, Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
 			model: TModel::MODEL.to_string(),

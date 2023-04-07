@@ -25,7 +25,7 @@ export default function DocsLayout(props: Props) {
 				pageWrapId="page-container"
 				className="shadow-2xl shadow-black"
 			>
-				<div className="custom-scroll doc-sidebar-scroll bg-gray-650 visible h-screen overflow-x-hidden px-7 pb-20 pt-7 sm:invisible">
+				<div className="custom-scroll doc-sidebar-scroll visible h-screen overflow-x-hidden bg-gray-650 px-7 pb-20 pt-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						className="-ml-0.5 mb-3 !border-none !px-1"

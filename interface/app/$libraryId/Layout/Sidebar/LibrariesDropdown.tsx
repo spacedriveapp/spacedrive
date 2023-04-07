@@ -6,17 +6,16 @@ import CreateDialog from '../../settings/node/libraries/CreateDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
-
 	return (
 		<DropdownMenu.Root
 			trigger={
 				<Dropdown.Button
 					variant="gray"
 					className={clsx(
-						`text-ink w-full`,
+						`w-full text-ink`,
 						// these classname overrides are messy
 						// but they work
-						`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line ring-offset-sidebar`,
+						`!border-sidebar-line/50 !bg-sidebar-box ring-offset-sidebar active:!border-sidebar-line active:!bg-sidebar-button ui-open:!border-sidebar-line ui-open:!bg-sidebar-button`,
 						(library === null || libraries.isLoading) && '!text-ink-faint'
 					)}
 				>
@@ -27,7 +26,7 @@ export default () => {
 			}
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
-			className="dark:bg-sidebar-box dark:border-sidebar-line dark:divide-menu-selected/30 data-[side=bottom]:slide-in-from-top-2 mt-1 shadow-none"
+			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 			alignToTrigger
 		>
 			{libraries.data?.map((lib) => (

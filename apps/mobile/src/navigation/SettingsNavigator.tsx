@@ -20,6 +20,7 @@ const SettingsStack = createStackNavigator<SettingsStackParamList>();
 export default function SettingsNavigator() {
 	return (
 		<SettingsStack.Navigator
+			id="settings"
 			initialRouteName="Home"
 			screenOptions={{
 				headerBackTitleVisible: false,
