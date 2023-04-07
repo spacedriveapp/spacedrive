@@ -2,11 +2,11 @@ import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
 import { useRef, useState } from 'react';
-import { Button, Label, Select, SelectOption, forms, tw } from '@sd/ui';
+import { Button, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import { SearchBar } from './Explorer/TopBar';
+import SearchBar from './Explorer/SearchBar';
 import * as PageLayout from './PageLayout';
 import classes from './spacedrop.module.scss';
 
@@ -107,8 +107,6 @@ function TemporarySpacedropDemo() {
 		}
 	});
 
-	console.log({ discoveredPeers });
-
 	const onSubmit = form.handleSubmit((data) => {
 		doSpacedrop.mutate({
 			peer_id: data.target_peer,
@@ -160,16 +158,12 @@ function TemporarySpacedropDemo() {
 
 export const Component = () => {
 	const searchRef = useRef<HTMLInputElement>(null);
-
 	return (
 		<>
+			<div className="i2ems-center relative bottom-[11.5px] flex w-full flex-row justify-center">
+				<SearchBar className="ml-[13px]" ref={searchRef} />
+			</div>
 			<TemporarySpacedropDemo />
-			<PageLayout.DragChildren>
-				<div className="flex h-8 w-full flex-row items-center justify-center pt-3">
-					<SearchBar className="ml-[13px]" ref={searchRef} />
-					{/* <Button variant="outline">Add</Button> */}
-				</div>
-			</PageLayout.DragChildren>
 			<div className={classes.honeycombOuter}>
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
 					<DropItem
