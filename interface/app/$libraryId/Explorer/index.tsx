@@ -3,7 +3,6 @@ import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
 import ExplorerContextMenu from './ContextMenu';
-import { QuickPreview } from './QuickPreview';
 import TopBar from './TopBar';
 import { VirtualizedList } from './VirtualizedList';
 
@@ -77,7 +76,6 @@ export default function Explorer(props: Props) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-			<QuickPreview libraryUuid={library!.uuid} />
 		</div>
 	);
 }

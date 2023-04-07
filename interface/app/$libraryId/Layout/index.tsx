@@ -10,6 +10,7 @@ import {
 } from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+import { QuickPreview } from '../Explorer/QuickPreview';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -58,6 +59,7 @@ const Layout = () => {
 				)}
 			</div>
 			<Toasts />
+			<QuickPreview libraryUuid={library!.uuid} />
 		</div>
 	);
 };
