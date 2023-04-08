@@ -44,13 +44,13 @@ export default ({ data, ...props }: Props) => {
 	return (
 		<div className="relative">
 			<ContextMenu.Root trigger={props.children}>
+				<ContextMenu.Item label="Open" keybind="⌘O" />
 				<ContextMenu.Item
-					label="Open"
-					keybind="⌘O"
+					label="Quick view"
+					keybind="␣"
 					onClick={() => (getExplorerStore().quickViewObject = data)}
-					icon={Copy}
 				/>
-				<ContextMenu.Item label="Open with..." />
+				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
 
 				<ContextMenu.Separator />
 
@@ -58,6 +58,7 @@ export default ({ data, ...props }: Props) => {
 					<>
 						<ContextMenu.Item
 							label="Details"
+							keybind="⌘I"
 							// icon={Sidebar}
 							onClick={() => (getExplorerStore().showInspector = true)}
 						/>
@@ -65,25 +66,9 @@ export default ({ data, ...props }: Props) => {
 					</>
 				)}
 
-				<ContextMenu.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Separator />
-
-				<ContextMenu.Item label="Rename" onClick={props.onRename} />
-				<ContextMenu.Item
-					label="Duplicate"
-					keybind="⌘D"
-					onClick={() => {
-						copyFiles.mutate({
-							source_location_id: store.locationId!,
-							source_path_id: data.item.id,
-							target_location_id: store.locationId!,
-							target_path: params.path,
-							target_file_name_suffix: ' copy'
-						});
-					}}
-				/>
+				<ContextMenu.Item label="Rename" keybind="Enter" onClick={props.onRename} />
 
 				<ContextMenu.Item
 					label="Cut"
@@ -111,6 +96,20 @@ export default ({ data, ...props }: Props) => {
 						};
 					}}
 					icon={Copy}
+				/>
+
+				<ContextMenu.Item
+					label="Duplicate"
+					keybind="⌘D"
+					onClick={() => {
+						copyFiles.mutate({
+							source_location_id: store.locationId!,
+							source_path_id: data.item.id,
+							target_location_id: store.locationId!,
+							target_path: params.path,
+							target_file_name_suffix: ' copy'
+						});
+					}}
 				/>
 
 				<ContextMenu.Item
