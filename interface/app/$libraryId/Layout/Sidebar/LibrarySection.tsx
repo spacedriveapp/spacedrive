@@ -29,7 +29,7 @@ export const LibrarySection = () => {
 
 					return (
 						<SidebarLink
-							className="relative w-full group"
+							className="group relative w-full"
 							to={`location/${location.id}`}
 							key={location.id}
 						>
@@ -71,12 +71,12 @@ export const LibrarySection = () => {
 					</div>
 				</Section>
 			)}
-			<Section name="Debug">
+			{/* <Section name="Debug">
 				<SidebarLink to="sync">
 					<Icon component={ArrowsClockwise} />
 					Sync
 				</SidebarLink>
-			</Section>
+			</Section> */}
 		</>
 	);
 };

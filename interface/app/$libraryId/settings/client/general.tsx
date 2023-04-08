@@ -1,6 +1,9 @@
 import { Database } from 'phosphor-react';
-import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
-import { Card, Input, Switch, tw } from '@sd/ui';
+import { useEffect } from 'react';
+import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
+import { Card, Switch, tw } from '@sd/ui';
+import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -12,6 +15,22 @@ export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
 	const debugState = useDebugState();
+
+	const editNodeName = useBridgeMutation(['nodes.changeNodeName']);
+
+	const form = useZodForm({
+		schema: z.object({
+			name: z.string().min(1).max(15)
+		})
+	});
+
+	useEffect(() => {
+		form.reset({ name: node.data?.name });
+	}, [form, node.data]);
+
+	useDebouncedFormWatch(form, (data) => {
+		if (data.name) editNodeName.mutate({ name: data.name });
+	});
 
 	return (
 		<>
@@ -27,27 +46,24 @@ export const Component = () => {
 					</div>
 
 					<hr className="mt-2 mb-4 border-app-line" />
-					<div className="grid grid-cols-3 gap-2">
-						<div className="flex flex-col">
-							<NodeSettingLabel>Node Name</NodeSettingLabel>
-							<Input
-								value={node.data?.name}
-								onChange={() => {
-									/* TODO */
-								}}
-							/>
+					<Form form={form}>
+						<div className="grid grid-cols-3 gap-2">
+							<div className="flex flex-col">
+								<NodeSettingLabel>Node Name</NodeSettingLabel>
+								<Input {...form.register('name')} />
+							</div>
+							<div className="flex flex-col">
+								<NodeSettingLabel>Node Port</NodeSettingLabel>
+								<Input
+									contentEditable={false}
+									value={node.data?.p2p_port || 5795}
+									onChange={() => {
+										/* TODO */
+									}}
+								/>
+							</div>
 						</div>
-						<div className="flex flex-col">
-							<NodeSettingLabel>Node Port</NodeSettingLabel>
-							<Input
-								contentEditable={false}
-								value={node.data?.p2p_port || 5795}
-								onChange={() => {
-									/* TODO */
-								}}
-							/>
-						</div>
-					</div>
+					</Form>
 					<div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />
 						<span className="text-sm font-medium text-ink-dull">Run daemon when app closed</span>

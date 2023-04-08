@@ -2,15 +2,21 @@ import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
 import { useRef, useState } from 'react';
-import { Button, Label, Select, SelectOption, forms, tw } from '@sd/ui';
+import { Button, Card, Label, Loader, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
+import DragRegion from '../../components/DragRegion';
 import { SearchBar } from './Explorer/TopBar';
 import * as PageLayout from './PageLayout';
 import classes from './spacedrop.module.scss';
 
 const { Form, Input, useZodForm, z } = forms;
+
+const spacedropSchema = z.object({
+	target_peer: z.string(),
+	file_path: z.string()
+});
 
 // TODO: move this to UI, copied from Inspector
 const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded text-ink-dull`;
@@ -53,18 +59,18 @@ function DropItem(props: DropItemProps) {
 	}
 
 	return (
-		<div
-			className={clsx(classes.honeycombItem, 'overflow-hidden bg-app-box/20 hover:bg-app-box/50')}
-		>
+		<div className={clsx(classes.honeycombItem, 'overflow-hidden ', ' hover:bg-app-box/50')}>
 			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer> */}
 				<div className="h-14 w-14 rounded-full bg-app-button">{icon}</div>
-				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
+				{/* <SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
-				</SubtleButtonContainer>
-				{props.name && <span className="mt-1 text-xs font-medium">{props.name}</span>}
+				</SubtleButtonContainer> */}
+				{props.name && (
+					<span className="mt-1 truncate text-center text-xs font-medium">{props.name}</span>
+				)}
 				<div className="flex flex-row space-x-1">
 					{props.receivingNodeOsType && <Pill>{props.receivingNodeOsType}</Pill>}
 					{props.connectionType && (
@@ -84,18 +90,58 @@ function DropItem(props: DropItemProps) {
 	);
 }
 
-const schema = z.object({
-	target_peer: z.string(),
-	file_path: z.string()
-});
+// // TODO: This will be removed and properly hooked up to the UI in the future
+// function TemporarySpacedropDemo() {
 
-// TODO: This will be removed and properly hooked up to the UI in the future
-function TemporarySpacedropDemo() {
+// 	// TODO: Input select
+// 	return (
+// 		<Form onSubmit={onSubmit} form={form}>
+// 			<h1 className="mt-4 text-2xl font-bold">Spacedrop Demo</h1>
+// 			<p className="text-xs text-ink-dull">
+// 				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
+// 				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
+// 			</p>
+// 			<div className="mt-2 flex flex-row items-center space-x-4">
+// 				<Input
+// 					size="sm"
+// 					placeholder="/Users/oscar/Desktop/sd/demo.txt"
+// 					value="/Users/jamie/Desktop/Jeff.txt"
+// 					className="w-full"
+// 					{...form.register('file_path')}
+// 				/>
+
+// 				<Button className="block flex-shrink-0" variant="gray">
+// 					Select File
+// 				</Button>
+
+// 				<Select onChange={(e) => form.setValue('target_peer', e)} value={form.watch('target_peer')}>
+// 					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
+// 						<SelectOption default={index === 0} key={peerId} value={peerId}>
+// 							{metadata.name}
+// 						</SelectOption>
+// 					))}
+// 				</Select>
+
+// 				<Button
+// 					disabled={!form.getValues().target_peer}
+// 					className="block flex-shrink-0"
+// 					variant="accent"
+// 					type="submit"
+// 				>
+// 					Send
+// 				</Button>
+// 			</div>
+// 		</Form>
+// 	);
+// }
+
+export const Component = () => {
+	const searchRef = useRef<HTMLInputElement>(null);
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
 	const form = useZodForm({
-		schema
+		schema: spacedropSchema
 	});
 
 	useBridgeSubscription(['p2p.events'], {
@@ -115,70 +161,32 @@ function TemporarySpacedropDemo() {
 			file_path: data.file_path
 		});
 	});
-
-	// TODO: Input select
-	return (
-		<Form onSubmit={onSubmit} form={form}>
-			<h1 className="mt-4 text-2xl font-bold">Spacedrop Demo</h1>
-			<p className="text-xs text-ink-dull">
-				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
-				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
-			</p>
-			<div className="mt-2 flex flex-row items-center space-x-4">
-				<Input
-					size="sm"
-					placeholder="/Users/oscar/Desktop/sd/demo.txt"
-					value="/Users/jamie/Desktop/Jeff.txt"
-					className="w-full"
-					{...form.register('file_path')}
-				/>
-
-				<Button className="block flex-shrink-0" variant="gray">
-					Select File
-				</Button>
-
-				<Select onChange={(e) => form.setValue('target_peer', e)} value={form.watch('target_peer')}>
-					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
-						<SelectOption default={index === 0} key={peerId} value={peerId}>
-							{metadata.name}
-						</SelectOption>
-					))}
-				</Select>
-
-				<Button
-					disabled={!form.getValues().target_peer}
-					className="block flex-shrink-0"
-					variant="accent"
-					type="submit"
-				>
-					Send
-				</Button>
-			</div>
-		</Form>
-	);
-}
-
-export const Component = () => {
-	const searchRef = useRef<HTMLInputElement>(null);
-
 	return (
 		<>
-			<TemporarySpacedropDemo />
-			<PageLayout.DragChildren>
-				<div className="flex h-8 w-full flex-row items-center justify-center pt-3">
-					<SearchBar className="ml-[13px]" ref={searchRef} />
-					{/* <Button variant="outline">Add</Button> */}
+			{discoveredPeers.size === 0 && (
+				<div className="flex h-full w-full flex-col items-center justify-center">
+					<Loader className="h-8 w-8" />
+					<span className="mt-2 text-xs text-ink-dull">Searching for peers...</span>
 				</div>
-			</PageLayout.DragChildren>
-			<div className={classes.honeycombOuter}>
-				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-					<DropItem
-						name="Jamie's MacBook Pro"
-						receivingNodeOsType="macOS"
-						connectionType="lan"
-						icon={Laptop}
-					/>
-					<DropItem
+			)}
+			<Card className="absolute bottom-5 text-xs text-ink-dull">
+				Note: Currently the file must be less than 255 bytes long and only contain UTF-8 chars.
+				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default) Also,
+				only local LAN peers are currently supported.
+			</Card>
+			<Form form={form} onSubmit={onSubmit}>
+				<div className={classes.honeycombOuter}>
+					<div className={clsx(classes.honeycombContainer, 'mt-0')}>
+						{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
+							<DropItem
+								key={peerId}
+								name={metadata.name}
+								receivingNodeOsType={metadata.operating_system}
+								icon={Laptop}
+							/>
+						))}
+
+						{/* <DropItem
 						name="Jamie's iPhone"
 						receivingNodeOsType="iOS"
 						connectionType="lan"
@@ -219,9 +227,10 @@ export const Component = () => {
 						name="Andrew Haskell"
 						image="https://github.com/andrewtechx.png"
 						connectionType="p2p"
-					/>
+					/> */}
+					</div>
 				</div>
-			</div>
+			</Form>
 		</>
 	);
 };

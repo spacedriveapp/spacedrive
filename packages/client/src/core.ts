@@ -70,6 +70,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
         { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
@@ -98,6 +99,8 @@ export type BuildInfo = { version: string, commit: string }
 export type CRDTOperation = { node: string, timestamp: number, id: string, typ: CRDTOperationType }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
+
+export type ChangeNodeNameArgs = { name: string }
 
 /**
  *  ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.

@@ -66,8 +66,6 @@ impl Node {
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
 
-		// dbg!(get_object_kind_from_extension("png"));
-
 		// let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
 		// 	Path::new(&data_dir).join("logs"),
 		// 	"log",

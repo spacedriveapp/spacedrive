@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { createMemoryRouter } from 'react-router-dom';
 import { getDebugState, hooks } from '@sd/client';
@@ -88,8 +89,20 @@ export default function App() {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
+		const dropEventListener = appWindow.onFileDropEvent((event) => {
+			console.log({ event });
+			if (event.payload.type === 'hover') {
+				console.log('User hovering', event.payload.paths);
+			} else if (event.payload.type === 'drop') {
+				console.log('User dropped', event.payload.paths);
+			} else {
+				console.log('File drop cancelled');
+			}
+		});
+
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
+			dropEventListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
