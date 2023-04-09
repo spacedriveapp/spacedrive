@@ -1,11 +1,10 @@
 {
 	"private": true,
 	"scripts": {
-		"prep": "pnpm gen:prisma && cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
+		"prep": "turbo run --filter=@sd/core prisma:generate test",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
-		"gen:migrations": "cd core && cargo prisma migrate dev",
-		"gen:prisma": "cd core && cargo prisma generate",
+		"gen:migrations": "turbo run --filter=@sd/core prisma:migrate:dev",
 		"format": "prettier --write .",
 		"desktop": "pnpm --filter @sd/desktop --",
 		"web": "pnpm --filter @sd/web -- ",
@@ -17,7 +16,7 @@
 		"assets": "pnpm --filter @sd/assets -- ",
 		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",
-		"prisma": "cd core && cargo prisma",
+		"prisma": "turbo run --filter=@sd/core prisma --",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "turbo run typecheck",
 		"lint": "turbo run lint",
@@ -39,7 +38,7 @@
 		"prettier": "^2.8.7",
 		"prettier-plugin-tailwindcss": "^0.2.6",
 		"rimraf": "^4.1.1",
-		"turbo": "^1.5.5",
+		"turbo": "^1.8.8",
 		"turbo-ignore": "^0.3.0",
 		"typescript": "^4.9.4"
 	},

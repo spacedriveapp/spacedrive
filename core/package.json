@@ -1,0 +1,12 @@
+{
+  "name": "@sd/core",
+  "version": "1.0.0",
+  "scripts": {
+    "prisma": "cargo prisma",
+    "prisma:generate": "cargo prisma generate",
+    "prisma:migrate:dev": "cargo prisma migrate dev",
+    "test": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact"
+  },
+  "license": "GPL-3.0-only",
+  "private": true
+}

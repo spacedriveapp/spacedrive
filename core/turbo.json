@@ -1,0 +1,19 @@
+{
+    "extends": [
+        "//"
+    ],
+    "pipeline": {
+        "prisma": {},
+        "prisma:generate": {},
+        "prisma:migrate:dev": {
+            "dependsOn": [
+                "prisma:generate"
+            ]
+        },
+        "test": {
+            "dependsOn": [
+                "prisma:generate"
+            ]
+        }
+    }
+}
