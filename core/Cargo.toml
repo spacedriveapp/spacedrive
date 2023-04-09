@@ -23,7 +23,7 @@ sync-messages = []
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [
   "serde",
-  "encoding",
+  "bincode",
   "async",
 ] }
 sd-file-ext = { path = "../crates/file-ext" }
