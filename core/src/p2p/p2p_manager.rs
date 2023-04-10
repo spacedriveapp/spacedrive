@@ -1,11 +1,11 @@
-use std::{path::PathBuf, str::FromStr, sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use rspc::Type;
 use sd_p2p::{
 	spaceblock::{BlockSize, TransferRequest},
 	Event, Manager, MetadataManager, PeerId,
 };
-use sd_sync::{CRDTOperation, CRDTOperationType, OwnedOperation};
+use sd_sync::CRDTOperation;
 use serde::Serialize;
 use tokio::{
 	fs::File,
@@ -81,7 +81,7 @@ impl P2PManager {
 
 							events
 								.send(P2PEvent::DiscoveredPeer {
-									peer_id: event.peer_id.clone(),
+									peer_id: event.peer_id,
 									metadata: event.metadata.clone(),
 								})
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
