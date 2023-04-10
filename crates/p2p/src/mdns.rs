@@ -12,7 +12,7 @@ use tokio::{
 	sync::{mpsc, RwLock},
 	time::{sleep_until, Instant, Sleep},
 };
-use tracing::{debug, error, warn};
+use tracing::{error, info, warn};
 
 use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId};
 
@@ -119,7 +119,7 @@ where
 		}
 
 		for (_, service) in services.into_iter() {
-			debug!("advertising mdns service: {:?}", service);
+			info!("advertising mdns service: {:?}", service);
 			match self.mdns_daemon.register(service) {
 				Ok(_) => {}
 				Err(err) => warn!("error registering mdns service: {}", err),
