@@ -16,7 +16,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	node::NodeConfigManager,
+	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
@@ -49,17 +49,8 @@ impl P2PManager {
 	) -> (Arc<Self>, broadcast::Receiver<P2PEvent>) {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(
-				PeerMetadata {
-					name: config.name.clone(),
-					operating_system: Some(OperatingSystem::get_os()),
-					version: Some(env!("CARGO_PKG_VERSION").to_string()),
-					email: config.p2p_email.clone(),
-					img_url: config.p2p_img_url.clone(),
-				},
-				config.keypair,
-			)
-		}; // TODO: Update this throughout the application lifecycle
+			(Self::config_to_metadata(&config), config.keypair)
+		};
 
 		let metadata_manager = MetadataManager::new(config);
 
@@ -230,6 +221,21 @@ impl P2PManager {
 		}
 
 		(this, rx)
+	}
+
+	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
+		PeerMetadata {
+			name: config.name.clone(),
+			operating_system: Some(OperatingSystem::get_os()),
+			version: Some(env!("CARGO_PKG_VERSION").to_string()),
+			email: config.p2p_email.clone(),
+			img_url: config.p2p_img_url.clone(),
+		}
+	}
+
+	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
+		self.metadata_manager
+			.update(Self::config_to_metadata(&node_config_manager.get().await));
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
