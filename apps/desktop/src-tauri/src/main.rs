@@ -32,7 +32,7 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
-	let (tx, rx) = tokio::mpsc::channel(1);
+	let (tx, rx) = tokio::sync::mpsc::channel(1);
 
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
