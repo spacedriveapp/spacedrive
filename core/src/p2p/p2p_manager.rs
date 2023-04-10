@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr, sync::Arc, time::Instant};
 use rspc::Type;
 use sd_p2p::{
 	spaceblock::{BlockSize, TransferRequest},
-	Event, Manager, PeerId,
+	Event, Manager, MetadataManager, PeerId,
 };
 use sd_sync::{CRDTOperation, CRDTOperationType, OwnedOperation};
 use serde::Serialize;
@@ -13,7 +13,6 @@ use tokio::{
 	sync::broadcast,
 };
 use tracing::{debug, error, info};
-use uhlc::NTP64;
 use uuid::Uuid;
 
 use crate::{
@@ -41,6 +40,7 @@ pub enum P2PEvent {
 pub struct P2PManager {
 	pub events: broadcast::Sender<P2PEvent>,
 	pub manager: Arc<Manager<PeerMetadata>>,
+	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 }
 
 impl P2PManager {
@@ -61,14 +61,12 @@ impl P2PManager {
 			)
 		}; // TODO: Update this throughout the application lifecycle
 
-		let (manager, mut stream) = Manager::new(SPACEDRIVE_APP_ID, &keypair, {
-			move || {
-				let config = config.clone();
-				async move { config }
-			}
-		})
-		.await
-		.unwrap();
+		let metadata_manager = MetadataManager::new(config);
+
+		let (manager, mut stream) =
+			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone())
+				.await
+				.unwrap();
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -163,6 +161,7 @@ impl P2PManager {
 		let this = Arc::new(Self {
 			events: tx,
 			manager,
+			metadata_manager,
 		});
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
