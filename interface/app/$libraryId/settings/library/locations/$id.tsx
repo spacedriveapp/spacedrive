@@ -57,25 +57,29 @@ export const Component = () => {
 	// fallback to 0 (which should always be an invalid location) when parsing fails
 	const locationId = (params.id ? Number(params.id) : 1) || 0;
 	useLibraryQuery(['locations.getById', locationId], {
-		onSettled: (data, error) => {
-			if (isFirstLoad && (!data || error)) {
-				navigate(-1);
+		onSettled: (data, error: Error | null) => {
+			if (isFirstLoad) {
+				if (!data && error == null) error = new Error('Failed to load location settings');
+
+				// Return to previous page when no data is available at first load
+				if (error) navigate(-1);
+				else setIsFirstLoad(false);
+			}
+
+			if (error) {
 				showAlertDialog({
 					title: 'Error',
 					value: 'Failed to load location settings'
 				});
-			} else {
-				setIsFirstLoad(false);
-				if (data && !isDirty) {
-					form.reset({
-						path: data.path,
-						name: data.name,
-						hidden: data.hidden,
-						indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
-						syncPreviewMedia: data.sync_preview_media,
-						generatePreviewMedia: data.generate_preview_media
-					});
-				}
+			} else if (data && (isFirstLoad || !isDirty)) {
+				form.reset({
+					path: data.path,
+					name: data.name,
+					hidden: data.hidden,
+					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
+					syncPreviewMedia: data.sync_preview_media,
+					generatePreviewMedia: data.generate_preview_media
+				});
 			}
 		}
 	});
