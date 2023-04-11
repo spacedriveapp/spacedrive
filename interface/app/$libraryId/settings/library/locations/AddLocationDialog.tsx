@@ -54,7 +54,8 @@ export const AddLocationDialog = (props: Props) => {
 		schema,
 		defaultValues: {
 			path: props.path,
-			indexerRulesIds: []
+			// First indexer rule is `No OS protected` and should be checked by default
+			indexerRulesIds: [1]
 		}
 	});
 

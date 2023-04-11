@@ -19,16 +19,116 @@ pub enum SeederError {
 pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederError> {
 	if client.indexer_rule().count(vec![]).exec().await? == 0 {
 		for rule in [
+			// `No OS protected` must be first indexer rule, because the first indexer rule is enabled by default in the UI
 			IndexerRule::new(
 				RuleKind::RejectFilesByGlob,
-				"Reject Hidden Files".to_string(),
+				// TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
+				// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
+				"No OS protected".to_string(),
+				ParametersPerKind::RejectFilesByGlob([
+					vec![
+						Glob::new("**/.spacedrive"),
+					],
+					// https://github.com/github/gitignore/blob/main/Global/Windows.gitignore
+					// https://en.wikipedia.org/wiki/Directory_structure#Windows_10
+					#[cfg(target_os = "windows")]
+					vec![
+						// Windows thumbnail cache files
+						Glob::new("**/{Thumbs.db,Thumbs.db:encryptable,ehthumbs.db,ehthumbs_vista.db}"),
+						// Dump file
+						Glob::new("**/*.stackdump"),
+						// Folder config file
+						Glob::new("**/[Dd]esktop.ini"),
+						// Recycle Bin used on file shares
+						Glob::new("**/$RECYCLE.BIN"),
+						// Chkdsk recovery directory
+						Glob::new("**/FOUND.[0-9][0-9][0-9]"),
+						// Need both C:/ and / matches because globset treat them differently
+						Glob::new("C:/$WinREAgent"),
+						Glob::new("/$WinREAgent"),
+						Glob::new("C:/Program Files"),
+						Glob::new("/Program Files"),
+						Glob::new("C:/Program Files (x86)"),
+						Glob::new("/Program Files (x86)"),
+						Glob::new("C:/ProgramData"),
+						Glob::new("/ProgramData"),
+						Glob::new("C:/Recovery"),
+						Glob::new("/Recovery"),
+						Glob::new("C:/PerfLogs"),
+						Glob::new("/PerfLogs"),
+						Glob::new("C:/Windows"),
+						Glob::new("/Windows"),
+						Glob::new("C:/Windows.old"),
+						Glob::new("/Windows.old"),
+						Glob::new("C:/config.sys"),
+						Glob::new("/config.sys"),
+						Glob::new("C:/pagefile.sys"),
+						Glob::new("/pagefile.sys"),
+						Glob::new("C:/hiberfil.sys"),
+						Glob::new("/hiberfil.sys"),
+						Glob::new("[A-Z]:/swapfile.sys"),
+						Glob::new("/swapfile.sys"),
+						Glob::new("[A-Z]:/System Volume Information"),
+						Glob::new("/System Volume Information"),
+					],
+					// https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
+					// https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW14
+					#[cfg(target_os = "macos")]
+					vec![
+						Glob::new("/System"),
+						Glob::new("/Network"),
+						Glob::new("/Library"),
+						Glob::new("/Users/*/Library"),
+						Glob::new("/Applications"),
+						Glob::new("/Users/*/Applications"),
+						Glob::new("**/.{DS_Store,AppleDouble,LSOverride}"),
+						// Icon must end with two \r
+						Glob::new("**/Icon\r\r"),
+						// Thumbnails
+						Glob::new("**/._*"),
+						// Files that might appear in the root of a volume
+						Glob::new("**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}"),
+						// Directories potentially created on remote AFP share
+						Glob::new("**/.{AppleDB,AppleDesktop,apdisk}"),
+						Glob::new("**/{Network Trash Folder,Temporary Items}"),
+					],
+					// https://github.com/github/gitignore/blob/main/Global/Linux.gitignore
+					#[cfg(target_os = "linux")]
+					vec![
+						Glob::new("**/*~"),
+						// temporary files which can be created if a process still has a handle open of a deleted file
+						Glob::new("**/.fuse_hidden*"),
+						// KDE directory preferences
+						Glob::new("**/.directory"),
+						// Linux trash folder which might appear on any partition or disk
+						Glob::new("**/.Trash-*"),
+						// .nfs files are created when an open file is removed but is still being accessed
+						Glob::new("**/.nfs*"),
+					],
+					#[cfg(target_family = "unix")]
+					vec![
+						// Directories containing unix memory/device mapped files/dirs
+						Glob::new("/dev"),
+						Glob::new("/sys"),
+						Glob::new("/proc"),
+						// ext2-4 recovery directory
+						Glob::new("**/lost+found*"),
+					],
+				]
+				.into_iter()
+				.flatten()
+				.collect::<Result<Vec<Glob>, _>>().map_err(IndexerError::GlobBuilderError)?),
+			),
+			IndexerRule::new(
+				RuleKind::RejectFilesByGlob,
+				"No Hidden".to_string(),
 				ParametersPerKind::RejectFilesByGlob(
-					Glob::new("**/.*").map_err(IndexerError::GlobBuilderError)?,
+					vec![Glob::new("**/.*").map_err(IndexerError::GlobBuilderError)?],
 				),
 			),
 			IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
-				"Git Repositories".into(),
+				"Only Git Repositories".into(),
 				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				),
@@ -36,10 +136,10 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 			IndexerRule::new(
 				RuleKind::AcceptFilesByGlob,
 				"Only Images".to_string(),
-				ParametersPerKind::AcceptFilesByGlob(
-					Glob::new("*.{jpg,png,jpeg,gif,webp}")
-						.map_err(IndexerError::GlobBuilderError)?,
-				),
+				ParametersPerKind::AcceptFilesByGlob(vec![
+					Glob::new("*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}")
+					.map_err(IndexerError::GlobBuilderError)?
+				]),
 			),
 		] {
 			rule.save(client).await?;
