@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
+import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, forms, tw } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
@@ -20,21 +22,23 @@ const schema = z.object({
 	name: z.string(),
 	path: z.string(),
 	hidden: z.boolean(),
-	indexer_rules_ids: z.array(z.number()),
-	sync_preview_media: z.boolean(),
-	generate_preview_media: z.boolean()
+	indexerRulesIds: z.array(z.number()),
+	syncPreviewMedia: z.boolean(),
+	generatePreviewMedia: z.boolean()
 });
 
 export const Component = () => {
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			indexer_rules_ids: []
+			indexerRulesIds: []
 		}
 	});
 	const params = useParams<{ id: string }>();
+	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
+	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(true);
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: (e) => console.log({ e }),
 		onSuccess: () => {
@@ -44,50 +48,48 @@ export const Component = () => {
 	});
 
 	const { isDirty } = form.formState;
-	const locationId = Number.parseInt(params.id ?? '');
+	// Default to first location if no id is provided
+	// fallback to 0 (which should always be an invalid location) when parsing fails
+	const locationId = (params.id ? Number(params.id) : 1) || 0;
+	console.log(locationId);
 	useLibraryQuery(['locations.getById', locationId], {
-		onError: (e) => {
-			showAlertDialog({
-				title: 'Error',
-				value: 'Failed to update location settings'
-			});
-			console.error({ e });
-		},
-		onSuccess: (data) => {
-			if (data && !isDirty)
-				form.reset({
-					path: data.path,
-					name: data.name,
-					hidden: data.hidden,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule.id),
-					sync_preview_media: data.sync_preview_media,
-					generate_preview_media: data.generate_preview_media
+		onSettled: (data, error) => {
+			if (isFirstLoad && (!data || error)) {
+				navigate(-1);
+				showAlertDialog({
+					title: 'Error',
+					value: 'Failed to load location settings'
 				});
+			} else {
+				setIsFirstLoad(false);
+				if (data && !isDirty) {
+					form.reset({
+						path: data.path,
+						name: data.name,
+						hidden: data.hidden,
+						indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
+						syncPreviewMedia: data.sync_preview_media,
+						generatePreviewMedia: data.generate_preview_media
+					});
+				}
+			}
 		}
 	});
 
-	if (Number.isNaN(locationId)) {
-		showAlertDialog({
-			title: 'Error',
-			value: 'Invalid location settings'
-		});
-		return null;
-	}
-
 	const onSubmit = form.handleSubmit(
-		({ name, hidden, sync_preview_media, generate_preview_media, indexer_rules_ids }) =>
+		({ name, hidden, indexerRulesIds, syncPreviewMedia, generatePreviewMedia }) =>
 			updateLocation.mutateAsync({
 				id: locationId,
 				name,
 				hidden,
-				indexer_rules_ids,
-				sync_preview_media,
-				generate_preview_media
+				indexer_rules_ids: indexerRulesIds,
+				sync_preview_media: syncPreviewMedia,
+				generate_preview_media: generatePreviewMedia
 			})
 	);
 
 	return (
-		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
 				title="Edit Location"
 				topRight={
@@ -132,11 +134,11 @@ export const Component = () => {
 				<div className="space-y-2">
 					<ToggleSection>
 						<Label className="grow">Generate preview media for this Location</Label>
-						<Switch {...form.register('generate_preview_media')} size="sm" />
+						<Switch {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="grow">Sync preview media for this Location with your devices</Label>
-						<Switch {...form.register('sync_preview_media')} size="sm" />
+						<Switch {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="grow">
@@ -155,7 +157,7 @@ export const Component = () => {
 						Indexer rules allow you to specify paths to ignore using RegEx.
 					</InfoText>
 					<Controller
-						name="indexer_rules_ids"
+						name="indexerRulesIds"
 						render={({ field }) => <IndexerRuleEditor field={field} />}
 						control={form.control}
 					/>

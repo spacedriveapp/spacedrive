@@ -5,12 +5,12 @@ import { useLibraryQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 
 interface FormFields {
-	indexer_rules_ids: number[];
+	indexerRulesIds: number[];
 }
 
 type FieldType = ControllerRenderProps<
 	FormFields,
-	Exclude<FieldPath<FormFields>, `indexer_rules_ids.${number}`>
+	Exclude<FieldPath<FormFields>, `indexerRulesIds.${number}`>
 >;
 
 export interface IndexerRuleEditorProps<T extends FieldType> {
