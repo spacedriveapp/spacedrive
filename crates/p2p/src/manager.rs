@@ -1,4 +1,8 @@
-use std::{collections::HashSet, net::SocketAddr, sync::Arc};
+use std::{
+	collections::HashSet,
+	net::SocketAddr,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 use libp2p::{core::muxing::StreamMuxerBox, quic, Swarm, Transport};
 use thiserror::Error;
@@ -79,6 +83,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 				swarm,
 				mdns,
 				queued_events: Default::default(),
+				shutdown: AtomicBool::new(false),
 			},
 		))
 	}
@@ -130,6 +135,17 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 
 	pub async fn broadcast(&self, data: Vec<u8>) {
 		self.emit(ManagerStreamAction::BroadcastData(data)).await;
+	}
+
+	pub async fn shutdown(&self) {
+		let (tx, rx) = oneshot::channel();
+		self.event_stream_tx
+			.send(ManagerStreamAction::Shutdown(tx))
+			.await
+			.unwrap();
+		rx.await.unwrap_or_else(|_| {
+			warn!("Error receiving shutdown signal to P2P Manager!");
+		}); // Await shutdown so we don't kill the app before the Mdns broadcast
 	}
 }
 

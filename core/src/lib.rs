@@ -225,6 +225,7 @@ impl Node {
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
 		self.jobs.pause().await;
+		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
