@@ -6773,6 +6773,7 @@ dependencies = [
 name = "sd-p2p"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "flume",
  "libp2p",
  "mdns-sd",

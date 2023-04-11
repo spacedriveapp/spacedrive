@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata};
+use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata, MetadataManager};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
@@ -44,13 +44,13 @@ async fn main() {
 
 	let keypair = Keypair::generate();
 
-	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, || async move {
-		PeerMetadata {
-			name: "TODO".to_string(),
-		}
-	})
-	.await
-	.unwrap();
+	let metadata_manager = MetadataManager::new(PeerMetadata {
+		name: "TODO".to_string(),
+	});
+
+	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, metadata_manager)
+		.await
+		.unwrap();
 
 	info!(
 		"Node '{}' is now online listening at addresses: {:?}",

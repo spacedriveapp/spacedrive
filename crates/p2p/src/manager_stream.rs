@@ -14,7 +14,7 @@ use tracing::{debug, error, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	AsyncFn, Event, Manager, Mdns, Metadata, PeerId,
+	Event, Manager, Mdns, Metadata, PeerId,
 };
 
 /// TODO
@@ -47,22 +47,20 @@ impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction<TMetada
 }
 
 /// TODO
-pub struct ManagerStream<TMetadata, TMetadataFn>
+pub struct ManagerStream<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Mdns<TMetadata, TMetadataFn>,
+	pub(crate) mdns: Mdns<TMetadata>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 }
 
-impl<TMetadata, TMetadataFn> ManagerStream<TMetadata, TMetadataFn>
+impl<TMetadata> ManagerStream<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
 	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
