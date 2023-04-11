@@ -51,7 +51,7 @@ function Page() {
 			completed: true,
 			title: 'Key manager',
 			description:
-				'View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.'
+				'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 		},
 		{
 			when: 'Present Day',
