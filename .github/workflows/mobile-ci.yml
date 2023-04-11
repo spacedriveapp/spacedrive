@@ -5,8 +5,14 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - '**/.md'
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+      - 'core/**'
+      - 'crates/**'
+      - 'packages/assets/**'
+      - 'packages/client/**'
+      - 'packages/config/**'
   workflow_dispatch:
 
 env:

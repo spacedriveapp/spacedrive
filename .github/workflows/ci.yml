@@ -6,7 +6,9 @@ on:
     branches:
       - main
     paths-ignore:
-      - '**/.md'
+      - 'docs/**'
+      - '.cspell/**'
+      - '.vscode/**'
   workflow_dispatch:
 
 env:
