@@ -7,7 +7,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Event, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
+	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
 	MetadataManager, PeerId,
 };
 
@@ -133,10 +133,14 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 	}
 
 	pub async fn shutdown(&self) {
+		let (tx, rx) = oneshot::channel();
 		self.event_stream_tx
-			.send(ManagerStreamAction::Event(Event::Shutdown))
+			.send(ManagerStreamAction::Shutdown(tx))
 			.await
 			.unwrap();
+		rx.await.unwrap_or_else(|_| {
+			warn!("Error receiving shutdown signal to P2P Manager!");
+		}); // Await shutdown so we don't kill the app before the Mdns broadcast
 	}
 }
 

@@ -32,6 +32,8 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 	StartStream(PeerId, oneshot::Sender<UnicastStream>),
 	/// TODO
 	BroadcastData(Vec<u8>),
+	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
+	Shutdown(oneshot::Sender<()>),
 }
 
 impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction<TMetadata> {
@@ -79,19 +81,14 @@ where
 				},
 				event = self.event_stream_rx.recv() => {
 					// If the sender has shut down we return `None` to also shut down too.
-					if let Some(event) = self.handle_manager_stream_action(event?) {
+					if let Some(event) = self.handle_manager_stream_action(event?).await {
 						return Some(event);
 					}
 				}
 				event = self.swarm.select_next_some() => {
 					match event {
 						SwarmEvent::Behaviour(event) => {
-							if let Some(event) = self.handle_manager_stream_action(event) {
-								if let Event::Shutdown = event {
-									info!("Shutting down P2P Manager...");
-									self.mdns.shutdown().await;
-								}
-
+							if let Some(event) = self.handle_manager_stream_action(event).await {
 								return Some(event);
 							}
 						},
@@ -154,7 +151,7 @@ where
 		}
 	}
 
-	fn handle_manager_stream_action(
+	async fn handle_manager_stream_action(
 		&mut self,
 		event: ManagerStreamAction<TMetadata>,
 	) -> Option<Event<TMetadata>> {
@@ -209,6 +206,15 @@ where
 							event: OutboundRequest::Broadcast(data.clone()),
 						});
 				}
+			}
+			ManagerStreamAction::Shutdown(tx) => {
+				info!("Shutting down P2P Manager...");
+				self.mdns.shutdown().await;
+				tx.send(()).unwrap_or_else(|_| {
+					warn!("Error sending shutdown signal to P2P Manager!");
+				});
+
+				return Some(Event::Shutdown);
 			}
 		}
 
