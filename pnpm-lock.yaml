@@ -12,7 +12,6 @@ importers:
       '@cspell/dict-typescript': ^2.0.2
       '@trivago/prettier-plugin-sort-imports': ^4.1.1
       cspell: ^6.12.0
-      framer-motion: ^10.11.4
       markdown-link-check: ^3.10.3
       prettier: ^2.8.7
       prettier-plugin-tailwindcss: ^0.2.6
@@ -20,8 +19,6 @@ importers:
       turbo: ^1.5.5
       turbo-ignore: ^0.3.0
       typescript: ^4.9.4
-    dependencies:
-      framer-motion: 10.11.4
     devDependencies:
       '@babel/plugin-syntax-import-assertions': 7.20.0_@babel+core@7.21.4
       '@cspell/dict-rust': 2.0.1
@@ -450,6 +447,7 @@ importers:
       clsx: ^1.2.1
       crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
+      framer-motion: ^10.11.5
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
       react: ^18.2.0
@@ -499,6 +497,7 @@ importers:
       clsx: 1.2.1
       crypto-random-string: 5.0.0
       dayjs: 1.11.7
+      framer-motion: 10.11.5_biqbaboplfbrettd7655fr4n2y
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
       react-colorful: 5.6.1_biqbaboplfbrettd7655fr4n2y
@@ -852,7 +851,7 @@ packages:
       '@babel/compat-data': 7.20.10
       '@babel/core': 7.21.3
       '@babel/helper-validator-option': 7.21.0
-      browserslist: 4.21.4
+      browserslist: 4.21.5
       lru-cache: 5.1.1
       semver: 6.3.0
 
@@ -8280,7 +8279,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
 
@@ -11854,8 +11853,8 @@ packages:
     dependencies:
       map-cache: 0.2.2
 
-  /framer-motion/10.11.4:
-    resolution: {integrity: sha512-G69oXNILHETM95lI7UNORG8T7lVN9GnwAf6V8OV7asdWLo7cLVsCFXgPQveWb4fSIDC0FnQQhFnx6blVdmdl3A==}
+  /framer-motion/10.11.5_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-1JuoJsojdYLVdVldkR7p69G24bNs00p/IuqNcuIT9g2qSNG9Ya4SyK4Jy4Z5grUSi7j1yLI6AdO/0BhY0zo7yw==}
     peerDependencies:
       react: ^18.0.0
       react-dom: ^18.0.0
@@ -11865,6 +11864,8 @@ packages:
       react-dom:
         optional: true
     dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
       tslib: 2.5.0
     optionalDependencies:
       '@emotion/is-prop-valid': 0.8.8
@@ -19762,7 +19763,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -19871,7 +19872,6 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.1.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-3knk/HsbSTKEin43zHu7jTwYWv81f8kgAL99G5NWBcA1LKvtvcVAC4JjBH1arBunO9kQka+1oGbrMKOjk4ZrBg==}

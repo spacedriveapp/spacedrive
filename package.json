@@ -52,8 +52,5 @@
 		"npm": "pnpm",
 		"yarn": "pnpm",
 		"node": ">=18.0.0"
-	},
-	"dependencies": {
-		"framer-motion": "^10.11.4"
 	}
 }
