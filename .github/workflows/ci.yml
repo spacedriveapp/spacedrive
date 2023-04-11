@@ -1,10 +1,10 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches:
       - main
+  pull_request:
     paths-ignore:
       - 'docs/**'
       - '.cspell/**'
