@@ -257,4 +257,27 @@ where
 				Box::pin(sleep_until(Instant::now() + Duration::from_millis(200)));
 		}
 	}
+
+	pub async fn shutdown(&self) {
+		match self
+			.mdns_daemon
+			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
+			.map(|chan| chan.recv())
+		{
+			Ok(Ok(_)) => {}
+			Ok(Err(err)) => {
+				warn!(
+					"shutdown error recieving shutdown status from mdns service: {}",
+					err
+				);
+			}
+			Err(err) => {
+				warn!("shutdown error unregistering mdns service: {}", err);
+			}
+		}
+
+		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
+			error!("shutdown error shutting down mdns daemon: {}", err);
+		});
+	}
 }
