@@ -21,6 +21,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::error;
+use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer, location_with_indexer_rules,
@@ -66,11 +67,7 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let Library {
-			last_file_path_id_manager,
-			db,
-			..
-		} = &ctx.library;
+		let Library { db, .. } = &ctx.library;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
@@ -160,23 +157,20 @@ impl StatefulJob for ShallowIndexerJob {
 			.map(|file_path| (file_path.materialized_path, file_path.pub_id))
 			.unzip::<_, _, HashSet<_>, Vec<_>>();
 
+		// SAFETY: We generate this uuid before, so it's valid
+		let parent_file_path_pub_id = Uuid::from_slice(&parent_file_path.pub_id).unwrap();
+
 		// Adding our parent path id
 		to_retain.push(parent_file_path.pub_id.clone());
 
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths =
-			retain_file_paths_in_location(location_id, to_retain, Some(&parent_file_path), db)
+			retain_file_paths_in_location(location_id, to_retain, Some(parent_file_path), db)
 				.await
 				.map_err(IndexerError::from)?;
 
-		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
-		last_file_path_id_manager
-			.sync(location_id, db)
-			.await
-			.map_err(IndexerError::from)?;
-
 		// Filter out paths that are already in the databases
-		let mut new_paths = found_paths
+		let new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(location_id, location_path, &entry.path, entry.is_dir)
@@ -192,8 +186,8 @@ impl StatefulJob for ShallowIndexerJob {
 								full_path: entry.path,
 								materialized_path,
 								created_at: entry.created_at,
-								file_pub_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
-								parent_id: Some(parent_file_path.pub_id.clone()),
+								file_pub_id: Uuid::new_v4(),
+								parent_id: Some(parent_file_path_pub_id),
 								inode: entry.inode,
 								device: entry.device,
 							})

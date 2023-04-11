@@ -47,11 +47,7 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let Library {
-			last_file_path_id_manager,
-			db,
-			..
-		} = &ctx.library;
+		let Library { db, .. } = &ctx.library;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
@@ -156,17 +152,11 @@ impl StatefulJob for IndexerJob {
 		let removed_paths = retain_file_paths_in_location(
 			location_id,
 			dirs_ids.values().cloned().collect(),
-			maybe_parent_file_path.as_ref(),
+			maybe_parent_file_path,
 			db,
 		)
 		.await
 		.map_err(IndexerError::from)?;
-
-		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
-		last_file_path_id_manager
-			.sync(location_id, db)
-			.await
-			.map_err(IndexerError::from)?;
 
 		let mut new_paths = found_paths
 			.into_iter()
@@ -187,13 +177,16 @@ impl StatefulJob for IndexerJob {
 							IndexerJobStepEntry {
 								materialized_path,
 								created_at: entry.created_at,
-								file_pub_id: Uuid::new_v4().as_bytes().to_vec(),
+								file_pub_id: Uuid::new_v4(),
 								parent_id: entry.path.parent().and_then(|parent_dir| {
 									/***************************************************************
 									 * If we're dealing with a new path which its parent already   *
 									 * exist, we fetch its parent id from our `dirs_ids` map       *
 									 **************************************************************/
-									dirs_ids.get(parent_dir).cloned()
+									dirs_ids
+										.get(parent_dir)
+										// SAFETY: We created this pub_id before, so it should be valid
+										.map(|pub_id| Uuid::from_slice(pub_id).unwrap())
 								}),
 								full_path: entry.path,
 								inode: entry.inode,
@@ -207,23 +200,22 @@ impl StatefulJob for IndexerJob {
 
 		let total_paths = new_paths.len();
 
-		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = last_file_path_id_manager
-			.increment(location_id, total_paths as i32, db)
-			.await
-			.map_err(IndexerError::from)?;
-
 		new_paths.iter_mut().for_each(|entry| {
 			// If the `parent_id` is still none here, is because the parent of this entry is also
 			// a new one in the DB
 			if entry.parent_id.is_none() {
-				entry.parent_id = entry
-					.full_path
-					.parent()
-					.and_then(|parent_dir| dirs_ids.get(parent_dir).cloned());
+				entry.parent_id = entry.full_path.parent().and_then(|parent_dir| {
+					dirs_ids
+						.get(parent_dir)
+						// SAFETY: We created this pub_id before, so it should be valid
+						.map(|pub_id| Uuid::from_slice(pub_id).unwrap())
+				});
 			}
 
-			dirs_ids.insert(entry.full_path.clone(), entry.file_pub_id.clone());
+			dirs_ids.insert(
+				entry.full_path.clone(),
+				entry.file_pub_id.as_bytes().to_vec(),
+			);
 		});
 
 		state.data = Some(IndexerJobData {

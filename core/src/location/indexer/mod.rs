@@ -22,6 +22,7 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::io;
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	file_path_helper::{FilePathError, MaterializedPath},
@@ -73,8 +74,8 @@ pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
 	created_at: DateTime<Utc>,
-	file_pub_id: Vec<u8>,
-	parent_id: Option<Vec<u8>>,
+	file_pub_id: Uuid,
+	parent_id: Option<Uuid>,
 	inode: u64,
 	device: u64,
 }
@@ -168,7 +169,7 @@ async fn execute_indexer_step(
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						pub_id: entry.file_pub_id.clone(),
+						pub_id: entry.file_pub_id.as_bytes().to_vec(),
 					},
 					[
 						("materialized_path", json!(materialized_path.clone())),
@@ -182,7 +183,7 @@ async fn execute_indexer_step(
 					],
 				),
 				file_path::create_unchecked(
-					entry.file_pub_id.clone(),
+					entry.file_pub_id.as_bytes().to_vec(),
 					location.id,
 					materialized_path.into_owned(),
 					name.into_owned(),
@@ -197,8 +198,7 @@ async fn execute_indexer_step(
 					.map(Some)
 					.chain([entry
 						.parent_id
-						.clone()
-						.map(|id| parent::connect(pub_id::equals(id)))])
+						.map(|id| parent::connect(pub_id::equals(id.as_bytes().to_vec())))])
 					.flatten()
 					.collect(),
 				),

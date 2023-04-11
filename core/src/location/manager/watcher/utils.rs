@@ -4,9 +4,9 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			extract_materialized_path, file_path_with_object, filter_existing_file_path_params,
-			get_parent_dir, get_parent_dir_id, loose_find_existing_file_path_params, FilePathError,
-			MaterializedPath,
+			create_file_path, extract_materialized_path, file_path_with_object,
+			filter_existing_file_path_params, get_parent_dir, get_parent_dir_id,
+			loose_find_existing_file_path_params, FilePathError, MaterializedPath,
 		},
 		find_location, location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -106,17 +106,15 @@ pub(super) async fn create_dir(
         return Ok(())
 	};
 
-	let created_path = library
-		.last_file_path_id_manager
-		.create_file_path(
-			library,
-			materialized_path,
-			Some((parent_directory.id, parent_directory.pub_id)),
-			None,
-			inode,
-			device,
-		)
-		.await?;
+	let created_path = create_file_path(
+		library,
+		materialized_path,
+		Some((parent_directory.id, parent_directory.pub_id)),
+		None,
+		inode,
+		device,
+	)
+	.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
 
@@ -175,17 +173,15 @@ pub(super) async fn create_file(
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &materialized_path).await?;
 
-	let created_file = library
-		.last_file_path_id_manager
-		.create_file_path(
-			library,
-			materialized_path,
-			Some((parent_directory.id, parent_directory.pub_id)),
-			Some(cas_id.clone()),
-			inode,
-			device,
-		)
-		.await?;
+	let created_file = create_file_path(
+		library,
+		materialized_path,
+		Some((parent_directory.id, parent_directory.pub_id)),
+		Some(cas_id.clone()),
+		inode,
+		device,
+	)
+	.await?;
 
 	info!("Created path: {}", created_file.materialized_path);
 
@@ -636,12 +632,6 @@ pub(super) async fn remove_by_file_path(
 		}
 		Err(e) => return Err(e.into()),
 	}
-
-	// If the file paths we just removed were the last ids in the DB, we decresed the last id from the id manager
-	library
-		.last_file_path_id_manager
-		.sync(location_id, &library.db)
-		.await?;
 
 	invalidate_query!(library, "locations.getExplorerData");
 
