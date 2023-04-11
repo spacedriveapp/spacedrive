@@ -44,30 +44,13 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 						// Chkdsk recovery directory
 						Glob::new("**/FOUND.[0-9][0-9][0-9]"),
 						// Need both C:/ and / matches because globset treat them differently
-						Glob::new("C:/$WinREAgent"),
-						Glob::new("/$WinREAgent"),
-						Glob::new("C:/Program Files"),
-						Glob::new("/Program Files"),
-						Glob::new("C:/Program Files (x86)"),
-						Glob::new("/Program Files (x86)"),
-						Glob::new("C:/ProgramData"),
-						Glob::new("/ProgramData"),
-						Glob::new("C:/Recovery"),
-						Glob::new("/Recovery"),
-						Glob::new("C:/PerfLogs"),
-						Glob::new("/PerfLogs"),
-						Glob::new("C:/Windows"),
-						Glob::new("/Windows"),
-						Glob::new("C:/Windows.old"),
-						Glob::new("/Windows.old"),
-						Glob::new("C:/config.sys"),
-						Glob::new("/config.sys"),
-						Glob::new("C:/pagefile.sys"),
-						Glob::new("/pagefile.sys"),
-						Glob::new("C:/hiberfil.sys"),
-						Glob::new("/hiberfil.sys"),
+						Glob::new("C:/{$WinREAgent,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}"),
+						Glob::new("/{$WinREAgent,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}"),
+						// Windows can create a swapfile on any drive
 						Glob::new("[A-Z]:/swapfile.sys"),
-						Glob::new("/swapfile.sys"),
+						Glob::new("C:/{config,pagefile,hiberfil}.sys"),
+						Glob::new("/{config,pagefile,hiberfil,swapfile}.sys"),
+						// NTFS internal files, can exists on any drive
 						Glob::new("[A-Z]:/System Volume Information"),
 						Glob::new("/System Volume Information"),
 					],
@@ -75,12 +58,8 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 					// https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW14
 					#[cfg(target_os = "macos")]
 					vec![
-						Glob::new("/System"),
-						Glob::new("/Network"),
-						Glob::new("/Library"),
-						Glob::new("/Users/*/Library"),
-						Glob::new("/Applications"),
-						Glob::new("/Users/*/Applications"),
+						Glob::new("/{System,Network,Library,Applications}"),
+						Glob::new("/Users/*/{Library,Applications}"),
 						Glob::new("**/.{DS_Store,AppleDouble,LSOverride}"),
 						// Icon must end with two \r
 						Glob::new("**/Icon\r\r"),
@@ -108,11 +87,9 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 					#[cfg(target_family = "unix")]
 					vec![
 						// Directories containing unix memory/device mapped files/dirs
-						Glob::new("/dev"),
-						Glob::new("/sys"),
-						Glob::new("/proc"),
+						Glob::new("/{dev,sys,proc}"),
 						// ext2-4 recovery directory
-						Glob::new("**/lost+found*"),
+						Glob::new("**/lost+found"),
 					],
 				]
 				.into_iter()
