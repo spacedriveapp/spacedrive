@@ -48,7 +48,17 @@ function Page() {
 				'Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.'
 		},
 		{
+			completed: true,
+			title: 'Key manager',
+			description:
+				'View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.'
+		},
+		{
 			when: 'Present Day',
+			title: 'Spacedrop',
+			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+		},
+		{
 			title: 'Search',
 			description: 'Deep search into your filesystem with a keybind, including offline locations.'
 		},
@@ -58,13 +68,9 @@ function Page() {
 		},
 		{
 			when: '0.1.0 Beta',
-			subtext: 'Q4 2022',
+			subtext: 'Q2 2023',
 			title: 'Realtime library synchronization',
 			description: 'Automatically synchronized libraries across devices via P2P connections.'
-		},
-		{
-			title: 'Spacedrop',
-			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
 		},
 		{
 			title: 'Media encoder',
@@ -82,7 +88,7 @@ function Page() {
 		},
 		{
 			when: '0.6.0 Beta',
-			subtext: 'Q1 2023',
+			subtext: 'Q3 2023',
 			title: 'Extensions',
 			description:
 				'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
@@ -93,13 +99,8 @@ function Page() {
 				'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
 		},
 		{
-			title: 'Key manager',
-			description:
-				'View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.'
-		},
-		{
 			when: 'Release',
-			subtext: 'Q2 2023',
+			subtext: 'Q4 2023',
 			title: 'Timeline',
 			description:
 				'View a linear timeline of content, travel to any time and see media represented visually.'
