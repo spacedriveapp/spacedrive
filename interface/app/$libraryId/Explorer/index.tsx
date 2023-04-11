@@ -44,10 +44,10 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="relative">
 			<ExplorerContextMenu>
-				<div className="relative flex w-full flex-col">
+				<div className="relative flex flex-col w-full">
 					<TopBar showSeparator={separateTopBar} />
 
-					<div className="app-background relative flex max-h-full w-full flex-row">
+					<div className="relative flex flex-row w-full max-h-full pt-16 app-background">
 						{props.data && (
 							<VirtualizedList
 								data={props.data.items}

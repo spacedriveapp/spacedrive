@@ -12,6 +12,7 @@ importers:
       '@cspell/dict-typescript': ^2.0.2
       '@trivago/prettier-plugin-sort-imports': ^4.1.1
       cspell: ^6.12.0
+      framer-motion: ^10.11.4
       markdown-link-check: ^3.10.3
       prettier: ^2.8.7
       prettier-plugin-tailwindcss: ^0.2.6
@@ -19,6 +20,8 @@ importers:
       turbo: ^1.5.5
       turbo-ignore: ^0.3.0
       typescript: ^4.9.4
+    dependencies:
+      framer-motion: 10.11.4
     devDependencies:
       '@babel/plugin-syntax-import-assertions': 7.20.0_@babel+core@7.21.4
       '@cspell/dict-rust': 2.0.1
@@ -11850,6 +11853,22 @@ packages:
     engines: {node: '>=0.10.0'}
     dependencies:
       map-cache: 0.2.2
+
+  /framer-motion/10.11.4:
+    resolution: {integrity: sha512-G69oXNILHETM95lI7UNORG8T7lVN9GnwAf6V8OV7asdWLo7cLVsCFXgPQveWb4fSIDC0FnQQhFnx6blVdmdl3A==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      tslib: 2.5.0
+    optionalDependencies:
+      '@emotion/is-prop-valid': 0.8.8
+    dev: false
 
   /framer-motion/6.5.1_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-o1BGqqposwi7cgDrtg0dNONhkmPsUFDaLcKXigzuTFC5x58mE8iyTazxSudFzmT6MEyJKfjjU8ItoMe3W+3fiw==}
