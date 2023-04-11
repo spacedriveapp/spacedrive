@@ -186,26 +186,22 @@ impl Node {
 
 			async move {
 				while let Ok(ops) = p2p_rx.recv().await {
-					match ops {
-						P2PEvent::SyncOperation {
-							library_id,
-							operations,
-						} => {
-							debug!("going to ingest {} operations", operations.len());
+					if let P2PEvent::SyncOperation {
+						library_id,
+						operations,
+					} = ops
+					{
+						debug!("going to ingest {} operations", operations.len());
 
-							let libraries = library_manager.libraries.read().await;
+						let Some(library) = library_manager.get_ctx(library_id).await else {
+						warn!("no library found!");
+						continue;
+					};
 
-							let Some(library) = libraries.first() else {
-                                warn!("no library found!");
-                                continue;
-                            };
-
-							for op in operations {
-								println!("ingest lib id: {}", library.id);
-								library.sync.ingest_op(op).await.unwrap();
-							}
+						for op in operations {
+							println!("ingest lib id: {}", library.id);
+							library.sync.ingest_op(op).await.unwrap();
 						}
-						_ => {}
 					}
 				}
 			}

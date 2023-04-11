@@ -7,8 +7,8 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	AsyncFn, DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState,
-	Metadata, PeerId,
+	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
+	MetadataManager, PeerId,
 };
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
@@ -22,14 +22,11 @@ pub struct Manager<TMetadata: Metadata> {
 
 impl<TMetadata: Metadata> Manager<TMetadata> {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
-	pub async fn new<TMetadataFn>(
+	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
-		fn_get_metadata: TMetadataFn,
-	) -> Result<(Arc<Self>, ManagerStream<TMetadata, TMetadataFn>), ManagerError>
-	where
-		TMetadataFn: AsyncFn<Output = TMetadata>,
-	{
+		metadata_manager: Arc<MetadataManager<TMetadata>>,
+	) -> Result<(Arc<Self>, ManagerStream<TMetadata>), ManagerError> {
 		application_name
 			.chars()
 			.all(|c| char::is_alphanumeric(c) || c == '-')
@@ -39,7 +36,9 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		let peer_id = PeerId(keypair.public().to_peer_id());
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
 
-		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, fn_get_metadata).unwrap();
+		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
+			.await
+			.unwrap();
 		let this = Arc::new(Self {
 			mdns_state,
 			// Look this is bad but it's hard to avoid. Technically a memory leak but it's a small amount of memory and is should done on startup on the P2P system.
