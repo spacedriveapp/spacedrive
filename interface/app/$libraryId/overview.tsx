@@ -14,7 +14,7 @@ import {
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card } from '@sd/ui';
+import { Card, ScreenHeading } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 
@@ -96,11 +96,12 @@ export const Component = () => {
 	overviewMounted = true;
 
 	return (
-		<div className="flex h-screen w-full flex-col">
+		<div className="flex flex-col w-full h-screen">
+			<ScreenHeading>Overview</ScreenHeading>
 			{/* STAT HEADER */}
 			<div className="flex w-full">
 				{/* STAT CONTAINER */}
-				<div className="-mb-1 flex h-20 overflow-hidden">
+				<div className="flex h-20 -mb-1 overflow-hidden">
 					{Object.entries(stats?.data || []).map(([key, value]) => {
 						if (!displayableStatItems.includes(key)) return null;
 						return (
@@ -115,7 +116,7 @@ export const Component = () => {
 				</div>
 				<div className="grow" />
 			</div>
-			<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
+			<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
 				<CategoryButton icon={Heart} category="Favorites" />
 				<CategoryButton icon={FileText} category="Documents" />
 				<CategoryButton icon={Camera} category="Movies" />
@@ -131,7 +132,7 @@ export const Component = () => {
 				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
 				functional.
 			</Card>
-			<div className="flex h-4 w-full shrink-0" />
+			<div className="flex w-full h-4 shrink-0" />
 		</div>
 	);
 };
@@ -144,7 +145,7 @@ interface CategoryButtonProps {
 function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
 		<Card className="items-center !px-3">
-			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
+			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
 				<p className="text-xs text-ink-faint">23,324 items</p>
