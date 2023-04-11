@@ -4,12 +4,11 @@ import { useForm } from 'react-hook-form';
 import { Input, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
-interface SearchBarProps extends ComponentPropsWithRef<'input'> {
-	setToggleSearch?: (value: boolean) => void;
-	toggleSearch?: boolean;
+interface Props extends ComponentPropsWithRef<'input'> {
+	formClassName?: string;
 }
 
-export default forwardRef<HTMLInputElement, SearchBarProps>((props, forwardedRef) => {
+export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 	const {
 		register,
 		handleSubmit,
@@ -28,53 +27,28 @@ export default forwardRef<HTMLInputElement, SearchBarProps>((props, forwardedRef
 	const os = useOperatingSystem(true);
 
 	useEffect(() => {
-		//When the search bar is toggled, focus the search bar
-		if (typeof forwardedRef !== 'function') {
-			if (props.toggleSearch && forwardedRef?.current) {
-				forwardedRef.current.focus();
-			}
-		}
-		//Handling closing search bar when its been opened through the search icon
-		const closeOnOutsideCLick = (event: MouseEvent) => {
-			if (typeof forwardedRef !== 'function') {
-				if (
-					forwardedRef?.current === document.activeElement &&
-					event.target !== forwardedRef.current
-				) {
-					props.setToggleSearch && props.setToggleSearch(false);
-					forwardedRef.current?.blur();
-					reset();
-				}
-			}
-		};
 		const keyboardSearchFocus = (event: KeyboardEvent) => {
 			if (typeof forwardedRef !== 'function') {
 				if ((event.key === 'f' && event.metaKey) || event.ctrlKey) {
 					event.preventDefault();
-					props.setToggleSearch && props.setToggleSearch(true);
 					forwardedRef?.current?.focus();
 				} else if (forwardedRef?.current === document.activeElement && event.key === 'Escape') {
-					props.setToggleSearch && props.setToggleSearch(false);
-					forwardedRef.current?.blur();
-					reset();
-					// this check is for the case when the search bar is opened through the search icon
-				} else if (event.key === 'Enter' && forwardedRef?.current) {
-					props.setToggleSearch && props.setToggleSearch(false);
 					forwardedRef.current?.blur();
 					reset();
 				}
 			}
 		};
-		document.addEventListener('mousedown', closeOnOutsideCLick);
 		document.addEventListener('keydown', keyboardSearchFocus);
 		return () => {
-			document.removeEventListener('mousedown', closeOnOutsideCLick);
 			document.removeEventListener('keydown', keyboardSearchFocus);
 		};
-	}, [props, forwardedRef, reset]);
+	}, [forwardedRef, reset]);
 
 	return (
-		<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
+		<form
+			onSubmit={handleSubmit(() => null)}
+			className={`relative flex h-7 ${props.formClassName}`}
+		>
 			<Input
 				ref={(el) => {
 					ref(el);

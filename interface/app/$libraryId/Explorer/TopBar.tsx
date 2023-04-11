@@ -1,7 +1,6 @@
 import clsx from 'clsx';
-import { CaretLeft, CaretRight, MagnifyingGlass } from 'phosphor-react';
+import { CaretLeft, CaretRight } from 'phosphor-react';
 import { useRef } from 'react';
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
 import { RoutePaths, groupKeys, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
@@ -11,21 +10,11 @@ import TopBarButton from './TopBarButton';
 export default () => {
 	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const navigate = useNavigate();
-	const [toggleSearch, setToggleSearch] = useState(false);
 
-	//create function to focus on search box when cmd+k is pressed
 	const searchRef = useRef<HTMLInputElement>(null);
 	const { pathname } = useLocation();
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
-	const toggleSearchIconHandler = () => {
-		setToggleSearch(!toggleSearch);
-	};
-	const lengthOfTools = toolBarRouteOptions[getPageName].options.reduce((acc, curr) => {
-		return [...Object.values(curr)].reduce((acc, curr) => {
-			return acc + curr.length;
-		}, acc);
-	}, 0);
 
 	return (
 		<div
@@ -47,12 +36,16 @@ export default () => {
 				</Tooltip>
 			</div>
 
-			<div data-tauri-drag-region className="flex w-full flex-row justify-center">
+			<SearchBar formClassName="justify-center" className={'flex'} ref={searchRef} />
+
+			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
 				<div className="flex gap-2">
 					{toolBarRouteOptions[getPageName].options.map((group) => {
 						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
 							return group[groupKey]?.map(
 								({ icon, onClick, popOverComponent, toolTipLabel, topBarActive }, index) => {
+									const groupCount = Object.keys(group).length;
+									const groupIndex = Object.keys(group).indexOf(groupKey);
 									return (
 										<div key={toolTipLabel} className="flex items-center">
 											<Tooltip label={toolTipLabel}>
@@ -73,29 +66,17 @@ export default () => {
 													</TopBarButton>
 												)}
 											</Tooltip>
-											{index === (group[groupKey]?.length as number) - 1 && (
-												<div className="ml-2 h-[15px] w-0 border-l border-zinc-600" />
-											)}
+											{index === (group[groupKey]?.length as number) - 1 &&
+												groupCount !== groupIndex + 1 && (
+													<div className="ml-2 h-[15px] w-0 border-l border-zinc-600" />
+												)}
 										</div>
 									);
 								}
 							);
 						});
 					})}
-					{!toggleSearch && (
-						<Tooltip label="Search" className={`${lengthOfTools > 8 ? '' : 'sm:hidden'}`}>
-							<TopBarButton onClick={toggleSearchIconHandler}>
-								<MagnifyingGlass className="m-0.5 h-5 w-5 text-ink-dull" />
-							</TopBarButton>
-						</Tooltip>
-					)}
 				</div>
-				<SearchBar
-					setToggleSearch={(arg: boolean) => setToggleSearch(arg)}
-					toggleSearch={toggleSearch}
-					className={`ml-4 ${toggleSearch ? '' : 'hidden'} ${lengthOfTools > 8 ? '' : 'sm:flex'}`}
-					ref={searchRef}
-				/>
 			</div>
 		</div>
 	);
