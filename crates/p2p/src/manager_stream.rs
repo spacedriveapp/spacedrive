@@ -1,4 +1,12 @@
-use std::{collections::VecDeque, fmt, net::SocketAddr, sync::Arc};
+use std::{
+	collections::VecDeque,
+	fmt,
+	net::SocketAddr,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+};
 
 use libp2p::{
 	futures::StreamExt,
@@ -58,6 +66,7 @@ where
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
 	pub(crate) mdns: Mdns<TMetadata>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
+	pub(crate) shutdown: AtomicBool,
 }
 
 impl<TMetadata> ManagerStream<TMetadata>
@@ -68,6 +77,10 @@ where
 	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
+			if self.shutdown.load(Ordering::Relaxed) {
+				panic!("`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
+			}
+
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
@@ -89,6 +102,10 @@ where
 					match event {
 						SwarmEvent::Behaviour(event) => {
 							if let Some(event) = self.handle_manager_stream_action(event).await {
+								if let Event::Shutdown { .. } = event {
+									self.shutdown.store(true, Ordering::Relaxed);
+								}
+
 								return Some(event);
 							}
 						},

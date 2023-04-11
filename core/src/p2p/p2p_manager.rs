@@ -71,6 +71,7 @@ impl P2PManager {
 			let events = tx.clone();
 
 			async move {
+				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {
 						Event::PeerDiscovered(event) => {
@@ -135,13 +136,19 @@ impl P2PManager {
 								}
 							});
 						}
+						Event::Shutdown => {
+							shutdown = true;
+							break;
+						}
 						_ => debug!("event: {:?}", event),
 					}
 				}
 
-				error!(
-					"Manager event stream closed! The core is unstable from this point forward!"
-				);
+				if !shutdown {
+					error!(
+						"Manager event stream closed! The core is unstable from this point forward!"
+					);
+				}
 			}
 		});
 

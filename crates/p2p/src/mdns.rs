@@ -261,7 +261,7 @@ where
 	pub async fn shutdown(&self) {
 		match self
 			.mdns_daemon
-			.unregister(&self.service_name)
+			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
 			.map(|chan| chan.recv())
 		{
 			Ok(Ok(_)) => {}

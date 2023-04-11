@@ -59,6 +59,7 @@ async fn main() {
 	);
 
 	tokio::spawn(async move {
+		let mut shutdown = false;
 		// Your application must keeping poll this stream to keep the P2P system running
 		while let Some(event) = stream.next().await {
 			match event {
@@ -93,12 +94,19 @@ async fn main() {
 						}
 					});
 				}
+				Event::Shutdown => {
+					info!("Manager shutdown!");
+					shutdown = true;
+					break;
+				}
 				_ => debug!("event: {:?}", event),
 			}
 		}
 
-		error!("Manager event stream closed! The core is unstable from this point forward!");
-		// process.exit(1); // TODO: Should I?
+		if !shutdown {
+			error!("Manager event stream closed! The core is unstable from this point forward!");
+			// process.exit(1); // TODO: Should I?
+		}
 	});
 
 	if env::var("PING").as_deref() != Ok("skip") {

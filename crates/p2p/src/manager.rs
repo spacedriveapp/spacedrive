@@ -1,4 +1,8 @@
-use std::{collections::HashSet, net::SocketAddr, sync::Arc};
+use std::{
+	collections::HashSet,
+	net::SocketAddr,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 use libp2p::{core::muxing::StreamMuxerBox, quic, Swarm, Transport};
 use thiserror::Error;
@@ -79,6 +83,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 				swarm,
 				mdns,
 				queued_events: Default::default(),
+				shutdown: AtomicBool::new(false),
 			},
 		))
 	}
