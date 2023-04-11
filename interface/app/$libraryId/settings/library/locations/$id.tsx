@@ -40,7 +40,12 @@ export const Component = () => {
 	const queryClient = useQueryClient();
 	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(true);
 	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log({ e }),
+		onError: () => {
+			showAlertDialog({
+				title: 'Error',
+				value: 'Failed to update location settings'
+			});
+		},
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
@@ -51,7 +56,6 @@ export const Component = () => {
 	// Default to first location if no id is provided
 	// fallback to 0 (which should always be an invalid location) when parsing fails
 	const locationId = (params.id ? Number(params.id) : 1) || 0;
-	console.log(locationId);
 	useLibraryQuery(['locations.getById', locationId], {
 		onSettled: (data, error) => {
 			if (isFirstLoad && (!data || error)) {
