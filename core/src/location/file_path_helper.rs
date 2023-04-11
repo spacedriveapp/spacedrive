@@ -35,6 +35,7 @@ file_path::select!(file_path_for_file_identifier {
 file_path::select!(file_path_just_object_id { object_id });
 file_path::select!(file_path_for_object_validator {
 	id
+	pub_id
 	materialized_path
 	integrity_checksum
 	location: select {
@@ -328,14 +329,6 @@ impl LastFilePathIdManager {
 
 		use crate::sync;
 
-		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
-			Entry::Occupied(ocupied) => ocupied.into_ref(),
-			Entry::Vacant(vacant) => {
-				let id = Self::fetch_max_file_path_id(location_id, db).await?;
-				vacant.insert(id)
-			}
-		};
-
 		let location = db
 			.location()
 			.find_unique(location::id::equals(location_id))
@@ -625,25 +618,34 @@ pub async fn ensure_sub_path_is_directory(
 pub async fn retain_file_paths_in_location(
 	location_id: LocationId,
 	to_retain: Vec<Vec<u8>>,
-	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
+	maybe_parent_file_path: Option<&file_path_just_id_materialized_path::Data>,
 	db: &PrismaClient,
 ) -> Result<i64, FilePathError> {
-	let mut to_delete_params = vec![
+	let to_delete_params = vec![
 		file_path::location_id::equals(location_id),
 		file_path::pub_id::not_in_vec(to_retain),
-	];
-
-	if let Some(parent_file_path) = maybe_parent_file_path {
-		// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
-		if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
-			to_delete_params.push(file_path::materialized_path::starts_with(
-				parent_file_path.materialized_path,
-			));
+	]
+	.into_iter()
+	.map(Some)
+	.chain([{
+		if let Some(parent_file_path) = maybe_parent_file_path {
+			// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
+			Some(
+				if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
+					file_path::materialized_path::starts_with(
+						parent_file_path.materialized_path.clone(),
+					)
+				} else {
+					// If the parent_materialized_path is the root path, we fetch children using the parent id
+					file_path::parent_id::equals(Some(parent_file_path.id))
+				},
+			)
 		} else {
-			// If the parent_materialized_path is the root path, we fetch children using the parent id
-			to_delete_params.push(file_path::parent_id::equals(Some(parent_file_path.id)));
+			None
 		}
-	}
+	}])
+	.flatten()
+	.collect();
 
 	db.file_path()
 		.delete_many(to_delete_params)

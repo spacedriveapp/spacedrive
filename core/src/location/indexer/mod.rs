@@ -177,7 +177,7 @@ async fn execute_indexer_step(
 						("extension", json!(extension.clone())),
 						("inode", json!(entry.inode.to_le_bytes())),
 						("device", json!(entry.device.to_le_bytes())),
-						("parent_id", json!(entry.parent_id)),
+						("parent_id", json!(entry.parent_id.clone())),
 						("date_created", json!(entry.created_at)),
 					],
 				),
@@ -189,11 +189,18 @@ async fn execute_indexer_step(
 					extension.into_owned(),
 					entry.inode.to_le_bytes().into(),
 					entry.device.to_le_bytes().into(),
-					vec![
+					[
 						is_dir::set(is_dir),
-						parent_id::set(entry.parent_id),
 						date_created::set(entry.created_at.into()),
-					],
+					]
+					.into_iter()
+					.map(Some)
+					.chain([entry
+						.parent_id
+						.clone()
+						.map(|id| parent::connect(pub_id::equals(id)))])
+					.flatten()
+					.collect(),
 				),
 			)
 		})

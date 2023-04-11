@@ -319,6 +319,8 @@ fn file_path_object_connect_ops<'db>(
 ) -> (CRDTOperation, file_path::Update<'db>) {
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
+	let pub_id = object_id.as_bytes().to_vec();
+
 	(
 		sync.shared_update(
 			sync::file_path::SyncId {
@@ -326,14 +328,12 @@ fn file_path_object_connect_ops<'db>(
 			},
 			"object",
 			json!(sync::object::SyncId {
-				pub_id: object_id.as_bytes()
+				pub_id: pub_id.clone()
 			}),
 		),
 		db.file_path().update(
 			file_path::id::equals(file_path_id),
-			vec![file_path::object::connect(object::pub_id::equals(
-				object_id.as_bytes().to_vec(),
-			))],
+			vec![file_path::object::connect(object::pub_id::equals(pub_id))],
 		),
 	)
 }

@@ -157,17 +157,15 @@ impl StatefulJob for ShallowIndexerJob {
 			.exec()
 			.await?
 			.into_iter()
-			.map(|file_path| (file_path.materialized_path, file_path.id))
+			.map(|file_path| (file_path.materialized_path, file_path.pub_id))
 			.unzip::<_, _, HashSet<_>, Vec<_>>();
 
-		let parent_id = parent_file_path.id;
-
 		// Adding our parent path id
-		to_retain.push(parent_id);
+		to_retain.push(parent_file_path.pub_id.clone());
 
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths =
-			retain_file_paths_in_location(location_id, to_retain, Some(parent_file_path), db)
+			retain_file_paths_in_location(location_id, to_retain, Some(&parent_file_path), db)
 				.await
 				.map_err(IndexerError::from)?;
 
@@ -194,8 +192,8 @@ impl StatefulJob for ShallowIndexerJob {
 								full_path: entry.path,
 								materialized_path,
 								created_at: entry.created_at,
-								file_id: 0, // To be set later
-								parent_id: Some(parent_id),
+								file_pub_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
+								parent_id: Some(parent_file_path.pub_id.clone()),
 								inode: entry.inode,
 								device: entry.device,
 							})
@@ -205,21 +203,6 @@ impl StatefulJob for ShallowIndexerJob {
 			// Sadly we have to collect here to be able to check the length so we can set
 			// the max file path id later
 			.collect::<Vec<_>>();
-
-		let total_paths = new_paths.len();
-
-		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = last_file_path_id_manager
-			.increment(location_id, total_paths as i32, db)
-			.await
-			.map_err(IndexerError::from)?;
-
-		new_paths
-			.iter_mut()
-			.zip(first_file_id..)
-			.for_each(|(entry, file_id)| {
-				entry.file_id = file_id;
-			});
 
 		let total_paths = new_paths.len();
 

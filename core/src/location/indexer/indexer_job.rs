@@ -156,7 +156,7 @@ impl StatefulJob for IndexerJob {
 		let removed_paths = retain_file_paths_in_location(
 			location_id,
 			dirs_ids.values().cloned().collect(),
-			maybe_parent_file_path,
+			maybe_parent_file_path.as_ref(),
 			db,
 		)
 		.await
@@ -193,7 +193,7 @@ impl StatefulJob for IndexerJob {
 									 * If we're dealing with a new path which its parent already   *
 									 * exist, we fetch its parent id from our `dirs_ids` map       *
 									 **************************************************************/
-									dirs_ids.get(parent_dir).copied()
+									dirs_ids.get(parent_dir).cloned()
 								}),
 								full_path: entry.path,
 								inode: entry.inode,
@@ -220,7 +220,7 @@ impl StatefulJob for IndexerJob {
 				entry.parent_id = entry
 					.full_path
 					.parent()
-					.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
+					.and_then(|parent_dir| dirs_ids.get(parent_dir).cloned());
 			}
 
 			dirs_ids.insert(entry.full_path.clone(), entry.file_pub_id.clone());

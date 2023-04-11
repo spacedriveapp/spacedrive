@@ -155,8 +155,8 @@ model FilePath {
     date_indexed  DateTime @default(now())
 
     // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
-    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    // children FilePath[] @relation("directory_file_paths")
+    parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    children FilePath[] @relation("directory_file_paths")
 
     key Key? @relation(fields: [key_id], references: [id])
 

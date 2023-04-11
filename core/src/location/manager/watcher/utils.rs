@@ -111,7 +111,7 @@ pub(super) async fn create_dir(
 		.create_file_path(
 			library,
 			materialized_path,
-			Some(parent_directory.id),
+			Some((parent_directory.id, parent_directory.pub_id)),
 			None,
 			inode,
 			device,
@@ -180,7 +180,7 @@ pub(super) async fn create_file(
 		.create_file_path(
 			library,
 			materialized_path,
-			Some(parent_directory.id),
+			Some((parent_directory.id, parent_directory.pub_id)),
 			Some(cas_id.clone()),
 			inode,
 			device,
@@ -219,7 +219,7 @@ pub(super) async fn create_file(
 
 	db.file_path()
 		.update(
-			file_path::location_id_id(location_id, created_file.id),
+			file_path::pub_id::equals(created_file.pub_id),
 			vec![file_path::object_id::set(Some(object.id))],
 		)
 		.exec()
@@ -397,10 +397,7 @@ async fn inner_update_file(
 						.map(|(field, value)| {
 							sync.shared_update(
 								sync::file_path::SyncId {
-									location: sync::location::SyncId {
-										pub_id: location.pub_id.clone(),
-									},
-									id: file_path.id,
+									pub_id: file_path.pub_id.clone(),
 								},
 								field,
 								value,
@@ -408,7 +405,7 @@ async fn inner_update_file(
 						})
 						.collect(),
 					db.file_path().update(
-						file_path::location_id_id(location_id, file_path.id),
+						file_path::pub_id::equals(file_path.pub_id.clone()),
 						db_params,
 					),
 				),
@@ -563,12 +560,10 @@ pub(super) async fn rename(
 		library
 			.db
 			.file_path()
-			.update(
-				file_path::location_id_id(file_path.location_id, file_path.id),
-				update_params,
-			)
+			.update(file_path::pub_id::equals(file_path.pub_id), update_params)
 			.exec()
 			.await?;
+
 		invalidate_query!(library, "locations.getExplorerData");
 	}
 
@@ -621,7 +616,7 @@ pub(super) async fn remove_by_file_path(
 				library
 					.db
 					.file_path()
-					.delete(file_path::location_id_id(location_id, file_path.id))
+					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
 					.exec()
 					.await?;
 
