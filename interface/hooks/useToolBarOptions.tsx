@@ -11,8 +11,8 @@ import {
 	Tag
 } from 'phosphor-react';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { KeyManager } from '../KeyManager';
-import OptionsPanel from './OptionsPanel';
+import OptionsPanel from '../app/$libraryId/Explorer/OptionsPanel';
+import { KeyManager } from '../app/$libraryId/KeyManager';
 
 export type RoutePaths =
 	| 'overview'

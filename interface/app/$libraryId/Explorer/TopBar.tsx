@@ -1,13 +1,12 @@
 import clsx from 'clsx';
-import { AnimatePresence, motion } from 'framer-motion';
 import { CaretLeft, CaretRight, MagnifyingGlass } from 'phosphor-react';
 import { useRef } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
+import { RoutePaths, groupKeys, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
-import { RoutePaths, groupKeys, useToolBarRouteOptions } from './useToolBarOptions';
 
 export default () => {
 	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
