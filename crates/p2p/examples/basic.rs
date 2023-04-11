@@ -102,6 +102,7 @@ async fn main() {
 	});
 
 	if env::var("PING").as_deref() != Ok("skip") {
+		let manager = manager.clone();
 		tokio::spawn(async move {
 			sleep(Duration::from_millis(500)).await;
 
@@ -125,4 +126,6 @@ async fn main() {
 	// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 	tokio::time::sleep(Duration::from_secs(100)).await;
+
+	manager.shutdown().await; // It is super highly recommended to shutdown the manager before exiting your application so an Mdns update can be broadcasted
 }

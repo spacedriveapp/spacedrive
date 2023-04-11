@@ -7,7 +7,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
+	DiscoveredPeer, Event, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
 	MetadataManager, PeerId,
 };
 
@@ -130,6 +130,13 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 
 	pub async fn broadcast(&self, data: Vec<u8>) {
 		self.emit(ManagerStreamAction::BroadcastData(data)).await;
+	}
+
+	pub async fn shutdown(&self) {
+		self.event_stream_tx
+			.send(ManagerStreamAction::Event(Event::Shutdown))
+			.await
+			.unwrap();
 	}
 }
 

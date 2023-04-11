@@ -9,7 +9,7 @@ use libp2p::{
 	Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
@@ -87,6 +87,11 @@ where
 					match event {
 						SwarmEvent::Behaviour(event) => {
 							if let Some(event) = self.handle_manager_stream_action(event) {
+								if let Event::Shutdown = event {
+									info!("Shutting down P2P Manager...");
+									self.mdns.shutdown().await;
+								}
+
 								return Some(event);
 							}
 						},

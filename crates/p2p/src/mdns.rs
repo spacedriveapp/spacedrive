@@ -257,4 +257,10 @@ where
 				Box::pin(sleep_until(Instant::now() + Duration::from_millis(200)));
 		}
 	}
+
+	pub async fn shutdown(&self) {
+		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
+			error!("error shutting down mdns daemon: {}", err);
+		});
+	}
 }

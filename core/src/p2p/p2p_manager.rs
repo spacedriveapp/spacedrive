@@ -290,4 +290,8 @@ impl P2PManager {
 			i.elapsed()
 		);
 	}
+
+	pub async fn shutdown(&self) {
+		self.manager.shutdown().await;
+	}
 }
