@@ -304,9 +304,9 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectFilesByGlob,
 			"ignore build directory".to_string(),
-			ParametersPerKind::RejectFilesByGlob(
-				vec![Glob::new("{**/target/*,**/target}").unwrap()],
-			),
+			ParametersPerKind::RejectFilesByGlob(vec![
+				Glob::new("{**/target/*,**/target}").unwrap()
+			]),
 		);
 
 		assert!(rule.apply(project_file).await.unwrap());
