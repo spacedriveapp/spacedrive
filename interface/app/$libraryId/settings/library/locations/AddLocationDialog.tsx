@@ -3,11 +3,12 @@ import { RSPCError } from '@rspc/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Dialog, RadixCheckbox, UseDialogProps, useDialog } from '@sd/ui';
+import { useLibraryMutation } from '@sd/client';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { Platform, usePlatform } from '~/util/Platform';
+import { IndexerRuleEditor } from './IndexerRuleEditor';
 
 const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
 
@@ -46,7 +47,6 @@ export const AddLocationDialog = (props: Props) => {
 	const queryClient = useQueryClient();
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
-	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const [remoteError, setRemoteError] = useState<null | RemoteErrorFormMessage>(null);
 
@@ -160,28 +160,11 @@ export const AddLocationDialog = (props: Props) => {
 
 			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">File indexing rules:</p>
-				<div className="grid w-full grid-cols-2 gap-4 text-xs font-medium">
+				<div className="w-full text-xs font-medium">
 					<Controller
 						name="indexer_rules_ids"
+						render={({ field }) => <IndexerRuleEditor field={field} />}
 						control={form.control}
-						render={({ field }) => (
-							<>
-								{indexerRulesList.data?.map((rule) => (
-									<RadixCheckbox
-										key={rule.id}
-										label={rule.name}
-										checked={field.value.includes(rule.id)}
-										onCheckedChange={(checked) =>
-											field.onChange(
-												checked && checked !== 'indeterminate'
-													? [...field.value, rule.id]
-													: field.value.filter((fieldValue) => fieldValue !== rule.id)
-											)
-										}
-									/>
-								))}
-							</>
-						)}
 					/>
 				</div>
 			</div>

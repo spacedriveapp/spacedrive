@@ -1,32 +1,64 @@
+// import { PlusSquare } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { ControllerRenderProps, FieldPath } from 'react-hook-form';
 import { useLibraryQuery } from '@sd/client';
-import { Card, tw } from '@sd/ui';
+import { Button, Card } from '@sd/ui';
 
-interface Props {
-	locationId: string;
+interface FormFields {
+	indexer_rules_ids: number[];
 }
 
-export const Rule = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
+type FieldType = ControllerRenderProps<
+	FormFields,
+	Exclude<FieldPath<FormFields>, `indexer_rules_ids.${number}`>
+>;
 
-export function IndexerRuleEditor({ locationId }: Props) {
+export interface IndexerRuleEditorProps<T extends FieldType> {
+	field: T;
+	editable?: boolean;
+}
+
+export function IndexerRuleEditor<T extends FieldType>({
+	field,
+	editable
+}: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list'], {});
-	const currentLocationIndexerRules = useLibraryQuery(
-		['locations.indexer_rules.listForLocation', Number(locationId)],
-		{}
-	);
 
 	return (
-		<div className="flex flex-col">
-			{/* <Input /> */}
-			{/* <Card className="flex flex-wrap mb-2 space-x-1">
-				{currentLocationIndexerRules.data?.map((rule) => (
-					<Rule key={rule.indexer_rule.id}>{rule.indexer_rule.name}</Rule>
-				))}
-			</Card> */}
-			<Card className="mb-2 flex flex-wrap space-x-1">
-				{listIndexerRules.data?.map((rule) => (
-					<Rule key={rule.id}>{rule.name}</Rule>
-				))}
-			</Card>
-		</div>
+		<Card className="mb-2 flex flex-wrap justify-evenly">
+			{listIndexerRules.data
+				? listIndexerRules.data.map((rule) => {
+						const { id, name } = rule;
+						const enabled = field.value.includes(id);
+						return (
+							<Button
+								key={id}
+								size="sm"
+								onClick={() =>
+									field.onChange(
+										enabled
+											? field.value.filter((fieldValue) => fieldValue !== rule.id)
+											: [...field.value, rule.id]
+									)
+								}
+								variant={enabled ? 'colored' : 'outline'}
+								className={clsx('m-1 flex-auto', enabled && 'border-accent bg-accent')}
+							>
+								{name}
+							</Button>
+						);
+				  })
+				: editable || <p>No indexer rules available</p>}
+			{/* {editable && (
+				<Button
+					size="icon"
+					onClick={() => console.log('TODO')}
+					variant="outline"
+					className="m-1 flex-[0_0_99%] text-center leading-none"
+				>
+					<PlusSquare weight="light" size={18} className="inline" />
+				</Button>
+			)} */}
+		</Card>
 	);
 }
