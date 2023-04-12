@@ -29,6 +29,7 @@ import EraseDialog from './EraseDialog';
 interface Props extends PropsWithChildren {
 	data: ExplorerItem;
 	className?: string;
+	onRename: () => void;
 }
 
 export default ({ data, className, ...props }: Props) => {
@@ -69,7 +70,7 @@ export default ({ data, className, ...props }: Props) => {
 
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Item label="Rename" keybind="Enter" />
+				<ContextMenu.Item label="Rename" keybind="Enter" onClick={props.onRename} />
 
 				<ContextMenu.Item
 					label="Cut"

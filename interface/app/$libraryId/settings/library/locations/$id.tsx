@@ -1,77 +1,103 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
 import { useParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, forms, tw } from '@sd/ui';
 import { Tooltip } from '@sd/ui';
+import { showAlertDialog } from '~/components/AlertDialog';
 import ModalLayout from '../../ModalLayout';
 import { IndexerRuleEditor } from './IndexerRuleEditor';
 
-const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const Label = tw.label`mb-1 text-sm font-medium`;
 const FlexCol = tw.label`flex flex-col flex-1`;
+const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const { Form, Input, Switch, useZodForm, z } = forms;
 
 const schema = z.object({
-	displayName: z.string(),
-	localPath: z.string(),
-	indexer_rules_ids: z.array(z.string()),
-	generatePreviewMedia: z.boolean(),
+	name: z.string(),
+	path: z.string(),
+	hidden: z.boolean(),
+	indexerRulesIds: z.array(z.number()),
 	syncPreviewMedia: z.boolean(),
-	hidden: z.boolean()
+	generatePreviewMedia: z.boolean()
 });
 
 export const Component = () => {
-	const queryClient = useQueryClient();
-	const { id } = useParams<{
-		id: string;
-	}>();
-
-	useLibraryQuery(['locations.getById', Number(id)], {
-		onSuccess: (data) => {
-			if (data && !isDirty)
-				form.reset({
-					displayName: data.name,
-					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule.id.toString()),
-					generatePreviewMedia: data.generate_preview_media,
-					syncPreviewMedia: data.sync_preview_media,
-					hidden: data.hidden
-				});
+	const form = useZodForm({
+		schema,
+		defaultValues: {
+			indexerRulesIds: []
 		}
 	});
-
-	const form = useZodForm({
-		schema
-	});
-
+	const params = useParams<{ id: string }>();
+	const navigate = useNavigate();
+	const fullRescan = useLibraryMutation('locations.fullRescan');
+	const queryClient = useQueryClient();
+	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(true);
 	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log({ e }),
+		onError: () => {
+			showAlertDialog({
+				title: 'Error',
+				value: 'Failed to update location settings'
+			});
+		},
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		updateLocation.mutateAsync({
-			id: Number(id),
-			name: data.displayName,
-			sync_preview_media: data.syncPreviewMedia,
-			generate_preview_media: data.generatePreviewMedia,
-			hidden: data.hidden,
-			indexer_rules_ids: []
-		})
+	const { isDirty } = form.formState;
+	// Default to first location if no id is provided
+	// fallback to 0 (which should always be an invalid location) when parsing fails
+	const locationId = (params.id ? Number(params.id) : 1) || 0;
+	useLibraryQuery(['locations.getById', locationId], {
+		onSettled: (data, error: Error | null) => {
+			if (isFirstLoad) {
+				if (!data && error == null) error = new Error('Failed to load location settings');
+
+				// Return to previous page when no data is available at first load
+				if (error) navigate(-1);
+				else setIsFirstLoad(false);
+			}
+
+			if (error) {
+				showAlertDialog({
+					title: 'Error',
+					value: 'Failed to load location settings'
+				});
+			} else if (data && (isFirstLoad || !isDirty)) {
+				form.reset({
+					path: data.path,
+					name: data.name,
+					hidden: data.hidden,
+					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
+					syncPreviewMedia: data.sync_preview_media,
+					generatePreviewMedia: data.generate_preview_media
+				});
+			}
+		}
+	});
+
+	const onSubmit = form.handleSubmit(
+		({ name, hidden, indexerRulesIds, syncPreviewMedia, generatePreviewMedia }) =>
+			updateLocation.mutateAsync({
+				id: locationId,
+				name,
+				hidden,
+				indexer_rules_ids: indexerRulesIds,
+				sync_preview_media: syncPreviewMedia,
+				generate_preview_media: generatePreviewMedia
+			})
 	);
 
-	const fullRescan = useLibraryMutation('locations.fullRescan');
-
-	const { isDirty } = form.formState;
-
 	return (
-		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
 				title="Edit Location"
 				topRight={
@@ -94,14 +120,19 @@ export const Component = () => {
 			>
 				<div className="flex space-x-4">
 					<FlexCol>
-						<Input label="Display Name" {...form.register('displayName')} />
+						<Input label="Display Name" {...form.register('name')} />
 						<InfoText>
 							The name of this Location, this is what will be displayed in the sidebar. Will not
 							rename the actual folder on disk.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<Input label="Local Path" {...form.register('localPath')} />
+						<Input
+							label="Local Path"
+							readOnly={true}
+							className="text-ink-dull"
+							{...form.register('path')}
+						/>
 						<InfoText>
 							The path to this Location, this is where the files will be stored on disk.
 						</InfoText>
@@ -128,18 +159,22 @@ export const Component = () => {
 					</ToggleSection>
 				</div>
 				<Divider />
-				<div className="pointer-events-none flex flex-col opacity-30">
+				<div className="flex flex-col">
 					<Label className="grow">Indexer rules</Label>
 					<InfoText className="mt-0 mb-1">
 						Indexer rules allow you to specify paths to ignore using RegEx.
 					</InfoText>
-					<IndexerRuleEditor locationId={id!} />
+					<Controller
+						name="indexerRulesIds"
+						render={({ field }) => <IndexerRuleEditor field={field} />}
+						control={form.control}
+					/>
 				</div>
 				<Divider />
 				<div className="flex space-x-5">
 					<FlexCol>
 						<div>
-							<Button onClick={() => fullRescan.mutate(Number(id))} size="sm" variant="outline">
+							<Button onClick={() => fullRescan.mutate(locationId)} size="sm" variant="outline">
 								<ArrowsClockwise className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Full Reindex
 							</Button>
@@ -164,7 +199,7 @@ export const Component = () => {
 					</FlexCol>
 					<FlexCol>
 						<div>
-							<Button size="sm" variant="colored" className="border-red-500 bg-red-500 ">
+							<Button size="sm" variant="colored" className="border-red-500 bg-red-500">
 								<Trash className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Delete
 							</Button>
