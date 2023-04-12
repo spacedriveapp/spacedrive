@@ -7,8 +7,8 @@ use crate::{
 
 #[derive(Clone)]
 pub struct HeaderObjectIdentifier {
-	key: EncryptedKey, // technically a key, although used as an identifier here
-	salt: Salt,
+	pub(super) key: EncryptedKey, // technically a key, although used as an identifier here
+	pub(super) salt: Salt,
 }
 
 pub struct HeaderObject {

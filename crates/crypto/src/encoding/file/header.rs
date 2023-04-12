@@ -1,7 +1,12 @@
-use super::{keyslot::Keyslot, object::HeaderObject, KEYSLOT_LIMIT, OBJECT_LIMIT};
+use super::{keyslot::Keyslot, object::HeaderObject, HeaderEncode, KEYSLOT_LIMIT, OBJECT_LIMIT};
 use crate::{
 	hashing::Hasher,
-	types::{Aad, Algorithm, DerivationContext, HashingAlgorithm, Key, Nonce, Salt, SecretKey},
+	primitives::AAD_HEADER_LEN,
+	types::{
+		Aad, Algorithm, DerivationContext, HashingAlgorithm, Key, MagicBytes, Nonce, Salt,
+		SecretKey,
+	},
+	utils::ToArray,
 	Error, Protected, Result,
 };
 
@@ -13,14 +18,20 @@ pub struct Header {
 	pub objects: Vec<HeaderObject>,
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub enum HeaderVersion {
 	V1,
 }
 
+impl std::fmt::Display for HeaderVersion {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::V1 => write!(f, "V1"),
+		}
+	}
+}
+
 impl Header {
-	// TODO(brxken128): make the AAD not static
-	// should be brought in from the raw file bytes but bincode makes that harder
-	// as the first 32~ bytes of the file *may* change
 	#[must_use]
 	pub fn new(algorithm: Algorithm) -> Self {
 		Self {
@@ -32,14 +43,108 @@ impl Header {
 		}
 	}
 
-	pub fn from_reader() -> Result<(Self, Aad)> {
-		todo!()
+	pub fn to_writer<W, const I: usize>(
+		&self,
+		writer: &mut W,
+		magic_bytes: MagicBytes<I>,
+	) -> Result<()>
+	where
+		W: std::io::Write,
+	{
+		let b = self.as_bytes();
+
+		writer.write_all(magic_bytes.inner())?;
+
+		// we're good here for up to 4096mib~ (headers should never be this large)
+		#[allow(clippy::cast_possible_truncation)]
+		writer.write_all(&(b.len() as u32).to_le_bytes())?;
+		writer.write_all(&b)?;
+
+		Ok(())
+	}
+
+	#[cfg(feature = "async")]
+	pub async fn to_writer_async<W, const I: usize>(
+		&self,
+		writer: &mut W,
+		magic_bytes: MagicBytes<I>,
+	) -> Result<()>
+	where
+		W: tokio::io::AsyncWriteExt + tokio::io::AsyncSeekExt + Unpin + Send,
+	{
+		let b = self.as_bytes();
+
+		writer.write_all(magic_bytes.inner()).await?;
+
+		// we're good here for up to 4096mib~ (headers should never be this large)
+		#[allow(clippy::cast_possible_truncation)]
+		writer.write_all(&(b.len() as u32).to_le_bytes()).await?;
+		writer.write_all(&b).await?;
+
+		Ok(())
+	}
+
+	pub fn from_reader<R, const I: usize>(
+		reader: &mut R,
+		magic_bytes: MagicBytes<I>,
+	) -> Result<(Self, Aad)>
+	where
+		R: std::io::Read + std::io::Seek,
+	{
+		let mut b = [0u8; I];
+		reader.read_exact(&mut b)?;
+
+		if &b != magic_bytes.inner() {
+			return Err(Error::Validity);
+		}
+
+		let mut len = [0u8; 4];
+		reader.read_exact(&mut len)?;
+		let len = u32::from_le_bytes(len);
+
+		#[allow(clippy::cast_possible_truncation)]
+		let mut header_bytes = vec![0u8; len as usize];
+		reader.read_exact(&mut header_bytes)?;
+		let h = Self::from_reader_raw(&mut std::io::Cursor::new(&header_bytes))?;
+
+		Ok((h, Aad::Header(header_bytes[..AAD_HEADER_LEN].to_array()?)))
+	}
+
+	#[cfg(feature = "async")]
+	pub async fn from_reader_async<R, const I: usize>(
+		reader: &mut R,
+		magic_bytes: MagicBytes<I>,
+	) -> Result<(Self, Aad)>
+	where
+		R: tokio::io::AsyncReadExt + tokio::io::AsyncSeekExt + Unpin + Send,
+	{
+		let mut b = [0u8; I];
+		reader.read_exact(&mut b).await?;
+
+		if &b != magic_bytes.inner() {
+			return Err(Error::Validity);
+		}
+
+		let mut len = [0u8; 4];
+		reader.read_exact(&mut len).await?;
+		let len = u32::from_le_bytes(len);
+
+		#[allow(clippy::cast_possible_truncation)]
+		let mut header_bytes = vec![0u8; len as usize];
+		reader.read_exact(&mut header_bytes).await?;
+		let h = Self::from_reader_raw(&mut std::io::Cursor::new(&header_bytes))?;
+
+		Ok((h, Aad::Header(header_bytes[..AAD_HEADER_LEN].to_array()?)))
 	}
 
 	#[must_use]
 	pub fn generate_aad(&self) -> Aad {
-		// Aad::Null
-		todo!()
+		let mut o = [0u8; 38];
+		o[..2].copy_from_slice(&[0xFA, 0xDA]);
+		o[2..4].copy_from_slice(&self.version.as_bytes());
+		o[4..6].copy_from_slice(&self.algorithm.as_bytes());
+		o[6..38].copy_from_slice(&self.nonce.as_bytes());
+		Aad::Header(o)
 	}
 
 	pub fn remove_keyslot(&mut self, index: usize) -> Result<()> {
@@ -198,19 +303,30 @@ impl Header {
 	}
 }
 
-// #[cfg(test)]
-// #[allow(clippy::unwrap_used)]
-// mod tests {
-// 	use crate::encoding::Header;
-// 	use binrw::BinWrite;
-// 	use std::io::Cursor;
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+	use subtle::ConstantTimeEq;
 
-// 	#[test]
-// 	fn t() {
-// 		let mut w = Cursor::new(vec![]);
-// 		Header::new(crate::types::Algorithm::XChaCha20Poly1305)
-// 			.write_le(&mut w)
-// 			.unwrap();
-// 		assert_eq!(w.into_inner().len(), 258);
-// 	}
-// }
+	use crate::{encoding::Header, types::MagicBytes};
+	use std::io::{Cursor, Seek};
+
+	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
+
+	#[test]
+	fn encode_and_decode() {
+		let mut w = Cursor::new(vec![]);
+		let h_source = Header::new(crate::types::Algorithm::XChaCha20Poly1305);
+
+		h_source.to_writer(&mut w, MAGIC_BYTES).unwrap();
+		w.rewind().unwrap();
+
+		let (h_read, aad) = Header::from_reader(&mut w, MAGIC_BYTES).unwrap();
+
+		assert_eq!(w.into_inner().len(), 294);
+		assert_eq!(h_source.algorithm, h_read.algorithm);
+		assert_eq!(h_source.version, h_read.version);
+		assert!(bool::from(h_source.nonce.ct_eq(&h_read.nonce)));
+		assert!(bool::from(h_source.generate_aad().ct_eq(&aad)));
+	}
+}

@@ -60,6 +60,7 @@ impl Keyslot {
 }
 
 impl Keyslot {
+	#[must_use]
 	pub fn random() -> Self {
 		Self {
 			hash_salt: Salt::generate(),
@@ -72,19 +73,3 @@ impl Keyslot {
 		}
 	}
 }
-
-// #[cfg(test)]
-// #[allow(clippy::unwrap_used)]
-// mod tests {
-// 	use std::io::Cursor;
-
-// 	use super::Keyslot;
-// 	use binrw::BinWrite;
-
-// 	#[test]
-// 	fn t() {
-// 		let mut w = Cursor::new(vec![]);
-// 		Keyslot::random().write_le(&mut w).unwrap();
-// 		assert_eq!(w.into_inner().len(), 101);
-// 	}
-// }
