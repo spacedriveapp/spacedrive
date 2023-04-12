@@ -56,15 +56,18 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 					],
 					// https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
 					// https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW14
-					#[cfg(target_os = "macos")]
+					#[cfg(any(target_os = "ios", target_os = "macos"))]
 					vec![
-						Glob::new("/{System,Network,Library,Applications}"),
-						Glob::new("/Users/*/{Library,Applications}"),
 						Glob::new("**/.{DS_Store,AppleDouble,LSOverride}"),
 						// Icon must end with two \r
 						Glob::new("**/Icon\r\r"),
 						// Thumbnails
 						Glob::new("**/._*"),
+					],
+					#[cfg(target_os = "macos")]
+					vec![
+						Glob::new("/{System,Network,Library,Applications}"),
+						Glob::new("/Users/*/{Library,Applications}"),
 						// Files that might appear in the root of a volume
 						Glob::new("**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}"),
 						// Directories potentially created on remote AFP share
@@ -83,6 +86,11 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 						Glob::new("**/.Trash-*"),
 						// .nfs files are created when an open file is removed but is still being accessed
 						Glob::new("**/.nfs*"),
+					],
+					#[cfg(target_os = "android")]
+					vec![
+						Glob::new("**/.nomedia"),
+						Glob::new("**/.thumbnails"),
 					],
 					#[cfg(target_family = "unix")]
 					vec![
