@@ -13,8 +13,9 @@ edition = "2021"
 rust-version = "1.65.0"
 
 [features]
+default = ["sys"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
-encoding = ["dep:bincode"]
+bincode = ["dep:bincode"]
 sys = ["dep:linux-keyutils", "dep:security-framework"]
 async = ["dep:tokio"]
 
@@ -31,7 +32,7 @@ blake3 = { version = "1.3.3", features = ["traits-preview"] }
 # constant-time
 subtle = "2.4.1"
 # remove git dep once 0.3.0+ releases
-cmov = "3.0.0"
+cmov = "0.3.0"
 
 # aeads
 aes-gcm = "0.10.1"
@@ -112,4 +113,3 @@ harness = false
 [[example]]
 name = "file_encryption"
 path = "examples/file_encryption.rs"
-required-features = ["encoding"]
