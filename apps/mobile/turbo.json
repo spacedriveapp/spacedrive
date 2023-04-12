@@ -1,0 +1,10 @@
+{
+    "extends": [
+        "//"
+    ],
+    "pipeline": {
+        "build": {
+           "inputs": ["../assets/lottie/**", "../assets/icons/**", "../assets/images/**", "../assets/svgs/**"]
+        }
+    }
+}

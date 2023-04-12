@@ -1,0 +1,11 @@
+{
+    "extends": [
+        "//"
+    ],
+    "pipeline": {
+        "gen": {
+           "inputs": ["icons/**", "images/**", "scripts/generate.mjs"],
+           "outputs": ["icons/**", "images/**"]
+        }
+    }
+}

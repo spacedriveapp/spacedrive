@@ -4,7 +4,8 @@
  *
  * Usage:
  *   1. Add the names of your asset folders to the `assetFolders` array.
- *   2. Run `pnpm assets gen` to generate the index files.
+ * 	 2. Add the names of your asset folders to the `inputs` and `outputs` array of `turbo.json`
+ *   3. Run `pnpm assets gen` to generate the index files.
  *
  * The generated index files will have the name `index.ts` and will be located in the root of each asset folder.
  */
