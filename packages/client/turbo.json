@@ -1,0 +1,14 @@
+{
+    "extends": [
+        "//"
+    ],
+    "pipeline": {
+        "build": {
+           "inputs": ["src/**", "./*.json", "./*.js", "../config/eslint/web.js"],
+           "outputs": ["dist/**", "./tsconfig.tsbuildinfo"]
+        },
+        "lint": {
+           "inputs": ["src/**", "./*.json", "./*.js", "../config/eslint/web.js"]
+        }
+    }
+}
