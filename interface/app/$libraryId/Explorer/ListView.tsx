@@ -17,6 +17,7 @@ import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
+import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
 import { TOP_BAR_HEIGHT } from './TopBar';
@@ -42,13 +43,16 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 			)}
 			contextMenuClassName="w-full"
 		>
-			<div role="row" className={clsx('flex items-center')}>
+			<div role="row" className={'flex items-center'}>
 				{props.row.getVisibleCells().map((cell) => {
 					return (
 						<div
 							role="cell"
 							key={cell.id}
-							className="table-cell truncate px-4 text-xs text-ink-dull first:text-ink"
+							className={clsx(
+								'table-cell truncate px-4 text-xs text-ink-dull',
+								cell.column.columnDef.meta?.className
+							)}
 							style={{
 								width: cell.column.getSize()
 							}}
@@ -84,6 +88,7 @@ export default () => {
 			{
 				header: 'Name',
 				minSize: 200,
+				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
 					const filePathData = getItemFilePath(file);
 					const fileName = `${filePathData?.name}${
@@ -95,16 +100,20 @@ export default () => {
 				cell: (cell) => {
 					const file = cell.row.original;
 					const filePathData = getItemFilePath(file);
-					const fileName = `${filePathData?.name}${
-						filePathData?.extension && `.${filePathData?.extension}`
-					}`;
+					const selected = explorerStore.selectedRowIndex === cell.row.index;
 
 					return (
-						<div className="flex flex-row items-center overflow-hidden">
-							<div className="mr-3 flex h-6 w-12 shrink-0 items-center justify-center">
+						<div className="relative flex items-center">
+							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
 								<Thumb data={file} size={35} />
 							</div>
-							<span className="truncate text-xs">{fileName}</span>
+							{filePathData && (
+								<RenameTextBox
+									filePathData={filePathData}
+									selected={selected}
+									activeClassName="absolute z-50 top-0.5 left-[58px] max-w-[calc(100%-60px)]"
+								/>
+							)}
 						</div>
 					);
 				}
@@ -142,7 +151,7 @@ export default () => {
 				accessorFn: (file) => getExplorerItemData(file).cas_id
 			}
 		],
-		[]
+		[explorerStore.selectedRowIndex, explorerStore.isRenaming]
 	);
 
 	const table = useReactTable({
@@ -244,27 +253,35 @@ export default () => {
 	}, [rows.length, rowVirtualizer]);
 
 	// Select item with arrow up key
-	useKey('ArrowUp', (e) => {
-		e.preventDefault();
-		if (explorerStore.selectedRowIndex > 0) {
-			const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
-			const newIndex = rows[currentIndex - 1]?.index;
-			if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
-		}
-	});
+	useKey(
+		'ArrowUp',
+		(e) => {
+			e.preventDefault();
+			if (explorerStore.selectedRowIndex > 0) {
+				const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
+				const newIndex = rows[currentIndex - 1]?.index;
+				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
+			}
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
 	// Select item with arrow down key
-	useKey('ArrowDown', (e) => {
-		e.preventDefault();
-		if (
-			explorerStore.selectedRowIndex !== -1 &&
-			explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-		) {
-			const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
-			const newIndex = rows[currentIndex + 1]?.index;
-			if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
-		}
-	});
+	useKey(
+		'ArrowDown',
+		(e) => {
+			e.preventDefault();
+			if (
+				explorerStore.selectedRowIndex !== -1 &&
+				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
+			) {
+				const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
+				const newIndex = rows[currentIndex + 1]?.index;
+				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
+			}
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
 	return (
 		<div role="table" className="table w-full overflow-x-auto">
@@ -283,7 +300,7 @@ export default () => {
 								<div
 									role="columnheader"
 									key={header.id}
-									className="relative truncate px-4 py-2 text-xs first:pl-[92px]"
+									className="relative truncate px-4 py-2 text-xs first:pl-24"
 									style={{
 										width:
 											i === 0

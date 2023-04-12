@@ -4,6 +4,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { ViewItem, useExplorerView } from './View';
 import { getItemFilePath } from './util';
@@ -41,24 +42,26 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 				<Thumb data={data} size={explorerStore.gridItemSize} />
 			</div>
 			<div className="flex flex-col justify-center">
-				<span
-					className={clsx(
-						'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-xs font-medium',
-						selected && 'bg-accent text-white'
-					)}
-				>
-					{filePathData?.name}
-					{filePathData?.extension && `.${filePathData.extension}`}
-				</span>
-				{explorerStore.showBytesInGridView && (
-					<span
-						className={clsx(
-							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
-						)}
-					>
-						{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-					</span>
+				{filePathData && (
+					<RenameTextBox
+						filePathData={filePathData}
+						selected={selected}
+						className={clsx('text-center font-medium', selected && 'bg-accent text-white')}
+						style={{
+							maxHeight: explorerStore.gridItemSize / 3
+						}}
+					/>
 				)}
+				{explorerStore.showBytesInGridView &&
+					(!explorerStore.isRenaming || (explorerStore.isRenaming && !selected)) && (
+						<span
+							className={clsx(
+								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
+							)}
+						>
+							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+						</span>
+					)}
 			</div>
 		</ViewItem>
 	);
@@ -133,23 +136,31 @@ export default () => {
 	}, [amountOfRows, rowVirtualizer]);
 
 	// Select item with arrow up key
-	useKey('ArrowUp', (e) => {
-		e.preventDefault();
-		if (explorerStore.selectedRowIndex > 0) {
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
-		}
-	});
+	useKey(
+		'ArrowUp',
+		(e) => {
+			e.preventDefault();
+			if (explorerStore.selectedRowIndex > 0) {
+				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
+			}
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
 	// Select item with arrow down key
-	useKey('ArrowDown', (e) => {
-		e.preventDefault();
-		if (
-			explorerStore.selectedRowIndex !== -1 &&
-			explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-		) {
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
-		}
-	});
+	useKey(
+		'ArrowDown',
+		(e) => {
+			e.preventDefault();
+			if (
+				explorerStore.selectedRowIndex !== -1 &&
+				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
+			) {
+				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
+			}
+		},
+		{ when: !explorerStore.isRenaming }
+	);
 
 	if (!width) return null;
 	return (
