@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use indoc::printdoc;
-use sd_crypto::{encoding::FileHeader, types::MagicBytes};
+use sd_crypto::{
+	encoding::Header,
+	types::{Aad, MagicBytes},
+};
 use std::path::PathBuf;
 use tokio::fs::File;
 
@@ -20,22 +23,24 @@ async fn main() -> Result<()> {
 	let args = Args::parse();
 
 	let mut reader = File::open(args.path).await.context("unable to open file")?;
-	let header = FileHeader::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
-	print_crypto_details(&header);
+	let (header, aad) = Header::from_reader_async(&mut reader, ENCRYPTED_FILE_MAGIC_BYTES).await?;
+	print_crypto_details(&header, &aad);
 
 	Ok(())
 }
 
-fn print_crypto_details(header: &FileHeader) {
+fn print_crypto_details(header: &Header, aad: &Aad) {
 	printdoc! {"
         Header version: {version}
         Encryption algorithm: {algorithm}
 		Nonce (hex): {nonce}
-        AAD (hex): {hex}
+        Expected AAD (hex): {exp_aad}
+		Found AAD (hex): {read_aad}
     ",
-		version = header.get_version(),
-		algorithm = header.get_algorithm(),
-		nonce = hex::encode(header.get_nonce().inner()),
-		hex = hex::encode(header.get_aad().inner())
+		version = header.version,
+		algorithm = header.algorithm,
+		nonce = hex::encode(header.nonce.inner()),
+		exp_aad = hex::encode(header.generate_aad().inner()),
+		read_aad = hex::encode(aad.inner())
 	};
 }
