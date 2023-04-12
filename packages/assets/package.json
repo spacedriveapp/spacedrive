@@ -4,6 +4,7 @@
 	"license": "GPL-3.0-only",
 	"private": true,
 	"scripts": {
+		"build": "pnpm gen",
 		"gen": "node ./scripts/generate.mjs"
 	}
 }

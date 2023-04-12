@@ -5,7 +5,7 @@
     "pipeline": {
         "gen": {
            "inputs": ["icons/**", "images/**", "scripts/generate.mjs"],
-           "outputs": ["icons/**", "images/**"]
+           "outputs": ["icons/**", "images/**", "lottie/**", "deps/**", "svgs/**"]
         }
     }
 }

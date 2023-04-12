@@ -4,7 +4,8 @@
     ],
     "pipeline": {
         "build": {
-           "inputs": ["../assets/deps/**", "../assets/icons/**", "../assets/images/**", "../assets/svgs/**"],
+            "inputs": ["src/**", "./*.json", "./*.js", "./*.tsx", "../packages/config/eslint/web.js"],
+             "outputs": ["dist/**", "./tsconfig.tsbuildinfo", "assets/**", "components/**"]
         }
     }
 }
