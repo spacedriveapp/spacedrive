@@ -31,7 +31,8 @@ const state = {
 		actionType: 'Cut',
 		active: false
 	},
-	quickViewObject: null as ExplorerItem | null
+	quickViewObject: null as ExplorerItem | null,
+	isRenaming: false
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.

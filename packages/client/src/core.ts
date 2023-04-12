@@ -39,6 +39,7 @@ export type Procedures = {
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
@@ -257,6 +258,8 @@ export type PeerMetadata = { name: string, operating_system: OperatingSystem | n
 export type RelationOperation = { relation_item: string, relation_group: string, relation: string, data: RelationOperationData }
 
 export type RelationOperationData = "Create" | { Update: { field: string, value: any } } | "Delete"
+
+export type RenameFileArgs = { location_id: number, file_name: string, new_file_name: string }
 
 export type RestoreBackupArgs = { password: string, secret_key: string, path: string }
 
