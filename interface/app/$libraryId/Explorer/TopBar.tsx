@@ -23,6 +23,8 @@ import OptionsPanel from './OptionsPanel';
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
 
+export const TOP_BAR_HEIGHT = 46;
+
 export type TopBarProps = {
 	showSeparator?: boolean;
 };
@@ -96,9 +98,10 @@ export default (props: TopBarProps) => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'max-w duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent bg-app pl-3 transition-[background-color] transition-[border-color] ease-out',
+					'max-w duration-250 absolute left-0 z-50 flex w-full shrink-0 items-center overflow-hidden border-b border-transparent bg-app pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
+				style={{ height: TOP_BAR_HEIGHT }}
 			>
 				<div className="flex">
 					<Tooltip label="Navigate back">

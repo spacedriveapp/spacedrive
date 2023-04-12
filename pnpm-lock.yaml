@@ -432,6 +432,7 @@ importers:
       '@tailwindcss/forms': ^0.5.3
       '@tanstack/react-query': ^4.12.0
       '@tanstack/react-query-devtools': ^4.22.0
+      '@tanstack/react-table': ^8.8.5
       '@tanstack/react-virtual': 3.0.0-beta.18
       '@types/babel-core': ^6.25.7
       '@types/byte-size': ^8.1.0
@@ -488,6 +489,7 @@ importers:
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
       '@tanstack/react-query': 4.24.4_biqbaboplfbrettd7655fr4n2y
       '@tanstack/react-query-devtools': 4.22.0_pkeil6ml7pq7xvil3imldjs2sa
+      '@tanstack/react-table': 8.8.5_biqbaboplfbrettd7655fr4n2y
       '@tanstack/react-virtual': 3.0.0-beta.18_react@18.2.0
       '@vitejs/plugin-react': 2.2.0_vite@4.1.4
       autoprefixer: 10.4.13_postcss@8.4.21
@@ -849,7 +851,7 @@ packages:
       '@babel/compat-data': 7.20.10
       '@babel/core': 7.21.3
       '@babel/helper-validator-option': 7.21.0
-      browserslist: 4.21.4
+      browserslist: 4.21.5
       lru-cache: 5.1.1
       semver: 6.3.0
 
@@ -8563,6 +8565,18 @@ packages:
       use-sync-external-store: 1.2.0_react@18.2.0
     dev: false
 
+  /@tanstack/react-table/8.8.5_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-g/t21E/ICHvaCOJOhsDNr5QaB/6aDQEHFbx/YliwwU/CJThMqG+dS28vnToIBV/5MBgpeXoGRi2waDJVJlZrtg==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      react: '>=16'
+      react-dom: '>=16'
+    dependencies:
+      '@tanstack/table-core': 8.8.5
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+    dev: false
+
   /@tanstack/react-virtual/3.0.0-beta.18_react@18.2.0:
     resolution: {integrity: sha512-mnyCZT6htcRNw1jVb+WyfMUMbd1UmXX/JWPuMf6Bmj92DB/V7Ogk5n5rby5Y5aste7c7mlsBeMF8HtpwERRvEQ==}
     engines: {node: '>=12'}
@@ -8571,6 +8585,11 @@ packages:
     dependencies:
       '@tanstack/virtual-core': 3.0.0-beta.18
       react: 18.2.0
+    dev: false
+
+  /@tanstack/table-core/8.8.5:
+    resolution: {integrity: sha512-Xnwa1qxpgvSW7ozLiexmKp2PIYcLBiY/IizbdGriYCL6OOHuZ9baRhrrH51zjyz+61ly6K59rmt6AI/3RR+97Q==}
+    engines: {node: '>=12'}
     dev: false
 
   /@tanstack/virtual-core/3.0.0-beta.18:
@@ -9331,7 +9350,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
 
@@ -20853,7 +20872,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20962,7 +20981,6 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.1.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-3knk/HsbSTKEin43zHu7jTwYWv81f8kgAL99G5NWBcA1LKvtvcVAC4JjBH1arBunO9kQka+1oGbrMKOjk4ZrBg==}
