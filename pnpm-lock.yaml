@@ -381,6 +381,9 @@ importers:
       vite-plugin-svgr: 2.4.0_vite@4.1.4
       vite-tsconfig-paths: 3.6.0_vite@4.1.4
 
+  core:
+    specifiers: {}
+
   crates/sync/example/web:
     specifiers:
       '@rspc/client': ^0.0.0-main-7c0a67c1
