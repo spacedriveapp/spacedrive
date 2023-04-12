@@ -1,0 +1,35 @@
+{
+    "extends": [
+        "//"
+    ],
+    "pipeline": {
+        "build": {
+            "inputs": ["src/**", "./*.*s*"]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        },
+        "preview": {
+            "dependsOn": [
+                "build"
+            ],
+            "cache": false,
+            "persistent": true
+        },
+        "show-report": {
+            "dependsOn": [
+                "test"
+            ],
+            "inputs": [],
+            "cache": false,
+            "persistent": true
+        },
+        "test": {
+            "inputs": ["src/**", "./*.*s*"],
+            "outputs": [
+                "screenshots/"
+            ]
+        }
+    }
+}

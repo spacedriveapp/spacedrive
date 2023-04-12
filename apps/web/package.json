@@ -6,6 +6,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
+		"show-report": "pnpm exec playwright show-report",
 		"test": "VITE_SD_DEMO_MODE=true playwright test",
 		"typecheck": "tsc -b"
 	},
