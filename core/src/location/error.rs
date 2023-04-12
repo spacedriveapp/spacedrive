@@ -44,8 +44,6 @@ pub enum LocationError {
 	LocationMetadataError(#[from] LocationMetadataError),
 	#[error("Failed to read location path metadata info (path: {1:?}); (error: {0:?})")]
 	LocationPathFilesystemMetadataAccess(io::Error, PathBuf),
-	#[error("Location is read only (at path: {0:?})")]
-	ReadonlyLocationFailure(PathBuf),
 	#[error("Missing metadata file for location (path: {0:?})")]
 	MissingMetadataFile(PathBuf),
 	#[error("Failed to open file from local os (error: {0:?})")]
