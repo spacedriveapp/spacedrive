@@ -31,6 +31,9 @@ pub const AEAD_TAG_LEN: usize = 16;
 /// Length of the AAD
 pub const AAD_LEN: usize = 32;
 
+/// Length of the AAD (for headers)
+pub const AAD_HEADER_LEN: usize = 38;
+
 /// The length of encrypted master keys
 pub const ENCRYPTED_KEY_LEN: usize = KEY_LEN + AEAD_TAG_LEN;
 

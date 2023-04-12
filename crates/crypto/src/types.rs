@@ -11,12 +11,13 @@ use crate::utils::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
 use crate::primitives::{
-	AAD_LEN, AES_256_GCM_NONCE_LEN, AES_256_GCM_SIV_NONCE_LEN, ARGON2ID_HARDENED,
+	AAD_HEADER_LEN, AAD_LEN, AES_256_GCM_NONCE_LEN, AES_256_GCM_SIV_NONCE_LEN, ARGON2ID_HARDENED,
 	ARGON2ID_PARANOID, ARGON2ID_STANDARD, BLAKE3_BALLOON_HARDENED, BLAKE3_BALLOON_PARANOID,
 	BLAKE3_BALLOON_STANDARD, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN, SECRET_KEY_LEN,
 	XCHACHA20_POLY1305_NONCE_LEN,
 };
 
+#[derive(Clone, Copy)]
 pub struct MagicBytes<const I: usize>([u8; I]);
 
 impl<const I: usize> MagicBytes<I> {
@@ -51,6 +52,7 @@ impl DerivationContext {
 /// The greater the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -71,6 +73,7 @@ impl Params {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	Blake3Balloon(Params),
@@ -104,6 +107,7 @@ impl HashingAlgorithm {
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub enum Nonce {
 	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
 	Aes256GcmSiv([u8; AES_256_GCM_SIV_NONCE_LEN]),
@@ -185,6 +189,7 @@ where
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub enum Algorithm {
 	Aes256Gcm,
 	Aes256GcmSiv,
@@ -289,7 +294,7 @@ impl TryFrom<Protected<Vec<u8>>> for Key {
 /// This should be used for providing a secret key to functions.
 ///
 // /// You may also generate a secret key with `SecretKey::generate()`
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop, Clone)]
 pub enum SecretKey {
 	Standard([u8; SECRET_KEY_LEN]),
 	Variable(Vec<u8>),
@@ -332,6 +337,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 /// This also stores the associated `Nonce`, in order to make the API a lot cleaner.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
 	[u8; ENCRYPTED_KEY_LEN],
@@ -376,8 +382,14 @@ impl PartialEq for EncryptedKey {
 }
 
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub enum Aad {
 	Standard([u8; AAD_LEN]),
+	Header(
+		#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
+		[u8; AAD_HEADER_LEN],
+	),
 	Null,
 }
 
@@ -391,8 +403,21 @@ impl Aad {
 	pub const fn inner(&self) -> &[u8] {
 		match self {
 			Self::Standard(b) => b,
+			Self::Header(b) => b,
 			Self::Null => &[],
 		}
+	}
+}
+
+impl ConstantTimeEq for Aad {
+	fn ct_eq(&self, other: &Self) -> Choice {
+		self.inner().ct_eq(other.inner())
+	}
+}
+
+impl PartialEq for Aad {
+	fn eq(&self, other: &Self) -> bool {
+		self.ct_eq(other).into()
 	}
 }
 
@@ -401,6 +426,7 @@ impl Aad {
 /// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 pub struct Salt([u8; SALT_LEN]);
 
 impl Salt {
