@@ -3,7 +3,7 @@
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
-#[cfg(feature = "encoding")]
+#[cfg(feature = "bincode")]
 impl From<Error> for bincode::error::EncodeError {
 	fn from(value: Error) -> Self {
 		Self::OtherString(value.to_string())
@@ -24,25 +24,21 @@ pub enum Error {
 	Decrypt,
 
 	// header errors
-	#[cfg(feature = "encoding")]
 	#[error("no keyslots available")]
 	NoKeyslots,
-	#[cfg(feature = "encoding")]
 	#[error("tried adding too many keyslots to a header")]
 	TooManyKeyslots,
-	#[cfg(feature = "encoding")]
 	#[error("no header objects available (or none that match)")]
 	NoObjects,
-	#[cfg(feature = "encoding")]
 	#[error("tried adding too many objects to a header (or too many with the same name)")]
 	TooManyObjects,
-	#[cfg(feature = "encoding")]
 	#[error("read magic bytes aren't equal to the expected bytes")]
 	MagicByteMismatch,
-	#[cfg(feature = "encoding")]
+
+	#[cfg(feature = "bincode")]
 	#[error("error while encoding with bincode: {0}")]
 	BincodeEncode(#[from] bincode::error::EncodeError),
-	#[cfg(feature = "encoding")]
+	#[cfg(feature = "bincode")]
 	#[error("error while decoding with bincode: {0}")]
 	BincodeDecode(#[from] bincode::error::DecodeError),
 
