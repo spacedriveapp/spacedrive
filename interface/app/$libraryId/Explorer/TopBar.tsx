@@ -39,7 +39,7 @@ export default () => {
 			<SearchBar formClassName="justify-center" className={'flex'} ref={searchRef} />
 
 			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
-				<div className="flex gap-2">
+				<div className="flex gap-3">
 					{toolBarRouteOptions[getPageName].options.map((group) => {
 						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
 							return group[groupKey]?.map(
@@ -68,7 +68,7 @@ export default () => {
 											</Tooltip>
 											{index === (group[groupKey]?.length as number) - 1 &&
 												groupCount !== groupIndex + 1 && (
-													<div className="ml-2 h-[15px] w-0 border-l border-zinc-600" />
+													<div className="ml-3 h-[15px] w-0 border-l border-zinc-600" />
 												)}
 										</div>
 									);
