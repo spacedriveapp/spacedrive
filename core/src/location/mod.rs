@@ -22,6 +22,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use futures::future::TryFutureExt;
 use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
@@ -79,10 +80,6 @@ impl LocationCreateArgs {
 			}
 		};
 
-		if path_metadata.permissions().readonly() {
-			return Err(LocationError::ReadonlyLocationFailure(self.path));
-		}
-
 		if !path_metadata.is_dir() {
 			return Err(LocationError::NotDirectory(self.path));
 		}
@@ -107,19 +104,25 @@ impl LocationCreateArgs {
 
 		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
 
-		// Write a location metadata on a .spacedrive file
-		SpacedriveLocationMetadataFile::create_and_save(
+		// Write location metadata to a .spacedrive file
+		if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
 			library.id,
 			uuid,
 			&self.path,
 			location.name.clone(),
 		)
-		.await?;
-
-		library
-			.location_manager()
-			.add(location.id, library.clone())
-			.await?;
+		.err_into::<LocationError>()
+		.and_then(|()| async move {
+			Ok(library
+				.location_manager()
+				.add(location.id, library.clone())
+				.await?)
+		})
+		.await
+		{
+			delete_location(library, location.id).await?;
+			Err(err)?;
+		}
 
 		info!("Created location: {location:?}");
 
