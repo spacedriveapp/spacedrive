@@ -1,3 +1,5 @@
+use crate::location::file_path_helper::FilePathMetadata;
+
 #[cfg(target_family = "unix")]
 use crate::location::file_path_helper::get_inode_and_device;
 
@@ -11,7 +13,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use chrono::{DateTime, Utc};
 use tokio::fs;
 use tracing::{error, trace};
 
@@ -26,9 +27,7 @@ use super::{
 pub(super) struct WalkEntry {
 	pub(super) path: PathBuf,
 	pub(super) is_dir: bool,
-	pub(super) created_at: DateTime<Utc>,
-	pub(super) inode: u64,
-	pub(super) device: u64,
+	pub(super) metadata: FilePathMetadata,
 }
 
 impl PartialEq for WalkEntry {
@@ -288,9 +287,13 @@ async fn inner_walk_single_dir(
 				WalkEntry {
 					path: current_path.clone(),
 					is_dir,
-					created_at: metadata.created()?.into(),
-					inode,
-					device,
+					metadata: FilePathMetadata {
+						inode,
+						device,
+						size_in_bytes: metadata.len(),
+						created_at: metadata.created()?.into(),
+						modified_at: metadata.modified()?.into(),
+					},
 				},
 			);
 
@@ -320,9 +323,13 @@ async fn inner_walk_single_dir(
 						WalkEntry {
 							path: ancestor.to_path_buf(),
 							is_dir: true,
-							created_at: metadata.created()?.into(),
-							inode,
-							device,
+							metadata: FilePathMetadata {
+								inode,
+								device,
+								size_in_bytes: metadata.len(),
+								created_at: metadata.created()?.into(),
+								modified_at: metadata.modified()?.into(),
+							},
 						},
 					);
 				} else {
@@ -361,9 +368,13 @@ async fn prepared_indexed_paths(
 		indexed_paths.push(WalkEntry {
 			path: root,
 			is_dir: true,
-			created_at: metadata.created()?.into(),
-			inode,
-			device,
+			metadata: FilePathMetadata {
+				inode,
+				device,
+				size_in_bytes: metadata.len(),
+				created_at: metadata.created()?.into(),
+				modified_at: metadata.modified()?.into(),
+			},
 		});
 	}
 
@@ -470,35 +481,39 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let created_at = Utc::now();
-		let inode = 0;
-		let device = 0;
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, created_at, inode, device },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -518,17 +533,21 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let created_at = Utc::now();
-		let inode = 0;
-		let device = 0;
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at, inode, device },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -559,30 +578,34 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let created_at = Utc::now();
-		let inode = 0;
-		let device = 0;
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at, inode, device },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -615,24 +638,28 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let created_at = Utc::now();
-		let inode = 0;
-		let device = 0;
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at, inode, device },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at, inode, device },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();

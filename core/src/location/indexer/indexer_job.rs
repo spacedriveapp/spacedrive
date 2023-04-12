@@ -181,7 +181,6 @@ impl StatefulJob for IndexerJob {
 						(!dirs_ids.contains_key(&entry.path)).then(|| {
 							IndexerJobStepEntry {
 								materialized_path,
-								created_at: entry.created_at,
 								file_id: 0, // To be set later
 								parent_id: entry.path.parent().and_then(|parent_dir| {
 									/***************************************************************
@@ -191,8 +190,7 @@ impl StatefulJob for IndexerJob {
 									dirs_ids.get(parent_dir).copied()
 								}),
 								full_path: entry.path,
-								inode: entry.inode,
-								device: entry.device,
+								metadata: entry.metadata,
 							}
 						})
 					},
