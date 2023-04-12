@@ -7,6 +7,8 @@ import { RoutePaths, groupKeys, useToolBarRouteOptions } from '~/hooks/useToolBa
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
 
+export const TOP_BAR_HEIGHT = 46;
+
 export default () => {
 	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const navigate = useNavigate();
