@@ -104,6 +104,7 @@ mod tests {
 	use super::erase;
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_block_one_pass() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN]);
 		let count = erase(&mut buffer, BLOCK_LEN, 1).unwrap();
@@ -113,6 +114,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_block_two_passes() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN]);
 		let count = erase(&mut buffer, BLOCK_LEN, 2).unwrap();
@@ -122,6 +124,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_5_blocks_one_pass() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN * 5]);
 		let count = erase(&mut buffer, BLOCK_LEN * 5, 1).unwrap();
@@ -131,6 +134,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_5_blocks_two_passes() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN * 5]);
 		let count = erase(&mut buffer, BLOCK_LEN * 5, 2).unwrap();
@@ -140,6 +144,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_small() {
 		let mut buffer = Cursor::new(vec![0u8; 1024]);
 		let count = erase(&mut buffer, 1024, 1).unwrap();
@@ -149,6 +154,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_small_two_passes() {
 		let mut buffer = Cursor::new(vec![0u8; 1024]);
 		let count = erase(&mut buffer, 1024, 2).unwrap();
@@ -158,6 +164,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_block_plus_512() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN + 512]);
 		let count = erase(&mut buffer, BLOCK_LEN + 512, 1).unwrap();
@@ -167,6 +174,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)]
 	fn erase_block_plus_512_two_passes() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN + 512]);
 		let count = erase(&mut buffer, BLOCK_LEN + 512, 2).unwrap();
@@ -177,6 +185,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_block_one_pass_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN]);
 		let count = erase(&mut buffer, BLOCK_LEN, 1).unwrap();
@@ -187,6 +196,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_block_two_passes_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN]);
 		let count = erase(&mut buffer, BLOCK_LEN, 2).unwrap();
@@ -197,6 +207,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_5_blocks_one_pass_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN * 5]);
 		let count = erase(&mut buffer, BLOCK_LEN * 5, 1).unwrap();
@@ -207,6 +218,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_5_blocks_two_passes_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN * 5]);
 		let count = erase(&mut buffer, BLOCK_LEN * 5, 2).unwrap();
@@ -217,6 +229,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_small_async() {
 		let mut buffer = Cursor::new(vec![0u8; 1024]);
 		let count = erase(&mut buffer, 1024, 1).unwrap();
@@ -227,6 +240,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_small_two_passes_async() {
 		let mut buffer = Cursor::new(vec![0u8; 1024]);
 		let count = erase(&mut buffer, 1024, 2).unwrap();
@@ -237,6 +251,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_block_plus_512_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN + 512]);
 		let count = erase(&mut buffer, BLOCK_LEN + 512, 1).unwrap();
@@ -247,6 +262,7 @@ mod tests {
 
 	#[tokio::test]
 	#[cfg(feature = "async")]
+	#[cfg_attr(miri, ignore)]
 	async fn erase_block_plus_512_two_passes_async() {
 		let mut buffer = Cursor::new(vec![0u8; BLOCK_LEN + 512]);
 		let count = erase(&mut buffer, BLOCK_LEN + 512, 2).unwrap();
