@@ -62,6 +62,12 @@ impl From<Vec<u8>> for Protected<Vec<u8>> {
 	}
 }
 
+impl From<String> for Protected<String> {
+	fn from(value: String) -> Self {
+		Self { data: value }
+	}
+}
+
 impl<T> Protected<T>
 where
 	T: Zeroize + Default,
