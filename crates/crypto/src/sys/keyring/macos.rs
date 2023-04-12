@@ -1,10 +1,7 @@
-//! This is Spacedrive's MacOS keyring integration. It has no strict dependencies.
-use super::{Identifier, KeyringInterface};
-use crate::{Error, Result};
-use security_framework::os::macos::{
-	keychain::{SecKeychain, SecPreferencesDomain},
-	passwords::find_generic_password,
-};
+//! This is Spacedrive's `MacOS` keyring integration. It has no strict dependencies.
+use super::{Identifier, KeyringInterface, KeyringName};
+use crate::{Error, Protected, Result};
+use security_framework::os::macos::keychain::SecKeychain;
 
 impl Identifier {
 	#[must_use]
@@ -13,38 +10,57 @@ impl Identifier {
 	}
 }
 
-pub struct MacosKeyring;
+pub struct MacosKeyring {
+	inner: SecKeychain,
+}
 
 impl KeyringInterface for MacosKeyring {
-	fn new() -> Result<Self>
-	where
-		Self: Sized,
-	{
-		Ok(Self {})
+	fn new() -> Result<Self> {
+		Ok(Self {
+			inner: SecKeychain::default()?,
+		})
 	}
 
-	fn get(&self, id: &Identifier) -> Result<String> {
-		let key = get_generic_password(&id.application, &id.to_apple_account())
-			.map_err(Error::AppleKeyring)?;
+	fn get(&self, id: &Identifier) -> Result<Protected<String>> {
+		let key = self
+			.inner
+			.find_generic_password(&id.application, &id.to_apple_account())
+			.map_err(Error::AppleKeyring)?
+			.0
+			.to_owned();
 
-		String::from_utf8(key).map_err(|_| Error::KeyringError)
+		String::from_utf8(key)
+			.map(Protected::new)
+			.map_err(|_| Error::Keyring)
 	}
 
 	fn contains_key(&self, id: &Identifier) -> bool {
-		todo!()
+		self.inner
+			.find_generic_password(&id.application, &id.to_apple_account())
+			.map_or(false, |_| true)
 	}
 
-	fn insert(&self, id: &Identifier, value: String) -> Result<()> {
-		set_generic_password(&id.application, &id.to_apple_account(), value.as_bytes())
+	fn insert(&self, id: &Identifier, value: Protected<String>) -> Result<()> {
+		self.inner
+			.set_generic_password(
+				&id.application,
+				&id.to_apple_account(),
+				value.expose().as_bytes(),
+			)
 			.map_err(Error::AppleKeyring)
 	}
 
 	fn remove(&self, id: &Identifier) -> Result<()> {
-		delete_generic_password(&id.application, &id.to_apple_account())
-			.map_err(Error::AppleKeyring)
+		self.inner
+			.find_generic_password(&id.application, &id.to_apple_account())
+			.map_err(Error::AppleKeyring)?
+			.1
+			.delete();
+
+		Ok(())
 	}
 
-	fn keyring_name(&self) -> KeyringName {
+	fn name(&self) -> KeyringName {
 		KeyringName::MacOS
 	}
 }

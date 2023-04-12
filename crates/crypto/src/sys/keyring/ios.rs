@@ -15,10 +15,7 @@ impl Identifier {
 pub struct IosKeyring;
 
 impl KeyringInterface for IosKeyring {
-	fn new() -> Result<Self>
-	where
-		Self: Sized,
-	{
+	fn new() -> Result<Self> {
 		Ok(Self {})
 	}
 
