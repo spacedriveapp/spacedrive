@@ -23,7 +23,7 @@ export default () => {
 				'duration-250 absolute top-0 z-20 flex grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app px-5 transition-[background-color] transition-[border-color] ease-out'
 			)}
 		>
-			<div className="flex ">
+			<div data-tauri-drag-region className="flex ">
 				<Tooltip label="Navigate back">
 					<TopBarButton onClick={() => navigate(-1)}>
 						<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
@@ -36,24 +36,34 @@ export default () => {
 				</Tooltip>
 			</div>
 
-			<SearchBar formClassName="justify-center" className={'flex'} ref={searchRef} />
+			<SearchBar formClassName="justify-center" ref={searchRef} />
 
-			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
-				<div className="flex gap-3">
+			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
+				<div data-tauri-drag-region className="flex gap-0">
 					{toolBarRouteOptions[getPageName].options.map((group) => {
 						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
 							return group[groupKey]?.map(
 								({ icon, onClick, popOverComponent, toolTipLabel, topBarActive }, index) => {
 									const groupCount = Object.keys(group).length;
 									const groupIndex = Object.keys(group).indexOf(groupKey);
+									const roundingCondition =
+										index === 0
+											? 'left'
+											: index === (group[groupKey]?.length as number) - 1
+											? 'right'
+											: 'none';
 									return (
-										<div key={toolTipLabel} className="flex items-center">
+										<div data-tauri-drag-region key={toolTipLabel} className="flex items-center">
 											<Tooltip label={toolTipLabel}>
 												{popOverComponent ? (
 													<Popover
 														className="focus:outline-none"
 														trigger={
-															<TopBarButton active={topBarActive} onClick={onClick}>
+															<TopBarButton
+																rounding={roundingCondition}
+																active={topBarActive}
+																onClick={onClick}
+															>
 																{icon}
 															</TopBarButton>
 														}
@@ -61,14 +71,21 @@ export default () => {
 														<div className="block w-[250px] ">{popOverComponent}</div>
 													</Popover>
 												) : (
-													<TopBarButton active={topBarActive} onClick={onClick ?? undefined}>
+													<TopBarButton
+														rounding={roundingCondition}
+														active={topBarActive}
+														onClick={onClick ?? undefined}
+													>
 														{icon}
 													</TopBarButton>
 												)}
 											</Tooltip>
 											{index === (group[groupKey]?.length as number) - 1 &&
 												groupCount !== groupIndex + 1 && (
-													<div className="ml-3 h-[15px] w-0 border-l border-zinc-600" />
+													<div
+														data-tauri-drag-region
+														className="mx-4 h-[15px] w-0 border-l border-zinc-600"
+													/>
 												)}
 										</div>
 									);

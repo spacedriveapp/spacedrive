@@ -46,6 +46,7 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 
 	return (
 		<form
+			data-tauri-drag-region
 			onSubmit={handleSubmit(() => null)}
 			className={`relative flex h-7 ${props.formClassName}`}
 		>

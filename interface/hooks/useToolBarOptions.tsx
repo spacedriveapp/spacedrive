@@ -79,24 +79,9 @@ export const useToolBarRouteOptions = () => {
 					],
 					groupTwo: [
 						{
-							toolTipLabel: 'Explorer display',
-							icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-							popOverComponent: <OptionsPanel />
-						},
-						{
 							toolTipLabel: 'Key Manager',
 							icon: <Key className={TOP_BAR_ICON_STYLE} />,
 							popOverComponent: <KeyManager />
-						},
-						{
-							toolTipLabel: 'Show Inspector',
-							onClick: () => (getExplorerStore().showInspector = !store.showInspector),
-							icon: (
-								<SidebarSimple
-									weight={store.showInspector ? 'fill' : 'regular'}
-									className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
-								/>
-							)
 						},
 						{
 							toolTipLabel: 'Tag Assign Mode',
@@ -112,6 +97,23 @@ export const useToolBarRouteOptions = () => {
 						{
 							toolTipLabel: 'Regenerate thumbs (temp)',
 							icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />
+						}
+					],
+					groupThree: [
+						{
+							toolTipLabel: 'Explorer display',
+							icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+							popOverComponent: <OptionsPanel />
+						},
+						{
+							toolTipLabel: 'Show Inspector',
+							onClick: () => (getExplorerStore().showInspector = !store.showInspector),
+							icon: (
+								<SidebarSimple
+									weight={store.showInspector ? 'fill' : 'regular'}
+									className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
+								/>
+							)
 						}
 					]
 				}
