@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Copy,
@@ -27,9 +28,10 @@ import EraseDialog from './EraseDialog';
 
 interface Props extends PropsWithChildren {
 	data: ExplorerItem;
+	className?: string;
 }
 
-export default ({ data, ...props }: Props) => {
+export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
@@ -41,7 +43,7 @@ export default ({ data, ...props }: Props) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div className="relative">
+		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
 				<ContextMenu.Item label="Open" keybind="⌘O" />
 				<ContextMenu.Item
@@ -67,7 +69,11 @@ export default ({ data, ...props }: Props) => {
 
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Item label="Rename" keybind="Enter" />
+				<ContextMenu.Item
+					label="Rename"
+					keybind="Enter"
+					onClick={() => (getExplorerStore().isRenaming = true)}
+				/>
 
 				<ContextMenu.Item
 					label="Cut"

@@ -12,11 +12,13 @@ import { z } from 'zod';
 
 export interface FormProps<T extends FieldValues> extends Omit<ComponentProps<'form'>, 'onSubmit'> {
 	form: UseFormReturn<T>;
+	disabled?: boolean;
 	onSubmit?: ReturnType<UseFormHandleSubmit<T>>;
 }
 
 export const Form = <T extends FieldValues>({
 	form,
+	disabled,
 	onSubmit,
 	children,
 	...props
@@ -32,7 +34,7 @@ export const Form = <T extends FieldValues>({
 			>
 				{/* <fieldset> passes the form's 'disabled' state to all of its elements,
             allowing us to handle disabled style variants with just css */}
-				<fieldset disabled={form.formState.isSubmitting}>{children}</fieldset>
+				<fieldset disabled={disabled || form.formState.isSubmitting}>{children}</fieldset>
 			</form>
 		</FormProvider>
 	);

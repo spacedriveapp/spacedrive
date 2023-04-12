@@ -41,10 +41,13 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[53px] rounded-[6px] bg-[#00000000];
+		@apply mt-[46px] rounded-[6px] bg-[#00000000];
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-transparent;
+	}
+	&::-webkit-scrollbar-corner {
+		background-color: transparent;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {

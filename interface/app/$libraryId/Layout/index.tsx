@@ -47,7 +47,7 @@ const Layout = () => {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full">
+			<div className="relative flex w-full overflow-hidden">
 				{library ? (
 					<LibraryContextProvider library={library}>
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
