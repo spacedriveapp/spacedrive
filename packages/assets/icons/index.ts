@@ -4,9 +4,11 @@
  */
 import Alias from './Alias.png';
 import Archive from './Archive.png';
+import Audio from './Audio.png';
 import Collection from './Collection.png';
 import Database from './Database.png';
 import Document from './Document.png';
+import Document_Light from './Document_Light.png';
 import Document_doc from './Document_doc.png';
 import Document_pdf from './Document_pdf.png';
 import Document_xls from './Document_xls.png';
@@ -15,6 +17,7 @@ import Encrypted from './Encrypted.png';
 import Executable from './Executable.png';
 import Folder from './Folder.png';
 import FolderGrey from './FolderGrey.png';
+import Folder_Light from './Folder_Light.png';
 import Image from './Image.png';
 import Laptop from './Laptop.png';
 import Mesh from './Mesh.png';
@@ -32,9 +35,11 @@ import Widget from './Widget.png';
 export {
 	Alias,
 	Archive,
+	Audio,
 	Collection,
 	Database,
 	Document,
+	Document_Light,
 	Document_doc,
 	Document_pdf,
 	Document_xls,
@@ -43,6 +48,7 @@ export {
 	Executable,
 	Folder,
 	FolderGrey,
+	Folder_Light,
 	Image,
 	Laptop,
 	Mesh,
