@@ -2,6 +2,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::Library,
+	location::{find_location, LocationError},
 	object::fs::{
 		copy::{FileCopierJob, FileCopierJobInit},
 		cut::{FileCutterJob, FileCutterJobInit},
@@ -10,12 +11,13 @@ use crate::{
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
 		erase::{FileEraserJob, FileEraserJobInit},
 	},
-	prisma::object,
+	prisma::{location, object},
 };
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
-use tokio::sync::oneshot;
+use std::path::Path;
+use tokio::{fs, sync::oneshot};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -175,6 +177,36 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, args: FileCutterJobInit, library: Library| async move {
 				library.spawn_job(Job::new(args, FileCutterJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("renameFile", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct RenameFileArgs {
+				pub location_id: i32,
+				pub file_name: String,
+				pub new_file_name: String,
+			}
+
+			t(|_, args: RenameFileArgs, library: Library| async move {
+				let location = find_location(&library, args.location_id)
+					.select(location::select!({ path }))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+				let location_path = Path::new(&location.path);
+				fs::rename(
+					location_path.join(&args.file_name),
+					location_path.join(&args.new_file_name),
+				)
+				.await
+				.map_err(|e| {
+					rspc::Error::new(ErrorCode::Conflict, format!("Failed to rename file: {e}"))
+				})?;
+
+				invalidate_query!(library, "tags.getExplorerData");
 
 				Ok(())
 			})

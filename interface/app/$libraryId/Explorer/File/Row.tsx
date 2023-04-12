@@ -16,7 +16,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 export default ({ data, index, selected, ...props }: Props) => (
-	<ContextMenu data={data}>
+	<ContextMenu data={data} onRename={() => alert('TODO: Add rename functionality')}>
 		<div
 			{...props}
 			className={clsx(
