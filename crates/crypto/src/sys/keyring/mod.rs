@@ -2,7 +2,7 @@ use crate::{hashing::Hasher, Protected, Result};
 mod portable;
 use portable::PortableKeyring;
 
-#[cfg(not(any(target_os = "linux", target_os = "ios")))]
+#[cfg(not(any(target_os = "linux", target_os = "ios", target_os = "macos")))]
 use portable::PortableKeyring as DefaultKeyring;
 
 #[cfg(target_os = "linux")]
@@ -10,10 +10,10 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux::LinuxKeyring as DefaultKeyring;
 
-// #[cfg(target_os = "macos")]
-// pub mod macos;
-// #[cfg(target_os = "macos")]
-// pub use macos::MacosKeyring as DefaultKeyring;
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::MacosKeyring as DefaultKeyring;
 
 #[cfg(target_os = "ios")]
 pub mod ios;
