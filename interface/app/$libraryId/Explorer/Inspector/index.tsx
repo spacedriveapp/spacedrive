@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
 	ExplorerContext,
 	ExplorerItem,
@@ -11,8 +11,10 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import { useScrolled } from '~/hooks/useScrolled';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
+import { TOP_BAR_HEIGHT } from '../TopBar';
 import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -31,14 +33,18 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends ComponentProps<'div'> {
+interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
+	onScroll?: (scrolled: boolean) => void;
 }
 
-export const Inspector = ({ data, context, ...elementProps }: Props) => {
+export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
+
+	const ref = useRef<HTMLDivElement>(null);
+	useScrolled(ref, 5, onScroll);
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -68,7 +74,9 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll z-10 mt-[-50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
+			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pl-1.5 pr-1 pb-4"
+			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
+			ref={ref}
 		>
 			{data && (
 				<>
