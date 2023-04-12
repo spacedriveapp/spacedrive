@@ -3,8 +3,20 @@
         "//"
     ],
     "pipeline": {
-        "build": {
-           "inputs": ["../assets/lottie/**", "../assets/icons/**", "../assets/images/**", "../assets/svgs/**"]
+        "android": {
+            "dependsOn": ["^build"],
+            // TODO: Add inputs and outputs
+            "inputs": []
+        },
+        "ios": {
+            "dependsOn": ["^build"],
+            // TODO: Add inputs and outputs
+            "inputs": []
+        },
+        "start": {
+            "cache": false,
+            "dependsOn": ["^build"],
+            "persistent": true
         }
     }
 }
