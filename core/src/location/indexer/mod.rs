@@ -24,7 +24,7 @@ use tokio::io;
 use tracing::info;
 
 use super::{
-	file_path_helper::{FilePathError, MaterializedPath, FilePathMetadata},
+	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
 	location_with_indexer_rules,
 };
 
@@ -176,7 +176,10 @@ async fn execute_indexer_step(
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
-						("size_in_bytes", json!(entry.metadata.size_in_bytes.to_string())),
+						(
+							"size_in_bytes",
+							json!(entry.metadata.size_in_bytes.to_string()),
+						),
 						("inode", json!(entry.metadata.inode.to_le_bytes())),
 						("device", json!(entry.metadata.device.to_le_bytes())),
 						("parent_id", json!(entry.parent_id)),

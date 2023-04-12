@@ -406,7 +406,7 @@ impl LastFilePathIdManager {
 						file_path::is_dir::set(is_dir),
 						file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
 						file_path::date_created::set(metadata.created_at.into()),
-						file_path::date_modified::set(metadata.modified_at.into())
+						file_path::date_modified::set(metadata.modified_at.into()),
 					],
 				),
 			)
