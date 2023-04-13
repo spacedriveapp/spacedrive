@@ -53,13 +53,13 @@ const Layout = () => {
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
 							<Outlet />
 						</Suspense>
+						<QuickPreview libraryUuid={library.uuid} />
 					</LibraryContextProvider>
 				) : (
 					<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
 				)}
 			</div>
 			<Toasts />
-			<QuickPreview libraryUuid={library!.uuid} />
 		</div>
 	);
 };
