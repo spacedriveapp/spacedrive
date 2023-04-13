@@ -26,6 +26,31 @@ interface FilePreviewProps {
 	explorerItem: ExplorerItem;
 }
 
+/**
+ * Check if webview can display PDFs
+ * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/pdfViewerEnabled
+ * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/mimeTypes
+ * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/plugins
+ */
+const pdfViewerEnabled = () => {
+	// pdfViewerEnabled is quite new, Safari only started supporting it in march 2023
+	// https://caniuse.com/?search=pdfViewerEnabled
+	if ('pdfViewerEnabled' in navigator && navigator.pdfViewerEnabled) return true;
+
+	// This is deprecated, but should be supported on all browsers/webviews
+	// https://caniuse.com/mdn-api_navigator_mimetypes
+	if (navigator.mimeTypes) {
+		if ('application/pdf' in navigator.mimeTypes)
+			return (navigator.mimeTypes['application/pdf'] as null | MimeType)?.enabledPlugin;
+		if ('text/pdf' in navigator.mimeTypes)
+			return (navigator.mimeTypes['text/pdf'] as null | MimeType)?.enabledPlugin;
+	}
+
+	// Last ditch effort
+	// https://caniuse.com/mdn-api_navigator_plugins
+	return 'PDF Viewer' in navigator.plugins;
+};
+
 function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
 	const className = clsx('relative inset-y-2/4 max-h-full max-w-full translate-y-[-50%]');
 	const fileThumb = <FileThumb size={1} data={explorerItem} className={className} />;
@@ -146,7 +171,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 					const preview = (
 						<FilePreview
 							src={platform.getFileUrl(libraryUuid, locationId, item.id)}
-							kind={extension === 'pdf' && navigator.pdfViewerEnabled ? 'PDF' : kind}
+							kind={extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind}
 							onError={onPreviewError}
 							explorerItem={explorerItem.current}
 						/>
@@ -154,40 +179,40 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 
 					return (
 						<>
-							<AnimatedDialogOverlay
-								style={{
-									opacity: styles.opacity
-								}}
-								className="z-49 bg-app/50 absolute inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl"
-								forceMount
-							/>
-							<AnimatedDialogContent
-								style={styles}
-								className="!pointer-events-none absolute inset-0 z-50 grid place-items-center"
-								forceMount
-							>
-								<div className="border-app-line bg-app-box text-ink shadow-app-shade !pointer-events-auto h-5/6 w-11/12 rounded-md border">
-									<nav className="flex w-full flex-row">
-										<Dialog.Close className="text-ink-dull ml-2" aria-label="Close">
-											<XCircle size={16} />
-										</Dialog.Close>
-										<Dialog.Title className="mx-auto my-1 font-bold">
-											Preview -{' '}
-											<span className="text-ink-dull inline-block max-w-xs truncate align-sub text-sm">
-												{'name' in item && item.name ? item.name : 'Unkown Object'}
-											</span>
-										</Dialog.Title>
-									</nav>
-									<div
-										className={clsx(
-											'relative m-auto h-[calc(100%-2rem)] overflow-hidden',
-											preview.props.kind === 'PDF' || 'w-fit'
-										)}
-									>
-										{preview}
+							<Dialog.Portal forceMount>
+								<AnimatedDialogOverlay
+									style={{
+										opacity: styles.opacity
+									}}
+									className="z-49 absolute inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
+								/>
+								<AnimatedDialogContent
+									style={styles}
+									className="!pointer-events-none absolute inset-0 z-50 grid h-screen place-items-center"
+								>
+									<div className="!pointer-events-auto h-5/6 w-11/12 rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
+										<nav className="flex w-full flex-row">
+											<Dialog.Close className="ml-2 text-ink-dull" aria-label="Close">
+												<XCircle size={16} />
+											</Dialog.Close>
+											<Dialog.Title className="mx-auto my-1 font-bold">
+												Preview -{' '}
+												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
+													{'name' in item && item.name ? item.name : 'Unkown Object'}
+												</span>
+											</Dialog.Title>
+										</nav>
+										<div
+											className={clsx(
+												'relative m-auto h-[calc(100%-2rem)] overflow-hidden',
+												preview.props.kind === 'PDF' || 'w-fit'
+											)}
+										>
+											{preview}
+										</div>
 									</div>
-								</div>
-							</AnimatedDialogContent>
+								</AnimatedDialogContent>
+							</Dialog.Portal>
 						</>
 					);
 				})}

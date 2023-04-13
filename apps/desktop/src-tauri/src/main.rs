@@ -8,7 +8,7 @@ use std::{path::PathBuf, time::Duration};
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
 use tauri::{api::path, async_runtime::block_on, plugin::TauriPlugin, Manager, RunEvent, Runtime};
-use tokio::{sync::mpsc, task::block_in_place, time::sleep};
+use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
 
 #[cfg(target_os = "linux")]
@@ -32,7 +32,7 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
-	let (tx, rx) = mpsc::channel(1);
+	let (tx, rx) = tokio::sync::mpsc::channel(1);
 
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))

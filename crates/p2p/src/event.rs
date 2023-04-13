@@ -32,6 +32,8 @@ pub enum Event<TMetadata: Metadata> {
 	/// the peer has opened a new substream
 	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
 	PeerMessage(PeerMessageEvent<TMetadata>),
+	/// the node is shutting down
+	Shutdown,
 }
 
 #[derive(Debug)]

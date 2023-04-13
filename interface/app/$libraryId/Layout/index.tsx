@@ -10,6 +10,7 @@ import {
 } from '@sd/client';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+import { QuickPreview } from '../Explorer/QuickPreview';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -46,7 +47,7 @@ const Layout = () => {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full">
+			<div className="relative flex w-full overflow-hidden">
 				{library ? (
 					<LibraryContextProvider library={library}>
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
@@ -58,6 +59,7 @@ const Layout = () => {
 				)}
 			</div>
 			<Toasts />
+			<QuickPreview libraryUuid={library!.uuid} />
 		</div>
 	);
 };

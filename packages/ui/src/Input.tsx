@@ -1,4 +1,4 @@
-import { VariantProps, cva, cx } from 'class-variance-authority';
+import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from 'phosphor-react';
 import { PropsWithChildren, createElement, forwardRef, isValidElement, useState } from 'react';

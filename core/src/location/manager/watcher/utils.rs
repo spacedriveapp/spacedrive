@@ -6,7 +6,8 @@ use crate::{
 		file_path_helper::{
 			create_file_path, extract_materialized_path, file_path_with_object,
 			filter_existing_file_path_params, get_parent_dir, get_parent_dir_id,
-			loose_find_existing_file_path_params, FilePathError, MaterializedPath,
+			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
+			MaterializedPath,
 		},
 		find_location, location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -111,8 +112,13 @@ pub(super) async fn create_dir(
 		materialized_path,
 		Some((parent_directory.id, parent_directory.pub_id)),
 		None,
-		inode,
-		device,
+		FilePathMetadata {
+			inode,
+			device,
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created()?.into(),
+			modified_at: metadata.modified()?.into(),
+		},
 	)
 	.await?;
 
@@ -178,8 +184,13 @@ pub(super) async fn create_file(
 		materialized_path,
 		Some((parent_directory.id, parent_directory.pub_id)),
 		Some(cas_id.clone()),
-		inode,
-		device,
+		FilePathMetadata {
+			inode,
+			device,
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created()?.into(),
+			modified_at: metadata.modified()?.into(),
+		},
 	)
 	.await?;
 
@@ -359,7 +370,7 @@ async fn inner_update_file(
 					file_path::size_in_bytes::set(fs_metadata.len().to_string()),
 				),
 				{
-					let date = DateTime::<Local>::from(fs_metadata.created().unwrap()).into();
+					let date = DateTime::<Local>::from(fs_metadata.modified()?).into();
 
 					(
 						("date_modified", json!(date)),

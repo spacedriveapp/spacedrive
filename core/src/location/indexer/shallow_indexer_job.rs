@@ -158,7 +158,10 @@ impl StatefulJob for ShallowIndexerJob {
 			.unzip::<_, _, HashSet<_>, Vec<_>>();
 
 		// SAFETY: We generate this uuid before, so it's valid
-		let parent_file_path_pub_id = Uuid::from_slice(&parent_file_path.pub_id).unwrap();
+		let parent_file_path_ids = (
+			parent_file_path.id,
+			Uuid::from_slice(&parent_file_path.pub_id).unwrap(),
+		);
 
 		// Adding our parent path id
 		to_retain.push(parent_file_path.pub_id.clone());
@@ -185,11 +188,9 @@ impl StatefulJob for ShallowIndexerJob {
 							.then_some(IndexerJobStepEntry {
 								full_path: entry.path,
 								materialized_path,
-								created_at: entry.created_at,
 								file_pub_id: Uuid::new_v4(),
-								parent_id: Some(parent_file_path_pub_id),
-								inode: entry.inode,
-								device: entry.device,
+								parent_id: Some(parent_file_path_ids),
+								metadata: entry.metadata,
 							})
 						},
 					)

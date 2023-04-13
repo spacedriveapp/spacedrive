@@ -5,7 +5,6 @@ import {
 	CaretRight,
 	Columns,
 	Key,
-	List,
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
@@ -13,128 +12,28 @@ import {
 	SquaresFour,
 	Tag
 } from 'phosphor-react';
-import { ComponentProps, forwardRef, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Popover, Shortcut, Tooltip, cva } from '@sd/ui';
+import { Popover, Tooltip } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { KeybindEvent } from '~/util/keybind';
 import { KeyManager } from '../KeyManager';
 import OptionsPanel from './OptionsPanel';
+import SearchBar from './SearchBar';
+import TopBarButton from './TopBarButton';
 
-export interface TopBarButtonProps {
-	children: React.ReactNode;
-	rounding?: 'none' | 'left' | 'right' | 'both';
-	active?: boolean;
-	className?: string;
-	onClick?: () => void;
-}
-
-// export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
-
-const topBarButtonStyle = cva(
-	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none !p-0.5 font-medium outline-none transition-colors duration-100',
-	{
-		variants: {
-			active: {
-				true: 'bg-app-selected',
-				false: 'bg-transparent'
-			},
-			rounding: {
-				none: 'rounded-none',
-				left: 'rounded-l-md rounded-r-none',
-				right: 'rounded-r-md rounded-l-none',
-				both: 'rounded-md'
-			}
-		},
-		defaultVariants: {
-			active: false,
-			rounding: 'both'
-		}
-	}
-);
-
-const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
-
-const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
-	({ active, rounding, className, ...props }, ref) => {
-		return (
-			<Button
-				// size="sm"
-				{...props}
-				ref={ref}
-				className={topBarButtonStyle({ active, rounding, className })}
-			>
-				{props.children}
-			</Button>
-		);
-	}
-);
-
-export const SearchBar = forwardRef<HTMLInputElement, ComponentProps<'input'>>(
-	(props, forwardedRef) => {
-		const {
-			register,
-			handleSubmit,
-			reset,
-			formState: { dirtyFields }
-		} = useForm();
-
-		const { ref, ...searchField } = register('searchField', {
-			onBlur: () => {
-				// if there's no text in the search bar, don't mark it as dirty so the key hint shows
-				if (!dirtyFields.searchField) reset();
-			}
-		});
-
-		const platform = useOperatingSystem(false);
-		const os = useOperatingSystem(true);
-
-		return (
-			<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
-				<Input
-					ref={(el) => {
-						ref(el);
-
-						if (typeof forwardedRef === 'function') forwardedRef(el);
-						else if (forwardedRef) forwardedRef.current = el;
-					}}
-					placeholder="Search"
-					className={clsx('w-32 transition-all focus-within:w-52', props.className)}
-					size="sm"
-					{...searchField}
-					right={
-						<div
-							className={clsx(
-								'pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden'
-							)}
-						>
-							{platform === 'browser' ? (
-								<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
-							) : os === 'macOS' ? (
-								<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
-							) : (
-								<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
-							)}
-						</div>
-					}
-				/>
-			</form>
-		);
-	}
-);
+export const TOP_BAR_HEIGHT = 46;
 
 export type TopBarProps = {
 	showSeparator?: boolean;
 };
 
 export default (props: TopBarProps) => {
+	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
-
 	const store = useExplorerStore();
-
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
@@ -199,9 +98,10 @@ export default (props: TopBarProps) => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'max-w duration-250 z-20 flex h-[46px] shrink-0 items-center overflow-hidden border-b border-transparent bg-app pl-3 transition-[background-color] transition-[border-color] ease-out',
+					'max-w duration-250 absolute left-0 z-50 flex w-full shrink-0 items-center overflow-hidden border-b border-transparent bg-app pl-3 transition-[background-color] transition-[border-color] ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
+				style={{ height: TOP_BAR_HEIGHT }}
 			>
 				<div className="flex">
 					<Tooltip label="Navigate back">
@@ -215,12 +115,6 @@ export default (props: TopBarProps) => {
 						</TopBarButton>
 					</Tooltip>
 				</div>
-
-				{/* <div className="flex mx-8 space-x-[1px]">
-          <TopBarButton active group left icon={List} />
-          <TopBarButton group icon={Columns} />
-          <TopBarButton group right icon={SquaresFour} />
-        </div> */}
 
 				<div data-tauri-drag-region className="flex grow flex-row justify-center">
 					<div className="mx-8 flex">
@@ -251,16 +145,6 @@ export default (props: TopBarProps) => {
 								<Columns className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
-						{/* <Tooltip label="Timeline view">
-							<TopBarButton
-								rounding="none"
-								active={store.layoutMode === 'timeline'}
-								onClick={() => (getExplorerStore().layoutMode = 'timeline')}
-							>
-								<ClockCounterClockwise className={TOP_BAR_ICON_STYLE} />
-							</TopBarButton>
-						</Tooltip> */}
-
 						<Tooltip label="Media view">
 							<TopBarButton
 								rounding="right"
@@ -279,15 +163,13 @@ export default (props: TopBarProps) => {
 							<Popover
 								className="focus:outline-none"
 								trigger={
-									// <Tooltip label="Major Key Alert">
 									<TopBarButton>
 										<Key className={TOP_BAR_ICON_STYLE} />
 									</TopBarButton>
-									// </Tooltip>
 								}
 							>
 								<div className="block w-[350px]">
-									<KeyManager /* className={TOP_BAR_ICON_STYLE} */ />
+									<KeyManager />
 								</div>
 							</Popover>
 						</Tooltip>
@@ -303,12 +185,7 @@ export default (props: TopBarProps) => {
 							</TopBarButton>
 						</Tooltip>
 						<Tooltip label="Regenerate thumbs (temp)">
-							<TopBarButton
-							// onClick={() =>
-							// 	store.locationId &&
-							// 	generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
-							// }
-							>
+							<TopBarButton>
 								<ArrowsClockwise className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
@@ -345,34 +222,6 @@ export default (props: TopBarProps) => {
 							/>
 						</TopBarButton>
 					</Tooltip>
-					{/* <Dropdown
-						// className="absolute block h-6 w-44 top-2 right-4"
-						align="right"
-						items={[
-							[
-								{
-									name: 'Generate Thumbs',
-									icon: ArrowsClockwise,
-									onPress: () =>
-										store.locationId &&
-										generateThumbsForLocation({ id: store.locationId, path: '' })
-								},
-								{
-									name: 'Identify Unique',
-									icon: ArrowsClockwise,
-									onPress: () =>
-										store.locationId && identifyUniqueFiles({ id: store.locationId, path: '' })
-								},
-								{
-									name: 'Validate Objects',
-									icon: ArrowsClockwise,
-									onPress: () =>
-										store.locationId && objectValidator({ id: store.locationId, path: '' })
-								}
-							]
-						]}
-						buttonComponent={<TopBarButton icon={List} />}
-					/> */}
 				</div>
 			</div>
 		</>

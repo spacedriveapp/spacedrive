@@ -334,29 +334,26 @@ impl SyncManager {
 			_ => todo!(),
 		}
 
-		match op.typ {
-			CRDTOperationType::Shared(shared_op) => {
-				let kind = match &shared_op.data {
-					SharedOperationData::Create(_) => "c",
-					SharedOperationData::Update { .. } => "u",
-					SharedOperationData::Delete => "d",
-				};
+		if let CRDTOperationType::Shared(shared_op) = op.typ {
+			let kind = match &shared_op.data {
+				SharedOperationData::Create(_) => "c",
+				SharedOperationData::Update { .. } => "u",
+				SharedOperationData::Delete => "d",
+			};
 
-				db.shared_operation()
-					.create(
-						op.id.as_bytes().to_vec(),
-						op.timestamp.0 as i64,
-						shared_op.model.to_string(),
-						to_vec(&shared_op.record_id).unwrap(),
-						kind.to_string(),
-						to_vec(&shared_op.data).unwrap(),
-						node::pub_id::equals(op.node.as_bytes().to_vec()),
-						vec![],
-					)
-					.exec()
-					.await?;
-			}
-			_ => {}
+			db.shared_operation()
+				.create(
+					op.id.as_bytes().to_vec(),
+					op.timestamp.0 as i64,
+					shared_op.model.to_string(),
+					to_vec(&shared_op.record_id).unwrap(),
+					kind.to_string(),
+					to_vec(&shared_op.data).unwrap(),
+					node::pub_id::equals(op.node.as_bytes().to_vec()),
+					vec![],
+				)
+				.exec()
+				.await?;
 		}
 
 		self.tx.send(msg).ok();

@@ -1,12 +1,18 @@
 name: Mobile CI
 
 on:
-  pull_request:
   push:
     branches:
       - main
-    paths-ignore:
-      - '**/.md'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+      - 'core/**'
+      - 'crates/**'
+      - 'packages/assets/**'
+      - 'packages/client/**'
+      - 'packages/config/**'
   workflow_dispatch:
 
 env:

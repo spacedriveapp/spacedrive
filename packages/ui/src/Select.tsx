@@ -49,7 +49,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 	);
 }
 
-export function SelectOption(props: PropsWithChildren<{ value: string }>) {
+export function SelectOption(props: PropsWithChildren<{ value: string; default?: boolean }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(
@@ -57,6 +57,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 				'font-sm cursor-pointer select-none rounded text-ink',
 				'hover:bg-accent hover:text-white focus:outline-none radix-disabled:opacity-50 '
 			)}
+			defaultChecked={props.default || false}
 			value={props.value}
 		>
 			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>

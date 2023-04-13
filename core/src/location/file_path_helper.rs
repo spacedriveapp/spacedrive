@@ -8,6 +8,7 @@ use std::{
 	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
+use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,15 @@ file_path::select!(file_path_just_materialized_path_cas_id {
 
 // File Path includes!
 file_path::include!(file_path_with_object { object });
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct FilePathMetadata {
+	pub inode: u64,
+	pub device: u64,
+	pub size_in_bytes: u64,
+	pub created_at: DateTime<Utc>,
+	pub modified_at: DateTime<Utc>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MaterializedPath<'a> {
@@ -253,8 +263,7 @@ pub async fn create_file_path(
 	}: MaterializedPath<'_>,
 	parent_id: Option<(i32, Vec<u8>)>,
 	cas_id: Option<String>,
-	inode: u64,
-	device: u64,
+	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
 	use crate::sync;
 
@@ -265,15 +274,18 @@ pub async fn create_file_path(
 		("materialized_path", json!(materialized_path)),
 		("name", json!(name)),
 		("extension", json!(extension)),
-		("inode", json!(inode.to_le_bytes())),
-		("device", json!(device.to_le_bytes())),
+		("inode", json!(metadata.inode.to_le_bytes())),
+		("device", json!(metadata.device.to_le_bytes())),
 		("is_dir", json!(is_dir)),
+		("date_created", json!(metadata.created_at)),
+		("date_modified", json!(metadata.modified_at)),
+		("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
 	]
 	.into_iter()
 	.map(Some)
 	.chain([parent_id
-		.as_ref()
-		.map(|(_id, pub_id)| ("parent_id", json!(pub_id.clone())))])
+		.clone()
+		.map(|(_, pub_id)| ("parent", json!(sync::file_path::SyncId { pub_id })))])
 	.flatten()
 	.collect::<Vec<_>>();
 
@@ -292,12 +304,15 @@ pub async fn create_file_path(
 				materialized_path.into_owned(),
 				name.into_owned(),
 				extension.into_owned(),
-				inode.to_le_bytes().into(),
-				device.to_le_bytes().into(),
+				metadata.inode.to_le_bytes().into(),
+				metadata.device.to_le_bytes().into(),
 				vec![
 					file_path::cas_id::set(cas_id),
-					file_path::parent_id::set(parent_id.map(|(id, _pub_id)| id)),
+					file_path::parent_id::set(parent_id.map(|(id, _)| id)),
 					file_path::is_dir::set(is_dir),
+					file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
+					file_path::date_created::set(metadata.created_at.into()),
+					file_path::date_modified::set(metadata.modified_at.into()),
 				],
 			),
 		)

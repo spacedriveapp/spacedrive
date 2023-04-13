@@ -47,93 +47,88 @@ export default (props: PropsWithChildren) => {
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
 	return (
-		<div className="relative">
-			<CM.Root trigger={props.children}>
-				<OpenInNativeExplorer />
+		<CM.Root trigger={props.children}>
+			<OpenInNativeExplorer />
 
-				<CM.Separator />
+			<CM.Separator />
 
+			<CM.Item
+				label="Share"
+				icon={Share}
+				onClick={(e) => {
+					e.preventDefault();
+
+					navigator.share?.({
+						title: 'Spacedrive',
+						text: 'Check out this cool app',
+						url: 'https://spacedrive.com'
+					});
+				}}
+			/>
+
+			<CM.Separator />
+
+			<CM.Item
+				onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
+				label="Re-index"
+				icon={Repeat}
+			/>
+
+			<CM.Item
+				label="Paste"
+				keybind="⌘V"
+				hidden={!store.cutCopyState.active}
+				onClick={() => {
+					if (store.cutCopyState.actionType == 'Copy') {
+						store.locationId &&
+							copyFiles.mutate({
+								source_location_id: store.cutCopyState.sourceLocationId,
+								source_path_id: store.cutCopyState.sourcePathId,
+								target_location_id: store.locationId,
+								target_path: params.path,
+								target_file_name_suffix: null
+							});
+					} else {
+						store.locationId &&
+							cutFiles.mutate({
+								source_location_id: store.cutCopyState.sourceLocationId,
+								source_path_id: store.cutCopyState.sourcePathId,
+								target_location_id: store.locationId,
+								target_path: params.path
+							});
+					}
+				}}
+				icon={Clipboard}
+			/>
+
+			<CM.Item
+				label="Deselect"
+				hidden={!store.cutCopyState.active}
+				onClick={() => {
+					getExplorerStore().cutCopyState = {
+						...store.cutCopyState,
+						active: false
+					};
+				}}
+				icon={FileX}
+			/>
+
+			<CM.SubMenu label="More actions..." icon={Plus}>
 				<CM.Item
-					label="Share"
-					icon={Share}
-					onClick={(e) => {
-						e.preventDefault();
-
-						navigator.share?.({
-							title: 'Spacedrive',
-							text: 'Check out this cool app',
-							url: 'https://spacedrive.com'
-						});
-					}}
+					onClick={() =>
+						store.locationId && generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+					}
+					label="Regen Thumbnails"
+					icon={Image}
 				/>
-
-				<CM.Separator />
-
 				<CM.Item
-					onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
-					label="Re-index"
-					icon={Repeat}
+					onClick={() =>
+						store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
+					}
+					label="Generate Checksums"
+					icon={ShieldCheck}
 				/>
-
-				<CM.Item
-					label="Paste"
-					keybind="⌘V"
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						if (store.cutCopyState.actionType == 'Copy') {
-							store.locationId &&
-								copyFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									source_path_id: store.cutCopyState.sourcePathId,
-									target_location_id: store.locationId,
-									target_path: params.path,
-									target_file_name_suffix: null
-								});
-						} else {
-							store.locationId &&
-								cutFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									source_path_id: store.cutCopyState.sourcePathId,
-									target_location_id: store.locationId,
-									target_path: params.path
-								});
-						}
-					}}
-					icon={Clipboard}
-				/>
-
-				<CM.Item
-					label="Deselect"
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						getExplorerStore().cutCopyState = {
-							...store.cutCopyState,
-							active: false
-						};
-					}}
-					icon={FileX}
-				/>
-
-				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
-						onClick={() =>
-							store.locationId &&
-							generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
-						}
-						label="Regen Thumbnails"
-						icon={Image}
-					/>
-					<CM.Item
-						onClick={() =>
-							store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
-						}
-						label="Generate Checksums"
-						icon={ShieldCheck}
-					/>
-				</CM.SubMenu>
-
-				<CM.Separator />
-			</CM.Root>
-		</div>
+			</CM.SubMenu>
+		</CM.Root>
 	);
 };

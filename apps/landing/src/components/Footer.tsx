@@ -70,6 +70,8 @@ export function Footer() {
 						<FooterLink link="#">macOS</FooterLink>
 						<FooterLink link="#">Windows</FooterLink>
 						<FooterLink link="#">Linux</FooterLink>
+						<FooterLink link="#">Android</FooterLink>
+						<FooterLink link="#">iOS</FooterLink>
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
