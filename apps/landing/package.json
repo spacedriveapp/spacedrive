@@ -7,7 +7,7 @@
 		"build": "vite build",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
-		"lint": "eslint src",
+		"lint": "eslint . --cache",
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
