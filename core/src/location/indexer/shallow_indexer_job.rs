@@ -193,11 +193,9 @@ impl StatefulJob for ShallowIndexerJob {
 							.then_some(IndexerJobStepEntry {
 								full_path: entry.path,
 								materialized_path,
-								created_at: entry.created_at,
 								file_id: 0, // To be set later
 								parent_id: Some(parent_id),
-								inode: entry.inode,
-								device: entry.device,
+								metadata: entry.metadata,
 							})
 						},
 					)
