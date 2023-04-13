@@ -4,9 +4,10 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			extract_materialized_path, file_path_with_object, filter_existing_file_path_params,
-			get_parent_dir, get_parent_dir_id, loose_find_existing_file_path_params, FilePathError,
-			FilePathMetadata, MaterializedPath,
+			create_file_path, extract_materialized_path, file_path_with_object,
+			filter_existing_file_path_params, get_parent_dir, get_parent_dir_id,
+			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
+			MaterializedPath,
 		},
 		find_location, location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -106,22 +107,20 @@ pub(super) async fn create_dir(
         return Ok(())
 	};
 
-	let created_path = library
-		.last_file_path_id_manager
-		.create_file_path(
-			library,
-			materialized_path,
-			Some(parent_directory.id),
-			None,
-			FilePathMetadata {
-				inode,
-				device,
-				size_in_bytes: metadata.len(),
-				created_at: metadata.created()?.into(),
-				modified_at: metadata.modified()?.into(),
-			},
-		)
-		.await?;
+	let created_path = create_file_path(
+		library,
+		materialized_path,
+		Some((parent_directory.id, parent_directory.pub_id)),
+		None,
+		FilePathMetadata {
+			inode,
+			device,
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created()?.into(),
+			modified_at: metadata.modified()?.into(),
+		},
+	)
+	.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
 
@@ -180,22 +179,20 @@ pub(super) async fn create_file(
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &materialized_path).await?;
 
-	let created_file = library
-		.last_file_path_id_manager
-		.create_file_path(
-			library,
-			materialized_path,
-			Some(parent_directory.id),
-			Some(cas_id.clone()),
-			FilePathMetadata {
-				inode,
-				device,
-				size_in_bytes: metadata.len(),
-				created_at: metadata.created()?.into(),
-				modified_at: metadata.modified()?.into(),
-			},
-		)
-		.await?;
+	let created_file = create_file_path(
+		library,
+		materialized_path,
+		Some((parent_directory.id, parent_directory.pub_id)),
+		Some(cas_id.clone()),
+		FilePathMetadata {
+			inode,
+			device,
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created()?.into(),
+			modified_at: metadata.modified()?.into(),
+		},
+	)
+	.await?;
 
 	info!("Created path: {}", created_file.materialized_path);
 
@@ -229,7 +226,7 @@ pub(super) async fn create_file(
 
 	db.file_path()
 		.update(
-			file_path::location_id_id(location_id, created_file.id),
+			file_path::pub_id::equals(created_file.pub_id),
 			vec![file_path::object_id::set(Some(object.id))],
 		)
 		.exec()
@@ -407,10 +404,7 @@ async fn inner_update_file(
 						.map(|(field, value)| {
 							sync.shared_update(
 								sync::file_path::SyncId {
-									location: sync::location::SyncId {
-										pub_id: location.pub_id.clone(),
-									},
-									id: file_path.id,
+									pub_id: file_path.pub_id.clone(),
 								},
 								field,
 								value,
@@ -418,7 +412,7 @@ async fn inner_update_file(
 						})
 						.collect(),
 					db.file_path().update(
-						file_path::location_id_id(location_id, file_path.id),
+						file_path::pub_id::equals(file_path.pub_id.clone()),
 						db_params,
 					),
 				),
@@ -573,12 +567,10 @@ pub(super) async fn rename(
 		library
 			.db
 			.file_path()
-			.update(
-				file_path::location_id_id(file_path.location_id, file_path.id),
-				update_params,
-			)
+			.update(file_path::pub_id::equals(file_path.pub_id), update_params)
 			.exec()
 			.await?;
+
 		invalidate_query!(library, "locations.getExplorerData");
 	}
 
@@ -631,7 +623,7 @@ pub(super) async fn remove_by_file_path(
 				library
 					.db
 					.file_path()
-					.delete(file_path::location_id_id(location_id, file_path.id))
+					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
 					.exec()
 					.await?;
 
@@ -651,12 +643,6 @@ pub(super) async fn remove_by_file_path(
 		}
 		Err(e) => return Err(e.into()),
 	}
-
-	// If the file paths we just removed were the last ids in the DB, we decresed the last id from the id manager
-	library
-		.last_file_path_id_manager
-		.sync(location_id, &library.db)
-		.await?;
 
 	invalidate_query!(library, "locations.getExplorerData");
 

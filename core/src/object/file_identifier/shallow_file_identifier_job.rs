@@ -1,9 +1,12 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
-	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
+	location::{
+		file_path_helper::{
+			ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
+		},
+		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient},
 };
@@ -19,7 +22,7 @@ use tracing::info;
 
 use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
-	FileIdentifierReport, FilePathIdAndLocationIdCursor, CHUNK_SIZE,
+	FileIdentifierReport, FilePathIdCursor, CHUNK_SIZE,
 };
 
 pub const SHALLOW_FILE_IDENTIFIER_JOB_NAME: &str = "shallow_file_identifier";
@@ -45,7 +48,7 @@ impl Hash for ShallowFileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct ShallowFileIdentifierJobState {
-	cursor: FilePathIdAndLocationIdCursor,
+	cursor: FilePathIdCursor,
 	report: FileIdentifierReport,
 	sub_path_id: i32,
 }
@@ -104,10 +107,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
-			cursor: FilePathIdAndLocationIdCursor {
-				file_path_id: -1,
-				location_id,
-			},
+			cursor: FilePathIdCursor { file_path_id: -1 },
 			sub_path_id,
 		});
 
@@ -164,7 +164,8 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let location = &state.init.location;
 
 		// get chunk of orphans to process
-		let file_paths = get_orphan_file_paths(&ctx.library.db, cursor, *sub_path_id).await?;
+		let file_paths =
+			get_orphan_file_paths(&ctx.library.db, location.id, cursor, *sub_path_id).await?;
 
 		process_identifier_file_paths(
 			self.name(),
@@ -191,7 +192,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 }
 
 fn orphan_path_filters(
-	location_id: i32,
+	location_id: LocationId,
 	file_path_id: Option<i32>,
 	sub_path_id: i32,
 ) -> Vec<file_path::WhereParam> {
@@ -211,7 +212,7 @@ fn orphan_path_filters(
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
+	location_id: LocationId,
 	sub_path_id: i32,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
@@ -223,7 +224,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	cursor: &FilePathIdAndLocationIdCursor,
+	location_id: LocationId,
+	cursor: &FilePathIdCursor,
 	sub_path_id: i32,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
@@ -232,7 +234,7 @@ async fn get_orphan_file_paths(
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(
-			cursor.location_id,
+			location_id,
 			Some(cursor.file_path_id),
 			sub_path_id,
 		))
