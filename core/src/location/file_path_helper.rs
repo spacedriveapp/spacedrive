@@ -8,6 +8,7 @@ use std::{
 	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
+use chrono::{DateTime, Utc};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
 use prisma_client_rust::{Direction, QueryError};
@@ -46,6 +47,15 @@ file_path::select!(file_path_just_materialized_path_cas_id {
 
 // File Path includes!
 file_path::include!(file_path_with_object { object });
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct FilePathMetadata {
+	pub inode: u64,
+	pub device: u64,
+	pub size_in_bytes: u64,
+	pub created_at: DateTime<Utc>,
+	pub modified_at: DateTime<Utc>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MaterializedPath<'a> {
@@ -318,8 +328,7 @@ impl LastFilePathIdManager {
 		}: MaterializedPath<'_>,
 		parent_id: Option<i32>,
 		cas_id: Option<String>,
-		inode: u64,
-		device: u64,
+		metadata: FilePathMetadata,
 	) -> Result<file_path::Data, FilePathError> {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 
@@ -348,9 +357,12 @@ impl LastFilePathIdManager {
 			("materialized_path", json!(materialized_path)),
 			("name", json!(name)),
 			("extension", json!(extension)),
-			("inode", json!(inode.to_le_bytes())),
-			("device", json!(device.to_le_bytes())),
+			("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
+			("inode", json!(metadata.inode.to_le_bytes())),
+			("device", json!(metadata.device.to_le_bytes())),
 			("is_dir", json!(is_dir)),
+			("date_created", json!(metadata.created_at)),
+			("date_modified", json!(metadata.modified_at)),
 		]
 		.into_iter()
 		.map(Some)
@@ -386,12 +398,15 @@ impl LastFilePathIdManager {
 					materialized_path.into_owned(),
 					name.into_owned(),
 					extension.into_owned(),
-					inode.to_le_bytes().into(),
-					device.to_le_bytes().into(),
+					metadata.inode.to_le_bytes().into(),
+					metadata.device.to_le_bytes().into(),
 					vec![
 						file_path::cas_id::set(cas_id),
 						file_path::parent_id::set(parent_id),
 						file_path::is_dir::set(is_dir),
+						file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
+						file_path::date_created::set(metadata.created_at.into()),
+						file_path::date_modified::set(metadata.modified_at.into()),
 					],
 				),
 			)

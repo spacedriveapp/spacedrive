@@ -24,7 +24,7 @@ use tokio::io;
 use tracing::info;
 
 use super::{
-	file_path_helper::{FilePathError, MaterializedPath},
+	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
 	location_with_indexer_rules,
 };
 
@@ -72,11 +72,9 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
-	created_at: DateTime<Utc>,
 	file_id: i32,
 	parent_id: Option<i32>,
-	inode: u64,
-	device: u64,
+	metadata: FilePathMetadata,
 }
 
 impl IndexerJobData {
@@ -178,10 +176,15 @@ async fn execute_indexer_step(
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
-						("inode", json!(entry.inode.to_le_bytes())),
-						("device", json!(entry.device.to_le_bytes())),
+						(
+							"size_in_bytes",
+							json!(entry.metadata.size_in_bytes.to_string()),
+						),
+						("inode", json!(entry.metadata.inode.to_le_bytes())),
+						("device", json!(entry.metadata.device.to_le_bytes())),
 						("parent_id", json!(entry.parent_id)),
-						("date_created", json!(entry.created_at)),
+						("date_created", json!(entry.metadata.created_at)),
+						("date_modified", json!(entry.metadata.modified_at)),
 					],
 				),
 				file_path::create_unchecked(
@@ -190,12 +193,14 @@ async fn execute_indexer_step(
 					materialized_path.into_owned(),
 					name.into_owned(),
 					extension.into_owned(),
-					entry.inode.to_le_bytes().into(),
-					entry.device.to_le_bytes().into(),
+					entry.metadata.inode.to_le_bytes().into(),
+					entry.metadata.device.to_le_bytes().into(),
 					vec![
 						is_dir::set(is_dir),
+						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
 						parent_id::set(entry.parent_id),
-						date_created::set(entry.created_at.into()),
+						date_created::set(entry.metadata.created_at.into()),
+						date_modified::set(entry.metadata.modified_at.into()),
 					],
 				),
 			)
