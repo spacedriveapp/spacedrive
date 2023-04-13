@@ -22,7 +22,7 @@ export default () => {
 		<div
 			data-tauri-drag-region
 			className={clsx(
-				'duration-250 absolute top-0 z-20 flex grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app px-5 transition-[background-color] transition-[border-color] ease-out'
+				'duration-250 absolute top-0 z-50 flex grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app px-5 transition-[background-color] transition-[border-color] ease-out'
 			)}
 		>
 			<div data-tauri-drag-region className="flex ">
