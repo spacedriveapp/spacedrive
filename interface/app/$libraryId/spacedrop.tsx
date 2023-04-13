@@ -2,7 +2,7 @@ import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
 import { useRef, useState } from 'react';
-import { Button, Select, SelectOption, forms, tw } from '@sd/ui';
+import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
@@ -41,7 +41,7 @@ function DropItem(props: DropItemProps) {
 		}
 		if (brandIconSrc) {
 			icon = (
-				<div className="flex h-full items-center justify-center p-3">
+				<div className="flex items-center justify-center h-full p-3">
 					<img className="rounded-full " src={brandIconSrc} alt={props.name} />
 				</div>
 			);
@@ -56,11 +56,11 @@ function DropItem(props: DropItemProps) {
 		<div
 			className={clsx(classes.honeycombItem, 'overflow-hidden bg-app-box/20 hover:bg-app-box/50')}
 		>
-			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
+			<div className="relative flex flex-col items-center justify-center w-full h-full group ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer> */}
-				<div className="h-14 w-14 rounded-full bg-app-button">{icon}</div>
+				<div className="rounded-full h-14 w-14 bg-app-button">{icon}</div>
 				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
 				</SubtleButtonContainer>
@@ -117,12 +117,12 @@ function TemporarySpacedropDemo() {
 	// TODO: Input select
 	return (
 		<Form onSubmit={onSubmit} form={form}>
-			<h1 className="mt-4 text-2xl font-bold">Spacedrop Demo</h1>
+			<ScreenHeading>Spacedrop Demo</ScreenHeading>
 			<p className="text-xs text-ink-dull">
 				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
 				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
 			</p>
-			<div className="mt-2 flex flex-row items-center space-x-4">
+			<div className="flex flex-row items-center mt-2 space-x-4">
 				<Input
 					size="sm"
 					placeholder="/Users/oscar/Desktop/sd/demo.txt"
@@ -131,7 +131,7 @@ function TemporarySpacedropDemo() {
 					{...form.register('file_path')}
 				/>
 
-				<Button className="block flex-shrink-0" variant="gray">
+				<Button className="flex-shrink-0 block" variant="gray">
 					Select File
 				</Button>
 
@@ -145,7 +145,7 @@ function TemporarySpacedropDemo() {
 
 				<Button
 					disabled={!form.getValues().target_peer}
-					className="block flex-shrink-0"
+					className="flex-shrink-0 block"
 					variant="accent"
 					type="submit"
 				>
@@ -157,12 +157,8 @@ function TemporarySpacedropDemo() {
 }
 
 export const Component = () => {
-	const searchRef = useRef<HTMLInputElement>(null);
 	return (
 		<>
-			<div className="i2ems-center relative bottom-[11.5px] flex w-full flex-row justify-center">
-				<SearchBar className="ml-[13px]" ref={searchRef} />
-			</div>
 			<TemporarySpacedropDemo />
 			<div className={classes.honeycombOuter}>
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>

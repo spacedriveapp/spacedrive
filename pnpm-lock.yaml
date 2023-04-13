@@ -448,6 +448,7 @@ importers:
       clsx: ^1.2.1
       crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
+      framer-motion: ^10.11.5
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
       react: ^18.2.0
@@ -498,6 +499,7 @@ importers:
       clsx: 1.2.1
       crypto-random-string: 5.0.0
       dayjs: 1.11.7
+      framer-motion: 10.11.5_biqbaboplfbrettd7655fr4n2y
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
       react-colorful: 5.6.1_biqbaboplfbrettd7655fr4n2y
@@ -12912,6 +12914,24 @@ packages:
     engines: {node: '>=0.10.0'}
     dependencies:
       map-cache: 0.2.2
+
+  /framer-motion/10.11.5_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-1JuoJsojdYLVdVldkR7p69G24bNs00p/IuqNcuIT9g2qSNG9Ya4SyK4Jy4Z5grUSi7j1yLI6AdO/0BhY0zo7yw==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      tslib: 2.5.0
+    optionalDependencies:
+      '@emotion/is-prop-valid': 0.8.8
+    dev: false
 
   /framer-motion/6.5.1_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-o1BGqqposwi7cgDrtg0dNONhkmPsUFDaLcKXigzuTFC5x58mE8iyTazxSudFzmT6MEyJKfjjU8ItoMe3W+3fiw==}
