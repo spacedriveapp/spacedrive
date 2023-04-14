@@ -1,4 +1,3 @@
-use crate::location::Library;
 use crate::prisma::{file_path, location, PrismaClient};
 
 use std::{
@@ -12,11 +11,9 @@ use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
-use uuid::Uuid;
 
 use super::LocationId;
 
@@ -266,6 +263,8 @@ pub async fn create_file_path(
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
 	use crate::sync;
+	use serde_json::json;
+	use uuid::Uuid;
 
 	let pub_id = Uuid::new_v4().as_bytes().to_vec();
 
@@ -416,6 +415,7 @@ pub fn filter_existing_file_path_params(
 /// With this function we try to do a loose filtering of file paths, to avoid having to do check
 /// twice for directories and for files. This is because directories have a trailing `/` or `\` in
 /// the materialized path
+#[allow(unused)]
 pub fn loose_find_existing_file_path_params(
 	MaterializedPath {
 		materialized_path,
