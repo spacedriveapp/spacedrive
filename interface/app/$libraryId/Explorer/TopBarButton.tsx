@@ -1,4 +1,5 @@
 import { cva } from 'class-variance-authority';
+import { Check } from 'phosphor-react';
 import { forwardRef } from 'react';
 import { Button } from '@sd/ui';
 
@@ -8,10 +9,11 @@ export interface TopBarButtonProps {
 	active?: boolean;
 	className?: string;
 	onClick?: () => void;
+	checkIcon?: React.ReactNode;
 }
 
 const topBarButtonStyle = cva(
-	'text-md mr-[1px] flex border-none !p-0.5 font-medium text-ink outline-none transition-colors duration-100 hover:bg-app-selected hover:text-ink radix-state-open:bg-app-selected',
+	'text-md relative mr-[1px] flex border-none !p-0.5 font-medium text-ink outline-none transition-colors duration-100 hover:bg-app-selected hover:text-ink radix-state-open:bg-app-selected',
 	{
 		variants: {
 			active: {
@@ -41,6 +43,9 @@ export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 				className={topBarButtonStyle({ active, rounding, className })}
 			>
 				{props.children}
+				{props.checkIcon && active && (
+					<Check className="absolute right-2 m-0.5 h-5 w-5 text-ink-dull" />
+				)}
 			</Button>
 		);
 	}

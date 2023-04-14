@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { ComponentPropsWithRef, forwardRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
 import { Input, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
@@ -9,20 +9,7 @@ interface Props extends ComponentPropsWithRef<'input'> {
 }
 
 export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
-	const {
-		register,
-		handleSubmit,
-		reset,
-		formState: { dirtyFields }
-	} = useForm();
-
-	const { ref, ...searchField } = register('searchField', {
-		onBlur: () => {
-			// if there's no text in the search bar, don't mark it as dirty so the key hint shows
-			if (!dirtyFields.searchField) reset();
-		}
-	});
-
+	const [searchValue, setSearchValue] = useState('');
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 
@@ -37,7 +24,7 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 					event.key === 'Escape'
 				) {
 					forwardedRef.current?.blur();
-					reset();
+					setSearchValue('');
 				}
 			}
 		};
@@ -45,17 +32,12 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 		return () => {
 			document.removeEventListener('keydown', keyboardSearchFocus);
 		};
-	}, [forwardedRef, reset]);
+	}, [forwardedRef]);
 
 	return (
-		<form
-			data-tauri-drag-region
-			onSubmit={handleSubmit(() => null)}
-			className={`relative flex h-7 ${props.formClassName}`}
-		>
+		<form data-tauri-drag-region className={`relative flex h-7 ${props.formClassName}`}>
 			<Input
 				ref={(el) => {
-					ref(el);
 					if (typeof forwardedRef === 'function') forwardedRef(el);
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
@@ -65,7 +47,9 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 					props.className
 				)}
 				size="sm"
-				{...searchField}
+				onChange={(e) => setSearchValue(e.target.value)}
+				onBlur={() => setSearchValue('')}
+				value={searchValue}
 				right={
 					<div
 						className={clsx(

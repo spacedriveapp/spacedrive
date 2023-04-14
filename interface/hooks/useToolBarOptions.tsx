@@ -33,6 +33,7 @@ export interface ToolOptions {
 		[key in groupKeys]?: {
 			icon: JSX.Element;
 			onClick?: () => void;
+			individual?: boolean;
 			toolTipLabel: string;
 			topBarActive?: boolean;
 			popOverComponent?: JSX.Element;
@@ -40,7 +41,7 @@ export interface ToolOptions {
 	}[];
 }
 
-const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
+export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 
 export const useToolBarRouteOptions = () => {
 	const store = useExplorerStore();
@@ -81,7 +82,8 @@ export const useToolBarRouteOptions = () => {
 						{
 							toolTipLabel: 'Key Manager',
 							icon: <Key className={TOP_BAR_ICON_STYLE} />,
-							popOverComponent: <KeyManager />
+							popOverComponent: <KeyManager />,
+							individual: true
 						},
 						{
 							toolTipLabel: 'Tag Assign Mode',
@@ -93,18 +95,21 @@ export const useToolBarRouteOptions = () => {
 							),
 							onClick: () =>
 								(getExplorerStore().tagAssignMode = !store.tagAssignMode),
-							topBarActive: store.tagAssignMode
+							topBarActive: store.tagAssignMode,
+							individual: true
 						},
 						{
 							toolTipLabel: 'Regenerate thumbs (temp)',
-							icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />
+							icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+							individual: true
 						}
 					],
 					groupThree: [
 						{
 							toolTipLabel: 'Explorer display',
 							icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-							popOverComponent: <OptionsPanel />
+							popOverComponent: <OptionsPanel />,
+							individual: true
 						},
 						{
 							toolTipLabel: 'Show Inspector',
@@ -115,7 +120,8 @@ export const useToolBarRouteOptions = () => {
 									weight={store.showInspector ? 'fill' : 'regular'}
 									className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
 								/>
-							)
+							),
+							individual: true
 						}
 					]
 				}
