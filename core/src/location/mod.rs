@@ -17,11 +17,11 @@ use crate::{
 
 use std::{
 	collections::HashSet,
-	ffi::OsStr,
-	path::{Path, PathBuf},
+	path::{Component, Path, PathBuf},
 };
 
 use futures::future::TryFutureExt;
+use normpath::PathExt;
 use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
@@ -454,11 +454,27 @@ async fn create_location(
 
 	let location_path = location_path.as_ref();
 
-	let name = location_path
-		.file_name()
-		.and_then(OsStr::to_str)
-		.map(str::to_string)
-		.unwrap();
+	let name = location_path.normalize().map_or_else(
+		|_| {
+			location_path
+				.components()
+				.next()
+				.and_then(|component| match component {
+					Component::Prefix(component) => {
+						let prefix = component.as_os_str().to_string_lossy().to_string();
+						Some(if prefix == "/" {
+							"Root".to_string()
+						} else {
+							prefix
+						})
+					}
+					_ => None,
+				})
+				.get_or_insert("Unknown".to_string())
+				.to_owned()
+		},
+		|p| p.localize_name().to_string_lossy().to_string(),
+	);
 
 	let path = location_path
 		.to_str()

@@ -18,9 +18,9 @@ sync-messages = []
 [dependencies]
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [
-  "rspc",
-  "serde",
-  "keymanager",
+	"rspc",
+	"serde",
+	"keymanager",
 ] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
@@ -31,11 +31,11 @@ httpz = { workspace = true }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = [
-  "sync",
-  "rt-multi-thread",
-  "io-util",
-  "macros",
-  "time",
+	"sync",
+	"rt-multi-thread",
+	"io-util",
+	"macros",
+	"time",
 ] }
 
 base64 = "0.21.0"
@@ -70,10 +70,11 @@ serde_with = "2.2.0"
 dashmap = { version = "5.4.0", features = ["serde"] }
 ffmpeg-next = { version = "6.0.0", optional = true, features = [] }
 notify = { version = "5.0.0", default-features = false, features = [
-  "macos_fsevent",
+	"macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
+normpath = { version = "1.1.1", features = ["localization"] }
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
