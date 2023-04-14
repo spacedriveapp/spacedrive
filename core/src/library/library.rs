@@ -66,7 +66,7 @@ impl Library {
 		self.node_context
 			.jobs
 			.clone()
-			.ingest(&self, Job::new(init, J::new()))
+			.ingest(self, Job::new(init, J::new()))
 			.await
 	}
 
