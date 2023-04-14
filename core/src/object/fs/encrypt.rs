@@ -1,4 +1,4 @@
-use crate::{job::*, library::Library};
+use crate::{invalidate_query, job::*, library::Library};
 
 use std::path::PathBuf;
 
@@ -227,7 +227,9 @@ impl StatefulJob for FileEncryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

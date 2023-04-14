@@ -4,8 +4,11 @@ use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::fs::File;
 
-use crate::job::{
-	JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 };
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
@@ -151,7 +154,9 @@ impl StatefulJob for FileDecryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
