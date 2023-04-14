@@ -87,7 +87,7 @@ target 'Spacedrive' do
         resource_bundle_target.build_configurations.each do |config|
           config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
           # Spacedrive - Added to fix the issue with the deployment target
-          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = podfile_properties['ios.deploymentTarget'] || '13.0'
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = podfile_properties['deploymentTarget'] || '13.0'
         end
       end
     end
