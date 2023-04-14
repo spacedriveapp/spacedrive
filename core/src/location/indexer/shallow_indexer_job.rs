@@ -21,7 +21,6 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::error;
-use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer, location_with_indexer_rules,
@@ -67,7 +66,11 @@ impl StatefulJob for ShallowIndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let Library { db, .. } = &ctx.library;
+		let Library {
+			last_file_path_id_manager,
+			db,
+			..
+		} = &ctx.library;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
@@ -154,17 +157,13 @@ impl StatefulJob for ShallowIndexerJob {
 			.exec()
 			.await?
 			.into_iter()
-			.map(|file_path| (file_path.materialized_path, file_path.pub_id))
+			.map(|file_path| (file_path.materialized_path, file_path.id))
 			.unzip::<_, _, HashSet<_>, Vec<_>>();
 
-		// SAFETY: We generate this uuid before, so it's valid
-		let parent_file_path_ids = (
-			parent_file_path.id,
-			Uuid::from_slice(&parent_file_path.pub_id).unwrap(),
-		);
+		let parent_id = parent_file_path.id;
 
 		// Adding our parent path id
-		to_retain.push(parent_file_path.pub_id.clone());
+		to_retain.push(parent_id);
 
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths =
@@ -172,8 +171,14 @@ impl StatefulJob for ShallowIndexerJob {
 				.await
 				.map_err(IndexerError::from)?;
 
+		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
+		last_file_path_id_manager
+			.sync(location_id, db)
+			.await
+			.map_err(IndexerError::from)?;
+
 		// Filter out paths that are already in the databases
-		let new_paths = found_paths
+		let mut new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(location_id, location_path, &entry.path, entry.is_dir)
@@ -188,8 +193,8 @@ impl StatefulJob for ShallowIndexerJob {
 							.then_some(IndexerJobStepEntry {
 								full_path: entry.path,
 								materialized_path,
-								file_pub_id: Uuid::new_v4(),
-								parent_id: Some(parent_file_path_ids),
+								file_id: 0, // To be set later
+								parent_id: Some(parent_id),
 								metadata: entry.metadata,
 							})
 						},
@@ -198,6 +203,21 @@ impl StatefulJob for ShallowIndexerJob {
 			// Sadly we have to collect here to be able to check the length so we can set
 			// the max file path id later
 			.collect::<Vec<_>>();
+
+		let total_paths = new_paths.len();
+
+		// grab the next id so we can increment in memory for batch inserting
+		let first_file_id = last_file_path_id_manager
+			.increment(location_id, total_paths as i32, db)
+			.await
+			.map_err(IndexerError::from)?;
+
+		new_paths
+			.iter_mut()
+			.zip(first_file_id..)
+			.for_each(|(entry, file_id)| {
+				entry.file_id = file_id;
+			});
 
 		let total_paths = new_paths.len();
 

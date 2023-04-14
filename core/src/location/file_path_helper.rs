@@ -9,33 +9,30 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
-use prisma_client_rust::QueryError;
+use prisma_client_rust::{Direction, QueryError};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
-use uuid::Uuid;
 
 use super::LocationId;
 
 // File Path selectables!
 file_path::select!(file_path_just_id_materialized_path {
 	id
-	pub_id
 	materialized_path
 });
 file_path::select!(file_path_for_file_identifier {
 	id
-	pub_id
 	materialized_path
 	date_created
 });
 file_path::select!(file_path_just_object_id { object_id });
 file_path::select!(file_path_for_object_validator {
 	id
-	pub_id
 	materialized_path
 	integrity_checksum
 	location: select {
@@ -251,74 +248,174 @@ pub enum FilePathError {
 	IOError(#[from] io::Error),
 }
 
-#[cfg(feature = "location-watcher")]
-pub async fn create_file_path(
-	Library { db, sync, .. }: &Library,
-	MaterializedPath {
-		materialized_path,
-		is_dir,
-		location_id,
-		name,
-		extension,
-	}: MaterializedPath<'_>,
-	parent_id: Option<(i32, Vec<u8>)>,
-	cas_id: Option<String>,
-	metadata: FilePathMetadata,
-) -> Result<file_path::Data, FilePathError> {
-	use crate::sync;
+#[derive(Debug)]
+pub struct LastFilePathIdManager {
+	last_id_by_location: DashMap<LocationId, i32>,
+}
 
-	let pub_id = Uuid::new_v4().as_bytes().to_vec();
+impl Default for LastFilePathIdManager {
+	fn default() -> Self {
+		Self {
+			last_id_by_location: DashMap::with_capacity(4),
+		}
+	}
+}
 
-	let params = [
-		("cas_id", json!(cas_id)),
-		("materialized_path", json!(materialized_path)),
-		("name", json!(name)),
-		("extension", json!(extension)),
-		("inode", json!(metadata.inode.to_le_bytes())),
-		("device", json!(metadata.device.to_le_bytes())),
-		("is_dir", json!(is_dir)),
-		("date_created", json!(metadata.created_at)),
-		("date_modified", json!(metadata.modified_at)),
-		("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
-	]
-	.into_iter()
-	.map(Some)
-	.chain([parent_id
-		.clone()
-		.map(|(_, pub_id)| ("parent", json!(sync::file_path::SyncId { pub_id })))])
-	.flatten()
-	.collect::<Vec<_>>();
+impl LastFilePathIdManager {
+	pub fn new() -> Self {
+		Default::default()
+	}
 
-	let created_path = sync
-		.write_op(
-			db,
-			sync.unique_shared_create(
-				sync::file_path::SyncId {
-					pub_id: pub_id.clone(),
-				},
-				params,
-			),
-			db.file_path().create(
-				pub_id,
-				location::id::equals(location_id),
-				materialized_path.into_owned(),
-				name.into_owned(),
-				extension.into_owned(),
-				metadata.inode.to_le_bytes().into(),
-				metadata.device.to_le_bytes().into(),
-				vec![
-					file_path::cas_id::set(cas_id),
-					file_path::parent_id::set(parent_id.map(|(id, _)| id)),
-					file_path::is_dir::set(is_dir),
-					file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
-					file_path::date_created::set(metadata.created_at.into()),
-					file_path::date_modified::set(metadata.modified_at.into()),
-				],
-			),
-		)
-		.await?;
+	pub async fn sync(
+		&self,
+		location_id: LocationId,
+		db: &PrismaClient,
+	) -> Result<(), FilePathError> {
+		if let Some(mut id_ref) = self.last_id_by_location.get_mut(&location_id) {
+			*id_ref = Self::fetch_max_file_path_id(location_id, db).await?;
+		}
 
-	Ok(created_path)
+		Ok(())
+	}
+
+	pub async fn increment(
+		&self,
+		location_id: LocationId,
+		by: i32,
+		db: &PrismaClient,
+	) -> Result<i32, FilePathError> {
+		Ok(match self.last_id_by_location.entry(location_id) {
+			Entry::Occupied(mut entry) => {
+				let first_free_id = *entry.get() + 1;
+				*entry.get_mut() += by + 1;
+				first_free_id
+			}
+			Entry::Vacant(entry) => {
+				// I wish I could use `or_try_insert_with` method instead of this crappy match,
+				// but we don't have async closures yet ):
+				let first_free_id = Self::fetch_max_file_path_id(location_id, db).await? + 1;
+				entry.insert(first_free_id + by);
+				first_free_id
+			}
+		})
+	}
+
+	async fn fetch_max_file_path_id(
+		location_id: LocationId,
+		db: &PrismaClient,
+	) -> Result<i32, FilePathError> {
+		Ok(db
+			.file_path()
+			.find_first(vec![file_path::location_id::equals(location_id)])
+			.order_by(file_path::id::order(Direction::Desc))
+			.select(file_path::select!({ id }))
+			.exec()
+			.await?
+			.map(|r| r.id)
+			.unwrap_or(0))
+	}
+
+	#[cfg(feature = "location-watcher")]
+	pub async fn create_file_path(
+		&self,
+		Library { db, sync, .. }: &Library,
+		MaterializedPath {
+			materialized_path,
+			is_dir,
+			location_id,
+			name,
+			extension,
+		}: MaterializedPath<'_>,
+		parent_id: Option<i32>,
+		cas_id: Option<String>,
+		metadata: FilePathMetadata,
+	) -> Result<file_path::Data, FilePathError> {
+		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
+
+		use crate::sync;
+
+		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
+			Entry::Occupied(ocupied) => ocupied.into_ref(),
+			Entry::Vacant(vacant) => {
+				let id = Self::fetch_max_file_path_id(location_id, db).await?;
+				vacant.insert(id)
+			}
+		};
+
+		let location = db
+			.location()
+			.find_unique(location::id::equals(location_id))
+			.select(location::select!({ id pub_id }))
+			.exec()
+			.await?
+			.unwrap();
+
+		let next_id = *last_id_ref + 1;
+
+		let params = [
+			("cas_id", json!(cas_id)),
+			("materialized_path", json!(materialized_path)),
+			("name", json!(name)),
+			("extension", json!(extension)),
+			("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
+			("inode", json!(metadata.inode.to_le_bytes())),
+			("device", json!(metadata.device.to_le_bytes())),
+			("is_dir", json!(is_dir)),
+			("date_created", json!(metadata.created_at)),
+			("date_modified", json!(metadata.modified_at)),
+		]
+		.into_iter()
+		.map(Some)
+		.chain([parent_id.map(|parent_id| {
+			(
+				"parent_id",
+				json!(sync::file_path::SyncId {
+					location: sync::location::SyncId {
+						pub_id: location.pub_id.clone()
+					},
+					id: parent_id
+				}),
+			)
+		})])
+		.flatten()
+		.collect::<Vec<_>>();
+
+		let created_path = sync
+			.write_op(
+				db,
+				sync.unique_shared_create(
+					sync::file_path::SyncId {
+						location: sync::location::SyncId {
+							pub_id: location.pub_id.clone(),
+						},
+						id: next_id,
+					},
+					params,
+				),
+				db.file_path().create(
+					next_id,
+					location::id::equals(location_id),
+					materialized_path.into_owned(),
+					name.into_owned(),
+					extension.into_owned(),
+					metadata.inode.to_le_bytes().into(),
+					metadata.device.to_le_bytes().into(),
+					vec![
+						file_path::cas_id::set(cas_id),
+						file_path::parent_id::set(parent_id),
+						file_path::is_dir::set(is_dir),
+						file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
+						file_path::date_created::set(metadata.created_at.into()),
+						file_path::date_modified::set(metadata.modified_at.into()),
+					],
+				),
+			)
+			.await?;
+
+		*last_id_ref = next_id;
+
+		Ok(created_path)
+	}
 }
 
 pub fn subtract_location_path(
@@ -552,33 +649,26 @@ pub async fn ensure_sub_path_is_directory(
 
 pub async fn retain_file_paths_in_location(
 	location_id: LocationId,
-	to_retain: Vec<Vec<u8>>,
+	to_retain: Vec<i32>,
 	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
 	db: &PrismaClient,
 ) -> Result<i64, FilePathError> {
-	let to_delete_params = vec![
+	let mut to_delete_params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::pub_id::not_in_vec(to_retain),
-	]
-	.into_iter()
-	.map(Some)
-	.chain([{
-		if let Some(parent_file_path) = maybe_parent_file_path {
-			// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
-			Some(
-				if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
-					file_path::materialized_path::starts_with(parent_file_path.materialized_path)
-				} else {
-					// If the parent_materialized_path is the root path, we fetch children using the parent id
-					file_path::parent_id::equals(Some(parent_file_path.id))
-				},
-			)
+		file_path::id::not_in_vec(to_retain),
+	];
+
+	if let Some(parent_file_path) = maybe_parent_file_path {
+		// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
+		if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
+			to_delete_params.push(file_path::materialized_path::starts_with(
+				parent_file_path.materialized_path,
+			));
 		} else {
-			None
+			// If the parent_materialized_path is the root path, we fetch children using the parent id
+			to_delete_params.push(file_path::parent_id::equals(Some(parent_file_path.id)));
 		}
-	}])
-	.flatten()
-	.collect();
+	}
 
 	db.file_path()
 		.delete_many(to_delete_params)
