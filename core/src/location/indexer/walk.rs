@@ -1,4 +1,4 @@
-use crate::location::file_path_helper::FilePathMetadata;
+use crate::location::file_path_helper::{FilePathMetadata, MetadataExt};
 
 #[cfg(target_family = "unix")]
 use crate::location::file_path_helper::get_inode_and_device;
@@ -291,8 +291,8 @@ async fn inner_walk_single_dir(
 						inode,
 						device,
 						size_in_bytes: metadata.len(),
-						created_at: metadata.created()?.into(),
-						modified_at: metadata.modified()?.into(),
+						created_at: metadata.created_or_now().into(),
+						modified_at: metadata.modified_or_now().into(),
 					},
 				},
 			);
@@ -327,8 +327,8 @@ async fn inner_walk_single_dir(
 								inode,
 								device,
 								size_in_bytes: metadata.len(),
-								created_at: metadata.created()?.into(),
-								modified_at: metadata.modified()?.into(),
+								created_at: metadata.created_or_now().into(),
+								modified_at: metadata.modified_or_now().into(),
 							},
 						},
 					);
@@ -372,8 +372,8 @@ async fn prepared_indexed_paths(
 				inode,
 				device,
 				size_in_bytes: metadata.len(),
-				created_at: metadata.created()?.into(),
-				modified_at: metadata.modified()?.into(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
 			},
 		});
 	}

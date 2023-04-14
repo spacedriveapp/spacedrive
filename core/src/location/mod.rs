@@ -454,19 +454,15 @@ async fn create_location(
 
 	let location_path = location_path.as_ref();
 
-	let name = location_path.normalize().map_or_else(
+	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than `Unknown`
+	let mut name = location_path.normalize().map_or_else(
 		|_| {
 			location_path
 				.components()
 				.next()
 				.and_then(|component| match component {
 					Component::Prefix(component) => {
-						let prefix = component.as_os_str().to_string_lossy().to_string();
-						Some(if prefix == "/" {
-							"Root".to_string()
-						} else {
-							prefix
-						})
+						Some(component.as_os_str().to_string_lossy().to_string())
 					}
 					_ => None,
 				})
@@ -475,6 +471,10 @@ async fn create_location(
 		},
 		|p| p.localize_name().to_string_lossy().to_string(),
 	);
+
+	if name == "/" {
+		name = "Root".to_string()
+	}
 
 	let path = location_path
 		.to_str()
