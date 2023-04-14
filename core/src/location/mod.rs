@@ -4,8 +4,8 @@ use crate::{
 	library::Library,
 	object::{
 		file_identifier::{
-			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-			shallow_file_identifier_job::{ShallowFileIdentifierJob, ShallowFileIdentifierJobInit},
+			file_identifier_job::FileIdentifierJobInit,
+			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
 		},
 		preview::{
 			shallow_thumbnailer_job::{ShallowThumbnailerJob, ShallowThumbnailerJobInit},
@@ -39,11 +39,7 @@ mod metadata;
 
 pub use error::LocationError;
 use file_path_helper::file_path_just_object_id;
-use indexer::{
-	indexer_job::IndexerJob,
-	shallow_indexer_job::{ShallowIndexerJob, ShallowIndexerJobInit},
-	IndexerJobInit,
-};
+use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -328,35 +324,26 @@ pub async fn scan_location(
 		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: None,
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	// library
+	// 	.queue_job(FileIdentifierJobInit {
+	// 		location: location::Data::from(&location),
+	// 		sub_path: None,
+	// 	})
+	// 	.await;
+
+	// library
+	// 	.queue_job(ThumbnailerJobInit {
+	// 		location: location::Data::from(&location),
+	// 		sub_path: None,
+	// 		background: true,
+	// 	})
+	// 	.await;
 
 	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: None,
-				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
-				location,
-				sub_path: None,
-			},
-			IndexerJob {},
-		))
+		.spawn_job(IndexerJobInit {
+			location,
+			sub_path: None,
+		})
 		.await;
 
 	Ok(())
@@ -373,15 +360,12 @@ pub async fn scan_location_sub_path(
 		return;
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: Some(sub_path.clone()),
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	// library
+	// 	.queue_job(FileIdentifierJobInit {
+	// 		location: location::Data::from(&location),
+	// 		sub_path: Some(sub_path.clone()),
+	// 	})
+	// 	.await;
 
 	library
 		.queue_job(Job::new(
@@ -395,13 +379,10 @@ pub async fn scan_location_sub_path(
 		.await;
 
 	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
-				location,
-				sub_path: Some(sub_path),
-			},
-			IndexerJob {},
-		))
+		.spawn_job(IndexerJobInit {
+			location,
+			sub_path: Some(sub_path),
+		})
 		.await;
 }
 
@@ -415,15 +396,12 @@ pub async fn light_scan_location(
 		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			ShallowFileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: sub_path.clone(),
-			},
-			ShallowFileIdentifierJob {},
-		))
-		.await;
+	// library
+	// 	.queue_job(ShallowFileIdentifierJobInit {
+	// 		location: location::Data::from(&location),
+	// 		sub_path: sub_path.clone(),
+	// 	})
+	// 	.await;
 
 	library
 		.queue_job(Job::new(
@@ -436,10 +414,7 @@ pub async fn light_scan_location(
 		.await;
 
 	library
-		.spawn_job(Job::new(
-			ShallowIndexerJobInit { location, sub_path },
-			ShallowIndexerJob {},
-		))
+		.spawn_job(ShallowIndexerJobInit { location, sub_path })
 		.await;
 
 	Ok(())

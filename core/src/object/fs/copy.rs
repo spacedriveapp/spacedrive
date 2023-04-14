@@ -9,7 +9,7 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::{error, trace};
+use tracing::trace;
 
 use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
 

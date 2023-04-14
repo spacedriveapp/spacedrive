@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{DynJob, JobInitData, StatefulJob},
+	job::{DynJob, Job, JobInitData, StatefulJob},
 	location::LocationManager,
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
@@ -54,23 +54,19 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.clone().ingest(self, job).await;
+	pub(crate) async fn spawn_job<
+		J: StatefulJob<Init = TInitData> + 'static,
+		TInitData: JobInitData<Job = J>,
+	>(
+		&self,
+		init: TInitData,
+	) {
+		self.node_context
+			.jobs
+			.clone()
+			.ingest(&self, Job::new(init, J::new()))
+			.await;
 	}
-
-	// pub(crate) async fn spawn_job<
-	// 	TJob: StatefulJob<Init = TInitData>,
-	// 	TInitData: JobInitData<Job = TJob>,
-	// >(
-	// 	&self,
-	// 	init: TInitData,
-	// ) {
-	// 	self.node_context
-	// 		.jobs
-	// 		.clone()
-	// 		.ingest(self.clone(), init, TJob::new())
-	// 		.await;
-	// }
 
 	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.ingest_queue(job).await;

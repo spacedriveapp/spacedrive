@@ -170,7 +170,7 @@ impl StatefulJob for IndexerJob {
 		.await
 		.map_err(IndexerError::from)?;
 
-		let mut new_paths = found_paths
+		let new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(

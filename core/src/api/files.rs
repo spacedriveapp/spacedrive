@@ -1,15 +1,10 @@
 use crate::{
 	invalidate_query,
-	job::Job,
 	library::Library,
 	location::{find_location, LocationError},
 	object::fs::{
-		copy::{FileCopierJob, FileCopierJobInit},
-		cut::{FileCutterJob, FileCutterJobInit},
-		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
-		delete::{FileDeleterJob, FileDeleterJobInit},
-		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
-		erase::{FileEraserJob, FileEraserJobInit},
+		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
+		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
 	prisma::{location, object},
 };
@@ -17,7 +12,7 @@ use crate::{
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::Path;
-use tokio::{fs, sync::oneshot};
+use tokio::fs;
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -102,7 +97,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("encryptFiles", |t| {
 			t(
 				|_, args: FileEncryptorJobInit, library: Library| async move {
-					library.spawn_job(Job::new(args, FileEncryptorJob {})).await;
+					library.spawn_job(args).await;
 					Ok(())
 				},
 			)
@@ -110,38 +105,38 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("decryptFiles", |t| {
 			t(
 				|_, args: FileDecryptorJobInit, library: Library| async move {
-					library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
+					library.spawn_job(args).await;
 					Ok(())
 				},
 			)
 		})
 		.library_mutation("deleteFiles", |t| {
 			t(|_, args: FileDeleterJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileDeleterJob {})).await;
+				library.spawn_job(args).await;
 				Ok(())
 			})
 		})
 		.library_mutation("eraseFiles", |t| {
 			t(|_, args: FileEraserJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileEraserJob {})).await;
+				library.spawn_job(args).await;
 				Ok(())
 			})
 		})
 		.library_mutation("duplicateFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileCopierJob {})).await;
+				library.spawn_job(args).await;
 				Ok(())
 			})
 		})
 		.library_mutation("copyFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileCopierJob {})).await;
+				library.spawn_job(args).await;
 				Ok(())
 			})
 		})
 		.library_mutation("cutFiles", |t| {
 			t(|_, args: FileCutterJobInit, library: Library| async move {
-				library.spawn_job(Job::new(args, FileCutterJob {})).await;
+				library.spawn_job(args).await;
 				Ok(())
 			})
 		})
