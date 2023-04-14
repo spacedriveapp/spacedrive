@@ -41,7 +41,8 @@ function Page({ post }: { post: BlogPost }) {
 								{post?.title}
 							</h1>
 							<p className="m-0 mt-2">
-								by <b>{post?.author}</b> &middot; {new Date(post?.date ?? '').toLocaleDateString()}
+								by <b>{post?.author}</b> &middot;{' '}
+								{new Date(post?.date ?? '').toLocaleDateString()}
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">

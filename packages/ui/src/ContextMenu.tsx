@@ -11,8 +11,8 @@ interface ContextMenuProps extends RadixCM.MenuContentProps {
 export const contextMenuClassNames = clsx(
 	'z-50 max-h-[calc(100vh-20px)] overflow-y-auto',
 	'my-2 min-w-[12rem] max-w-[16rem] py-0.5',
-	'bg-menu cool-shadow',
-	'border-menu-line border',
+	'cool-shadow bg-menu',
+	'border border-menu-line',
 	'cursor-default select-none rounded-md',
 	'animate-in fade-in'
 );
@@ -65,9 +65,9 @@ const SubMenu = ({
 const contextMenuItemStyles = cva(
 	[
 		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
-		'text-ink text-sm',
+		'text-sm text-ink',
 		'group-radix-highlighted:text-white dark:group-radix-highlighted:text-ink',
-		'group-radix-disabled:text-ink/50 group-radix-disabled:pointer-events-none',
+		'group-radix-disabled:pointer-events-none group-radix-disabled:text-ink/50',
 		'group-radix-state-open:bg-accent group-radix-state-open:text-white dark:group-radix-state-open:text-ink'
 	],
 	{
@@ -109,7 +109,9 @@ const Item = ({
 }: ContextMenuItemProps & RadixCM.MenuItemProps) => {
 	return (
 		<RadixCM.Item className={contextMenuItemClassNames} {...props}>
-			<ContextMenuDivItem {...{ icon, iconProps, label, rightArrow, keybind, variant, children }} />
+			<ContextMenuDivItem
+				{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+			/>
 		</RadixCM.Item>
 	);
 };

@@ -79,7 +79,9 @@ const AppEmbed = () => {
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
 								'shadow-iframe inset-center z-30  h-full w-full rounded-lg bg-gray-850',
-								iFrameAppReady ? 'fade-in-app-embed opacity-100' : 'ml-[-10000px] opacity-0'
+								iFrameAppReady
+									? 'fade-in-app-embed opacity-100'
+									: 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
 								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
@@ -87,7 +89,9 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && <div className="fade-in-app-embed landing-img z-40 h-full w-auto" />}
+					{renderImage && (
+						<div className="fade-in-app-embed landing-img z-40 h-full w-auto" />
+					)}
 				</div>
 			</div>
 		</div>

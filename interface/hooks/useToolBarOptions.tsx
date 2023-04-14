@@ -91,7 +91,8 @@ export const useToolBarRouteOptions = () => {
 									className={TOP_BAR_ICON_STYLE}
 								/>
 							),
-							onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
+							onClick: () =>
+								(getExplorerStore().tagAssignMode = !store.tagAssignMode),
 							topBarActive: store.tagAssignMode
 						},
 						{
@@ -107,7 +108,8 @@ export const useToolBarRouteOptions = () => {
 						},
 						{
 							toolTipLabel: 'Show Inspector',
-							onClick: () => (getExplorerStore().showInspector = !store.showInspector),
+							onClick: () =>
+								(getExplorerStore().showInspector = !store.showInspector),
 							icon: (
 								<SidebarSimple
 									weight={store.showInspector ? 'fill' : 'regular'}

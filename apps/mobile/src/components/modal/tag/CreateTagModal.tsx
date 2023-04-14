@@ -76,7 +76,10 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				{showPicker && (
 					<FadeInAnimation>
 						<View style={tw`mt-4 h-64`}>
-							<ColorPicker color={tagColor} onColorChangeComplete={(color) => setTagColor(color)} />
+							<ColorPicker
+								color={tagColor}
+								onColorChangeComplete={(color) => setTagColor(color)}
+							/>
 						</View>
 					</FadeInAnimation>
 				)}

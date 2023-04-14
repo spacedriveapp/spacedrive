@@ -25,7 +25,7 @@ const styles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
-		'ring-offset-app-box focus:ring-accent focus:ring-2 focus:ring-offset-2'
+		'ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2'
 	],
 	{
 		variants: {
@@ -37,24 +37,24 @@ const styles = cva(
 			},
 			variant: {
 				default: [
-					'active:bg-app-selected hover:bg-app-hover bg-transparent',
-					'hover:border-app-line active:border-app-line border-transparent'
+					'bg-transparent hover:bg-app-hover active:bg-app-selected',
+					'border-transparent hover:border-app-line active:border-app-line'
 				],
 				subtle: [
-					'hover:border-app-line/50 active:border-app-line active:bg-app-box/30 border-transparent'
+					'border-transparent hover:border-app-line/50 active:border-app-line active:bg-app-box/30'
 				],
 				outline: [
-					'border-sidebar-line/60 hover:border-sidebar-line active:border-sidebar-line active:border-sidebar-line/30'
+					'border-sidebar-line/60 hover:border-sidebar-line active:border-sidebar-line/30'
 				],
 				dotted: [
 					`rounded border border-dashed border-sidebar-line/70 text-center text-xs font-medium text-ink-faint transition hover:border-sidebar-line hover:bg-sidebar-selected/5`
 				],
 				gray: [
-					'bg-app-button active:bg-app-selected hover:bg-app-hover',
+					'bg-app-button hover:bg-app-hover active:bg-app-selected',
 					'border-app-line hover:border-app-line active:border-app-active'
 				],
 				accent: [
-					'bg-accent active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-app-shade/10 text-white shadow-md'
+					'border-accent-deep bg-accent text-white shadow-md shadow-app-shade/10 hover:border-accent hover:bg-accent-faint active:border-accent-deep active:bg-accent'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''

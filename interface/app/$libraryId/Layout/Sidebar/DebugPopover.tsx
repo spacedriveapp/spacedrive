@@ -73,7 +73,8 @@ export default () => {
 								size="sm"
 								variant="gray"
 								onClick={() => {
-									if (nodeState?.data?.data_path) platform.openPath!(nodeState?.data?.data_path);
+									if (nodeState?.data?.data_path)
+										platform.openPath!(nodeState?.data?.data_path);
 								}}
 							>
 								Open

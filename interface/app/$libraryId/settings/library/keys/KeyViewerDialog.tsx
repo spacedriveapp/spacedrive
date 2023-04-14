@@ -77,7 +77,9 @@ export default (props: UseDialogProps) => {
 							setKey(e);
 						}}
 					>
-						{keys.data && <KeyListSelectOptions keys={keys.data.map((key) => key.uuid)} />}
+						{keys.data && (
+							<KeyListSelectOptions keys={keys.data.map((key) => key.uuid)} />
+						)}
 					</Select>
 				</div>
 			</div>
@@ -96,13 +98,24 @@ export default (props: UseDialogProps) => {
 				</div>
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Hashing</span>
-					<Select className="mt-2 text-gray-300" value={hashingAlgo} disabled onChange={() => {}}>
+					<Select
+						className="mt-2 text-gray-300"
+						value={hashingAlgo}
+						disabled
+						onChange={() => {}}
+					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

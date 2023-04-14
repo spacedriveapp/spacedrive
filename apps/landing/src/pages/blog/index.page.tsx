@@ -36,7 +36,8 @@ function Page({ posts }: { posts: BlogPosts }) {
 								<small className="m-0">{post.readTime} minute read.</small>
 								{/* <p className="line-clamp-3 my-2">{post.excerpt}</p> */}
 								<p className="m-0 text-white">
-									by {post.author} &middot; {new Date(post.date ?? '').toLocaleDateString()}
+									by {post.author} &middot;{' '}
+									{new Date(post.date ?? '').toLocaleDateString()}
 								</p>
 								<div className="mt-4 flex flex-wrap gap-2">
 									{post.tags?.map((tag) => (

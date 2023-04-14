@@ -112,7 +112,9 @@ function Page() {
 					}
 				>
 					<Info className="mr-1 w-5 fill-green-500" />
-					<p className={'text-sm text-green-500'}>You have been unsubscribed from the waitlist</p>
+					<p className={'text-sm text-green-500'}>
+						You have been unsubscribed from the waitlist
+					</p>
 				</div>
 			)}
 
@@ -120,8 +122,8 @@ function Page() {
 				A file explorer from the future.
 			</h1>
 			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mt-1 mb-8 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
-				Combine your drives and clouds into one database that you can organize and explore from any
-				device.
+				Combine your drives and clouds into one database that you can organize and explore
+				from any device.
 				<br />
 				<span className="hidden sm:block">
 					Designed for creators, hoarders and the painfully disorganized.
@@ -135,9 +137,9 @@ function Page() {
 				className="z-30 mt-0 sm:mt-8"
 				description={
 					<>
-						Spacedrive accounts for every file you own, uniquely fingerprinting and extracting
-						metadata so you can sort, tag, backup and share files without limitations of any one
-						cloud provider.
+						Spacedrive accounts for every file you own, uniquely fingerprinting and
+						extracting metadata so you can sort, tag, backup and share files without
+						limitations of any one cloud provider.
 						<br />
 						<br />
 						<a

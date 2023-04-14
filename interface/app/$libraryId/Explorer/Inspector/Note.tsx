@@ -26,7 +26,10 @@ export default function Note(props: Props) {
 	);
 
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const debouncedNote = useCallback((note: string) => debounce(note), [props.data.id, fileSetNote]);
+	const debouncedNote = useCallback(
+		(note: string) => debounce(note),
+		[props.data.id, fileSetNote]
+	);
 
 	// when input is updated, cache note
 	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {

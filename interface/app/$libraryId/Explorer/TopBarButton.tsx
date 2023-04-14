@@ -11,7 +11,7 @@ export interface TopBarButtonProps {
 }
 
 const topBarButtonStyle = cva(
-	'text-ink hover:text-ink text-md hover:bg-app-selected radix-state-open:bg-app-selected mr-[1px] flex border-none !p-0.5 font-medium outline-none transition-colors duration-100',
+	'text-md mr-[1px] flex border-none !p-0.5 font-medium text-ink outline-none transition-colors duration-100 hover:bg-app-selected hover:text-ink radix-state-open:bg-app-selected',
 	{
 		variants: {
 			active: {
@@ -35,7 +35,11 @@ const topBarButtonStyle = cva(
 export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	({ active, rounding, className, ...props }, ref) => {
 		return (
-			<Button {...props} ref={ref} className={topBarButtonStyle({ active, rounding, className })}>
+			<Button
+				{...props}
+				ref={ref}
+				className={topBarButtonStyle({ active, rounding, className })}
+			>
 				{props.children}
 			</Button>
 		);

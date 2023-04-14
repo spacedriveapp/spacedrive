@@ -122,8 +122,8 @@ export const Component = () => {
 					<FlexCol>
 						<Input label="Display Name" {...form.register('name')} />
 						<InfoText>
-							The name of this Location, this is what will be displayed in the sidebar. Will not
-							rename the actual folder on disk.
+							The name of this Location, this is what will be displayed in the
+							sidebar. Will not rename the actual folder on disk.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
@@ -134,7 +134,8 @@ export const Component = () => {
 							{...form.register('path')}
 						/>
 						<InfoText>
-							The path to this Location, this is where the files will be stored on disk.
+							The path to this Location, this is where the files will be stored on
+							disk.
 						</InfoText>
 					</FlexCol>
 				</div>
@@ -145,7 +146,9 @@ export const Component = () => {
 						<Switch {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="grow">Sync preview media for this Location with your devices</Label>
+						<Label className="grow">
+							Sync preview media for this Location with your devices
+						</Label>
 						<Switch {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
@@ -174,7 +177,11 @@ export const Component = () => {
 				<div className="flex space-x-5">
 					<FlexCol>
 						<div>
-							<Button onClick={() => fullRescan.mutate(locationId)} size="sm" variant="outline">
+							<Button
+								onClick={() => fullRescan.mutate(locationId)}
+								size="sm"
+								variant="outline"
+							>
 								<ArrowsClockwise className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Full Reindex
 							</Button>
@@ -194,12 +201,17 @@ export const Component = () => {
 							</Button>
 						</div>
 						<InfoText>
-							Extract data from Library as an archive, useful to preserve Location folder structure.
+							Extract data from Library as an archive, useful to preserve Location
+							folder structure.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
 						<div>
-							<Button size="sm" variant="colored" className="border-red-500 bg-red-500">
+							<Button
+								size="sm"
+								variant="colored"
+								className="border-red-500 bg-red-500"
+							>
 								<Trash className="mr-1.5 -mt-0.5 inline h-4 w-4" />
 								Delete
 							</Button>

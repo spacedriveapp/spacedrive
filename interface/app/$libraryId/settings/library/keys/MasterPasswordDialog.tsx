@@ -110,14 +110,18 @@ export default (props: UseDialogProps) => {
 						<Button
 							type="button"
 							onClick={() => {
-								navigator.clipboard.writeText(form.watch('masterPassword') as string);
+								navigator.clipboard.writeText(
+									form.watch('masterPassword') as string
+								);
 							}}
 							size="icon"
 						>
 							<Clipboard className="h-4 w-4" />
 						</Button>
 						<Button
-							onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
+							onClick={() =>
+								setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))
+							}
 							size="icon"
 							type="button"
 						>
@@ -134,7 +138,9 @@ export default (props: UseDialogProps) => {
 				{...form.register('masterPassword2', { required: true })}
 				right={
 					<Button
-						onClick={() => setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))}
+						onClick={() =>
+							setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))
+						}
 						size="icon"
 						type="button"
 					>
@@ -167,9 +173,15 @@ export default (props: UseDialogProps) => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

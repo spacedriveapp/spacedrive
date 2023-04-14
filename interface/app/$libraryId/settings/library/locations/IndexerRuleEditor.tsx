@@ -37,12 +37,17 @@ export function IndexerRuleEditor<T extends FieldType>({
 								onClick={() =>
 									field.onChange(
 										enabled
-											? field.value.filter((fieldValue) => fieldValue !== rule.id)
+											? field.value.filter(
+													(fieldValue) => fieldValue !== rule.id
+											  )
 											: [...field.value, rule.id]
 									)
 								}
 								variant={enabled ? 'colored' : 'outline'}
-								className={clsx('m-1 flex-auto', enabled && 'border-accent bg-accent')}
+								className={clsx(
+									'm-1 flex-auto',
+									enabled && 'border-accent bg-accent'
+								)}
 							>
 								{name}
 							</Button>

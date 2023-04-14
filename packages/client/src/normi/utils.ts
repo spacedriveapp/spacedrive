@@ -36,7 +36,10 @@ export function normaliseValue(value: any, normiCache: NormiCache): any {
 		return value;
 	} else if (typeof value === 'object') {
 		if ('$id' in value && '$type' in value) {
-			getOrCreate(normiCache, value.$type).set(value.$id, normaliseValueForStorage(value, true));
+			getOrCreate(normiCache, value.$type).set(
+				value.$id,
+				normaliseValueForStorage(value, true)
+			);
 			delete value.$id;
 			delete value.$type;
 		} else if ('$type' in value && 'edges' in value) {

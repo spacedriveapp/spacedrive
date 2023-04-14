@@ -19,7 +19,11 @@ export default function SpacedropStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Spacedrop" component={SpacedropScreen} options={{ header: Header }} />
+			<Stack.Screen
+				name="Spacedrop"
+				component={SpacedropScreen}
+				options={{ header: Header }}
+			/>
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
