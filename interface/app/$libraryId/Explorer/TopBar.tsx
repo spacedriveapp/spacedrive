@@ -45,7 +45,8 @@ export default () => {
 	}, [topBarRef]);
 
 	const topBarCondition =
-		(topBarWidth < 1000 && countToolOptions >= 8) || (topBarWidth < 600 && countToolOptions >= 6);
+		(topBarWidth < 1000 && countToolOptions >= 8) ||
+		(topBarWidth < 600 && countToolOptions >= 6);
 
 	return (
 		<div
@@ -70,13 +71,23 @@ export default () => {
 
 			<SearchBar formClassName="justify-center" ref={searchRef} />
 
-			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
-				<div data-tauri-drag-region className={`gap-0 ${topBarCondition ? 'hidden' : 'flex'}`}>
+			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
+				<div
+					data-tauri-drag-region
+					className={`gap-0 ${topBarCondition ? 'hidden' : 'flex'}`}
+				>
 					{toolBarRouteOptions[getPageName].options.map((group) => {
 						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
 							return group[groupKey]?.map(
 								(
-									{ icon, onClick, popOverComponent, toolTipLabel, topBarActive, individual },
+									{
+										icon,
+										onClick,
+										popOverComponent,
+										toolTipLabel,
+										topBarActive,
+										individual
+									},
 									index
 								) => {
 									const groupCount = Object.keys(group).length;
@@ -108,7 +119,9 @@ export default () => {
 															</TopBarButton>
 														}
 													>
-														<div className="block w-[250px] ">{popOverComponent}</div>
+														<div className="block w-[250px] ">
+															{popOverComponent}
+														</div>
 													</Popover>
 												) : (
 													<TopBarButton

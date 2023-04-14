@@ -69,13 +69,18 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			{data && (
 				<ModalScrollView style={tw`flex-1 p-4`}>
 					{/* Back Button */}
-					<Pressable onPress={() => modalRef.current?.close()} style={tw`absolute z-10 ml-4`}>
+					<Pressable
+						onPress={() => modalRef.current?.close()}
+						style={tw`absolute z-10 ml-4`}
+					>
 						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
 					</Pressable>
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{filePathData?.name}</Text>
+						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>
+							{filePathData?.name}
+						</Text>
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
@@ -112,7 +117,11 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							<>
 								{/* TODO: Note */}
 								{filePathData.cas_id && (
-									<MetaItem icon={Snowflake} title="Content ID" value={filePathData.cas_id} />
+									<MetaItem
+										icon={Snowflake}
+										title="Content ID"
+										value={filePathData.cas_id}
+									/>
 								)}
 								{/* Checksum */}
 								{filePathData?.integrity_checksum && (

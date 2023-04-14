@@ -41,7 +41,7 @@ function DropItem(props: DropItemProps) {
 		}
 		if (brandIconSrc) {
 			icon = (
-				<div className="flex items-center justify-center h-full p-3">
+				<div className="flex h-full items-center justify-center p-3">
 					<img className="rounded-full " src={brandIconSrc} alt={props.name} />
 				</div>
 			);
@@ -54,13 +54,16 @@ function DropItem(props: DropItemProps) {
 
 	return (
 		<div
-			className={clsx(classes.honeycombItem, 'overflow-hidden bg-app-box/20 hover:bg-app-box/50')}
+			className={clsx(
+				classes.honeycombItem,
+				'overflow-hidden bg-app-box/20 hover:bg-app-box/50'
+			)}
 		>
-			<div className="relative flex flex-col items-center justify-center w-full h-full group ">
+			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer> */}
-				<div className="rounded-full h-14 w-14 bg-app-button">{icon}</div>
+				<div className="h-14 w-14 rounded-full bg-app-button">{icon}</div>
 				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
 				</SubtleButtonContainer>
@@ -119,10 +122,11 @@ function TemporarySpacedropDemo() {
 		<Form onSubmit={onSubmit} form={form}>
 			<ScreenHeading>Spacedrop Demo</ScreenHeading>
 			<p className="text-xs text-ink-dull">
-				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
-				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
+				Note: Right now the file must be less than 255 bytes long and only contain UTF-8
+				chars. Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by
+				default)
 			</p>
-			<div className="flex flex-row items-center mt-2 space-x-4">
+			<div className="mt-2 flex flex-row items-center space-x-4">
 				<Input
 					size="sm"
 					placeholder="/Users/oscar/Desktop/sd/demo.txt"
@@ -131,11 +135,14 @@ function TemporarySpacedropDemo() {
 					{...form.register('file_path')}
 				/>
 
-				<Button className="flex-shrink-0 block" variant="gray">
+				<Button className="block shrink-0" variant="gray">
 					Select File
 				</Button>
 
-				<Select onChange={(e) => form.setValue('target_peer', e)} value={form.watch('target_peer')}>
+				<Select
+					onChange={(e) => form.setValue('target_peer', e)}
+					value={form.watch('target_peer')}
+				>
 					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
 						<SelectOption default={index === 0} key={peerId} value={peerId}>
 							{metadata.name}
@@ -145,7 +152,7 @@ function TemporarySpacedropDemo() {
 
 				<Button
 					disabled={!form.getValues().target_peer}
-					className="flex-shrink-0 block"
+					className="block shrink-0"
 					variant="accent"
 					type="submit"
 				>
@@ -186,7 +193,11 @@ export const Component = () => {
 						connectionType="lan"
 						icon={DeviceMobile}
 					/>
-					<DropItem name="Jamie's Google Drive" brandIcon="google-drive" connectionType="cloud" />
+					<DropItem
+						name="Jamie's Google Drive"
+						brandIcon="google-drive"
+						connectionType="cloud"
+					/>
 					<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
 					<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
 					<DropItem
@@ -204,7 +215,11 @@ export const Component = () => {
 						image="https://github.com/oscartbeaumont.png"
 						connectionType="p2p"
 					/>
-					<DropItem name="Polar" image="https://github.com/polargh.png" connectionType="p2p" />
+					<DropItem
+						name="Polar"
+						image="https://github.com/polargh.png"
+						connectionType="p2p"
+					/>
 					<DropItem
 						name="Andrew Haskell"
 						image="https://github.com/andrewtechx.png"

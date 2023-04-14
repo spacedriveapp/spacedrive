@@ -46,7 +46,10 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 					<RenameTextBox
 						filePathData={filePathData}
 						selected={selected}
-						className={clsx('text-center font-medium', selected && 'bg-accent text-white')}
+						className={clsx(
+							'text-center font-medium',
+							selected && 'bg-accent text-white'
+						)}
 						style={{
 							maxHeight: explorerStore.gridItemSize / 3
 						}}
@@ -109,7 +112,8 @@ export default () => {
 		const index = explorerStore.selectedRowIndex;
 		if (
 			explorerStore.showInspector &&
-			((lastSelectedIndex === -1 && index !== -1) || (lastSelectedIndex !== -1 && index === -1))
+			((lastSelectedIndex === -1 && index !== -1) ||
+				(lastSelectedIndex !== -1 && index === -1))
 		) {
 			handleWindowResize();
 		}
@@ -186,7 +190,12 @@ export default () => {
 
 						if (!item) return null;
 						return (
-							<GridViewItem key={item.item.id} data={item} selected={isSelected} index={index} />
+							<GridViewItem
+								key={item.item.id}
+								data={item}
+								selected={isSelected}
+								index={index}
+							/>
 						);
 					})}
 				</div>

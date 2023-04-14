@@ -34,7 +34,9 @@ const OverviewStats = () => {
 
 	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics']);
 
-	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
+	const displayableStatItems = Object.keys(
+		StatItemNames
+	) as unknown as keyof typeof StatItemNames;
 
 	// For Demo purposes as we probably wanna save this to database
 	// Sets Total Capacity and Free Space of the device
@@ -59,7 +61,13 @@ const OverviewStats = () => {
 				} else if (key === 'total_bytes_capacity') {
 					bytes = BigInt(sizeInfo.totalSpace);
 				}
-				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
+				return (
+					<StatItem
+						key={key}
+						title={StatItemNames[key as keyof Statistics]!}
+						bytes={bytes}
+					/>
+				);
 			})}
 		</ScrollView>
 	) : (

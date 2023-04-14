@@ -23,8 +23,8 @@ export const inputStyles = cva(
 		variants: {
 			variant: {
 				default: [
-					'bg-app-input focus-within:bg-app-focus placeholder-ink-faint border-app-line',
-					'focus-within:ring-app-selected/30 focus-within:border-app-divider/80'
+					'border-app-line bg-app-input placeholder-ink-faint focus-within:bg-app-focus',
+					'focus-within:border-app-divider/80 focus-within:ring-app-selected/30'
 				]
 			},
 			error: {
@@ -106,7 +106,11 @@ export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
 	return (
 		<textarea
 			{...props}
-			className={clsx('h-auto px-3 py-2', inputStyles({ size, variant, error }), props.className)}
+			className={clsx(
+				'h-auto px-3 py-2',
+				inputStyles({ size, variant, error }),
+				props.className
+			)}
 		/>
 	);
 };

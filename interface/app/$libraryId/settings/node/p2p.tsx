@@ -25,7 +25,9 @@ export const Component = () => {
 				<div className="mt-1 flex flex-col">
 					<Input className="grow" disabled defaultValue="https://p2p.spacedrive.com" />
 					<div className="mt-1 flex justify-end">
-						<a className="p-1 text-sm font-bold text-accent hover:text-accent">Change</a>
+						<a className="p-1 text-sm font-bold text-accent hover:text-accent">
+							Change
+						</a>
 					</div>
 				</div>
 			</Setting>

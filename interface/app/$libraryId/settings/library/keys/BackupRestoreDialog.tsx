@@ -73,7 +73,9 @@ export default (props: UseDialogProps) => {
 				className="mt-3 mb-2"
 				right={
 					<Button
-						onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
+						onClick={() =>
+							setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))
+						}
 						size="icon"
 						type="button"
 					>

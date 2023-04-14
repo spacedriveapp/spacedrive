@@ -129,7 +129,12 @@ export default function OnboardingNewLibrary() {
 								Remove password
 							</Button>
 						)}
-						<Button disabled={form.formState.isSubmitting} type="submit" variant="accent" size="sm">
+						<Button
+							disabled={form.formState.isSubmitting}
+							type="submit"
+							variant="accent"
+							size="sm"
+						>
 							Set password
 						</Button>
 					</div>

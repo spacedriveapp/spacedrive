@@ -14,7 +14,7 @@ const itemStyles = cva(
 	{
 		variants: {
 			selected: {
-				true: 'bg-accent hover:!bg-accent text-white',
+				true: 'bg-accent text-white hover:!bg-accent',
 				undefined: 'hover:bg-menu-hover',
 				false: 'hover:bg-menu-hover'
 			},
@@ -63,7 +63,12 @@ export const Item = ({ to, className, icon: Icon, children, ...props }: Dropdown
 export const Button = forwardRef<HTMLButtonElement, UI.ButtonProps>(
 	({ children, className, ...props }, ref) => {
 		return (
-			<UI.Button size="sm" ref={ref} className={clsx('group flex text-left', className)} {...props}>
+			<UI.Button
+				size="sm"
+				ref={ref}
+				className={clsx('group flex text-left', className)}
+				{...props}
+			>
 				{children}
 				<span className="grow" />
 				<CaretDown

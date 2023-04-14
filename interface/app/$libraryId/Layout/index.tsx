@@ -56,7 +56,9 @@ const Layout = () => {
 						<QuickPreview libraryUuid={library.uuid} />
 					</LibraryContextProvider>
 				) : (
-					<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
+					<h1 className="p-4 text-white">
+						Please select or create a library in the sidebar.
+					</h1>
 				)}
 			</div>
 			<Toasts />
