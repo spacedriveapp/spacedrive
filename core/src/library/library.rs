@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{Job, JobInitData, StatefulJob, JobManagerError},
+	job::{Job, JobInitData, JobManagerError, StatefulJob},
 	location::{file_path_helper::LastFilePathIdManager, LocationManager},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
