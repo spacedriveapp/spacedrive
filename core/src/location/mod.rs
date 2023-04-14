@@ -318,7 +318,8 @@ pub async fn scan_location(
 			location,
 			sub_path: None,
 		})
-		.await;
+		.await
+		.ok(); // TODO: Probs handle this error
 
 	Ok(())
 }
@@ -339,7 +340,8 @@ pub async fn scan_location_sub_path(
 			location,
 			sub_path: Some(sub_path),
 		})
-		.await;
+		.await
+		.ok(); // TODO: Probs handle this error
 }
 
 pub async fn light_scan_location(
@@ -354,7 +356,8 @@ pub async fn light_scan_location(
 
 	library
 		.spawn_job(ShallowIndexerJobInit { location, sub_path })
-		.await;
+		.await
+		.ok(); // TODO: Probs handle this error
 
 	Ok(())
 }

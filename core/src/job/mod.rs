@@ -277,7 +277,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				job.name()
 			);
 
-			job_manager.clone().ingest(&ctx.library, job).await;
+			job_manager.clone().ingest(&ctx.library, job).await.ok();
 		}
 
 		Ok(metadata)

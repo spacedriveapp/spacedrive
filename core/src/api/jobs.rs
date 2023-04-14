@@ -8,7 +8,7 @@ use crate::{
 	},
 };
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -50,9 +50,13 @@ pub(crate) fn mount() -> RouterBuilder {
 							sub_path: Some(args.path),
 							background: false,
 						})
-						.await;
-
-					Ok(())
+						.await
+						.map_err(|_| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Tried to spawn a job that is already running!".to_string(),
+							)
+						})
 				},
 			)
 		})
@@ -74,9 +78,13 @@ pub(crate) fn mount() -> RouterBuilder {
 						path: args.path,
 						background: true,
 					})
-					.await;
-
-				Ok(())
+					.await
+					.map_err(|_| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Tried to spawn a job that is already running!".to_string(),
+						)
+					})
 			})
 		})
 		.library_mutation("identifyUniqueFiles", |t| {
@@ -96,9 +104,13 @@ pub(crate) fn mount() -> RouterBuilder {
 						location,
 						sub_path: Some(args.path),
 					})
-					.await;
-
-				Ok(())
+					.await
+					.map_err(|_| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Tried to spawn a job that is already running!".to_string(),
+						)
+					})
 			})
 		})
 		.library_subscription("newThumbnail", |t| {

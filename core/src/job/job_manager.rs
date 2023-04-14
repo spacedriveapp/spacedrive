@@ -85,24 +85,32 @@ impl JobManager {
 		this
 	}
 
-	pub async fn ingest(self: Arc<Self>, library: &Library, job: Box<dyn DynJob>) {
+	pub async fn ingest(
+		self: Arc<Self>,
+		library: &Library,
+		job: Box<dyn DynJob>,
+	) -> Result<(), ()> {
 		let job_hash = job.hash();
+
+		if self.current_jobs_hashes.read().await.contains(&job_hash) {
+			debug!(
+				"Job already in queue: <name='{}', hash='{}'>",
+				job.name(),
+				job_hash
+			);
+
+			return Err(());
+		}
+
 		debug!(
 			"Ingesting job: <name='{}', hash='{}'>",
 			job.name(),
 			job_hash
 		);
 
-		if !self.current_jobs_hashes.read().await.contains(&job_hash) {
-			self.current_jobs_hashes.write().await.insert(job_hash);
-			self.dispatch_job(library, job).await;
-		} else {
-			debug!(
-				"Job already in queue: <name='{}', hash='{}'>",
-				job.name(),
-				job_hash
-			);
-		}
+		self.current_jobs_hashes.write().await.insert(job_hash);
+		self.dispatch_job(library, job).await;
+		Ok(())
 	}
 
 	pub async fn complete(self: Arc<Self>, library: &Library, job_id: Uuid, job_hash: u64) {

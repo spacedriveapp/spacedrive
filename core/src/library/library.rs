@@ -60,12 +60,12 @@ impl Library {
 	>(
 		&self,
 		init: TInitData,
-	) {
+	) -> Result<(), ()> {
 		self.node_context
 			.jobs
 			.clone()
 			.ingest(&self, Job::new(init, J::new()))
-			.await;
+			.await
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {

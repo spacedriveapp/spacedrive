@@ -97,47 +97,75 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("encryptFiles", |t| {
 			t(
 				|_, args: FileEncryptorJobInit, library: Library| async move {
-					library.spawn_job(args).await;
-					Ok(())
+					library.spawn_job(args).await.map_err(|_| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Tried to spawn a job that is already running!".to_string(),
+						)
+					})
 				},
 			)
 		})
 		.library_mutation("decryptFiles", |t| {
 			t(
 				|_, args: FileDecryptorJobInit, library: Library| async move {
-					library.spawn_job(args).await;
-					Ok(())
+					library.spawn_job(args).await.map_err(|_| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Tried to spawn a job that is already running!".to_string(),
+						)
+					})
 				},
 			)
 		})
 		.library_mutation("deleteFiles", |t| {
 			t(|_, args: FileDeleterJobInit, library: Library| async move {
-				library.spawn_job(args).await;
-				Ok(())
+				library.spawn_job(args).await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"Tried to spawn a job that is already running!".to_string(),
+					)
+				})
 			})
 		})
 		.library_mutation("eraseFiles", |t| {
 			t(|_, args: FileEraserJobInit, library: Library| async move {
-				library.spawn_job(args).await;
-				Ok(())
+				library.spawn_job(args).await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"Tried to spawn a job that is already running!".to_string(),
+					)
+				})
 			})
 		})
 		.library_mutation("duplicateFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await;
-				Ok(())
+				library.spawn_job(args).await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"Tried to spawn a job that is already running!".to_string(),
+					)
+				})
 			})
 		})
 		.library_mutation("copyFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await;
-				Ok(())
+				library.spawn_job(args).await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"Tried to spawn a job that is already running!".to_string(),
+					)
+				})
 			})
 		})
 		.library_mutation("cutFiles", |t| {
 			t(|_, args: FileCutterJobInit, library: Library| async move {
-				library.spawn_job(args).await;
-				Ok(())
+				library.spawn_job(args).await.map_err(|_| {
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"Tried to spawn a job that is already running!".to_string(),
+					)
+				})
 			})
 		})
 		.library_mutation("renameFile", |t| {
