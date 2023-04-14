@@ -76,13 +76,29 @@ pub enum JobError {
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 
+/// TODO
+pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
+	type Job: StatefulJob;
+
+	fn hash(&self) -> u64 {
+		let mut s = DefaultHasher::new();
+		<Self::Job as StatefulJob>::NAME.hash(&mut s);
+		<Self as Hash>::hash(self, &mut s);
+		s.finish()
+	}
+}
+
 #[async_trait::async_trait]
 pub trait StatefulJob: Send + Sync + Sized {
-	type Init: Serialize + DeserializeOwned + Send + Sync + Hash;
+	type Init: JobInitData<Job = Self>;
 	type Data: Serialize + DeserializeOwned + Send + Sync;
 	type Step: Serialize + DeserializeOwned + Send + Sync;
 
-	fn name(&self) -> &'static str;
+	/// The name of the job is a unique human readable identifier for the job.
+	const NAME: &'static str;
+
+	// fn new() -> Self;
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
 
 	async fn execute_step(
@@ -113,7 +129,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 		Box::new(Self {
 			report: Some(JobReport::new(
 				Uuid::new_v4(),
-				stateful_job.name().to_string(),
+				<SJob as StatefulJob>::NAME.to_string(),
 			)),
 			state: JobState {
 				init,
@@ -140,12 +156,12 @@ impl<SJob: StatefulJob> Job<SJob> {
 	}
 }
 
-impl<State: StatefulJob> Hash for Job<State> {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.name().hash(state);
-		self.state.hash(state);
-	}
-}
+// impl<State: StatefulJob> Hash for Job<State> {
+// 	fn hash<H: Hasher>(&self, state: &mut H) {
+// 		self.name().hash(state);
+// 		self.state.hash(state);
+// 	}
+// }
 
 #[derive(Serialize, Deserialize)]
 pub struct JobState<Job: StatefulJob> {
@@ -155,20 +171,20 @@ pub struct JobState<Job: StatefulJob> {
 	pub step_number: usize,
 }
 
-impl<Job: StatefulJob> Hash for JobState<Job> {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.init.hash(state);
-	}
-}
+// impl<Job: StatefulJob> Hash for JobState<Job> {
+// 	fn hash<H: Hasher>(&self, state: &mut H) {
+// 		<Self as JobInitData>::hash(state);
+// 	}
+// }
 
 #[async_trait::async_trait]
-impl<State: StatefulJob> DynJob for Job<State> {
+impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	fn report(&mut self) -> &mut Option<JobReport> {
 		&mut self.report
 	}
 
 	fn name(&self) -> &'static str {
-		self.stateful_job.name()
+		<SJob as StatefulJob>::NAME
 	}
 
 	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
@@ -221,8 +237,6 @@ impl<State: StatefulJob> DynJob for Job<State> {
 	}
 
 	fn hash(&self) -> u64 {
-		let mut hasher = DefaultHasher::new();
-		Hash::hash(self, &mut hasher);
-		hasher.finish()
+		<SJob::Init as JobInitData>::hash(&self.state.init)
 	}
 }

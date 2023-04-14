@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -32,7 +32,6 @@ use super::{
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
-pub const SHALLOW_INDEXER_JOB_NAME: &str = "shallow_indexer";
 
 /// `ShallowIndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
@@ -55,15 +54,17 @@ impl Hash for ShallowIndexerJobInit {
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct ShallowIndexerJob;
 
+impl JobInitData for ShallowIndexerJobInit {
+	type Job = ShallowIndexerJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ShallowIndexerJob {
 	type Init = ShallowIndexerJobInit;
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
-	fn name(&self) -> &'static str {
-		SHALLOW_INDEXER_JOB_NAME
-	}
+	const NAME: &'static str = "shallow_indexer";
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {

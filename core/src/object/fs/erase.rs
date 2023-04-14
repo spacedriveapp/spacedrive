@@ -1,4 +1,6 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::job::{
+	JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+};
 
 use std::{hash::Hash, path::PathBuf};
 
@@ -42,7 +44,9 @@ impl From<FsInfo> for FileEraserJobStep {
 	}
 }
 
-pub const ERASE_JOB_NAME: &str = "file_eraser";
+impl JobInitData for FileEraserJobInit {
+	type Job = FileEraserJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
@@ -50,9 +54,7 @@ impl StatefulJob for FileEraserJob {
 	type Data = FsInfo;
 	type Step = FileEraserJobStep;
 
-	fn name(&self) -> &'static str {
-		ERASE_JOB_NAME
-	}
+	const NAME: &'static str = "file_eraser";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let fs_info =

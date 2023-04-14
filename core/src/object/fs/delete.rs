@@ -1,4 +1,6 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::job::{
+	JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+};
 
 use std::hash::Hash;
 
@@ -18,7 +20,9 @@ pub struct FileDeleterJobInit {
 	pub path_id: i32,
 }
 
-pub const DELETE_JOB_NAME: &str = "file_deleter";
+impl JobInitData for FileDeleterJobInit {
+	type Job = FileDeleterJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDeleterJob {
@@ -26,9 +30,7 @@ impl StatefulJob for FileDeleterJob {
 	type Data = FileDeleterJobState;
 	type Step = FsInfo;
 
-	fn name(&self) -> &'static str {
-		DELETE_JOB_NAME
-	}
+	const NAME: &'static str = "file_deleter";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let fs_info =

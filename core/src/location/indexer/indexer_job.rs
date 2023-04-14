@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobError, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -28,12 +28,15 @@ use super::{
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
-pub const INDEXER_JOB_NAME: &str = "indexer";
 
 /// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
 /// First it walks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct IndexerJob;
+
+impl JobInitData for IndexerJobInit {
+	type Job = IndexerJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for IndexerJob {
@@ -41,9 +44,7 @@ impl StatefulJob for IndexerJob {
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
-	fn name(&self) -> &'static str {
-		INDEXER_JOB_NAME
-	}
+	const NAME: &'static str = "indexer";
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {

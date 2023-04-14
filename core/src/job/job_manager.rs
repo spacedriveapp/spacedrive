@@ -1,29 +1,20 @@
 use crate::{
 	invalidate_query,
-	job::{worker::Worker, DynJob, Job, JobError},
+	job::{worker::Worker, DynJob, Job, JobError, StatefulJob},
 	library::Library,
-	location::indexer::{
-		indexer_job::{IndexerJob, INDEXER_JOB_NAME},
-		shallow_indexer_job::{ShallowIndexerJob, SHALLOW_INDEXER_JOB_NAME},
-	},
+	location::indexer::{indexer_job::IndexerJob, shallow_indexer_job::ShallowIndexerJob},
 	object::{
 		file_identifier::{
-			file_identifier_job::{FileIdentifierJob, FILE_IDENTIFIER_JOB_NAME},
-			shallow_file_identifier_job::{
-				ShallowFileIdentifierJob, SHALLOW_FILE_IDENTIFIER_JOB_NAME,
-			},
+			file_identifier_job::FileIdentifierJob,
+			shallow_file_identifier_job::ShallowFileIdentifierJob,
 		},
 		fs::{
-			copy::{FileCopierJob, COPY_JOB_NAME},
-			cut::{FileCutterJob, CUT_JOB_NAME},
-			delete::{FileDeleterJob, DELETE_JOB_NAME},
-			erase::{FileEraserJob, ERASE_JOB_NAME},
+			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
 		},
 		preview::{
-			shallow_thumbnailer_job::{ShallowThumbnailerJob, SHALLOW_THUMBNAILER_JOB_NAME},
-			thumbnailer_job::{ThumbnailerJob, THUMBNAILER_JOB_NAME},
+			shallow_thumbnailer_job::ShallowThumbnailerJob, thumbnailer_job::ThumbnailerJob,
 		},
-		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
+		validation::validator_job::ObjectValidatorJob,
 	},
 	prisma::{job, node},
 };
@@ -214,32 +205,32 @@ impl JobManager {
 
 			info!("Resuming job: {}, id: {}", paused_job.name, paused_job.id);
 			match paused_job.name.as_str() {
-				THUMBNAILER_JOB_NAME => {
+				<ThumbnailerJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, ThumbnailerJob {})?)
 						.await;
 				}
-				SHALLOW_THUMBNAILER_JOB_NAME => {
+				<ShallowThumbnailerJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, ShallowThumbnailerJob {})?)
 						.await;
 				}
-				INDEXER_JOB_NAME => {
+				<IndexerJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, IndexerJob {})?)
 						.await;
 				}
-				SHALLOW_INDEXER_JOB_NAME => {
+				<ShallowIndexerJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, ShallowIndexerJob {})?)
 						.await;
 				}
-				FILE_IDENTIFIER_JOB_NAME => {
+				<FileIdentifierJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, FileIdentifierJob {})?)
 						.await;
 				}
-				SHALLOW_FILE_IDENTIFIER_JOB_NAME => {
+				<ShallowFileIdentifierJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(
 							library,
@@ -247,17 +238,17 @@ impl JobManager {
 						)
 						.await;
 				}
-				VALIDATOR_JOB_NAME => {
+				<ObjectValidatorJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, ObjectValidatorJob {})?)
 						.await;
 				}
-				CUT_JOB_NAME => {
+				<FileCutterJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, FileCutterJob {})?)
 						.await;
 				}
-				COPY_JOB_NAME => {
+				<FileCopierJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(
 							library,
@@ -265,12 +256,12 @@ impl JobManager {
 						)
 						.await;
 				}
-				DELETE_JOB_NAME => {
+				<FileDeleterJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, FileDeleterJob {})?)
 						.await;
 				}
-				ERASE_JOB_NAME => {
+				<FileEraserJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
 						.dispatch_job(library, Job::resume(paused_job, FileEraserJob {})?)
 						.await;

@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::{
 		file_path_helper::{
@@ -24,8 +26,6 @@ use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
 	FileIdentifierReport, FilePathIdCursor, CHUNK_SIZE,
 };
-
-pub const FILE_IDENTIFIER_JOB_NAME: &str = "file_identifier";
 
 pub struct FileIdentifierJob {}
 
@@ -56,15 +56,17 @@ pub struct FileIdentifierJobState {
 	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
 }
 
+impl JobInitData for FileIdentifierJobInit {
+	type Job = FileIdentifierJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for FileIdentifierJob {
 	type Init = FileIdentifierJobInit;
 	type Data = FileIdentifierJobState;
 	type Step = ();
 
-	fn name(&self) -> &'static str {
-		FILE_IDENTIFIER_JOB_NAME
-	}
+	const NAME: &'static str = "file_identifier";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
@@ -108,7 +110,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
-				name: self.name().to_string(),
+				name: <Self as StatefulJob>::NAME.to_string(),
 				reason: "Found no orphan file paths to process".to_string(),
 			});
 		}
@@ -171,7 +173,7 @@ impl StatefulJob for FileIdentifierJob {
 		.await?;
 
 		process_identifier_file_paths(
-			self.name(),
+			<Self as StatefulJob>::NAME,
 			location,
 			&file_paths,
 			state.step_number,

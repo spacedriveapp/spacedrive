@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::{
 		file_path_helper::{
@@ -32,8 +34,6 @@ use super::{
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
 
-pub const SHALLOW_THUMBNAILER_JOB_NAME: &str = "shallow_thumbnailer";
-
 pub struct ShallowThumbnailerJob {}
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -49,15 +49,17 @@ impl Hash for ShallowThumbnailerJobInit {
 	}
 }
 
+impl JobInitData for ShallowThumbnailerJobInit {
+	type Job = ShallowThumbnailerJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ShallowThumbnailerJob {
 	type Init = ShallowThumbnailerJobInit;
 	type Data = ThumbnailerJobState;
 	type Step = ThumbnailerJobStep;
 
-	fn name(&self) -> &'static str {
-		SHALLOW_THUMBNAILER_JOB_NAME
-	}
+	const NAME: &'static str = "shallow_thumbnailer";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;

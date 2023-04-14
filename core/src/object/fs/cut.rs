@@ -1,4 +1,6 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::job::{
+	JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+};
 
 use std::{hash::Hash, path::PathBuf};
 
@@ -27,7 +29,9 @@ pub struct FileCutterJobStep {
 	pub target_directory: PathBuf,
 }
 
-pub const CUT_JOB_NAME: &str = "file_cutter";
+impl JobInitData for FileCutterJobInit {
+	type Job = FileCutterJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJob {
@@ -35,9 +39,7 @@ impl StatefulJob for FileCutterJob {
 	type Data = FileCutterJobState;
 	type Step = FileCutterJobStep;
 
-	fn name(&self) -> &'static str {
-		CUT_JOB_NAME
-	}
+	const NAME: &'static str = "file_cutter";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let source_fs_info = context_menu_fs_info(

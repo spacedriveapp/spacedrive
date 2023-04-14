@@ -4,7 +4,9 @@ use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::fs::File;
 
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::job::{
+	JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+};
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 pub struct FileDecryptorJob;
@@ -27,17 +29,17 @@ pub struct FileDecryptorJobStep {
 	pub fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_decryptor";
+impl JobInitData for FileDecryptorJobInit {
+	type Job = FileDecryptorJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDecryptorJob {
-	type Data = FileDecryptorJobState;
 	type Init = FileDecryptorJobInit;
+	type Data = FileDecryptorJobState;
 	type Step = FileDecryptorJobStep;
 
-	fn name(&self) -> &'static str {
-		JOB_NAME
-	}
+	const NAME: &'static str = "file_decryptor";
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to decrypt
