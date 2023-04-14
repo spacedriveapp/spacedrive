@@ -1,10 +1,10 @@
 import clsx from 'clsx';
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { useRef } from 'react';
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
-import { RoutePaths, groupKeys, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
+import { RoutePaths, ToolOption, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
@@ -16,43 +16,35 @@ export default () => {
 	const navigate = useNavigate();
 	const topBarRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
+	const toolsRef = useRef<HTMLDivElement>(null);
 	const { pathname } = useLocation();
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
-	const [topBarWidth, setTopBarWidth] = useState(0);
-	const countToolOptions = toolBarRouteOptions[getPageName].options.reduce(
-		(totalOptionsCount, option) => {
-			const allTools = ([].concat as any)(...Object.values(option));
-			return totalOptionsCount + allTools.length;
-		},
-		0
-	);
+	const [windowSize, setWindowSize] = useState(0);
+	const countToolOptions = toolBarRouteOptions[getPageName].options
+		.map((group) => {
+			if (Array.isArray(group)) {
+				return group.length;
+			}
+			return 0;
+		})
+		.reduce((acc, curr) => acc + curr, 0);
 
 	useLayoutEffect(() => {
-		const topBar = topBarRef.current;
-		const searchBar = searchRef.current;
-		const getTopBarWidth = () => {
-			if (topBar && searchBar) {
-				const { width } = topBar.getBoundingClientRect();
-				setTopBarWidth(width);
-			}
+		const handleResize = () => {
+			setWindowSize(window.innerWidth);
 		};
-		getTopBarWidth();
-		window.addEventListener('resize', getTopBarWidth);
-		return () => {
-			window.removeEventListener('resize', getTopBarWidth);
-		};
-	}, [topBarRef]);
-
-	const topBarCondition =
-		(topBarWidth < 1000 && countToolOptions >= 8) || (topBarWidth < 600 && countToolOptions >= 6);
+		window.addEventListener('resize', handleResize);
+		handleResize();
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
 
 	return (
 		<div
 			data-tauri-drag-region
 			ref={topBarRef}
 			className={clsx(
-				'duration-250 top-bar-blur absolute top-0 z-20  grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out'
+				'duration-250 top-bar-blur absolute top-0 z-20  grid  h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out'
 			)}
 		>
 			<div data-tauri-drag-region className="flex ">
@@ -68,73 +60,84 @@ export default () => {
 				</Tooltip>
 			</div>
 
-			<SearchBar formClassName="justify-center" ref={searchRef} />
+			<SearchBar formClassName="justify-center mr-12 lg:mr-0" ref={searchRef} />
 
-			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
-				<div data-tauri-drag-region className={`gap-0 ${topBarCondition ? 'hidden' : 'flex'}`}>
-					{toolBarRouteOptions[getPageName].options.map((group) => {
-						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
-							return group[groupKey]?.map(
-								(
-									{ icon, onClick, popOverComponent, toolTipLabel, topBarActive, individual },
-									index
-								) => {
-									const groupCount = Object.keys(group).length;
-									const groupIndex = Object.keys(group).indexOf(groupKey);
-									const roundingCondition = individual
-										? 'both'
-										: index === 0
-										? 'left'
-										: index === (group[groupKey]?.length as number) - 1
-										? 'right'
-										: 'none';
-									return (
-										<div
-											data-tauri-drag-region
-											key={toolTipLabel}
-											className={`flex items-center ${individual && 'mx-1'}`}
-										>
-											<Tooltip label={toolTipLabel}>
-												{popOverComponent ? (
-													<Popover
-														className="focus:outline-none"
-														trigger={
-															<TopBarButton
-																rounding={roundingCondition}
-																active={topBarActive}
-																onClick={onClick}
-															>
-																{icon}
-															</TopBarButton>
-														}
-													>
-														<div className="block w-[250px] ">{popOverComponent}</div>
-													</Popover>
-												) : (
-													<TopBarButton
-														rounding={roundingCondition}
-														active={topBarActive}
-														onClick={onClick ?? undefined}
-													>
-														{icon}
-													</TopBarButton>
-												)}
-											</Tooltip>
-											{index === (group[groupKey]?.length as number) - 1 &&
-												groupCount !== groupIndex + 1 && (
-													<div
-														data-tauri-drag-region
-														className="mx-4 h-[15px] w-0 border-l border-zinc-600"
-													/>
-												)}
-										</div>
-									);
-								}
-							);
-						});
+			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
+				<div ref={toolsRef} data-tauri-drag-region className={`flex gap-0`}>
+					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
+						return (group as ToolOption[]).map(
+							(
+								{
+									icon,
+									onClick,
+									popOverComponent,
+									toolTipLabel,
+									topBarActive,
+									individual,
+									show_at_resolution
+								},
+								index
+							) => {
+								const groupCount = toolBarRouteOptions[getPageName].options.length;
+								const roundingCondition = individual
+									? 'both'
+									: index === 0
+									? 'left'
+									: index === group.length - 1
+									? 'right'
+									: 'none';
+								return (
+									<div
+										data-tauri-drag-region
+										key={toolTipLabel}
+										className={`hidden ${show_at_resolution} items-center ${
+											individual && 'mx-1'
+										}`}
+									>
+										<Tooltip label={toolTipLabel}>
+											{popOverComponent ? (
+												<Popover
+													className="focus:outline-none"
+													trigger={
+														<TopBarButton
+															rounding={roundingCondition}
+															active={topBarActive}
+															onClick={onClick}
+														>
+															{icon}
+														</TopBarButton>
+													}
+												>
+													<div className="block w-[250px] ">
+														{popOverComponent}
+													</div>
+												</Popover>
+											) : (
+												<TopBarButton
+													rounding={roundingCondition}
+													active={topBarActive}
+													onClick={onClick ?? undefined}
+												>
+													{icon}
+												</TopBarButton>
+											)}
+										</Tooltip>
+										{index + 1 === group.length &&
+											groupIndex + 1 !== groupCount && (
+												<div
+													data-tauri-drag-region
+													className="mx-4 h-[15px] w-0 border-l border-zinc-600"
+												/>
+											)}
+									</div>
+								);
+							}
+						);
 					})}
 				</div>
-				<TopBarMobile className={`${topBarCondition ? 'flex' : 'hidden'}`} />
+				<TopBarMobile
+					className={`${windowSize <= 1279 && countToolOptions > 4 ? 'flex' : 'hidden'}`}
+				/>
 			</div>
 		</div>
 	);

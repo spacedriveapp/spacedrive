@@ -26,18 +26,27 @@ export type RoutePaths =
 	| 'tag'
 	| 'settings';
 
-export type groupKeys = 'groupOne' | 'groupTwo' | 'groupThree' | 'groupFour' | 'groupFive';
+// string concatination is incorrect usage of Tailwind - the complete and correct way is to use the full string
+// this is why I added :flex to the end of each string
+//sm is  640px
+//md is 768px
+//lg is 1024px
+//xl is 1280px
+//2xl is 1536px
+export type show_at_resolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
 
+export interface ToolOption {
+	icon: JSX.Element;
+	onClick?: () => void;
+	individual?: boolean;
+	toolTipLabel: string;
+	topBarActive?: boolean;
+	popOverComponent?: JSX.Element;
+	show_at_resolution: show_at_resolution;
+}
 export interface ToolOptions {
 	options: {
-		[key in groupKeys]?: {
-			icon: JSX.Element;
-			onClick?: () => void;
-			individual?: boolean;
-			toolTipLabel: string;
-			topBarActive?: boolean;
-			popOverComponent?: JSX.Element;
-		}[];
+		[key: string]: ToolOption[];
 	}[];
 }
 
@@ -46,108 +55,115 @@ export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 export const useToolBarRouteOptions = () => {
 	const store = useExplorerStore();
 
-	const toolBarRouteOptions: Record<RoutePaths, ToolOptions> = {
+	const toolBarRouteOptions: Record<RoutePaths, { options: ToolOption[][] }> = {
 		overview: {
-			options: [{}]
+			options: [[]]
 		},
 		location: {
 			options: [
-				{
-					groupOne: [
-						{
-							toolTipLabel: 'Grid view',
-							icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-							topBarActive: store.layoutMode === 'grid',
-							onClick: () => (getExplorerStore().layoutMode = 'grid')
-						},
-						{
-							toolTipLabel: 'List view',
-							icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-							topBarActive: store.layoutMode === 'rows',
-							onClick: () => (getExplorerStore().layoutMode = 'rows')
-						},
-						{
-							toolTipLabel: 'Columns view',
-							icon: <Columns className={TOP_BAR_ICON_STYLE} />,
-							topBarActive: store.layoutMode === 'columns',
-							onClick: () => (getExplorerStore().layoutMode = 'columns')
-						},
-						{
-							toolTipLabel: 'Media view',
-							icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-							topBarActive: store.layoutMode === 'media'
-						}
-					],
-					groupTwo: [
-						{
-							toolTipLabel: 'Key Manager',
-							icon: <Key className={TOP_BAR_ICON_STYLE} />,
-							popOverComponent: <KeyManager />,
-							individual: true
-						},
-						{
-							toolTipLabel: 'Tag Assign Mode',
-							icon: (
-								<Tag
-									weight={store.tagAssignMode ? 'fill' : 'regular'}
-									className={TOP_BAR_ICON_STYLE}
-								/>
-							),
-							onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
-							topBarActive: store.tagAssignMode,
-							individual: true
-						},
-						{
-							toolTipLabel: 'Regenerate thumbs (temp)',
-							icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-							individual: true
-						}
-					],
-					groupThree: [
-						{
-							toolTipLabel: 'Explorer display',
-							icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-							popOverComponent: <OptionsPanel />,
-							individual: true
-						},
-						{
-							toolTipLabel: 'Show Inspector',
-							onClick: () => (getExplorerStore().showInspector = !store.showInspector),
-							icon: (
-								<SidebarSimple
-									weight={store.showInspector ? 'fill' : 'regular'}
-									className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
-								/>
-							),
-							individual: true
-						}
-					]
-				}
+				[
+					{
+						toolTipLabel: 'Grid view',
+						icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
+						topBarActive: store.layoutMode === 'grid',
+						onClick: () => (getExplorerStore().layoutMode = 'grid'),
+						show_at_resolution: 'sm:flex'
+					},
+					{
+						toolTipLabel: 'List view',
+						icon: <Rows className={TOP_BAR_ICON_STYLE} />,
+						topBarActive: store.layoutMode === 'rows',
+						onClick: () => (getExplorerStore().layoutMode = 'rows'),
+						show_at_resolution: 'sm:flex'
+					},
+					{
+						toolTipLabel: 'Columns view',
+						icon: <Columns className={TOP_BAR_ICON_STYLE} />,
+						topBarActive: store.layoutMode === 'columns',
+						onClick: () => (getExplorerStore().layoutMode = 'columns'),
+						show_at_resolution: 'sm:flex'
+					},
+					{
+						toolTipLabel: 'Media view',
+						icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
+						topBarActive: store.layoutMode === 'media',
+						show_at_resolution: 'sm:flex'
+					}
+				],
+				[
+					{
+						toolTipLabel: 'Key Manager',
+						icon: <Key className={TOP_BAR_ICON_STYLE} />,
+						popOverComponent: <KeyManager />,
+						individual: true,
+						show_at_resolution: 'xl:flex'
+					},
+					{
+						toolTipLabel: 'Tag Assign Mode',
+						icon: (
+							<Tag
+								weight={store.tagAssignMode ? 'fill' : 'regular'}
+								className={TOP_BAR_ICON_STYLE}
+							/>
+						),
+						onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
+						topBarActive: store.tagAssignMode,
+						individual: true,
+						show_at_resolution: 'xl:flex'
+					},
+					{
+						toolTipLabel: 'Regenerate thumbs (temp)',
+						icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+						individual: true,
+						show_at_resolution: 'xl:flex'
+					}
+				],
+				[
+					{
+						toolTipLabel: 'Explorer display',
+						icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+						popOverComponent: <OptionsPanel />,
+						individual: true,
+						show_at_resolution: 'xl:flex'
+					},
+					{
+						toolTipLabel: 'Show Inspector',
+						onClick: () => (getExplorerStore().showInspector = !store.showInspector),
+						icon: (
+							<SidebarSimple
+								weight={store.showInspector ? 'fill' : 'regular'}
+								className={clsx(TOP_BAR_ICON_STYLE, 'scale-x-[-1]')}
+							/>
+						),
+						individual: true,
+						show_at_resolution: 'xl:flex'
+					}
+				]
 			]
 		},
 		people: {
-			options: [{}]
+			options: [[]]
 		},
 		media: {
-			options: [{}]
+			options: [[]]
 		},
 		spaces: {
-			options: [{}]
+			options: [[]]
 		},
 		debug: {
-			options: [{}]
+			options: [[]]
 		},
 		settings: {
-			options: [{}]
+			options: [[]]
 		},
 		spacedrop: {
-			options: [{}]
+			options: [[]]
 		},
 		tag: {
-			options: [{}]
+			options: [[]]
 		},
 		sync: {
-			options: [{}]
+			options: [[]]
 		}
 	};
 
