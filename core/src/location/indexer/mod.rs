@@ -22,7 +22,6 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::io;
 use tracing::info;
-use uuid::Uuid;
 
 use super::{
 	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
@@ -73,8 +72,8 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
-	file_pub_id: Uuid,
-	parent_id: Option<(i32, Uuid)>,
+	file_id: i32,
+	parent_id: Option<i32>,
 	metadata: FilePathMetadata,
 }
 
@@ -167,37 +166,29 @@ async fn execute_indexer_step(
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						pub_id: entry.file_pub_id.as_bytes().to_vec(),
+						id: entry.file_id,
+						location: sync::location::SyncId {
+							pub_id: location.pub_id.clone(),
+						},
 					},
 					[
 						("materialized_path", json!(materialized_path.clone())),
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
-						("inode", json!(entry.metadata.inode.to_le_bytes())),
-						("device", json!(entry.metadata.device.to_le_bytes())),
 						(
 							"size_in_bytes",
 							json!(entry.metadata.size_in_bytes.to_string()),
 						),
+						("inode", json!(entry.metadata.inode.to_le_bytes())),
+						("device", json!(entry.metadata.device.to_le_bytes())),
+						("parent_id", json!(entry.parent_id)),
 						("date_created", json!(entry.metadata.created_at)),
 						("date_modified", json!(entry.metadata.modified_at)),
-					]
-					.into_iter()
-					.map(Some)
-					.chain([entry.parent_id.map(|(_, pub_id)| {
-						(
-							"parent",
-							json!(sync::file_path::SyncId {
-								pub_id: pub_id.as_bytes().to_vec()
-							}),
-						)
-					})])
-					.flatten()
-					.collect::<Vec<_>>(),
+					],
 				),
 				file_path::create_unchecked(
-					entry.file_pub_id.as_bytes().to_vec(),
+					entry.file_id,
 					location.id,
 					materialized_path.into_owned(),
 					name.into_owned(),
@@ -207,16 +198,10 @@ async fn execute_indexer_step(
 					vec![
 						is_dir::set(is_dir),
 						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
-						parent_id::set(entry.parent_id.map(|(id, _)| id)),
+						parent_id::set(entry.parent_id),
 						date_created::set(entry.metadata.created_at.into()),
 						date_modified::set(entry.metadata.modified_at.into()),
-					], // .into_iter()
-					   // .map(Some)
-					   // .chain([entry
-					   // 	.parent_id
-					   // 	.map(|id| parent::connect(pub_id::equals(id.as_bytes().to_vec())))])
-					   // .flatten()
-					   // .collect(),
+					],
 				),
 			)
 		})

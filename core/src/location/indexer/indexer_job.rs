@@ -8,7 +8,7 @@ use crate::{
 		MaterializedPath,
 	},
 	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
-	prisma::{file_path, location},
+	prisma::location,
 };
 
 use std::{collections::HashMap, path::Path};
@@ -17,7 +17,6 @@ use chrono::Utc;
 use itertools::Itertools;
 use tokio::time::Instant;
 use tracing::error;
-use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer,
@@ -53,7 +52,11 @@ impl StatefulJob for IndexerJob {
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let Library { db, .. } = &ctx.library;
+		let Library {
+			last_file_path_id_manager,
+			db,
+			..
+		} = &ctx.library;
 
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
@@ -93,10 +96,7 @@ impl StatefulJob for IndexerJob {
 				.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(
-				full_path.clone(),
-				(sub_path_file_path.id, sub_path_file_path.pub_id.clone()),
-			);
+			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
 
 			(full_path, Some(sub_path_file_path))
 		} else {
@@ -138,11 +138,7 @@ impl StatefulJob for IndexerJob {
 					.await
 					.map_err(IndexerError::from)?,
 				)
-				.select(file_path::select!({
-					id
-					pub_id
-					materialized_path
-				}))
+				.select(file_path_just_id_materialized_path::select())
 				.exec()
 				.await?
 				.into_iter()
@@ -152,7 +148,7 @@ impl StatefulJob for IndexerJob {
 							location_id,
 							&file_path.materialized_path,
 						))),
-						(file_path.id, file_path.pub_id),
+						file_path.id,
 					)
 				}),
 		);
@@ -160,18 +156,20 @@ impl StatefulJob for IndexerJob {
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths = retain_file_paths_in_location(
 			location_id,
-			dirs_ids
-				.values()
-				.cloned()
-				.map(|(_, pub_id)| pub_id)
-				.collect(),
+			dirs_ids.values().copied().collect(),
 			maybe_parent_file_path,
 			db,
 		)
 		.await
 		.map_err(IndexerError::from)?;
 
-		let new_paths = found_paths
+		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
+		last_file_path_id_manager
+			.sync(location_id, db)
+			.await
+			.map_err(IndexerError::from)?;
+
+		let mut new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(
@@ -189,18 +187,13 @@ impl StatefulJob for IndexerJob {
 						(!dirs_ids.contains_key(&entry.path)).then(|| {
 							IndexerJobStepEntry {
 								materialized_path,
-								file_pub_id: Uuid::new_v4(),
+								file_id: 0, // To be set later
 								parent_id: entry.path.parent().and_then(|parent_dir| {
 									/***************************************************************
 									 * If we're dealing with a new path which its parent already   *
 									 * exist, we fetch its parent id from our `dirs_ids` map       *
 									 **************************************************************/
-									dirs_ids
-										.get(parent_dir)
-										// SAFETY: We created this pub_id before, so it should be valid
-										.map(|(id, pub_id)| {
-											(*id, Uuid::from_slice(pub_id).unwrap())
-										})
+									dirs_ids.get(parent_dir).copied()
 								}),
 								full_path: entry.path,
 								metadata: entry.metadata,
@@ -212,6 +205,28 @@ impl StatefulJob for IndexerJob {
 			.collect::<Vec<_>>();
 
 		let total_paths = new_paths.len();
+
+		// grab the next id so we can increment in memory for batch inserting
+		let first_file_id = last_file_path_id_manager
+			.increment(location_id, total_paths as i32, db)
+			.await
+			.map_err(IndexerError::from)?;
+
+		new_paths
+			.iter_mut()
+			.zip(first_file_id..)
+			.for_each(|(entry, file_id)| {
+				// If the `parent_id` is still none here, is because the parent of this entry is also
+				// a new one in the DB
+				if entry.parent_id.is_none() {
+					entry.parent_id = entry
+						.full_path
+						.parent()
+						.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
+				}
+				entry.file_id = file_id;
+				dirs_ids.insert(entry.full_path.clone(), file_id);
+			});
 
 		state.data = Some(IndexerJobData {
 			db_write_start: Utc::now(),
