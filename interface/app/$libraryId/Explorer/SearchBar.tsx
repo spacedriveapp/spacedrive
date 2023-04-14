@@ -32,11 +32,7 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 	}, [forwardedRef]);
 
 	return (
-		<form
-			data-tauri-drag-region
-			onSubmit={() => {}}
-			className={`relative flex h-7 ${props.formClassName}`}
-		>
+		<form data-tauri-drag-region className={`relative flex h-7 ${props.formClassName}`}>
 			<Input
 				ref={(el) => {
 					if (typeof forwardedRef === 'function') forwardedRef(el);
