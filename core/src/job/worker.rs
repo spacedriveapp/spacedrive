@@ -153,7 +153,7 @@ impl Worker {
 
 			let (done_tx, done_rx) = oneshot::channel();
 
-			match job.run(worker_ctx.clone()).await {
+			match job.run(job_manager.clone(), worker_ctx.clone()).await {
 				Ok(metadata) => {
 					// handle completion
 					worker_ctx

@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobError, JobInitData, JobResult, JobState, QueueJobsCtx, StatefulJob, WorkerContext},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -264,13 +264,13 @@ impl StatefulJob for IndexerJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		ctx.library
-			.spawn_job(FileIdentifierJobInit {
-				location: location::Data::from(&state.init.location),
-				sub_path: state.init.sub_path.clone(),
-			})
-			.await;
-
 		finalize_indexer(&state.init.location.path, state, ctx)
+	}
+
+	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
+		ctx.spawn_job(FileIdentifierJobInit {
+			location: location::Data::from(&state.init.location),
+			sub_path: state.init.sub_path.clone(),
+		});
 	}
 }

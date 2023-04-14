@@ -1,6 +1,7 @@
 use crate::{
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, QueueJobsCtx, StatefulJob,
+		WorkerContext,
 	},
 	library::Library,
 	location::{
@@ -190,14 +191,6 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		ctx.library
-			.spawn_job(ThumbnailerJobInit {
-				location: state.init.location.clone(),
-				sub_path: state.init.sub_path.clone(),
-				background: true,
-			})
-			.await;
-
 		finalize_file_identifier(
 			&state
 				.data
@@ -206,6 +199,14 @@ impl StatefulJob for FileIdentifierJob {
 				.report,
 			ctx,
 		)
+	}
+
+	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
+		ctx.spawn_job(ThumbnailerJobInit {
+			location: state.init.location.clone(),
+			sub_path: state.init.sub_path.clone(),
+			background: true,
+		});
 	}
 }
 

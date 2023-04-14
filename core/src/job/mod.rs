@@ -7,13 +7,14 @@ use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	fmt::Debug,
 	hash::{Hash, Hasher},
+	sync::Arc,
 };
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 mod job_manager;
@@ -97,24 +98,53 @@ pub trait StatefulJob: Send + Sync + Sized {
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
 
+	/// Construct a new instance of the job. This is used so the user can pass `Self::Init` into the `spawn_job` function and we can still run the job.
+	/// This does remove the flexibility of being able to pass arguments into the job's struct but with resumable jobs I view that as an anti-pattern anyway.
 	fn new() -> Self;
 
+	/// initialize the steps for the job
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
 
+	/// is called for each step in the job. These steps are created in the `Self::init` method.
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
+	/// is called after all steps have been executed
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+
+	/// allows a job to queue up more jobs which are executed after it has finished successfully
+	/// WARNING: This method can be called multiple times which may be before the job finishes.
+	/// WARNING: This is because the UI needs to display the queued jobs.
+	/// WARNING: It MUST always call `ctx.spawn_job` with the same arguments and the same order.
+	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
+		let _ = (ctx, state);
+	}
+}
+
+pub struct QueueJobsCtx {
+	jobs: Vec<Box<dyn DynJob>>,
+}
+
+impl QueueJobsCtx {
+	pub(crate) fn spawn_job<
+		J: StatefulJob<Init = TInitData> + 'static,
+		TInitData: JobInitData<Job = J>,
+	>(
+		&mut self,
+		init: TInitData,
+	) {
+		self.jobs.push(Job::new(init, J::new()));
+	}
 }
 
 #[async_trait::async_trait]
 pub trait DynJob: Send + Sync {
 	fn report(&mut self) -> &mut Option<JobReport>;
 	fn name(&self) -> &'static str;
-	async fn run(&mut self, ctx: WorkerContext) -> JobResult;
+	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult;
 	fn hash(&self) -> u64;
 }
 
@@ -187,7 +217,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		<SJob as StatefulJob>::NAME
 	}
 
-	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
+	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult {
 		let mut job_should_run = true;
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
@@ -231,9 +261,26 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			self.state.step_number += 1;
 		}
 
-		self.stateful_job
+		let metadata = self
+			.stateful_job
 			.finalize(ctx.clone(), &mut self.state)
-			.await
+			.await?;
+
+		let mut queue_ctx = QueueJobsCtx { jobs: Vec::new() };
+		self.stateful_job
+			.queue_jobs(&mut queue_ctx, &mut self.state);
+
+		for job in queue_ctx.jobs {
+			debug!(
+				"Job '{}' requested to spawn '{}' now that it's complete!",
+				self.name(),
+				job.name()
+			);
+
+			job_manager.clone().ingest(&ctx.library, job).await;
+		}
+
+		Ok(metadata)
 	}
 
 	fn hash(&self) -> u64 {
