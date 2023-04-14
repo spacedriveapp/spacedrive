@@ -77,7 +77,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
-        { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
+        { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -161,7 +161,7 @@ export type IndexerRule = { id: number, kind: number, name: string, parameters: 
  */
 export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
 
-export type InvalidateOperationEvent = { key: string, arg: any }
+export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 
 export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 

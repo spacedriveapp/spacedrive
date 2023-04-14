@@ -144,42 +144,7 @@ impl Node {
 		)
 		.await?;
 
-		// Adding already existing locations for location management
-		for library in library_manager.get_all_libraries().await {
-			for location in library
-				.db
-				.location()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap_or_else(|e| {
-					error!(
-						"Failed to get locations from database for location manager: {:#?}",
-						e
-					);
-					vec![]
-				}) {
-				if let Err(e) = location_manager.add(location.id, library.clone()).await {
-					error!("Failed to add location to location manager: {:#?}", e);
-				}
-			}
-		}
-
 		debug!("Watching locations");
-
-		// Trying to resume possible paused jobs
-		tokio::spawn({
-			let library_manager = library_manager.clone();
-			let jobs = jobs.clone();
-
-			async move {
-				for library in library_manager.get_all_libraries().await {
-					if let Err(e) = jobs.clone().resume_jobs(&library).await {
-						error!("Failed to resume jobs for library. {:#?}", e);
-					}
-				}
-			}
-		});
 
 		tokio::spawn({
 			let library_manager = library_manager.clone();
