@@ -48,7 +48,11 @@ export const Component = () => {
 				</div>
 			</Card>
 			{selectedTag ? (
-				<EditForm key={selectedTag.id} tag={selectedTag} onDelete={() => setSelectedTag(null)} />
+				<EditForm
+					key={selectedTag.id}
+					tag={selectedTag}
+					onDelete={() => setSelectedTag(null)}
+				/>
 			) : (
 				<div className="text-sm font-medium text-gray-400">No Tag Selected</div>
 			)}

@@ -23,11 +23,14 @@ export default ({ className = '' }: Props) => {
 					</TopBarButton>
 				}
 			>
-				<div className="flex flex-col p-2 overflow-hidden">
+				<div className="flex flex-col overflow-hidden p-2">
 					{toolBarRouteOptions[getPageName].options.map((group) => {
 						return (Object.keys(group) as groupKeys[]).map((groupKey) => {
 							return group[groupKey]?.map(
-								({ icon, onClick, popOverComponent, toolTipLabel, topBarActive }, index) => {
+								(
+									{ icon, onClick, popOverComponent, toolTipLabel, topBarActive },
+									index
+								) => {
 									const groupCount = Object.keys(group).length;
 									const groupIndex = Object.keys(group).indexOf(groupKey);
 									return (
@@ -42,7 +45,7 @@ export default ({ className = '' }: Props) => {
 															onClick={onClick}
 															checkIcon={true}
 														>
-															<div className="flex items-center justify-between w-full">
+															<div className="flex w-full items-center justify-between">
 																<div className="flex items-center gap-1">
 																	{icon}
 																	{toolTipLabel}
@@ -51,7 +54,9 @@ export default ({ className = '' }: Props) => {
 														</TopBarButton>
 													}
 												>
-													<div className="block w-[250px] ">{popOverComponent}</div>
+													<div className="block w-[250px] ">
+														{popOverComponent}
+													</div>
 												</Popover>
 											) : (
 												<TopBarButton

@@ -54,10 +54,14 @@
 		// "apps/mobile/ios": true
 	},
 	"eslint.workingDirectories": [
+		"apps/desktop",
 		"apps/landing",
 		"apps/mobile",
-		"packages/ui",
+		"interface",
 		"packages/client",
-		"packages/interface"
-	]
+		"packages/config",
+		"packages/ui"
+	],
+	"eslint.packageManager": "pnpm",
+	"eslint.lintTask.enable": true
 }

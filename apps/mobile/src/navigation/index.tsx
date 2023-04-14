@@ -13,7 +13,11 @@ const Stack = createStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
 	return (
 		<Stack.Navigator initialRouteName="Root">
-			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
+			<Stack.Screen
+				name="Root"
+				component={DrawerNavigator}
+				options={{ headerShown: false }}
+			/>
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 			<Stack.Screen
 				name="Search"

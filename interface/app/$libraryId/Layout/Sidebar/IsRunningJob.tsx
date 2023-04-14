@@ -8,6 +8,6 @@ export default () => {
 	return isRunningJob ? (
 		<Loader className="h-[20px] w-[20px]" />
 	) : (
-		<CheckCircle className="w-5 h-5" />
+		<CheckCircle className="h-5 w-5" />
 	);
 };

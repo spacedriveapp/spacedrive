@@ -19,7 +19,10 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 				if ((event.key === 'f' && event.metaKey) || event.ctrlKey) {
 					event.preventDefault();
 					forwardedRef?.current?.focus();
-				} else if (forwardedRef?.current === document.activeElement && event.key === 'Escape') {
+				} else if (
+					forwardedRef?.current === document.activeElement &&
+					event.key === 'Escape'
+				) {
 					forwardedRef.current?.blur();
 					setSearchValue('');
 				}
@@ -39,7 +42,10 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className={clsx('w-52 transition-all duration-200 focus-within:w-60', props.className)}
+				className={clsx(
+					'w-52 transition-all duration-200 focus-within:w-60',
+					props.className
+				)}
 				size="sm"
 				onChange={(e) => setSearchValue(e.target.value)}
 				onBlur={() => setSearchValue('')}
@@ -51,11 +57,20 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 						)}
 					>
 						{platform === 'browser' ? (
-							<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
+							<Shortcut
+								chars="⌘F"
+								aria-label={'Press Command-F to focus search bar'}
+							/>
 						) : os === 'macOS' ? (
-							<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
+							<Shortcut
+								chars="⌘F"
+								aria-label={'Press Command-F to focus search bar'}
+							/>
 						) : (
-							<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
+							<Shortcut
+								chars="CTRL+F"
+								aria-label={'Press CTRL-F to focus search bar'}
+							/>
 						)}
 					</div>
 				}

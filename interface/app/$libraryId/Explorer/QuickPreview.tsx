@@ -161,7 +161,8 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 					if (!show || explorerItem.current == null) return null;
 
 					const { item } = explorerItem.current;
-					const locationId = 'location_id' in item ? item.location_id : explorerStore.locationId;
+					const locationId =
+						'location_id' in item ? item.location_id : explorerStore.locationId;
 					if (locationId == null) {
 						onPreviewError();
 						return null;
@@ -192,13 +193,18 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 								>
 									<div className="!pointer-events-auto h-5/6 w-11/12 rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
 										<nav className="flex w-full flex-row">
-											<Dialog.Close className="ml-2 text-ink-dull" aria-label="Close">
+											<Dialog.Close
+												className="ml-2 text-ink-dull"
+												aria-label="Close"
+											>
 												<XCircle size={16} />
 											</Dialog.Close>
 											<Dialog.Title className="mx-auto my-1 font-bold">
 												Preview -{' '}
 												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
-													{'name' in item && item.name ? item.name : 'Unkown Object'}
+													{'name' in item && item.name
+														? item.name
+														: 'Unkown Object'}
 												</span>
 											</Dialog.Title>
 										</nav>

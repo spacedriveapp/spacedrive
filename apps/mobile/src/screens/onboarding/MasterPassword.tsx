@@ -120,7 +120,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							disabled={form.formState.isSubmitting}
 							onPress={handleSetPassword}
 						>
-							<Text style={tw`text-ink text-center font-medium`}>
+							<Text style={tw`text-center font-medium text-ink`}>
 								{!showPasswordValidate ? 'Set password' : 'Confirm Password'}
 							</Text>
 						</Button>
@@ -136,7 +136,9 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 									form.reset();
 								}}
 							>
-								<Text style={tw`text-ink text-center font-medium`}>Remove password</Text>
+								<Text style={tw`text-center font-medium text-ink`}>
+									Remove password
+								</Text>
 							</Button>
 						) : (
 							<Button
@@ -145,7 +147,9 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 								disabled={form.formState.isSubmitting}
 								onPress={handleNoPassword}
 							>
-								<Text style={tw`text-ink text-center font-medium`}>Continue without password</Text>
+								<Text style={tw`text-center font-medium text-ink`}>
+									Continue without password
+								</Text>
 							</Button>
 						)}
 					</View>

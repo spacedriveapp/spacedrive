@@ -18,7 +18,9 @@ export const Component = () => {
 					<h1 className="text-2xl font-bold">
 						Spacedrive {os !== 'unknown' && <>for {currentPlatformNiceName}</>}
 					</h1>
-					<span className="mt-1 text-sm text-ink-dull">The file manager from the future.</span>
+					<span className="mt-1 text-sm text-ink-dull">
+						The file manager from the future.
+					</span>
 					<span className="mt-1 text-xs text-ink-faint/80">
 						v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 					</span>

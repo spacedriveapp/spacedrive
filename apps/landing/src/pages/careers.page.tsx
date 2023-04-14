@@ -86,13 +86,17 @@ const perks = [
 
 function Page() {
 	const openPositionsRef = useRef<HTMLHRElement>(null);
-	const scrollToPositions = () => openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
+	const scrollToPositions = () =>
+		openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
 	return (
 		<>
 			<Helmet>
 				<title>Careers - Spacedrive</title>
-				<meta name="description" content="Work with us to build the future of file management." />
+				<meta
+					name="description"
+					content="Work with us to build the future of file management."
+				/>
 			</Helmet>
 			<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 				<div
@@ -104,9 +108,9 @@ function Page() {
 				</h1>
 				<div className="animation-delay-1 z-30 flex flex-col items-center fade-in">
 					<p className="z-40 text-center text-lg text-gray-350">
-						Spacedrive is redefining the way we think about our personal data, building a open
-						ecosystem to help preserve your digital legacy and make cross-platform file management a
-						breeze.
+						Spacedrive is redefining the way we think about our personal data, building
+						a open ecosystem to help preserve your digital legacy and make
+						cross-platform file management a breeze.
 					</p>
 					<Button
 						onClick={scrollToPositions}
@@ -116,7 +120,9 @@ function Page() {
 						See Open Positions
 					</Button>
 					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
-					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">Our Values</h2>
+					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">
+						Our Values
+					</h2>
 					<p className="mt-2 mb-4">What drives us daily.</p>
 					<div className="mt-5 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
 						{values.map((value, index) => (
@@ -125,7 +131,9 @@ function Page() {
 								className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
 							>
 								<value.icon className="text-[32px]" weight="bold" />
-								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
+								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">
+									{value.title}
+								</h3>
 								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
 							</div>
 						))}
@@ -139,16 +147,28 @@ function Page() {
 						{perks.map((value, index) => (
 							<div
 								key={value.title + index}
-								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
+								style={{
+									backgroundColor: value.color + '10',
+									borderColor: value.color + '30'
+								}}
 								className="flex flex-col rounded-md border bg-gray-550/30 p-8"
 							>
-								<value.icon className="text-[32px]" weight="bold" color={value.color} />
+								<value.icon
+									className="text-[32px]"
+									weight="bold"
+									color={value.color}
+								/>
 								<h3 className="mt-4 mb-1">{value.title}</h3>
-								<p className="mt-1 mb-0 text-sm text-white opacity-60">{value.desc}</p>
+								<p className="mt-1 mb-0 text-sm text-white opacity-60">
+									{value.desc}
+								</p>
 							</div>
 						))}
 					</div>
-					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" ref={openPositionsRef} />
+					<hr
+						className="border-1 my-24 w-full border-gray-200 opacity-10"
+						ref={openPositionsRef}
+					/>
 					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Open Positions
 					</h2>
@@ -183,10 +203,13 @@ function Page() {
 						)}
 					</div>
 					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
-					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">How to apply?</h2>
+					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">
+						How to apply?
+					</h2>
 					<p className="mt-2">
-						Send your cover letter and resume to <strong>careers at spacedrive dot com</strong> and
-						we'll get back to you shortly!
+						Send your cover letter and resume to{' '}
+						<strong>careers at spacedrive dot com</strong> and we'll get back to you
+						shortly!
 					</p>
 				</div>
 			</div>

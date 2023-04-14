@@ -11,7 +11,9 @@ export default (props: { objectId: number }) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
+	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], {
+		suspense: true
+	});
 
 	const assignTag = useLibraryMutation('tags.assign', {
 		onSuccess: () => {
@@ -42,7 +44,9 @@ export default (props: { objectId: number }) => {
 				iconProps={{ size: 15 }}
 				keybind="⌘N"
 				onClick={() => {
-					dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={props.objectId} />);
+					dialogManager.create((dp) => (
+						<CreateDialog {...dp} assignToObject={props.objectId} />
+					));
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
@@ -91,7 +95,8 @@ export default (props: { objectId: number }) => {
 									<div
 										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
 										style={{
-											backgroundColor: active && tag.color ? tag.color : 'transparent',
+											backgroundColor:
+												active && tag.color ? tag.color : 'transparent',
 											borderColor: tag.color || '#efefef'
 										}}
 									/>

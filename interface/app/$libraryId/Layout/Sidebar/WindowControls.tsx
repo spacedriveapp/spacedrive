@@ -14,7 +14,9 @@ export default () => {
 		return (
 			<div data-tauri-drag-region className={clsx('shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
-				{showControls && <MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />}
+				{showControls && (
+					<MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />
+				)}
 			</div>
 		);
 	}

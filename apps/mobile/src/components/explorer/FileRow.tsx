@@ -20,7 +20,7 @@ const FileRow = ({ data }: FileRowProps) => {
 		>
 			<FileThumb data={data} size={0.6} />
 			<View style={tw`ml-3`}>
-				<Text numberOfLines={1} style={tw`text-ink-dull text-center text-xs font-medium`}>
+				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-ink-dull`}>
 					{filePath?.name}
 					{filePath?.extension && `.${filePath.extension}`}
 				</Text>

@@ -46,8 +46,8 @@ export default function OnboardingNewLibrary() {
 				<OnboardingImg src={Database} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
-					Libraries are a secure, on-device database. Your files remain where they are, the Library
-					catalogs them and stores all Spacedrive related data.
+					Libraries are a secure, on-device database. Your files remain where they are,
+					the Library catalogs them and stores all Spacedrive related data.
 				</OnboardingDescription>
 
 				{importMode ? (

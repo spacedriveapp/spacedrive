@@ -12,11 +12,11 @@ export const InfoPill = (props: Props) => {
 	return (
 		<View
 			style={twStyle(
-				'shadow-app-shade/5 bg-app-highlight rounded-md border border-transparent px-[6px] py-[1px] shadow',
+				'rounded-md border border-transparent bg-app-highlight px-[6px] py-[1px] shadow shadow-app-shade/5',
 				props.containerStyle
 			)}
 		>
-			<Text style={twStyle('text-ink-dull text-xs font-medium', props.textStyle)}>
+			<Text style={twStyle('text-xs font-medium text-ink-dull', props.textStyle)}>
 				{props.text}
 			</Text>
 		</View>
@@ -27,11 +27,11 @@ export function PlaceholderPill(props: Props) {
 	return (
 		<View
 			style={twStyle(
-				'shadow-app-shade/10 border-app-highlight rounded-md border border-dashed bg-transparent px-[6px] py-[1px] shadow',
+				'rounded-md border border-dashed border-app-highlight bg-transparent px-[6px] py-[1px] shadow shadow-app-shade/10',
 				props.containerStyle
 			)}
 		>
-			<Text style={twStyle('text-ink-faint/70 text-xs font-medium', props.textStyle)}>
+			<Text style={twStyle('text-xs font-medium text-ink-faint/70', props.textStyle)}>
 				{props.text}
 			</Text>
 		</View>

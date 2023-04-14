@@ -130,7 +130,10 @@ export const Component = () => {
 						if (masterPassword !== '') {
 							setMasterPassword('');
 							setSecretKey('');
-							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
+							unlockKeyManager.mutate({
+								password: masterPassword,
+								secret_key: secretKey
+							});
 						}
 					}}
 				>
@@ -188,7 +191,11 @@ export const Component = () => {
 						<Subheading title="Secret key" />
 						{!viewSecretKey && (
 							<div className="flex flex-row">
-								<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+								<Button
+									size="sm"
+									variant="gray"
+									onClick={() => setViewSecretKey(true)}
+								>
 									View Secret Key
 								</Button>
 							</div>
@@ -215,7 +222,9 @@ export const Component = () => {
 						size="sm"
 						variant="gray"
 						className="mr-2"
-						onClick={() => dialogManager.create((dp) => <MasterPasswordDialog {...dp} />)}
+						onClick={() =>
+							dialogManager.create((dp) => <MasterPasswordDialog {...dp} />)
+						}
 					>
 						Change Master Password
 					</Button>
@@ -257,7 +266,9 @@ export const Component = () => {
 						size="sm"
 						variant="gray"
 						className="mr-2"
-						onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
+						onClick={() =>
+							dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)
+						}
 					>
 						Restore
 					</Button>

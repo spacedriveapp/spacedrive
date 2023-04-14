@@ -20,7 +20,7 @@ export default () => {
 	const { library } = useClientContext();
 
 	return (
-		<div className="flex flex-col pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out grow">
+		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
 			<div className="space-y-0.5">
 				<SidebarLink to="overview">
 					<Icon component={Planet} />
