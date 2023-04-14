@@ -68,6 +68,10 @@ impl StatefulJob for FileIdentifierJob {
 
 	const NAME: &'static str = "file_identifier";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 

@@ -1,6 +1,11 @@
 use crate::{
-	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
-	object::preview::THUMBNAIL_CACHE_DIR_NAME, prisma::PrismaClient, sync::SyncManager,
+	api::CoreEvent,
+	job::{DynJob, JobInitData, StatefulJob},
+	location::LocationManager,
+	node::NodeConfigManager,
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	prisma::PrismaClient,
+	sync::SyncManager,
 	NodeContext,
 };
 
@@ -52,6 +57,20 @@ impl Library {
 	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.clone().ingest(self, job).await;
 	}
+
+	// pub(crate) async fn spawn_job<
+	// 	TJob: StatefulJob<Init = TInitData>,
+	// 	TInitData: JobInitData<Job = TJob>,
+	// >(
+	// 	&self,
+	// 	init: TInitData,
+	// ) {
+	// 	self.node_context
+	// 		.jobs
+	// 		.clone()
+	// 		.ingest(self.clone(), init, TJob::new())
+	// 		.await;
+	// }
 
 	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.ingest_queue(job).await;

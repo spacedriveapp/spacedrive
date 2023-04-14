@@ -46,6 +46,10 @@ impl StatefulJob for IndexerJob {
 
 	const NAME: &'static str = "indexer";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;

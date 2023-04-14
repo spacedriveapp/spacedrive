@@ -32,6 +32,10 @@ impl StatefulJob for FileDeleterJob {
 
 	const NAME: &'static str = "file_deleter";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let fs_info =
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)

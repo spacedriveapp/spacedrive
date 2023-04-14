@@ -136,42 +136,32 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("duplicateFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				let (done_tx, done_rx) = oneshot::channel();
+			t(
+				|_, mut args: FileCopierJobInit, library: Library| async move {
+					let (done_tx, done_rx) = oneshot::channel();
 
-				library
-					.spawn_job(Job::new(
-						args,
-						FileCopierJob {
-							done_tx: Some(done_tx),
-						},
-					))
-					.await;
+					library.spawn_job(Job::new(args, FileCopierJob {})).await;
 
-				let _ = done_rx.await;
-				invalidate_query!(library, "locations.getExplorerData");
+					let _ = done_rx.await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				},
+			)
 		})
 		.library_mutation("copyFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				let (done_tx, done_rx) = oneshot::channel();
+			t(
+				|_, mut args: FileCopierJobInit, library: Library| async move {
+					let (done_tx, done_rx) = oneshot::channel();
 
-				library
-					.spawn_job(Job::new(
-						args,
-						FileCopierJob {
-							done_tx: Some(done_tx),
-						},
-					))
-					.await;
+					library.spawn_job(Job::new(args, FileCopierJob {})).await;
 
-				let _ = done_rx.await;
-				invalidate_query!(library, "locations.getExplorerData");
+					let _ = done_rx.await;
+					invalidate_query!(library, "locations.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				},
+			)
 		})
 		.library_mutation("cutFiles", |t| {
 			t(|_, args: FileCutterJobInit, library: Library| async move {

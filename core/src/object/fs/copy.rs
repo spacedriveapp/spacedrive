@@ -6,14 +6,11 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::sync::oneshot;
 use tracing::{error, trace};
 
 use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
 
-pub struct FileCopierJob {
-	pub done_tx: Option<oneshot::Sender<()>>,
-}
+pub struct FileCopierJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobState {
@@ -61,6 +58,10 @@ impl StatefulJob for FileCopierJob {
 	type Step = FileCopierJobStep;
 
 	const NAME: &'static str = "file_copier";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let source_fs_info = context_menu_fs_info(
@@ -182,12 +183,6 @@ impl StatefulJob for FileCopierJob {
 	}
 
 	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		if let Some(done_tx) = self.done_tx.take() {
-			if done_tx.send(()).is_err() {
-				error!("Failed to send done signal on FileCopierJob");
-			}
-		}
-
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }

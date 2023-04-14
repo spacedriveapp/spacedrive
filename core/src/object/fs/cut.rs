@@ -41,6 +41,10 @@ impl StatefulJob for FileCutterJob {
 
 	const NAME: &'static str = "file_cutter";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let source_fs_info = context_menu_fs_info(
 			&ctx.library.db,

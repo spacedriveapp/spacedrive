@@ -97,7 +97,7 @@ pub trait StatefulJob: Send + Sync + Sized {
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
 
-	// fn new() -> Self;
+	fn new() -> Self;
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
 

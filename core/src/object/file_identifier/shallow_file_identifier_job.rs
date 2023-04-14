@@ -65,6 +65,10 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 	const NAME: &'static str = "shallow_file_identifier";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 

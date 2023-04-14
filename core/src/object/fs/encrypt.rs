@@ -55,6 +55,10 @@ impl StatefulJob for FileEncryptorJob {
 
 	const NAME: &'static str = "file_encryptor";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let step =
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)

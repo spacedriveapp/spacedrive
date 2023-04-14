@@ -61,6 +61,10 @@ impl StatefulJob for ShallowThumbnailerJob {
 
 	const NAME: &'static str = "shallow_thumbnailer";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 

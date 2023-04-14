@@ -41,6 +41,10 @@ impl StatefulJob for FileDecryptorJob {
 
 	const NAME: &'static str = "file_decryptor";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to decrypt
 		// populate the steps with them (local file paths)

@@ -48,6 +48,10 @@ impl StatefulJob for ObjectValidatorJob {
 
 	const NAME: &'static str = "object_validator";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 

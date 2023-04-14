@@ -57,6 +57,10 @@ impl StatefulJob for ThumbnailerJob {
 
 	const NAME: &'static str = "thumbnailer";
 
+	fn new() -> Self {
+		Self {}
+	}
+
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 

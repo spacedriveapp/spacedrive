@@ -250,10 +250,7 @@ impl JobManager {
 				}
 				<FileCopierJob as StatefulJob>::NAME => {
 					Arc::clone(&self)
-						.dispatch_job(
-							library,
-							Job::resume(paused_job, FileCopierJob { done_tx: None })?,
-						)
+						.dispatch_job(library, Job::resume(paused_job, FileCopierJob {})?)
 						.await;
 				}
 				<FileDeleterJob as StatefulJob>::NAME => {
