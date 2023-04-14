@@ -31,6 +31,7 @@ use int_enum::IntEnum;
 use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::{
 	sync::{broadcast, mpsc, Mutex, RwLock},
 	time::sleep,
@@ -43,6 +44,40 @@ const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Library, Box<dyn DynJob>),
+}
+
+#[derive(Error, Debug)]
+pub enum JobManagerError {
+	#[error("Tried to dispatch a job that is already running: Job <name='{name}', hash='{hash}'>")]
+	AlreadyRunningJob { name: &'static str, hash: u64 },
+
+	#[error("Failed to fetch job data from database: {0}")]
+	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("Job error: {0}")]
+	Job(#[from] JobError),
+}
+
+impl From<JobManagerError> for rspc::Error {
+	fn from(value: JobManagerError) -> Self {
+		match value {
+			JobManagerError::AlreadyRunningJob { .. } => Self::with_cause(
+				rspc::ErrorCode::BadRequest,
+				"Tried to spawn a job that is already running!".to_string(),
+				value,
+			),
+			JobManagerError::Database(_) => Self::with_cause(
+				rspc::ErrorCode::InternalServerError,
+				"Error accessing the database".to_string(),
+				value,
+			),
+			JobManagerError::Job(_) => Self::with_cause(
+				rspc::ErrorCode::InternalServerError,
+				"Job error".to_string(),
+				value,
+			),
+		}
+	}
 }
 
 /// JobManager handles queueing and executing jobs using the `DynJob`
@@ -89,17 +124,14 @@ impl JobManager {
 		self: Arc<Self>,
 		library: &Library,
 		job: Box<dyn DynJob>,
-	) -> Result<(), ()> {
+	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
 		if self.current_jobs_hashes.read().await.contains(&job_hash) {
-			debug!(
-				"Job already in queue: <name='{}', hash='{}'>",
-				job.name(),
-				job_hash
-			);
-
-			return Err(());
+			return Err(JobManagerError::AlreadyRunningJob {
+				name: job.name(),
+				hash: job_hash,
+			});
 		}
 
 		debug!(
@@ -139,9 +171,7 @@ impl JobManager {
 		ret
 	}
 
-	pub async fn get_history(
-		library: &Library,
-	) -> Result<Vec<JobReport>, prisma_client_rust::QueryError> {
+	pub async fn get_history(library: &Library) -> Result<Vec<JobReport>, JobManagerError> {
 		Ok(library
 			.db
 			.job()
@@ -155,7 +185,7 @@ impl JobManager {
 			.collect())
 	}
 
-	pub async fn clear_all_jobs(library: &Library) -> Result<(), prisma_client_rust::QueryError> {
+	pub async fn clear_all_jobs(library: &Library) -> Result<(), JobManagerError> {
 		library.db.job().delete_many(vec![]).exec().await?;
 
 		invalidate_query!(library, "jobs.getHistory");
@@ -184,7 +214,7 @@ impl JobManager {
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobError> {
+	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
 		let paused_jobs = library
 			.db
 			.job()
@@ -260,7 +290,10 @@ impl JobManager {
 						"Unknown job type: {}, id: {}",
 						paused_job.name, paused_job.id
 					);
-					return Err(JobError::UnknownJobName(paused_job.id, paused_job.name));
+					return Err(JobManagerError::Job(JobError::UnknownJobName(
+						paused_job.id,
+						paused_job.name,
+					)));
 				}
 			};
 		}

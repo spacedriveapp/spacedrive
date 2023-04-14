@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	library::Library,
-	location::{find_location, LocationError},
+	location::{file_path_helper::MaterializedPath, find_location, LocationError},
 	object::fs::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
@@ -97,75 +97,40 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("encryptFiles", |t| {
 			t(
 				|_, args: FileEncryptorJobInit, library: Library| async move {
-					library.spawn_job(args).await.map_err(|_| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"Tried to spawn a job that is already running!".to_string(),
-						)
-					})
+					library.spawn_job(args).await.map_err(Into::into)
 				},
 			)
 		})
 		.library_mutation("decryptFiles", |t| {
 			t(
 				|_, args: FileDecryptorJobInit, library: Library| async move {
-					library.spawn_job(args).await.map_err(|_| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"Tried to spawn a job that is already running!".to_string(),
-						)
-					})
+					library.spawn_job(args).await.map_err(Into::into)
 				},
 			)
 		})
 		.library_mutation("deleteFiles", |t| {
 			t(|_, args: FileDeleterJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"Tried to spawn a job that is already running!".to_string(),
-					)
-				})
+				library.spawn_job(args).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("eraseFiles", |t| {
 			t(|_, args: FileEraserJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"Tried to spawn a job that is already running!".to_string(),
-					)
-				})
+				library.spawn_job(args).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("duplicateFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"Tried to spawn a job that is already running!".to_string(),
-					)
-				})
+				library.spawn_job(args).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("copyFiles", |t| {
 			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"Tried to spawn a job that is already running!".to_string(),
-					)
-				})
+				library.spawn_job(args).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("cutFiles", |t| {
 			t(|_, args: FileCutterJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(|_| {
-					rspc::Error::new(
-						ErrorCode::InternalServerError,
-						"Tried to spawn a job that is already running!".to_string(),
-					)
-				})
+				library.spawn_job(args).await.map_err(Into::into)
 			})
 		})
 		.library_mutation("renameFile", |t| {
@@ -176,26 +141,38 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub new_file_name: String,
 			}
 
-			t(|_, args: RenameFileArgs, library: Library| async move {
-				let location = find_location(&library, args.location_id)
-					.select(location::select!({ path }))
-					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(args.location_id))?;
+			t(
+				|_,
+				 RenameFileArgs {
+				     location_id,
+				     file_name,
+				     new_file_name,
+				 }: RenameFileArgs,
+				 library: Library| async move {
+					let location = find_location(&library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?;
 
-				let location_path = Path::new(&location.path);
-				fs::rename(
-					location_path.join(&args.file_name),
-					location_path.join(&args.new_file_name),
-				)
-				.await
-				.map_err(|e| {
-					rspc::Error::new(ErrorCode::Conflict, format!("Failed to rename file: {e}"))
-				})?;
+					let location_path = Path::new(&location.path);
+					fs::rename(
+						location_path.join(&MaterializedPath::from((location_id, &file_name))),
+						location_path.join(&MaterializedPath::from((location_id, &new_file_name))),
+					)
+					.await
+					.map_err(|e| {
+						rspc::Error::with_cause(
+							ErrorCode::Conflict,
+							"Failed to rename file".to_string(),
+							e,
+						)
+					})?;
 
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "tags.getExplorerData");
 
-				Ok(())
-			})
+					Ok(())
+				},
+			)
 		})
 }

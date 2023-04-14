@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{Job, JobInitData, StatefulJob},
+	job::{Job, JobInitData, StatefulJob, JobManagerError},
 	location::{file_path_helper::LastFilePathIdManager, LocationManager},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
@@ -62,7 +62,7 @@ impl Library {
 	>(
 		&self,
 		init: TInitData,
-	) -> Result<(), ()> {
+	) -> Result<(), JobManagerError> {
 		self.node_context
 			.jobs
 			.clone()

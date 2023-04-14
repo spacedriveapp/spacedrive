@@ -8,7 +8,7 @@ use crate::{
 	},
 };
 
-use rspc::{ErrorCode, Type};
+use rspc::Type;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -20,12 +20,15 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await) })
 		})
 		.library_query("getHistory", |t| {
-			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
+			t(|_, _: (), library| async move {
+				JobManager::get_history(&library).await.map_err(Into::into)
+			})
 		})
 		.library_mutation("clearAll", |t| {
 			t(|_, _: (), library| async move {
-				JobManager::clear_all_jobs(&library).await?;
-				Ok(())
+				JobManager::clear_all_jobs(&library)
+					.await
+					.map_err(Into::into)
 			})
 		})
 		.library_mutation("generateThumbsForLocation", |t| {
@@ -48,12 +51,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							background: false,
 						})
 						.await
-						.map_err(|_| {
-							rspc::Error::new(
-								ErrorCode::InternalServerError,
-								"Tried to spawn a job that is already running!".to_string(),
-							)
-						})
+						.map_err(Into::into)
 				},
 			)
 		})
@@ -76,12 +74,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						background: true,
 					})
 					.await
-					.map_err(|_| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"Tried to spawn a job that is already running!".to_string(),
-						)
-					})
+					.map_err(Into::into)
 			})
 		})
 		.library_mutation("identifyUniqueFiles", |t| {
@@ -102,12 +95,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						sub_path: Some(args.path),
 					})
 					.await
-					.map_err(|_| {
-						rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"Tried to spawn a job that is already running!".to_string(),
-						)
-					})
+					.map_err(Into::into)
 			})
 		})
 		.library_subscription("newThumbnail", |t| {
