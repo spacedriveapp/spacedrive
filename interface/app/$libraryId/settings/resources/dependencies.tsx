@@ -3,7 +3,10 @@ import { ScreenHeading } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
 export const Component = () => {
-	const frontEnd = useQuery(['frontend-deps'], () => import('@sd/assets/deps/frontend-deps.json'));
+	const frontEnd = useQuery(
+		['frontend-deps'],
+		() => import('@sd/assets/deps/frontend-deps.json')
+	);
 	const backEnd = useQuery(['backend-deps'], () => import('@sd/assets/deps/backend-deps.json'));
 	const platform = usePlatform();
 
@@ -21,7 +24,8 @@ export const Component = () => {
 							<a key={item.title} onClick={() => platform.openLink(item.url ?? '')}>
 								<div className="rounded border-2 border-gray-500 p-4 text-gray-300">
 									<h4 className="text-center">
-										{item.title.trimEnd().substring(0, 24) + (item.title.length > 24 ? '...' : '')}
+										{item.title.trimEnd().substring(0, 24) +
+											(item.title.length > 24 ? '...' : '')}
 									</h4>
 								</div>
 							</a>

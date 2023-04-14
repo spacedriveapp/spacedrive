@@ -42,7 +42,10 @@ export default function DocsLayout(props: Props) {
 			<div className="flex w-full flex-col sm:flex-row" id="page-container">
 				<div className="mt-[65px] flex h-12 w-full items-center border-y border-gray-600 px-5 sm:hidden">
 					<div className="flex sm:hidden">
-						<Button onClick={() => setMenuOpen(!menuOpen)} className="ml-1 !border-none !px-2">
+						<Button
+							onClick={() => setMenuOpen(!menuOpen)}
+							className="ml-1 !border-none !px-2"
+						>
 							<List weight="bold" className="h-6 w-6" />
 						</Button>
 					</div>

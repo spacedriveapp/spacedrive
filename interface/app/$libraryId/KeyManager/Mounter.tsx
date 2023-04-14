@@ -41,7 +41,12 @@ export default () => {
 		<div className="mb-1 p-3">
 			<KeyHeading>Mount key</KeyHeading>
 
-			<PasswordInput ref={ref} value={key} onChange={(e) => setKey(e.target.value)} autoFocus />
+			<PasswordInput
+				ref={ref}
+				value={key}
+				onChange={(e) => setKey(e.target.value)}
+				autoFocus
+			/>
 
 			<div className="flex flex-row space-x-2">
 				<div className="relative mt-2 flex grow">
@@ -115,9 +120,15 @@ export default () => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

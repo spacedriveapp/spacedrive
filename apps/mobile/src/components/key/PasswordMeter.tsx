@@ -29,7 +29,7 @@ const PasswordMeter = (props: PasswordMeterProps) => {
 					{scoreText}
 				</Text>
 			</View>
-			<View style={tw`bg-app-box/80 mt-2 w-full rounded-full`}>
+			<View style={tw`mt-2 w-full rounded-full bg-app-box/80`}>
 				<View
 					style={twStyle(
 						{

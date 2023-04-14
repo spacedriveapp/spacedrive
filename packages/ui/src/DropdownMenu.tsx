@@ -80,7 +80,10 @@ const SubMenu = ({
 			</RadixDM.SubTrigger>
 			<RadixDM.Portal>
 				<Suspense fallback={null}>
-					<RadixDM.SubContent className={clsx(contextMenuClassNames, className)} {...props} />
+					<RadixDM.SubContent
+						className={clsx(contextMenuClassNames, className)}
+						{...props}
+					/>
 				</Suspense>
 			</RadixDM.Portal>
 		</RadixDM.Sub>

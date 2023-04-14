@@ -62,7 +62,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			</View>
 			{/* Add Tag */}
 			<Pressable onPress={() => createTagModalRef.current?.present()}>
-				<View style={tw`border-app-line/80 mt-1 rounded border border-dashed`}>
+				<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
 					<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Tag</Text>
 				</View>
 			</Pressable>

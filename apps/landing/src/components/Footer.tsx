@@ -76,7 +76,10 @@ export function Footer() {
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
 					<h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
+					<FooterLink
+						blank
+						link="https://github.com/spacedriveapp/spacedrive/tree/main/docs"
+					>
 						Documentation
 					</FooterLink>
 					<FooterLink
@@ -97,7 +100,10 @@ export function Footer() {
 					<FooterLink blank link="https://opencollective.com/spacedrive">
 						Open Collective
 					</FooterLink>
-					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
+					<FooterLink
+						blank
+						link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE"
+					>
 						License
 					</FooterLink>
 					<div>

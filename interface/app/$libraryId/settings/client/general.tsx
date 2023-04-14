@@ -15,7 +15,10 @@ export const Component = () => {
 
 	return (
 		<>
-			<Heading title="General Settings" description="General settings related to this client." />
+			<Heading
+				title="General Settings"
+				description="General settings related to this client."
+			/>
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
@@ -50,7 +53,9 @@ export const Component = () => {
 					</div>
 					<div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />
-						<span className="text-sm font-medium text-ink-dull">Run daemon when app closed</span>
+						<span className="text-sm font-medium text-ink-dull">
+							Run daemon when app closed
+						</span>
 					</div>
 					<div className="mt-3">
 						<div

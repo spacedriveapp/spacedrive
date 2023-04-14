@@ -62,7 +62,10 @@ const libraryHooks = hooks.createHooks<
 					const libraryId = currentLibraryCache.id;
 					if (libraryId === null)
 						throw new Error('Attempted to do library operation with no library set!');
-					return next([keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }]);
+					return next([
+						keyAndInput[0],
+						{ library_id: libraryId, arg: keyAndInput[1] ?? null }
+					]);
 				}
 			};
 		})

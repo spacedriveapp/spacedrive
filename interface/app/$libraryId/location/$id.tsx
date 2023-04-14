@@ -19,7 +19,8 @@ export const Component = () => {
 	const { location_id, path, limit } = useExplorerParams();
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
-	const { mutate: mutateQuickRescan, ...quickRescan } = useLibraryMutation('locations.quickRescan');
+	const { mutate: mutateQuickRescan, ...quickRescan } =
+		useLibraryMutation('locations.quickRescan');
 	const explorerState = getExplorerStore();
 
 	useEffect(() => {

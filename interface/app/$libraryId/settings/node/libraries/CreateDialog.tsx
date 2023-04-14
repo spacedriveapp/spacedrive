@@ -155,7 +155,10 @@ export default (props: UseDialogProps) => {
 							>
 								<Clipboard className="h-4 w-4" />
 							</Button>
-							<Button onClick={() => setShowMasterPassword1(!showMasterPassword1)} size="icon">
+							<Button
+								onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+								size="icon"
+							>
 								<MP1CurrentEyeIcon className="h-4 w-4" />
 							</Button>
 						</div>
@@ -169,7 +172,10 @@ export default (props: UseDialogProps) => {
 				type={showMasterPassword2 ? 'text' : 'password'}
 				className="mt-2"
 				right={
-					<Button onClick={() => setShowMasterPassword2(!showMasterPassword2)} size="icon">
+					<Button
+						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+						size="icon"
+					>
 						<MP2CurrentEyeIcon className="h-4 w-4" />
 					</Button>
 				}
@@ -198,9 +204,15 @@ export default (props: UseDialogProps) => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

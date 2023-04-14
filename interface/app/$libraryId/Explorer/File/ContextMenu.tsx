@@ -161,7 +161,11 @@ export default ({ data, className, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked && hasMountedKeys) {
 								dialogManager.create((dp) => (
-									<EncryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<EncryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else if (!keyManagerUnlocked) {
 								showAlertDialog({
@@ -184,7 +188,11 @@ export default ({ data, className, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked) {
 								dialogManager.create((dp) => (
-									<DecryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<DecryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else {
 								showAlertDialog({

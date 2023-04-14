@@ -141,7 +141,9 @@ export function Dialog<S extends FieldValues>({
 
 	return (
 		<DialogPrimitive.Root open={stateSnap.open} onOpenChange={setOpen}>
-			{props.trigger && <DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>}
+			{props.trigger && (
+				<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
+			)}
 			{transitions((styles, show) =>
 				show ? (
 					<DialogPrimitive.Portal forceMount>
@@ -181,16 +183,24 @@ export function Dialog<S extends FieldValues>({
 										{form.formState.isSubmitting && <Loader />}
 										<div className="grow" />
 										<DialogPrimitive.Close asChild>
-											<Button disabled={props.loading} size="sm" variant="gray">
+											<Button
+												disabled={props.loading}
+												size="sm"
+												variant="gray"
+											>
 												Close
 											</Button>
 										</DialogPrimitive.Close>
 										<Button
 											type="submit"
 											size="sm"
-											disabled={form.formState.isSubmitting || props.submitDisabled}
+											disabled={
+												form.formState.isSubmitting || props.submitDisabled
+											}
 											variant={props.ctaDanger ? 'colored' : 'accent'}
-											className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+											className={clsx(
+												props.ctaDanger && 'border-red-500 bg-red-500'
+											)}
 										>
 											{props.ctaLabel}
 										</Button>

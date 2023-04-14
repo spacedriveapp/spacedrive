@@ -27,7 +27,10 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 				setLibName('');
 
 				// We do this instead of invalidating the query because it triggers a full app re-render??
-				queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => [
+					...(libraries || []),
+					lib
+				]);
 
 				// Switch to the new library
 				currentLibraryStore.id = lib.uuid;

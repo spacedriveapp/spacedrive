@@ -24,7 +24,11 @@
 			"request": "launch",
 			"name": "Tauri Production Debug",
 			"cargo": {
-				"args": ["build", "--release", "--manifest-path=./apps/desktop/src-tauri/Cargo.toml"],
+				"args": [
+					"build",
+					"--release",
+					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml"
+				],
 				"problemMatcher": "$rustc"
 			},
 			"sourceLanguages": ["rust"],

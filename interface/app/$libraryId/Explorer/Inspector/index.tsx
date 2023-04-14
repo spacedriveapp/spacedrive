@@ -120,10 +120,18 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+								<InfoPill>
+									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+								</InfoPill>
+								{filePathData?.extension && (
+									<InfoPill>{filePathData.extension}</InfoPill>
+								)}
 								{tags?.data?.map((tag) => (
-									<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
+									<Tooltip
+										key={tag.id}
+										label={tag.name || ''}
+										className="flex overflow-hidden"
+									>
 										<InfoPill
 											className="truncate !text-white"
 											style={{ backgroundColor: tag.color + 'CC' }}
@@ -149,13 +157,17 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 							<MetaTextLine>
 								<InspectorIcon component={Cube} />
 								<span className="mr-1.5">Size</span>
-								<MetaValue>{formatBytes(Number(filePathData?.size_in_bytes || 0))}</MetaValue>
+								<MetaValue>
+									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+								</MetaValue>
 							</MetaTextLine>
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+									<MetaValue>
+										{fullObjectData.data.media_data.duration_seconds}
+									</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -165,14 +177,18 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>{dayjs(item?.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(item?.date_created).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
 									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 						</MetaContainer>
@@ -193,8 +209,12 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+												<MetaKeyName className="mr-1.5">
+													Checksum
+												</MetaKeyName>
+												<MetaValue>
+													{filePathData?.integrity_checksum}
+												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}
@@ -202,7 +222,9 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 										<Tooltip label={pub_id || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaKeyName className="mr-1.5">
+													Object ID
+												</MetaKeyName>
 												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>

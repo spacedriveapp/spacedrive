@@ -22,7 +22,11 @@ export const PasswordInput = forwardRef<HTMLInputElement, InputProps>((props, re
 
 	return (
 		<FormField {...formFieldProps}>
-			<Root.PasswordInput {...childProps} ref={ref} error={formFieldProps.error !== undefined} />
+			<Root.PasswordInput
+				{...childProps}
+				ref={ref}
+				error={formFieldProps.error !== undefined}
+			/>
 		</FormField>
 	);
 });
