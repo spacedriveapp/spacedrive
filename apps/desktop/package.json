@@ -12,7 +12,7 @@
 		"build": "node ./src-tauri/build.js",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
-		"lint": "eslint . --cache"
+		"lint": "eslint src --cache"
 	},
 	"dependencies": {
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
@@ -34,7 +34,6 @@
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",
 		"@vitejs/plugin-react": "^2.1.0",
-		"prettier": "^2.8.7",
 		"react-devtools": "^4.27.2",
 		"sass": "^1.55.0",
 		"typescript": "^4.8.4",

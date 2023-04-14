@@ -4,10 +4,5 @@ module.exports = {
 		tsconfigRootDir: __dirname,
 		project: './tsconfig.json'
 	},
-	ignorePatterns: ['playwright.config.ts', 'tests/**/*'],
-	settings: {
-		tailwindcss: {
-			config: './tailwind.config.js'
-		}
-	}
+	ignorePatterns: ['playwright.config.ts', 'tests/**/*']
 };
