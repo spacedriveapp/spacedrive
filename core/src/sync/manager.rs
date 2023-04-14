@@ -1,4 +1,4 @@
-use crate::{prisma::*, sync};
+use crate::prisma::*;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -200,26 +200,20 @@ impl SyncManager {
 
 		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => {
-				// let location = db
-				// 	.location()
-				// 	.find_unique(location::pub_id::equals(id.location.pub_id))
-				// 	.select(location::select!({ id }))
-				// 	.exec()
-				// 	.await?
-				// 	.unwrap();
+				let location = db
+					.location()
+					.find_unique(location::pub_id::equals(id.location.pub_id))
+					.select(location::select!({ id }))
+					.exec()
+					.await?
+					.unwrap();
 
 				match shared_op {
 					SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
 						db.file_path()
 							.create(
-								id.pub_id,
-								location::pub_id::equals(
-									serde_json::from_value::<sync::location::SyncId>(
-										data.remove("location").unwrap(),
-									)
-									.unwrap()
-									.pub_id,
-								),
+								id.id,
+								location::id::equals(location.id),
 								serde_json::from_value(data.remove("materialized_path").unwrap())
 									.unwrap(),
 								serde_json::from_value(data.remove("name").unwrap()).unwrap(),
@@ -242,7 +236,7 @@ impl SyncManager {
 						self.db
 							.file_path()
 							.update(
-								file_path::pub_id::equals(id.pub_id),
+								file_path::location_id_id(location.id, id.id),
 								vec![file_path::SetParam::deserialize(&field, value).unwrap()],
 							)
 							.exec()
