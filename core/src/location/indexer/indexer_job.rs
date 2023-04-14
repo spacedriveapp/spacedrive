@@ -7,6 +7,7 @@ use crate::{
 		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
 		MaterializedPath,
 	},
+	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
 	prisma::{file_path, location},
 };
 
@@ -262,8 +263,14 @@ impl StatefulJob for IndexerJob {
 			})
 	}
 
-	/// Logs some metadata about the indexer job
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		ctx.library
+			.spawn_job(FileIdentifierJobInit {
+				location: location::Data::from(&state.init.location),
+				sub_path: state.init.sub_path.clone(),
+			})
+			.await;
+
 		finalize_indexer(&state.init.location.path, state, ctx)
 	}
 }

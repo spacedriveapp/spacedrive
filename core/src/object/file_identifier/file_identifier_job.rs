@@ -10,6 +10,7 @@ use crate::{
 		},
 		LocationId,
 	},
+	object::preview::thumbnailer_job::ThumbnailerJobInit,
 	prisma::{file_path, location, PrismaClient},
 };
 
@@ -189,6 +190,14 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		ctx.library
+			.spawn_job(ThumbnailerJobInit {
+				location: state.init.location.clone(),
+				sub_path: state.init.sub_path.clone(),
+				background: true,
+			})
+			.await;
+
 		finalize_file_identifier(
 			&state
 				.data

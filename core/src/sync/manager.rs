@@ -90,7 +90,7 @@ impl SyncManager {
 
 			let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
-			for op in ops {
+			for op in _ops {
 				self.tx.send(SyncMessage::Created(op)).ok();
 			}
 

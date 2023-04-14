@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{DynJob, Job, JobInitData, StatefulJob},
+	job::{Job, JobInitData, StatefulJob},
 	location::LocationManager,
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
@@ -66,10 +66,6 @@ impl Library {
 			.clone()
 			.ingest(&self, Job::new(init, J::new()))
 			.await;
-	}
-
-	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(job).await;
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {

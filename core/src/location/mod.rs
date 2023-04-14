@@ -1,17 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::Job,
 	library::Library,
-	object::{
-		file_identifier::{
-			file_identifier_job::FileIdentifierJobInit,
-			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
-		},
-		preview::{
-			shallow_thumbnailer_job::{ShallowThumbnailerJob, ShallowThumbnailerJobInit},
-			thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
-		},
-	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
 	sync,
 };
@@ -324,21 +313,6 @@ pub async fn scan_location(
 		return Ok(());
 	}
 
-	// library
-	// 	.queue_job(FileIdentifierJobInit {
-	// 		location: location::Data::from(&location),
-	// 		sub_path: None,
-	// 	})
-	// 	.await;
-
-	// library
-	// 	.queue_job(ThumbnailerJobInit {
-	// 		location: location::Data::from(&location),
-	// 		sub_path: None,
-	// 		background: true,
-	// 	})
-	// 	.await;
-
 	library
 		.spawn_job(IndexerJobInit {
 			location,
@@ -360,24 +334,6 @@ pub async fn scan_location_sub_path(
 		return;
 	}
 
-	// library
-	// 	.queue_job(FileIdentifierJobInit {
-	// 		location: location::Data::from(&location),
-	// 		sub_path: Some(sub_path.clone()),
-	// 	})
-	// 	.await;
-
-	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: Some(sub_path.clone()),
-				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
 	library
 		.spawn_job(IndexerJobInit {
 			location,
@@ -395,23 +351,6 @@ pub async fn light_scan_location(
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
-
-	// library
-	// 	.queue_job(ShallowFileIdentifierJobInit {
-	// 		location: location::Data::from(&location),
-	// 		sub_path: sub_path.clone(),
-	// 	})
-	// 	.await;
-
-	library
-		.queue_job(Job::new(
-			ShallowThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: sub_path.clone(),
-			},
-			ShallowThumbnailerJob {},
-		))
-		.await;
 
 	library
 		.spawn_job(ShallowIndexerJobInit { location, sub_path })

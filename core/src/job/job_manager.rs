@@ -105,22 +105,6 @@ impl JobManager {
 		}
 	}
 
-	pub async fn ingest_queue(&self, job: Box<dyn DynJob>) {
-		let job_hash = job.hash();
-		debug!("Queueing job: <name='{}', hash='{}'>", job.name(), job_hash);
-
-		if !self.current_jobs_hashes.read().await.contains(&job_hash) {
-			self.current_jobs_hashes.write().await.insert(job_hash);
-			self.job_queue.write().await.push_back(job);
-		} else {
-			debug!(
-				"Job already in queue: <name='{}', hash='{}'>",
-				job.name(),
-				job_hash
-			);
-		}
-	}
-
 	pub async fn complete(self: Arc<Self>, library: &Library, job_id: Uuid, job_hash: u64) {
 		// remove worker from running workers and from current jobs hashes
 		self.current_jobs_hashes.write().await.remove(&job_hash);
