@@ -43,6 +43,12 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 						Glob::new("**/$RECYCLE.BIN"),
 						// Chkdsk recovery directory
 						Glob::new("**/FOUND.[0-9][0-9][0-9]"),
+						// User special files
+						Glob::new("**/Users/*/NTUSER.DAT*")
+						Glob::new("**/Users/*/ntuser.dat*")
+						Glob::new("**/Users/*/{ntuser.ini,ntuser.dat,NTUSER.DAT}"),
+						// User special folders (most of these the user dont even have permission to access)
+						Glob::new("**/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings}"),
 						// Need both C:/ and / matches because globset treat them differently
 						Glob::new("C:/{$WinREAgent,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}"),
 						Glob::new("/{$WinREAgent,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}"),
