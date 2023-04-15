@@ -148,9 +148,7 @@ impl IndexerRule {
 						self.kind as i32,
 						self.name,
 						self.parameters.serialize()?,
-						vec![
-							indexer_rule::default::set(self.default),
-						],
+						vec![indexer_rule::default::set(self.default)],
 					),
 					vec![indexer_rule::date_modified::set(Utc::now().into())],
 				)
@@ -163,9 +161,7 @@ impl IndexerRule {
 					self.kind as i32,
 					self.name,
 					self.parameters.serialize()?,
-					vec![
-						indexer_rule::default::set(self.default),
-					],
+					vec![indexer_rule::default::set(self.default)],
 				)
 				.exec()
 				.await?;
