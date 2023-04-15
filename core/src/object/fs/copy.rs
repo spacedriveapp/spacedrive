@@ -1,17 +1,19 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+};
 
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::sync::oneshot;
-use tracing::{error, trace};
+use tracing::trace;
 
 use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
 
-pub struct FileCopierJob {
-	pub done_tx: Option<oneshot::Sender<()>>,
-}
+pub struct FileCopierJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobState {
@@ -48,7 +50,9 @@ impl From<FsInfo> for FileCopierJobStep {
 	}
 }
 
-pub const COPY_JOB_NAME: &str = "file_copier";
+impl JobInitData for FileCopierJobInit {
+	type Job = FileCopierJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
@@ -56,8 +60,10 @@ impl StatefulJob for FileCopierJob {
 	type Data = FileCopierJobState;
 	type Step = FileCopierJobStep;
 
-	fn name(&self) -> &'static str {
-		COPY_JOB_NAME
+	const NAME: &'static str = "file_copier";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -179,12 +185,8 @@ impl StatefulJob for FileCopierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		if let Some(done_tx) = self.done_tx.take() {
-			if done_tx.send(()).is_err() {
-				error!("Failed to send done signal on FileCopierJob");
-			}
-		}
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

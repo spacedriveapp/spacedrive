@@ -102,18 +102,21 @@ impl Worker {
 
 		let job_hash = job.hash();
 		let job_id = worker.report.id;
-		let old_status = worker.report.status;
 
 		worker.report.status = JobStatus::Running;
 
-		if matches!(old_status, JobStatus::Queued) {
+		// If the report doesn't have a created_at date, it's a new report
+		if worker.report.created_at.is_none() {
 			worker.report.create(&library).await?;
 		} else {
+			// Otherwise it can be a job being resumed or a children job that was already been created
 			worker.report.update(&library).await?;
 		}
 		drop(worker);
 
-		invalidate_query!(library, "jobs.isRunning");
+		job.register_children(&library).await?;
+
+		invalidate_query!(library, "jobs.getRunning");
 
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
@@ -153,7 +156,7 @@ impl Worker {
 
 			let (done_tx, done_rx) = oneshot::channel();
 
-			match job.run(worker_ctx.clone()).await {
+			match job.run(job_manager.clone(), worker_ctx.clone()).await {
 				Ok(metadata) => {
 					// handle completion
 					worker_ctx
@@ -162,13 +165,22 @@ impl Worker {
 						.expect("critical error: failed to send worker complete event");
 				}
 				Err(JobError::Paused(state)) => {
+					info!("Job <id='{job_id}'> paused, we will pause all children jobs");
+					if let Err(e) = job.pause_children(&library).await {
+						error!("Failed to pause children jobs: {e:#?}");
+					}
+
 					worker_ctx
 						.events_tx
 						.send(WorkerEvent::Paused(state, done_tx))
 						.expect("critical error: failed to send worker pause event");
 				}
 				Err(e) => {
-					error!("job '{}' failed with error: {:#?}", job_id, e);
+					error!("Job <id='{job_id}'> failed with error: {e:#?}; We will cancel all children jobs");
+					if let Err(e) = job.cancel_children(&library).await {
+						error!("Failed to cancel children jobs: {e:#?}");
+					}
+
 					worker_ctx
 						.events_tx
 						.send(WorkerEvent::Failed(done_tx))
@@ -236,7 +248,6 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "jobs.isRunning");
 					invalidate_query!(library, "jobs.getRunning");
 					invalidate_query!(library, "jobs.getHistory");
 

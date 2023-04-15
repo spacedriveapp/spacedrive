@@ -236,12 +236,14 @@ CREATE TABLE "job" (
     "status" INTEGER NOT NULL DEFAULT 0,
     "data" BLOB,
     "metadata" BLOB,
+    "parent_id" BLOB,
     "task_count" INTEGER NOT NULL DEFAULT 1,
     "completed_task_count" INTEGER NOT NULL DEFAULT 0,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "seconds_elapsed" INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT "job_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "job_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "job_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
