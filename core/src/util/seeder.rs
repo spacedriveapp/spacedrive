@@ -19,12 +19,12 @@ pub enum SeederError {
 pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederError> {
 	if client.indexer_rule().count(vec![]).exec().await? == 0 {
 		for rule in [
-			// `No OS protected` must be first indexer rule, because the first indexer rule is enabled by default in the UI
 			IndexerRule::new(
 				RuleKind::RejectFilesByGlob,
 				// TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
 				// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
 				"No OS protected".to_string(),
+				true,
 				ParametersPerKind::RejectFilesByGlob([
 					vec![
 						Glob::new("**/.spacedrive"),
@@ -111,6 +111,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 			IndexerRule::new(
 				RuleKind::RejectFilesByGlob,
 				"No Hidden".to_string(),
+				true,
 				ParametersPerKind::RejectFilesByGlob(
 					vec![Glob::new("**/.*").map_err(IndexerError::GlobBuilderError)?],
 				),
@@ -118,6 +119,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 			IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
 				"Only Git Repositories".into(),
+				false,
 				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				),
@@ -125,6 +127,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 			IndexerRule::new(
 				RuleKind::AcceptFilesByGlob,
 				"Only Images".to_string(),
+				false,
 				ParametersPerKind::AcceptFilesByGlob(vec![
 					Glob::new("*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}")
 					.map_err(IndexerError::GlobBuilderError)?

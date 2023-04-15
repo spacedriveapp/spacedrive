@@ -22,12 +22,12 @@ export function IndexerRuleEditor<T extends FieldType>({
 	field,
 	editable
 }: IndexerRuleEditorProps<T>) {
-	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list'], {});
+	const { data: indexRules } = useLibraryQuery(['locations.indexer_rules.list'], {});
 
 	return (
 		<Card className="mb-2 flex flex-wrap justify-evenly">
-			{listIndexerRules.data
-				? listIndexerRules.data.map((rule) => {
+			{indexRules
+				? indexRules.map((rule) => {
 						const { id, name } = rule;
 						const enabled = field.value.includes(id);
 						return (
@@ -40,7 +40,7 @@ export function IndexerRuleEditor<T extends FieldType>({
 											? field.value.filter(
 													(fieldValue) => fieldValue !== rule.id
 											  )
-											: [...field.value, rule.id]
+											: Array.from(new Set([...field.value, rule.id]))
 									)
 								}
 								variant={enabled ? 'colored' : 'outline'}

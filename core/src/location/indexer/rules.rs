@@ -115,17 +115,19 @@ pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub kind: RuleKind,
 	pub name: String,
+	pub default: bool,
 	pub parameters: ParametersPerKind,
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
 }
 
 impl IndexerRule {
-	pub fn new(kind: RuleKind, name: String, parameters: ParametersPerKind) -> Self {
+	pub fn new(kind: RuleKind, name: String, default: bool, parameters: ParametersPerKind) -> Self {
 		Self {
 			id: None,
 			kind,
 			name,
+			default,
 			parameters,
 			date_created: Utc::now(),
 			date_modified: Utc::now(),
@@ -146,7 +148,9 @@ impl IndexerRule {
 						self.kind as i32,
 						self.name,
 						self.parameters.serialize()?,
-						vec![],
+						vec![
+							indexer_rule::default::set(self.default),
+						],
 					),
 					vec![indexer_rule::date_modified::set(Utc::now().into())],
 				)
@@ -159,7 +163,9 @@ impl IndexerRule {
 					self.kind as i32,
 					self.name,
 					self.parameters.serialize()?,
-					vec![],
+					vec![
+						indexer_rule::default::set(self.default),
+					],
 				)
 				.exec()
 				.await?;
@@ -179,6 +185,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 			id: Some(data.id),
 			kind,
 			name: data.name.clone(),
+			default: data.default,
 			parameters: match kind {
 				RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => {
 					let glob_str = rmp_serde::from_slice(&data.parameters)?;
@@ -285,6 +292,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectFilesByGlob,
 			"ignore hidden files".to_string(),
+			false,
 			ParametersPerKind::RejectFilesByGlob(vec![Glob::new("**/.*").unwrap()]),
 		);
 		assert!(!rule.apply(hidden).await.unwrap());
@@ -304,6 +312,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectFilesByGlob,
 			"ignore build directory".to_string(),
+			false,
 			ParametersPerKind::RejectFilesByGlob(vec![
 				Glob::new("{**/target/*,**/target}").unwrap()
 			]),
@@ -329,6 +338,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::AcceptFilesByGlob,
 			"only photos".to_string(),
+			false,
 			ParametersPerKind::AcceptFilesByGlob(vec![Glob::new("*.{jpg,png,jpeg}").unwrap()]),
 		);
 		assert!(!rule.apply(text).await.unwrap());
@@ -364,6 +374,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::AcceptIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
+			false,
 			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(childrens),
 		);
 
@@ -393,6 +404,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
+			false,
 			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(childrens),
 		);
 

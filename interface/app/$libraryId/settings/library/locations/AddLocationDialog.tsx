@@ -1,9 +1,9 @@
 import { ErrorMessage } from '@hookform/error-message';
 import { RSPCError } from '@rspc/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
@@ -41,26 +41,37 @@ export const openDirectoryPickerDialog = async (platform: Platform): Promise<nul
 	return path;
 };
 
-export const AddLocationDialog = (props: Props) => {
-	const dialog = useDialog(props);
+export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
+	const dialog = useDialog(dialogProps);
 	const platform = usePlatform();
 	const queryClient = useQueryClient();
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
+	const { data: indexRules } = useLibraryQuery(['locations.indexer_rules.list'], {});
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const [remoteError, setRemoteError] = useState<null | RemoteErrorFormMessage>(null);
 
+	// This is required because indexRules is undefined on first render
+	const defaultValue = useMemo(
+		() => ({
+			path: path,
+			indexerRulesIds: indexRules?.filter((rule) => rule.default).map((rule) => rule.id) ?? []
+		}),
+		[indexRules, path]
+	);
+
 	const form = useZodForm({
 		schema,
-		defaultValues: {
-			path: props.path,
-			// First indexer rule is `No OS protected` and should be checked by default
-			indexerRulesIds: [1]
-		}
+		defaultValues: useMemo(() => defaultValue, [defaultValue])
 	});
 
 	useEffect(() => {
-		// Clear custom remote error when user performs any change on the form
+		// Update form values when default value changes and the user hasn't made any changes
+		if (!form.formState.isDirty) form.reset(defaultValue);
+	}, [form, defaultValue]);
+
+	useEffect(() => {
+		// TODO: Instead of clearing the error on every change, we should just validate with backend again
 		const subscription = form.watch(() => {
 			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 			setRemoteError(null);
