@@ -134,7 +134,7 @@ model FilePath {
     name              String
     extension         String
 
-    size_in_bytes     String   @default("0")
+    size_in_bytes String @default("0")
 
     inode  Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
     device Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
@@ -167,9 +167,9 @@ model FilePath {
 
 /// @shared(id: pub_id)
 model Object {
-    id                Int      @id @default(autoincrement())
-    pub_id            Bytes    @unique
-    kind              Int      @default(0)
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+    kind   Int   @default(0)
 
     key_id            Int?
     // handy ways to mark an object
@@ -362,6 +362,8 @@ model Job {
     data     Bytes?
     metadata Bytes?
 
+    parent_id Bytes?
+
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
@@ -369,6 +371,9 @@ model Job {
     seconds_elapsed      Int      @default(0)
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    children Job[] @relation("jobs_dependency")
 
     @@map("job")
 }

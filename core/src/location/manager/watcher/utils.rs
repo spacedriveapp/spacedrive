@@ -126,7 +126,7 @@ pub(super) async fn create_dir(
 	info!("Created path: {}", created_path.materialized_path);
 
 	// scan the new directory
-	scan_location_sub_path(library, location, &created_path.materialized_path).await;
+	scan_location_sub_path(library, location, &created_path.materialized_path).await?;
 
 	invalidate_query!(library, "locations.getExplorerData");
 

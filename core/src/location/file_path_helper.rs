@@ -1,4 +1,3 @@
-use crate::location::Library;
 use crate::prisma::{file_path, location, PrismaClient};
 
 use std::{
@@ -13,7 +12,6 @@ use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
 use prisma_client_rust::{Direction, QueryError};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
@@ -318,7 +316,7 @@ impl LastFilePathIdManager {
 	#[cfg(feature = "location-watcher")]
 	pub async fn create_file_path(
 		&self,
-		Library { db, sync, .. }: &Library,
+		crate::location::Library { db, sync, .. }: &crate::location::Library,
 		MaterializedPath {
 			materialized_path,
 			is_dir,
@@ -333,6 +331,7 @@ impl LastFilePathIdManager {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 
 		use crate::sync;
+		use serde_json::json;
 
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
 			Entry::Occupied(ocupied) => ocupied.into_ref(),
@@ -513,6 +512,7 @@ pub fn filter_existing_file_path_params(
 /// With this function we try to do a loose filtering of file paths, to avoid having to do check
 /// twice for directories and for files. This is because directories have a trailing `/` or `\` in
 /// the materialized path
+#[allow(unused)]
 pub fn loose_find_existing_file_path_params(
 	MaterializedPath {
 		materialized_path,
