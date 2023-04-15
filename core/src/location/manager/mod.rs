@@ -1,4 +1,4 @@
-use crate::{library::Library, job::JobManagerError};
+use crate::{job::JobManagerError, library::Library};
 
 use std::{
 	collections::BTreeSet,
