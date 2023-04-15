@@ -93,9 +93,13 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 						Glob::new("**/.thumbnails"),
 					],
 					#[cfg(target_family = "unix")]
+					// https://en.wikipedia.org/wiki/Unix_filesystem#Conventional_directory_layout
+					// https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard
 					vec![
 						// Directories containing unix memory/device mapped files/dirs
 						Glob::new("/{dev,sys,proc}"),
+						// Directories containing special files for current running programs
+						Glob::new("/{run,var,boot}"),
 						// ext2-4 recovery directory
 						Glob::new("**/lost+found"),
 					],
