@@ -8,13 +8,14 @@ appId: com.spacedrive.app
 - inputText: 'TestLib'
 - tapOn: 'New Library'
 - tapOn:
-    id: 'master-password'
+    id: 'password-input'
 - inputText: '12345678'
 - tapOn: 'Set Password'
 - tapOn:
-    id: 'master-password-confirm'
+    id: 'password-input-confirm'
 - inputText: '12345678'
-- tapOn: 'Confirm Password'
+- tapOn:
+    id: 'confirm-password-button'
 - tapOn: 'Continue'
 # Library creation can take a while...
 - extendedWaitUntil:
