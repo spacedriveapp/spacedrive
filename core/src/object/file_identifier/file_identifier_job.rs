@@ -1,14 +1,12 @@
 use crate::{
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, QueueJobsCtx, StatefulJob,
-		WorkerContext,
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, MaterializedPath,
 	},
-	object::preview::thumbnailer_job::ThumbnailerJobInit,
 	prisma::{file_path, location, PrismaClient},
 };
 
@@ -194,14 +192,6 @@ impl StatefulJob for FileIdentifierJob {
 				.report,
 			ctx,
 		)
-	}
-
-	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
-		ctx.spawn_job(ThumbnailerJobInit {
-			location: state.init.location.clone(),
-			sub_path: state.init.sub_path.clone(),
-			background: true,
-		});
 	}
 }
 

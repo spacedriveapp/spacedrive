@@ -12,7 +12,7 @@ use sd_crypto::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs::File, io::AsyncReadExt};
-use tracing::warn;
+use tracing::{error, warn};
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 
@@ -126,7 +126,17 @@ impl StatefulJob for FileEncryptorJob {
 					ctx.library.clone(),
 					&output_path,
 				)
-				.await?;
+				.await
+				.map_or_else(
+					|e| {
+						error!(
+							"Failed to make location manager ignore the path {}; Error: {e:#?}",
+							output_path.display()
+						);
+						None
+					},
+					Some,
+				);
 
 			let mut reader = File::open(&info.fs_path).await?;
 			let mut writer = File::create(output_path).await?;

@@ -1,6 +1,16 @@
 use crate::{
 	invalidate_query,
+	job::{Job, JobManagerError},
 	library::Library,
+	object::{
+		file_identifier::{
+			file_identifier_job::FileIdentifierJobInit,
+			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
+		},
+		preview::{
+			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
+		},
+	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
 	sync,
 };
@@ -308,20 +318,30 @@ async fn link_location_and_indexer_rules(
 pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	library
-		.spawn_job(IndexerJobInit {
-			location,
-			sub_path: None,
-		})
-		.await
-		.ok(); // TODO: Probs handle this error
+	let location_base_data = location::Data::from(&location);
 
-	Ok(())
+	library
+		.spawn_job(
+			Job::new(IndexerJobInit {
+				location,
+				sub_path: None,
+			})
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
+				sub_path: None,
+				background: true,
+			}),
+		)
+		.await
 }
 
 #[cfg(feature = "location-watcher")]
@@ -329,37 +349,61 @@ pub async fn scan_location_sub_path(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
-		return;
+		return Ok(());
 	}
 
+	let location_base_data = location::Data::from(&location);
+
 	library
-		.spawn_job(IndexerJobInit {
-			location,
-			sub_path: Some(sub_path),
-		})
+		.spawn_job(
+			Job::new(IndexerJobInit {
+				location,
+				sub_path: Some(sub_path.clone()),
+			})
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: Some(sub_path.clone()),
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
+				sub_path: Some(sub_path),
+				background: true,
+			}),
+		)
 		.await
-		.ok(); // TODO: Probs handle this error
 }
 
 pub async fn light_scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	library
-		.spawn_job(ShallowIndexerJobInit { location, sub_path })
-		.await
-		.ok(); // TODO: Probs handle this error
+	let location_base_data = location::Data::from(&location);
 
-	Ok(())
+	library
+		.spawn_job(
+			Job::new(ShallowIndexerJobInit {
+				location,
+				sub_path: sub_path.clone(),
+			})
+			.queue_next(ShallowFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: sub_path.clone(),
+			})
+			.queue_next(ShallowThumbnailerJobInit {
+				location: location_base_data,
+				sub_path,
+			}),
+		)
+		.await
 }
 
 pub async fn relink_location(

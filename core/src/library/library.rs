@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{Job, JobInitData, JobManagerError, StatefulJob},
+	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
 	location::{file_path_helper::LastFilePathIdManager, LocationManager},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
@@ -56,17 +56,18 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job<
-		J: StatefulJob<Init = TInitData> + 'static,
-		TInitData: JobInitData<Job = J>,
-	>(
+	pub(crate) async fn spawn_job<SJob, Init>(
 		&self,
-		init: TInitData,
-	) -> Result<(), JobManagerError> {
+		jobable: impl IntoJob<SJob>,
+	) -> Result<(), JobManagerError>
+	where
+		SJob: StatefulJob<Init = Init> + 'static,
+		Init: JobInitData + 'static,
+	{
 		self.node_context
 			.jobs
 			.clone()
-			.ingest(self, Job::new(init, J::new()))
+			.ingest(self, jobable.into_job())
 			.await
 	}
 

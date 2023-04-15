@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobError, JobInitData, JobResult, JobState, QueueJobsCtx, StatefulJob, WorkerContext},
+	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -7,7 +7,6 @@ use crate::{
 		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
 		MaterializedPath,
 	},
-	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
 	prisma::location,
 };
 
@@ -280,12 +279,5 @@ impl StatefulJob for IndexerJob {
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		finalize_indexer(&state.init.location.path, state, ctx)
-	}
-
-	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
-		ctx.spawn_job(FileIdentifierJobInit {
-			location: location::Data::from(&state.init.location),
-			sub_path: state.init.sub_path.clone(),
-		});
 	}
 }

@@ -1,5 +1,6 @@
 use crate::{
-	location::{indexer::IndexerError, LocationError, LocationManagerError},
+	library::Library,
+	location::indexer::IndexerError,
 	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
 };
 
@@ -14,7 +15,7 @@ use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 mod job_manager;
@@ -46,8 +47,6 @@ pub enum JobError {
 	MissingJobDataState(Uuid, String),
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
-	#[error("Location manager error: {0}")]
-	LocationManager(#[from] LocationManagerError),
 	#[error("error converting/handling OS strings")]
 	OsStr,
 	#[error("error converting/handling paths")]
@@ -56,8 +55,6 @@ pub enum JobError {
 	// Specific job errors
 	#[error("Indexer error: {0}")]
 	IndexerError(#[from] IndexerError),
-	#[error("Location error: {0}")]
-	LocationError(#[from] LocationError),
 	#[error("Thumbnailer error: {0}")]
 	ThumbnailError(#[from] ThumbnailerError),
 	#[error("Identifier error: {0}")]
@@ -77,7 +74,7 @@ pub enum JobError {
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 
-/// TODO
+/// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	type Job: StatefulJob;
 
@@ -114,64 +111,102 @@ pub trait StatefulJob: Send + Sync + Sized {
 
 	/// is called after all steps have been executed
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
-
-	/// allows a job to queue up more jobs which are executed after it has finished successfully
-	/// WARNING: This method can be called multiple times which may be before the job finishes.
-	/// WARNING: This is because the UI needs to display the queued jobs.
-	/// WARNING: It MUST always call `ctx.spawn_job` with the same arguments and the same order.
-	fn queue_jobs(&self, ctx: &mut QueueJobsCtx, state: &mut JobState<Self>) {
-		let _ = (ctx, state);
-	}
-}
-
-pub struct QueueJobsCtx {
-	jobs: Vec<Box<dyn DynJob>>,
-}
-
-impl QueueJobsCtx {
-	pub(crate) fn spawn_job<
-		J: StatefulJob<Init = TInitData> + 'static,
-		TInitData: JobInitData<Job = J>,
-	>(
-		&mut self,
-		init: TInitData,
-	) {
-		self.jobs.push(Job::new(init, J::new()));
-	}
 }
 
 #[async_trait::async_trait]
 pub trait DynJob: Send + Sync {
-	fn report(&mut self) -> &mut Option<JobReport>;
+	fn id(&self) -> Uuid;
+	fn parent_id(&self) -> Option<Uuid>;
+	fn report(&self) -> &Option<JobReport>;
+	fn report_mut(&mut self) -> &mut Option<JobReport>;
 	fn name(&self) -> &'static str;
 	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult;
 	fn hash(&self) -> u64;
+	fn queue_next(&mut self, next_job: Box<dyn DynJob>);
+	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
+	async fn register_children(&mut self, library: &Library) -> Result<(), JobError>;
+	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError>;
+	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
 }
 
 pub struct Job<SJob: StatefulJob> {
 	report: Option<JobReport>,
 	state: JobState<SJob>,
 	stateful_job: SJob,
+	next_job: Option<Box<dyn DynJob>>,
 }
 
-impl<SJob: StatefulJob> Job<SJob> {
-	pub fn new(init: SJob::Init, stateful_job: SJob) -> Box<Self> {
+pub trait IntoJob<SJob: StatefulJob + 'static> {
+	fn into_job(self) -> Box<dyn DynJob>;
+}
+
+impl<SJob, Init> IntoJob<SJob> for Init
+where
+	SJob: StatefulJob<Init = Init> + 'static,
+	Init: JobInitData<Job = SJob>,
+{
+	fn into_job(self) -> Box<dyn DynJob> {
+		Job::new(self)
+	}
+}
+
+impl<SJob, Init> IntoJob<SJob> for Box<Job<SJob>>
+where
+	SJob: StatefulJob<Init = Init> + 'static,
+	Init: JobInitData<Job = SJob>,
+{
+	fn into_job(self) -> Box<dyn DynJob> {
+		self
+	}
+}
+
+impl<SJob, Init> Job<SJob>
+where
+	SJob: StatefulJob<Init = Init> + 'static,
+	Init: JobInitData<Job = SJob>,
+{
+	pub fn new(init: Init) -> Box<Self> {
 		Box::new(Self {
-			report: Some(JobReport::new(
-				Uuid::new_v4(),
-				<SJob as StatefulJob>::NAME.to_string(),
-			)),
+			report: Some(JobReport::new(Uuid::new_v4(), SJob::NAME.to_string())),
 			state: JobState {
 				init,
 				data: None,
 				steps: VecDeque::new(),
 				step_number: 0,
 			},
-			stateful_job,
+			stateful_job: SJob::new(),
+			next_job: None,
 		})
 	}
 
-	pub fn resume(mut report: JobReport, stateful_job: SJob) -> Result<Box<Self>, JobError> {
+	pub fn queue_next<NextSJob, NextInit>(mut self: Box<Self>, init: NextInit) -> Box<Self>
+	where
+		NextSJob: StatefulJob<Init = NextInit> + 'static,
+		NextInit: JobInitData<Job = NextSJob>,
+	{
+		let last_job = Job::new_dependent(
+			init,
+			self.next_job
+				.as_ref()
+				.map(|job| job.id())
+				// SAFETY: If we're queueing a next job then we should have a report yet
+				.unwrap_or(self.report.as_ref().unwrap().id),
+		);
+
+		if let Some(ref mut next) = self.next_job {
+			next.queue_next(last_job);
+		} else {
+			self.next_job = Some(last_job);
+		}
+
+		self
+	}
+
+	pub fn resume(
+		mut report: JobReport,
+		stateful_job: SJob,
+		next_job: Option<Box<dyn DynJob>>,
+	) -> Result<Box<dyn DynJob>, JobError> {
 		let job_state_data = if let Some(data) = report.data.take() {
 			data
 		} else {
@@ -182,16 +217,28 @@ impl<SJob: StatefulJob> Job<SJob> {
 			report: Some(report),
 			state: rmp_serde::from_slice(&job_state_data)?,
 			stateful_job,
+			next_job,
 		}))
 	}
-}
 
-// impl<State: StatefulJob> Hash for Job<State> {
-// 	fn hash<H: Hasher>(&self, state: &mut H) {
-// 		self.name().hash(state);
-// 		self.state.hash(state);
-// 	}
-// }
+	fn new_dependent(init: Init, parent_id: Uuid) -> Box<Self> {
+		Box::new(Self {
+			report: Some(JobReport::new_with_parent(
+				Uuid::new_v4(),
+				SJob::NAME.to_string(),
+				parent_id,
+			)),
+			state: JobState {
+				init,
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+			},
+			stateful_job: SJob::new(),
+			next_job: None,
+		})
+	}
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct JobState<Job: StatefulJob> {
@@ -201,15 +248,22 @@ pub struct JobState<Job: StatefulJob> {
 	pub step_number: usize,
 }
 
-// impl<Job: StatefulJob> Hash for JobState<Job> {
-// 	fn hash<H: Hasher>(&self, state: &mut H) {
-// 		<Self as JobInitData>::hash(state);
-// 	}
-// }
-
 #[async_trait::async_trait]
 impl<SJob: StatefulJob> DynJob for Job<SJob> {
-	fn report(&mut self) -> &mut Option<JobReport> {
+	fn id(&self) -> Uuid {
+		// SAFETY: This method is using during queueing, so we still have a report
+		self.report().as_ref().unwrap().id
+	}
+
+	fn parent_id(&self) -> Option<Uuid> {
+		self.report.as_ref().and_then(|r| r.parent_id)
+	}
+
+	fn report(&self) -> &Option<JobReport> {
+		&self.report
+	}
+
+	fn report_mut(&mut self) -> &mut Option<JobReport> {
 		&mut self.report
 	}
 
@@ -266,18 +320,16 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.finalize(ctx.clone(), &mut self.state)
 			.await?;
 
-		let mut queue_ctx = QueueJobsCtx { jobs: Vec::new() };
-		self.stateful_job
-			.queue_jobs(&mut queue_ctx, &mut self.state);
-
-		for job in queue_ctx.jobs {
+		if let Some(next_job) = self.next_job.take() {
 			debug!(
 				"Job '{}' requested to spawn '{}' now that it's complete!",
 				self.name(),
-				job.name()
+				next_job.name()
 			);
 
-			job_manager.clone().ingest(&ctx.library, job).await.ok();
+			if let Err(e) = job_manager.clone().ingest(&ctx.library, next_job).await {
+				error!("Failed to ingest next job: {e}");
+			}
 		}
 
 		Ok(metadata)
@@ -285,5 +337,61 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 	fn hash(&self) -> u64 {
 		<SJob::Init as JobInitData>::hash(&self.state.init)
+	}
+
+	fn queue_next(&mut self, next_job: Box<dyn DynJob>) {
+		if let Some(ref mut next) = self.next_job {
+			next.queue_next(next_job);
+		} else {
+			self.next_job = Some(next_job);
+		}
+	}
+
+	fn serialize_state(&self) -> Result<Vec<u8>, JobError> {
+		rmp_serde::to_vec_named(&self.state).map_err(Into::into)
+	}
+
+	async fn register_children(&mut self, library: &Library) -> Result<(), JobError> {
+		if let Some(ref mut next_job) = self.next_job {
+			// SAFETY: As these children jobs haven't been run yet, they still have their report field
+			let next_job_report = next_job.report_mut().as_mut().unwrap();
+			if next_job_report.created_at.is_none() {
+				next_job_report.create(library).await?
+			}
+
+			next_job.register_children(library).await?;
+		}
+
+		Ok(())
+	}
+
+	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError> {
+		if let Some(ref mut next_job) = self.next_job {
+			let state = next_job.serialize_state()?;
+
+			// SAFETY: As these children jobs haven't been run yet, they still have their report field
+			let mut report = next_job.report_mut().as_mut().unwrap();
+			report.status = JobStatus::Paused;
+			report.data = Some(state);
+			report.update(library).await?;
+			next_job.pause_children(library).await?;
+		}
+
+		Ok(())
+	}
+
+	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError> {
+		if let Some(ref mut next_job) = self.next_job {
+			let state = next_job.serialize_state()?;
+
+			// SAFETY: As these children jobs haven't been run yet, they still have their report field
+			let mut report = next_job.report_mut().as_mut().unwrap();
+			report.status = JobStatus::Canceled;
+			report.data = Some(state);
+			report.update(library).await?;
+			next_job.cancel_children(library).await?;
+		}
+
+		Ok(())
 	}
 }

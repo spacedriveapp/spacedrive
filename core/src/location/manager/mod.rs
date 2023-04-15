@@ -1,4 +1,4 @@
-use crate::library::Library;
+use crate::{library::Library, job::JobManagerError};
 
 use std::{
 	collections::BTreeSet,
@@ -102,6 +102,8 @@ pub enum LocationManagerError {
 	FilePathError(#[from] FilePathError),
 	#[error("Corrupted location pub_id on database: (error: {0})")]
 	CorruptedLocationPubId(#[from] uuid::Error),
+	#[error("Job Manager error: (error: {0})")]
+	JobManager(#[from] JobManagerError),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
