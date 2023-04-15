@@ -1,5 +1,6 @@
 import { Navigate, Outlet, RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
+import { Dialogs } from '@sd/ui';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
@@ -23,7 +24,12 @@ const Wrapper = () => {
 	useKeybindHandler();
 	useInvalidateQuery();
 
-	return <Outlet />;
+	return (
+		<>
+			<Outlet />
+			<Dialogs />
+		</>
+	);
 };
 
 // NOTE: all route `Layout`s below should contain
