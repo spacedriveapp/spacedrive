@@ -80,7 +80,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 						name="password"
 						render={({ field: { onBlur, onChange, value } }) => (
 							<PasswordInput
-								testID="master-password"
+								testID="password-input"
 								onChangeText={onChange}
 								onBlur={onBlur}
 								value={value}
@@ -96,7 +96,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							name="password_validate"
 							render={({ field: { onBlur, onChange, value } }) => (
 								<PasswordInput
-									testID="master-password-confirm"
+									testID="password-input-confirm"
 									onChangeText={onChange}
 									onBlur={onBlur}
 									value={value}
@@ -119,6 +119,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							size="sm"
 							disabled={form.formState.isSubmitting}
 							onPress={handleSetPassword}
+							testID="confirm-password-button"
 						>
 							<Text style={tw`text-center font-medium text-ink`}>
 								{!showPasswordValidate ? 'Set password' : 'Confirm Password'}
