@@ -1,11 +1,11 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import clsx from 'clsx';
-import { ReactElement, ReactNode, useEffect } from 'react';
+import { ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { animated, useTransition } from 'react-spring';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
-import { Form, FormProps } from './forms/Form';
+import { Form, FormProps, z } from './forms/Form';
 
 export function createDialogState(open = false) {
 	return proxy({
@@ -103,6 +103,15 @@ export function Dialogs() {
 	);
 }
 
+export type DialogSteps<T extends FieldValues> = {
+	title?: string;
+	description?: string;
+	skippable?: boolean;
+	ctaLabel?: string;
+	body: ReactNode;
+	schema: z.ZodSchema<Partial<T>>;
+}[];
+
 export interface DialogProps<S extends FieldValues>
 	extends DialogPrimitive.DialogProps,
 		FormProps<S> {
@@ -116,6 +125,7 @@ export interface DialogProps<S extends FieldValues>
 	transformOrigin?: string;
 	loading?: boolean;
 	submitDisabled?: boolean;
+	steps?: DialogSteps<S>;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -137,10 +147,24 @@ export function Dialog<S extends FieldValues>({
 		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 }
 	});
 
+	const [currentStep, setCurrentStep] = useState<number>(0);
+
+	const formValues = form.watch();
+
+	const step = useMemo(() => props.steps?.[currentStep], [currentStep, props.steps]);
+	const isStepValid = useMemo(() => step?.schema.safeParse(formValues).success, [step, formValues]);
+	const skippable = step?.skippable;
+
 	const setOpen = (v: boolean) => (dialog.state.open = v);
 
 	return (
-		<DialogPrimitive.Root open={stateSnap.open} onOpenChange={setOpen}>
+		<DialogPrimitive.Root
+			open={stateSnap.open}
+			onOpenChange={(open) => {
+				if (form.formState.isSubmitting) return;
+				setOpen(open);
+			}}
+		>
 			{props.trigger && <DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>}
 			{transitions((styles, show) =>
 				show ? (
@@ -162,23 +186,50 @@ export function Dialog<S extends FieldValues>({
 								<Form
 									form={form}
 									onSubmit={async (e) => {
-										await onSubmit?.(e);
-										dialog.onSubmit?.();
-										setOpen(false);
+										if (props.steps && currentStep < props.steps.length - 1) {
+											e?.preventDefault();
+											if (isStepValid) {
+												if (form.formState.errors) form.clearErrors();
+												setCurrentStep(currentStep + 1);
+											}
+										} else {
+											await onSubmit?.(e);
+											dialog.onSubmit?.();
+											setOpen(false);
+										}
 									}}
-									className="!pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
+									className={clsx(
+										'!pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade',
+										props.className
+									)}
 								>
 									<div className="p-5">
-										<DialogPrimitive.Title className="mb-2 font-bold">
-											{props.title}
-										</DialogPrimitive.Title>
-										<DialogPrimitive.Description className="text-sm text-ink-dull">
-											{props.description}
-										</DialogPrimitive.Description>
-										{props.children}
+										<div className="mb-5">
+											<DialogPrimitive.Title className="mb-0.5 font-bold">
+												{step?.title || props.title}
+											</DialogPrimitive.Title>
+											<DialogPrimitive.Description className="text-sm text-ink-dull">
+												{step?.description || props.description}
+											</DialogPrimitive.Description>
+										</div>
+
+										{(step || props.children) && (
+											<div className="space-y-4">{step?.body || props.children}</div>
+										)}
 									</div>
 									<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 										{form.formState.isSubmitting && <Loader />}
+										{currentStep > 0 && !form.formState.isSubmitting && (
+											<Button
+												type="button"
+												onClick={() => setCurrentStep(currentStep - 1)}
+												className="border-none hover:underline"
+												variant="bare"
+											>
+												Back
+											</Button>
+										)}
+
 										<div className="grow" />
 										<DialogPrimitive.Close asChild>
 											<Button disabled={props.loading} size="sm" variant="gray">
@@ -188,11 +239,22 @@ export function Dialog<S extends FieldValues>({
 										<Button
 											type="submit"
 											size="sm"
-											disabled={form.formState.isSubmitting || props.submitDisabled}
-											variant={props.ctaDanger ? 'colored' : 'accent'}
-											className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+											disabled={
+												form.formState.isSubmitting || step ? !isStepValid : props.submitDisabled
+											}
+											variant={props.ctaDanger ? 'colored' : skippable ? 'gray' : 'accent'}
+											className={clsx(
+												props.ctaDanger && 'border-red-500 bg-red-500',
+												skippable && 'transition-none dark:bg-app-box'
+											)}
 										>
-											{props.ctaLabel}
+											{props.steps && currentStep < props.steps.length - 1
+												? step?.ctaLabel
+													? step.ctaLabel
+													: skippable
+													? 'Skip'
+													: 'Next'
+												: props.ctaLabel || 'Submit'}
 										</Button>
 									</div>
 								</Form>
