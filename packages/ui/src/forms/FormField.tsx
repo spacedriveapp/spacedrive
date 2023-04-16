@@ -1,4 +1,4 @@
-import { PropsWithChildren, useId } from 'react';
+import { PropsWithChildren, ReactNode, useId } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 export interface UseFormFieldProps extends PropsWithChildren {
@@ -19,9 +19,10 @@ export const useFormField = <P extends UseFormFieldProps>(props: P) => {
 	};
 };
 
-interface FormFieldProps extends UseFormFieldProps {
+interface FormFieldProps extends Omit<UseFormFieldProps, 'label'> {
 	id: string;
 	error?: string;
+	label?: string | ReactNode;
 }
 
 export const FormField = (props: FormFieldProps) => {
