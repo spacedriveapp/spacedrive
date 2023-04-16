@@ -5,7 +5,7 @@ import { Form, RadioGroup, useZodForm, z } from '@sd/ui/src/forms';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
-const shareTelemetry = RadioGroup.options([
+export const shareTelemetry = RadioGroup.options([
 	z.literal('share-telemetry'),
 	z.literal('no-telemetry')
 ]).details({
