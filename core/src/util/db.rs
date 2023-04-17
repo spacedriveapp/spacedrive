@@ -71,3 +71,17 @@ pub async fn write_storedkey_to_db(
 
 	Ok(())
 }
+
+/// Combines an iterator of `T` and an iterator of `Option<T>`,
+/// removing any `None` values in the process
+pub fn chain_optional_iter<T>(
+	required: impl IntoIterator<Item = T>,
+	optional: impl IntoIterator<Item = Option<T>>,
+) -> Vec<T> {
+	required
+		.into_iter()
+		.map(Some)
+		.chain(optional)
+		.flatten()
+		.collect()
+}

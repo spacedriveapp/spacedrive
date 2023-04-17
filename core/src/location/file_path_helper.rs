@@ -330,7 +330,7 @@ impl LastFilePathIdManager {
 	) -> Result<file_path::Data, FilePathError> {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 
-		use crate::sync;
+		use crate::{sync, util};
 		use serde_json::json;
 
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
@@ -351,33 +351,31 @@ impl LastFilePathIdManager {
 
 		let next_id = *last_id_ref + 1;
 
-		let params = [
-			("cas_id", json!(cas_id)),
-			("materialized_path", json!(materialized_path)),
-			("name", json!(name)),
-			("extension", json!(extension)),
-			("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
-			("inode", json!(metadata.inode.to_le_bytes())),
-			("device", json!(metadata.device.to_le_bytes())),
-			("is_dir", json!(is_dir)),
-			("date_created", json!(metadata.created_at)),
-			("date_modified", json!(metadata.modified_at)),
-		]
-		.into_iter()
-		.map(Some)
-		.chain([parent_id.map(|parent_id| {
-			(
-				"parent_id",
-				json!(sync::file_path::SyncId {
-					location: sync::location::SyncId {
-						pub_id: location.pub_id.clone()
-					},
-					id: parent_id
-				}),
-			)
-		})])
-		.flatten()
-		.collect::<Vec<_>>();
+		let params = util::db::chain_optional_iter(
+			[
+				("cas_id", json!(cas_id)),
+				("materialized_path", json!(materialized_path)),
+				("name", json!(name)),
+				("extension", json!(extension)),
+				("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
+				("inode", json!(metadata.inode.to_le_bytes())),
+				("device", json!(metadata.device.to_le_bytes())),
+				("is_dir", json!(is_dir)),
+				("date_created", json!(metadata.created_at)),
+				("date_modified", json!(metadata.modified_at)),
+			],
+			[parent_id.map(|parent_id| {
+				(
+					"parent_id",
+					json!(sync::file_path::SyncId {
+						location: sync::location::SyncId {
+							pub_id: location.pub_id.clone()
+						},
+						id: parent_id
+					}),
+				)
+			})],
+		);
 
 		let created_path = sync
 			.write_op(
