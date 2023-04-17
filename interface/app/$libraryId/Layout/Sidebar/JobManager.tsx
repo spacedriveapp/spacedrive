@@ -171,7 +171,7 @@ function Job({ job }: { job: JobReport }) {
 						<span className="text-xs">
 							{isRunning
 								? 'Unknown time remaining'
-								: dayjs(job.date_created).toNow(true) + ' ago'}
+								: dayjs(job.created_at).toNow(true) + ' ago'}
 						</span>
 					}
 				</div>
