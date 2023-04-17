@@ -12,9 +12,9 @@ import {
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useScrolled } from '~/hooks/useScrolled';
+import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
-import { TOP_BAR_HEIGHT } from '../TopBar';
 import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';

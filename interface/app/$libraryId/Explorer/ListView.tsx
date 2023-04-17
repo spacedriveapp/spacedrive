@@ -17,10 +17,10 @@ import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
+import { TOP_BAR_HEIGHT } from '../TopBar';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
-import { TOP_BAR_HEIGHT } from './TopBar';
 import { ViewItem, useExplorerView } from './View';
 import { getExplorerItemData, getItemFilePath } from './util';
 

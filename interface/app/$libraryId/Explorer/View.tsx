@@ -12,10 +12,10 @@ import { useSearchParams } from 'react-router-dom';
 import { ExplorerItem, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
+import { TOP_BAR_HEIGHT } from '../TopBar';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
-import { TOP_BAR_HEIGHT } from './TopBar';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
