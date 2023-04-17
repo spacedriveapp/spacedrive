@@ -11,7 +11,7 @@ use crate::{
 			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
 		},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, object},
+	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
 };
 
@@ -81,11 +81,16 @@ impl LocationCreateArgs {
 
 		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
 			return if metadata.has_library(library.id) {
-				Err(LocationError::NeedRelink {
-					// SAFETY: This unwrap is ok as we checked that we have this library_id
-					old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
-					new_path: self.path,
-				})
+				// SAFETY: This unwrap is ok as we checked that we have this library_id
+				let old_path = metadata.location_path(library.id).unwrap().to_path_buf();
+				if old_path == self.path {
+					Err(LocationError::LocationAlreadyExists(self.path))
+				} else {
+					Err(LocationError::NeedRelink {
+						old_path,
+						new_path: self.path,
+					})
+				}
 			} else {
 				Err(LocationError::AddLibraryToMetadata(self.path))
 			};
@@ -454,16 +459,32 @@ async fn create_location(
 
 	let location_path = location_path.as_ref();
 
+	let path = location_path
+		.to_str()
+		.map(str::to_string)
+		.expect("Found non-UTF-8 path");
+
+	if library
+		.db
+		.location()
+		.count(vec![location::path::equals(path.clone())])
+		.exec()
+		.await? > 0
+	{
+		return Err(LocationError::LocationAlreadyExists(
+			location_path.to_path_buf(),
+		));
+	}
+
+	if check_nested_location(location_path, &library.db).await? {
+		return Err(LocationError::NestedLocation(location_path.to_path_buf()));
+	}
+
 	let name = location_path
 		.file_name()
 		.and_then(OsStr::to_str)
 		.map(str::to_string)
 		.unwrap();
-
-	let path = location_path
-		.to_str()
-		.map(str::to_string)
-		.expect("Found non-UTF-8 path");
 
 	let location = sync
 		.write_op(
@@ -641,6 +662,28 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			indexer_rules: None,
 		}
 	}
+}
+
+async fn check_nested_location(
+	location_path: impl AsRef<Path>,
+	db: &PrismaClient,
+) -> Result<bool, QueryError> {
+	Ok(db
+		.location()
+		.count(vec![location::path::in_vec(
+			location_path
+				.as_ref()
+				.ancestors()
+				.skip(1) // skip the actual location_path, we only want the parents
+				.map(|p| {
+					p.to_str()
+						.map(str::to_string)
+						.expect("Found non-UTF-8 path")
+				})
+				.collect(),
+		)])
+		.exec()
+		.await? > 0)
 }
 
 // check if a path exists in our database at that location

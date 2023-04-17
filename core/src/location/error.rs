@@ -36,8 +36,10 @@ pub enum LocationError {
 	AddLibraryToMetadata(PathBuf),
 	#[error("Location metadata file not found: (path: {0:?})")]
 	MetadataNotFound(PathBuf),
-	#[error("Location already exists (path: {0:?})")]
+	#[error("Location already exists in database (path: {0:?})")]
 	LocationAlreadyExists(PathBuf),
+	#[error("Nested location currently not supported (path: {0:?})")]
+	NestedLocation(PathBuf),
 
 	// Internal Errors
 	#[error("Location metadata error (error: {0:?})")]
@@ -71,8 +73,9 @@ impl From<LocationError> for rspc::Error {
 			}
 
 			// User's fault errors
-			// | LocationError::MissingLocalPath(_)
-			LocationError::NotDirectory(_) => {
+			LocationError::NotDirectory(_)
+			| LocationError::NestedLocation(_)
+			| LocationError::LocationAlreadyExists(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
