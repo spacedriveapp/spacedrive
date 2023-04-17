@@ -58,7 +58,7 @@ export default function TopBar() {
 
 			<SearchBar formClassName="justify-center mr-12 lg:mr-0" />
 
-			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
+			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
 				<div data-tauri-drag-region className={`flex gap-0`}>
 					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
