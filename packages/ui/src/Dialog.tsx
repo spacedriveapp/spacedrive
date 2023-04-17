@@ -213,9 +213,7 @@ export function Dialog<S extends FieldValues>({
 											</DialogPrimitive.Description>
 										</div>
 
-										{(step || props.children) && (
-											<div className="space-y-4">{step?.body || props.children}</div>
-										)}
+										{step?.body || props.children}
 									</div>
 									<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 										{form.formState.isSubmitting && <Loader />}
