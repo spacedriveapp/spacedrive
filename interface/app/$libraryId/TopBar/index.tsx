@@ -39,9 +39,7 @@ export default function TopBar() {
 	return (
 		<div
 			data-tauri-drag-region
-			className={clsx(
-				'duration-250 top-bar-blur absolute top-0 z-20  grid  h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out'
-			)}
+			className="duration-250 top-bar-blur absolute top-0 z-50 grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out"
 		>
 			<div data-tauri-drag-region className="flex ">
 				<Tooltip label="Navigate back">
