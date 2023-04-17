@@ -1,4 +1,9 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+};
 
 use std::hash::Hash;
 
@@ -18,7 +23,9 @@ pub struct FileDeleterJobInit {
 	pub path_id: i32,
 }
 
-pub const DELETE_JOB_NAME: &str = "file_deleter";
+impl JobInitData for FileDeleterJobInit {
+	type Job = FileDeleterJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDeleterJob {
@@ -26,8 +33,10 @@ impl StatefulJob for FileDeleterJob {
 	type Data = FileDeleterJobState;
 	type Step = FsInfo;
 
-	fn name(&self) -> &'static str {
-		DELETE_JOB_NAME
+	const NAME: &'static str = "file_deleter";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -64,7 +73,9 @@ impl StatefulJob for FileDeleterJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }

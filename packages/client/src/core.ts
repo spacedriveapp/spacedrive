@@ -7,7 +7,6 @@ export type Procedures = {
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: number[], kind: number, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, file_paths: FilePath[], media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
@@ -78,7 +77,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
-        { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
+        { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -162,9 +161,9 @@ export type IndexerRule = { id: number, kind: number, name: string, parameters: 
  */
 export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
 
-export type InvalidateOperationEvent = { key: string, arg: any }
+export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 
-export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
+export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, created_at: string | null, updated_at: string | null, parent_id: string | null, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
