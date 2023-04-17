@@ -36,15 +36,11 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
-	onScroll?: (scrolled: boolean) => void;
 }
 
-export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) => {
+export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
-
-	const ref = useRef<HTMLDivElement>(null);
-	useScrolled(ref, 5, onScroll);
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -76,7 +72,6 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 			{...elementProps}
 			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pl-1.5 pr-1 pb-4"
 			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
-			ref={ref}
 		>
 			{data && (
 				<>

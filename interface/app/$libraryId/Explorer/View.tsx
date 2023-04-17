@@ -60,7 +60,6 @@ export const ViewItem = ({
 
 interface Props {
 	data: ExplorerItem[];
-	onScroll?: (scrolled: boolean) => void;
 }
 
 interface ExplorerView {
@@ -75,7 +74,6 @@ export default memo((props: Props) => {
 	const layoutMode = explorerStore.layoutMode;
 
 	const scrollRef = useRef<HTMLDivElement>(null);
-	useScrolled(scrollRef, 5, props.onScroll);
 
 	return (
 		<div
