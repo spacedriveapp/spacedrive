@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { ComponentPropsWithRef, forwardRef, useEffect } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Input, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
@@ -8,22 +8,20 @@ interface Props extends ComponentPropsWithRef<'input'> {
 	formClassName?: string;
 }
 
-export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
+export default forwardRef<HTMLInputElement, Props>((props) => {
 	const [searchValue, setSearchValue] = useState('');
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
+	const searchRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		const keyboardSearchFocus = (event: KeyboardEvent) => {
-			if (typeof forwardedRef !== 'function') {
+			if (searchRef.current) {
 				if ((event.key === 'f' && event.metaKey) || event.ctrlKey) {
 					event.preventDefault();
-					forwardedRef?.current?.focus();
-				} else if (
-					forwardedRef?.current === document.activeElement &&
-					event.key === 'Escape'
-				) {
-					forwardedRef.current?.blur();
+					searchRef.current?.focus();
+				} else if (searchRef.current === document.activeElement && event.key === 'Escape') {
+					searchRef.current?.blur();
 					setSearchValue('');
 				}
 			}
@@ -32,15 +30,12 @@ export default forwardRef<HTMLInputElement, Props>((props, forwardedRef) => {
 		return () => {
 			document.removeEventListener('keydown', keyboardSearchFocus);
 		};
-	}, [forwardedRef]);
+	}, [searchRef]);
 
 	return (
-		<form data-tauri-drag-region className={`relative flex h-7 ${props.formClassName}`}>
+		<form data-tauri-drag-region className={clsx('relative flex h-7', props.formClassName)}>
 			<Input
-				ref={(el) => {
-					if (typeof forwardedRef === 'function') forwardedRef(el);
-					else if (forwardedRef) forwardedRef.current = el;
-				}}
+				ref={searchRef}
 				placeholder="Search"
 				className={clsx(
 					'w-52 transition-all duration-200 focus-within:w-60',
