@@ -39,7 +39,9 @@ export default (props: Props) => (
 				className="!p-1.5"
 				variant="gray"
 				onClick={() => {
-					dialogManager.create((dp) => <DeleteDialog {...dp} libraryUuid={props.library.uuid} />);
+					dialogManager.create((dp) => (
+						<DeleteDialog {...dp} libraryUuid={props.library.uuid} />
+					));
 				}}
 			>
 				<Tooltip label="Delete Library">

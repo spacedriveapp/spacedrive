@@ -29,7 +29,7 @@ export const LibrarySection = () => {
 
 					return (
 						<SidebarLink
-							className="relative w-full group"
+							className="group relative w-full"
 							to={`location/${location.id}`}
 							key={location.id}
 						>

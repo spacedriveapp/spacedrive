@@ -36,7 +36,9 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 		icon: Camera
 	},
 	file_identifier: {
-		name: `Extracted metadata for ${numberWithCommas(job.metadata?.total_orphan_paths || 0)} files`,
+		name: `Extracted metadata for ${numberWithCommas(
+			job.metadata?.total_orphan_paths || 0
+		)} files`,
 		icon: Eye
 	},
 	object_validator: {
@@ -124,7 +126,9 @@ export function JobsManager() {
 							<Job key={job.id} job={job} />
 						))}
 						{jobs.data?.length === 0 && runningJobs.data?.length === 0 && (
-							<div className="flex h-32 items-center justify-center text-ink-dull">No jobs.</div>
+							<div className="flex h-32 items-center justify-center text-ink-dull">
+								No jobs.
+							</div>
 						)}
 					</div>
 				</div>
@@ -141,6 +145,7 @@ function Job({ job }: { job: JobReport }) {
 	const isRunning = job.status === 'Running';
 	return (
 		// Do we actually need bg-opacity-60 here? Where is the bg?
+		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
 		<div className="flex items-center border-b border-app-line/50 bg-opacity-60 p-2 pl-4">
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
@@ -164,7 +169,9 @@ function Job({ job }: { job: JobReport }) {
 					<span className="mx-1 opacity-50">&#8226;</span>
 					{
 						<span className="text-xs">
-							{isRunning ? 'Unknown time remaining' : dayjs(job.date_created).toNow(true) + ' ago'}
+							{isRunning
+								? 'Unknown time remaining'
+								: dayjs(job.created_at).toNow(true) + ' ago'}
 						</span>
 					}
 				</div>

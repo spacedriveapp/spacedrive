@@ -1,5 +1,6 @@
 use crate::{
 	invalidate_query,
+	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
@@ -22,7 +23,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::debug;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
@@ -226,9 +227,9 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
-		self.libraries.read().await.clone()
-	}
+	// pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
+	// 	self.libraries.read().await.clone()
+	// }
 
 	pub(crate) async fn edit(
 		&self,
@@ -258,6 +259,31 @@ impl LibraryManager {
 		.await?;
 
 		invalidate_query!(library, "library.list");
+
+		for library in self.libraries.read().await.iter() {
+			for location in library
+				.db
+				.location()
+				.find_many(vec![])
+				.exec()
+				.await
+				.unwrap_or_else(|e| {
+					error!(
+						"Failed to get locations from database for location manager: {:#?}",
+						e
+					);
+					vec![]
+				}) {
+				if let Err(e) = self
+					.node_context
+					.location_manager
+					.add(location.id, library.clone())
+					.await
+				{
+					error!("Failed to add location to location manager: {:#?}", e);
+				}
+			}
+		}
 
 		Ok(())
 	}
@@ -350,15 +376,28 @@ impl LibraryManager {
 			}
 		});
 
-		Ok(Library {
+		let library = Library {
 			id,
 			local_id: node_data.id,
 			config,
 			key_manager,
 			sync: Arc::new(sync_manager),
 			db,
+			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
 			node_local_id: node_data.id,
 			node_context,
-		})
+		};
+
+		if let Err(e) = library
+			.node_context
+			.jobs
+			.clone()
+			.resume_jobs(&library)
+			.await
+		{
+			error!("Failed to resume jobs for library. {:#?}", e);
+		}
+
+		Ok(library)
 	}
 }

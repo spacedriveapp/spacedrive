@@ -152,7 +152,10 @@ export function Dialog<S extends FieldValues>({
 	const formValues = form.watch();
 
 	const step = useMemo(() => props.steps?.[currentStep], [currentStep, props.steps]);
-	const isStepValid = useMemo(() => step?.schema.safeParse(formValues).success, [step, formValues]);
+	const isStepValid = useMemo(
+		() => step?.schema.safeParse(formValues).success,
+		[step, formValues]
+	);
 	const skippable = step?.skippable;
 
 	const setOpen = (v: boolean) => (dialog.state.open = v);
@@ -165,7 +168,9 @@ export function Dialog<S extends FieldValues>({
 				setOpen(open);
 			}}
 		>
-			{props.trigger && <DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>}
+			{props.trigger && (
+				<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
+			)}
 			{transitions((styles, show) =>
 				show ? (
 					<DialogPrimitive.Portal forceMount>
@@ -230,7 +235,11 @@ export function Dialog<S extends FieldValues>({
 
 										<div className="grow" />
 										<DialogPrimitive.Close asChild>
-											<Button disabled={props.loading} size="sm" variant="gray">
+											<Button
+												disabled={props.loading}
+												size="sm"
+												variant="gray"
+											>
 												Close
 											</Button>
 										</DialogPrimitive.Close>
@@ -238,9 +247,17 @@ export function Dialog<S extends FieldValues>({
 											type="submit"
 											size="sm"
 											disabled={
-												form.formState.isSubmitting || step ? !isStepValid : props.submitDisabled
+												form.formState.isSubmitting || step
+													? !isStepValid
+													: props.submitDisabled
 											}
-											variant={props.ctaDanger ? 'colored' : skippable ? 'gray' : 'accent'}
+											variant={
+												props.ctaDanger
+													? 'colored'
+													: skippable
+													? 'gray'
+													: 'accent'
+											}
 											className={clsx(
 												props.ctaDanger && 'border-red-500 bg-red-500',
 												skippable && 'transition-none dark:bg-app-box'

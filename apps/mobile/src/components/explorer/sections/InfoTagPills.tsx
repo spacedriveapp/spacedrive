@@ -27,7 +27,9 @@ const InfoTagPills = ({ data, style }: Props) => {
 				text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]!}
 			/>
 			{/* Extension */}
-			{filePath?.extension && <InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />}
+			{filePath?.extension && (
+				<InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />
+			)}
 			{/* TODO: What happens if I have too many? */}
 			{tagsQuery.data?.map((tag) => (
 				<InfoPill

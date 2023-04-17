@@ -16,7 +16,9 @@ function Page({ is404 }: { is404: boolean }) {
 				<div className="m-auto flex flex-col items-center ">
 					<div className="h-32" />
 					<SmileyXEyes className="mb-3 h-44 w-44" />
-					<h1 className="mb-2 text-center">In the quantum realm this page potentially exists.</h1>
+					<h1 className="mb-2 text-center">
+						In the quantum realm this page potentially exists.
+					</h1>
 					<p>In other words, thats a 404.</p>
 					<div className="flex flex-wrap justify-center">
 						<Button
@@ -26,7 +28,11 @@ function Page({ is404 }: { is404: boolean }) {
 						>
 							← Back
 						</Button>
-						<Button href="/" className="mt-2 cursor-pointer !text-white" variant="accent">
+						<Button
+							href="/"
+							className="mt-2 cursor-pointer !text-white"
+							variant="accent"
+						>
 							Discover Spacedrive →
 						</Button>
 					</div>

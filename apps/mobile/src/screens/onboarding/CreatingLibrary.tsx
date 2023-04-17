@@ -29,7 +29,10 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (lib) => {
 			resetOnboardingStore();
-			queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
+			queryClient.setQueryData(['library.list'], (libraries: any) => [
+				...(libraries || []),
+				lib
+			]);
 			// Switch to the new library
 			currentLibraryStore.id = lib.uuid;
 			if (obStore.shareTelemetry) {

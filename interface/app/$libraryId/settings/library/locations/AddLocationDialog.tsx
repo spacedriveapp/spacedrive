@@ -85,7 +85,10 @@ export const AddLocationDialog = (props: Props) => {
 				// });
 				break;
 			case 'ADD_LIBRARY':
-				await addLocationToLibrary.mutateAsync({ path, indexer_rules_ids: indexerRulesIds });
+				await addLocationToLibrary.mutateAsync({
+					path,
+					indexer_rules_ids: indexerRulesIds
+				});
 				break;
 			default:
 				throw new Error('Unimplemented custom remote error handling');

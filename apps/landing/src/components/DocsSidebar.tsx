@@ -38,7 +38,11 @@ export default function DocsSidebar(props: Props) {
 								isActive && 'nav-active'
 							)}
 						>
-							<div className={clsx(`mr-4 rounded-lg border-t border-gray-400/20 bg-gray-500 p-1`)}>
+							<div
+								className={clsx(
+									`mr-4 rounded-lg border-t border-gray-400/20 bg-gray-500 p-1`
+								)}
+							>
 								<Icon weight="bold" className="h-4 w-4 text-white opacity-80" />
 							</div>
 							{section.title}

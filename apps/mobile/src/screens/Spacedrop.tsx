@@ -50,7 +50,10 @@ const Hexagon = () => {
 
 	return (
 		<Svg width={width} height={height} viewBox="0 0 100 100">
-			<Polygon points="0,25 0,75 50,100 100,75 100,25 50,0" fill={tw.color('bg-app-box/30')} />
+			<Polygon
+				points="0,25 0,75 50,100 100,75 100,25 50,0"
+				fill={tw.color('bg-app-box/30')}
+			/>
 		</Svg>
 	);
 };
@@ -100,7 +103,9 @@ function DropItem(props: DropItemProps) {
 					style={tw`w-full items-center justify-center`}
 					onPress={() => Alert.alert('TODO')}
 				>
-					<View style={tw`bg-app-button h-12 w-12 items-center justify-center rounded-full`}>
+					<View
+						style={tw`h-12 w-12 items-center justify-center rounded-full bg-app-button`}
+					>
 						{icon}
 					</View>
 					{props.name && (

@@ -32,7 +32,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 				>
 					{children}
 				</KeyboardAvoidingView>
-				<Text style={tw`text-ink-dull/50 absolute bottom-8 text-xs`}>
+				<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
 					&copy; 2022 Spacedrive Technology Inc.
 				</Text>
 			</View>
@@ -72,7 +72,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
 				<AnimatedButton variant="accent" onPress={() => navigation.push('NewLibrary')}>
-					<Text style={tw`text-ink text-center text-base font-medium`}>Get Started</Text>
+					<Text style={tw`text-center text-base font-medium text-ink`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
 		</OnboardingContainer>

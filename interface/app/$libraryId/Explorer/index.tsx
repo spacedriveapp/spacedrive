@@ -3,8 +3,8 @@ import { useParams } from 'react-router';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
+import TopBar from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
-import TopBar from './TopBar';
 import View from './View';
 
 interface Props {
@@ -33,7 +33,7 @@ export default function Explorer(props: Props) {
 	}, [locationId]);
 
 	return (
-		<div className="flex flex-col w-full h-screen bg-app">
+		<div className="flex h-screen w-full flex-col bg-app">
 			<TopBar />
 
 			<div className="flex flex-1">
@@ -45,7 +45,10 @@ export default function Explorer(props: Props) {
 
 				{expStore.showInspector && props.data?.items[expStore.selectedRowIndex] && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={props.data?.items[expStore.selectedRowIndex]} onScroll={onScroll} />
+						<Inspector
+							data={props.data?.items[expStore.selectedRowIndex]}
+							onScroll={onScroll}
+						/>
 					</div>
 				)}
 			</div>

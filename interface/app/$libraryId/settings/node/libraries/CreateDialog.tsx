@@ -137,7 +137,11 @@ export default (props: UseDialogProps) => {
 					<>
 						<div className="border-b border-app-line" />
 
-						<PasswordInput {...form.register('password')} label="Password" showStrength />
+						<PasswordInput
+							{...form.register('password')}
+							label="Password"
+							showStrength
+						/>
 						<PasswordInput
 							{...form.register('password_validate', {
 								onBlur: () => form.trigger('password_validate')
@@ -157,7 +161,10 @@ export default (props: UseDialogProps) => {
 								Advanced Settings
 								<CaretRight
 									weight="bold"
-									className={clsx('ml-1 transition', showAdvancedOptions && 'rotate-90')}
+									className={clsx(
+										'ml-1 transition',
+										showAdvancedOptions && 'rotate-90'
+									)}
 								/>
 							</Button>
 
@@ -171,7 +178,9 @@ export default (props: UseDialogProps) => {
 										size="md"
 										className="!mt-3"
 									>
-										<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
+										<SelectOption value="XChaCha20Poly1305">
+											XChaCha20-Poly1305
+										</SelectOption>
 										<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
 									</Select>
 
@@ -181,12 +190,24 @@ export default (props: UseDialogProps) => {
 										label="Hashing Algorithm"
 										size="md"
 									>
-										<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
-										<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
-										<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-										<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-										<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-										<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+										<SelectOption value="Argon2id-s">
+											Argon2id (standard)
+										</SelectOption>
+										<SelectOption value="Argon2id-h">
+											Argon2id (hardened)
+										</SelectOption>
+										<SelectOption value="Argon2id-p">
+											Argon2id (paranoid)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-s">
+											BLAKE3-Balloon (standard)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-h">
+											BLAKE3-Balloon (hardened)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-p">
+											BLAKE3-Balloon (paranoid)
+										</SelectOption>
 									</Select>
 								</div>
 							)}

@@ -107,7 +107,8 @@ export function HomeCTA() {
 							{(waitlistError || waitlistSubmitted) && (
 								<div
 									className={clsx({
-										'my-2 flex flex-row items-center rounded-md border-2 px-2': true,
+										'my-2 flex flex-row items-center rounded-md border-2 px-2':
+											true,
 										'border-red-900 bg-red-800/20': waitlistError,
 										'border-green-900 bg-green-800/20': !waitlistError,
 										'-mt-2': waitlistSubmitted
@@ -146,9 +147,12 @@ export function HomeCTA() {
 								{!waitlistSubmitted && (
 									<Button
 										onClick={() => setShowWaitlistInput(true)}
-										className={clsx('z-30 cursor-pointer rounded-l-none border-0', {
-											'cursor-default opacity-50': loading
-										})}
+										className={clsx(
+											'z-30 cursor-pointer rounded-l-none border-0',
+											{
+												'cursor-default opacity-50': loading
+											}
+										)}
 										disabled={loading}
 										variant="accent"
 										type="submit"
@@ -166,10 +170,13 @@ export function HomeCTA() {
 				)}
 			</div>
 			<p
-				className={clsx('animation-delay-3 z-30 px-6 text-center text-sm text-gray-450 fade-in', {
-					'mt-10': waitlistError,
-					'mt-3': !waitlistError
-				})}
+				className={clsx(
+					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-450 fade-in',
+					{
+						'mt-10': waitlistError,
+						'mt-3': !waitlistError
+					}
+				)}
 			>
 				{showWaitlistInput ? (
 					<>

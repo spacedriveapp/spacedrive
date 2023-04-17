@@ -1,4 +1,4 @@
-use crate::{prisma::*, sync};
+use crate::prisma::*;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -44,53 +44,53 @@ impl SyncManager {
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		(ops, queries): (Vec<CRDTOperation>, I),
+		(_ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		let owned = ops
-			.iter()
-			.filter_map(|op| match &op.typ {
-				CRDTOperationType::Owned(owned_op) => Some(tx.owned_operation().create(
-					op.id.as_bytes().to_vec(),
-					op.timestamp.0 as i64,
-					to_vec(&owned_op.items).unwrap(),
-					owned_op.model.clone(),
-					node::pub_id::equals(op.node.as_bytes().to_vec()),
-					vec![],
-				)),
-				_ => None,
-			})
-			.collect::<Vec<_>>();
-
-		let shared = ops
-			.iter()
-			.filter_map(|op| match &op.typ {
-				CRDTOperationType::Shared(shared_op) => {
-					let kind = match &shared_op.data {
-						SharedOperationData::Create(_) => "c",
-						SharedOperationData::Update { .. } => "u",
-						SharedOperationData::Delete => "d",
-					};
-
-					Some(tx.shared_operation().create(
-						op.id.as_bytes().to_vec(),
-						op.timestamp.0 as i64,
-						shared_op.model.to_string(),
-						to_vec(&shared_op.record_id).unwrap(),
-						kind.to_string(),
-						to_vec(&shared_op.data).unwrap(),
-						node::pub_id::equals(op.node.as_bytes().to_vec()),
-						vec![],
-					))
-				}
-				_ => None,
-			})
-			.collect::<Vec<_>>();
-
 		#[cfg(feature = "sync-messages")]
 		let res = {
+			let owned = _ops
+				.iter()
+				.filter_map(|op| match &op.typ {
+					CRDTOperationType::Owned(owned_op) => Some(tx.owned_operation().create(
+						op.id.as_bytes().to_vec(),
+						op.timestamp.0 as i64,
+						to_vec(&owned_op.items).unwrap(),
+						owned_op.model.clone(),
+						node::pub_id::equals(op.node.as_bytes().to_vec()),
+						vec![],
+					)),
+					_ => None,
+				})
+				.collect::<Vec<_>>();
+
+			let shared = _ops
+				.iter()
+				.filter_map(|op| match &op.typ {
+					CRDTOperationType::Shared(shared_op) => {
+						let kind = match &shared_op.data {
+							SharedOperationData::Create(_) => "c",
+							SharedOperationData::Update { .. } => "u",
+							SharedOperationData::Delete => "d",
+						};
+
+						Some(tx.shared_operation().create(
+							op.id.as_bytes().to_vec(),
+							op.timestamp.0 as i64,
+							shared_op.model.to_string(),
+							to_vec(&shared_op.record_id).unwrap(),
+							kind.to_string(),
+							to_vec(&shared_op.data).unwrap(),
+							node::pub_id::equals(op.node.as_bytes().to_vec()),
+							vec![],
+						))
+					}
+					_ => None,
+				})
+				.collect::<Vec<_>>();
+
 			let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
-			for op in ops {
+			for op in _ops {
 				self.tx.send(SyncMessage::Created(op)).ok();
 			}
 
@@ -200,26 +200,20 @@ impl SyncManager {
 
 		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => {
-				// let location = db
-				// 	.location()
-				// 	.find_unique(location::pub_id::equals(id.location.pub_id))
-				// 	.select(location::select!({ id }))
-				// 	.exec()
-				// 	.await?
-				// 	.unwrap();
+				let location = db
+					.location()
+					.find_unique(location::pub_id::equals(id.location.pub_id))
+					.select(location::select!({ id }))
+					.exec()
+					.await?
+					.unwrap();
 
 				match shared_op {
 					SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
 						db.file_path()
 							.create(
-								id.pub_id,
-								location::pub_id::equals(
-									serde_json::from_value::<sync::location::SyncId>(
-										data.remove("location").unwrap(),
-									)
-									.unwrap()
-									.pub_id,
-								),
+								id.id,
+								location::id::equals(location.id),
 								serde_json::from_value(data.remove("materialized_path").unwrap())
 									.unwrap(),
 								serde_json::from_value(data.remove("name").unwrap()).unwrap(),
@@ -242,7 +236,7 @@ impl SyncManager {
 						self.db
 							.file_path()
 							.update(
-								file_path::pub_id::equals(id.pub_id),
+								file_path::location_id_id(location.id, id.id),
 								vec![file_path::SetParam::deserialize(&field, value).unwrap()],
 							)
 							.exec()

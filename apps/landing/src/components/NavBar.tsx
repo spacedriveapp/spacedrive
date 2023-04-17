@@ -98,7 +98,10 @@ export default function NavBar() {
 						>
 							Repository
 						</Dropdown.Item>
-						<Dropdown.Item icon={Discord} onClick={redirect('https://discord.gg/gTaF2Z44f5')}>
+						<Dropdown.Item
+							icon={Discord}
+							onClick={redirect('https://discord.gg/gTaF2Z44f5')}
+						>
 							Join Discord
 						</Dropdown.Item>
 					</Dropdown.Section>
@@ -106,7 +109,10 @@ export default function NavBar() {
 						<Dropdown.Item icon={MapPin} {...link('/roadmap')}>
 							Roadmap
 						</Dropdown.Item>
-						<Dropdown.Item icon={Book} {...link('/docs/product/getting-started/introduction')}>
+						<Dropdown.Item
+							icon={Book}
+							{...link('/docs/product/getting-started/introduction')}
+						>
 							Docs
 						</Dropdown.Item>
 						<Dropdown.Item icon={User} {...link('/team')}>
@@ -130,7 +136,11 @@ export default function NavBar() {
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />
 					</a>
-					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
+					<a
+						href="https://github.com/spacedriveapp/spacedrive"
+						target="_blank"
+						rel="noreferrer"
+					>
 						<Github className="text-white" />
 					</a>
 				</div>

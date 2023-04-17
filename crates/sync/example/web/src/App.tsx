@@ -16,13 +16,22 @@ export function App() {
 		<div className="flex h-screen w-screen flex-row divide-x divide-gray-300">
 			<div className="flex flex-col space-y-2 p-2">
 				<div className="space-x-2">
-					<button className={ButtonStyles} onClick={() => createDb.mutate('pullOperations')}>
+					<button
+						className={ButtonStyles}
+						onClick={() => createDb.mutate('pullOperations')}
+					>
 						Add Database
 					</button>
-					<button className={ButtonStyles} onClick={() => removeDbs.mutate('pullOperations')}>
+					<button
+						className={ButtonStyles}
+						onClick={() => removeDbs.mutate('pullOperations')}
+					>
 						Remove Databases
 					</button>
-					<button className={ButtonStyles} onClick={() => testCreate.mutate('testCreate')}>
+					<button
+						className={ButtonStyles}
+						onClick={() => testCreate.mutate('testCreate')}
+					>
 						Test Create
 					</button>
 				</div>
@@ -143,9 +152,13 @@ function OperationList(props: { db: string }) {
 							<tr key={message.id}>
 								<td className="border border-transparent">{message.id}</td>
 								<td className="border border-transparent">
-									{new Date(Number(message.timestamp) / 10000000).toLocaleTimeString()}
+									{new Date(
+										Number(message.timestamp) / 10000000
+									).toLocaleTimeString()}
 								</td>
-								<td className="border border-transparent">{messageType(message.typ)}</td>
+								<td className="border border-transparent">
+									{messageType(message.typ)}
+								</td>
 							</tr>
 						))}
 				</table>

@@ -37,7 +37,11 @@ export const Component = () => {
 						return 0;
 					})
 					.map((lib) => (
-						<ListItem current={lib.uuid === library.uuid} key={lib.uuid} library={lib} />
+						<ListItem
+							current={lib.uuid === library.uuid}
+							key={lib.uuid}
+							library={lib}
+						/>
 					))}
 			</div>
 		</>
