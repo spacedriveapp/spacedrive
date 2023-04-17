@@ -31,7 +31,7 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 			window.removeEventListener('click', handleClickOutside);
 			window.removeEventListener('touchstart', handleClickOutside);
 		};
-	}, [open]);
+	}, []);
 	return (
 		<Radix.Root open={open}>
 			<Radix.Trigger
