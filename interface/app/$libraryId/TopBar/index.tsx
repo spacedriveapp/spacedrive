@@ -14,7 +14,6 @@ export const TOP_BAR_HEIGHT = 46;
 export default function TopBar() {
 	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const navigate = useNavigate();
-	const searchRef = useRef<HTMLInputElement>(null);
 	const { pathname } = useLocation();
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
@@ -57,9 +56,9 @@ export default function TopBar() {
 				</Tooltip>
 			</div>
 
-			<SearchBar formClassName="justify-center mr-12 lg:mr-0" ref={searchRef} />
+			<SearchBar formClassName="justify-center mr-12 lg:mr-0" />
 
-			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
+			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
 				<div data-tauri-drag-region className={`flex gap-0`}>
 					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
