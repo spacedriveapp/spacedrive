@@ -17,6 +17,7 @@ use crate::{
 		validation::validator_job::ObjectValidatorJob,
 	},
 	prisma::{job, node},
+	util,
 };
 
 use std::{
@@ -455,12 +456,16 @@ impl JobReport {
 				self.name.clone(),
 				JobStatus::Running as i32,
 				node::id::equals(library.node_local_id),
-				vec![
-					job::data::set(self.data.clone()),
-					job::parent_id::set(self.parent_id.map(|id| id.as_bytes().to_vec())),
-					job::date_created::set(now.into()),
-					job::date_modified::set(now.into()),
-				],
+				util::db::chain_optional_iter(
+					[
+						job::data::set(self.data.clone()),
+						job::date_created::set(now.into()),
+						job::date_modified::set(now.into()),
+					],
+					[self
+						.parent_id
+						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
+				),
 			)
 			.exec()
 			.await?;
