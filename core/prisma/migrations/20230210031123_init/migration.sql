@@ -281,7 +281,6 @@ CREATE TABLE "indexer_rule" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "kind" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
-    "default" BOOLEAN NOT NULL DEFAULT false,
     "parameters" BLOB NOT NULL,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -317,12 +316,7 @@ CREATE UNIQUE INDEX "file_path_integrity_checksum_key" ON "file_path"("integrity
 CREATE INDEX "file_path_location_id_idx" ON "file_path"("location_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "file_path_location_id_materialized_path_name_extension_key" ON "file_path"(
-    "location_id",
-    "materialized_path",
-    "name",
-    "extension"
-);
+CREATE UNIQUE INDEX "file_path_location_id_materialized_path_name_extension_key" ON "file_path"("location_id", "materialized_path", "name", "extension");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "file_path_location_id_inode_device_key" ON "file_path"("location_id", "inode", "device");

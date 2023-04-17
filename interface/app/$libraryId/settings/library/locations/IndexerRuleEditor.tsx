@@ -22,38 +22,39 @@ export function IndexerRuleEditor<T extends FieldType>({
 	field,
 	editable
 }: IndexerRuleEditorProps<T>) {
-	const { data: indexRules } = useLibraryQuery(['locations.indexer_rules.list'], {});
-
+	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
+	const indexRules = listIndexerRules.data;
 	return (
 		<Card className="mb-2 flex flex-wrap justify-evenly">
-			{indexRules
-				? indexRules.map((rule) => {
-						const { id, name } = rule;
-						const enabled = field.value.includes(id);
-						return (
-							<Button
-								key={id}
-								size="sm"
-								onClick={() =>
-									field.onChange(
-										enabled
-											? field.value.filter(
-													(fieldValue) => fieldValue !== rule.id
-											  )
-											: Array.from(new Set([...field.value, rule.id]))
-									)
-								}
-								variant={enabled ? 'colored' : 'outline'}
-								className={clsx(
-									'm-1 flex-auto',
-									enabled && 'border-accent bg-accent'
-								)}
-							>
-								{name}
-							</Button>
-						);
-				  })
-				: editable || <p>No indexer rules available</p>}
+			{indexRules ? (
+				indexRules.map((rule) => {
+					const { id, name } = rule;
+					const enabled = field.value.includes(id);
+					return (
+						<Button
+							key={id}
+							size="sm"
+							onClick={() =>
+								field.onChange(
+									enabled
+										? field.value.filter((fieldValue) => fieldValue !== rule.id)
+										: Array.from(new Set([...field.value, rule.id]))
+								)
+							}
+							variant={enabled ? 'colored' : 'outline'}
+							className={clsx('m-1 flex-auto', enabled && 'border-accent bg-accent')}
+						>
+							{name}
+						</Button>
+					);
+				})
+			) : (
+				<p className={clsx(listIndexerRules.isError && 'text-red-500')}>
+					{listIndexerRules.isError
+						? 'Error while retriving indexer rules'
+						: 'No indexer rules available'}
+				</p>
+			)}
 			{/* {editable && (
 				<Button
 					size="icon"

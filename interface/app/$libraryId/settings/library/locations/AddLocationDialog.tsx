@@ -47,22 +47,24 @@ export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
 	const queryClient = useQueryClient();
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
-	const { data: indexRules } = useLibraryQuery(['locations.indexer_rules.list'], {});
+	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const [remoteError, setRemoteError] = useState<null | RemoteErrorFormMessage>(null);
 
 	// This is required because indexRules is undefined on first render
+	const indexerRules = listIndexerRules.data;
 	const defaultValue = useMemo(
 		() => ({
 			path: path,
-			indexerRulesIds: indexRules?.filter((rule) => rule.default).map((rule) => rule.id) ?? []
+			indexerRulesIds:
+				indexerRules?.filter((rule) => rule.default).map((rule) => rule.id) ?? []
 		}),
-		[indexRules, path]
+		[indexerRules, path]
 	);
 
 	const form = useZodForm({
 		schema,
-		defaultValues: useMemo(() => defaultValue, [defaultValue])
+		defaultValues: defaultValue
 	});
 
 	useEffect(() => {
