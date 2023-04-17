@@ -305,7 +305,7 @@ export default () => {
 			<div
 				onClick={(e) => e.stopPropagation()}
 				className={clsx(
-					'sticky top-0 z-50 table-header-group',
+					'sticky top-0 z-20 table-header-group',
 					isScrolled && 'top-bar-blur !bg-app/90'
 				)}
 			>
