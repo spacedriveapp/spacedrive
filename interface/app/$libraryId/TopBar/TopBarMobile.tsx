@@ -29,7 +29,7 @@ export default ({ className = '' }: Props) => {
 					</TopBarButton>
 				}
 			>
-				<div className="flex flex-col p-2 overflow-hidden">
+				<div className="flex flex-col overflow-hidden p-2">
 					{toolsNotSmFlex.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
 							(
@@ -49,7 +49,7 @@ export default ({ className = '' }: Props) => {
 														onClick={onClick}
 														checkIcon={true}
 													>
-														<div className="flex items-center justify-between w-full">
+														<div className="flex w-full items-center justify-between">
 															<div className="flex items-center gap-1">
 																{icon}
 																{toolTipLabel}

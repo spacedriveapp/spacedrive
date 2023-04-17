@@ -33,7 +33,7 @@ export default function Explorer(props: Props) {
 	}, [locationId]);
 
 	return (
-		<div className="flex flex-col w-full h-screen bg-app">
+		<div className="flex h-screen w-full flex-col bg-app">
 			<TopBar />
 
 			<div className="flex flex-1">

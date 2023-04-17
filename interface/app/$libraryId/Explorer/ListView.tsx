@@ -321,7 +321,7 @@ export default () => {
 								<div
 									role="columnheader"
 									key={header.id}
-									className="relative px-4 py-2 text-xs truncate first:pl-24"
+									className="relative truncate px-4 py-2 text-xs first:pl-24"
 									style={{
 										width:
 											i === 0

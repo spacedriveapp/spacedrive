@@ -19,7 +19,7 @@ export const Component = () => {
 				)}
 			>
 				<DragRegion ref={ref} />
-				<div className="flex flex-col w-full h-screen p-5 pt-0">
+				<div className="flex h-screen w-full flex-col p-5 pt-0">
 					<Outlet />
 				</div>
 			</div>

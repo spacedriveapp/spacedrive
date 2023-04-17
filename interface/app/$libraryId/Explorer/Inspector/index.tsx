@@ -88,7 +88,7 @@ export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) =
 						<FileThumb loadOriginal size={240} data={data} />
 					</div>
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="px-3 pt-2 pb-1 text-base font-bold truncate">
+						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
 							{filePathData?.name}
 							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
