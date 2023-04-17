@@ -17,10 +17,10 @@ import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
+import { TOP_BAR_HEIGHT } from '../TopBar';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
-import { TOP_BAR_HEIGHT } from './TopBar';
 import { ViewItem, useExplorerView } from './View';
 import { getExplorerItemData, getItemFilePath } from './util';
 
@@ -321,7 +321,7 @@ export default () => {
 								<div
 									role="columnheader"
 									key={header.id}
-									className="relative truncate px-4 py-2 text-xs first:pl-24"
+									className="relative px-4 py-2 text-xs truncate first:pl-24"
 									style={{
 										width:
 											i === 0

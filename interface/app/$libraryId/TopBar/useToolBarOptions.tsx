@@ -11,8 +11,8 @@ import {
 	Tag
 } from 'phosphor-react';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import OptionsPanel from '../app/$libraryId/Explorer/OptionsPanel';
-import { KeyManager } from '../app/$libraryId/KeyManager';
+import OptionsPanel from '../Explorer/OptionsPanel';
+import { KeyManager } from '../KeyManager';
 
 export type RoutePaths =
 	| 'overview'
@@ -33,7 +33,7 @@ export type RoutePaths =
 //lg is 1024px
 //xl is 1280px
 //2xl is 1536px
-export type show_at_resolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
+export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
 
 export interface ToolOption {
 	icon: JSX.Element;
@@ -42,7 +42,7 @@ export interface ToolOption {
 	toolTipLabel: string;
 	topBarActive?: boolean;
 	popOverComponent?: JSX.Element;
-	show_at_resolution: show_at_resolution;
+	showAtResolution: ShowAtResolution;
 }
 export interface ToolOptions {
 	options: {
@@ -67,27 +67,27 @@ export const useToolBarRouteOptions = () => {
 						icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
 						topBarActive: store.layoutMode === 'grid',
 						onClick: () => (getExplorerStore().layoutMode = 'grid'),
-						show_at_resolution: 'sm:flex'
+						showAtResolution: 'sm:flex'
 					},
 					{
 						toolTipLabel: 'List view',
 						icon: <Rows className={TOP_BAR_ICON_STYLE} />,
 						topBarActive: store.layoutMode === 'rows',
 						onClick: () => (getExplorerStore().layoutMode = 'rows'),
-						show_at_resolution: 'sm:flex'
+						showAtResolution: 'sm:flex'
 					},
 					{
 						toolTipLabel: 'Columns view',
 						icon: <Columns className={TOP_BAR_ICON_STYLE} />,
 						topBarActive: store.layoutMode === 'columns',
 						onClick: () => (getExplorerStore().layoutMode = 'columns'),
-						show_at_resolution: 'sm:flex'
+						showAtResolution: 'sm:flex'
 					},
 					{
 						toolTipLabel: 'Media view',
 						icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
 						topBarActive: store.layoutMode === 'media',
-						show_at_resolution: 'sm:flex'
+						showAtResolution: 'sm:flex'
 					}
 				],
 				[
@@ -96,7 +96,7 @@ export const useToolBarRouteOptions = () => {
 						icon: <Key className={TOP_BAR_ICON_STYLE} />,
 						popOverComponent: <KeyManager />,
 						individual: true,
-						show_at_resolution: 'xl:flex'
+						showAtResolution: 'xl:flex'
 					},
 					{
 						toolTipLabel: 'Tag Assign Mode',
@@ -109,13 +109,13 @@ export const useToolBarRouteOptions = () => {
 						onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
 						topBarActive: store.tagAssignMode,
 						individual: true,
-						show_at_resolution: 'xl:flex'
+						showAtResolution: 'xl:flex'
 					},
 					{
 						toolTipLabel: 'Regenerate thumbs (temp)',
 						icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 						individual: true,
-						show_at_resolution: 'xl:flex'
+						showAtResolution: 'xl:flex'
 					}
 				],
 				[
@@ -124,7 +124,7 @@ export const useToolBarRouteOptions = () => {
 						icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
 						popOverComponent: <OptionsPanel />,
 						individual: true,
-						show_at_resolution: 'xl:flex'
+						showAtResolution: 'xl:flex'
 					},
 					{
 						toolTipLabel: 'Show Inspector',
@@ -136,7 +136,7 @@ export const useToolBarRouteOptions = () => {
 							/>
 						),
 						individual: true,
-						show_at_resolution: 'xl:flex'
+						showAtResolution: 'xl:flex'
 					}
 				]
 			]

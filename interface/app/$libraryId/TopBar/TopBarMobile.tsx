@@ -2,9 +2,13 @@ import { DotsThreeCircle } from 'phosphor-react';
 import { HTMLAttributes } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Popover } from '@sd/ui';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '~/hooks/useToolBarOptions';
-import { RoutePaths, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
 import TopBarButton from './TopBarButton';
+import {
+	RoutePaths,
+	TOP_BAR_ICON_STYLE,
+	ToolOption,
+	useToolBarRouteOptions
+} from './useToolBarOptions';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {}
 
@@ -13,7 +17,7 @@ export default ({ className = '' }: Props) => {
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
 	const toolsNotSmFlex = toolBarRouteOptions[getPageName].options.map((group) =>
-		(group as ToolOption[]).filter((tool) => tool.show_at_resolution !== 'sm:flex')
+		(group as ToolOption[]).filter((tool) => tool.showAtResolution !== 'sm:flex')
 	);
 
 	return (
@@ -25,7 +29,7 @@ export default ({ className = '' }: Props) => {
 					</TopBarButton>
 				}
 			>
-				<div className="flex flex-col overflow-hidden p-2">
+				<div className="flex flex-col p-2 overflow-hidden">
 					{toolsNotSmFlex.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
 							(
@@ -45,7 +49,7 @@ export default ({ className = '' }: Props) => {
 														onClick={onClick}
 														checkIcon={true}
 													>
-														<div className="flex w-full items-center justify-between">
+														<div className="flex items-center justify-between w-full">
 															<div className="flex items-center gap-1">
 																{icon}
 																{toolTipLabel}

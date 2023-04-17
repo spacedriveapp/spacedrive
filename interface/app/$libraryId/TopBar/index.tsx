@@ -4,19 +4,17 @@ import { useLayoutEffect, useRef } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
-import { RoutePaths, ToolOption, useToolBarRouteOptions } from '~/hooks/useToolBarOptions';
-import SearchBar from './SearchBar';
+import SearchBar from '../Explorer/SearchBar';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
+import { RoutePaths, ToolOption, useToolBarRouteOptions } from './useToolBarOptions';
 
 export const TOP_BAR_HEIGHT = 46;
 
-export default () => {
+export default function TopBar() {
 	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const navigate = useNavigate();
-	const topBarRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
-	const toolsRef = useRef<HTMLDivElement>(null);
 	const { pathname } = useLocation();
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
@@ -42,7 +40,6 @@ export default () => {
 	return (
 		<div
 			data-tauri-drag-region
-			ref={topBarRef}
 			className={clsx(
 				'duration-250 top-bar-blur absolute top-0 z-20  grid  h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out'
 			)}
@@ -62,8 +59,8 @@ export default () => {
 
 			<SearchBar formClassName="justify-center mr-12 lg:mr-0" ref={searchRef} />
 
-			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
-				<div ref={toolsRef} data-tauri-drag-region className={`flex gap-0`}>
+			<div data-tauri-drag-region className="flex flex-row justify-end w-full">
+				<div data-tauri-drag-region className={`flex gap-0`}>
 					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
 							(
@@ -74,7 +71,7 @@ export default () => {
 									toolTipLabel,
 									topBarActive,
 									individual,
-									show_at_resolution
+									showAtResolution
 								},
 								index
 							) => {
@@ -90,9 +87,11 @@ export default () => {
 									<div
 										data-tauri-drag-region
 										key={toolTipLabel}
-										className={`hidden ${show_at_resolution} items-center ${
-											individual && 'mx-1'
-										}`}
+										className={clsx(
+											[showAtResolution],
+											[individual && 'mx-1'],
+											`hidden items-center`
+										)}
 									>
 										<Tooltip label={toolTipLabel}>
 											{popOverComponent ? (
@@ -141,4 +140,4 @@ export default () => {
 			</div>
 		</div>
 	);
-};
+}
