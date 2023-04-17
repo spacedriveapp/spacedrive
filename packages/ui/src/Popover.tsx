@@ -15,6 +15,8 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 
 			<Radix.Portal>
 				<Radix.Content
+					onOpenAutoFocus={(event) => event.preventDefault()}
+					onCloseAutoFocus={(event) => event.preventDefault()}
 					className={clsx(
 						'flex flex-col',
 						'z-50 m-2 min-w-[11rem]',

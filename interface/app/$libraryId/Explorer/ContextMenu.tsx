@@ -116,14 +116,16 @@ export default (props: PropsWithChildren) => {
 			<CM.SubMenu label="More actions..." icon={Plus}>
 				<CM.Item
 					onClick={() =>
-						store.locationId && generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+						store.locationId &&
+						generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
 					}
 					label="Regen Thumbnails"
 					icon={Image}
 				/>
 				<CM.Item
 					onClick={() =>
-						store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
+						store.locationId &&
+						objectValidator.mutate({ id: store.locationId, path: '' })
 					}
 					label="Generate Checksums"
 					icon={ShieldCheck}

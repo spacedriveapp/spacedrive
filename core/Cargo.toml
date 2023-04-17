@@ -10,12 +10,8 @@ rust-version = "1.68.1"
 
 [features]
 default = []
-mobile = [
-] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = [
-  "dep:ffmpeg-next",
-  "dep:sd-ffmpeg",
-] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = ["dep:ffmpeg-next", "dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 sync-messages = []
 
@@ -77,6 +73,7 @@ notify = { version = "5.0.0", default-features = false, features = [
   "macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
+serde-hashkey = "0.4.5"
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"

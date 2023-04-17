@@ -63,8 +63,10 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 				</View>
 				{/* Add Location */}
 				<Pressable onPress={() => importModalRef.current?.present()}>
-					<View style={tw`border-app-line/80 mt-1 rounded border border-dashed`}>
-						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>Add Location</Text>
+					<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
+						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>
+							Add Location
+						</Text>
 					</View>
 				</Pressable>
 			</CollapsibleView>

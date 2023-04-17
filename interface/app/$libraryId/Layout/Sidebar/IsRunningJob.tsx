@@ -3,11 +3,12 @@ import { Loader } from '@sd/ui';
 import { useLibraryQuery } from '~/../packages/client/src';
 
 export default () => {
-	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
+	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
+	const isRunningJob = runningJobs?.length !== undefined && runningJobs?.length > 0;
 
 	return isRunningJob ? (
 		<Loader className="h-[20px] w-[20px]" />
 	) : (
-		<CheckCircle className="w-5 h-5" />
+		<CheckCircle className="h-5 w-5" />
 	);
 };

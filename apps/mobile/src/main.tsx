@@ -40,9 +40,9 @@ globalThis.localStorage = {
 	length: _localStorage.size
 };
 
-/* 
+/*
 	https://github.com/facebook/hermes/issues/23
-	
+
 	We are using "Hermes" on Android & IOS, which for the current version (0.11),
 	IOS does not support the Intl fully so we need polyfill it.
 

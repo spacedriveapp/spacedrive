@@ -1,6 +1,11 @@
 use crate::{
-	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
-	object::preview::THUMBNAIL_CACHE_DIR_NAME, prisma::PrismaClient, sync::SyncManager,
+	api::CoreEvent,
+	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
+	location::{file_path_helper::LastFilePathIdManager, LocationManager},
+	node::NodeConfigManager,
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	prisma::PrismaClient,
+	sync::SyncManager,
 	NodeContext,
 };
 
@@ -29,6 +34,8 @@ pub struct Library {
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	pub key_manager: Arc<KeyManager>,
+	/// last id by location keeps track of the last id by location for the library
+	pub last_file_path_id_manager: Arc<LastFilePathIdManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
@@ -49,12 +56,19 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.clone().ingest(self, job).await;
-	}
-
-	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(job).await;
+	pub(crate) async fn spawn_job<SJob, Init>(
+		&self,
+		jobable: impl IntoJob<SJob>,
+	) -> Result<(), JobManagerError>
+	where
+		SJob: StatefulJob<Init = Init> + 'static,
+		Init: JobInitData + 'static,
+	{
+		self.node_context
+			.jobs
+			.clone()
+			.ingest(self, jobable.into_job())
+			.await
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {

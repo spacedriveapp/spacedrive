@@ -69,7 +69,11 @@ const StatItem = (props: StatItemProps) => {
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
-						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
+						<Skeleton
+							enableAnimation={true}
+							baseColor={'#21212e'}
+							highlightColor={'#13131a'}
+						/>
 					</div>
 				)}
 				<div
@@ -96,12 +100,12 @@ export const Component = () => {
 	overviewMounted = true;
 
 	return (
-		<div className="flex flex-col w-full h-screen">
+		<div className="flex h-screen w-full flex-col">
 			<ScreenHeading>Overview</ScreenHeading>
 			{/* STAT HEADER */}
 			<div className="flex w-full">
 				{/* STAT CONTAINER */}
-				<div className="flex h-20 -mb-1 overflow-hidden">
+				<div className="-mb-1 flex h-20 overflow-hidden">
 					{Object.entries(stats?.data || []).map(([key, value]) => {
 						if (!displayableStatItems.includes(key)) return null;
 						return (
@@ -116,7 +120,7 @@ export const Component = () => {
 				</div>
 				<div className="grow" />
 			</div>
-			<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
+			<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
 				<CategoryButton icon={Heart} category="Favorites" />
 				<CategoryButton icon={FileText} category="Documents" />
 				<CategoryButton icon={Camera} category="Movies" />
@@ -129,10 +133,10 @@ export const Component = () => {
 				<CategoryButton icon={Heart} category="Favorites" />
 			</div>
 			<Card className="text-ink-dull">
-				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
-				functional.
+				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
+				to be functional.
 			</Card>
-			<div className="flex w-full h-4 shrink-0" />
+			<div className="flex h-4 w-full shrink-0" />
 		</div>
 	);
 };
@@ -145,7 +149,7 @@ interface CategoryButtonProps {
 function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
 		<Card className="items-center !px-3">
-			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />
+			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
 				<p className="text-xs text-ink-faint">23,324 items</p>

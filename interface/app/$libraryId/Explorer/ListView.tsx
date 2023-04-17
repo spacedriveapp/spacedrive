@@ -182,7 +182,12 @@ export default () => {
 		const tableHeaderHeight = 34;
 		const tableEnd = virtualRows[virtualRows.length - 1]?.end || 0;
 		const padding =
-			scrollHeight - TOP_BAR_HEIGHT - tableHeaderHeight - paddingY - tableEnd - scrollBarWidth;
+			scrollHeight -
+			TOP_BAR_HEIGHT -
+			tableHeaderHeight -
+			paddingY -
+			tableEnd -
+			scrollBarWidth;
 		return padding > 0 ? padding : paddingY;
 	}, [virtualRows]);
 
@@ -195,7 +200,14 @@ export default () => {
 					return {
 						...sizing,
 						...(scrollWidth && nameWidth
-							? { Name: nameWidth + scrollWidth - paddingX * 2 - scrollBarWidth - tableLength }
+							? {
+									Name:
+										nameWidth +
+										scrollWidth -
+										paddingX * 2 -
+										scrollBarWidth -
+										tableLength
+							  }
 							: {})
 					};
 				});
@@ -233,7 +245,8 @@ export default () => {
 		const index = explorerStore.selectedRowIndex;
 		if (
 			explorerStore.showInspector &&
-			((lastSelectedIndex === -1 && index !== -1) || (lastSelectedIndex !== -1 && index === -1))
+			((lastSelectedIndex === -1 && index !== -1) ||
+				(lastSelectedIndex !== -1 && index === -1))
 		) {
 			handleResize();
 		}
@@ -258,7 +271,9 @@ export default () => {
 		(e) => {
 			e.preventDefault();
 			if (explorerStore.selectedRowIndex > 0) {
-				const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
+				const currentIndex = rows.findIndex(
+					(row) => row.index === explorerStore.selectedRowIndex
+				);
 				const newIndex = rows[currentIndex - 1]?.index;
 				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
 			}
@@ -275,7 +290,9 @@ export default () => {
 				explorerStore.selectedRowIndex !== -1 &&
 				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
 			) {
-				const currentIndex = rows.findIndex((row) => row.index === explorerStore.selectedRowIndex);
+				const currentIndex = rows.findIndex(
+					(row) => row.index === explorerStore.selectedRowIndex
+				);
 				const newIndex = rows[currentIndex + 1]?.index;
 				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
 			}
@@ -293,7 +310,11 @@ export default () => {
 				)}
 			>
 				{table.getHeaderGroups().map((headerGroup) => (
-					<div role="rowheader" key={headerGroup.id} className="flex border-b border-app-line/50">
+					<div
+						role="rowheader"
+						key={headerGroup.id}
+						className="flex border-b border-app-line/50"
+					>
 						{headerGroup.headers.map((header, i) => {
 							const size = header.column.getSize();
 							return (
@@ -313,7 +334,10 @@ export default () => {
 								>
 									{header.isPlaceholder ? null : (
 										<div className={clsx('flex items-center')}>
-											{flexRender(header.column.columnDef.header, header.getContext())}
+											{flexRender(
+												header.column.columnDef.header,
+												header.getContext()
+											)}
 											<div className="flex-1" />
 
 											{{
@@ -322,7 +346,8 @@ export default () => {
 											}[header.column.getIsSorted() as string] ?? null}
 
 											{(i !== headerGroup.headers.length - 1 ||
-												(i === headerGroup.headers.length - 1 && !locked)) && (
+												(i === headerGroup.headers.length - 1 &&
+													!locked)) && (
 												<div
 													onClick={(e) => e.stopPropagation()}
 													onMouseDown={(e) => {
@@ -348,7 +373,11 @@ export default () => {
 					const row = rows[virtualRow.index]!;
 					const selected = explorerStore.selectedRowIndex === row.index;
 					return (
-						<div key={row.id} className="flex pl-4 pr-3" style={{ height: `${virtualRow.size}px` }}>
+						<div
+							key={row.id}
+							className="flex pl-4 pr-3"
+							style={{ height: `${virtualRow.size}px` }}
+						>
 							<ListViewItem
 								row={row}
 								index={virtualRow.index}

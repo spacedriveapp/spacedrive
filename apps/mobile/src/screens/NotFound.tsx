@@ -15,7 +15,7 @@ export default function NotFoundScreen({ navigation }: RootStackScreenProps<'Not
 				}
 				style={tw`mt-4 py-4`}
 			>
-				<Text style={tw`text-ink-dull text-sm`}>Go to home screen!</Text>
+				<Text style={tw`text-sm text-ink-dull`}>Go to home screen!</Text>
 			</TouchableOpacity>
 		</View>
 	);

@@ -65,7 +65,7 @@ pub async fn context_menu_fs_info(
 ) -> Result<FsInfo, JobError> {
 	let path_data = db
 		.file_path()
-		.find_unique(file_path::id::equals(path_id))
+		.find_unique(file_path::location_id_id(location_id, path_id))
 		.include(file_path_with_object::include())
 		.exec()
 		.await?

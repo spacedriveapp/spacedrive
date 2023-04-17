@@ -1,4 +1,6 @@
+const path = require('node:path');
 module.exports = {
+	root: true,
 	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		ecmaFeatures: {
@@ -12,10 +14,11 @@ module.exports = {
 		'plugin:react/recommended',
 		'plugin:react-hooks/recommended',
 		'plugin:@typescript-eslint/recommended',
-		'prettier',
-		'turbo'
+		'turbo',
+		'plugin:editorconfig/all',
+		'plugin:prettier/recommended'
 	],
-	plugins: ['react'],
+	plugins: ['react', 'editorconfig'],
 	rules: {
 		'react/display-name': 'off',
 		'react/prop-types': 'off',
@@ -32,7 +35,14 @@ module.exports = {
 		'@typescript-eslint/no-empty-interface': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
 		'no-control-regex': 'off',
-		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs']
+		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs'],
+		'editorconfig/indent': 'off',
+		'turbo/no-undeclared-env-vars': [
+			'error',
+			{
+				cwd: path.resolve(path.join(__dirname, '..', '..', '..'))
+			}
+		]
 	},
 	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules'],
 	settings: {

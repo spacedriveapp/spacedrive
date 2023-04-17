@@ -49,7 +49,10 @@ export default () => {
 					if (masterPassword !== '') {
 						setMasterPassword('');
 						setSecretKey('');
-						unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
+						unlockKeyManager.mutate({
+							password: masterPassword,
+							secret_key: secretKey
+						});
 					}
 				}}
 			>

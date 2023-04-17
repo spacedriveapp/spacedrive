@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Alias } from 'vite';
 
-let pkgJsonCache = new Map();
+const pkgJsonCache = new Map();
 
 const resolver: Alias = {
 	find: /^(~\/.+)/,

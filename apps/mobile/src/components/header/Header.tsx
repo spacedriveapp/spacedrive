@@ -17,7 +17,7 @@ export default function Header() {
 
 	return (
 		<View
-			style={twStyle('border-app-line bg-app-overlay mx-4 rounded border', {
+			style={twStyle('mx-4 rounded border border-app-line bg-app-overlay', {
 				marginTop: top + 10
 			})}
 		>
@@ -38,7 +38,7 @@ export default function Header() {
 					style={tw`h-full flex-1 justify-center`}
 					onPress={() => navigation.navigate('Search')}
 				>
-					<Text style={tw`text-ink-dull text-sm font-medium`}>Search</Text>
+					<Text style={tw`text-sm font-medium text-ink-dull`}>Search</Text>
 				</Pressable>
 			</View>
 		</View>

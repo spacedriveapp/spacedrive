@@ -110,8 +110,8 @@ const EditLocationSettingsScreen = ({
 					)}
 				/>
 				<SettingsInputInfo>
-					The name of this Location, this is what will be displayed in the sidebar. Will not rename
-					the actual folder on disk.
+					The name of this Location, this is what will be displayed in the sidebar. Will
+					not rename the actual folder on disk.
 				</SettingsInputInfo>
 
 				<SettingsInputTitle style={tw`mt-3`}>Local Path</SettingsInputTitle>
