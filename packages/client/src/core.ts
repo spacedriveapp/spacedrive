@@ -99,12 +99,6 @@ export type CRDTOperation = { node: string, timestamp: number, id: string, typ: 
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
-/**
- *  ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
- *  This allows us to migrate breaking changes to the config format between Spacedrive releases.
- */
-export type ConfigMetadata = { version: string | null }
-
 export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export type EditLibraryArgs = { id: string, name: string | null, description: string | null }
@@ -177,7 +171,7 @@ export type LibraryArgs<T> = { library_id: string, arg: T }
 /**
  *  LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = ({ version: string | null }) & { name: string, description: string }
+export type LibraryConfig = { name: string, description: string }
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
 
@@ -213,9 +207,9 @@ export type Node = { id: number, pub_id: number[], name: string, platform: numbe
 /**
  *  NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
  */
-export type NodeConfig = ({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }
+export type NodeConfig = { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }
 
-export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }) & { data_path: string }
 
 /**
  *  This should be used for providing a nonce to encrypt/decrypt functions.
