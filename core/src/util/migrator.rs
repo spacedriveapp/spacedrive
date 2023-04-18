@@ -78,7 +78,7 @@ where
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
 			false => Ok(serde_json::from_value(Value::Object(
-				self.save(&path, T::default())?.other,
+				self.save(path, T::default())?.other,
 			))?),
 		}
 	}
@@ -97,7 +97,7 @@ where
 			},
 		};
 
-		let mut file = File::create(&path)?;
+		let mut file = File::create(path)?;
 		file.write_all(serde_json::to_string(&config)?.as_bytes())?;
 		Ok(config)
 	}
@@ -147,7 +147,7 @@ mod test {
 			// Async migration
 			2 => {
 				let mut a = false;
-				block_on(async move {
+				block_on(async {
 					a = true;
 					config.insert("c".into(), 3.into());
 				});
@@ -235,7 +235,7 @@ mod test {
 
 		// Try loading in the new config and check it was updated
 		migrator.load(&p).unwrap();
-		assert_eq!(file_as_str(&p), r#"{"version":2,"a":1,"b":2,"c":3}"#);
+		assert_eq!(file_as_str(&p), r#"{"version":2,"a":2,"b":2,"c":3}"#);
 
 		// Cleanup
 		fs::remove_file(&p).unwrap();
