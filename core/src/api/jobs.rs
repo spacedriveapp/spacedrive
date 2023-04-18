@@ -11,6 +11,7 @@ use crate::{
 use rspc::Type;
 use serde::Deserialize;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
 
@@ -22,6 +23,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getHistory", |t| {
 			t(|_, _: (), library| async move {
 				JobManager::get_history(&library).await.map_err(Into::into)
+			})
+		})
+		.library_mutation("clear", |t| {
+			t(|_, id: Uuid, library| async move {
+				JobManager::clear_job(id, &library)
+					.await
+					.map_err(Into::into)
 			})
 		})
 		.library_mutation("clearAll", |t| {

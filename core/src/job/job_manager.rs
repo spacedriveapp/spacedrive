@@ -195,6 +195,20 @@ impl JobManager {
 		Ok(())
 	}
 
+	pub async fn clear_job(id: Uuid, library: &Library) -> Result<(), JobManagerError> {
+		// unsure whether we should only delete jobs if marked as `JobStatus::Completed`?
+		// took inspiration from `clear_all_jobs` for now though
+		library
+			.db
+			.job()
+			.delete(job::id::equals(id.as_bytes().to_vec()))
+			.exec()
+			.await?;
+
+		invalidate_query!(library, "jobs.getHistory");
+		Ok(())
+	}
+
 	pub fn shutdown_tx(&self) -> Arc<broadcast::Sender<()>> {
 		Arc::clone(&self.shutdown_tx)
 	}
