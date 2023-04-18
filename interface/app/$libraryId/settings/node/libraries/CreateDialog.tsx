@@ -114,7 +114,7 @@ export default (props: UseDialogProps) => {
 			description="Libraries are a secure, on-device database. Your files remain where they are, the Library catalogs them and stores all Spacedrive related data."
 			ctaLabel={form.formState.isSubmitting ? 'Creating library...' : 'Create library'}
 		>
-			<div className="space-y-4">
+			<div className="mt-5 space-y-4">
 				<Input
 					{...form.register('name')}
 					label="Library name"
