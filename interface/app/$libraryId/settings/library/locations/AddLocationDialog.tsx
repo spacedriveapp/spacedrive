@@ -52,25 +52,17 @@ export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
 	const [remoteError, setRemoteError] = useState<null | RemoteErrorFormMessage>(null);
 
 	// This is required because indexRules is undefined on first render
-	const indexerRules = listIndexerRules.data;
-	const defaultValue = useMemo(
-		() => ({
-			path: path,
-			indexerRulesIds:
-				indexerRules?.filter((rule) => rule.default).map((rule) => rule.id) ?? []
-		}),
-		[indexerRules, path]
+	const indexerRulesIds = useMemo(
+		() => listIndexerRules.data?.filter((rule) => rule.default).map((rule) => rule.id) ?? [],
+		[listIndexerRules.data]
 	);
 
-	const form = useZodForm({
-		schema,
-		defaultValues: defaultValue
-	});
+	const form = useZodForm({ schema, defaultValues: { path, indexerRulesIds } });
 
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
-		if (!form.formState.isDirty) form.reset(defaultValue);
-	}, [form, defaultValue]);
+		if (!form.formState.isDirty) form.reset({ path, indexerRulesIds });
+	}, [form, path, indexerRulesIds]);
 
 	useEffect(() => {
 		// TODO: Instead of clearing the error on every change, we should just validate with backend again
