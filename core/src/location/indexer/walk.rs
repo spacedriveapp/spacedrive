@@ -64,7 +64,7 @@ type ToWalkEntry = (PathBuf, Option<bool>);
 pub(super) async fn walk(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	include_root: bool,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
@@ -91,7 +91,7 @@ pub(super) async fn walk(
 			(current_path, parent_dir_accepted_by_its_children),
 			&mut read_dir,
 			rules_per_kind,
-			&update_notifier,
+			&mut update_notifier,
 			&mut indexed_paths,
 			Some(&mut to_walk),
 		)
@@ -106,7 +106,7 @@ async fn inner_walk_single_dir(
 	(current_path, parent_dir_accepted_by_its_children): ToWalkEntry,
 	read_dir: &mut fs::ReadDir,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: &impl Fn(&Path, usize),
+	update_notifier: &mut impl FnMut(&Path, usize),
 	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
 	mut maybe_to_walk: Option<&mut VecDeque<(PathBuf, Option<bool>)>>,
 ) -> Result<(), IndexerError> {
@@ -387,7 +387,7 @@ async fn prepared_indexed_paths(
 pub(super) async fn walk_single_dir(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
 
@@ -399,7 +399,7 @@ pub(super) async fn walk_single_dir(
 		(root.clone(), None),
 		&mut read_dir,
 		rules_per_kind,
-		&update_notifier,
+		&mut update_notifier,
 		&mut indexed_paths,
 		None,
 	)
