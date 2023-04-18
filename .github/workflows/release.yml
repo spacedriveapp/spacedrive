@@ -20,6 +20,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Install pnpm dependencies
+        run: pnpm i --frozen-lockfile
+
       - name: Build
         uses: tauri-apps/tauri-action@dev
         env:
@@ -27,7 +30,6 @@ jobs:
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          tauriScript: pnpm tauri
 
       - name: Publish Artifacts
         uses: actions/upload-artifact@v3
