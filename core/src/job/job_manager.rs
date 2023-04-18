@@ -359,7 +359,6 @@ pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
-	SecondsElapsed(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -369,7 +368,8 @@ pub struct JobReport {
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
 	pub created_at: Option<DateTime<Utc>>,
-	pub updated_at: Option<DateTime<Utc>>,
+	pub started_at: Option<DateTime<Utc>>,
+	pub completed_at: Option<DateTime<Utc>>,
 
 	pub parent_id: Option<Uuid>,
 
@@ -379,8 +379,6 @@ pub struct JobReport {
 
 	pub message: String,
 	// pub percentage_complete: f64,
-	// #[ts(type = "string")] // TODO: Make this work with specta
-	pub seconds_elapsed: i32,
 }
 
 impl Display for JobReport {
@@ -403,7 +401,8 @@ impl From<job::Data> for JobReport {
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			created_at: Some(data.date_created.into()),
-			updated_at: Some(data.date_modified.into()),
+			started_at: data.date_started.map(|d| d.into()),
+			completed_at: data.date_completed.map(|d| d.into()),
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
@@ -412,7 +411,6 @@ impl From<job::Data> for JobReport {
 				})
 			}),
 			message: String::new(),
-			seconds_elapsed: data.seconds_elapsed,
 			// SAFETY: We created this uuid before
 			parent_id: data.parent_id.map(|id| Uuid::from_slice(&id).unwrap()),
 		}
@@ -425,7 +423,8 @@ impl JobReport {
 			id: uuid,
 			name,
 			created_at: None,
-			updated_at: None,
+			started_at: None,
+			completed_at: None,
 			status: JobStatus::Queued,
 			task_count: 0,
 			data: None,
@@ -433,7 +432,6 @@ impl JobReport {
 			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
-			seconds_elapsed: 0,
 		}
 	}
 
@@ -446,7 +444,6 @@ impl JobReport {
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
 		let now = Utc::now();
 		self.created_at = Some(now);
-		self.updated_at = Some(now);
 
 		library
 			.db
@@ -460,7 +457,7 @@ impl JobReport {
 					[
 						job::data::set(self.data.clone()),
 						job::date_created::set(now.into()),
-						job::date_modified::set(now.into()),
+						job::date_started::set(self.started_at.map(|d| d.into())),
 					],
 					[self
 						.parent_id
@@ -471,9 +468,8 @@ impl JobReport {
 			.await?;
 		Ok(())
 	}
+
 	pub async fn update(&mut self, library: &Library) -> Result<(), JobError> {
-		let now = Utc::now();
-		self.updated_at = Some(now);
 		library
 			.db
 			.job()
@@ -485,8 +481,8 @@ impl JobReport {
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
-					job::date_modified::set(now.into()),
-					job::seconds_elapsed::set(self.seconds_elapsed),
+					job::date_started::set(self.started_at.map(|v| v.into())),
+					job::date_completed::set(self.completed_at.map(|v| v.into())),
 				],
 			)
 			.exec()

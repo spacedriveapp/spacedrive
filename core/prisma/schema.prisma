@@ -367,8 +367,8 @@ model Job {
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
-    date_modified        DateTime @default(now())
-    seconds_elapsed      Int      @default(0)
+		date_started 			   DateTime? @default(now()) // Started execution
+		date_completed 		   DateTime? @default(now()) // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
