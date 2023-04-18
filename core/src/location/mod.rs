@@ -80,14 +80,12 @@ impl LocationCreateArgs {
 		}
 
 		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if metadata.has_library(library.id) {
-				// SAFETY: This unwrap is ok as we checked that we have this library_id
-				let old_path = metadata.location_path(library.id).unwrap().to_path_buf();
+			return if let Some(old_path) = metadata.location_path(library.id) {
 				if old_path == self.path {
 					Err(LocationError::LocationAlreadyExists(self.path))
 				} else {
 					Err(LocationError::NeedRelink {
-						old_path,
+						old_path: old_path.to_path_buf(),
 						new_path: self.path,
 					})
 				}
@@ -668,22 +666,31 @@ async fn check_nested_location(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
 ) -> Result<bool, QueryError> {
-	Ok(db
-		.location()
-		.count(vec![location::path::in_vec(
-			location_path
-				.as_ref()
-				.ancestors()
-				.skip(1) // skip the actual location_path, we only want the parents
-				.map(|p| {
-					p.to_str()
-						.map(str::to_string)
-						.expect("Found non-UTF-8 path")
-				})
-				.collect(),
-		)])
-		.exec()
-		.await? > 0)
+	let location_path = location_path.as_ref();
+
+	let (parents_count, children_count) = db
+		._batch((
+			db.location().count(vec![location::path::in_vec(
+				location_path
+					.ancestors()
+					.skip(1) // skip the actual location_path, we only want the parents
+					.map(|p| {
+						p.to_str()
+							.map(str::to_string)
+							.expect("Found non-UTF-8 path")
+					})
+					.collect(),
+			)]),
+			db.location().count(vec![location::path::starts_with(
+				location_path
+					.to_str()
+					.map(str::to_string)
+					.expect("Found non-UTF-8 path"),
+			)]),
+		))
+		.await?;
+
+	Ok(parents_count > 0 || children_count > 0)
 }
 
 // check if a path exists in our database at that location
