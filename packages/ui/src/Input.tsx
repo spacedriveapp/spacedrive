@@ -142,7 +142,6 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(props.buttonClassnames)}
-					tabIndex={-1}
 				>
 					<CurrentEyeIcon className="h-4 w-4" />
 				</Button>
