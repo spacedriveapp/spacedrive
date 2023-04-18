@@ -29,7 +29,7 @@ pub struct LibraryConfig {
 impl LibraryConfig {
 	/// read will read the configuration from disk and return it.
 	pub(super) fn read(file_dir: PathBuf) -> Result<LibraryConfig, LibraryManagerError> {
-		MIGRATOR.load(file_dir).map_err(Into::into)
+		MIGRATOR.load(&file_dir).map_err(Into::into)
 	}
 
 	/// save will write the configuration back to disk

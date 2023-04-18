@@ -66,7 +66,7 @@ impl NodeConfigManager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
 	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(
-			RwLock::new(MIGRATOR.load(Self::path(&data_path))?),
+			RwLock::new(MIGRATOR.load(&Self::path(&data_path))?),
 			data_path,
 		)))
 	}

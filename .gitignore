@@ -70,3 +70,4 @@ playwright-report
 dev.db-journal
 .build/
 .swiftpm
+migration_test
