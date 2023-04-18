@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+      - eng-481-update-server
+
+jobs:
+  desktop-main:
+    name: Desktop - Main (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build
+        uses: tauri-apps/tauri-action@dev
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: target/release/bundle
