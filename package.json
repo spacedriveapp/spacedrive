@@ -19,7 +19,7 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "turbo run typecheck",
+		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
 		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/dist/!(.gitignore)**\""
