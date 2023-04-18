@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -31,6 +31,9 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	#[cfg(target_os = "linux")]
+	let (tx, rx) = tokio::sync::mpsc::channel(1);
+
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
@@ -47,7 +50,7 @@ async fn main() -> tauri::Result<()> {
 			let endpoint = create_custom_uri_endpoint(node.clone());
 
 			#[cfg(target_os = "linux")]
-			let app = app_linux::setup(app, node.clone(), endpoint).await;
+			let app = app_linux::setup(app, rx, endpoint).await;
 
 			#[cfg(not(target_os = "linux"))]
 			let app = app.register_uri_scheme_protocol(
@@ -121,6 +124,10 @@ async fn main() -> tauri::Result<()> {
 			if let Some(node) = &node {
 				block_in_place(|| block_on(node.shutdown()));
 			}
+
+			#[cfg(target_os = "linux")]
+			block_in_place(|| block_on(tx.send(()))).ok();
+
 			app_handler.exit(0);
 		}
 	});

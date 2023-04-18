@@ -46,8 +46,8 @@ export default function OnboardingNewLibrary() {
 				<OnboardingImg src={Database} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
-					Libraries are a secure, on-device database. Your files remain where they are, the Library
-					catalogs them and stores all Spacedrive related data.
+					Libraries are a secure, on-device database. Your files remain where they are,
+					the Library catalogs them and stores all Spacedrive related data.
 				</OnboardingDescription>
 
 				{importMode ? (
@@ -55,7 +55,7 @@ export default function OnboardingNewLibrary() {
 						<Button onClick={handleImport} variant="accent" size="sm">
 							Import
 						</Button>
-						<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
+						<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
 						<Button onClick={() => setImportMode(false)} variant="outline" size="sm">
 							Create new library
 						</Button>
@@ -64,7 +64,7 @@ export default function OnboardingNewLibrary() {
 					<>
 						<Input
 							{...form.register('name')}
-							size="md"
+							size="lg"
 							autoFocus
 							className="mt-6 w-[300px]"
 							placeholder={'e.g. "James\' Library"'}
@@ -74,7 +74,7 @@ export default function OnboardingNewLibrary() {
 							<Button type="submit" variant="accent" size="sm">
 								New library
 							</Button>
-							<span className="text-ink-faint px-2 text-xs font-bold">OR</span>
+							<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
 							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
 								Import library
 							</Button>

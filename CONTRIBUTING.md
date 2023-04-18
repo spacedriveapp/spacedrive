@@ -51,14 +51,17 @@ To quickly run only the desktop app after `prep` you can use:
 
 - `pnpm desktop dev`
 
-To run the landing page
+  If necessary, react-devtools can be launched using `pnpm react-devtools`.
+  However, it must be executed before the desktop app for it to connect.
+
+To run the landing page:
 
 - `pnpm web dev` - runs the web app for the embed
 - `pnpm landing dev`
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.67.0**
+- Rust version: **1.68.2**
 - Node version: **18**
 
 Be sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to make sure your code is a similar style to ours.

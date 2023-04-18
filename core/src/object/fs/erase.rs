@@ -1,4 +1,9 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+};
 
 use std::{hash::Hash, path::PathBuf};
 
@@ -42,7 +47,9 @@ impl From<FsInfo> for FileEraserJobStep {
 	}
 }
 
-pub const ERASE_JOB_NAME: &str = "file_eraser";
+impl JobInitData for FileEraserJobInit {
+	type Job = FileEraserJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
@@ -50,8 +57,10 @@ impl StatefulJob for FileEraserJob {
 	type Data = FsInfo;
 	type Step = FileEraserJobStep;
 
-	fn name(&self) -> &'static str {
-		ERASE_JOB_NAME
+	const NAME: &'static str = "file_eraser";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -118,7 +127,7 @@ impl StatefulJob for FileEraserJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		if let Some(ref info) = state.data {
 			if info.path_data.is_dir {
 				tokio::fs::remove_dir_all(&info.fs_path).await?;
@@ -126,6 +135,8 @@ impl StatefulJob for FileEraserJob {
 		} else {
 			warn!("missing job state, unable to fully finalise erase job");
 		}
+
+		invalidate_query!(ctx.library, "locations.getExplorerData");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

@@ -75,7 +75,7 @@ export default function NavBar() {
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
-							<span className="bg-primary/80 absolute -top-1 -right-2 rounded-md px-[5px] text-xs">
+							<span className="absolute -top-1 -right-2 rounded-md bg-primary/80 px-[5px] text-xs">
 								{` ${positions.length} `}
 							</span>
 						) : null}
@@ -98,7 +98,10 @@ export default function NavBar() {
 						>
 							Repository
 						</Dropdown.Item>
-						<Dropdown.Item icon={Discord} onClick={redirect('https://discord.gg/gTaF2Z44f5')}>
+						<Dropdown.Item
+							icon={Discord}
+							onClick={redirect('https://discord.gg/gTaF2Z44f5')}
+						>
 							Join Discord
 						</Dropdown.Item>
 					</Dropdown.Section>
@@ -106,7 +109,10 @@ export default function NavBar() {
 						<Dropdown.Item icon={MapPin} {...link('/roadmap')}>
 							Roadmap
 						</Dropdown.Item>
-						<Dropdown.Item icon={Book} {...link('/docs/product/getting-started/introduction')}>
+						<Dropdown.Item
+							icon={Book}
+							{...link('/docs/product/getting-started/introduction')}
+						>
 							Docs
 						</Dropdown.Item>
 						<Dropdown.Item icon={User} {...link('/team')}>
@@ -118,7 +124,7 @@ export default function NavBar() {
 						<Dropdown.Item icon={Academia} {...link('/careers')}>
 							Careers
 							{positions.length > 0 ? (
-								<span className="bg-primary ml-2 rounded-md px-[5px] py-px text-xs">
+								<span className="ml-2 rounded-md bg-primary px-[5px] py-px text-xs">
 									{positions.length}
 								</span>
 							) : null}
@@ -130,7 +136,11 @@ export default function NavBar() {
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />
 					</a>
-					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
+					<a
+						href="https://github.com/spacedriveapp/spacedrive"
+						target="_blank"
+						rel="noreferrer"
+					>
 						<Github className="text-white" />
 					</a>
 				</div>

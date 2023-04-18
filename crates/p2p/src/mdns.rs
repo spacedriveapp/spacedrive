@@ -9,12 +9,12 @@ use std::{
 
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::{
-	sync::RwLock,
+	sync::{mpsc, RwLock},
 	time::{sleep_until, Instant, Sleep},
 };
-use tracing::{debug, error, warn};
+use tracing::{error, info, warn};
 
-use crate::{AsyncFn, DiscoveredPeer, Event, Manager, Metadata, PeerId};
+use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -27,37 +27,36 @@ pub struct MdnsState<TMetadata: Metadata> {
 }
 
 /// TODO
-pub struct Mdns<TMetadata, TMetadataFn>
+pub struct Mdns<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
 	// used to ignore events from our own mdns advertisement
 	peer_id: PeerId,
-	fn_get_metadata: TMetadataFn,
+	metadata_manager: Arc<MetadataManager<TMetadata>>,
 	mdns_daemon: ServiceDaemon,
 	mdns_service_receiver: flume::Receiver<ServiceEvent>,
 	service_name: String,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
+	trigger_advertisement: mpsc::UnboundedReceiver<()>,
 	state: Arc<MdnsState<TMetadata>>,
 }
 
-impl<TMetadata, TMetadataFn> Mdns<TMetadata, TMetadataFn>
+impl<TMetadata> Mdns<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
-	pub fn new(
+	pub async fn new(
 		application_name: &'static str,
 		peer_id: PeerId,
-		fn_get_metadata: TMetadataFn,
-	) -> Result<(Self, Arc<MdnsState<TMetadata>>), mdns_sd::Error>
-	where
-		TMetadataFn: AsyncFn<Output = TMetadata>,
-	{
+		metadata_manager: Arc<MetadataManager<TMetadata>>,
+	) -> Result<(Self, Arc<MdnsState<TMetadata>>), mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
 		let service_name = format!("_{}._udp.local.", application_name);
 		let mdns_service_receiver = mdns_daemon.browse(&service_name)?;
+		let (advertise_tx, advertise_rx) = mpsc::unbounded_channel();
+
+		metadata_manager.set_tx(advertise_tx).await;
 
 		let state = Arc::new(MdnsState {
 			discovered: RwLock::new(Default::default()),
@@ -66,11 +65,12 @@ where
 		Ok((
 			Self {
 				peer_id,
-				fn_get_metadata,
+				metadata_manager,
 				mdns_daemon,
 				mdns_service_receiver,
 				service_name,
 				next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
+				trigger_advertisement: advertise_rx,
 				state: state.clone(),
 			},
 			state,
@@ -84,7 +84,7 @@ where
 
 	/// Do an mdns advertisement to the network.
 	async fn advertise(&mut self) {
-		let metadata = (self.fn_get_metadata)().await.to_hashmap();
+		let metadata = self.metadata_manager.get().to_hashmap();
 
 		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vec<Ip>, port)>`
 		let mut services = HashMap::<u16, ServiceInfo>::new();
@@ -119,7 +119,7 @@ where
 		}
 
 		for (_, service) in services.into_iter() {
-			debug!("advertising mdns service: {:?}", service);
+			info!("advertising mdns service: {:?}", service);
 			match self.mdns_daemon.register(service) {
 				Ok(_) => {}
 				Err(err) => warn!("error registering mdns service: {}", err),
@@ -134,6 +134,7 @@ where
 	pub async fn poll(&mut self, manager: &Arc<Manager<TMetadata>>) -> Option<Event<TMetadata>> {
 		tokio::select! {
 			_ = &mut self.next_mdns_advertisement => self.advertise().await,
+			_ = self.trigger_advertisement.recv() => self.advertise().await,
 			event = self.mdns_service_receiver.recv_async() => {
 				let event = event.unwrap(); // TODO: Error handling
 				match event {
@@ -255,5 +256,28 @@ where
 			self.next_mdns_advertisement =
 				Box::pin(sleep_until(Instant::now() + Duration::from_millis(200)));
 		}
+	}
+
+	pub async fn shutdown(&self) {
+		match self
+			.mdns_daemon
+			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
+			.map(|chan| chan.recv())
+		{
+			Ok(Ok(_)) => {}
+			Ok(Err(err)) => {
+				warn!(
+					"shutdown error recieving shutdown status from mdns service: {}",
+					err
+				);
+			}
+			Err(err) => {
+				warn!("shutdown error unregistering mdns service: {}", err);
+			}
+		}
+
+		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
+			error!("shutdown error shutting down mdns daemon: {}", err);
+		});
 	}
 }

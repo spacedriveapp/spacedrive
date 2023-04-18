@@ -4,10 +4,9 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[], media_data: MediaData | null } | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, pub_id: number[], kind: number, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, file_paths: FilePath[], media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
@@ -39,6 +38,7 @@ export type Procedures = {
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
@@ -77,7 +77,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
-        { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
+        { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -98,12 +98,6 @@ export type BuildInfo = { version: string, commit: string }
 export type CRDTOperation = { node: string, timestamp: number, id: string, typ: CRDTOperationType }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
-
-/**
- *  ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
- *  This allows us to migrate breaking changes to the config format between Spacedrive releases.
- */
-export type ConfigMetadata = { version: string | null }
 
 export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
@@ -134,7 +128,7 @@ export type FileEncryptorJobInit = { location_id: number, path_id: number, key_u
 
 export type FileEraserJobInit = { location_id: number, path_id: number, passes: string }
 
-export type FilePath = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
+export type FilePath = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, size_in_bytes: string, inode: number[], device: number[], object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
 export type GenerateThumbsForLocationArgs = { id: number, path: string }
 
@@ -147,7 +141,7 @@ export type HashingAlgorithm = { name: "Argon2id", params: Params } | { name: "B
 
 export type IdentifyUniqueFilesArgs = { id: number, path: string }
 
-export type IndexerRule = { id: number, kind: number, name: string, parameters: number[], date_created: string, date_modified: string }
+export type IndexerRule = { id: number, kind: number, name: string, default: boolean, parameters: number[], date_created: string, date_modified: string }
 
 /**
  *  `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
@@ -161,9 +155,9 @@ export type IndexerRule = { id: number, kind: number, name: string, parameters: 
  */
 export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
 
-export type InvalidateOperationEvent = { key: string, arg: any }
+export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 
-export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
+export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, created_at: string | null, started_at: string | null, completed_at: string | null, parent_id: string | null, status: JobStatus, task_count: number, completed_task_count: number, message: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
@@ -177,7 +171,7 @@ export type LibraryArgs<T> = { library_id: string, arg: T }
 /**
  *  LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = ({ version: string | null }) & { name: string, description: string }
+export type LibraryConfig = { name: string, description: string }
 
 export type LibraryConfigWrapped = { uuid: string, config: LibraryConfig }
 
@@ -213,9 +207,9 @@ export type Node = { id: number, pub_id: number[], name: string, platform: numbe
 /**
  *  NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
  */
-export type NodeConfig = ({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }
+export type NodeConfig = { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }
 
-export type NodeState = (({ version: string | null }) & { id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string, name: string, p2p_port: number | null, p2p_email: string | null, p2p_img_url: string | null }) & { data_path: string }
 
 /**
  *  This should be used for providing a nonce to encrypt/decrypt functions.
@@ -224,7 +218,7 @@ export type NodeState = (({ version: string | null }) & { id: string, name: stri
  */
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
-export type Object = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+export type Object = { id: number, pub_id: number[], kind: number, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string }
 
 export type ObjectValidatorArgs = { id: number, path: string }
 
@@ -257,6 +251,8 @@ export type PeerMetadata = { name: string, operating_system: OperatingSystem | n
 export type RelationOperation = { relation_item: string, relation_group: string, relation: string, data: RelationOperationData }
 
 export type RelationOperationData = "Create" | { Update: { field: string, value: any } } | "Delete"
+
+export type RenameFileArgs = { location_id: number, file_name: string, new_file_name: string }
 
 export type RestoreBackupArgs = { password: string, secret_key: string, path: string }
 
@@ -316,8 +312,8 @@ export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 
 export type Volume = { name: string, mount_point: string, total_capacity: string, available_capacity: string, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
-export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
+export type file_path_with_object = { id: number, is_dir: boolean, cas_id: string | null, integrity_checksum: string | null, location_id: number, materialized_path: string, name: string, extension: string, size_in_bytes: string, inode: number[], device: number[], object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
 
 export type location_with_indexer_rules = { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, indexer_rules: { indexer_rule: IndexerRule }[] }
 
-export type object_with_file_paths = { id: number, pub_id: number[], name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: FilePath[] }
+export type object_with_file_paths = { id: number, pub_id: number[], kind: number, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, file_paths: FilePath[] }

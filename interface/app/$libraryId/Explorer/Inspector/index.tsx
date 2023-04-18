@@ -2,17 +2,20 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
 	ExplorerContext,
 	ExplorerItem,
 	ObjectKind,
 	formatBytes,
-	isObject,
 	useLibraryQuery
 } from '@sd/client';
-import { Button, Divider, Tooltip, tw } from '@sd/ui';
+import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import { useScrolled } from '~/hooks/useScrolled';
+import { TOP_BAR_HEIGHT } from '../../TopBar';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
+import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -30,14 +33,18 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends ComponentProps<'div'> {
+interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
+	onScroll?: (scrolled: boolean) => void;
 }
 
-export const Inspector = ({ data, context, ...elementProps }: Props) => {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const filePathData = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
+export const Inspector = ({ data, context, onScroll, ...elementProps }: Props) => {
+	const objectData = data ? getItemObject(data) : null;
+	const filePathData = data ? getItemFilePath(data) : null;
+
+	const ref = useRef<HTMLDivElement>(null);
+	useScrolled(ref, 5, onScroll);
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -67,7 +74,9 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll z-10 mt-[-50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
+			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pl-1.5 pr-1 pb-4"
+			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
+			ref={ref}
 		>
 			{data && (
 				<>
@@ -76,12 +85,12 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
 						)}
 					>
-						<FileThumb size={240} data={data} />
+						<FileThumb loadOriginal size={240} data={data} />
 					</div>
-					<div className="bg-app-box shadow-app-shade/10 border-app-line flex w-full select-text flex-col overflow-hidden rounded-lg border py-0.5">
+					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
-							{item?.name}
-							{item?.extension && `.${item.extension}`}
+							{filePathData?.name}
+							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
 						{objectData && (
 							<div className="mx-3 mt-1 mb-0.5 flex flex-row space-x-0.5">
@@ -110,19 +119,37 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 						<Divider />
 						<MetaContainer>
-							<div className="flex flex-wrap gap-1">
-								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{item?.extension && <InfoPill>{item.extension}</InfoPill>}
+							<div className="flex flex-wrap gap-1 overflow-hidden">
+								<InfoPill>
+									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+								</InfoPill>
+								{filePathData?.extension && (
+									<InfoPill>{filePathData.extension}</InfoPill>
+								)}
 								{tags?.data?.map((tag) => (
-									<InfoPill
-										className="!text-white"
+									<Tooltip
 										key={tag.id}
-										style={{ backgroundColor: tag.color + 'CC' }}
+										label={tag.name || ''}
+										className="flex overflow-hidden"
 									>
-										{tag.name}
-									</InfoPill>
+										<InfoPill
+											className="truncate !text-white"
+											style={{ backgroundColor: tag.color + 'CC' }}
+										>
+											{tag.name}
+										</InfoPill>
+									</Tooltip>
 								))}
-								<PlaceholderPill>Add Tag</PlaceholderPill>
+								{objectData?.id && (
+									<DropdownMenu.Root
+										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+										side="left"
+										sideOffset={5}
+										alignOffset={-10}
+									>
+										<AssignTagMenuItems objectId={objectData.id} />
+									</DropdownMenu.Root>
+								)}
 							</div>
 						</MetaContainer>
 						<Divider />
@@ -130,13 +157,17 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							<MetaTextLine>
 								<InspectorIcon component={Cube} />
 								<span className="mr-1.5">Size</span>
-								<MetaValue>{formatBytes(Number(objectData?.size_in_bytes || 0))}</MetaValue>
+								<MetaValue>
+									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+								</MetaValue>
 							</MetaTextLine>
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+									<MetaValue>
+										{fullObjectData.data.media_data.duration_seconds}
+									</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -146,14 +177,18 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>{dayjs(item?.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(item?.date_created).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
 									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>{dayjs(item?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 						</MetaContainer>
@@ -174,8 +209,12 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+												<MetaKeyName className="mr-1.5">
+													Checksum
+												</MetaKeyName>
+												<MetaValue>
+													{filePathData?.integrity_checksum}
+												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}
@@ -183,7 +222,9 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										<Tooltip label={pub_id || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaKeyName className="mr-1.5">
+													Object ID
+												</MetaKeyName>
 												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>

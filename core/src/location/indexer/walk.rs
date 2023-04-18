@@ -1,10 +1,18 @@
-use chrono::{DateTime, Utc};
+use crate::location::file_path_helper::{FilePathMetadata, MetadataExt};
+
+#[cfg(target_family = "unix")]
+use crate::location::file_path_helper::get_inode_and_device;
+
+#[cfg(target_family = "windows")]
+use crate::location::file_path_helper::get_inode_and_device_from_path;
+
 use std::{
 	cmp::Ordering,
 	collections::{HashMap, VecDeque},
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 };
+
 use tokio::fs;
 use tracing::{error, trace};
 
@@ -19,7 +27,7 @@ use super::{
 pub(super) struct WalkEntry {
 	pub(super) path: PathBuf,
 	pub(super) is_dir: bool,
-	pub(super) created_at: DateTime<Utc>,
+	pub(super) metadata: FilePathMetadata,
 }
 
 impl PartialEq for WalkEntry {
@@ -56,7 +64,7 @@ type ToWalkEntry = (PathBuf, Option<bool>);
 pub(super) async fn walk(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	include_root: bool,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
@@ -83,7 +91,7 @@ pub(super) async fn walk(
 			(current_path, parent_dir_accepted_by_its_children),
 			&mut read_dir,
 			rules_per_kind,
-			&update_notifier,
+			&mut update_notifier,
 			&mut indexed_paths,
 			Some(&mut to_walk),
 		)
@@ -98,7 +106,7 @@ async fn inner_walk_single_dir(
 	(current_path, parent_dir_accepted_by_its_children): ToWalkEntry,
 	read_dir: &mut fs::ReadDir,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: &impl Fn(&Path, usize),
+	update_notifier: &mut impl FnMut(&Path, usize),
 	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
 	mut maybe_to_walk: Option<&mut VecDeque<(PathBuf, Option<bool>)>>,
 ) -> Result<(), IndexerError> {
@@ -137,7 +145,7 @@ async fn inner_walk_single_dir(
 		);
 		if let Some(reject_rules) = rules_per_kind.get(&RuleKind::RejectFilesByGlob) {
 			for reject_rule in reject_rules {
-				// It's ok to unwrap here, reject rules are infallible
+				// SAFETY: It's ok to unwrap here, reject rules of this kind are infallible
 				if !reject_rule.apply(&current_path).await.unwrap() {
 					trace!(
 						"Path {} rejected by rule {}",
@@ -157,6 +165,27 @@ async fn inner_walk_single_dir(
 		}
 
 		let is_dir = metadata.is_dir();
+
+		let (inode, device) = match {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode_and_device(&metadata)
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_and_device_from_path(&current_path).await
+			}
+		} {
+			Ok(inode_and_device) => inode_and_device,
+			Err(e) => {
+				error!(
+					"Error getting inode and device for {}: {e}",
+					current_path.display(),
+				);
+				continue 'entries;
+			}
+		};
 
 		if is_dir {
 			// If it is a directory, first we check if we must reject it and its children entirely
@@ -258,7 +287,13 @@ async fn inner_walk_single_dir(
 				WalkEntry {
 					path: current_path.clone(),
 					is_dir,
-					created_at: metadata.created()?.into(),
+					metadata: FilePathMetadata {
+						inode,
+						device,
+						size_in_bytes: metadata.len(),
+						created_at: metadata.created_or_now().into(),
+						modified_at: metadata.modified_or_now().into(),
+					},
 				},
 			);
 
@@ -270,12 +305,31 @@ async fn inner_walk_single_dir(
 			{
 				trace!("Indexing ancestor {}", ancestor.display());
 				if !indexed_paths.contains_key(ancestor) {
+					let metadata = fs::metadata(ancestor).await?;
+					let (inode, device) = {
+						#[cfg(target_family = "unix")]
+						{
+							get_inode_and_device(&metadata)?
+						}
+
+						#[cfg(target_family = "windows")]
+						{
+							get_inode_and_device_from_path(ancestor).await?
+						}
+					};
+
 					indexed_paths.insert(
 						ancestor.to_path_buf(),
 						WalkEntry {
 							path: ancestor.to_path_buf(),
 							is_dir: true,
-							created_at: fs::metadata(ancestor).await?.created()?.into(),
+							metadata: FilePathMetadata {
+								inode,
+								device,
+								size_in_bytes: metadata.len(),
+								created_at: metadata.created_or_now().into(),
+								modified_at: metadata.modified_or_now().into(),
+							},
 						},
 					);
 				} else {
@@ -299,11 +353,28 @@ async fn prepared_indexed_paths(
 
 	if include_root {
 		// Also adding the root location path
-		let root_created_at = fs::metadata(&root).await?.created()?.into();
+		let metadata = fs::metadata(&root).await?;
+		let (inode, device) = {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode_and_device(&metadata)?
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_and_device_from_path(&root).await?
+			}
+		};
 		indexed_paths.push(WalkEntry {
 			path: root,
 			is_dir: true,
-			created_at: root_created_at,
+			metadata: FilePathMetadata {
+				inode,
+				device,
+				size_in_bytes: metadata.len(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
+			},
 		});
 	}
 
@@ -316,7 +387,7 @@ async fn prepared_indexed_paths(
 pub(super) async fn walk_single_dir(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
 
@@ -328,7 +399,7 @@ pub(super) async fn walk_single_dir(
 		(root.clone(), None),
 		&mut read_dir,
 		rules_per_kind,
-		&update_notifier,
+		&mut update_notifier,
 		&mut indexed_paths,
 		None,
 	)
@@ -410,33 +481,39 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let any_datetime = Utc::now();
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -456,15 +533,21 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let any_datetime = Utc::now();
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -474,7 +557,10 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptFilesByGlob,
 				"only photos".to_string(),
-				ParametersPerKind::AcceptFilesByGlob(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()),
+				false,
+				ParametersPerKind::AcceptFilesByGlob(vec![
+					Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()
+				]),
 			)],
 		)]
 		.into_iter()
@@ -495,28 +581,34 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let any_datetime = Utc::now();
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -526,6 +618,7 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
 				"git repos".to_string(),
+				false,
 				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				),
@@ -549,22 +642,28 @@ mod tests {
 		let root = prepare_location().await;
 		let root_path = root.path();
 
-		let any_datetime = Utc::now();
+		let metadata = FilePathMetadata {
+			inode: 0,
+			device: 0,
+			size_in_bytes: 0,
+			created_at: Utc::now(),
+			modified_at: Utc::now(),
+		};
 
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, created_at: any_datetime },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, created_at: any_datetime },
+			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
+			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
@@ -575,6 +674,7 @@ mod tests {
 				vec![IndexerRule::new(
 					RuleKind::AcceptIfChildrenDirectoriesArePresent,
 					"git repos".to_string(),
+					false,
 					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 						[".git".to_string()].into_iter().collect(),
 					),
@@ -586,16 +686,20 @@ mod tests {
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject node_modules".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/node_modules/*,**/node_modules}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/node_modules/*,**/node_modules}",
+						)
+						.unwrap()]),
 					),
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject rust build dir".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/target/*,**/target}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/target/*,**/target}",
+						)
+						.unwrap()]),
 					),
 				],
 			),

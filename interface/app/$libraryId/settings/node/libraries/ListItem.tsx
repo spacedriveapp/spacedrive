@@ -18,7 +18,7 @@ export default (props: Props) => (
 				{props.library.config.name}
 				{props.current && <Pill>Current</Pill>}
 			</h3>
-			<p className="text-ink-dull mt-0.5 text-xs">{props.library.uuid}</p>
+			<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 		</div>
 		<div className="flex flex-row items-center space-x-2">
 			<Button className="!p-1.5" variant="gray">
@@ -26,7 +26,11 @@ export default (props: Props) => (
 					<Database className="h-4 w-4" />
 				</Tooltip>
 			</Button>
-			<ButtonLink className="!p-1.5" to="../../library/general" variant="gray">
+			<ButtonLink
+				className="!p-1.5"
+				to={`/${props.library.uuid}/settings/library/general`}
+				variant="gray"
+			>
 				<Tooltip label="Edit Library">
 					<Pencil className="h-4 w-4" />
 				</Tooltip>
@@ -35,7 +39,9 @@ export default (props: Props) => (
 				className="!p-1.5"
 				variant="gray"
 				onClick={() => {
-					dialogManager.create((dp) => <DeleteDialog {...dp} libraryUuid={props.library.uuid} />);
+					dialogManager.create((dp) => (
+						<DeleteDialog {...dp} libraryUuid={props.library.uuid} />
+					));
 				}}
 			>
 				<Tooltip label="Delete Library">

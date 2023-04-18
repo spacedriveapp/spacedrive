@@ -22,8 +22,8 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(
-					'bg-app-box inline-flex items-center border py-0.5 pl-2',
-					'border-app-line shadow-app-shade/10 rounded-md shadow outline-none',
+					'inline-flex items-center border bg-app-box py-0.5 pl-2',
+					'rounded-md border-app-line shadow shadow-app-shade/10 outline-none',
 					props.className
 				)}
 			>
@@ -32,12 +32,12 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 				</span>
 
 				<SelectPrimitive.Icon>
-					<ChevronDouble className="text-ink-dull mr-0.5 h-3 w-3" />
+					<ChevronDouble className="mr-0.5 h-3 w-3 text-ink-dull" />
 				</SelectPrimitive.Icon>
 			</SelectPrimitive.Trigger>
 
 			<SelectPrimitive.Portal className="relative">
-				<SelectPrimitive.Content className="bg-app-box border-app-line shadow-app-shade/20 absolute z-50 w-full rounded-md border p-1 shadow-2xl ">
+				<SelectPrimitive.Content className="absolute z-50 w-full rounded-md border border-app-line bg-app-box p-1 shadow-2xl shadow-app-shade/20 ">
 					<SelectPrimitive.ScrollUpButton className="hidden ">
 						<CaretDown />
 					</SelectPrimitive.ScrollUpButton>
@@ -49,14 +49,15 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 	);
 }
 
-export function SelectOption(props: PropsWithChildren<{ value: string }>) {
+export function SelectOption(props: PropsWithChildren<{ value: string; default?: boolean }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(
 				'relative flex items-center px-1 py-0.5 pl-6 pr-4 text-xs',
-				'font-sm text-ink cursor-pointer select-none rounded',
-				'radix-disabled:opacity-50 hover:bg-accent hover:text-white focus:outline-none '
+				'font-sm cursor-pointer select-none rounded text-ink',
+				'hover:bg-accent hover:text-white focus:outline-none radix-disabled:opacity-50 '
 			)}
+			defaultChecked={props.default || false}
 			value={props.value}
 		>
 			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>

@@ -1,4 +1,4 @@
-use crate::library::Library;
+use crate::{job::JobManagerError, library::Library};
 
 use std::{
 	collections::BTreeSet,
@@ -19,6 +19,7 @@ use tracing::{debug, error};
 
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
 use super::{file_path_helper::FilePathError, LocationId};
 
@@ -85,8 +86,12 @@ pub enum LocationManagerError {
 	#[error("Failed to stop or reinit a watcher: {reason}")]
 	FailedToStopOrReinitWatcher { reason: String },
 
-	#[error("Location missing local path: <id='{0}'>")]
-	LocationMissingLocalPath(LocationId),
+	#[error("Missing location from database: <id='{0}'>")]
+	MissingLocation(LocationId),
+
+	#[error("Non local location: <id='{0}'>")]
+	NonLocalLocation(LocationId),
+
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
 	#[error("Database error: {0}")]
@@ -95,6 +100,10 @@ pub enum LocationManagerError {
 	IOError(#[from] io::Error),
 	#[error("File path related error (error: {0})")]
 	FilePathError(#[from] FilePathError),
+	#[error("Corrupted location pub_id on database: (error: {0})")]
+	CorruptedLocationPubId(#[from] uuid::Error),
+	#[error("Job Manager error: (error: {0})")]
+	JobManager(#[from] JobManagerError),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
@@ -324,7 +333,13 @@ impl LocationManager {
 						// To add a new location
 						ManagementMessageAction::Add => {
 							if let Some(location) = get_location(location_id, &library).await {
-								let is_online = check_online(&location, &library).await;
+								let is_online = match check_online(&location, &library).await {
+									Ok(is_online) => is_online,
+									Err(e) => {
+										error!("Error while checking online status of location {location_id}: {e}");
+										continue;
+									}
+								};
 								let _ = response_tx.send(
 									LocationWatcher::new(location, library.clone())
 										.await
@@ -426,7 +441,15 @@ impl LocationManager {
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
 						if location.node_id == library.node_local_id {
-							if check_online(&location, &library).await
+							let is_online = match check_online(&location, &library).await {
+								Ok(is_online) => is_online,
+								Err(e) => {
+									error!("Error while checking online status of location {location_id}: {e}");
+									continue;
+								}
+							};
+
+							if is_online
 								&& !forced_unwatch.contains(&key)
 							{
 								watch_location(
@@ -449,7 +472,7 @@ impl LocationManager {
 								location_id,
 								library.id,
 								"Dropping location from location manager, because \
-								we don't have a `local_path` anymore",
+								it isn't a location in the current node",
 								&mut locations_watched,
 								&mut locations_unwatched
 							);
@@ -477,9 +500,9 @@ impl LocationManager {
 		Ok(())
 	}
 
-	pub async fn is_online(&self, id: &Vec<u8>) -> bool {
+	pub async fn is_online(&self, id: &Uuid) -> bool {
 		let online_locations = self.online_locations.read().await;
-		online_locations.contains(id)
+		online_locations.iter().any(|v| v == id.as_bytes())
 	}
 
 	pub async fn get_online(&self) -> OnlineLocations {
@@ -490,14 +513,17 @@ impl LocationManager {
 		self.online_tx.send(self.get_online().await).ok();
 	}
 
-	pub async fn add_online(&self, id: &[u8]) {
-		self.online_locations.write().await.insert(id.into());
+	pub async fn add_online(&self, id: Uuid) {
+		self.online_locations
+			.write()
+			.await
+			.insert(id.as_bytes().to_vec());
 		self.broadcast_online().await;
 	}
 
-	pub async fn remove_online(&self, id: &Vec<u8>) {
+	pub async fn remove_online(&self, id: &Uuid) {
 		let mut online_locations = self.online_locations.write().await;
-		online_locations.remove(id);
+		online_locations.retain(|v| v != id.as_bytes());
 		self.broadcast_online().await;
 	}
 

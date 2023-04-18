@@ -1,31 +1,23 @@
 use crate::{
 	invalidate_query,
-	job::{worker::Worker, DynJob, Job, JobError},
+	job::{worker::Worker, DynJob, Job, JobError, StatefulJob},
 	library::Library,
-	location::indexer::{
-		indexer_job::{IndexerJob, INDEXER_JOB_NAME},
-		shallow_indexer_job::{ShallowIndexerJob, SHALLOW_INDEXER_JOB_NAME},
-	},
+	location::indexer::{indexer_job::IndexerJob, shallow_indexer_job::ShallowIndexerJob},
 	object::{
 		file_identifier::{
-			file_identifier_job::{FileIdentifierJob, FILE_IDENTIFIER_JOB_NAME},
-			shallow_file_identifier_job::{
-				ShallowFileIdentifierJob, SHALLOW_FILE_IDENTIFIER_JOB_NAME,
-			},
+			file_identifier_job::FileIdentifierJob,
+			shallow_file_identifier_job::ShallowFileIdentifierJob,
 		},
 		fs::{
-			copy::{FileCopierJob, COPY_JOB_NAME},
-			cut::{FileCutterJob, CUT_JOB_NAME},
-			delete::{FileDeleterJob, DELETE_JOB_NAME},
-			erase::{FileEraserJob, ERASE_JOB_NAME},
+			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
 		},
 		preview::{
-			shallow_thumbnailer_job::{ShallowThumbnailerJob, SHALLOW_THUMBNAILER_JOB_NAME},
-			thumbnailer_job::{ThumbnailerJob, THUMBNAILER_JOB_NAME},
+			shallow_thumbnailer_job::ShallowThumbnailerJob, thumbnailer_job::ThumbnailerJob,
 		},
-		validation::validator_job::{ObjectValidatorJob, VALIDATOR_JOB_NAME},
+		validation::validator_job::ObjectValidatorJob,
 	},
 	prisma::{job, node},
+	util,
 };
 
 use std::{
@@ -36,10 +28,13 @@ use std::{
 	time::Duration,
 };
 
+use chrono::{DateTime, Utc};
+use futures::future::BoxFuture;
 use int_enum::IntEnum;
 use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::{
 	sync::{broadcast, mpsc, Mutex, RwLock},
 	time::sleep,
@@ -52,6 +47,40 @@ const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Library, Box<dyn DynJob>),
+}
+
+#[derive(Error, Debug)]
+pub enum JobManagerError {
+	#[error("Tried to dispatch a job that is already running: Job <name='{name}', hash='{hash}'>")]
+	AlreadyRunningJob { name: &'static str, hash: u64 },
+
+	#[error("Failed to fetch job data from database: {0}")]
+	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("Job error: {0}")]
+	Job(#[from] JobError),
+}
+
+impl From<JobManagerError> for rspc::Error {
+	fn from(value: JobManagerError) -> Self {
+		match value {
+			JobManagerError::AlreadyRunningJob { .. } => Self::with_cause(
+				rspc::ErrorCode::BadRequest,
+				"Tried to spawn a job that is already running!".to_string(),
+				value,
+			),
+			JobManagerError::Database(_) => Self::with_cause(
+				rspc::ErrorCode::InternalServerError,
+				"Error accessing the database".to_string(),
+				value,
+			),
+			JobManagerError::Job(_) => Self::with_cause(
+				rspc::ErrorCode::InternalServerError,
+				"Job error".to_string(),
+				value,
+			),
+		}
+	}
 }
 
 /// JobManager handles queueing and executing jobs using the `DynJob`
@@ -94,40 +123,29 @@ impl JobManager {
 		this
 	}
 
-	pub async fn ingest(self: Arc<Self>, library: &Library, job: Box<dyn DynJob>) {
+	pub async fn ingest(
+		self: Arc<Self>,
+		library: &Library,
+		job: Box<dyn DynJob>,
+	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
+
+		if self.current_jobs_hashes.read().await.contains(&job_hash) {
+			return Err(JobManagerError::AlreadyRunningJob {
+				name: job.name(),
+				hash: job_hash,
+			});
+		}
+
 		debug!(
 			"Ingesting job: <name='{}', hash='{}'>",
 			job.name(),
 			job_hash
 		);
 
-		if !self.current_jobs_hashes.read().await.contains(&job_hash) {
-			self.current_jobs_hashes.write().await.insert(job_hash);
-			self.dispatch_job(library, job).await;
-		} else {
-			debug!(
-				"Job already in queue: <name='{}', hash='{}'>",
-				job.name(),
-				job_hash
-			);
-		}
-	}
-
-	pub async fn ingest_queue(&self, job: Box<dyn DynJob>) {
-		let job_hash = job.hash();
-		debug!("Queueing job: <name='{}', hash='{}'>", job.name(), job_hash);
-
-		if !self.current_jobs_hashes.read().await.contains(&job_hash) {
-			self.current_jobs_hashes.write().await.insert(job_hash);
-			self.job_queue.write().await.push_back(job);
-		} else {
-			debug!(
-				"Job already in queue: <name='{}', hash='{}'>",
-				job.name(),
-				job_hash
-			);
-		}
+		self.current_jobs_hashes.write().await.insert(job_hash);
+		self.dispatch_job(library, job).await;
+		Ok(())
 	}
 
 	pub async fn complete(self: Arc<Self>, library: &Library, job_id: Uuid, job_hash: u64) {
@@ -156,9 +174,7 @@ impl JobManager {
 		ret
 	}
 
-	pub async fn get_history(
-		library: &Library,
-	) -> Result<Vec<JobReport>, prisma_client_rust::QueryError> {
+	pub async fn get_history(library: &Library) -> Result<Vec<JobReport>, JobManagerError> {
 		Ok(library
 			.db
 			.job()
@@ -172,7 +188,7 @@ impl JobManager {
 			.collect())
 	}
 
-	pub async fn clear_all_jobs(library: &Library) -> Result<(), prisma_client_rust::QueryError> {
+	pub async fn clear_all_jobs(library: &Library) -> Result<(), JobManagerError> {
 		library.db.job().delete_many(vec![]).exec().await?;
 
 		invalidate_query!(library, "jobs.getHistory");
@@ -184,14 +200,11 @@ impl JobManager {
 	}
 
 	pub async fn pause(&self) {
-		let running_workers_read_guard = self.running_workers.read().await;
-		if !running_workers_read_guard.is_empty() {
+		if !self.running_workers.read().await.is_empty() {
 			self.shutdown_tx
 				.send(())
 				.expect("Failed to send shutdown signal");
 		}
-		// Dropping our handle so jobs can finish
-		drop(running_workers_read_guard);
 
 		loop {
 			sleep(Duration::from_millis(50)).await;
@@ -201,91 +214,105 @@ impl JobManager {
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobError> {
-		let paused_jobs = library
+	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+		for root_paused_job_report in library
 			.db
 			.job()
-			.find_many(vec![job::status::equals(JobStatus::Paused.int_value())])
+			.find_many(vec![
+				job::status::equals(JobStatus::Paused.int_value()),
+				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
+			])
 			.exec()
-			.await?;
-
-		for paused_job_data in paused_jobs {
-			let paused_job = JobReport::from(paused_job_data);
-
-			info!("Resuming job: {}, id: {}", paused_job.name, paused_job.id);
-			match paused_job.name.as_str() {
-				THUMBNAILER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, ThumbnailerJob {})?)
-						.await;
-				}
-				SHALLOW_THUMBNAILER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, ShallowThumbnailerJob {})?)
-						.await;
-				}
-				INDEXER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, IndexerJob {})?)
-						.await;
-				}
-				SHALLOW_INDEXER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, ShallowIndexerJob {})?)
-						.await;
-				}
-				FILE_IDENTIFIER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, FileIdentifierJob {})?)
-						.await;
-				}
-				SHALLOW_FILE_IDENTIFIER_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							library,
-							Job::resume(paused_job, ShallowFileIdentifierJob {})?,
-						)
-						.await;
-				}
-				VALIDATOR_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, ObjectValidatorJob {})?)
-						.await;
-				}
-				CUT_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, FileCutterJob {})?)
-						.await;
-				}
-				COPY_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							library,
-							Job::resume(paused_job, FileCopierJob { done_tx: None })?,
-						)
-						.await;
-				}
-				DELETE_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, FileDeleterJob {})?)
-						.await;
-				}
-				ERASE_JOB_NAME => {
-					Arc::clone(&self)
-						.dispatch_job(library, Job::resume(paused_job, FileEraserJob {})?)
-						.await;
-				}
-				_ => {
-					error!(
-						"Unknown job type: {}, id: {}",
-						paused_job.name, paused_job.id
-					);
-					return Err(JobError::UnknownJobName(paused_job.id, paused_job.name));
-				}
-			};
+			.await?
+			.into_iter()
+			.map(JobReport::from)
+		{
+			Arc::clone(&self)
+				.dispatch_job(
+					library,
+					Self::recursive_resume_job(root_paused_job_report, library).await?,
+				)
+				.await;
 		}
 
 		Ok(())
+	}
+
+	fn recursive_resume_job(
+		parent: JobReport,
+		library: &Library,
+	) -> BoxFuture<Result<Box<dyn DynJob>, JobManagerError>> {
+		// Recursive async functions must return boxed futures
+		Box::pin(async move {
+			info!(
+				"Trying to resume Job <id='{}', name='{}'>",
+				parent.name, parent.id
+			);
+
+			let maybe_children_job = if let Some(children_job_report) = library
+				.db
+				.job()
+				.find_first(vec![job::parent_id::equals(Some(
+					parent.id.as_bytes().to_vec(),
+				))])
+				.exec()
+				.await?
+				.map(JobReport::from)
+			{
+				Some(Self::recursive_resume_job(children_job_report, library).await?)
+			} else {
+				None
+			};
+
+			Self::get_resumable_job(parent, maybe_children_job)
+		})
+	}
+
+	fn get_resumable_job(
+		job_report: JobReport,
+		next_job: Option<Box<dyn DynJob>>,
+	) -> Result<Box<dyn DynJob>, JobManagerError> {
+		match job_report.name.as_str() {
+			<ThumbnailerJob as StatefulJob>::NAME => {
+				Job::resume(job_report, ThumbnailerJob {}, next_job)
+			}
+			<ShallowThumbnailerJob as StatefulJob>::NAME => {
+				Job::resume(job_report, ShallowThumbnailerJob {}, next_job)
+			}
+			<IndexerJob as StatefulJob>::NAME => Job::resume(job_report, IndexerJob {}, next_job),
+			<ShallowIndexerJob as StatefulJob>::NAME => {
+				Job::resume(job_report, ShallowIndexerJob {}, next_job)
+			}
+			<FileIdentifierJob as StatefulJob>::NAME => {
+				Job::resume(job_report, FileIdentifierJob {}, next_job)
+			}
+			<ShallowFileIdentifierJob as StatefulJob>::NAME => {
+				Job::resume(job_report, ShallowFileIdentifierJob {}, next_job)
+			}
+			<ObjectValidatorJob as StatefulJob>::NAME => {
+				Job::resume(job_report, ObjectValidatorJob {}, next_job)
+			}
+			<FileCutterJob as StatefulJob>::NAME => {
+				Job::resume(job_report, FileCutterJob {}, next_job)
+			}
+			<FileCopierJob as StatefulJob>::NAME => {
+				Job::resume(job_report, FileCopierJob {}, next_job)
+			}
+			<FileDeleterJob as StatefulJob>::NAME => {
+				Job::resume(job_report, FileDeleterJob {}, next_job)
+			}
+			<FileEraserJob as StatefulJob>::NAME => {
+				Job::resume(job_report, FileEraserJob {}, next_job)
+			}
+			_ => {
+				error!(
+					"Unknown job type: {}, id: {}",
+					job_report.name, job_report.id
+				);
+				Err(JobError::UnknownJobName(job_report.id, job_report.name))
+			}
+		}
+		.map_err(Into::into)
 	}
 
 	async fn dispatch_job(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
@@ -295,7 +322,7 @@ impl JobManager {
 			info!("Running job: {:?}", job.name());
 
 			let job_report = job
-				.report()
+				.report_mut()
 				.take()
 				.expect("critical error: missing job on worker");
 
@@ -332,7 +359,6 @@ pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
-	SecondsElapsed(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -341,9 +367,11 @@ pub struct JobReport {
 	pub name: String,
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
-	// client_id: i32,
-	pub date_created: chrono::DateTime<chrono::Utc>,
-	pub date_modified: chrono::DateTime<chrono::Utc>,
+	pub created_at: Option<DateTime<Utc>>,
+	pub started_at: Option<DateTime<Utc>>,
+	pub completed_at: Option<DateTime<Utc>>,
+
+	pub parent_id: Option<Uuid>,
 
 	pub status: JobStatus,
 	pub task_count: i32,
@@ -351,8 +379,6 @@ pub struct JobReport {
 
 	pub message: String,
 	// pub percentage_complete: f64,
-	// #[ts(type = "string")] // TODO: Make this work with specta
-	pub seconds_elapsed: i32,
 }
 
 impl Display for JobReport {
@@ -371,12 +397,12 @@ impl From<job::Data> for JobReport {
 		JobReport {
 			id: Uuid::from_slice(&data.id).unwrap(),
 			name: data.name,
-			// client_id: data.client_id,
 			status: JobStatus::from_int(data.status).unwrap(),
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
-			date_created: data.date_created.into(),
-			date_modified: data.date_modified.into(),
+			created_at: Some(data.date_created.into()),
+			started_at: data.date_started.map(|d| d.into()),
+			completed_at: data.date_completed.map(|d| d.into()),
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
@@ -385,7 +411,8 @@ impl From<job::Data> for JobReport {
 				})
 			}),
 			message: String::new(),
-			seconds_elapsed: data.seconds_elapsed,
+			// SAFETY: We created this uuid before
+			parent_id: data.parent_id.map(|id| Uuid::from_slice(&id).unwrap()),
 		}
 	}
 }
@@ -395,20 +422,29 @@ impl JobReport {
 		Self {
 			id: uuid,
 			name,
-			// client_id: 0,
-			date_created: chrono::Utc::now(),
-			date_modified: chrono::Utc::now(),
+			created_at: None,
+			started_at: None,
+			completed_at: None,
 			status: JobStatus::Queued,
 			task_count: 0,
 			data: None,
 			metadata: None,
+			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
-			seconds_elapsed: 0,
 		}
 	}
 
-	pub async fn create(&self, library: &Library) -> Result<(), JobError> {
+	pub fn new_with_parent(uuid: Uuid, name: String, parent_id: Uuid) -> Self {
+		let mut report = Self::new(uuid, name);
+		report.parent_id = Some(parent_id);
+		report
+	}
+
+	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
+		let now = Utc::now();
+		self.created_at = Some(now);
+
 		library
 			.db
 			.job()
@@ -417,13 +453,23 @@ impl JobReport {
 				self.name.clone(),
 				JobStatus::Running as i32,
 				node::id::equals(library.node_local_id),
-				vec![job::data::set(self.data.clone())],
+				util::db::chain_optional_iter(
+					[
+						job::data::set(self.data.clone()),
+						job::date_created::set(now.into()),
+						job::date_started::set(self.started_at.map(|d| d.into())),
+					],
+					[self
+						.parent_id
+						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
+				),
 			)
 			.exec()
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, library: &Library) -> Result<(), JobError> {
+
+	pub async fn update(&mut self, library: &Library) -> Result<(), JobError> {
 		library
 			.db
 			.job()
@@ -435,8 +481,8 @@ impl JobReport {
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
-					job::date_modified::set(chrono::Utc::now().into()),
-					job::seconds_elapsed::set(self.seconds_elapsed),
+					job::date_started::set(self.started_at.map(|v| v.into())),
+					job::date_completed::set(self.completed_at.map(|v| v.into())),
 				],
 			)
 			.exec()

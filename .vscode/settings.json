@@ -48,16 +48,20 @@
 	"search.exclude": {
 		"**/node_modules": true,
 		"**/bower_components": true,
-		"**/*.code-search": true,
+		"**/*.code-search": true
 		// Hiding these folders bcs they create a lot of noise in the search results
-		"apps/mobile/android": true,
-		"apps/mobile/ios": true
+		// "apps/mobile/android": true
+		// "apps/mobile/ios": true
 	},
 	"eslint.workingDirectories": [
+		"apps/desktop",
 		"apps/landing",
 		"apps/mobile",
-		"packages/ui",
+		"interface",
 		"packages/client",
-		"packages/interface"
-	]
+		"packages/config",
+		"packages/ui"
+	],
+	"eslint.packageManager": "pnpm",
+	"eslint.lintTask.enable": true
 }

@@ -1,7 +1,9 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
-	location::file_path_helper::file_path_for_object_validator,
+	location::file_path_helper::{file_path_for_object_validator, MaterializedPath},
 	prisma::{file_path, location},
 	sync,
 };
@@ -13,8 +15,6 @@ use serde_json::json;
 use tracing::info;
 
 use super::hash::file_checksum;
-
-pub const VALIDATOR_JOB_NAME: &str = "object_validator";
 
 // The Validator is able to:
 // - generate a full byte checksum for Objects in a Location
@@ -36,14 +36,20 @@ pub struct ObjectValidatorJobInit {
 	pub background: bool,
 }
 
+impl JobInitData for ObjectValidatorJobInit {
+	type Job = ObjectValidatorJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJob {
 	type Init = ObjectValidatorJobInit;
 	type Data = ObjectValidatorJobState;
 	type Step = file_path_for_object_validator::Data;
 
-	fn name(&self) -> &'static str {
-		VALIDATOR_JOB_NAME
+	const NAME: &'static str = "object_validator";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -94,7 +100,11 @@ impl StatefulJob for ObjectValidatorJob {
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&file_path.materialized_path)).await?;
+			let checksum = file_checksum(data.root_path.join(&MaterializedPath::from((
+				file_path.location.id,
+				&file_path.materialized_path,
+			))))
+			.await?;
 
 			sync.write_op(
 				db,

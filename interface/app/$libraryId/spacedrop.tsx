@@ -2,13 +2,15 @@ import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
 import { useRef, useState } from 'react';
-import { tw } from '@sd/ui';
+import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import { SearchBar } from './Explorer/TopBar';
+import SearchBar from './Explorer/SearchBar';
 import * as PageLayout from './PageLayout';
 import classes from './spacedrop.module.scss';
+
+const { Form, Input, useZodForm, z } = forms;
 
 // TODO: move this to UI, copied from Inspector
 const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded text-ink-dull`;
@@ -52,13 +54,16 @@ function DropItem(props: DropItemProps) {
 
 	return (
 		<div
-			className={clsx(classes.honeycombItem, 'bg-app-box/20 hover:bg-app-box/50 overflow-hidden')}
+			className={clsx(
+				classes.honeycombItem,
+				'overflow-hidden bg-app-box/20 hover:bg-app-box/50'
+			)}
 		>
 			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
 				</SubtleButtonContainer> */}
-				<div className="bg-app-button h-14 w-14 rounded-full">{icon}</div>
+				<div className="h-14 w-14 rounded-full bg-app-button">{icon}</div>
 				<SubtleButtonContainer className="absolute right-[12px] top-[55px] rotate-90">
 					<SubtleButton />
 				</SubtleButtonContainer>
@@ -82,72 +87,86 @@ function DropItem(props: DropItemProps) {
 	);
 }
 
+const schema = z.object({
+	target_peer: z.string(),
+	file_path: z.string()
+});
+
 // TODO: This will be removed and properly hooked up to the UI in the future
 function TemporarySpacedropDemo() {
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
+	const form = useZodForm({
+		schema
+	});
+
 	useBridgeSubscription(['p2p.events'], {
 		onData(data) {
 			if (data.type === 'DiscoveredPeer') {
 				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
+				// if (!form.getValues().target_peer) form.setValue('target_peer', data.peer_id);
 			}
 		}
 	});
 
-	console.log(discoveredPeers);
+	const onSubmit = form.handleSubmit((data) => {
+		doSpacedrop.mutate({
+			peer_id: data.target_peer,
+			file_path: data.file_path
+		});
+	});
 
 	// TODO: Input select
 	return (
-		<form
-			onSubmit={(e) => {
-				e.preventDefault();
-				doSpacedrop.mutate({
-					peer_id: e.currentTarget.targetPeer.value,
-					file_path: e.currentTarget.filePath.value
-				});
-			}}
-		>
-			<h1 className="mt-4 text-4xl">Spacedrop Demo</h1>
-			<p>
-				Note: Right now the file must be less than 255 bytes long and only contain UTF-8 chars.
-				Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by default)
+		<Form onSubmit={onSubmit} form={form}>
+			<ScreenHeading>Spacedrop Demo</ScreenHeading>
+			<p className="text-xs text-ink-dull">
+				Note: Right now the file must be less than 255 bytes long and only contain UTF-8
+				chars. Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by
+				default)
 			</p>
-			<select id="targetPeer" name="targetPeer" className="my-2 w-full text-black">
-				{[...discoveredPeers.entries()].map(([peerId, metdata]) => (
-					<option key={peerId} value={peerId}>
-						{metdata.name}
-					</option>
-				))}
-			</select>
-			<input
-				name="filePath"
-				placeholder="file path"
-				value="/Users/oscar/Desktop/sd/demo.txt"
-				onChange={() => {}}
-				className="my-2 w-full p-2 text-black"
-			/>
-			<input
-				type="submit"
-				value="Full send it!"
-				className="mt-4 h-10 w-32 rounded-full bg-red-500"
-			/>
-		</form>
+			<div className="mt-2 flex flex-row items-center space-x-4">
+				<Input
+					size="sm"
+					placeholder="/Users/oscar/Desktop/sd/demo.txt"
+					value="/Users/jamie/Desktop/Jeff.txt"
+					className="w-full"
+					{...form.register('file_path')}
+				/>
+
+				<Button className="block shrink-0" variant="gray">
+					Select File
+				</Button>
+
+				<Select
+					onChange={(e) => form.setValue('target_peer', e)}
+					value={form.watch('target_peer')}
+				>
+					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
+						<SelectOption default={index === 0} key={peerId} value={peerId}>
+							{metadata.name}
+						</SelectOption>
+					))}
+				</Select>
+
+				<Button
+					disabled={!form.getValues().target_peer}
+					className="block shrink-0"
+					variant="accent"
+					type="submit"
+				>
+					Send
+				</Button>
+			</div>
+		</Form>
 	);
 }
 
 export const Component = () => {
-	const searchRef = useRef<HTMLInputElement>(null);
-
 	return (
 		<>
 			<TemporarySpacedropDemo />
-			<PageLayout.DragChildren>
-				<div className="flex h-8 w-full flex-row items-center justify-center pt-3">
-					<SearchBar className="ml-[13px]" ref={searchRef} />
-					{/* <Button variant="outline">Add</Button> */}
-				</div>
-			</PageLayout.DragChildren>
 			<div className={classes.honeycombOuter}>
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
 					<DropItem
@@ -174,7 +193,11 @@ export const Component = () => {
 						connectionType="lan"
 						icon={DeviceMobile}
 					/>
-					<DropItem name="Jamie's Google Drive" brandIcon="google-drive" connectionType="cloud" />
+					<DropItem
+						name="Jamie's Google Drive"
+						brandIcon="google-drive"
+						connectionType="cloud"
+					/>
 					<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
 					<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
 					<DropItem
@@ -192,7 +215,11 @@ export const Component = () => {
 						image="https://github.com/oscartbeaumont.png"
 						connectionType="p2p"
 					/>
-					<DropItem name="Polar" image="https://github.com/polargh.png" connectionType="p2p" />
+					<DropItem
+						name="Polar"
+						image="https://github.com/polargh.png"
+						connectionType="p2p"
+					/>
 					<DropItem
 						name="Andrew Haskell"
 						image="https://github.com/andrewtechx.png"

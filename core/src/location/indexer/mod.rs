@@ -24,7 +24,7 @@ use tokio::io;
 use tracing::info;
 
 use super::{
-	file_path_helper::{FilePathError, MaterializedPath},
+	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
 	location_with_indexer_rules,
 };
 
@@ -59,6 +59,7 @@ pub struct IndexerJobData {
 	scan_read_time: Duration,
 	total_paths: usize,
 	indexed_paths: i64,
+	removed_paths: i64,
 }
 
 /// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
@@ -70,14 +71,14 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
-	materialized_path: MaterializedPath,
-	created_at: DateTime<Utc>,
+	materialized_path: MaterializedPath<'static>,
 	file_id: i32,
 	parent_id: Option<i32>,
+	metadata: FilePathMetadata,
 }
 
 impl IndexerJobData {
-	fn on_scan_progress(ctx: &WorkerContext, progress: Vec<ScanProgress>) {
+	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
 		ctx.progress_debounced(
 			progress
 				.iter()
@@ -175,20 +176,31 @@ async fn execute_indexer_step(
 						("name", json!(name.clone())),
 						("is_dir", json!(is_dir)),
 						("extension", json!(extension.clone())),
+						(
+							"size_in_bytes",
+							json!(entry.metadata.size_in_bytes.to_string()),
+						),
+						("inode", json!(entry.metadata.inode.to_le_bytes())),
+						("device", json!(entry.metadata.device.to_le_bytes())),
 						("parent_id", json!(entry.parent_id)),
-						("date_created", json!(entry.created_at)),
+						("date_created", json!(entry.metadata.created_at)),
+						("date_modified", json!(entry.metadata.modified_at)),
 					],
 				),
 				file_path::create_unchecked(
 					entry.file_id,
 					location.id,
-					materialized_path,
-					name,
-					extension,
+					materialized_path.into_owned(),
+					name.into_owned(),
+					extension.into_owned(),
+					entry.metadata.inode.to_le_bytes().into(),
+					entry.metadata.device.to_le_bytes().into(),
 					vec![
 						is_dir::set(is_dir),
+						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
 						parent_id::set(entry.parent_id),
-						date_created::set(entry.created_at.into()),
+						date_created::set(entry.metadata.created_at.into()),
+						date_modified::set(entry.metadata.modified_at.into()),
 					],
 				),
 			)
@@ -224,7 +236,7 @@ where
 		.as_ref()
 		.expect("critical error: missing data on job state");
 
-	tracing::info!(
+	info!(
 		"scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",
 		location_path.as_ref().display(),
@@ -236,7 +248,7 @@ where
 			.expect("critical error: non-negative duration"),
 	);
 
-	if data.indexed_paths > 0 {
+	if data.indexed_paths > 0 || data.removed_paths > 0 {
 		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 

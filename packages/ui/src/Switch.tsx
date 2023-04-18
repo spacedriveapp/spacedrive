@@ -28,13 +28,13 @@ const switchStyles = cva(
 	}
 );
 const thumbStyles = cva(
-	['inline-block h-4 w-4 transition', 'rounded-full bg-white', 'shadow-app-shade/40 shadow-sm'],
+	['inline-block h-4 w-4 transition', 'rounded-full bg-white', 'shadow-sm shadow-app-shade/40'],
 	{
 		variants: {
 			size: {
-				sm: 'radix-state-checked:translate-x-[14px] h-[12px] w-[12px]',
-				md: 'radix-state-checked:translate-x-[20px] h-[19px] w-[19px]',
-				lg: 'radix-state-checked:translate-x-[23px] h-6 w-6'
+				sm: 'h-[12px] w-[12px] radix-state-checked:translate-x-[14px]',
+				md: 'h-[19px] w-[19px] radix-state-checked:translate-x-[20px]',
+				lg: 'h-6 w-6 radix-state-checked:translate-x-[23px]'
 			}
 		},
 		defaultVariants: {

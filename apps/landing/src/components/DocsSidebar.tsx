@@ -16,9 +16,12 @@ export default function DocsSidebar(props: Props) {
 
 	return (
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
-			<div onClick={() => alert('Search coming soon...')} className="relative mb-5">
-				<SearchInput placeholder="Search..." disabled />
-				<span className="absolute top-2 right-3 text-xs font-semibold text-gray-400">⌘K</span>
+			<div onClick={() => alert('Search coming soon...')} className="mb-5">
+				<SearchInput
+					placeholder="Search..."
+					disabled
+					right={<span className="pr-2 text-xs font-semibold text-gray-400">⌘K</span>}
+				/>
 			</div>
 
 			<div className="mb-6 flex flex-col">
@@ -35,7 +38,11 @@ export default function DocsSidebar(props: Props) {
 								isActive && 'nav-active'
 							)}
 						>
-							<div className={clsx(`mr-4 rounded-lg border-t border-gray-400/20 bg-gray-500 p-1`)}>
+							<div
+								className={clsx(
+									`mr-4 rounded-lg border-t border-gray-400/20 bg-gray-500 p-1`
+								)}
+							>
 								<Icon weight="bold" className="h-4 w-4 text-white opacity-80" />
 							</div>
 							{section.title}
@@ -54,14 +61,14 @@ export default function DocsSidebar(props: Props) {
 									<li
 										className={clsx(
 											'flex border-l border-gray-600',
-											active && 'border-primary border-l-2'
+											active && 'border-l-2 border-primary'
 										)}
 										key={page.title}
 									>
 										<a
 											href={`/docs/${page.url}`}
 											className={clsx(
-												'text-gray-350 w-full rounded px-3 py-1 text-[14px] font-normal no-underline hover:text-gray-50',
+												'w-full rounded px-3 py-1 text-[14px] font-normal text-gray-350 no-underline hover:text-gray-50',
 												active && '!font-medium !text-white '
 											)}
 										>

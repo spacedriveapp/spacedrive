@@ -1,9 +1,6 @@
 use rspc::{Config, Type};
 use serde::{Deserialize, Serialize};
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::sync::Arc;
 
 use crate::{node::NodeConfig, Node};
 
@@ -18,7 +15,6 @@ pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 pub enum CoreEvent {
 	NewThumbnail { cas_id: String },
 	InvalidateOperation(InvalidateOperationEvent),
-	InvalidateOperationDebounced(InvalidateOperationEvent),
 }
 
 mod files;
@@ -86,28 +82,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.yolo_merge("jobs.", jobs::mount())
 		.yolo_merge("p2p.", p2p::mount())
 		.yolo_merge("sync.", sync::mount())
-		// TODO: Scope the invalidate queries to a specific library (filtered server side)
-		.subscription("invalidateQuery", |t| {
-			t(|ctx, _: ()| {
-				let mut event_bus_rx = ctx.event_bus.0.subscribe();
-				let mut last = Instant::now();
-				async_stream::stream! {
-					while let Ok(event) = event_bus_rx.recv().await {
-						match event {
-							CoreEvent::InvalidateOperation(op) => yield op,
-							CoreEvent::InvalidateOperationDebounced(op) => {
-								let current = Instant::now();
-								if current.duration_since(last) > Duration::from_millis(1000 / 10) {
-									last = current;
-									yield op;
-								}
-							},
-							_ => {}
-						}
-					}
-				}
-			})
-		})
+		.yolo_merge("invalidation.", utils::mount_invalidate())
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.

@@ -7,7 +7,8 @@ import {
 	telemetryStore,
 	useBridgeMutation,
 	useDebugState,
-	useOnboardingStore
+	useOnboardingStore,
+	usePlausibleEvent
 } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
 import { tw } from '~/lib/tailwind';
@@ -23,12 +24,20 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 	const debugState = useDebugState();
 	const obStore = useOnboardingStore();
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (lib) => {
 			resetOnboardingStore();
-			queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
+			queryClient.setQueryData(['library.list'], (libraries: any) => [
+				...(libraries || []),
+				lib
+			]);
 			// Switch to the new library
 			currentLibraryStore.id = lib.uuid;
+			if (obStore.shareTelemetry) {
+				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			}
 		},
 		onError: () => {
 			// TODO: Show toast

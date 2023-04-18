@@ -8,7 +8,7 @@ use crate::{
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
-use std::path::PathBuf;
+use std::path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
@@ -87,8 +87,8 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				if !args.path.ends_with('/') {
-					args.path += "/";
+				if !args.path.ends_with(MAIN_SEPARATOR) {
+					args.path += MAIN_SEPARATOR_STR;
 				}
 
 				let directory = db
@@ -216,7 +216,7 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 
 				async_stream::stream! {
 					let online = location_manager.get_online().await;
-					// dbg!(&online);
+
 					yield online;
 
 					while let Ok(locations) = rx.recv().await {

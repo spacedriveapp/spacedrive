@@ -2,7 +2,12 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+};
 
 use super::{context_menu_fs_info, FsInfo};
 pub struct FileDecryptorJob;
@@ -25,16 +30,20 @@ pub struct FileDecryptorJobStep {
 	pub fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_decryptor";
+impl JobInitData for FileDecryptorJobInit {
+	type Job = FileDecryptorJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileDecryptorJob {
-	type Data = FileDecryptorJobState;
 	type Init = FileDecryptorJobInit;
+	type Data = FileDecryptorJobState;
 	type Step = FileDecryptorJobStep;
 
-	fn name(&self) -> &'static str {
-		JOB_NAME
+	const NAME: &'static str = "file_decryptor";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -103,7 +112,9 @@ impl StatefulJob for FileDecryptorJob {
 		todo!()
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

@@ -1,4 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
+import { ExplorerItem } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'rows' | 'grid' | 'columns' | 'media';
@@ -29,7 +30,9 @@ const state = {
 		sourcePathId: 0,
 		actionType: 'Cut',
 		active: false
-	}
+	},
+	quickViewObject: null as ExplorerItem | null,
+	isRenaming: false
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.

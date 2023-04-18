@@ -14,7 +14,7 @@ const itemStyles = cva(
 	{
 		variants: {
 			selected: {
-				true: 'bg-accent hover:!bg-accent text-white',
+				true: 'bg-accent text-white hover:!bg-accent',
 				undefined: 'hover:bg-menu-hover',
 				false: 'hover:bg-menu-hover'
 			},
@@ -63,11 +63,16 @@ export const Item = ({ to, className, icon: Icon, children, ...props }: Dropdown
 export const Button = forwardRef<HTMLButtonElement, UI.ButtonProps>(
 	({ children, className, ...props }, ref) => {
 		return (
-			<UI.Button size="sm" ref={ref} className={clsx('group flex text-left', className)} {...props}>
+			<UI.Button
+				size="sm"
+				ref={ref}
+				className={clsx('group flex text-left', className)}
+				{...props}
+			>
 				{children}
 				<span className="grow" />
 				<CaretDown
-					className="text-ink-dull group-radix-state-open:rotate-180 group-radix-state-open:translate-y-[-1px] ui-open:rotate-180 ui-open:translate-y-[-1px] ml-2 w-[12px] shrink-0 translate-y-[1px] transition-transform"
+					className="ml-2 w-[12px] shrink-0 translate-y-[1px] text-ink-dull transition-transform ui-open:translate-y-[-1px] ui-open:rotate-180 group-radix-state-open:translate-y-[-1px] group-radix-state-open:rotate-180"
 					aria-hidden="true"
 				/>
 			</UI.Button>
@@ -100,7 +105,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'divide-menu-line shadow-menu-shade/30 bg-menu border-menu-line text-menu-ink absolute top-full z-50 w-full min-w-fit divide-y rounded-md border shadow-xl focus:outline-none',
+							'absolute top-full z-50 w-full min-w-fit divide-y divide-menu-line rounded-md border border-menu-line bg-menu text-menu-ink shadow-xl shadow-menu-shade/30 focus:outline-none',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

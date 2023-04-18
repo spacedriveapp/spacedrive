@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -21,8 +23,6 @@ use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
 	FileIdentifierReport, FilePathIdAndLocationIdCursor, CHUNK_SIZE,
 };
-
-pub const FILE_IDENTIFIER_JOB_NAME: &str = "file_identifier";
 
 pub struct FileIdentifierJob {}
 
@@ -50,7 +50,11 @@ impl Hash for FileIdentifierJobInit {
 pub struct FileIdentifierJobState {
 	cursor: FilePathIdAndLocationIdCursor,
 	report: FileIdentifierReport,
-	maybe_sub_materialized_path: Option<MaterializedPath>,
+	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
+}
+
+impl JobInitData for FileIdentifierJobInit {
+	type Job = FileIdentifierJob;
 }
 
 #[async_trait::async_trait]
@@ -59,8 +63,10 @@ impl StatefulJob for FileIdentifierJob {
 	type Data = FileIdentifierJobState;
 	type Step = ();
 
-	fn name(&self) -> &'static str {
-		FILE_IDENTIFIER_JOB_NAME
+	const NAME: &'static str = "file_identifier";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -108,7 +114,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
-				name: self.name().to_string(),
+				name: <Self as StatefulJob>::NAME.to_string(),
 				reason: "Found no orphan file paths to process".to_string(),
 			});
 		}
@@ -166,7 +172,7 @@ impl StatefulJob for FileIdentifierJob {
 			get_orphan_file_paths(&ctx.library.db, cursor, maybe_sub_materialized_path).await?;
 
 		process_identifier_file_paths(
-			self.name(),
+			<Self as StatefulJob>::NAME,
 			location,
 			&file_paths,
 			state.step_number,
@@ -192,7 +198,7 @@ impl StatefulJob for FileIdentifierJob {
 fn orphan_path_filters(
 	location_id: i32,
 	file_path_id: Option<i32>,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	let mut params = vec![
 		file_path::object_id::equals(None),
@@ -216,7 +222,7 @@ fn orphan_path_filters(
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
 		.count(orphan_path_filters(
@@ -232,7 +238,7 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
 	cursor: &FilePathIdAndLocationIdCursor,
-	maybe_sub_materialized_path: &Option<MaterializedPath>,
+	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",

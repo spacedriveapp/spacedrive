@@ -14,7 +14,7 @@ import {
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card } from '@sd/ui';
+import { Card, ScreenHeading } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 
@@ -69,7 +69,11 @@ const StatItem = (props: StatItemProps) => {
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
-						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
+						<Skeleton
+							enableAnimation={true}
+							baseColor={'#21212e'}
+							highlightColor={'#13131a'}
+						/>
 					</div>
 				)}
 				<div
@@ -97,6 +101,7 @@ export const Component = () => {
 
 	return (
 		<div className="flex h-screen w-full flex-col">
+			<ScreenHeading>Overview</ScreenHeading>
 			{/* STAT HEADER */}
 			<div className="flex w-full">
 				{/* STAT CONTAINER */}
@@ -128,8 +133,8 @@ export const Component = () => {
 				<CategoryButton icon={Heart} category="Favorites" />
 			</div>
 			<Card className="text-ink-dull">
-				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
-				functional.
+				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
+				to be functional.
 			</Card>
 			<div className="flex h-4 w-full shrink-0" />
 		</div>
@@ -144,10 +149,10 @@ interface CategoryButtonProps {
 function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 	return (
 		<Card className="items-center !px-3">
-			<Icon weight="fill" className="text-ink-dull mr-3 h-6 w-6 opacity-20" />
+			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-ink-faint text-xs">23,324 items</p>
+				<p className="text-xs text-ink-faint">23,324 items</p>
 			</div>
 		</Card>
 	);

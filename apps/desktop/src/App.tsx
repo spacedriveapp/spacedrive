@@ -41,7 +41,7 @@ async function getOs(): Promise<OperatingSystem> {
 }
 
 let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | undefined;
-const customUriAuthToken = (window as any).__SD_CUSTOM_URI_TOKEN__ as string | undefined;
+const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {

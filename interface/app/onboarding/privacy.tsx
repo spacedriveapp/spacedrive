@@ -11,7 +11,8 @@ const shareTelemetry = RadioGroup.options([
 ]).details({
 	'share-telemetry': {
 		heading: 'Share anonymous usage',
-		description: 'Share completely anonymous telemetry data to help the developers improve the app'
+		description:
+			'Share completely anonymous telemetry data to help the developers improve the app'
 	},
 	'no-telemetry': {
 		heading: 'Share nothing',
@@ -46,15 +47,15 @@ export default function OnboardingPrivacy() {
 			<OnboardingContainer>
 				<OnboardingTitle>Your Privacy</OnboardingTitle>
 				<OnboardingDescription>
-					Spacedrive is built for privacy, that's why we're open source and local first. So we'll
-					make it very clear what data is shared with us.
+					Spacedrive is built for privacy, that's why we're open source and local first.
+					So we'll make it very clear what data is shared with us.
 				</OnboardingDescription>
 				<div className="m-4">
 					<RadioGroup.Root {...form.register('shareTelemetry')}>
 						{shareTelemetry.options.map(({ value, heading, description }) => (
 							<RadioGroup.Item key={value} value={value}>
 								<h1 className="font-bold">{heading}</h1>
-								<p className="text-ink-faint text-sm">{description}</p>
+								<p className="text-sm text-ink-faint">{description}</p>
 							</RadioGroup.Item>
 						))}
 					</RadioGroup.Root>

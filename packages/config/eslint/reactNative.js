@@ -1,5 +1,5 @@
 module.exports = {
-	extends: [require.resolve('./base.js')],
+	extends: [require.resolve('./tailwind.js')],
 	env: {
 		'react-native/react-native': true
 	},
@@ -22,11 +22,7 @@ module.exports = {
 					// }
 				]
 			}
-		]
-	},
-	settings: {
-		tailwindcss: {
-			config: 'apps/mobile/tailwind.config.js'
-		}
+		],
+		'tailwindcss/no-contradicting-classname': 'warn'
 	}
 };

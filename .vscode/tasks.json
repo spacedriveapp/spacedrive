@@ -47,9 +47,12 @@
 		{
 			"type": "cargo",
 			"command": "run",
-			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--no-default-features"],
+			"args": [
+				"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
+				"--no-default-features"
+			],
 			"env": {
-				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
+				"RUST_BACKTRACE": "short"
 			},
 			"problemMatcher": ["$rustc"],
 			"group": "build",
@@ -61,7 +64,7 @@
 			"command": "run",
 			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--release"],
 			"env": {
-				"RUST_BACKTRACE": "short" // Change this if you want more or less backtrace
+				"RUST_BACKTRACE": "short"
 			},
 			"problemMatcher": ["$rustc"],
 			"group": "build",

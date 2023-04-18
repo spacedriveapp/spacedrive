@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::DynJob,
+	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
 	location::{file_path_helper::LastFilePathIdManager, LocationManager},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
@@ -56,12 +56,19 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.clone().ingest(self, job).await;
-	}
-
-	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(job).await;
+	pub(crate) async fn spawn_job<SJob, Init>(
+		&self,
+		jobable: impl IntoJob<SJob>,
+	) -> Result<(), JobManagerError>
+	where
+		SJob: StatefulJob<Init = Init> + 'static,
+		Init: JobInitData + 'static,
+	{
+		self.node_context
+			.jobs
+			.clone()
+			.ingest(self, jobable.into_job())
+			.await
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {

@@ -1,30 +1,25 @@
-use std::{
-	net::{SocketAddr, TcpListener},
-	sync::Arc,
-};
-
-use sd_core::Node;
+use std::net::{SocketAddr, TcpListener};
 
 use axum::{
-	extract::State,
+	extract::{Query, State, TypedHeader},
+	headers::authorization::{Authorization, Bearer},
 	http::{Request, StatusCode},
 	middleware::{self, Next},
-	response::{IntoResponse, Response},
+	response::Response,
 	routing::get,
+	RequestPartsExt,
 };
 use httpz::{Endpoint, HttpEndpoint};
 use rand::{distributions::Alphanumeric, Rng};
-use tauri::{plugin::TauriPlugin, Builder, Runtime};
+use serde::Deserialize;
+use tauri::{async_runtime::Receiver, plugin::TauriPlugin, Builder, Runtime};
 use tracing::debug;
-use url::Url;
 
 pub(super) async fn setup<R: Runtime>(
 	app: Builder<R>,
-	node: Arc<Node>,
+	mut rx: Receiver<()>,
 	endpoint: Endpoint<impl HttpEndpoint>,
 ) -> Builder<R> {
-	let signal = server::utils::axum_shutdown_signal(node);
-
 	let auth_token: String = rand::thread_rng()
 		.sample_iter(&Alphanumeric)
 		.take(10)
@@ -52,7 +47,9 @@ pub(super) async fn setup<R: Runtime>(
 		axum::Server::from_tcp(listener)
 			.expect("error creating HTTP server!")
 			.serve(axum_app.into_make_service())
-			.with_graceful_shutdown(signal)
+			.with_graceful_shutdown(async {
+				rx.recv().await;
+			})
 			.await
 			.expect("Error with HTTP server!");
 	});
@@ -60,27 +57,38 @@ pub(super) async fn setup<R: Runtime>(
 	app.plugin(tauri_plugin(&auth_token, listen_addr))
 }
 
+#[derive(Deserialize)]
+struct QueryToken {
+	token: String,
+}
+
 async fn auth_middleware<B>(
+	Query(query): Query<QueryToken>,
 	State(auth_token): State<String>,
 	request: Request<B>,
 	next: Next<B>,
-) -> Response {
-	let url = Url::parse(&request.uri().to_string()).unwrap();
-	if let Some((_, v)) = url.query_pairs().find(|(k, _)| k == "token") {
-		if v == auth_token {
-			return next.run(request).await;
-		}
-	} else if let Some(v) = request
-		.headers()
-		.get("Authorization")
-		.and_then(|v| v.to_str().ok())
-	{
-		if v == auth_token {
-			return next.run(request).await;
-		}
-	}
+) -> Result<Response, StatusCode>
+where
+	B: Send,
+{
+	let req = if query.token != auth_token {
+		let (mut parts, body) = request.into_parts();
 
-	(StatusCode::UNAUTHORIZED, "Unauthorized!").into_response()
+		let auth: TypedHeader<Authorization<Bearer>> = parts
+			.extract()
+			.await
+			.map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+		if auth.token() != auth_token {
+			return Err(StatusCode::UNAUTHORIZED);
+		}
+
+		Request::from_parts(parts, body)
+	} else {
+		request
+	};
+
+	Ok(next.run(req).await)
 }
 
 fn tauri_plugin<R: Runtime>(auth_token: &str, listen_addr: SocketAddr) -> TauriPlugin<R> {

@@ -79,7 +79,13 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 						control={form.control}
 						name="password"
 						render={({ field: { onBlur, onChange, value } }) => (
-							<PasswordInput onChangeText={onChange} onBlur={onBlur} value={value} isNewPassword />
+							<PasswordInput
+								testID="password-input"
+								onChangeText={onChange}
+								onBlur={onBlur}
+								value={value}
+								isNewPassword
+							/>
 						)}
 					/>
 				</View>
@@ -90,6 +96,7 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							name="password_validate"
 							render={({ field: { onBlur, onChange, value } }) => (
 								<PasswordInput
+									testID="password-input-confirm"
 									onChangeText={onChange}
 									onBlur={onBlur}
 									value={value}
@@ -112,8 +119,9 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 							size="sm"
 							disabled={form.formState.isSubmitting}
 							onPress={handleSetPassword}
+							testID="confirm-password-button"
 						>
-							<Text style={tw`text-ink text-center font-medium`}>
+							<Text style={tw`text-center font-medium text-ink`}>
 								{!showPasswordValidate ? 'Set password' : 'Confirm Password'}
 							</Text>
 						</Button>
@@ -129,7 +137,9 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 									form.reset();
 								}}
 							>
-								<Text style={tw`text-ink text-center font-medium`}>Remove password</Text>
+								<Text style={tw`text-center font-medium text-ink`}>
+									Remove password
+								</Text>
 							</Button>
 						) : (
 							<Button
@@ -138,7 +148,9 @@ const MasterPasswordScreen = ({ navigation }: OnboardingStackScreenProps<'Master
 								disabled={form.formState.isSubmitting}
 								onPress={handleNoPassword}
 							>
-								<Text style={tw`text-ink text-center font-medium`}>Continue without password</Text>
+								<Text style={tw`text-center font-medium text-ink`}>
+									Continue without password
+								</Text>
 							</Button>
 						)}
 					</View>

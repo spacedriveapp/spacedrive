@@ -18,13 +18,17 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			{/* Header */}
 			<View style={tw`mx-4 flex flex-row items-center`}>
 				{/* Search Input */}
-				<View style={tw`border-app-line bg-app-overlay mr-3 h-10 flex-1 rounded border`}>
+				<View style={tw`mr-3 h-10 flex-1 rounded border border-app-line bg-app-overlay`}>
 					<View style={tw`flex h-full flex-row items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
 								<ActivityIndicator size={'small'} color={'white'} />
 							) : (
-								<MagnifyingGlass size={20} weight="light" color={tw.color('ink-faint')} />
+								<MagnifyingGlass
+									size={20}
+									weight="light"
+									color={tw.color('ink-faint')}
+								/>
 							)}
 						</View>
 						<TextInput
@@ -32,7 +36,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('ink-dull')}
-							style={tw`text-ink flex-1 text-sm font-medium`}
+							style={tw`flex-1 text-sm font-medium text-ink`}
 							textContentType={'none'}
 							autoFocus
 							autoCapitalize="none"

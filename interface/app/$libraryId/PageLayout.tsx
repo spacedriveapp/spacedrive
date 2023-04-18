@@ -3,6 +3,7 @@ import { PropsWithChildren, RefObject, createContext, useContext, useRef } from 
 import { createPortal } from 'react-dom';
 import { Outlet } from 'react-router';
 import DragRegion from '~/components/DragRegion';
+import TopBar from './TopBar';
 
 const PageLayoutContext = createContext<{ ref: RefObject<HTMLDivElement> } | null>(null);
 
@@ -11,8 +12,11 @@ export const Component = () => {
 
 	return (
 		<PageLayoutContext.Provider value={{ ref }}>
+			<TopBar />
 			<div
-				className={clsx('custom-scroll page-scroll app-background flex h-screen w-full flex-col')}
+				className={clsx(
+					'custom-scrol page-scroll app-background flex h-screen w-full flex-col pt-10'
+				)}
 			>
 				<DragRegion ref={ref} />
 				<div className="flex h-screen w-full flex-col p-5 pt-0">

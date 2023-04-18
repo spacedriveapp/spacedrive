@@ -28,16 +28,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "mobilenewTests.xctest"
-               BlueprintName = "mobilenewTests"
-               ReferencedContainer = "container:Spacedrive.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
@@ -57,18 +47,9 @@
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Spacedrive.app"
             BlueprintName = "Spacedrive"
-            ReferencedContainer = "container:spacedrive.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Spacedrive.app"
-            BlueprintName = "Spacedrive"
             ReferencedContainer = "container:Spacedrive.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

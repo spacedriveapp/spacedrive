@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -25,8 +27,6 @@ use super::{
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
 
-pub const THUMBNAILER_JOB_NAME: &str = "thumbnailer";
-
 pub struct ThumbnailerJob {}
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -45,14 +45,20 @@ impl Hash for ThumbnailerJobInit {
 	}
 }
 
+impl JobInitData for ThumbnailerJobInit {
+	type Job = ThumbnailerJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailerJob {
 	type Init = ThumbnailerJobInit;
 	type Data = ThumbnailerJobState;
 	type Step = ThumbnailerJobStep;
 
-	fn name(&self) -> &'static str {
-		THUMBNAILER_JOB_NAME
+	const NAME: &'static str = "thumbnailer";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -167,7 +173,7 @@ impl StatefulJob for ThumbnailerJob {
 
 async fn get_files_by_extensions(
 	db: &PrismaClient,
-	materialized_path: &MaterializedPath,
+	materialized_path: &MaterializedPath<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {

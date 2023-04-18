@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata};
+use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata, MetadataManager};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
@@ -44,13 +44,13 @@ async fn main() {
 
 	let keypair = Keypair::generate();
 
-	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, || async move {
-		PeerMetadata {
-			name: "TODO".to_string(),
-		}
-	})
-	.await
-	.unwrap();
+	let metadata_manager = MetadataManager::new(PeerMetadata {
+		name: "TODO".to_string(),
+	});
+
+	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, metadata_manager)
+		.await
+		.unwrap();
 
 	info!(
 		"Node '{}' is now online listening at addresses: {:?}",
@@ -59,6 +59,7 @@ async fn main() {
 	);
 
 	tokio::spawn(async move {
+		let mut shutdown = false;
 		// Your application must keeping poll this stream to keep the P2P system running
 		while let Some(event) = stream.next().await {
 			match event {
@@ -93,15 +94,23 @@ async fn main() {
 						}
 					});
 				}
+				Event::Shutdown => {
+					info!("Manager shutdown!");
+					shutdown = true;
+					break;
+				}
 				_ => debug!("event: {:?}", event),
 			}
 		}
 
-		error!("Manager event stream closed! The core is unstable from this point forward!");
-		// process.exit(1); // TODO: Should I?
+		if !shutdown {
+			error!("Manager event stream closed! The core is unstable from this point forward!");
+			// process.exit(1); // TODO: Should I?
+		}
 	});
 
 	if env::var("PING").as_deref() != Ok("skip") {
+		let manager = manager.clone();
 		tokio::spawn(async move {
 			sleep(Duration::from_millis(500)).await;
 
@@ -125,4 +134,6 @@ async fn main() {
 	// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 	tokio::time::sleep(Duration::from_secs(100)).await;
+
+	manager.shutdown().await; // It is super highly recommended to shutdown the manager before exiting your application so an Mdns update can be broadcasted
 }

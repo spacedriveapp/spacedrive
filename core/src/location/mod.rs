@@ -1,15 +1,14 @@
 use crate::{
 	invalidate_query,
-	job::Job,
+	job::{Job, JobManagerError},
 	library::Library,
 	object::{
 		file_identifier::{
-			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-			shallow_file_identifier_job::{ShallowFileIdentifierJob, ShallowFileIdentifierJobInit},
+			file_identifier_job::FileIdentifierJobInit,
+			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
 		},
 		preview::{
-			shallow_thumbnailer_job::{ShallowThumbnailerJob, ShallowThumbnailerJobInit},
-			thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
+			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
@@ -18,10 +17,11 @@ use crate::{
 
 use std::{
 	collections::HashSet,
-	ffi::OsStr,
-	path::{Path, PathBuf},
+	path::{Component, Path, PathBuf},
 };
 
+use futures::future::TryFutureExt;
+use normpath::PathExt;
 use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
@@ -38,11 +38,7 @@ mod metadata;
 
 pub use error::LocationError;
 use file_path_helper::file_path_just_object_id;
-use indexer::{
-	indexer_job::IndexerJob,
-	shallow_indexer_job::{ShallowIndexerJob, ShallowIndexerJobInit},
-	IndexerJobInit,
-};
+use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -79,10 +75,6 @@ impl LocationCreateArgs {
 			}
 		};
 
-		if path_metadata.permissions().readonly() {
-			return Err(LocationError::ReadonlyLocationFailure(self.path));
-		}
-
 		if !path_metadata.is_dir() {
 			return Err(LocationError::NotDirectory(self.path));
 		}
@@ -107,19 +99,25 @@ impl LocationCreateArgs {
 
 		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
 
-		// Write a location metadata on a .spacedrive file
-		SpacedriveLocationMetadataFile::create_and_save(
+		// Write location metadata to a .spacedrive file
+		if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
 			library.id,
 			uuid,
 			&self.path,
 			location.name.clone(),
 		)
-		.await?;
-
-		library
-			.location_manager()
-			.add(location.id, library.clone())
-			.await?;
+		.err_into::<LocationError>()
+		.and_then(|()| async move {
+			Ok(library
+				.location_manager()
+				.add(location.id, library.clone())
+				.await?)
+		})
+		.await
+		{
+			delete_location(library, location.id).await?;
+			Err(err)?;
+		}
 
 		info!("Created location: {location:?}");
 
@@ -320,128 +318,92 @@ async fn link_location_and_indexer_rules(
 pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: None,
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	let location_base_data = location::Data::from(&location);
 
 	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: None,
-				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
+		.spawn_job(
+			Job::new(IndexerJobInit {
 				location,
 				sub_path: None,
-			},
-			IndexerJob {},
-		))
-		.await;
-
-	Ok(())
+			})
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
+				sub_path: None,
+				background: true,
+			}),
+		)
+		.await
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "location-watcher")]
 pub async fn scan_location_sub_path(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: Some(sub_path.clone()),
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	let location_base_data = location::Data::from(&location);
 
 	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: Some(sub_path.clone()),
-				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
+		.spawn_job(
+			Job::new(IndexerJobInit {
 				location,
+				sub_path: Some(sub_path.clone()),
+			})
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: Some(sub_path.clone()),
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
 				sub_path: Some(sub_path),
-			},
-			IndexerJob {},
-		))
-		.await;
-
-	Ok(())
+				background: true,
+			}),
+		)
+		.await
 }
 
 pub async fn light_scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
+	let location_base_data = location::Data::from(&location);
+
 	library
-		.queue_job(Job::new(
-			ShallowFileIdentifierJobInit {
-				location: location::Data::from(&location),
+		.spawn_job(
+			Job::new(ShallowIndexerJobInit {
+				location,
 				sub_path: sub_path.clone(),
-			},
-			ShallowFileIdentifierJob {},
-		))
-		.await;
-
-	library
-		.queue_job(Job::new(
-			ShallowThumbnailerJobInit {
-				location: location::Data::from(&location),
+			})
+			.queue_next(ShallowFileIdentifierJobInit {
+				location: location_base_data.clone(),
 				sub_path: sub_path.clone(),
-			},
-			ShallowThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			ShallowIndexerJobInit { location, sub_path },
-			ShallowIndexerJob {},
-		))
-		.await;
-
-	Ok(())
+			})
+			.queue_next(ShallowThumbnailerJobInit {
+				location: location_base_data,
+				sub_path,
+			}),
+		)
+		.await
 }
 
 pub async fn relink_location(
@@ -490,18 +452,62 @@ async fn create_location(
 ) -> Result<location_with_indexer_rules::Data, LocationError> {
 	let Library { db, sync, .. } = &library;
 
-	let location_path = location_path.as_ref();
+	let mut location_path = location_path.as_ref().to_path_buf();
 
-	let name = location_path
-		.file_name()
-		.and_then(OsStr::to_str)
-		.map(str::to_string)
-		.unwrap();
+	let (path, normalized_path) = location_path
+		// Normalize path and also check if it exists
+		.normalize()
+		.and_then(|normalized_path| {
+			if cfg!(windows) {
+				// Use normalized path as location path on Windows
+				// This ensures we always receive a valid windows formated path
+				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
+				// Internally `normalize` calls `GetFullPathNameW` on Windows
+				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
+				location_path = normalized_path.as_path().to_path_buf();
+			}
 
-	let path = location_path
-		.to_str()
-		.map(str::to_string)
-		.expect("Found non-UTF-8 path");
+			Ok((
+				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
+				location_path
+					.to_str()
+					.map(str::to_string)
+					.ok_or(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Found non-UTF-8 path",
+					))?,
+				normalized_path,
+			))
+		})
+		.map_err(|_| {
+			LocationError::DirectoryNotFound(location_path.to_string_lossy().to_string())
+		})?;
+
+	// Not needed on Windows because the normalization already handles it
+	if cfg!(not(windows)) {
+		// Replace location_path with normalize_path, when the first one ends in `.` or `..`
+		// This is required so localize_name doesn't panic
+		if let Some(component) = location_path.components().next_back() {
+			match component {
+				Component::CurDir | Component::ParentDir => {
+					location_path = normalized_path.as_path().to_path_buf();
+				}
+				_ => {}
+			}
+		}
+	}
+
+	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
+	let mut name = location_path.localize_name().to_string_lossy().to_string();
+
+	// Windows doesn't have a root directory
+	if cfg!(not(windows)) && name == "/" {
+		name = "Root".to_string()
+	}
+
+	if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+		name = "Unknown".to_string()
+	}
 
 	let location = sync
 		.write_op(

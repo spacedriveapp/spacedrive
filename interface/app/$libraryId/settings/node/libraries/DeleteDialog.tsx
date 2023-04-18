@@ -12,9 +12,7 @@ interface Props extends UseDialogProps {
 
 export default function DeleteLibraryDialog(props: Props) {
 	const dialog = useDialog(props);
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
-	const shareTelemetry = useTelemetryState().shareTelemetry;
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const queryClient = useQueryClient();
 	const deleteLib = useBridgeMutation('library.delete', {

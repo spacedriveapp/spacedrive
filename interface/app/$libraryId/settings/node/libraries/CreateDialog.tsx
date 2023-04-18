@@ -17,12 +17,11 @@ import {
 	SelectOption,
 	Tooltip,
 	UseDialogProps,
+	forms,
 	useDialog
 } from '@sd/ui';
-import { forms } from '@sd/ui';
 import { PasswordMeter } from '~/components/PasswordMeter';
 import { generatePassword } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 const { Input, z, useZodForm } = forms;
 
@@ -37,8 +36,7 @@ const schema = z.object({
 
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
-	const platform = usePlatform();
-	const createLibraryEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
 		schema,
@@ -62,7 +60,7 @@ export default (props: UseDialogProps) => {
 				library
 			]);
 
-			createLibraryEvent({
+			submitPlausibleEvent({
 				event: {
 					type: 'libraryCreate'
 				}
@@ -99,14 +97,12 @@ export default (props: UseDialogProps) => {
 			submitDisabled={!form.formState.isValid}
 			ctaLabel="Create"
 		>
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">Library name</p>
-				<Input
-					className="w-full grow"
-					placeholder="My Cool Library"
-					{...form.register('name', { required: true })}
-				/>
-			</div>
+			<Input
+				label="Library name"
+				placeholder="My Cool Library"
+				className="mt-2"
+				{...form.register('name', { required: true })}
+			/>
 
 			<div className="mt-3 mb-1 flex flex-row items-center">
 				<div className="space-x-2">
@@ -118,7 +114,7 @@ export default (props: UseDialogProps) => {
 				</div>
 				<span className="mt-1 text-xs font-medium">Share anonymous usage</span>
 				<Tooltip label="Share completely anonymous telemetry data to help the developers improve the app">
-					<Info className="text-ink-faint ml-1.5 h-4 w-4" />
+					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 			</div>
 
@@ -129,65 +125,62 @@ export default (props: UseDialogProps) => {
 				<p className="mt-2 mb-1 text-center text-[0.95rem] font-bold">Key Manager</p>
 				<div className="my-1 h-[2px] w-full bg-gray-500" />
 
-				<p className="my-2 text-sm font-bold">Master password</p>
-				<div className="relative mb-2 flex grow">
-					<Input
-						className="grow !py-0.5"
-						placeholder="Password"
-						type={showMasterPassword1 ? 'text' : 'password'}
-						{...form.register('password')}
-					/>
-					<Button
-						onClick={() => {
-							const password = generatePassword(32);
+				<Input
+					label="Master password"
+					placeholder="Password"
+					type={showMasterPassword1 ? 'text' : 'password'}
+					className="mt-2"
+					{...form.register('password')}
+					right={
+						<div className="flex">
+							<Button
+								onClick={() => {
+									const password = generatePassword(32);
 
-							form.setValue('password', password);
-							form.setValue('password_validate', password);
+									form.setValue('password', password);
+									form.setValue('password_validate', password);
 
-							setShowMasterPassword1(true);
-							setShowMasterPassword2(true);
-						}}
-						size="icon"
-						className="absolute right-[65px] top-[5px] border-none"
-					>
-						<ArrowsClockwise className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => {
-							navigator.clipboard.writeText(form.watch('password') as string);
-						}}
-						size="icon"
-						className="absolute right-[35px] top-[5px] border-none"
-					>
-						<Clipboard className="h-4 w-4" />
-					</Button>
-					<Button
-						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<MP1CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+									setShowMasterPassword1(true);
+									setShowMasterPassword2(true);
+								}}
+								size="icon"
+							>
+								<ArrowsClockwise className="h-4 w-4" />
+							</Button>
+							<Button
+								onClick={() => {
+									navigator.clipboard.writeText(form.watch('password') as string);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+							<Button
+								onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+								size="icon"
+							>
+								<MP1CurrentEyeIcon className="h-4 w-4" />
+							</Button>
+						</div>
+					}
+				/>
 			</div>
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">Master password (again)</p>
-				<div className="relative mb-2 flex grow">
-					<Input
-						className="grow !py-0.5"
-						placeholder="Password"
-						type={showMasterPassword2 ? 'text' : 'password'}
-						{...form.register('password_validate')}
-					/>
+
+			<Input
+				label="Master password (again)"
+				placeholder="Password"
+				type={showMasterPassword2 ? 'text' : 'password'}
+				className="mt-2"
+				right={
 					<Button
 						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
 						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
 					>
 						<MP2CurrentEyeIcon className="h-4 w-4" />
 					</Button>
-				</div>
-			</div>
+				}
+				{...form.register('password_validate')}
+			/>
 
 			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
@@ -211,9 +204,15 @@ export default (props: UseDialogProps) => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

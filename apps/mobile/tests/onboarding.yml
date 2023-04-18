@@ -1,0 +1,27 @@
+appId: com.spacedrive.app
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Get Started'
+- tapOn:
+    id: 'library-name'
+- inputText: 'TestLib'
+- tapOn: 'New Library'
+- tapOn:
+    id: 'password-input'
+- inputText: '12345678'
+- tapOn: 'Set Password'
+- tapOn:
+    id: 'password-input-confirm'
+- inputText: '12345678'
+- tapOn:
+    id: 'confirm-password-button'
+- tapOn: 'Continue'
+# Library creation can take a while...
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-toggle'
+    timeout: 180000 # 3 minutes
+- tapOn:
+    id: 'drawer-toggle'
+- assertVisible: 'TestLib'

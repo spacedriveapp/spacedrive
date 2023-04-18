@@ -12,12 +12,17 @@ type SettingsItemProps = {
 export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable onPress={props.onPress}>
-			<View style={tw`bg-app-box flex flex-row items-center justify-between px-4`}>
+			<View style={tw`flex flex-row items-center justify-between bg-app-box px-4`}>
 				<View style={tw`flex flex-row items-center py-4`}>
-					{props.leftIcon && props.leftIcon({ size: 20, color: tw.color('ink'), style: tw`mr-3` })}
-					<Text style={tw`text-ink text-[14px]`}>{props.title}</Text>
+					{props.leftIcon &&
+						props.leftIcon({ size: 20, color: tw.color('ink'), style: tw`mr-3` })}
+					<Text style={tw`text-[14px] text-ink`}>{props.title}</Text>
 				</View>
-				{props.rightArea ? props.rightArea : <CaretRight size={20} color={tw.color('ink-dull')} />}
+				{props.rightArea ? (
+					props.rightArea
+				) : (
+					<CaretRight size={20} color={tw.color('ink-dull')} />
+				)}
 			</View>
 		</Pressable>
 	);
@@ -26,7 +31,7 @@ export function SettingsItem(props: SettingsItemProps) {
 export function SettingsItemDivider() {
 	return (
 		<View style={tw`bg-app-overlay`}>
-			<View style={tw`border-b-app-line mx-3 border-b`} />
+			<View style={tw`mx-3 border-b border-b-app-line`} />
 		</View>
 	);
 }

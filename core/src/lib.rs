@@ -20,6 +20,7 @@ pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
+pub(crate) mod migrations;
 pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
@@ -145,68 +146,29 @@ impl Node {
 		)
 		.await?;
 
-		// Adding already existing locations for location management
-		for library in library_manager.get_all_libraries().await {
-			for location in library
-				.db
-				.location()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap_or_else(|e| {
-					error!(
-						"Failed to get locations from database for location manager: {:#?}",
-						e
-					);
-					vec![]
-				}) {
-				if let Err(e) = location_manager.add(location.id, library.clone()).await {
-					error!("Failed to add location to location manager: {:#?}", e);
-				}
-			}
-		}
-
 		debug!("Watching locations");
-
-		// Trying to resume possible paused jobs
-		tokio::spawn({
-			let library_manager = library_manager.clone();
-			let jobs = jobs.clone();
-
-			async move {
-				for library in library_manager.get_all_libraries().await {
-					if let Err(e) = jobs.clone().resume_jobs(&library).await {
-						error!("Failed to resume jobs for library. {:#?}", e);
-					}
-				}
-			}
-		});
 
 		tokio::spawn({
 			let library_manager = library_manager.clone();
 
 			async move {
 				while let Ok(ops) = p2p_rx.recv().await {
-					match ops {
-						P2PEvent::SyncOperation {
-							library_id,
-							operations,
-						} => {
-							debug!("going to ingest {} operations", operations.len());
+					if let P2PEvent::SyncOperation {
+						library_id,
+						operations,
+					} = ops
+					{
+						debug!("going to ingest {} operations", operations.len());
 
-							let libraries = library_manager.libraries.read().await;
+						let Some(library) = library_manager.get_ctx(library_id).await else {
+						warn!("no library found!");
+						continue;
+					};
 
-							let Some(library) = libraries.first() else {
-                                warn!("no library found!");
-                                continue;
-                            };
-
-							for op in operations {
-								println!("ingest lib id: {}", library.id);
-								library.sync.ingest_op(op).await.unwrap();
-							}
+						for op in operations {
+							println!("ingest lib id: {}", library.id);
+							library.sync.ingest_op(op).await.unwrap();
 						}
-						_ => {}
 					}
 				}
 			}
@@ -230,6 +192,7 @@ impl Node {
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
 		self.jobs.pause().await;
+		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -255,7 +218,7 @@ pub enum NodeError {
 	#[error("Failed to create data directory: {0}")]
 	FailedToCreateDataDirectory(#[from] std::io::Error),
 	#[error("Failed to initialize config: {0}")]
-	FailedToInitializeConfig(#[from] node::NodeConfigError),
+	FailedToInitializeConfig(#[from] util::migrator::MigratorError),
 	#[error("Failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("Location manager error: {0}")]

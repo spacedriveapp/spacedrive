@@ -41,10 +41,13 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[53px] rounded-[6px] bg-[#00000000];
+		@apply mt-[46px] rounded-[6px] bg-[#00000000];
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-transparent;
+	}
+	&::-webkit-scrollbar-corner {
+		background-color: transparent;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {
@@ -61,7 +64,7 @@ body {
 		@apply rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box rounded-[6px];
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .page-scroll {
@@ -73,7 +76,7 @@ body {
 		@apply my-[10px] rounded-[6px]  bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box rounded-[6px];
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .inspector-scroll {
@@ -86,7 +89,7 @@ body {
 		@apply my-[8px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app/70 rounded-[6px] opacity-0;
+		@apply rounded-[6px] bg-app/70 opacity-0;
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {
@@ -186,4 +189,27 @@ body {
 	left: 0;
 	border-radius: 9px;
 	box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.react-colorful__saturation {
+	border-radius: 4px !important;
+}
+
+.react-colorful__saturation-pointer {
+	width: 12px !important;
+	height: 12px !important;
+}
+
+.react-colorful__hue,
+.react-colorful__alpha {
+	margin-top: 12px !important;
+	height: 8px !important;
+	border-radius: 4px !important;
+}
+
+.react-colorful__hue-pointer,
+.react-colorful__alpha-pointer {
+	height: 18px !important;
+	width: 8px !important;
+	border-radius: 3px !important;
 }

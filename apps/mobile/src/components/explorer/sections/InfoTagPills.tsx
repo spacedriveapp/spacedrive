@@ -11,14 +11,13 @@ type Props = {
 
 const InfoTagPills = ({ data, style }: Props) => {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
 
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: Boolean(objectData)
 	});
 
 	const isDir = data && isPath(data) ? data.item.is_dir : false;
-
-	const item = data?.item;
 
 	return (
 		<View style={twStyle('mt-1 flex flex-row flex-wrap', style)}>
@@ -28,7 +27,9 @@ const InfoTagPills = ({ data, style }: Props) => {
 				text={isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]!}
 			/>
 			{/* Extension */}
-			{item.extension && <InfoPill text={item.extension} containerStyle={tw`mr-1`} />}
+			{filePath?.extension && (
+				<InfoPill text={filePath.extension} containerStyle={tw`mr-1`} />
+			)}
 			{/* TODO: What happens if I have too many? */}
 			{tagsQuery.data?.map((tag) => (
 				<InfoPill

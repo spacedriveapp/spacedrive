@@ -134,6 +134,11 @@ model FilePath {
     name              String
     extension         String
 
+    size_in_bytes String @default("0")
+
+    inode  Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
+    device Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
+
     // the unique Object for this file path
     object_id Int?
     object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
@@ -155,20 +160,17 @@ model FilePath {
 
     @@id([location_id, id])
     @@unique([location_id, materialized_path, name, extension])
+    @@unique([location_id, inode, device])
     @@index([location_id])
     @@map("file_path")
 }
 
 /// @shared(id: pub_id)
 model Object {
-    id                Int      @id @default(autoincrement())
-    pub_id            Bytes    @unique
-    // basic metadata
-    name              String?
-    // Must have 'COLLATE NOCASE' in migration
-    extension         String?
-    kind              Int      @default(0)
-    size_in_bytes     String   @default("0")
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+    kind   Int   @default(0)
+
     key_id            Int?
     // handy ways to mark an object
     hidden            Boolean  @default(false)
@@ -188,10 +190,6 @@ model Object {
     note              String?
     // the original known creation date of this object
     date_created      DateTime @default(now())
-    // the last time this object was modified
-    date_modified     DateTime @default(now())
-    // when this object was first indexed
-    date_indexed      DateTime @default(now())
 
     tags       TagOnObject[]
     labels     LabelOnObject[]
@@ -347,13 +345,18 @@ model Job {
     data     Bytes?
     metadata Bytes?
 
+    parent_id Bytes?
+
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
-    date_modified        DateTime @default(now())
-    seconds_elapsed      Int      @default(0)
+		date_started 			   DateTime? @default(now()) // Started execution
+		date_completed 		   DateTime? @default(now()) // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    children Job[] @relation("jobs_dependency")
 
     @@map("job")
 }
@@ -402,6 +405,7 @@ model IndexerRule {
     id            Int      @id @default(autoincrement())
     kind          Int
     name          String
+    default       Boolean  @default(false)
     parameters    Bytes
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

@@ -13,9 +13,8 @@ export default () => {
 	return (
 		<Popover
 			className="p-4 focus:outline-none"
-			transformOrigin="bottom left"
 			trigger={
-				<h1 className="text-ink-faint/50 ml-1 w-full text-[7pt]">
+				<h1 className="ml-1 w-full text-[7pt] text-ink-faint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}
@@ -74,7 +73,8 @@ export default () => {
 								size="sm"
 								variant="gray"
 								onClick={() => {
-									if (nodeState?.data?.data_path) platform.openPath!(nodeState?.data?.data_path);
+									if (nodeState?.data?.data_path)
+										platform.openPath!(nodeState?.data?.data_path);
 								}}
 							>
 								Open

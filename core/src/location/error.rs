@@ -1,5 +1,3 @@
-use crate::LocationManagerError;
-
 use std::path::PathBuf;
 
 use rspc::{self, ErrorCode};
@@ -7,7 +5,9 @@ use thiserror::Error;
 use tokio::io;
 use uuid::Uuid;
 
-use super::{file_path_helper::FilePathError, metadata::LocationMetadataError};
+use super::{
+	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
+};
 
 /// Error type for location related errors
 #[derive(Error, Debug)]
@@ -44,8 +44,6 @@ pub enum LocationError {
 	LocationMetadataError(#[from] LocationMetadataError),
 	#[error("Failed to read location path metadata info (path: {1:?}); (error: {0:?})")]
 	LocationPathFilesystemMetadataAccess(io::Error, PathBuf),
-	#[error("Location is read only (at path: {0:?})")]
-	ReadonlyLocationFailure(PathBuf),
 	#[error("Missing metadata file for location (path: {0:?})")]
 	MissingMetadataFile(PathBuf),
 	#[error("Failed to open file from local os (error: {0:?})")]

@@ -1,12 +1,10 @@
-use std::path::PathBuf;
-
+use super::{context_menu_fs_info, FsInfo};
+use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{invalidate_query, job::*};
 use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
-
-use super::{context_menu_fs_info, FsInfo};
+use std::path::PathBuf;
 
 pub struct FileEncryptorJob;
 
@@ -33,10 +31,11 @@ pub struct Metadata {
 	pub important: bool,
 	pub note: Option<String>,
 	pub date_created: chrono::DateTime<FixedOffset>,
-	pub date_modified: chrono::DateTime<FixedOffset>,
 }
 
-const JOB_NAME: &str = "file_encryptor";
+impl JobInitData for FileEncryptorJobInit {
+	type Job = FileEncryptorJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
@@ -44,8 +43,10 @@ impl StatefulJob for FileEncryptorJob {
 	type Data = FileEncryptorJobState;
 	type Step = FsInfo;
 
-	fn name(&self) -> &'static str {
-		JOB_NAME
+	const NAME: &'static str = "file_encryptor";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -107,15 +108,25 @@ impl StatefulJob for FileEncryptorJob {
 		// 		Ok,
 		// 	)?;
 
-		// 	let _guard = ctx
-		// 		.library
-		// 		.location_manager()
-		// 		.temporary_ignore_events_for_path(
-		// 			state.init.location_id,
-		// 			ctx.library.clone(),
-		// 			&output_path,
-		// 		)
-		// 		.await?;
+		// let _guard = ctx
+		// 	.library
+		// 	.location_manager()
+		// 	.temporary_ignore_events_for_path(
+		// 		state.init.location_id,
+		// 		ctx.library.clone(),
+		// 		&output_path,
+		// 	)
+		// 	.await
+		// 	.map_or_else(
+		// 		|e| {
+		// 			error!(
+		// 				"Failed to make location manager ignore the path {}; Error: {e:#?}",
+		// 				output_path.display()
+		// 			);
+		// 			None
+		// 		},
+		// 		Some,
+		// 	);
 
 		// 	let mut reader = File::open(&info.fs_path).await?;
 		// 	let mut writer = File::create(output_path).await?;
@@ -131,6 +142,20 @@ impl StatefulJob for FileEncryptorJob {
 		// 	// 	master_key.clone(),
 		// 	// 	FILE_KEYSLOT_CONTEXT,
 		// 	// )?;
+
+		// if state.init.metadata || state.init.preview_media {
+		// 	// if any are requested, we can make the query as it'll be used at least once
+		// 	if let Some(ref object) = info.path_data.object {
+		// 		if state.init.metadata {
+		// 			let metadata = Metadata {
+		// 				path_id: state.init.path_id,
+		// 				name: info.path_data.materialized_path.clone(),
+		// 				hidden: object.hidden,
+		// 				favorite: object.favorite,
+		// 				important: object.important,
+		// 				note: object.note.clone(),
+		// 				date_created: object.date_created,
+		// 			};
 
 		// 	header
 		// 		.write_async(&mut writer, ENCRYPTED_FILE_MAGIC_BYTES)
@@ -156,7 +181,9 @@ impl StatefulJob for FileEncryptorJob {
 		todo!()
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

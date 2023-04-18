@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { Input } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -20,6 +20,8 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	// TODO: Use react-hook-form?
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const { mutate: createTag } = useLibraryMutation('tags.create', {
 		onSuccess: () => {
 			// Reset form
@@ -28,6 +30,8 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			setShowPicker(false);
 
 			queryClient.invalidateQueries(['tags.list']);
+
+			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 		},
 		onSettled: () => {
 			// Close modal
@@ -72,7 +76,10 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				{showPicker && (
 					<FadeInAnimation>
 						<View style={tw`mt-4 h-64`}>
-							<ColorPicker color={tagColor} onColorChangeComplete={(color) => setTagColor(color)} />
+							<ColorPicker
+								color={tagColor}
+								onColorChangeComplete={(color) => setTagColor(color)}
+							/>
 						</View>
 					</FadeInAnimation>
 				)}
