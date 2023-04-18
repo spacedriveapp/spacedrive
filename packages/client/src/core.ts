@@ -41,6 +41,7 @@ export type Procedures = {
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
+        { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
