@@ -71,6 +71,7 @@ async fn main() -> tauri::Result<()> {
 	let app = app
 		.setup(|app| {
 			let app = app.handle();
+
 			app.windows().iter().for_each(|(_, window)| {
 				// window.hide().unwrap();
 
@@ -100,6 +101,8 @@ async fn main() -> tauri::Result<()> {
 					unsafe { blur_window_background(&window) };
 				}
 			});
+
+			tauri::updater::builder(app).should_install(|_current, _latest| true);
 
 			Ok(())
 		})
