@@ -5,6 +5,7 @@ use std::{
 	fmt::{Display, Formatter},
 	fs::Metadata,
 	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+	time::SystemTime,
 };
 
 use chrono::{DateTime, Utc};
@@ -722,5 +723,21 @@ pub async fn get_inode_and_device_from_path(
 		let info = information(&Handle::from_path_any(path.as_ref())?)?;
 
 		Ok((info.file_index(), info.volume_serial_number()))
+	}
+}
+
+pub trait MetadataExt {
+	fn created_or_now(&self) -> SystemTime;
+
+	fn modified_or_now(&self) -> SystemTime;
+}
+
+impl MetadataExt for Metadata {
+	fn created_or_now(&self) -> SystemTime {
+		self.created().unwrap_or_else(|_| SystemTime::now())
+	}
+
+	fn modified_or_now(&self) -> SystemTime {
+		self.modified().unwrap_or_else(|_| SystemTime::now())
 	}
 }
