@@ -222,4 +222,6 @@ pub enum NodeError {
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("Location manager error: {0}")]
 	LocationManager(#[from] LocationManagerError),
+	#[error("invalid platform integer")]
+	InvalidPlatformInt(i32),
 }

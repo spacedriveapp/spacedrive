@@ -3294,27 +3294,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "int-enum"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff87d3cc4b79b4559e3c75068d64247284aceb6a038bd4bb38387f3f164476d"
-dependencies = [
- "int-enum-impl",
-]
-
-[[package]]
-name = "int-enum-impl"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df1f2f068675add1a3fc77f5f5ab2e29290c841ee34d151abc007bce902e5d34"
-dependencies = [
- "proc-macro-crate 1.2.1",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "interceptor"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6650,7 +6629,6 @@ dependencies = [
  "httpz 0.0.3 (git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6)",
  "image",
  "include_dir",
- "int-enum",
  "itertools",
  "mini-moka",
  "normpath",
@@ -6732,7 +6710,6 @@ dependencies = [
 name = "sd-file-ext"
 version = "0.0.0"
 dependencies = [
- "int-enum",
  "serde",
  "serde_json",
  "strum 0.24.1",

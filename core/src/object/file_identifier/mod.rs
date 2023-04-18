@@ -13,7 +13,6 @@ use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_sync::CRDTOperation;
 
 use futures::future::join_all;
-use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
@@ -240,7 +239,7 @@ async fn identifier_job_step(
 					};
 
 					let size = meta.fs_metadata.len().to_string();
-					let kind = meta.kind.int_value();
+					let kind = meta.kind as i32;
 
 					let object_creation_args = (
 						[sync.shared_create(sync_id())]
