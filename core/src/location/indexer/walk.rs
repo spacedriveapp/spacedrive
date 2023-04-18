@@ -557,7 +557,10 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptFilesByGlob,
 				"only photos".to_string(),
-				ParametersPerKind::AcceptFilesByGlob(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()),
+				false,
+				ParametersPerKind::AcceptFilesByGlob(vec![
+					Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()
+				]),
 			)],
 		)]
 		.into_iter()
@@ -615,6 +618,7 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
 				"git repos".to_string(),
+				false,
 				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				),
@@ -670,6 +674,7 @@ mod tests {
 				vec![IndexerRule::new(
 					RuleKind::AcceptIfChildrenDirectoriesArePresent,
 					"git repos".to_string(),
+					false,
 					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 						[".git".to_string()].into_iter().collect(),
 					),
@@ -681,16 +686,20 @@ mod tests {
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject node_modules".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/node_modules/*,**/node_modules}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/node_modules/*,**/node_modules}",
+						)
+						.unwrap()]),
 					),
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject rust build dir".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/target/*,**/target}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/target/*,**/target}",
+						)
+						.unwrap()]),
 					),
 				],
 			),

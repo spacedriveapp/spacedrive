@@ -422,6 +422,7 @@ model IndexerRule {
     id            Int      @id @default(autoincrement())
     kind          Int
     name          String
+    default       Boolean  @default(false)
     parameters    Bytes
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
