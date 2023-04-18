@@ -17,11 +17,11 @@ use crate::{
 
 use std::{
 	collections::HashSet,
-	ffi::OsStr,
-	path::{Path, PathBuf},
+	path::{Component, Path, PathBuf},
 };
 
 use futures::future::TryFutureExt;
+use normpath::PathExt;
 use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
@@ -455,34 +455,71 @@ async fn create_location(
 ) -> Result<location_with_indexer_rules::Data, LocationError> {
 	let Library { db, sync, .. } = &library;
 
-	let location_path = location_path.as_ref();
+	let mut path = location_path.as_ref().to_path_buf();
 
-	let path = location_path
-		.to_str()
-		.map(str::to_string)
-		.expect("Found non-UTF-8 path");
+	let (location_path, normalized_path) = path
+		// Normalize path and also check if it exists
+		.normalize()
+		.and_then(|normalized_path| {
+			if cfg!(windows) {
+				// Use normalized path as main path on Windows
+				// This ensures we always receive a valid windows formated path
+				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
+				// Internally `normalize` calls `GetFullPathNameW` on Windows
+				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
+				path = normalized_path.as_path().to_path_buf();
+			}
+
+			Ok((
+				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
+				path
+					.to_str()
+					.map(str::to_string)
+					.ok_or(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Found non-UTF-8 path",
+					))?,
+				normalized_path,
+			))
+		})
+		.map_err(|_| LocationError::DirectoryNotFound(path.clone()))?;
+
+	// Not needed on Windows because the normalization already handles it
+	if cfg!(not(windows)) {
+		// Replace location_path with normalize_path, when the first one ends in `.` or `..`
+		// This is required so localize_name doesn't panic
+		if let Some(component) = path.components().next_back() {
+			if matches!(component, Component::CurDir | Component::ParentDir) {
+				path = normalized_path.as_path().to_path_buf();
+			}
+		}
+	}
 
 	if library
 		.db
 		.location()
-		.count(vec![location::path::equals(path.clone())])
+		.count(vec![location::path::equals(location_path.clone())])
 		.exec()
 		.await? > 0
 	{
-		return Err(LocationError::LocationAlreadyExists(
-			location_path.to_path_buf(),
-		));
+		return Err(LocationError::LocationAlreadyExists(path));
 	}
 
-	if check_nested_location(location_path, &library.db).await? {
-		return Err(LocationError::NestedLocation(location_path.to_path_buf()));
+	if check_nested_location(&location_path, &library.db).await? {
+		return Err(LocationError::NestedLocation(path));
 	}
 
-	let name = location_path
-		.file_name()
-		.and_then(OsStr::to_str)
-		.map(str::to_string)
-		.unwrap();
+	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
+	let mut name = path.localize_name().to_string_lossy().to_string();
+
+	// Windows doesn't have a root directory
+	if cfg!(not(windows)) && name == "/" {
+		name = "Root".to_string()
+	}
+
+	if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+		name = "Unknown".to_string()
+	}
 
 	let location = sync
 		.write_op(
@@ -494,14 +531,14 @@ async fn create_location(
 				[
 					("node", json!({ "pub_id": library.id.as_bytes() })),
 					("name", json!(&name)),
-					("path", json!(&path)),
+					("path", json!(&location_path)),
 				],
 			),
 			db.location()
 				.create(
 					location_pub_id.as_bytes().to_vec(),
 					name,
-					path,
+					location_path,
 					node::id::equals(library.node_local_id),
 					vec![],
 				)

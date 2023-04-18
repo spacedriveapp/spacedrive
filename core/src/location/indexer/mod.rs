@@ -78,7 +78,7 @@ pub struct IndexerJobStepEntry {
 }
 
 impl IndexerJobData {
-	fn on_scan_progress(ctx: &WorkerContext, progress: Vec<ScanProgress>) {
+	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
 		ctx.progress_debounced(
 			progress
 				.iter()

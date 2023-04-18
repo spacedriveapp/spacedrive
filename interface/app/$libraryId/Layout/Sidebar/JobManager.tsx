@@ -16,6 +16,7 @@ import {
 	TrashSimple,
 	X
 } from 'phosphor-react';
+import { useEffect, useState } from 'react';
 import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, CategoryHeading, PopoverClose, ProgressBar, Tooltip } from '@sd/ui';
 
@@ -137,12 +138,37 @@ export function JobsManager() {
 	);
 }
 
+function JobTimeText({ job }: { job: JobReport }) {
+	const [_, setRerenderPlz] = useState(0);
+
+	let text: string;
+	if (job.status === 'Running') {
+		text = `Elapsed ${dayjs(job.started_at).fromNow(true)}`;
+	} else if (job.completed_at) {
+		text = `Took ${dayjs(job.started_at).from(job.completed_at, true)}`;
+	} else {
+		text = `Took ${dayjs(job.started_at).fromNow(true)}`;
+	}
+
+	useEffect(() => {
+		if (job.status === 'Running') {
+			const interval = setInterval(() => {
+				setRerenderPlz((x) => x + 1); // Trigger React to rerender and dayjs to update
+			}, 1000);
+			return () => clearInterval(interval);
+		}
+	}, [job.status]);
+
+	return <>{text}</>;
+}
+
 function Job({ job }: { job: JobReport }) {
 	const niceData = getNiceData(job)[job.name] || {
 		name: job.name,
 		icon: Question
 	};
 	const isRunning = job.status === 'Running';
+
 	return (
 		// Do we actually need bg-opacity-60 here? Where is the bg?
 		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
@@ -161,19 +187,10 @@ function Job({ job }: { job: JobReport }) {
 				)}
 				<div className="flex items-center truncate text-ink-faint">
 					<span className="text-xs">
-						{isRunning ? 'Elapsed' : job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
-						{job.seconds_elapsed
-							? dayjs.duration({ seconds: job.seconds_elapsed }).humanize()
-							: 'less than a second'}
+						<JobTimeText job={job} />
 					</span>
 					<span className="mx-1 opacity-50">&#8226;</span>
-					{
-						<span className="text-xs">
-							{isRunning
-								? 'Unknown time remaining'
-								: dayjs(job.created_at).toNow(true) + ' ago'}
-						</span>
-					}
+					{<span className="text-xs">{dayjs(job.created_at).fromNow()}</span>}
 				</div>
 				{/* <span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span> */}
 			</div>
