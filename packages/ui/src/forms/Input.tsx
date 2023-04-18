@@ -4,6 +4,7 @@ import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useDebounce, useDebouncedCallback } from 'use-debounce';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
@@ -28,7 +29,12 @@ export interface PasswordInputProps extends UseFormFieldProps, Root.InputProps {
 
 const PasswordStrengthMeter = (props: { password: string }) => {
 	const [strength, setStrength] = useState<{ label: string; score: number }>();
+	const updateStrength = useDebouncedCallback(
+		() => setStrength(props.password ? getPasswordStrength(props.password) : undefined),
+		100
+	);
 
+	// TODO: Remove duplicate in @sd/client
 	function getPasswordStrength(password: string): { label: string; score: number } {
 		const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
@@ -45,10 +51,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 		return { label: ratings[result.score]!, score: result.score };
 	}
 
-	useEffect(
-		() => setStrength(props.password ? getPasswordStrength(props.password) : undefined),
-		[props.password]
-	);
+	useEffect(() => updateStrength(), [props.password]);
 
 	return (
 		<div className="flex grow items-center justify-end">
