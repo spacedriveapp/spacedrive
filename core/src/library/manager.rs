@@ -58,6 +58,8 @@ pub enum LibraryManagerError {
 	Seeder(#[from] SeederError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),
+	#[error("failed to run library migrations: {0}")]
+	MigratorError(#[from] crate::util::migrator::MigratorError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -162,7 +164,7 @@ impl LibraryManager {
 				continue;
 			}
 
-			let config = LibraryConfig::read(config_path).await?;
+			let config = LibraryConfig::read(config_path)?;
 			libraries.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
 		}
 
@@ -187,8 +189,7 @@ impl LibraryManager {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&config,
-		)
-		.await?;
+		)?;
 
 		let library = Self::load(
 			id,
@@ -255,8 +256,7 @@ impl LibraryManager {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&library.config,
-		)
-		.await?;
+		)?;
 
 		invalidate_query!(library, "library.list");
 
