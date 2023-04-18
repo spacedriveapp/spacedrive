@@ -13,6 +13,8 @@ generator sync {
     output   = "../src/prisma_sync.rs"
 }
 
+//// Sync ////
+
 model OwnedOperation {
     id        Bytes  @id
     timestamp BigInt
@@ -31,6 +33,7 @@ model SharedOperation {
     model     String
 
     record_id Bytes
+    // Enum: ??
     kind      String
     data      Bytes
 
@@ -59,6 +62,7 @@ model Node {
     id           Int      @id @default(autoincrement())
     pub_id       Bytes    @unique
     name         String
+    // Enum: sd_core::node::Platform
     platform     Int      @default(0)
     version      String?
     last_seen    DateTime @default(now())
@@ -169,6 +173,7 @@ model FilePath {
 model Object {
     id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
+    // Enum: sd_file_ext::kind::ObjectKind
     kind   Int   @default(0)
 
     key_id            Int?
@@ -273,6 +278,8 @@ model MediaData {
     @@map("media_data")
 }
 
+//// Tag ////
+
 /// @shared(id: pub_id)
 model Tag {
     id              Int      @id @default(autoincrement())
@@ -280,6 +287,7 @@ model Tag {
     name            String?
     color           String?
     total_objects   Int?     @default(0)
+    // Enum: ??
     redundancy_goal Int?     @default(1)
     date_created    DateTime @default(now())
     date_modified   DateTime @default(now())
@@ -301,6 +309,8 @@ model TagOnObject {
     @@id([tag_id, object_id])
     @@map("tag_on_object")
 }
+
+//// Label ////
 
 model Label {
     id            Int      @id @default(autoincrement())
@@ -326,6 +336,8 @@ model LabelOnObject {
     @@id([label_id, object_id])
     @@map("label_on_object")
 }
+
+//// Space ////
 
 model Space {
     id            Int      @id @default(autoincrement())
@@ -353,22 +365,25 @@ model ObjectInSpace {
     @@map("object_in_space")
 }
 
+//// Job ////
+
 model Job {
     id       Bytes  @id
     name     String
     node_id  Int
     action   Int
+    // Enum: sd_core::job::job_manager:JobStatus
     status   Int    @default(0)
     data     Bytes?
     metadata Bytes?
 
     parent_id Bytes?
 
-    task_count           Int      @default(1)
-    completed_task_count Int      @default(0)
-    date_created         DateTime @default(now())
-		date_started 			   DateTime? @default(now()) // Started execution
-		date_completed 		   DateTime? @default(now()) // Finished execution
+    task_count           Int       @default(1)
+    completed_task_count Int       @default(0)
+    date_created         DateTime  @default(now())
+    date_started         DateTime? @default(now()) // Started execution
+    date_completed       DateTime? @default(now()) // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -377,6 +392,8 @@ model Job {
 
     @@map("job")
 }
+
+//// Album ////
 
 /// @shared(id: pub_id)
 model Album {
@@ -406,6 +423,8 @@ model ObjectInAlbum {
     @@map("object_in_album")
 }
 
+//// Comment ////
+
 model Comment {
     id            Int      @id @default(autoincrement())
     pub_id        Bytes    @unique
@@ -418,8 +437,11 @@ model Comment {
     @@map("comment")
 }
 
+//// Indexer Rules ////
+
 model IndexerRule {
     id            Int      @id @default(autoincrement())
+    // Enum: sd_core::location::indexer::rules::RuleKind
     kind          Int
     name          String
     default       Boolean  @default(false)
