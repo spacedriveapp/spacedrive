@@ -4,7 +4,7 @@ import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
 export interface SelectProps<T extends FieldValues>
 	extends Omit<UseFormFieldProps, 'name'>,
-		Omit<Root.SelectProps, 'value' | 'onChange' | 'name' | 'defaultValue'>,
+		Omit<Root.SelectProps, 'value' | 'onChange'>,
 		UseControllerProps<T> {}
 
 export const Select = <T extends FieldValues>(props: SelectProps<T>) => {

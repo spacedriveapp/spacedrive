@@ -34,9 +34,7 @@ export const selectStyles = cva(
 	}
 );
 
-export interface SelectProps
-	extends VariantProps<typeof selectStyles>,
-		Omit<RS.SelectTriggerProps, 'value' | 'onChange'> {
+export interface SelectProps extends VariantProps<typeof selectStyles> {
 	value: string;
 	onChange: (value: string) => void;
 	placeholder?: string;
@@ -44,20 +42,16 @@ export interface SelectProps
 	disabled?: boolean;
 }
 
-export function Select({
-	value,
-	onChange,
-	placeholder,
-	className,
-	disabled,
-	size,
-	children,
-	...props
-}: PropsWithChildren<SelectProps>) {
+export function Select(props: PropsWithChildren<SelectProps>) {
 	return (
-		<RS.Root defaultValue={value} value={value} onValueChange={onChange} disabled={disabled}>
-			<RS.Trigger className={selectStyles({ size: size, className })} {...props}>
-				<RS.Value placeholder={placeholder} />
+		<RS.Root
+			defaultValue={props.value}
+			value={props.value}
+			onValueChange={props.onChange}
+			disabled={props.disabled}
+		>
+			<RS.Trigger className={selectStyles({ size: props.size, className: props.className })}>
+				<RS.Value placeholder={props.placeholder} />
 				<RS.Icon className="ml-2">
 					<ChevronDouble className="text-ink-dull" />
 				</RS.Icon>
@@ -65,7 +59,7 @@ export function Select({
 
 			<RS.Portal>
 				<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
-					<RS.Viewport className="p-1">{children}</RS.Viewport>
+					<RS.Viewport className="p-1">{props.children}</RS.Viewport>
 				</RS.Content>
 			</RS.Portal>
 		</RS.Root>
