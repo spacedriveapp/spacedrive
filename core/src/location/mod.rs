@@ -452,34 +452,62 @@ async fn create_location(
 ) -> Result<location_with_indexer_rules::Data, LocationError> {
 	let Library { db, sync, .. } = &library;
 
-	let location_path = location_path.as_ref();
+	let mut location_path = location_path.as_ref().to_path_buf();
 
-	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than `Unknown`
-	let mut name = location_path.normalize().map_or_else(
-		|_| {
-			location_path
-				.components()
-				.next()
-				.and_then(|component| match component {
-					Component::Prefix(component) => {
-						Some(component.as_os_str().to_string_lossy().to_string())
-					}
-					_ => None,
-				})
-				.get_or_insert("Unknown".to_string())
-				.to_owned()
-		},
-		|p| p.localize_name().to_string_lossy().to_string(),
-	);
+	let (path, normalized_path) = location_path
+		// Normalize path and also check if it exists
+		.normalize()
+		.and_then(|normalized_path| {
+			if cfg!(windows) {
+				// Use normalized path as location path on Windows
+				// This ensures we always receive a valid windows formated path
+				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
+				// Internally `normalize` calls `GetFullPathNameW` on Windows
+				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
+				location_path = normalized_path.as_path().to_path_buf();
+			}
 
-	if name == "/" {
+			Ok((
+				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
+				location_path
+					.to_str()
+					.map(str::to_string)
+					.ok_or(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Found non-UTF-8 path",
+					))?,
+				normalized_path,
+			))
+		})
+		.map_err(|_| {
+			LocationError::DirectoryNotFound(location_path.to_string_lossy().to_string())
+		})?;
+
+	// Not needed on Windows because the normalization already handles it
+	if cfg!(not(windows)) {
+		// Replace location_path with normalize_path, when the first one ends in `.` or `..`
+		// This is required so localize_name doesn't panic
+		if let Some(component) = location_path.components().next_back() {
+			match component {
+				Component::CurDir | Component::ParentDir => {
+					location_path = normalized_path.as_path().to_path_buf();
+				}
+				_ => {}
+			}
+		}
+	}
+
+	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
+	let mut name = location_path.localize_name().to_string_lossy().to_string();
+
+	// Windows doesn't have a root directory
+	if cfg!(not(windows)) && name == "/" {
 		name = "Root".to_string()
 	}
 
-	let path = location_path
-		.to_str()
-		.map(str::to_string)
-		.expect("Found non-UTF-8 path");
+	if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+		name = "Unknown".to_string()
+	}
 
 	let location = sync
 		.write_op(
