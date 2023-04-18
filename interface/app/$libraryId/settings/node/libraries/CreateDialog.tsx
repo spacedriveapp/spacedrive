@@ -23,6 +23,32 @@ import {
 
 const { Input, z, useZodForm, PasswordInput, Select } = forms;
 
+const schema = z
+	.object({
+		name: z.string().min(1),
+		encryptLibrary: z.boolean(),
+		password: z.string(),
+		passwordValidate: z.string(),
+		algorithm: z.enum(['XChaCha20Poly1305', 'Aes256Gcm']),
+		hashingAlgorithm: hashingAlgoSlugSchema
+	})
+	.superRefine((data, ctx) => {
+		if (data.encryptLibrary && !data.password) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['password'],
+				message: 'Password is required'
+			});
+		}
+		if (data.password && data.password !== data.passwordValidate) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['passwordValidate'],
+				message: 'Passwords do not match'
+			});
+		}
+	});
+
 export default (props: UseDialogProps) => {
 	const dialog = useDialog(props);
 	const navigate = useNavigate();
@@ -50,37 +76,13 @@ export default (props: UseDialogProps) => {
 	});
 
 	const form = useZodForm({
-		schema: z
-			.object({
-				name: z.string().min(1),
-				encrypt_library: z.boolean(),
-				password: z.string(),
-				password_validate: z.string(),
-				algorithm: z.enum(['XChaCha20Poly1305', 'Aes256Gcm']),
-				hashing_algorithm: hashingAlgoSlugSchema
-			})
-			.superRefine((data, ctx) => {
-				if (data.encrypt_library && !data.password) {
-					ctx.addIssue({
-						code: 'custom',
-						path: ['password'],
-						message: 'Password is required'
-					});
-				}
-				if (data.password && data.password !== data.password_validate) {
-					ctx.addIssue({
-						code: 'custom',
-						path: ['password_validate'],
-						message: 'Passwords do not match'
-					});
-				}
-			}),
+		schema: schema,
 		defaultValues: {
-			encrypt_library: false,
+			encryptLibrary: false,
 			password: '',
-			password_validate: '',
+			passwordValidate: '',
 			algorithm: 'XChaCha20Poly1305',
-			hashing_algorithm: 'Argon2id-s'
+			hashingAlgorithm: 'Argon2id-s'
 		}
 	});
 
@@ -88,15 +90,15 @@ export default (props: UseDialogProps) => {
 		await createLibrary.mutateAsync({
 			name: data.name,
 			algorithm: data.algorithm,
-			hashing_algorithm: HASHING_ALGOS[data.hashing_algorithm],
+			hashing_algorithm: HASHING_ALGOS[data.hashingAlgorithm],
 			auth: {
 				type: 'Password',
-				value: data.encrypt_library ? data.password : ''
+				value: data.encryptLibrary ? data.password : ''
 			}
 		});
 	});
 
-	const encryptLibrary = form.watch('encrypt_library');
+	const encryptLibrary = form.watch('encryptLibrary');
 
 	useEffect(() => {
 		if (showAdvancedOptions) setShowAdvancedOptions(false);
@@ -122,13 +124,13 @@ export default (props: UseDialogProps) => {
 
 				<Controller
 					control={form.control}
-					name="encrypt_library"
+					name="encryptLibrary"
 					render={({ field }) => (
 						<RadixCheckbox
 							checked={field.value}
 							onCheckedChange={field.onChange}
 							label="Encrypt Library"
-							name="encrypt_library"
+							name="encryptLibrary"
 						/>
 					)}
 				/>
@@ -143,8 +145,8 @@ export default (props: UseDialogProps) => {
 							showStrength
 						/>
 						<PasswordInput
-							{...form.register('password_validate', {
-								onBlur: () => form.trigger('password_validate')
+							{...form.register('passwordValidate', {
+								onBlur: () => form.trigger('passwordValidate')
 							})}
 							label="Confirm password"
 						/>
@@ -186,7 +188,7 @@ export default (props: UseDialogProps) => {
 
 									<Select
 										control={form.control}
-										name="hashing_algorithm"
+										name="hashingAlgorithm"
 										label="Hashing Algorithm"
 										size="md"
 									>
