@@ -472,13 +472,10 @@ async fn create_location(
 
 			Ok((
 				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
-				path
-					.to_str()
-					.map(str::to_string)
-					.ok_or(io::Error::new(
-						io::ErrorKind::InvalidInput,
-						"Found non-UTF-8 path",
-					))?,
+				path.to_str().map(str::to_string).ok_or(io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"Found non-UTF-8 path",
+				))?,
 				normalized_path,
 			))
 		})
