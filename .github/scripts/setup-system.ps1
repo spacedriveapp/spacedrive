@@ -30,7 +30,7 @@ function Set-EnvVar($variable, $value = $null) {
 if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
       "$env:PROCESSOR_ARCHITECTURE" -eq 'ARM64'
    ) -or (
-      (Get-CimInstance Win32_operatingsystem).OSArchitecture -ne '64-bit'
+      -not [System.Environment]::Is64BitOperatingSystem
       # Powershell >= 6 is cross-platform, check if running on Windows
    ) -or (($PSVersionTable.PSVersion.Major -ge 6) -and (-not $IsWindows))
 ) {
