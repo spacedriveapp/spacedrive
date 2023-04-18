@@ -43,8 +43,6 @@ model SharedOperation {
     @@map("shared_operation")
 }
 
-//// Statistics ////
-
 model Statistics {
     id                   Int      @id @default(autoincrement())
     date_captured        DateTime @default(now())
