@@ -8,6 +8,7 @@ use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	fmt::Debug,
 	hash::{Hash, Hasher},
+	mem,
 	sync::Arc,
 };
 
@@ -45,6 +46,8 @@ pub enum JobError {
 		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
 	)]
 	MissingJobDataState(Uuid, String),
+	#[error("missing report field: job <uuid='{id}', name='{name}'>")]
+	MissingReport { id: Uuid, name: String },
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
 	#[error("error converting/handling OS strings")]
@@ -96,6 +99,7 @@ pub trait StatefulJob: Send + Sync + Sized {
 
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
+	const IS_BACKGROUND: bool = false;
 
 	/// Construct a new instance of the job. This is used so the user can pass `Self::Init` into the `spawn_job` function and we can still run the job.
 	/// This does remove the flexibility of being able to pass arguments into the job's struct but with resumable jobs I view that as an anti-pattern anyway.
@@ -124,7 +128,7 @@ pub trait DynJob: Send + Sync {
 	fn name(&self) -> &'static str;
 	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult;
 	fn hash(&self) -> u64;
-	fn queue_next(&mut self, next_job: Box<dyn DynJob>);
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
 	async fn register_children(&mut self, library: &Library) -> Result<(), JobError>;
 	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError>;
@@ -132,10 +136,11 @@ pub trait DynJob: Send + Sync {
 }
 
 pub struct Job<SJob: StatefulJob> {
+	id: Uuid,
 	report: Option<JobReport>,
 	state: JobState<SJob>,
 	stateful_job: SJob,
-	next_job: Option<Box<dyn DynJob>>,
+	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
 pub trait IntoJob<SJob: StatefulJob + 'static> {
@@ -167,9 +172,11 @@ where
 	SJob: StatefulJob<Init = Init> + 'static,
 	Init: JobInitData<Job = SJob>,
 {
-	pub fn new(init: Init) -> Box<Self> {
+	fn new(init: Init) -> Box<Self> {
+		let id = Uuid::new_v4();
 		Box::new(Self {
-			report: Some(JobReport::new(Uuid::new_v4(), SJob::NAME.to_string())),
+			id,
+			report: Some(JobReport::new(id, SJob::NAME.to_string())),
 			state: JobState {
 				init,
 				data: None,
@@ -177,58 +184,18 @@ where
 				step_number: 0,
 			},
 			stateful_job: SJob::new(),
-			next_job: None,
+			next_jobs: VecDeque::new(),
 		})
 	}
 
-	pub fn queue_next<NextSJob, NextInit>(mut self: Box<Self>, init: NextInit) -> Box<Self>
-	where
-		NextSJob: StatefulJob<Init = NextInit> + 'static,
-		NextInit: JobInitData<Job = NextSJob>,
-	{
-		let last_job = Job::new_dependent(
-			init,
-			self.next_job
-				.as_ref()
-				.map(|job| job.id())
-				// SAFETY: If we're queueing a next job then we should have a report yet
-				.unwrap_or(self.report.as_ref().unwrap().id),
-		);
-
-		if let Some(ref mut next) = self.next_job {
-			next.queue_next(last_job);
-		} else {
-			self.next_job = Some(last_job);
-		}
-
-		self
-	}
-
-	pub fn resume(
-		mut report: JobReport,
-		stateful_job: SJob,
-		next_job: Option<Box<dyn DynJob>>,
-	) -> Result<Box<dyn DynJob>, JobError> {
-		let job_state_data = if let Some(data) = report.data.take() {
-			data
-		} else {
-			return Err(JobError::MissingJobDataState(report.id, report.name));
-		};
-
-		Ok(Box::new(Self {
-			report: Some(report),
-			state: rmp_serde::from_slice(&job_state_data)?,
-			stateful_job,
-			next_job,
-		}))
-	}
-
-	fn new_dependent(init: Init, parent_id: Uuid) -> Box<Self> {
+	pub fn new_with_action(init: Init, action: impl AsRef<str>) -> Box<Self> {
+		let id = Uuid::new_v4();
 		Box::new(Self {
-			report: Some(JobReport::new_with_parent(
-				Uuid::new_v4(),
+			id,
+			report: Some(JobReport::new_with_action(
+				id,
 				SJob::NAME.to_string(),
-				parent_id,
+				action,
 			)),
 			state: JobState {
 				init,
@@ -237,7 +204,68 @@ where
 				step_number: 0,
 			},
 			stateful_job: SJob::new(),
-			next_job: None,
+			next_jobs: VecDeque::new(),
+		})
+	}
+
+	pub fn queue_next<NextSJob, NextInit>(mut self: Box<Self>, init: NextInit) -> Box<Self>
+	where
+		NextSJob: StatefulJob<Init = NextInit> + 'static,
+		NextInit: JobInitData<Job = NextSJob>,
+	{
+		let next_job_order = self.next_jobs.len() + 1;
+		self.next_jobs.push_back(Job::new_dependent(
+			init,
+			self.id,
+			// SAFETY: If we're queueing a next job then we should still have a report
+			self.report().as_ref().and_then(|parent_report| {
+				parent_report
+					.action
+					.as_ref()
+					.map(|parent_action| format!("{parent_action}-{next_job_order}"))
+			}),
+		));
+
+		self
+	}
+
+	pub fn resume(
+		mut report: JobReport,
+		stateful_job: SJob,
+		next_jobs: VecDeque<Box<dyn DynJob>>,
+	) -> Result<Box<dyn DynJob>, JobError> {
+		Ok(Box::new(Self {
+			id: report.id,
+			state: rmp_serde::from_slice(
+				&report
+					.data
+					.take()
+					.ok_or_else(|| JobError::MissingJobDataState(report.id, report.name.clone()))?,
+			)?,
+			report: Some(report),
+			stateful_job,
+			next_jobs,
+		}))
+	}
+
+	fn new_dependent(init: Init, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
+		let id = Uuid::new_v4();
+		Box::new(Self {
+			id,
+			report: Some(JobReport::new_with_parent(
+				id,
+				SJob::NAME.to_string(),
+				parent_id,
+				parent_action,
+			)),
+			state: JobState {
+				init,
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+			},
+			stateful_job: SJob::new(),
+			next_jobs: VecDeque::new(),
 		})
 	}
 }
@@ -289,8 +317,6 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		}
 
 		let mut shutdown_rx = ctx.shutdown_rx();
-		let shutdown_rx_fut = shutdown_rx.recv();
-		tokio::pin!(shutdown_rx_fut);
 
 		while job_should_run && !self.state.steps.is_empty() {
 			tokio::select! {
@@ -306,7 +332,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 					};
 					self.state.steps.pop_front();
 				}
-				_ = &mut shutdown_rx_fut => {
+				_ = shutdown_rx.recv() => {
 					return Err(
 						JobError::Paused(
 							rmp_serde::to_vec_named(&self.state)?
@@ -322,12 +348,15 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.finalize(ctx.clone(), &mut self.state)
 			.await?;
 
-		if let Some(next_job) = self.next_job.take() {
+		let mut next_jobs = mem::take(&mut self.next_jobs);
+
+		if let Some(mut next_job) = next_jobs.pop_front() {
 			debug!(
 				"Job '{}' requested to spawn '{}' now that it's complete!",
 				self.name(),
 				next_job.name()
 			);
+			next_job.set_next_jobs(next_jobs);
 
 			if let Err(e) = job_manager.clone().ingest(&ctx.library, next_job).await {
 				error!("Failed to ingest next job: {e}");
@@ -341,12 +370,8 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		<SJob::Init as JobInitData>::hash(&self.state.init)
 	}
 
-	fn queue_next(&mut self, next_job: Box<dyn DynJob>) {
-		if let Some(ref mut next) = self.next_job {
-			next.queue_next(next_job);
-		} else {
-			self.next_job = Some(next_job);
-		}
+	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>) {
+		self.next_jobs = next_jobs;
 	}
 
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError> {
@@ -354,44 +379,53 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	}
 
 	async fn register_children(&mut self, library: &Library) -> Result<(), JobError> {
-		if let Some(ref mut next_job) = self.next_job {
-			// SAFETY: As these children jobs haven't been run yet, they still have their report field
-			let next_job_report = next_job.report_mut().as_mut().unwrap();
-			if next_job_report.created_at.is_none() {
-				next_job_report.create(library).await?
+		for next_job in self.next_jobs.iter_mut() {
+			if let Some(next_job_report) = next_job.report_mut() {
+				if next_job_report.created_at.is_none() {
+					next_job_report.create(library).await?
+				}
+			} else {
+				return Err(JobError::MissingReport {
+					id: next_job.id(),
+					name: next_job.name().to_string(),
+				});
 			}
-
-			next_job.register_children(library).await?;
 		}
 
 		Ok(())
 	}
 
 	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError> {
-		if let Some(ref mut next_job) = self.next_job {
+		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
-
-			// SAFETY: As these children jobs haven't been run yet, they still have their report field
-			let mut report = next_job.report_mut().as_mut().unwrap();
-			report.status = JobStatus::Paused;
-			report.data = Some(state);
-			report.update(library).await?;
-			next_job.pause_children(library).await?;
+			if let Some(next_job_report) = next_job.report_mut() {
+				next_job_report.status = JobStatus::Paused;
+				next_job_report.data = Some(state);
+				next_job_report.update(library).await?;
+			} else {
+				return Err(JobError::MissingReport {
+					id: next_job.id(),
+					name: next_job.name().to_string(),
+				});
+			}
 		}
 
 		Ok(())
 	}
 
 	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError> {
-		if let Some(ref mut next_job) = self.next_job {
+		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
-
-			// SAFETY: As these children jobs haven't been run yet, they still have their report field
-			let mut report = next_job.report_mut().as_mut().unwrap();
-			report.status = JobStatus::Canceled;
-			report.data = Some(state);
-			report.update(library).await?;
-			next_job.cancel_children(library).await?;
+			if let Some(next_job_report) = next_job.report_mut() {
+				next_job_report.status = JobStatus::Canceled;
+				next_job_report.data = Some(state);
+				next_job_report.update(library).await?;
+			} else {
+				return Err(JobError::MissingReport {
+					id: next_job.id(),
+					name: next_job.name().to_string(),
+				});
+			}
 		}
 
 		Ok(())

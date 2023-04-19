@@ -63,6 +63,7 @@ impl StatefulJob for ShallowIndexerJob {
 	type Step = IndexerJobStep;
 
 	const NAME: &'static str = "shallow_indexer";
+	const IS_BACKGROUND: bool = true;
 
 	fn new() -> Self {
 		Self {}
