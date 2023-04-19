@@ -55,6 +55,7 @@ impl Hash for IndexerJobInit {
 /// contains some metadata for logging purposes.
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
+	indexed_path: PathBuf,
 	db_write_start: DateTime<Utc>,
 	scan_read_time: Duration,
 	total_paths: usize,
