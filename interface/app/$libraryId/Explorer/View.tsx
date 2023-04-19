@@ -15,6 +15,7 @@ import { TOP_BAR_HEIGHT } from '../TopBar';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
+import MediaView from './MediaView';
 import { getExplorerItemData } from './util';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
@@ -95,6 +96,7 @@ export default memo((props: Props) => {
 			<context.Provider value={{ data: props.data, scrollRef }}>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'media' && <MediaView />}
 			</context.Provider>
 		</div>
 	);
