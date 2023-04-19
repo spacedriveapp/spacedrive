@@ -51,7 +51,6 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 			<ToolBarProvider>
 				<RouterProvider router={props.router} />
 			</ToolBarProvider>
-			<Dialogs />
 		</ErrorBoundary>
 	);
 };
