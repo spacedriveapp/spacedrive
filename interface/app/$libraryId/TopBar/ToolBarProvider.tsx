@@ -30,7 +30,7 @@ export const ToolBarContext = createContext<ToolBarContext>({
 	toolBar: { options: [[]] },
 	setToolBar: () => {}
 });
-export function useTopBar() {
+export function useToolBarContext() {
 	const ctx = useContext(ToolBarContext);
 	if (!ctx) throw new Error('Missing ToolBarContext');
 	return ctx;

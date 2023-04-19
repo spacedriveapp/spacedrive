@@ -1,10 +1,8 @@
-import { useContext } from 'react';
 import { useEffect } from 'react';
-import { ToolOption } from './ToolBarProvider';
-import { ToolBarContext } from './ToolBarProvider';
+import { ToolOption, useToolBarContext } from './ToolBarProvider';
 
 export const useToolBar = (arg: { options: ToolOption[][] }) => {
-	const { setToolBar } = useContext(ToolBarContext);
+	const { setToolBar } = useToolBarContext();
 
 	useEffect(() => {
 		setToolBar(arg);
