@@ -11,6 +11,7 @@ import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
+import ToolBarProvider from './app/$libraryId/TopBar/ToolBarProvider';
 
 export * from './util/keybind';
 export * from './util/Platform';
@@ -48,7 +49,9 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
-			<RouterProvider router={props.router} />
+			<ToolBarProvider>
+				<RouterProvider router={props.router} />
+			</ToolBarProvider>
 			<Dialogs />
 		</ErrorBoundary>
 	);

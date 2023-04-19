@@ -1,24 +1,22 @@
 import clsx from 'clsx';
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { useLayoutEffect, useRef } from 'react';
+import { useContext, useLayoutEffect } from 'react';
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
 import SearchBar from '../Explorer/SearchBar';
+import { ToolBarContext } from './ToolBarProvider';
+import { TOP_BAR_ICON_STYLE } from './ToolBarProvider';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
-import { RoutePaths, ToolOption, useToolBarRouteOptions } from './useToolBarOptions';
 
 export const TOP_BAR_HEIGHT = 46;
 
 export default function TopBar() {
-	const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
-	const getPageName = pathname.split('/')[2] as RoutePaths;
-	const { toolBarRouteOptions } = useToolBarRouteOptions();
+	const { toolBar } = useContext(ToolBarContext);
 	const [windowSize, setWindowSize] = useState(0);
-	const countToolOptions = toolBarRouteOptions[getPageName].options
+	const countToolOptions = toolBar.options
 		.map((group) => {
 			if (Array.isArray(group)) {
 				return group.length;
@@ -58,8 +56,8 @@ export default function TopBar() {
 
 			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
 				<div data-tauri-drag-region className={`flex gap-0`}>
-					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
-						return (group as ToolOption[]).map(
+					{toolBar.options.map((group, groupIndex) => {
+						return group.map(
 							(
 								{
 									icon,
@@ -72,7 +70,7 @@ export default function TopBar() {
 								},
 								index
 							) => {
-								const groupCount = toolBarRouteOptions[getPageName].options.length;
+								const groupCount = toolBar.options.length;
 								const roundingCondition = individual
 									? 'both'
 									: index === 0

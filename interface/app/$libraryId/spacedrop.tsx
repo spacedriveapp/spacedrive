@@ -6,8 +6,8 @@ import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import SearchBar from './Explorer/SearchBar';
-import * as PageLayout from './PageLayout';
+import { ToolOption } from './TopBar/ToolBarProvider';
+import { useToolBar } from './TopBar/useToolBar';
 import classes from './spacedrop.module.scss';
 
 const { Form, Input, useZodForm, z } = forms;
@@ -164,6 +164,10 @@ function TemporarySpacedropDemo() {
 }
 
 export const Component = () => {
+	const toolBarOptions: { options: ToolOption[][] } = {
+		options: [[]]
+	};
+	useToolBar(toolBarOptions);
 	return (
 		<>
 			<TemporarySpacedropDemo />
