@@ -11,11 +11,11 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { ExplorerItem, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
+import { getExplorerItemData } from './util';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -30,12 +30,19 @@ export const ViewItem = ({
 	contextMenuClassName,
 	...props
 }: ViewItemProps) => {
+	const itemData = getExplorerItemData(data);
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
 			setSearchParams({ path: data.item.materialized_path });
 			getExplorerStore().selectedRowIndex = -1;
+		} else if (
+			itemData.kind === 'Video' ||
+			itemData.kind === 'Image' ||
+			itemData.kind === 'Audio'
+		) {
+			getExplorerStore().quickViewObject = data;
 		}
 	};
 
