@@ -11,7 +11,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
-import { useScrolled } from '~/hooks/useScrolled';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
@@ -41,6 +41,7 @@ interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
+	const explorerStore = useExplorerStore();
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -75,13 +76,15 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 		>
 			{data && (
 				<>
-					<div
-						className={clsx(
-							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
-						)}
-					>
-						<FileThumb loadOriginal size={240} data={data} />
-					</div>
+					{explorerStore.layoutMode !== 'media' && (
+						<div
+							className={clsx(
+								'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
+							)}
+						>
+							<FileThumb loadOriginal size={240} data={data} />
+						</div>
+					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
 							{filePathData?.name}
