@@ -157,7 +157,7 @@ export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: 
 
 export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 
-export type JobReport = { id: string, name: string, data: number[] | null, metadata: any | null, created_at: string | null, started_at: string | null, completed_at: string | null, parent_id: string | null, status: JobStatus, task_count: number, completed_task_count: number, message: string }
+export type JobReport = { id: string, name: string, action: string | null, data: number[] | null, metadata: any | null, is_background: boolean, created_at: string | null, started_at: string | null, completed_at: string | null, parent_id: string | null, status: JobStatus, task_count: number, completed_task_count: number, message: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 

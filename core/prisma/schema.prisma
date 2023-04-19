@@ -368,14 +368,16 @@ model ObjectInSpace {
 //// Job ////
 
 model Job {
-    id       Bytes  @id
-    name     String
-    node_id  Int
-    action   Int
+    id      Bytes   @id
+    name    String
+    node_id Int
+    action  String? // Will be composed of "{action_description}_{uuid_of_parent_job}"
+
     // Enum: sd_core::job::job_manager:JobStatus
-    status   Int    @default(0)
-    data     Bytes?
-    metadata Bytes?
+    status Int @default(0) // 0 = Queued
+
+    data     Bytes? // Serialized data to be used on pause/resume
+    metadata Bytes? // Serialized metadata field with info about the job after completion
 
     parent_id Bytes?
 
