@@ -165,14 +165,14 @@ mod test {
 	}
 
 	fn file_as_str(path: &Path) -> String {
-		let mut file = File::open(&path).unwrap();
+		let mut file = File::open(path).unwrap();
 		let mut contents = String::new();
 		file.read_to_string(&mut contents).unwrap();
 		contents
 	}
 
 	fn write_to_file(path: &Path, contents: &str) {
-		let mut file = File::create(&path).unwrap();
+		let mut file = File::create(path).unwrap();
 		file.write_all(contents.as_bytes()).unwrap();
 	}
 
@@ -187,9 +187,9 @@ mod test {
 		let p = path("test_migrator_happy_path.config");
 
 		// Check config is created when it's missing
-		assert_eq!(p.exists(), false, "config file should start out deleted");
+		assert!(!p.exists(), "config file should start out deleted");
 		let default_cfg = migrator.load(&p).unwrap();
-		assert_eq!(p.exists(), true, "config file was not initialised");
+		assert!(p.exists(), "config file was not initialised");
 		assert_eq!(file_as_str(&p), r#"{"version":0,"a":0}"#);
 
 		// Check config can be loaded back into the system correctly
@@ -197,7 +197,7 @@ mod test {
 		assert_eq!(default_cfg, config, "Config has got mangled somewhere");
 
 		// Update the config and check it saved correctly
-		let mut new_config = config.clone();
+		let mut new_config = config;
 		new_config.a = 1;
 		migrator.save(&p, new_config.clone()).unwrap();
 		assert_eq!(file_as_str(&p), r#"{"version":0,"a":1}"#);
@@ -221,9 +221,9 @@ mod test {
 		assert_eq!(file_as_str(&p), r#"{"version":1,"a":1,"b":2}"#);
 
 		// Check editing works
-		let mut new_config = config.clone();
+		let mut new_config = config;
 		new_config.a = 2;
-		migrator.save(&p, new_config.clone()).unwrap();
+		migrator.save(&p, new_config).unwrap();
 		assert_eq!(file_as_str(&p), r#"{"version":1,"a":2,"b":2}"#);
 
 		// Test upgrading to a new version which adds a field asynchronously

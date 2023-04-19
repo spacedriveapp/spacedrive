@@ -40,7 +40,6 @@ use std::{
 use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, Local};
-use int_enum::IntEnum;
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
@@ -219,7 +218,7 @@ pub(super) async fn create_file(
 					object::date_created::set(
 						DateTime::<Local>::from(fs_metadata.created_or_now()).into(),
 					),
-					object::kind::set(kind.int_value()),
+					object::kind::set(kind as i32),
 				],
 			)
 			.select(object_just_id_has_thumbnail::select())
@@ -431,7 +430,7 @@ async fn inner_update_file(
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 				}
 
-				let int_kind = kind.int_value();
+				let int_kind = kind as i32;
 
 				if object.kind != int_kind {
 					sync.write_op(

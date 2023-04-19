@@ -41,7 +41,8 @@
 		"react-loading-icons": "^1.1.0",
 		"react-router-dom": "6.9.0",
 		"react-spring": "^9.5.5",
-		"tailwindcss-radix": "^2.6.0"
+		"tailwindcss-radix": "^2.6.0",
+		"use-debounce": "^9.0.4"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.19.3",

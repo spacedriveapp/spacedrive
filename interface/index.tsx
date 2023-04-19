@@ -9,7 +9,6 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
-import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
 import ToolBarProvider from './app/$libraryId/TopBar/ToolBarProvider';
 
