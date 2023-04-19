@@ -1,223 +1,222 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowsClockwise, Clipboard, Eye, EyeSlash, Info } from 'phosphor-react';
-import { useState } from 'react';
+import clsx from 'clsx';
+import { CaretRight } from 'phosphor-react';
+import { useEffect, useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import {
-	Algorithm,
 	HASHING_ALGOS,
-	HashingAlgoSlug,
+	LibraryConfigWrapped,
 	hashingAlgoSlugSchema,
 	useBridgeMutation,
 	usePlausibleEvent
 } from '@sd/client';
 import {
 	Button,
-	CheckBox,
 	Dialog,
-	Select,
+	RadixCheckbox,
 	SelectOption,
-	Tooltip,
 	UseDialogProps,
 	forms,
 	useDialog
 } from '@sd/ui';
-import { PasswordMeter } from '~/components/PasswordMeter';
-import { generatePassword } from '~/util';
 
-const { Input, z, useZodForm } = forms;
+const { Input, z, useZodForm, PasswordInput, Select } = forms;
 
-const schema = z.object({
-	name: z.string(),
-	password: z.string(),
-	password_validate: z.string(),
-	algorithm: z.string(),
-	hashing_algorithm: hashingAlgoSlugSchema,
-	share_telemetry: z.boolean()
-});
-
-export default (props: UseDialogProps) => {
-	const dialog = useDialog(props);
-	const submitPlausibleEvent = usePlausibleEvent();
-
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			password: '',
-			algorithm: 'XChaCha20Poly1305',
-			hashing_algorithm: 'Argon2id-s'
+const schema = z
+	.object({
+		name: z.string().min(1),
+		encryptLibrary: z.boolean(),
+		password: z.string(),
+		passwordValidate: z.string(),
+		algorithm: z.enum(['XChaCha20Poly1305', 'Aes256Gcm']),
+		hashingAlgorithm: hashingAlgoSlugSchema
+	})
+	.superRefine((data, ctx) => {
+		if (data.encryptLibrary && !data.password) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['password'],
+				message: 'Password is required'
+			});
+		}
+		if (data.password && data.password !== data.passwordValidate) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['passwordValidate'],
+				message: 'Passwords do not match'
+			});
 		}
 	});
 
-	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
-	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
-	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
-
+export default (props: UseDialogProps) => {
+	const dialog = useDialog(props);
+	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const submitPlausibleEvent = usePlausibleEvent();
+
+	const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
-			queryClient.setQueryData(['library.list'], (libraries: any) => [
-				...(libraries || []),
-				library
-			]);
+			queryClient.setQueryData(
+				['library.list'],
+				(libraries: LibraryConfigWrapped[] | undefined) => [...(libraries || []), library]
+			);
 
 			submitPlausibleEvent({
 				event: {
 					type: 'libraryCreate'
 				}
 			});
+
+			navigate(`/${library.uuid}/overview`);
 		},
-		onError: (err: any) => {
-			console.error(err);
+		onError: (err) => console.log(err)
+	});
+
+	const form = useZodForm({
+		schema: schema,
+		defaultValues: {
+			encryptLibrary: false,
+			password: '',
+			passwordValidate: '',
+			algorithm: 'XChaCha20Poly1305',
+			hashingAlgorithm: 'Argon2id-s'
 		}
 	});
 
 	const onSubmit = form.handleSubmit(async (data) => {
-		if (data.password !== data.password_validate) {
-			alert('Passwords are not the same');
-		} else {
-			await createLibrary.mutateAsync({
-				...data,
-				algorithm: data.algorithm as Algorithm,
-				hashing_algorithm: HASHING_ALGOS[data.hashing_algorithm],
-				auth: {
-					type: 'Password',
-					value: data.password
-				}
-			});
-		}
+		await createLibrary.mutateAsync({
+			name: data.name,
+			algorithm: data.algorithm,
+			hashing_algorithm: HASHING_ALGOS[data.hashingAlgorithm],
+			auth: {
+				type: 'Password',
+				value: data.encryptLibrary ? data.password : ''
+			}
+		});
 	});
+
+	const encryptLibrary = form.watch('encryptLibrary');
+
+	useEffect(() => {
+		if (showAdvancedOptions) setShowAdvancedOptions(false);
+	}, [encryptLibrary]);
 
 	return (
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
 			dialog={dialog}
-			title="Create New Library"
-			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			submitDisabled={!form.formState.isValid}
-			ctaLabel="Create"
+			title="Create New Library"
+			description="Libraries are a secure, on-device database. Your files remain where they are, the Library catalogs them and stores all Spacedrive related data."
+			ctaLabel={form.formState.isSubmitting ? 'Creating library...' : 'Create library'}
 		>
-			<Input
-				label="Library name"
-				placeholder="My Cool Library"
-				className="mt-2"
-				{...form.register('name', { required: true })}
-			/>
-
-			<div className="mt-3 mb-1 flex flex-row items-center">
-				<div className="space-x-2">
-					<CheckBox
-						className="bg-app-selected"
-						defaultChecked={true}
-						{...form.register('share_telemetry', { required: true })}
-					/>
-				</div>
-				<span className="mt-1 text-xs font-medium">Share anonymous usage</span>
-				<Tooltip label="Share completely anonymous telemetry data to help the developers improve the app">
-					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
-				</Tooltip>
-			</div>
-
-			{/* TODO: Proper UI for this. Maybe checkbox for encrypted or not and then reveal these fields. Select encrypted by default. */}
-			{/* <span className="text-sm">Make the secret key field empty to skip key setup.</span> */}
-
-			<div className="relative flex flex-col">
-				<p className="mt-2 mb-1 text-center text-[0.95rem] font-bold">Key Manager</p>
-				<div className="my-1 h-[2px] w-full bg-gray-500" />
-
+			<div className="mt-5 space-y-4">
 				<Input
-					label="Master password"
-					placeholder="Password"
-					type={showMasterPassword1 ? 'text' : 'password'}
-					className="mt-2"
-					{...form.register('password')}
-					right={
-						<div className="flex">
-							<Button
-								onClick={() => {
-									const password = generatePassword(32);
-
-									form.setValue('password', password);
-									form.setValue('password_validate', password);
-
-									setShowMasterPassword1(true);
-									setShowMasterPassword2(true);
-								}}
-								size="icon"
-							>
-								<ArrowsClockwise className="h-4 w-4" />
-							</Button>
-							<Button
-								onClick={() => {
-									navigator.clipboard.writeText(form.watch('password') as string);
-								}}
-								size="icon"
-							>
-								<Clipboard className="h-4 w-4" />
-							</Button>
-							<Button
-								onClick={() => setShowMasterPassword1(!showMasterPassword1)}
-								size="icon"
-							>
-								<MP1CurrentEyeIcon className="h-4 w-4" />
-							</Button>
-						</div>
-					}
+					{...form.register('name')}
+					label="Library name"
+					placeholder={'e.g. "James\' Library"'}
+					size="md"
 				/>
+
+				<Controller
+					control={form.control}
+					name="encryptLibrary"
+					render={({ field }) => (
+						<RadixCheckbox
+							checked={field.value}
+							onCheckedChange={field.onChange}
+							label="Encrypt Library"
+							name="encryptLibrary"
+						/>
+					)}
+				/>
+
+				{encryptLibrary && (
+					<>
+						<div className="border-b border-app-line" />
+
+						<PasswordInput
+							{...form.register('password')}
+							label="Password"
+							showStrength
+						/>
+						<PasswordInput
+							{...form.register('passwordValidate', {
+								onBlur: () => form.trigger('passwordValidate')
+							})}
+							label="Confirm password"
+						/>
+
+						<div className="rounded-md border border-app-line bg-app-overlay">
+							<Button
+								variant="bare"
+								className={clsx(
+									'flex w-full border-none !p-3',
+									showAdvancedOptions && 'rounded-b-none'
+								)}
+								onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+							>
+								Advanced Settings
+								<CaretRight
+									weight="bold"
+									className={clsx(
+										'ml-1 transition',
+										showAdvancedOptions && 'rotate-90'
+									)}
+								/>
+							</Button>
+
+							{showAdvancedOptions && (
+								<div className="space-y-4 p-3 pt-0">
+									<div className="h-px bg-app-line" />
+									<Select
+										control={form.control}
+										name="algorithm"
+										label="Algorithm"
+										size="md"
+										className="!mt-3"
+									>
+										<SelectOption value="XChaCha20Poly1305">
+											XChaCha20-Poly1305
+										</SelectOption>
+										<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
+									</Select>
+
+									<Select
+										control={form.control}
+										name="hashingAlgorithm"
+										label="Hashing Algorithm"
+										size="md"
+									>
+										<SelectOption value="Argon2id-s">
+											Argon2id (standard)
+										</SelectOption>
+										<SelectOption value="Argon2id-h">
+											Argon2id (hardened)
+										</SelectOption>
+										<SelectOption value="Argon2id-p">
+											Argon2id (paranoid)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-s">
+											BLAKE3-Balloon (standard)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-h">
+											BLAKE3-Balloon (hardened)
+										</SelectOption>
+										<SelectOption value="BalloonBlake3-p">
+											BLAKE3-Balloon (paranoid)
+										</SelectOption>
+									</Select>
+								</div>
+							)}
+						</div>
+					</>
+				)}
 			</div>
-
-			<Input
-				label="Master password (again)"
-				placeholder="Password"
-				type={showMasterPassword2 ? 'text' : 'password'}
-				className="mt-2"
-				right={
-					<Button
-						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
-						size="icon"
-					>
-						<MP2CurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				}
-				{...form.register('password_validate')}
-			/>
-
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
-				<div className="flex flex-col">
-					<span className="text-sm font-bold">Encryption</span>
-					<Select
-						className="mt-2"
-						value={form.watch('algorithm')}
-						onChange={(e) => form.setValue('algorithm', e)}
-					>
-						<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
-						<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
-					</Select>
-				</div>
-				<div className="flex flex-col">
-					<span className="text-sm font-bold">Hashing</span>
-					<Select
-						className="mt-2"
-						value={form.watch('hashing_algorithm')}
-						onChange={(e) => form.setValue('hashing_algorithm', e as HashingAlgoSlug)}
-					>
-						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
-						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
-						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">
-							BLAKE3-Balloon (standard)
-						</SelectOption>
-						<SelectOption value="BalloonBlake3-h">
-							BLAKE3-Balloon (hardened)
-						</SelectOption>
-						<SelectOption value="BalloonBlake3-p">
-							BLAKE3-Balloon (paranoid)
-						</SelectOption>
-					</Select>
-				</div>
-			</div>
-
-			<PasswordMeter password={form.watch('password')} />
 		</Dialog>
 	);
 };

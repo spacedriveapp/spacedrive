@@ -51,6 +51,8 @@ pub enum JobError {
 	OsStr,
 	#[error("error converting/handling paths")]
 	Path,
+	#[error("invalid job status integer")]
+	InvalidJobStatusInt(i32),
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]

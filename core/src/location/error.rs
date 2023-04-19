@@ -13,7 +13,7 @@ use super::{
 #[derive(Error, Debug)]
 pub enum LocationError {
 	// Not Found errors
-	#[error("Location not found (path: {0:?})")]
+	#[error("Location not found (path: {})", .0.display())]
 	PathNotFound(PathBuf),
 	#[error("Location not found (uuid: {0})")]
 	UuidNotFound(Uuid),
@@ -21,30 +21,37 @@ pub enum LocationError {
 	IdNotFound(i32),
 
 	// User errors
-	#[error("Location not a directory (path: {0:?})")]
+	#[error("Location not a directory (path: {})", .0.display())]
 	NotDirectory(PathBuf),
-	#[error("Could not find directory in Location (path: {0:?})")]
-	DirectoryNotFound(String),
-	#[error("Library exists in the location metadata file, must relink: (old_path: {old_path:?}, new_path: {new_path:?})")]
+	#[error("Could not find directory in Location (path: {})", .0.display())]
+	DirectoryNotFound(PathBuf),
+	#[error(
+		"Library exists in the location metadata file, must relink: (old_path: {}, new_path: {})",
+		.old_path.display(),
+		.new_path.display(),
+	)]
 	NeedRelink {
 		old_path: PathBuf,
 		new_path: PathBuf,
 	},
 	#[error(
-		"This location belongs to another library, must update .spacedrive file: (path: {0:?})"
+		"This location belongs to another library, must update .spacedrive file: (path: {})",
+		.0.display()
 	)]
 	AddLibraryToMetadata(PathBuf),
-	#[error("Location metadata file not found: (path: {0:?})")]
+	#[error("Location metadata file not found: (path: {})", .0.display())]
 	MetadataNotFound(PathBuf),
-	#[error("Location already exists (path: {0:?})")]
+	#[error("Location already exists in database (path: {})", .0.display())]
 	LocationAlreadyExists(PathBuf),
+	#[error("Nested location currently not supported (path: {})", .0.display())]
+	NestedLocation(PathBuf),
 
 	// Internal Errors
 	#[error("Location metadata error (error: {0:?})")]
 	LocationMetadataError(#[from] LocationMetadataError),
-	#[error("Failed to read location path metadata info (path: {1:?}); (error: {0:?})")]
+	#[error("Failed to read location path metadata info (path: {}); (error: {0:?})", .1.display())]
 	LocationPathFilesystemMetadataAccess(io::Error, PathBuf),
-	#[error("Missing metadata file for location (path: {0:?})")]
+	#[error("Missing metadata file for location (path: {})", .0.display())]
 	MissingMetadataFile(PathBuf),
 	#[error("Failed to open file from local os (error: {0:?})")]
 	FileReadError(io::Error),
@@ -71,8 +78,9 @@ impl From<LocationError> for rspc::Error {
 			}
 
 			// User's fault errors
-			// | LocationError::MissingLocalPath(_)
-			LocationError::NotDirectory(_) => {
+			LocationError::NotDirectory(_)
+			| LocationError::NestedLocation(_)
+			| LocationError::LocationAlreadyExists(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 

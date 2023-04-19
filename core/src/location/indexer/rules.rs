@@ -6,7 +6,6 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use int_enum::IntEnum;
 use rmp_serde;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -56,12 +55,28 @@ impl IndexerRuleCreateArgs {
 
 #[repr(i32)]
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, Hash)]
 pub enum RuleKind {
 	AcceptFilesByGlob = 0,
 	RejectFilesByGlob = 1,
 	AcceptIfChildrenDirectoriesArePresent = 2,
 	RejectIfChildrenDirectoriesArePresent = 3,
+}
+
+impl TryFrom<i32> for RuleKind {
+	type Error = IndexerError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		let s = match value {
+			0 => Self::AcceptFilesByGlob,
+			1 => Self::RejectFilesByGlob,
+			2 => Self::AcceptIfChildrenDirectoriesArePresent,
+			3 => Self::RejectIfChildrenDirectoriesArePresent,
+			_ => return Err(IndexerError::InvalidRuleKindInt(value)),
+		};
+
+		Ok(s)
+	}
 }
 
 /// `ParametersPerKind` is a mapping from `RuleKind` to the parameters required for each kind of rule.
@@ -175,7 +190,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	type Error = IndexerError;
 
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
-		let kind = RuleKind::from_int(data.kind)?;
+		let kind = RuleKind::try_from(data.kind)?;
 
 		Ok(Self {
 			id: Some(data.id),

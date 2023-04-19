@@ -30,7 +30,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use int_enum::IntEnum;
 use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -178,7 +177,7 @@ impl JobManager {
 		Ok(library
 			.db
 			.job()
-			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
+			.find_many(vec![job::status::not(JobStatus::Running as i32)])
 			.order_by(job::date_created::order(Direction::Desc))
 			.take(100)
 			.exec()
@@ -219,7 +218,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![
-				job::status::equals(JobStatus::Paused.int_value()),
+				job::status::equals(JobStatus::Paused as i32),
 				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
 			])
 			.exec()
@@ -393,11 +392,11 @@ impl Display for JobReport {
 
 // convert database struct into a resource struct
 impl From<job::Data> for JobReport {
-	fn from(data: job::Data) -> JobReport {
+	fn from(data: job::Data) -> Self {
 		JobReport {
 			id: Uuid::from_slice(&data.id).unwrap(),
 			name: data.name,
-			status: JobStatus::from_int(data.status).unwrap(),
+			status: JobStatus::try_from(data.status).unwrap(),
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			created_at: Some(data.date_created.into()),
@@ -476,7 +475,7 @@ impl JobReport {
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
-					job::status::set(self.status.int_value()),
+					job::status::set(self.status as i32),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
@@ -492,7 +491,7 @@ impl JobReport {
 }
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
 pub enum JobStatus {
 	Queued = 0,
 	Running = 1,
@@ -500,4 +499,22 @@ pub enum JobStatus {
 	Canceled = 3,
 	Failed = 4,
 	Paused = 5,
+}
+
+impl TryFrom<i32> for JobStatus {
+	type Error = JobError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		let s = match value {
+			0 => Self::Queued,
+			1 => Self::Running,
+			2 => Self::Completed,
+			3 => Self::Canceled,
+			4 => Self::Failed,
+			5 => Self::Paused,
+			_ => return Err(JobError::InvalidJobStatusInt(value)),
+		};
+
+		Ok(s)
+	}
 }
