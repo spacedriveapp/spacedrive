@@ -17,7 +17,6 @@ import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Card, ScreenHeading } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
-import { ToolOption } from './TopBar/ToolBarProvider';
 import { useToolBar } from './TopBar/useToolBar';
 
 interface StatItemProps {
@@ -59,10 +58,9 @@ const StatItem = (props: StatItemProps) => {
 		duration: overviewMounted ? 0 : 1,
 		saveState: false
 	});
-	const toolBarOptions: { options: ToolOption[][] } = {
+	useToolBar({
 		options: [[]]
-	};
-	useToolBar(toolBarOptions);
+	});
 
 	return (
 		<div

@@ -17,7 +17,7 @@ import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import Explorer from '../Explorer';
 import OptionsPanel from '../Explorer/OptionsPanel';
 import { KeyManager } from '../KeyManager';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/ToolBarProvider';
+import { TOP_BAR_ICON_STYLE } from '../TopBar/ToolBarProvider';
 import { useToolBar } from '../TopBar/useToolBar';
 
 export function useExplorerParams() {
@@ -33,7 +33,7 @@ export function useExplorerParams() {
 
 export const Component = () => {
 	const store = useExplorerStore();
-	const toolBarOptions: { options: ToolOption[][] } = {
+	useToolBar({
 		options: [
 			[
 				{
@@ -114,8 +114,7 @@ export const Component = () => {
 				}
 			]
 		]
-	};
-	useToolBar(toolBarOptions);
+	});
 	const { location_id, path, limit } = useExplorerParams();
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: mutateQuickRescan, ...quickRescan } =
@@ -139,7 +138,7 @@ export const Component = () => {
 	]);
 
 	return (
-		<div className="relative flex w-full flex-col">
+		<div className="relative flex flex-col w-full">
 			<Explorer data={explorerData.data} />
 		</div>
 	);

@@ -1,12 +1,11 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import { ToolOption } from './TopBar/ToolBarProvider';
 import { useToolBar } from './TopBar/useToolBar';
 import classes from './spacedrop.module.scss';
 
@@ -164,10 +163,9 @@ function TemporarySpacedropDemo() {
 }
 
 export const Component = () => {
-	const toolBarOptions: { options: ToolOption[][] } = {
+	useToolBar({
 		options: [[]]
-	};
-	useToolBar(toolBarOptions);
+	});
 	return (
 		<>
 			<TemporarySpacedropDemo />
