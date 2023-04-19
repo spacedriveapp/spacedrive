@@ -32,7 +32,6 @@ jobs:
           projectPath: apps/desktop
 
       - name: Publish Artifacts
-        uses: actions/upload-artifact@v3
+        uses: ./.github/actions/publish-artifacts
         with:
-          name: desktop-${{ matrix.platform }}
-          path: target/release/bundle
+          profile: debug
