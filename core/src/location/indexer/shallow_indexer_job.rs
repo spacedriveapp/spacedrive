@@ -134,7 +134,7 @@ impl StatefulJob for ShallowIndexerJob {
 		let found_paths = {
 			let ctx = &mut ctx; // Borrow outside of closure so it's not moved
 			walk_single_dir(
-				to_walk_path,
+				&to_walk_path,
 				&indexer_rules_by_kind,
 				|path, total_entries| {
 					IndexerJobData::on_scan_progress(
@@ -240,6 +240,7 @@ impl StatefulJob for ShallowIndexerJob {
 		let total_paths = new_paths.len();
 
 		state.data = Some(IndexerJobData {
+			indexed_path: to_walk_path,
 			db_write_start: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
 			total_paths,

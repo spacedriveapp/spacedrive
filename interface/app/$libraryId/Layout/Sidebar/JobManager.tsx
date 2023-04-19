@@ -28,7 +28,7 @@ interface JobNiceData {
 const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 	indexer: {
 		name: `Indexed ${numberWithCommas(job.metadata?.data?.total_paths || 0)} paths at "${
-			job.metadata?.data?.location_path || '?'
+			job.metadata?.data?.indexed_path || '?'
 		}"`,
 		icon: Folder
 	},
