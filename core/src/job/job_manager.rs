@@ -17,6 +17,7 @@ use crate::{
 		validation::validator_job::ObjectValidatorJob,
 	},
 	prisma::{job, node},
+	util,
 };
 
 use std::{
@@ -29,7 +30,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use int_enum::IntEnum;
 use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -177,7 +177,7 @@ impl JobManager {
 		Ok(library
 			.db
 			.job()
-			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
+			.find_many(vec![job::status::not(JobStatus::Running as i32)])
 			.order_by(job::date_created::order(Direction::Desc))
 			.take(100)
 			.exec()
@@ -218,7 +218,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![
-				job::status::equals(JobStatus::Paused.int_value()),
+				job::status::equals(JobStatus::Paused as i32),
 				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
 			])
 			.exec()
@@ -358,7 +358,6 @@ pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
-	SecondsElapsed(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -368,7 +367,8 @@ pub struct JobReport {
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
 	pub created_at: Option<DateTime<Utc>>,
-	pub updated_at: Option<DateTime<Utc>>,
+	pub started_at: Option<DateTime<Utc>>,
+	pub completed_at: Option<DateTime<Utc>>,
 
 	pub parent_id: Option<Uuid>,
 
@@ -378,8 +378,6 @@ pub struct JobReport {
 
 	pub message: String,
 	// pub percentage_complete: f64,
-	// #[ts(type = "string")] // TODO: Make this work with specta
-	pub seconds_elapsed: i32,
 }
 
 impl Display for JobReport {
@@ -394,15 +392,16 @@ impl Display for JobReport {
 
 // convert database struct into a resource struct
 impl From<job::Data> for JobReport {
-	fn from(data: job::Data) -> JobReport {
+	fn from(data: job::Data) -> Self {
 		JobReport {
 			id: Uuid::from_slice(&data.id).unwrap(),
 			name: data.name,
-			status: JobStatus::from_int(data.status).unwrap(),
+			status: JobStatus::try_from(data.status).unwrap(),
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			created_at: Some(data.date_created.into()),
-			updated_at: Some(data.date_modified.into()),
+			started_at: data.date_started.map(|d| d.into()),
+			completed_at: data.date_completed.map(|d| d.into()),
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
@@ -411,7 +410,6 @@ impl From<job::Data> for JobReport {
 				})
 			}),
 			message: String::new(),
-			seconds_elapsed: data.seconds_elapsed,
 			// SAFETY: We created this uuid before
 			parent_id: data.parent_id.map(|id| Uuid::from_slice(&id).unwrap()),
 		}
@@ -424,7 +422,8 @@ impl JobReport {
 			id: uuid,
 			name,
 			created_at: None,
-			updated_at: None,
+			started_at: None,
+			completed_at: None,
 			status: JobStatus::Queued,
 			task_count: 0,
 			data: None,
@@ -432,7 +431,6 @@ impl JobReport {
 			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
-			seconds_elapsed: 0,
 		}
 	}
 
@@ -445,7 +443,6 @@ impl JobReport {
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
 		let now = Utc::now();
 		self.created_at = Some(now);
-		self.updated_at = Some(now);
 
 		library
 			.db
@@ -455,33 +452,36 @@ impl JobReport {
 				self.name.clone(),
 				JobStatus::Running as i32,
 				node::id::equals(library.node_local_id),
-				vec![
-					job::data::set(self.data.clone()),
-					job::parent_id::set(self.parent_id.map(|id| id.as_bytes().to_vec())),
-					job::date_created::set(now.into()),
-					job::date_modified::set(now.into()),
-				],
+				util::db::chain_optional_iter(
+					[
+						job::data::set(self.data.clone()),
+						job::date_created::set(now.into()),
+						job::date_started::set(self.started_at.map(|d| d.into())),
+					],
+					[self
+						.parent_id
+						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
+				),
 			)
 			.exec()
 			.await?;
 		Ok(())
 	}
+
 	pub async fn update(&mut self, library: &Library) -> Result<(), JobError> {
-		let now = Utc::now();
-		self.updated_at = Some(now);
 		library
 			.db
 			.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
-					job::status::set(self.status.int_value()),
+					job::status::set(self.status as i32),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
-					job::date_modified::set(now.into()),
-					job::seconds_elapsed::set(self.seconds_elapsed),
+					job::date_started::set(self.started_at.map(|v| v.into())),
+					job::date_completed::set(self.completed_at.map(|v| v.into())),
 				],
 			)
 			.exec()
@@ -491,7 +491,7 @@ impl JobReport {
 }
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
 pub enum JobStatus {
 	Queued = 0,
 	Running = 1,
@@ -499,4 +499,22 @@ pub enum JobStatus {
 	Canceled = 3,
 	Failed = 4,
 	Paused = 5,
+}
+
+impl TryFrom<i32> for JobStatus {
+	type Error = JobError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		let s = match value {
+			0 => Self::Queued,
+			1 => Self::Running,
+			2 => Self::Completed,
+			3 => Self::Canceled,
+			4 => Self::Failed,
+			5 => Self::Paused,
+			_ => return Err(JobError::InvalidJobStatusInt(value)),
+		};
+
+		Ok(s)
+	}
 }

@@ -3,8 +3,8 @@ import { useParams } from 'react-router';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
+import TopBar from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
-import TopBar from './TopBar';
 import View from './View';
 
 interface Props {

@@ -20,7 +20,6 @@ import { useScrolled } from '~/hooks/useScrolled';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
-import { TOP_BAR_HEIGHT } from './TopBar';
 import { ViewItem, useExplorerView } from './View';
 import { getExplorerItemData, getItemFilePath } from './util';
 
@@ -78,7 +77,6 @@ export default () => {
 	);
 
 	const paddingX = 16;
-	const paddingY = 12;
 	const scrollBarWidth = 8;
 
 	const getObjectData = (data: ExplorerItem) => (isObject(data) ? data.item : data.item.object);
@@ -171,25 +169,12 @@ export default () => {
 	const rowVirtualizer = useVirtualizer({
 		count: rows.length,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 45
+		estimateSize: () => 45,
+		paddingStart: 12,
+		paddingEnd: 12
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
-
-	const paddingTop = virtualRows[0]?.start || paddingY;
-	const paddingBottom = useMemo(() => {
-		const scrollHeight = scrollRef.current?.offsetHeight || 0;
-		const tableHeaderHeight = 34;
-		const tableEnd = virtualRows[virtualRows.length - 1]?.end || 0;
-		const padding =
-			scrollHeight -
-			TOP_BAR_HEIGHT -
-			tableHeaderHeight -
-			paddingY -
-			tableEnd -
-			scrollBarWidth;
-		return padding > 0 ? padding : paddingY;
-	}, [virtualRows]);
 
 	function handleResize() {
 		if (scrollRef.current) {
@@ -368,26 +353,38 @@ export default () => {
 			</div>
 
 			<div role="rowgroup" className="table-row-group">
-				<div style={{ height: `${paddingTop}px` }} />
-				{virtualRows.map((virtualRow) => {
-					const row = rows[virtualRow.index]!;
-					const selected = explorerStore.selectedRowIndex === row.index;
-					return (
-						<div
-							key={row.id}
-							className="flex pl-4 pr-3"
-							style={{ height: `${virtualRow.size}px` }}
-						>
-							<ListViewItem
-								row={row}
-								index={virtualRow.index}
-								selected={selected}
-								columnSizing={columnSizing}
-							/>
-						</div>
-					);
-				})}
-				<div style={{ height: `${paddingBottom}px` }} />
+				<div
+					className="relative"
+					style={{
+						height: `${rowVirtualizer.getTotalSize()}px`
+					}}
+				>
+					{virtualRows.map((virtualRow) => {
+						const row = rows[virtualRow.index]!;
+						const selected = explorerStore.selectedRowIndex === row.index;
+
+						return (
+							<div
+								key={row.id}
+								className={clsx(
+									'absolute top-0 left-0 flex w-full pl-4 pr-3',
+									explorerStore.isRenaming && selected && 'z-10'
+								)}
+								style={{
+									height: `${virtualRow.size}px`,
+									transform: `translateY(${virtualRow.start}px)`
+								}}
+							>
+								<ListViewItem
+									row={row}
+									index={virtualRow.index}
+									selected={selected}
+									columnSizing={columnSizing}
+								/>
+							</div>
+						);
+					})}
+				</div>
 			</div>
 		</div>
 	);

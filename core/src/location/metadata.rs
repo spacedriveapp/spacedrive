@@ -182,15 +182,11 @@ impl SpacedriveLocationMetadataFile {
 		self.metadata.libraries.contains_key(&library_id)
 	}
 
-	pub(super) fn location_path(
-		&self,
-		library_id: LibraryId,
-	) -> Result<&Path, LocationMetadataError> {
+	pub(super) fn location_path(&self, library_id: LibraryId) -> Option<&Path> {
 		self.metadata
 			.libraries
 			.get(&library_id)
 			.map(|l| l.path.as_path())
-			.ok_or(LocationMetadataError::LibraryNotFound(library_id))
 	}
 
 	pub(super) async fn remove_library(

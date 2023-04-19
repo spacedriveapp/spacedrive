@@ -1,4 +1,4 @@
-use crate::location::file_path_helper::FilePathMetadata;
+use crate::location::file_path_helper::{FilePathMetadata, MetadataExt};
 
 #[cfg(target_family = "unix")]
 use crate::location::file_path_helper::get_inode_and_device;
@@ -64,7 +64,7 @@ type ToWalkEntry = (PathBuf, Option<bool>);
 pub(super) async fn walk(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	include_root: bool,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
@@ -91,7 +91,7 @@ pub(super) async fn walk(
 			(current_path, parent_dir_accepted_by_its_children),
 			&mut read_dir,
 			rules_per_kind,
-			&update_notifier,
+			&mut update_notifier,
 			&mut indexed_paths,
 			Some(&mut to_walk),
 		)
@@ -106,7 +106,7 @@ async fn inner_walk_single_dir(
 	(current_path, parent_dir_accepted_by_its_children): ToWalkEntry,
 	read_dir: &mut fs::ReadDir,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: &impl Fn(&Path, usize),
+	update_notifier: &mut impl FnMut(&Path, usize),
 	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
 	mut maybe_to_walk: Option<&mut VecDeque<(PathBuf, Option<bool>)>>,
 ) -> Result<(), IndexerError> {
@@ -291,8 +291,8 @@ async fn inner_walk_single_dir(
 						inode,
 						device,
 						size_in_bytes: metadata.len(),
-						created_at: metadata.created()?.into(),
-						modified_at: metadata.modified()?.into(),
+						created_at: metadata.created_or_now().into(),
+						modified_at: metadata.modified_or_now().into(),
 					},
 				},
 			);
@@ -327,8 +327,8 @@ async fn inner_walk_single_dir(
 								inode,
 								device,
 								size_in_bytes: metadata.len(),
-								created_at: metadata.created()?.into(),
-								modified_at: metadata.modified()?.into(),
+								created_at: metadata.created_or_now().into(),
+								modified_at: metadata.modified_or_now().into(),
 							},
 						},
 					);
@@ -372,8 +372,8 @@ async fn prepared_indexed_paths(
 				inode,
 				device,
 				size_in_bytes: metadata.len(),
-				created_at: metadata.created()?.into(),
-				modified_at: metadata.modified()?.into(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
 			},
 		});
 	}
@@ -387,7 +387,7 @@ async fn prepared_indexed_paths(
 pub(super) async fn walk_single_dir(
 	root: impl AsRef<Path>,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let root = root.as_ref().to_path_buf();
 
@@ -399,7 +399,7 @@ pub(super) async fn walk_single_dir(
 		(root.clone(), None),
 		&mut read_dir,
 		rules_per_kind,
-		&update_notifier,
+		&mut update_notifier,
 		&mut indexed_paths,
 		None,
 	)
@@ -557,7 +557,10 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptFilesByGlob,
 				"only photos".to_string(),
-				ParametersPerKind::AcceptFilesByGlob(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()),
+				false,
+				ParametersPerKind::AcceptFilesByGlob(vec![
+					Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()
+				]),
 			)],
 		)]
 		.into_iter()
@@ -615,6 +618,7 @@ mod tests {
 			vec![IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
 				"git repos".to_string(),
+				false,
 				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 					[".git".to_string()].into_iter().collect(),
 				),
@@ -670,6 +674,7 @@ mod tests {
 				vec![IndexerRule::new(
 					RuleKind::AcceptIfChildrenDirectoriesArePresent,
 					"git repos".to_string(),
+					false,
 					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
 						[".git".to_string()].into_iter().collect(),
 					),
@@ -681,16 +686,20 @@ mod tests {
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject node_modules".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/node_modules/*,**/node_modules}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/node_modules/*,**/node_modules}",
+						)
+						.unwrap()]),
 					),
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject rust build dir".to_string(),
-						ParametersPerKind::RejectFilesByGlob(
-							Glob::new("{**/target/*,**/target}").unwrap(),
-						),
+						false,
+						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
+							"{**/target/*,**/target}",
+						)
+						.unwrap()]),
 					),
 				],
 			),

@@ -3,7 +3,7 @@ import { PropsWithChildren, RefObject, createContext, useContext, useRef } from 
 import { createPortal } from 'react-dom';
 import { Outlet } from 'react-router';
 import DragRegion from '~/components/DragRegion';
-import TopBar from './Explorer/TopBar';
+import TopBar from './TopBar';
 
 const PageLayoutContext = createContext<{ ref: RefObject<HTMLDivElement> } | null>(null);
 

@@ -19,6 +19,7 @@ pub mod custom_uri;
 pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
+pub(crate) mod migrations;
 pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
@@ -216,9 +217,11 @@ pub enum NodeError {
 	#[error("Failed to create data directory: {0}")]
 	FailedToCreateDataDirectory(#[from] std::io::Error),
 	#[error("Failed to initialize config: {0}")]
-	FailedToInitializeConfig(#[from] node::NodeConfigError),
+	FailedToInitializeConfig(#[from] util::migrator::MigratorError),
 	#[error("Failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("Location manager error: {0}")]
 	LocationManager(#[from] LocationManagerError),
+	#[error("invalid platform integer")]
+	InvalidPlatformInt(i32),
 }
