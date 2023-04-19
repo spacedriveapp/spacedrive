@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ComponentPropsWithRef, forwardRef, useEffect, useImperativeHandle } from 'react';
+import { ComponentPropsWithRef, forwardRef, useEffect } from 'react';
 import { useRef, useState } from 'react';
 import { Input, Shortcut } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -8,13 +8,11 @@ interface Props extends ComponentPropsWithRef<'input'> {
 	formClassName?: string;
 }
 
-export default forwardRef<HTMLInputElement, Props>((props, ref) => {
+export default forwardRef<HTMLInputElement, Props>((props) => {
 	const [searchValue, setSearchValue] = useState('');
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 	const searchRef = useRef<HTMLInputElement>(null);
-
-	useImperativeHandle(ref, () => searchRef.current!);
 
 	useEffect(() => {
 		const keyboardSearchFocus = (event: KeyboardEvent) => {
