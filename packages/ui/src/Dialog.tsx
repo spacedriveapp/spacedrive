@@ -158,7 +158,7 @@ export function Dialog<S extends FieldValues>({
 
 						<DialogPrimitive.Content asChild forceMount>
 							<animated.div
-								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center"
+								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 								style={styles}
 							>
 								<Form
@@ -168,7 +168,7 @@ export function Dialog<S extends FieldValues>({
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}
-									className="!pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
+									className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 								>
 									<div className="p-5">
 										<DialogPrimitive.Title className="mb-2 font-bold">
