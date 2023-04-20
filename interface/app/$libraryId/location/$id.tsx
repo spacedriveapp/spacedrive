@@ -141,7 +141,7 @@ export const Component = () => {
 	return (
 		<>
 			<TopBarChildren toolOptions={toolBar.options} />
-			<div className="relative flex flex-col w-full">
+			<div className="relative flex w-full flex-col">
 				<Explorer data={explorerData.data} />
 			</div>
 		</>
