@@ -64,9 +64,9 @@ impl InitConfig {
 			config.path = path;
 
 			if config.reset_on_startup && data_dir.exists() {
-   					warn!("previous 'SD_DATA_DIR' was removed on startup!");
-   					fs::remove_dir_all(&data_dir).await.unwrap();
-   				}
+				warn!("previous 'SD_DATA_DIR' was removed on startup!");
+				fs::remove_dir_all(&data_dir).await.unwrap();
+			}
 
 			return Some(config);
 		}
