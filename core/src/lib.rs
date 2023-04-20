@@ -63,6 +63,9 @@ impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
+		#[cfg(debug_assertions)]
+		let init_data = util::debug_initializer::InitConfig::load(&data_dir).await;
+
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
 
@@ -144,6 +147,11 @@ impl Node {
 			},
 		)
 		.await?;
+
+		#[cfg(debug_assertions)]
+		if let Some(init_data) = init_data {
+			init_data.apply(&library_manager).await;
+		}
 
 		debug!("Watching locations");
 
