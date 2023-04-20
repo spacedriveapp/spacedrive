@@ -40,7 +40,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 					className={clsx(
 						'!max-w-none !border-0',
 						explorerStore.mediaAspectSquare
-							? '!h-full w-full'
+							? '!h-full !w-full'
 							: '!h-auto max-h-full !w-[90%]'
 					)}
 					forceShowExtension
