@@ -1,16 +1,25 @@
+import { ErrorMessage } from '@hookform/error-message';
 import clsx from 'clsx';
-import { CaretRight, Plus, Trash } from 'phosphor-react';
-import { Ref, createRef, forwardRef, useId, useState } from 'react';
+import { CaretRight, Info, Plus, Trash } from 'phosphor-react';
+import { ComponentProps, createRef, forwardRef, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Controller, ControllerRenderProps, FieldPath } from 'react-hook-form';
-import { RuleKind, UnionToTuple, isKeyOf, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Controller, ControllerRenderProps } from 'react-hook-form';
+import {
+	RuleKind,
+	UnionToTuple,
+	extractInfoRSPCError,
+	isKeyOf,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import {
 	Button,
 	Card,
-	CheckBox,
 	Divider,
 	Input,
+	Label,
 	RadixCheckbox,
+	Switch,
 	Tabs,
 	Tooltip,
 	forms
@@ -19,25 +28,6 @@ import { showAlertDialog } from '~/components/AlertDialog';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { openDirectoryPickerDialog } from './AddLocationDialog';
-
-interface FormFields {
-	indexerRulesIds: number[];
-}
-
-type FieldType = ControllerRenderProps<
-	FormFields,
-	Exclude<FieldPath<FormFields>, `indexerRulesIds.${number}`>
->;
-
-export interface IndexerRuleEditorProps<T extends FieldType> {
-	field?: T;
-	editable?: boolean;
-}
-
-interface TabInputProps {
-	form: string;
-	className: string;
-}
 
 const { z, Form, useZodForm } = forms;
 
@@ -49,48 +39,56 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 	'RejectIfChildrenDirectoriesArePresent'
 ];
 
-const ruleKindEnum = z.enum(ruleKinds);
+interface RulesInputProps {
+	form: string;
+	onChange: ComponentProps<'input'>['onChange'];
+	className: string;
+	onInvalid: ComponentProps<'input'>['onInvalid'];
+}
 
-const newRuleSchema = z.object({
-	kind: ruleKindEnum,
-	name: z.string(),
-	parameters: z.array(z.string())
-});
-
-export function IndexerRuleEditor<T extends FieldType>({
-	field,
-	editable
-}: IndexerRuleEditorProps<T>) {
-	const os = useOperatingSystem(true);
-	const form = useZodForm({
-		schema: newRuleSchema,
-		defaultValues: { kind: 'RejectFilesByGlob', name: '', parameters: [] }
-	});
-	const formId = useId();
-	const platform = usePlatform();
-	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
-	const [currentTab, setCurrentTab] = useState<keyof typeof tabs>('Name');
-	const [showCreateNewRule, setShowCreateNewRule] = useState(false);
-
-	const tabs = {
-		Name: forwardRef<HTMLInputElement, TabInputProps>((props, ref) => (
-			<Input ref={ref} size="md" placeholder="File/Directory name" {...props} />
-		)),
-		Extension: forwardRef<HTMLInputElement, TabInputProps>((props, ref) => (
+const RuleTabsInput = {
+	Name: forwardRef<HTMLInputElement, RulesInputProps>((props, ref) => {
+		const os = useOperatingSystem(true);
+		return (
 			<Input
 				ref={ref}
 				size="md"
-				placeholder="File extension (e.g., .mp4, .jpg, .txt)"
+				// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
+				pattern={os === 'windows' ? '[^<>:"/\\|?*\u0000-\u0031]*' : '[^/\0]+'}
+				placeholder="File/Directory name"
 				{...props}
 			/>
-		)),
-		Path: forwardRef<HTMLInputElement, TabInputProps>(({ className, ...props }, ref) => (
+		);
+	}),
+	Extension: forwardRef<HTMLInputElement, RulesInputProps>((props, ref) => (
+		<Input
+			ref={ref}
+			size="md"
+			pattern="^\.[^\.\s]+$"
+			aria-label="Add a file extension to the current rule"
+			placeholder="File extension (e.g., .mp4, .jpg, .txt)"
+			{...props}
+		/>
+	)),
+	Path: forwardRef<HTMLInputElement, RulesInputProps>(({ className, ...props }, ref) => {
+		const os = useOperatingSystem(true);
+		const platform = usePlatform();
+		const isWeb = platform.platform === 'web';
+		return (
 			<Input
 				ref={ref}
 				size="md"
-				readOnly={platform.platform !== 'web'}
-				className={clsx(className, platform.platform === 'web' || 'cursor-pointer')}
+				pattern={
+					isWeb
+						? // Non web plataforms use the native file picker, so there is no need to validate
+						  ''
+						: // TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
+						os === 'windows'
+						? '[^<>:"/|?*\u0000-\u0031]*'
+						: '[^\0]+'
+				}
+				readOnly={!isWeb}
+				className={clsx(className, isWeb || 'cursor-pointer')}
 				placeholder={
 					'Path (e.g., ' +
 					(os === 'windows'
@@ -100,22 +98,181 @@ export function IndexerRuleEditor<T extends FieldType>({
 						: '/home/emily/Documents') +
 					')'
 				}
-				onClick={() =>
+				onClick={(e) => {
 					openDirectoryPickerDialog(platform)
-						.then((path) => path)
+						.then((path) => {
+							if (path) (e.target as HTMLInputElement).value = path;
+						})
 						.catch((error) =>
 							showAlertDialog({
 								title: 'Error',
 								value: String(error)
 							})
-						)
-				}
+						);
+				}}
 				{...props}
 			/>
-		)),
-		Advanced: forwardRef<HTMLInputElement, TabInputProps>((props, ref) => (
-			<Input ref={ref} size="md" placeholder="Glob (e.g., **/.git)" {...props} />
-		))
+		);
+	}),
+	Advanced: forwardRef<HTMLInputElement, RulesInputProps>((props, ref) => {
+		const os = useOperatingSystem(true);
+		return (
+			<Input
+				ref={ref}
+				size="md"
+				pattern={
+					// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
+					os === 'windows' ? '[^<>:"\u0000-\u0031]*' : '[^\0]+'
+				}
+				placeholder="Glob (e.g., **/.git)"
+				{...props}
+			/>
+		);
+	})
+};
+
+type RuleType = keyof typeof RuleTabsInput;
+
+type ParametersFieldType = ControllerRenderProps<
+	{ parameters: [RuleType, string][] },
+	'parameters'
+>;
+
+interface RuleTabsContentProps<T extends ParametersFieldType> {
+	form: string;
+	field: T;
+	value: RuleType;
+}
+
+function RuleTabsContent<T extends ParametersFieldType>({
+	form,
+	value,
+	field,
+	...props
+}: RuleTabsContentProps<T>) {
+	const [invalid, setInvalid] = useState(false);
+	const inputRef = createRef<HTMLInputElement>();
+	const RuleInput = RuleTabsInput[value];
+
+	return (
+		<Tabs.Content asChild value={value} {...props}>
+			<div className="flex flex-row justify-between pt-4">
+				<RuleInput
+					ref={inputRef}
+					form={form}
+					onChange={(e) => {
+						const input = e.target;
+						setInvalid(false);
+
+						// Even if the input value is valid, without clearing the custom validity, the invalid state will remain
+						input.setCustomValidity('');
+
+						input.reportValidity();
+					}}
+					onInvalid={(e) => {
+						// Required to prevent the browser from showing the default error message
+						(e.target as HTMLInputElement).setCustomValidity(' ');
+						setInvalid(true);
+					}}
+					className={clsx('mr-2 flex-1', invalid && '!ring-2 !ring-red-500')}
+				/>
+				<Button
+					onClick={() => {
+						const { current: input } = inputRef;
+						if (!(input && input.checkValidity()) || input.value.trim() === '') return;
+						field.onChange([...field.value, [value, input.value]]);
+						input.value = '';
+					}}
+					variant="accent"
+				>
+					<Plus />
+				</Button>
+			</div>
+		</Tabs.Content>
+	);
+}
+
+type IndexerRuleIdFieldType = ControllerRenderProps<
+	{ indexerRulesIds: number[] },
+	'indexerRulesIds'
+>;
+
+export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
+	field?: T;
+	editable?: boolean;
+}
+
+const ruleKindEnum = z.enum(ruleKinds);
+
+const newRuleSchema = z.object({
+	kind: ruleKindEnum,
+	name: z.string(),
+	parameters: z.array(
+		z.tuple([z.enum(Object.keys(RuleTabsInput) as UnionToTuple<RuleType>), z.string()])
+	)
+});
+
+const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
+
+const removeParameter = <T extends ParametersFieldType>(field: T, index: number) =>
+	field.onChange(field.value.slice(0, index).concat(field.value.slice(index + 1)));
+
+export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
+	field,
+	editable
+}: IndexerRuleEditorProps<T>) {
+	const os = useOperatingSystem(true);
+	const form = useZodForm({
+		schema: newRuleSchema,
+		defaultValues: { kind: 'RejectFilesByGlob', name: '', parameters: [] }
+	});
+	const formId = useId();
+	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
+	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
+	const [currentTab, setCurrentTab] = useState<RuleType>('Name');
+	const [showCreateNewRule, setShowCreateNewRule] = useState(false);
+
+	useEffect(() => {
+		// TODO: Instead of clearing the error on every change, the backend should suport a way to validate without committing
+		const subscription = form.watch(() => {
+			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+		});
+		return () => subscription.unsubscribe();
+	}, [form]);
+
+	const onSubmit = form.handleSubmit(async ({ kind, name, parameters }) =>
+		createIndexerRules.mutateAsync({
+			kind,
+			name,
+			parameters: parameters.map(([kind, rule]) => {
+				switch (kind) {
+					case 'Name':
+						rule = `**/${rule}`;
+						break;
+					case 'Extension':
+						rule = `**/*.${rule}`;
+						break;
+				}
+
+				return rule;
+			})
+		})
+	);
+
+	const onSubmitError = (error: Error) => {
+		const rspcErrorInfo = extractInfoRSPCError(error);
+		if (rspcErrorInfo && rspcErrorInfo.code !== 500) {
+			form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
+			form.setError(REMOTE_ERROR_FORM_FIELD, {
+				type: 'remote',
+				message: rspcErrorInfo.message
+			});
+		} else {
+			showAlertDialog({
+				title: 'Error',
+				value: String(error) || 'Failed to add location'
+			});
+		}
 	};
 
 	const indexRules = listIndexerRules.data;
@@ -160,10 +317,22 @@ export function IndexerRuleEditor<T extends FieldType>({
 					</p>
 				)}
 			</Card>
-			{createPortal(
-				<Form id={formId} form={form} className="hidden h-0 w-0" />,
-				document.body
-			)}
+			{
+				// Portal is required because this component can be inside another form element
+				createPortal(
+					<Form
+						id={formId}
+						form={form}
+						onSubmit={(e) =>
+							onSubmit(e).then(() => {
+								listIndexerRules.refetch();
+							}, onSubmitError)
+						}
+						className="hidden h-0 w-0"
+					/>,
+					document.body
+				)
+			}
 			{editable && (
 				<div className="rounded-md border border-app-line bg-app-overlay">
 					<Button
@@ -174,7 +343,7 @@ export function IndexerRuleEditor<T extends FieldType>({
 						)}
 						onClick={() => setShowCreateNewRule(!showCreateNewRule)}
 					>
-						Create new rule
+						Create new indexer rule
 						<CaretRight
 							weight="bold"
 							className={clsx('ml-1 transition', showCreateNewRule && 'rotate-90')}
@@ -183,89 +352,54 @@ export function IndexerRuleEditor<T extends FieldType>({
 
 					{showCreateNewRule && (
 						<div className="px-4 pb-4 pt-2">
-							<Input
-								size="md"
-								form={formId}
-								required
-								className="mb-2 cursor-pointer"
-								placeholder="Rule name"
-								{...form.register('name')}
-							/>
-							<div className="flex items-center justify-start">
-								<span className="mr-3 ml-0.5 text-sm font-bold">
-									Rule is an allow list
-								</span>
-								<Controller
-									name="kind"
-									render={({ field }) => (
-										<RadixCheckbox
-											onCheckedChange={(status) => {
-												let { value } = field;
-												const checked =
-													status !== 'indeterminate' && status;
-												switch (value) {
-													case ruleKindEnum.enum.RejectFilesByGlob:
-													case ruleKindEnum.enum.AcceptFilesByGlob:
-														value = checked
-															? ruleKindEnum.enum.AcceptFilesByGlob
-															: ruleKindEnum.enum.RejectFilesByGlob;
-														break;
-													case ruleKindEnum.enum
-														.AcceptIfChildrenDirectoriesArePresent:
-													case ruleKindEnum.enum
-														.RejectIfChildrenDirectoriesArePresent:
-														value = checked
-															? ruleKindEnum.enum
-																	.AcceptIfChildrenDirectoriesArePresent
-															: ruleKindEnum.enum
-																	.RejectIfChildrenDirectoriesArePresent;
-														break;
-												}
-												field.onChange(value);
-											}}
-										/>
-									)}
-									control={form.control}
-								/>
-							</div>
+							<h3 className="w-full text-center text-sm font-semibold">Rules</h3>
+							<Divider className="mb-2" />
 							<Controller
 								name="parameters"
+								rules={{ required: true }}
 								render={({ field }) => (
 									<>
-										<div className="grid space-y-2">
-											{form.getValues().parameters.map((parameter, index) => (
-												<Card key={index} className="hover:bg-app-box/70">
-													<p className="text-sm font-semibold">
-														{parameter}
+										<div className="grid space-y-1 rounded-md border border-app-line/60 bg-app-overlay p-2">
+											{((rules) =>
+												rules.length === 0 ? (
+													<p className="w-full p-2 text-center text-sm text-ink-dull">
+														No rules yet
 													</p>
-													<div className="flex grow" />
-													<Button
-														variant="gray"
-														onClick={() =>
-															field.onChange(
-																field.value
-																	.slice(0, index)
-																	.concat(
-																		field.value.slice(index + 1)
-																	)
-															)
-														}
-													>
-														<Tooltip label="Delete rule">
-															<Trash size={16} />
-														</Tooltip>
-													</Button>
-												</Card>
-											))}
+												) : (
+													rules.map(([kind, rule], index) => (
+														<Card
+															key={index}
+															className="border-app-line/30 hover:bg-app-box/70"
+														>
+															<p className="p-1 text-sm font-semibold text-ink-dull">
+																{rule}
+															</p>
+															<div className="grow" />
+															<p className="mx-2 rounded-md border border-app-line/30 bg-app-overlay/80 py-1 px-2 text-center text-sm text-ink-dull">
+																{kind}
+															</p>
+															<Button
+																variant="gray"
+																onClick={() =>
+																	removeParameter(field, index)
+																}
+															>
+																<Tooltip label="Delete rule">
+																	<Trash size={14} />
+																</Tooltip>
+															</Button>
+														</Card>
+													))
+												))(form.getValues().parameters)}
 										</div>
 										<Tabs.Root
 											value={currentTab}
 											onValueChange={(tab) =>
-												isKeyOf(tab, tabs) && setCurrentTab(tab)
+												isKeyOf(tab, RuleTabsInput) && setCurrentTab(tab)
 											}
 										>
 											<Tabs.List className="flex flex-row">
-												{Object.keys(tabs).map((name) => (
+												{Object.keys(RuleTabsInput).map((name) => (
 													<Tabs.Trigger
 														className="flex-auto py-2 text-sm font-medium"
 														key={name}
@@ -275,40 +409,89 @@ export function IndexerRuleEditor<T extends FieldType>({
 													</Tabs.Trigger>
 												))}
 											</Tabs.List>
-											{...Object.entries(tabs).map(([name, TabInput]) => {
-												const inputRef = createRef<HTMLInputElement>();
-
-												return (
-													<Tabs.Content key={name} asChild value={name}>
-														<div className="flex flex-row justify-between pt-4">
-															<TabInput
-																ref={inputRef}
-																form={formId}
-																className="mr-2 flex-1"
-															/>
-															<Button
-																onClick={() => {
-																	const { current: input } =
-																		inputRef;
-																	if (!input) return;
-																	field.onChange([
-																		...field.value,
-																		input.value
-																	]);
-																	input.value = '';
-																}}
-																variant="accent"
-															>
-																<Plus />
-															</Button>
-														</div>
-													</Tabs.Content>
-												);
-											})}
+											{...(Object.keys(RuleTabsInput) as RuleType[]).map(
+												(name) => (
+													<RuleTabsContent
+														key={name}
+														form={formId}
+														value={name}
+														field={field}
+													/>
+												)
+											)}
 										</Tabs.Root>
 									</>
 								)}
 								control={form.control}
+							/>
+							<h3 className="mt-4 w-full text-center text-sm font-semibold">
+								Settings
+							</h3>
+							<Divider className="mb-2" />
+							<div className="mb-2 flex flex-row justify-between">
+								<div className="mr-2 grow">
+									<Input
+										size="md"
+										form={formId}
+										required
+										className="mb-2"
+										placeholder="Name"
+										{...form.register('name')}
+									/>
+									<div className="flex w-full flex-row">
+										<label className="grow text-sm font-medium">
+											Indexer rule is an allow list{' '}
+											<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
+												<Info className="inline" />
+											</Tooltip>
+										</label>
+										<Controller
+											name="kind"
+											render={({ field }) => (
+												<Switch
+													onCheckedChange={(checked) => {
+														let { value } = field;
+														const kind = ruleKindEnum.enum;
+														switch (value) {
+															case kind.RejectFilesByGlob:
+															case kind.AcceptFilesByGlob:
+																value = checked
+																	? kind.AcceptFilesByGlob
+																	: kind.RejectFilesByGlob;
+																break;
+															case kind.AcceptIfChildrenDirectoriesArePresent:
+															case kind.RejectIfChildrenDirectoriesArePresent:
+																value = checked
+																	? kind.AcceptIfChildrenDirectoriesArePresent
+																	: kind.RejectIfChildrenDirectoriesArePresent;
+																break;
+														}
+														field.onChange(value);
+													}}
+													size="sm"
+												/>
+											)}
+											control={form.control}
+										/>
+									</div>
+								</div>
+								<Button
+									size="sm"
+									type="submit"
+									variant="accent"
+									disabled={form.formState.isSubmitting}
+									className="mb-7"
+								>
+									<Plus />
+								</Button>
+							</div>
+							<ErrorMessage
+								name={REMOTE_ERROR_FORM_FIELD}
+								render={({ message }) => (
+									<span className="mt-5 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
+										{message}
+									</span>
+								)}
 							/>
 						</div>
 					)}

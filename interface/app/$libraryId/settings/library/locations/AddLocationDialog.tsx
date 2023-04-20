@@ -2,7 +2,7 @@ import { ErrorMessage } from '@hookform/error-message';
 import { RSPCError } from '@rspc/client';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { extractInfoRSPCError, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
@@ -64,7 +64,7 @@ export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
 	}, [form, path, indexerRulesIds]);
 
 	useEffect(() => {
-		// TODO: Instead of clearing the error on every change, we should just validate with backend again
+		// TODO: Instead of clearing the error on every change, the backend should suport a way to validate without committing
 		const subscription = form.watch(() => {
 			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 			setRemoteError(null);
@@ -100,33 +100,27 @@ export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
 		}
 	});
 
-	const onLocationSubmitError = async (error: Error) => {
-		if ('cause' in error && error.cause instanceof RSPCError) {
-			// TODO: error.code property is not yet implemented in RSPCError
-			// https://github.com/oscartbeaumont/rspc/blob/60a4fa93187c20bc5cb565cc6ee30b2f0903840e/packages/client/src/interop/error.ts#L59
-			// So we grab it from the shape for now
-			const { code } = error.cause.shape;
-			if (code !== 500) {
-				let { message } = error;
+	const onLocationSubmitError = (error: Error) => {
+		const rspcErrorInfo = extractInfoRSPCError(error);
+		if (rspcErrorInfo && rspcErrorInfo.code !== 500) {
+			let { message } = rspcErrorInfo;
+			if (rspcErrorInfo.code == 409 && isRemoteErrorFormMessage(message)) {
+				setRemoteError(message);
+				message = REMOTE_ERROR_FORM_MESSAGES[message];
 
-				if (code == 409 && isRemoteErrorFormMessage(message)) {
-					setRemoteError(message);
-					message = REMOTE_ERROR_FORM_MESSAGES[message];
-
-					/**
-					 * TODO: On NEED_RELINK, we should query the backend for
-					 * the current location indexer_rules_ids, then update the checkboxes
-					 * accordingly. However we don't have the location id at this point.
-					 * Maybe backend could return the location id in the error?
-					 */
-				}
-
-				form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
-				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
-
-				// Throw error to prevent dialog from closing
-				throw error;
+				/**
+				 * TODO: On NEED_RELINK, we should query the backend for
+				 * the current location indexer_rules_ids, then update the checkboxes
+				 * accordingly. However we don't have the location id at this point.
+				 * Maybe backend could return the location id in the error?
+				 */
 			}
+
+			form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
+			form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+
+			// Throw error to prevent dialog from closing
+			throw error;
 		}
 
 		showAlertDialog({
