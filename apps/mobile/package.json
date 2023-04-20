@@ -17,7 +17,7 @@
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.5",
-		"@hookform/resolvers": "^2.9.11",
+		"@hookform/resolvers": "^3.1.0",
 		"@react-native-async-storage/async-storage": "~1.17.11",
 		"@react-native-masked-view/masked-view": "0.2.8",
 		"@react-navigation/bottom-tabs": "^6.5.7",
@@ -43,7 +43,7 @@
 		"moti": "^0.24.2",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.2.0",
-		"react-hook-form": "^7.43.5",
+		"react-hook-form": "^7.43.9",
 		"react-native": "0.71.3",
 		"react-native-document-picker": "^8.1.1",
 		"react-native-fs": "^2.20.0",

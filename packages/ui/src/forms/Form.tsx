@@ -1,4 +1,6 @@
+import { ErrorMessage as ErrorMessagePrimitive } from '@hookform/error-message';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { VariantProps, cva } from 'class-variance-authority';
 import { ComponentProps } from 'react';
 import {
 	FieldValues,
@@ -50,10 +52,32 @@ export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, ne
 ) => {
 	const { schema, ...formProps } = props ?? {};
 
-	return useForm({
+	return useForm<z.infer<S>>({
 		...formProps,
 		resolver: zodResolver(schema || z.object({}))
 	});
 };
+
+export const errorStyles = cva('inline-block  whitespace-pre-wrap  text-red-500', {
+	variants: {
+		variant: {
+			none: '',
+			default: 'text-xs',
+			large: 'w-full text-center text-sm font-semibold'
+		}
+	},
+	defaultVariants: {
+		variant: 'default'
+	}
+});
+
+export interface ErrorMessageProps extends VariantProps<typeof errorStyles> {
+	name: string;
+	className: string;
+}
+
+export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) => (
+	<ErrorMessagePrimitive as="span" name={name} className={errorStyles({ variant, className })} />
+);
 
 export { z } from 'zod';

@@ -1,5 +1,6 @@
 import { PropsWithChildren, ReactNode, useId } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { ErrorMessage } from './Form';
 
 export interface UseFormFieldProps extends PropsWithChildren {
 	name: string;
@@ -21,7 +22,7 @@ export const useFormField = <P extends UseFormFieldProps>(props: P) => {
 
 interface FormFieldProps extends Omit<UseFormFieldProps, 'label'> {
 	id: string;
-	error?: string;
+	name: string;
 	label?: string | ReactNode;
 }
 
@@ -34,7 +35,7 @@ export const FormField = (props: FormFieldProps) => {
 				</label>
 			)}
 			{props.children}
-			{props.error && <span className="mt-1 w-full text-xs text-red-500">{props.error}</span>}
+			<ErrorMessage name={props.name} className="mt-1 w-full text-xs" />
 		</div>
 	);
 };

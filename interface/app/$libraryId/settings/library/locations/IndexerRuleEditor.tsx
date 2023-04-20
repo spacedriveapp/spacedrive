@@ -1,9 +1,9 @@
-import { ErrorMessage } from '@hookform/error-message';
 import clsx from 'clsx';
 import { CaretRight, Info, Plus, Trash } from 'phosphor-react';
 import { ComponentProps, createRef, forwardRef, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Controller, ControllerRenderProps } from 'react-hook-form';
+import { Controller, ControllerRenderProps, FormProvider } from 'react-hook-form';
+import { z } from 'zod';
 import {
 	RuleKind,
 	UnionToTuple,
@@ -12,24 +12,12 @@ import {
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
-import {
-	Button,
-	Card,
-	Divider,
-	Input,
-	Label,
-	RadixCheckbox,
-	Switch,
-	Tabs,
-	Tooltip,
-	forms
-} from '@sd/ui';
+import { Button, Card, Divider, Input, Switch, Tabs, Tooltip, inputSizes } from '@sd/ui';
+import { ErrorMessage, Form, Input as FormInput, useZodForm } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { openDirectoryPickerDialog } from './AddLocationDialog';
-
-const { z, Form, useZodForm } = forms;
 
 // NOTE: This should be updated whenever RuleKind is changed
 const ruleKinds: UnionToTuple<RuleKind> = [
@@ -91,6 +79,7 @@ const RuleTabsInput = {
 				className={clsx(className, isWeb || 'cursor-pointer')}
 				placeholder={
 					'Path (e.g., ' +
+					// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
 					(os === 'windows'
 						? 'C:\\Users\\john\\Downloads'
 						: os === 'macOS'
@@ -206,10 +195,10 @@ const ruleKindEnum = z.enum(ruleKinds);
 
 const newRuleSchema = z.object({
 	kind: ruleKindEnum,
-	name: z.string(),
-	parameters: z.array(
-		z.tuple([z.enum(Object.keys(RuleTabsInput) as UnionToTuple<RuleType>), z.string()])
-	)
+	name: z.string().min(3),
+	parameters: z
+		.array(z.tuple([z.enum(Object.keys(RuleTabsInput) as UnionToTuple<RuleType>), z.string()]))
+		.nonempty()
 });
 
 const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
@@ -221,10 +210,9 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	field,
 	editable
 }: IndexerRuleEditorProps<T>) {
-	const os = useOperatingSystem(true);
 	const form = useZodForm({
 		schema: newRuleSchema,
-		defaultValues: { kind: 'RejectFilesByGlob', name: '', parameters: [] }
+		defaultValues: { name: '', kind: 'RejectFilesByGlob', parameters: [] }
 	});
 	const formId = useId();
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
@@ -240,24 +228,23 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 		return () => subscription.unsubscribe();
 	}, [form]);
 
-	const onSubmit = form.handleSubmit(async ({ kind, name, parameters }) =>
+	const onSubmit = form.handleSubmit(async ({ kind, name, parameters }) => {
 		createIndexerRules.mutateAsync({
 			kind,
 			name,
-			parameters: parameters.map(([kind, rule]) => {
+			parameters: parameters.flatMap(([kind, rule]) => {
 				switch (kind) {
 					case 'Name':
-						rule = `**/${rule}`;
-						break;
+						return `**/${rule}`;
 					case 'Extension':
-						rule = `**/*.${rule}`;
-						break;
+						// .tar should work for .tar.gz, .tar.bz2, etc.
+						return [`**/*${rule}`, `**/*${rule}.*`];
+					default:
+						return rule;
 				}
-
-				return rule;
 			})
-		})
-	);
+		});
+	});
 
 	const onSubmitError = (error: Error) => {
 		const rspcErrorInfo = extractInfoRSPCError(error);
@@ -282,7 +269,8 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 				{indexRules ? (
 					indexRules.map((rule) => {
 						const { id, name } = rule;
-						const enabled = field?.value.includes(id) ?? false;
+						const value = field?.value ?? [];
+						const enabled = value.includes(id);
 						return (
 							<Button
 								key={id}
@@ -292,10 +280,8 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 									(() =>
 										field.onChange(
 											enabled
-												? field.value.filter(
-														(fieldValue) => fieldValue !== rule.id
-												  )
-												: Array.from(new Set([...field.value, rule.id]))
+												? value.filter((v) => v !== rule.id)
+												: Array.from(new Set([...value, rule.id]))
 										))
 								}
 								variant={enabled ? 'colored' : 'outline'}
@@ -317,8 +303,9 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 					</p>
 				)}
 			</Card>
+
 			{
-				// Portal is required because this component can be inside another form element
+				// Portal is required for Form because this component can be inside another form element
 				createPortal(
 					<Form
 						id={formId}
@@ -333,169 +320,188 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 					document.body
 				)
 			}
-			{editable && (
-				<div className="rounded-md border border-app-line bg-app-overlay">
-					<Button
-						variant="bare"
-						className={clsx(
-							'flex w-full border-none !p-3',
-							showCreateNewRule && 'rounded-b-none'
-						)}
-						onClick={() => setShowCreateNewRule(!showCreateNewRule)}
-					>
-						Create new indexer rule
-						<CaretRight
-							weight="bold"
-							className={clsx('ml-1 transition', showCreateNewRule && 'rotate-90')}
-						/>
-					</Button>
 
-					{showCreateNewRule && (
-						<div className="px-4 pb-4 pt-2">
-							<h3 className="w-full text-center text-sm font-semibold">Rules</h3>
-							<Divider className="mb-2" />
-							<Controller
-								name="parameters"
-								rules={{ required: true }}
-								render={({ field }) => (
-									<>
-										<div className="grid space-y-1 rounded-md border border-app-line/60 bg-app-overlay p-2">
-											{((rules) =>
-												rules.length === 0 ? (
-													<p className="w-full p-2 text-center text-sm text-ink-dull">
-														No rules yet
-													</p>
-												) : (
-													rules.map(([kind, rule], index) => (
-														<Card
-															key={index}
-															className="border-app-line/30 hover:bg-app-box/70"
-														>
-															<p className="p-1 text-sm font-semibold text-ink-dull">
-																{rule}
-															</p>
-															<div className="grow" />
-															<p className="mx-2 rounded-md border border-app-line/30 bg-app-overlay/80 py-1 px-2 text-center text-sm text-ink-dull">
-																{kind}
-															</p>
-															<Button
-																variant="gray"
-																onClick={() =>
-																	removeParameter(field, index)
-																}
+			{editable && (
+				<FormProvider {...form}>
+					<div className="rounded-md border border-app-line bg-app-overlay">
+						<Button
+							variant="bare"
+							className={clsx(
+								'flex w-full border-none !p-3',
+								showCreateNewRule && 'rounded-b-none'
+							)}
+							onClick={() => setShowCreateNewRule(!showCreateNewRule)}
+						>
+							Create new indexer rule
+							<CaretRight
+								weight="bold"
+								className={clsx(
+									'ml-1 transition',
+									showCreateNewRule && 'rotate-90'
+								)}
+							/>
+						</Button>
+
+						{showCreateNewRule && (
+							<div className="px-4 pb-4 pt-2">
+								<h3 className="w-full text-center text-sm font-semibold">Rules</h3>
+
+								<Divider className="mb-2" />
+
+								<Controller
+									name="parameters"
+									render={({ field }) => (
+										<>
+											<div
+												className={clsx(
+													form.formState.errors.parameters &&
+														'!ring-1 !ring-red-500',
+													'grid space-y-1 rounded-md border border-app-line/60 bg-app-overlay p-2'
+												)}
+											>
+												{((rules) =>
+													rules.length === 0 ? (
+														<p className="w-full p-2 text-center text-sm text-ink-dull">
+															No rules yet
+														</p>
+													) : (
+														rules.map(([kind, rule], index) => (
+															<Card
+																key={index}
+																className="border-app-line/30 hover:bg-app-box/70"
 															>
-																<Tooltip label="Delete rule">
-																	<Trash size={14} />
-																</Tooltip>
-															</Button>
-														</Card>
-													))
-												))(form.getValues().parameters)}
-										</div>
-										<Tabs.Root
-											value={currentTab}
-											onValueChange={(tab) =>
-												isKeyOf(tab, RuleTabsInput) && setCurrentTab(tab)
-											}
-										>
-											<Tabs.List className="flex flex-row">
-												{Object.keys(RuleTabsInput).map((name) => (
-													<Tabs.Trigger
-														className="flex-auto py-2 text-sm font-medium"
-														key={name}
-														value={name}
-													>
-														{name}
-													</Tabs.Trigger>
-												))}
-											</Tabs.List>
-											{...(Object.keys(RuleTabsInput) as RuleType[]).map(
-												(name) => (
-													<RuleTabsContent
-														key={name}
-														form={formId}
-														value={name}
-														field={field}
-													/>
-												)
-											)}
-										</Tabs.Root>
-									</>
-								)}
-								control={form.control}
-							/>
-							<h3 className="mt-4 w-full text-center text-sm font-semibold">
-								Settings
-							</h3>
-							<Divider className="mb-2" />
-							<div className="mb-2 flex flex-row justify-between">
-								<div className="mr-2 grow">
-									<Input
-										size="md"
-										form={formId}
-										required
-										className="mb-2"
-										placeholder="Name"
-										{...form.register('name')}
-									/>
-									<div className="flex w-full flex-row">
-										<label className="grow text-sm font-medium">
-											Indexer rule is an allow list{' '}
-											<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
-												<Info className="inline" />
-											</Tooltip>
-										</label>
-										<Controller
-											name="kind"
-											render={({ field }) => (
-												<Switch
-													onCheckedChange={(checked) => {
-														let { value } = field;
-														const kind = ruleKindEnum.enum;
-														switch (value) {
-															case kind.RejectFilesByGlob:
-															case kind.AcceptFilesByGlob:
-																value = checked
-																	? kind.AcceptFilesByGlob
-																	: kind.RejectFilesByGlob;
-																break;
-															case kind.AcceptIfChildrenDirectoriesArePresent:
-															case kind.RejectIfChildrenDirectoriesArePresent:
-																value = checked
-																	? kind.AcceptIfChildrenDirectoriesArePresent
-																	: kind.RejectIfChildrenDirectoriesArePresent;
-																break;
-														}
-														field.onChange(value);
-													}}
-													size="sm"
-												/>
-											)}
-											control={form.control}
+																<p className="p-1 text-sm font-semibold text-ink-dull">
+																	{rule}
+																</p>
+
+																<div className="grow" />
+
+																<p className="mx-2 rounded-md border border-app-line/30 bg-app-overlay/80 py-1 px-2 text-center text-sm text-ink-dull">
+																	{kind}
+																</p>
+
+																<Button
+																	variant="gray"
+																	onClick={() =>
+																		removeParameter(
+																			field,
+																			index
+																		)
+																	}
+																>
+																	<Tooltip label="Delete rule">
+																		<Trash size={14} />
+																	</Tooltip>
+																</Button>
+															</Card>
+														))
+													))(form.getValues().parameters)}
+											</div>
+
+											<ErrorMessage name="parameters" className="mt-1" />
+
+											<Tabs.Root
+												value={currentTab}
+												onValueChange={(tab) =>
+													isKeyOf(tab, RuleTabsInput) &&
+													setCurrentTab(tab)
+												}
+											>
+												<Tabs.List className="flex flex-row">
+													{Object.keys(RuleTabsInput).map((name) => (
+														<Tabs.Trigger
+															className="flex-auto py-2 text-sm font-medium"
+															key={name}
+															value={name}
+														>
+															{name}
+														</Tabs.Trigger>
+													))}
+												</Tabs.List>
+
+												{...(Object.keys(RuleTabsInput) as RuleType[]).map(
+													(name) => (
+														<RuleTabsContent
+															key={name}
+															form={formId}
+															value={name}
+															field={field}
+														/>
+													)
+												)}
+											</Tabs.Root>
+										</>
+									)}
+									control={form.control}
+								/>
+
+								<h3 className="mt-4 w-full text-center text-sm font-semibold">
+									Settings
+								</h3>
+
+								<Divider className="mb-2" />
+
+								<div className="mb-2 flex flex-row justify-between">
+									<div className="mr-2 grow">
+										<FormInput
+											size="md"
+											form={formId}
+											placeholder="Name"
+											{...form.register('name')}
 										/>
+
+										<div className="mt-2 flex w-full flex-row">
+											<label className="grow text-sm font-medium">
+												Indexer rule is an allow list{' '}
+												<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
+													<Info className="inline" />
+												</Tooltip>
+											</label>
+
+											<Controller
+												name="kind"
+												render={({ field }) => (
+													<Switch
+														onCheckedChange={(checked) => {
+															// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for it
+															// kind.AcceptIfChildrenDirectoriesArePresent
+															// kind.RejectIfChildrenDirectoriesArePresent
+															const kind = ruleKindEnum.enum;
+															field.onChange(
+																checked
+																	? kind.AcceptFilesByGlob
+																	: kind.RejectFilesByGlob
+															);
+														}}
+														size="sm"
+													/>
+												)}
+												control={form.control}
+											/>
+										</div>
 									</div>
+
+									<Button
+										size="sm"
+										type="submit"
+										form={formId}
+										variant="accent"
+										disabled={form.formState.isSubmitting}
+										className={inputSizes.md}
+									>
+										<Plus />
+									</Button>
 								</div>
-								<Button
-									size="sm"
-									type="submit"
-									variant="accent"
-									disabled={form.formState.isSubmitting}
-									className="mb-7"
-								>
-									<Plus />
-								</Button>
+
+								<ErrorMessage
+									name={REMOTE_ERROR_FORM_FIELD}
+									variant="large"
+									className="mt-2"
+								/>
 							</div>
-							<ErrorMessage
-								name={REMOTE_ERROR_FORM_FIELD}
-								render={({ message }) => (
-									<span className="mt-5 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
-										{message}
-									</span>
-								)}
-							/>
-						</div>
-					)}
-				</div>
+						)}
+					</div>
+				</FormProvider>
 			)}
 		</>
 	);

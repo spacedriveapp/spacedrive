@@ -1,10 +1,9 @@
-import { ErrorMessage } from '@hookform/error-message';
-import { RSPCError } from '@rspc/client';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller } from 'react-hook-form';
+import { z } from 'zod';
 import { extractInfoRSPCError, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { Input, useZodForm, z } from '@sd/ui/src/forms';
+import { ErrorMessage, Input, useZodForm } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { Platform, usePlatform } from '~/util/Platform';
 import { IndexerRuleEditor } from './IndexerRuleEditor';
@@ -170,14 +169,7 @@ export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
 				</div>
 			</div>
 
-			<ErrorMessage
-				name={REMOTE_ERROR_FORM_FIELD}
-				render={({ message }) => (
-					<span className="mt-5 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
-						{message}
-					</span>
-				)}
-			/>
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-3" />
 		</Dialog>
 	);
 };
