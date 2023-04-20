@@ -3,7 +3,6 @@ import { useParams } from 'react-router';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
-import TopBar from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import View from './View';
 
@@ -34,8 +33,6 @@ export default function Explorer(props: Props) {
 
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
-			<TopBar />
-
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
