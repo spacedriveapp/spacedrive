@@ -74,12 +74,13 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LocationExplorerArgs {
 				pub location_id: i32,
-				pub path: String,
+				pub path: Option<String>,
 				pub limit: i32,
 				pub cursor: Option<String>,
+				pub kind: Option<Vec<i32>>,
 			}
 
-			t(|_, mut args: LocationExplorerArgs, library| async move {
+			t(|_, args: LocationExplorerArgs, library| async move {
 				let Library { db, .. } = &library;
 
 				let location = find_location(&library, args.location_id)
@@ -87,36 +88,62 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				if !args.path.ends_with(MAIN_SEPARATOR) {
-					args.path += MAIN_SEPARATOR_STR;
-				}
+				let mut directory_id = None;
 
-				let directory = db
-					.file_path()
-					.find_first(vec![
-						file_path::location_id::equals(location.id),
-						file_path::materialized_path::equals(args.path),
-						file_path::is_dir::equals(true),
-					])
-					.exec()
-					.await?
-					.ok_or_else(|| {
-						rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
-					})?;
+				let path: Option<String> = args.path.clone();
+				if path.is_some() {
+					let mut path = path.unwrap();
+					if !path.ends_with(MAIN_SEPARATOR) {
+						path += MAIN_SEPARATOR_STR;
+					}
+
+					let directory = db
+						.file_path()
+						.find_first(vec![
+							file_path::location_id::equals(location.id),
+							file_path::materialized_path::equals(path),
+							file_path::is_dir::equals(true),
+						])
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
+						})?;
+
+					directory_id = Some(directory.id);
+				}
 
 				let file_paths = db
 					.file_path()
-					.find_many(vec![
-						file_path::location_id::equals(location.id),
-						file_path::parent_id::equals(Some(directory.id)),
-					])
+					.find_many(if directory_id.is_some() {
+						vec![
+							file_path::location_id::equals(location.id),
+							file_path::parent_id::equals(directory_id),
+						]
+					} else {
+						vec![file_path::location_id::equals(location.id)]
+					})
 					.include(file_path_with_object::include())
 					.exec()
 					.await?;
 
 				let mut items = Vec::with_capacity(file_paths.len());
 
+				let kind = args.kind.clone();
+
 				for file_path in file_paths {
+					if kind.is_some() {
+						let object = file_path_with_object::Data::clone(&file_path).object;
+						if object.is_some() {
+							let object_kind = object.unwrap().kind;
+							if !kind.clone().unwrap().contains(&object_kind) {
+								continue;
+							}
+						} else {
+							continue;
+						}
+					}
+
 					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
 						library
 							.thumbnail_exists(cas_id)

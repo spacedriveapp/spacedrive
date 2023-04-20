@@ -192,7 +192,7 @@ export type Location = { id: number, pub_id: number[], node_id: number, name: st
  */
 export type LocationCreateArgs = { path: string, indexer_rules_ids: number[] }
 
-export type LocationExplorerArgs = { location_id: number, path: string, limit: number, cursor: string | null }
+export type LocationExplorerArgs = { location_id: number, path: string | null, limit: number, cursor: string | null, kind: number[] | null }
 
 /**
  *  `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
