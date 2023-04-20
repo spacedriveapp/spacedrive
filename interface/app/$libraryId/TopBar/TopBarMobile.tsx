@@ -1,15 +1,15 @@
 import { DotsThreeCircle } from 'phosphor-react';
-import { HTMLAttributes, useContext } from 'react';
+import { HTMLAttributes } from 'react';
 import { Popover } from '@sd/ui';
-import { TOP_BAR_ICON_STYLE } from './ToolBarProvider';
-import { ToolBarContext } from './ToolBarProvider';
+import { TOP_BAR_ICON_STYLE, ToolOption } from '.';
 import TopBarButton from './TopBarButton';
 
-interface Props extends HTMLAttributes<HTMLDivElement> {}
+interface Props extends HTMLAttributes<HTMLDivElement> {
+	toolOptions?: ToolOption[][];
+}
 
-export default ({ className = '' }: Props) => {
-	const { toolBar } = useContext(ToolBarContext);
-	const toolsNotSmFlex = toolBar.options.map((group) =>
+export default ({ className = '', toolOptions }: Props) => {
+	const toolsNotSmFlex = toolOptions?.map((group) =>
 		group.filter((tool) => tool.showAtResolution !== 'sm:flex')
 	);
 
@@ -23,13 +23,13 @@ export default ({ className = '' }: Props) => {
 				}
 			>
 				<div className="flex flex-col overflow-hidden p-2">
-					{toolsNotSmFlex.map((group, groupIndex) => {
+					{toolsNotSmFlex?.map((group, groupIndex) => {
 						return group.map(
 							(
 								{ icon, onClick, popOverComponent, toolTipLabel, topBarActive },
 								index
 							) => {
-								const groupCount = toolBar.options.length;
+								const groupCount = toolOptions?.length;
 								return (
 									<div key={toolTipLabel}>
 										{popOverComponent ? (

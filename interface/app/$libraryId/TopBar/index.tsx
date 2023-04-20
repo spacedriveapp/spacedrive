@@ -1,43 +1,35 @@
-import clsx from 'clsx';
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { useContext, useLayoutEffect } from 'react';
-import { useState } from 'react';
+import { PropsWithChildren, RefObject, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Popover, Tooltip } from '@sd/ui';
+import { Tooltip } from '@sd/ui';
 import SearchBar from '../Explorer/SearchBar';
-import { ToolBarContext } from './ToolBarProvider';
-import { TOP_BAR_ICON_STYLE } from './ToolBarProvider';
 import TopBarButton from './TopBarButton';
-import TopBarMobile from './TopBarMobile';
 
 export const TOP_BAR_HEIGHT = 46;
 
-export default function TopBar() {
-	const navigate = useNavigate();
-	const { toolBar } = useContext(ToolBarContext);
-	const [windowSize, setWindowSize] = useState(0);
-	const countToolOptions = toolBar.options
-		.map((group) => {
-			if (Array.isArray(group)) {
-				return group.length;
-			}
-			return 0;
-		})
-		.reduce((acc, curr) => acc + curr, 0);
+export interface ToolOption {
+	icon: JSX.Element;
+	onClick?: () => void;
+	individual?: boolean;
+	toolTipLabel: string;
+	topBarActive?: boolean;
+	popOverComponent?: JSX.Element;
+	showAtResolution: ShowAtResolution;
+}
 
-	useLayoutEffect(() => {
-		const handleResize = () => {
-			setWindowSize(window.innerWidth);
-		};
-		window.addEventListener('resize', handleResize);
-		handleResize();
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
+export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
+
+export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
+
+interface Props extends PropsWithChildren<{ ref: RefObject<HTMLDivElement> }> {}
+
+const TopBar = forwardRef<HTMLDivElement, Props>((props, ref) => {
+	const navigate = useNavigate();
 
 	return (
 		<div
 			data-tauri-drag-region
-			className="duration-250 top-bar-blur absolute top-0 z-50 grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out"
+			className="duration-250 top-bar-blur absolute top-0 left-0 z-50 grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out"
 		>
 			<div data-tauri-drag-region className="flex ">
 				<Tooltip label="Navigate back">
@@ -53,86 +45,9 @@ export default function TopBar() {
 			</div>
 
 			<SearchBar formClassName="justify-center mr-12 lg:mr-0" />
-
-			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
-				<div data-tauri-drag-region className={`flex gap-0`}>
-					{toolBar.options.map((group, groupIndex) => {
-						return group.map(
-							(
-								{
-									icon,
-									onClick,
-									popOverComponent,
-									toolTipLabel,
-									topBarActive,
-									individual,
-									showAtResolution
-								},
-								index
-							) => {
-								const groupCount = toolBar.options.length;
-								const roundingCondition = individual
-									? 'both'
-									: index === 0
-									? 'left'
-									: index === group.length - 1
-									? 'right'
-									: 'none';
-								return (
-									<div
-										data-tauri-drag-region
-										key={toolTipLabel}
-										className={clsx(
-											[showAtResolution],
-											[individual && 'mx-1'],
-											`hidden items-center`
-										)}
-									>
-										<Tooltip label={toolTipLabel}>
-											{popOverComponent ? (
-												<Popover
-													className="focus:outline-none"
-													trigger={
-														<TopBarButton
-															rounding={roundingCondition}
-															active={topBarActive}
-															onClick={onClick}
-														>
-															{icon}
-														</TopBarButton>
-													}
-												>
-													<div className="block w-[250px] ">
-														{popOverComponent}
-													</div>
-												</Popover>
-											) : (
-												<TopBarButton
-													rounding={roundingCondition}
-													active={topBarActive}
-													onClick={onClick ?? undefined}
-												>
-													{icon}
-												</TopBarButton>
-											)}
-										</Tooltip>
-										{index + 1 === group.length &&
-											groupIndex + 1 !== groupCount && (
-												<div
-													data-tauri-drag-region
-													className="mx-4 h-[15px] w-0 border-l border-zinc-600"
-												/>
-											)}
-									</div>
-								);
-							}
-						);
-					})}
-				</div>
-				<TopBarMobile
-					className={`${windowSize <= 1279 && countToolOptions > 4 ? 'flex' : 'hidden'}`}
-				/>
-			</div>
+			<div ref={ref} />
 		</div>
 	);
-}
+});
+
+export default TopBar;

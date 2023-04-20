@@ -1,9 +1,11 @@
 import { ScreenHeading } from '@sd/ui';
-import { useToolBar } from './TopBar/useToolBar';
+import TopBarChildren from './TopBar/TopBarChildren';
 
 export const Component = () => {
-	useToolBar({
-		options: [[]]
-	});
-	return <ScreenHeading>Media</ScreenHeading>;
+	return (
+		<>
+			<TopBarChildren toolOptions={[[]]} />
+			<ScreenHeading>Media</ScreenHeading>
+		</>
+	);
 };

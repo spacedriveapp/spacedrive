@@ -5,7 +5,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { tw } from '~/../packages/ui/src';
-import { useToolBar } from './TopBar/useToolBar';
+import TopBarChildren from './TopBar/TopBarChildren';
 
 const Label = tw.span`text-gray-300`;
 const Pill = tw.span`rounded-full bg-gray-500 px-2 py-1`;
@@ -47,9 +47,6 @@ const OperationItem = ({ op }: { op: CRDTOperation }) => {
 
 export const Component = () => {
 	const { library } = useLibraryContext();
-	useToolBar({
-		options: [[]]
-	});
 
 	const messages = useLibraryQuery(['sync.messages']);
 
@@ -67,10 +64,13 @@ export const Component = () => {
 	);
 
 	return (
-		<ul className="space-y-2">
-			{messages.data?.map((op) => (
-				<OperationItem key={op.id} op={op} />
-			))}
-		</ul>
+		<>
+			<TopBarChildren toolOptions={[[]]} />
+			<ul className="space-y-2">
+				{messages.data?.map((op) => (
+					<OperationItem key={op.id} op={op} />
+				))}
+			</ul>
+		</>
 	);
 };
