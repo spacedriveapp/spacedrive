@@ -3,7 +3,6 @@ import { CaretRight, Info, Plus, Trash } from 'phosphor-react';
 import { ComponentProps, createRef, forwardRef, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, ControllerRenderProps, FormProvider } from 'react-hook-form';
-import { z } from 'zod';
 import {
 	RuleKind,
 	UnionToTuple,
@@ -13,7 +12,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Card, Divider, Input, Switch, Tabs, Tooltip, inputSizes } from '@sd/ui';
-import { ErrorMessage, Form, Input as FormInput, useZodForm } from '@sd/ui/src/forms';
+import { ErrorMessage, Form, Input as FormInput, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -228,7 +227,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 		return () => subscription.unsubscribe();
 	}, [form]);
 
-	const onSubmit = form.handleSubmit(async ({ kind, name, parameters }) => {
+	const onSubmit = form.handleSubmit(({ kind, name, parameters }) =>
 		createIndexerRules.mutateAsync({
 			kind,
 			name,
@@ -243,8 +242,8 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 						return rule;
 				}
 			})
-		});
-	});
+		})
+	);
 
 	const onSubmitError = (error: Error) => {
 		const rspcErrorInfo = extractInfoRSPCError(error);
@@ -263,6 +262,9 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	};
 
 	const indexRules = listIndexerRules.data;
+	const {
+		formState: { isSubmitting: isFormSubmitting, errors: formErrors }
+	} = form;
 	return (
 		<>
 			<Card className="mb-2 flex flex-wrap justify-evenly">
@@ -310,9 +312,11 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 					<Form
 						id={formId}
 						form={form}
+						disabled={isFormSubmitting}
 						onSubmit={(e) =>
-							onSubmit(e).then(() => {
-								listIndexerRules.refetch();
+							onSubmit(e).then(async () => {
+								await listIndexerRules.refetch();
+								form.reset();
 							}, onSubmitError)
 						}
 						className="hidden h-0 w-0"
@@ -354,7 +358,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 										<>
 											<div
 												className={clsx(
-													form.formState.errors.parameters &&
+													formErrors.parameters &&
 														'!ring-1 !ring-red-500',
 													'grid space-y-1 rounded-md border border-app-line/60 bg-app-overlay p-2'
 												)}
@@ -485,8 +489,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 										size="sm"
 										type="submit"
 										form={formId}
-										variant="accent"
-										disabled={form.formState.isSubmitting}
+										variant={isFormSubmitting ? 'outline' : 'accent'}
 										className={inputSizes.md}
 									>
 										<Plus />

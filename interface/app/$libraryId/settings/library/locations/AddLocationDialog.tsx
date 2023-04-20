@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { z } from 'zod';
 import { extractInfoRSPCError, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { ErrorMessage, Input, useZodForm } from '@sd/ui/src/forms';
+import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { Platform, usePlatform } from '~/util/Platform';
 import { IndexerRuleEditor } from './IndexerRuleEditor';

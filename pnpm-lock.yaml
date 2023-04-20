@@ -437,7 +437,6 @@ importers:
     specifiers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
-      '@hookform/resolvers': ^3.1.0
       '@radix-ui/react-progress': ^1.0.1
       '@radix-ui/react-slider': ^1.1.0
       '@radix-ui/react-toast': ^1.1.2
@@ -490,11 +489,9 @@ importers:
       valtio: ^1.7.4
       vite: ^4.0.4
       vite-plugin-svgr: ^2.2.1
-      zod: ^3.21.4
     dependencies:
       '@fontsource/inter': 4.5.15
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
-      '@hookform/resolvers': 3.1.0_react-hook-form@7.43.9
       '@radix-ui/react-progress': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-toast': 1.1.2_biqbaboplfbrettd7655fr4n2y
@@ -536,7 +533,6 @@ importers:
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
       valtio: 1.9.0_react@18.2.0
-      zod: 3.21.4
     devDependencies:
       '@sd/config': link:../packages/config
       '@types/babel-core': 6.25.7
@@ -569,6 +565,7 @@ importers:
       tsconfig: '*'
       typescript: ^4.8.4
       valtio: ^1.7.4
+      zod: ^3.21.4
     dependencies:
       '@rspc/client': 0.0.0-main-7c0a67c1
       '@rspc/react': 0.0.0-main-7c0a67c1_ews3p2w6ewwkufep3giz5zum7m
@@ -580,6 +577,7 @@ importers:
       plausible-tracker: 0.3.8
       react: 18.2.0
       valtio: 1.9.0_react@18.2.0
+      zod: 3.21.4
     devDependencies:
       '@types/react': 18.0.27
       scripts: 0.1.0
@@ -620,6 +618,7 @@ importers:
       '@headlessui/react': ^1.7.3
       '@headlessui/tailwindcss': ^0.1.1
       '@hookform/error-message': ^2.0.1
+      '@hookform/resolvers': ^3.1.0
       '@radix-ui/react-checkbox': ^1.0.3
       '@radix-ui/react-context-menu': ^1.0.0
       '@radix-ui/react-dialog': ^1.0.0
@@ -656,10 +655,12 @@ importers:
       tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
       use-debounce: ^9.0.4
+      zod: ^3.21.4
     dependencies:
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
       '@headlessui/tailwindcss': 0.1.2_tailwindcss@3.2.4
       '@hookform/error-message': 2.0.1_3vs6kel7arqr4fuhyz2geipx74
+      '@hookform/resolvers': 3.1.0_react-hook-form@7.43.9
       '@radix-ui/react-checkbox': 1.0.3_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-context-menu': 1.0.0_5ndqzdd6t4rivxsukjv3i3ak2q
       '@radix-ui/react-dialog': 1.0.2_5ndqzdd6t4rivxsukjv3i3ak2q
@@ -682,6 +683,7 @@ importers:
       react-spring: 9.6.1_kgvm2i262jkv5ehbhynowm65qa
       tailwindcss-radix: 2.7.0
       use-debounce: 9.0.4_react@18.2.0
+      zod: 3.21.4
     devDependencies:
       '@babel/core': 7.20.12
       '@sd/config': link:../config
@@ -7865,7 +7867,7 @@ packages:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
       '@rspc/client': 0.0.0-main-7c0a67c1
-      '@tanstack/react-query': 4.22.0_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.22.0_react@18.2.0
       react: 18.2.0
 
   /@rspc/react/0.0.0-main-7c0a67c1_xytdzyysqpeqv6tutfmk3i4niq:
@@ -9211,7 +9213,6 @@ packages:
       '@tanstack/query-core': 4.22.0
       react: 18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
-    dev: false
 
   /@tanstack/react-query/4.24.4_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-RpaS/3T/a3pHuZJbIAzAYRu+1nkp+/enr9hfRXDS/mojwx567UiMksoqW4wUFWlwIvWTXyhot2nbIipTKEg55Q==}
