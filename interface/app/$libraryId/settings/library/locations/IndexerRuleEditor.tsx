@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { CaretRight, Info, Plus, Trash } from 'phosphor-react';
+import { CaretRight, Info, Plus, Trash, X } from 'phosphor-react';
 import { ComponentProps, createRef, forwardRef, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, ControllerRenderProps, FormProvider } from 'react-hook-form';
@@ -215,8 +215,10 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	});
 	const formId = useId();
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
+	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const [currentTab, setCurrentTab] = useState<RuleType>('Name');
+	const [isDeleting, setIsDeleting] = useState<boolean>(false);
 	const [showCreateNewRule, setShowCreateNewRule] = useState(false);
 
 	useEffect(() => {
@@ -270,12 +272,11 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 			<Card className="mb-2 flex flex-wrap justify-evenly">
 				{indexRules ? (
 					indexRules.map((rule) => {
-						const { id, name } = rule;
 						const value = field?.value ?? [];
-						const enabled = value.includes(id);
+						const enabled = value.includes(rule.id);
 						return (
 							<Button
-								key={id}
+								key={rule.id}
 								size="sm"
 								onClick={
 									field &&
@@ -287,13 +288,45 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 										))
 								}
 								variant={enabled ? 'colored' : 'outline'}
-								disabled={!field}
+								disabled={isFormSubmitting || isDeleting || !field}
 								className={clsx(
-									'm-1 flex-auto',
+									'relative m-1 flex-auto overflow-hidden',
 									enabled && 'border-accent bg-accent'
 								)}
 							>
-								{name}
+								{rule.name}
+								{editable && !rule.default && (
+									<X
+										size={10}
+										onClick={(e) => {
+											e.stopPropagation();
+											const elem = e.target as SVGElement;
+											if (elem.classList.contains('w-full')) {
+												deleteIndexerRule
+													.mutateAsync(rule.id)
+													.then(
+														() => listIndexerRules.refetch(),
+														(error) =>
+															showAlertDialog({
+																title: 'Error',
+																value:
+																	String(error) ||
+																	'Failed to add location'
+															})
+													)
+													.finally(() => setIsDeleting(false));
+												setIsDeleting(true);
+											} else {
+												elem.classList.add('w-full');
+											}
+										}}
+										onMouseLeave={(e) => {
+											const elem = e.target as SVGElement;
+											elem.classList.remove('w-full');
+										}}
+										className="absolute right-0 top-0 h-full cursor-pointer bg-red-500 transition-all"
+									/>
+								)}
 							</Button>
 						);
 					})
