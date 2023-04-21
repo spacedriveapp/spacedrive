@@ -47,8 +47,6 @@ export function JobsManager() {
 		(job) => !runningJobsToFilter.includes(job.name)
 	);
 
-	console.log(updatedJobsWithFilter);
-
 	const clearAllJobsHandler = () => {
 		showAlertDialog({
 			title: 'Clear all jobs?',
