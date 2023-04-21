@@ -1,10 +1,10 @@
 import clsx from 'clsx';
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Popover, Tooltip } from '@sd/ui';
-import SearchBar from '../Explorer/SearchBar';
+import SearchBar from '../TopBar/SearchBar';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 import { RoutePaths, ToolOption, useToolBarRouteOptions } from './useToolBarOptions';
@@ -18,8 +18,8 @@ export default function TopBar() {
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
 	const [windowSize, setWindowSize] = useState(0);
-	const countToolOptions = toolBarRouteOptions[getPageName].options
-		.map((group) => {
+	const countToolOptions = toolBarRouteOptions[getPageName]?.options
+		?.map((group) => {
 			if (Array.isArray(group)) {
 				return group.length;
 			}
@@ -39,9 +39,14 @@ export default function TopBar() {
 	return (
 		<div
 			data-tauri-drag-region
-			className="duration-250 top-bar-blur absolute top-0 z-50 grid h-[46px] w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden border-b border-sidebar-divider bg-app/90 px-5 transition-[background-color,border-color] ease-out"
+			className="
+				duration-250 top-bar-blur absolute top-0 z-50 flex h-[46px] 
+				w-full flex-row items-center justify-center overflow-hidden
+				border-b border-sidebar-divider bg-app/90
+				px-5 transition-[background-color,border-color] ease-out
+			"
 		>
-			<div data-tauri-drag-region className="flex ">
+			<div data-tauri-drag-region className="flex flex-1">
 				<Tooltip label="Navigate back">
 					<TopBarButton onClick={() => navigate(-1)}>
 						<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
@@ -54,11 +59,11 @@ export default function TopBar() {
 				</Tooltip>
 			</div>
 
-			<SearchBar formClassName="justify-center mr-12 lg:mr-0" />
+			<SearchBar />
 
-			<div data-tauri-drag-region className="flex w-full flex-row justify-end">
+			<div data-tauri-drag-region className="flex flex-1 flex-row justify-end">
 				<div data-tauri-drag-region className={`flex gap-0`}>
-					{toolBarRouteOptions[getPageName].options.map((group, groupIndex) => {
+					{toolBarRouteOptions[getPageName]?.options?.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
 							(
 								{
@@ -72,7 +77,8 @@ export default function TopBar() {
 								},
 								index
 							) => {
-								const groupCount = toolBarRouteOptions[getPageName].options.length;
+								const groupCount =
+									toolBarRouteOptions[getPageName]?.options?.length;
 								const roundingCondition = individual
 									? 'both'
 									: index === 0

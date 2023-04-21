@@ -23,6 +23,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: { id: number, pub_id: number[], node_id: number, name: string, path: string, total_capacity: number | null, available_capacity: number | null, is_archived: boolean, generate_preview_media: boolean, sync_preview_media: boolean, hidden: boolean, date_created: string, node: Node }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
+        { key: "search", input: LibraryArgs<{ locationId?: number, afterFileId?: [number, number], take?: number, order?: Ordering, search?: string, extension?: string, kind?: ObjectKind, tags?: number[], createdAtFrom?: string, createdAtTo?: string, path?: string }>, result: ExplorerItem[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
@@ -220,6 +221,8 @@ export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type Object = { id: number, pub_id: number[], kind: number, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string }
 
+export type ObjectKind = "Unknown" | "Document" | "Folder" | "Text" | "Package" | "Image" | "Audio" | "Video" | "Archive" | "Executable" | "Alias" | "Encrypted" | "Key" | "Link" | "WebPageArchive" | "Widget" | "Album" | "Collection" | "Font" | "Mesh" | "Code" | "Database"
+
 export type ObjectValidatorArgs = { id: number, path: string }
 
 /**
@@ -227,6 +230,8 @@ export type ObjectValidatorArgs = { id: number, path: string }
  *  This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
+
+export type Ordering = { name: boolean }
 
 export type OwnedOperation = { model: string, items: OwnedOperationItem[] }
 

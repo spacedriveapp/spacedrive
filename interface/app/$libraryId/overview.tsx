@@ -101,7 +101,6 @@ export const Component = () => {
 
 	return (
 		<div className="flex h-screen w-full flex-col">
-			<ScreenHeading>Overview</ScreenHeading>
 			{/* STAT HEADER */}
 			<div className="flex w-full">
 				{/* STAT CONTAINER */}

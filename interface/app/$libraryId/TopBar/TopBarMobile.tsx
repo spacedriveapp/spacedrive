@@ -16,7 +16,7 @@ export default ({ className = '' }: Props) => {
 	const { pathname } = useLocation();
 	const getPageName = pathname.split('/')[2] as RoutePaths;
 	const { toolBarRouteOptions } = useToolBarRouteOptions();
-	const toolsNotSmFlex = toolBarRouteOptions[getPageName].options.map((group) =>
+	const toolsNotSmFlex = toolBarRouteOptions[getPageName]?.options?.map((group) =>
 		(group as ToolOption[]).filter((tool) => tool.showAtResolution !== 'sm:flex')
 	);
 
@@ -30,13 +30,14 @@ export default ({ className = '' }: Props) => {
 				}
 			>
 				<div className="flex flex-col overflow-hidden p-2">
-					{toolsNotSmFlex.map((group, groupIndex) => {
+					{toolsNotSmFlex?.map((group, groupIndex) => {
 						return (group as ToolOption[]).map(
 							(
 								{ icon, onClick, popOverComponent, toolTipLabel, topBarActive },
 								index
 							) => {
-								const groupCount = toolBarRouteOptions[getPageName].options.length;
+								const groupCount =
+									toolBarRouteOptions[getPageName]?.options?.length;
 								return (
 									<div key={toolTipLabel}>
 										{popOverComponent ? (

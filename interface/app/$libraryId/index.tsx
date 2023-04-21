@@ -14,7 +14,8 @@ export default [
 			{ path: 'spaces', lazy: () => import('./spaces') },
 			{ path: 'debug', lazy: () => import('./debug') },
 			{ path: 'spacedrop', lazy: () => import('./spacedrop') },
-			{ path: 'sync', lazy: () => import('./sync') }
+			{ path: 'sync', lazy: () => import('./sync') },
+			{ path: 'search', lazy: () => import('./search') }
 		]
 	},
 	{ path: 'location/:id', lazy: () => import('./location/$id') },

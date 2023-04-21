@@ -131,7 +131,6 @@ model FilePath {
     location_id Int
     location    Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-    // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
     // Must have 'COLLATE NOCASE' in migration
