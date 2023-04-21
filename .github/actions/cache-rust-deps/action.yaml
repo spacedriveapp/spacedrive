@@ -12,4 +12,4 @@ runs:
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: rust-deps
-        save-if: ${{ inputs.save-cache }} == "true"
+        save-if: ${{ inputs.save-cache == "true" }} 

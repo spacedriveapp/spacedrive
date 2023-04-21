@@ -22,7 +22,7 @@ runs:
     - name: Cache Rust deps
       uses: ./.github/actions/cache-rust-deps
       with:
-        save-cache: ${{ inputs.save-cache }} == "true"
+        save-cache: ${{ inputs.save-cache == "true" }}
 
     - name: Run 'setup-system.sh' script
       shell: bash
