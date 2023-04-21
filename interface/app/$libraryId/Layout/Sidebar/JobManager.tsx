@@ -49,7 +49,7 @@ export function JobsManager() {
 
 	const clearAllJobsHandler = () => {
 		showAlertDialog({
-			title: 'Clear all jobs?',
+			title: 'Clear Jobs',
 			value: 'Are you sure you want to clear all jobs? This cannot be undone.',
 			onSubmit: () => clearAllJobs(null)
 		});
@@ -62,25 +62,24 @@ export function JobsManager() {
 	);
 
 	return (
-		<div className="h-full pb-10 overflow-hidden">
-			<div className="z-20 flex items-center w-full h-10 px-2 border-b rounded-t-md border-app-line/50 bg-app-button/70">
+		<div className="h-full overflow-hidden pb-10">
+			<div className="z-20 flex h-10 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/70 px-2">
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="grow" />
-
 				<Button onClick={() => clearAllJobsHandler()} size="icon">
 					<Tooltip label="Clear out finished jobs">
-						<Trash className="w-5 h-5" />
+						<Trash className="h-5 w-5" />
 					</Tooltip>
 				</Button>
 				<PopoverClose asChild>
 					<Button size="icon">
 						<Tooltip label="Close">
-							<X className="w-5 h-5" />
+							<X className="h-5 w-5" />
 						</Tooltip>
 					</Button>
 				</PopoverClose>
 			</div>
-			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
+			<div className="custom-scroll inspector-scroll mr-1 h-full overflow-x-hidden">
 				<div className="">
 					<div className="py-1">
 						{updatedRunningJobsWithFilter?.map((job) => (
@@ -95,7 +94,7 @@ export function JobsManager() {
 						))}
 						{updatedJobsWithFilter?.length === 0 &&
 							updatedRunningJobsWithFilter?.length === 0 && (
-								<div className="flex items-center justify-center h-32 text-ink-dull">
+								<div className="flex h-32 items-center justify-center text-ink-dull">
 									No jobs.
 								</div>
 							)}

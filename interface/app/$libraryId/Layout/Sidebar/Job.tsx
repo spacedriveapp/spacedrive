@@ -103,50 +103,50 @@ function Job({ job, clearAJob }: { job: JobReport; clearAJob?: (arg: string) => 
 	return (
 		// Do we actually need bg-opacity-60 here? Where is the bg?
 		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-		<div className="flex items-center border-b border-app-line/50 bg-opacity-60 p-2 pl-4">
-			<Tooltip label={job.status}>
-				<niceData.icon className={clsx('mr-3 h-5 w-5')} />
-			</Tooltip>
-			<div className="flex flex-col truncate">
-				<span className="mt-0.5 truncate font-semibold">
-					{isRunning ? job.message : niceData.name}
-				</span>
-				{isRunning && (
-					<div className="my-1 w-full">
-						<ProgressBar value={job.completed_task_count} total={job.task_count} />
+		<div className="border-b border-app-line/50 p-3 pl-4">
+			<div className="flex items-center bg-opacity-60">
+				<Tooltip label={job.status}>
+					<niceData.icon className={clsx('mr-3 h-5 w-5')} />
+				</Tooltip>
+				<div className="flex flex-col truncate">
+					<span className="truncate font-semibold">{niceData.name}</span>
+					<div className="flex items-center truncate text-ink-faint">
+						<span className="text-xs">
+							<JobTimeText job={job} />
+						</span>
+						{<span className="text-xs">{dayjs(job.created_at).fromNow()}</span>}
 					</div>
-				)}
-				<div className="flex items-center truncate text-ink-faint">
-					<span className="text-xs">
-						<JobTimeText job={job} />
-					</span>
-					<span className="mx-1 opacity-50">&#8226;</span>
-					{<span className="text-xs">{dayjs(job.created_at).fromNow()}</span>}
 				</div>
-				{/* <span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span> */}
+				<div className="grow" />
+				<div className="ml-7 flex flex-row space-x-2">
+					{/* {job.status === 'Running' && (
+						<Button size="icon">
+							<Tooltip label="Coming Soon">
+								<Pause weight="fill" className="w-4 h-4 opacity-30" />
+							</Tooltip>
+						</Button>
+					)}
+					{job.status === 'Failed' && (
+						<Button size="icon">
+							<Tooltip label="Coming Soon">
+								<ArrowsClockwise className="w-4 opacity-30" />
+							</Tooltip>
+						</Button>
+					)} */}
+					{job.status !== 'Running' && (
+						<Button onClick={() => clearAJob?.(job.id)} size="icon">
+							<Tooltip label="Remove">
+								<X className="h-4 w-4" />
+							</Tooltip>
+						</Button>
+					)}
+				</div>
 			</div>
-			<div className="grow" />
-			<div className="ml-7 flex flex-row space-x-2">
-				{job.status === 'Running' && (
-					<Button size="icon">
-						<Tooltip label="Pause">
-							<Pause className="h-4 w-4" />
-						</Tooltip>
-					</Button>
-				)}
-				{job.status === 'Failed' && (
-					<Button size="icon">
-						<Tooltip label="Retry">
-							<ArrowsClockwise className="w-4" />
-						</Tooltip>
-					</Button>
-				)}
-				<Button onClick={() => clearAJob && clearAJob(job.id)} size="icon">
-					<Tooltip label="Remove">
-						<X className="h-4 w-4" />
-					</Tooltip>
-				</Button>
-			</div>
+			{isRunning && (
+				<div className="mt-3 mb-1 w-full">
+					<ProgressBar value={job.completed_task_count} total={job.task_count} />
+				</div>
+			)}
 		</div>
 	);
 }
