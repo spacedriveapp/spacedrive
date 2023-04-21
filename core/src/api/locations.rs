@@ -179,8 +179,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					let location = args.create(&library).await?;
-					scan_location(&library, location).await?;
+					if let Some(location) = args.create(&library).await? {
+						scan_location(&library, location).await?;
+				}
 					Ok(())
 				})
 		})
@@ -209,8 +210,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("addLibrary", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					let location = args.add_library(&library).await?;
-					scan_location(&library, location).await?;
+					if let Some(location) = args.add_library(&library).await? {
+						scan_location(&library, location).await?;
+				}
 					Ok(())
 				})
 		})

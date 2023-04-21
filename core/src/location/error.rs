@@ -65,6 +65,8 @@ pub enum LocationError {
 	LocationManagerError(#[from] LocationManagerError),
 	#[error("File path related error (error: {0})")]
 	FilePathError(#[from] FilePathError),
+	#[error("Unexpected empty data")]
+	DryRunError(),
 }
 
 impl From<LocationError> for rspc::Error {

@@ -54,6 +54,7 @@ location::include!(location_with_indexer_rules {
 #[derive(Type, Deserialize)]
 pub struct LocationCreateArgs {
 	pub path: PathBuf,
+	pub dry_run: bool,
 	pub indexer_rules_ids: Vec<i32>,
 }
 
@@ -61,7 +62,7 @@ impl LocationCreateArgs {
 	pub async fn create(
 		self,
 		library: &Library,
-	) -> Result<location_with_indexer_rules::Data, LocationError> {
+	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -99,37 +100,52 @@ impl LocationCreateArgs {
 		);
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
-
-		// Write location metadata to a .spacedrive file
-		if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
-			library.id,
+		let location = create_location(
+			library,
 			uuid,
 			&self.path,
-			location.name.clone(),
+			&self.indexer_rules_ids,
+			self.dry_run,
 		)
-		.err_into::<LocationError>()
-		.and_then(|()| async move {
-			Ok(library
-				.location_manager()
-				.add(location.id, library.clone())
-				.await?)
-		})
-		.await
-		{
-			delete_location(library, location.id).await?;
-			Err(err)?;
+		.await?;
+
+		if self.dry_run {
+			return Ok(None);
 		}
 
-		info!("Created location: {location:?}");
+		if let Some(location) = location {
+			// Write location metadata to a .spacedrive file
+			if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
+				library.id,
+				uuid,
+				&self.path,
+				location.name.clone(),
+			)
+			.err_into::<LocationError>()
+			.and_then(|()| async move {
+				Ok(library
+					.location_manager()
+					.add(location.id, library.clone())
+					.await?)
+			})
+			.await
+			{
+				delete_location(library, location.id).await?;
+				Err(err)?;
+			}
 
-		Ok(location)
+			info!("Created location: {location:?}");
+
+			Ok(Some(location))
+		} else {
+			Err(LocationError::DryRunError())
+		}
 	}
 
 	pub async fn add_library(
 		self,
 		library: &Library,
-	) -> Result<location_with_indexer_rules::Data, LocationError> {
+	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
@@ -150,23 +166,38 @@ impl LocationCreateArgs {
 
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
+		let location = create_location(
+			library,
+			uuid,
+			&self.path,
+			&self.indexer_rules_ids,
+			self.dry_run,
+		)
+		.await?;
 
-		metadata
-			.add_library(library.id, uuid, &self.path, location.name.clone())
-			.await?;
+		if self.dry_run {
+			return Ok(None);
+		}
 
-		library
-			.location_manager()
-			.add(location.id, library.clone())
-			.await?;
+		if let Some(location) = location {
+			metadata
+				.add_library(library.id, uuid, &self.path, location.name.clone())
+				.await?;
 
-		info!(
-			"Added library (library_id = {}) to location: {location:?}",
-			library.id
-		);
+			library
+				.location_manager()
+				.add(location.id, library.clone())
+				.await?;
 
-		Ok(location)
+			info!(
+				"Added library (library_id = {}) to location: {location:?}",
+				library.id
+			);
+
+			Ok(Some(location))
+		} else {
+			Err(LocationError::DryRunError())
+		}
 	}
 }
 
@@ -460,7 +491,8 @@ async fn create_location(
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
-) -> Result<location_with_indexer_rules::Data, LocationError> {
+	dry_run: bool,
+) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 	let Library { db, sync, .. } = &library;
 
 	let mut path = location_path.as_ref().to_path_buf();
@@ -512,6 +544,10 @@ async fn create_location(
 
 	if check_nested_location(&location_path, &library.db).await? {
 		return Err(LocationError::NestedLocation(path));
+	}
+
+	if dry_run {
+		return Ok(None);
 	}
 
 	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
@@ -566,7 +602,7 @@ async fn create_location(
 
 	invalidate_query!(library, "locations.list");
 
-	Ok(location)
+	Ok(Some(location))
 }
 
 pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
