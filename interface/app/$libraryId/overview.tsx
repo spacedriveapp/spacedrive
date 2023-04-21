@@ -1,23 +1,11 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
-import {
-	AppWindow,
-	Camera,
-	CloudArrowDown,
-	FileText,
-	FrameCorners,
-	Heart,
-	Image,
-	MusicNote,
-	Wrench
-} from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card, ScreenHeading } from '@sd/ui';
+import { Card } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
-import TopBarChildren from './TopBar/TopBarChildren';
 
 interface StatItemProps {
 	title: string;
@@ -101,46 +89,44 @@ export const Component = () => {
 	overviewMounted = true;
 
 	return (
-		<>
-			<div className="flex h-screen w-full flex-col">
-				<ScreenHeading>Overview</ScreenHeading>
-				{/* STAT HEADER */}
-				<div className="flex w-full">
-					{/* STAT CONTAINER */}
-					<div className="-mb-1 flex h-20 overflow-hidden">
-						{Object.entries(stats?.data || []).map(([key, value]) => {
-							if (!displayableStatItems.includes(key)) return null;
-							return (
-								<StatItem
-									key={`${library.uuid} ${key}`}
-									title={StatItemNames[key as keyof Statistics]!}
-									bytes={BigInt(value)}
-									isLoading={platform.demoMode ? false : stats.isLoading}
-								/>
-							);
-						})}
-					</div>
-					<div className="grow" />
+		<div className="flex h-screen w-full flex-col">
+			{/* STAT HEADER */}
+			<div className="flex w-full">
+				{/* STAT CONTAINER */}
+				<div className="-mb-1 flex h-20 overflow-hidden">
+					{Object.entries(stats?.data || []).map(([key, value]) => {
+						if (!displayableStatItems.includes(key)) return null;
+						return (
+							<StatItem
+								key={`${library.uuid} ${key}`}
+								title={StatItemNames[key as keyof Statistics]!}
+								bytes={BigInt(value)}
+								isLoading={platform.demoMode ? false : stats.isLoading}
+							/>
+						);
+					})}
 				</div>
-				<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
-					<CategoryButton icon={Heart} category="Favorites" />
-					<CategoryButton icon={FileText} category="Documents" />
-					<CategoryButton icon={Camera} category="Movies" />
-					<CategoryButton icon={FrameCorners} category="Screenshots" />
-					<CategoryButton icon={AppWindow} category="Applications" />
-					<CategoryButton icon={Wrench} category="Projects" />
-					<CategoryButton icon={CloudArrowDown} category="Downloads" />
-					<CategoryButton icon={MusicNote} category="Music" />
-					<CategoryButton icon={Image} category="Albums" />
-					<CategoryButton icon={Heart} category="Favorites" />
-				</div>
-				<Card className="text-ink-dull">
-					<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are
-					yet to be functional.
-				</Card>
-				<div className="flex h-4 w-full shrink-0" />
 			</div>
-		</>
+			{/* <div className="mt-4 grid grid-cols-5 gap-3 pb-4">
+				<CategoryButton icon={Heart} category="Favorites" />
+				<CategoryButton icon={FileText} category="Documents" />
+				<CategoryButton icon={Camera} category="Movies" />
+				<CategoryButton icon={FrameCorners} category="Screenshots" />
+				<CategoryButton icon={AppWindow} category="Applications" />
+				<CategoryButton icon={Wrench} category="Projects" />
+				<CategoryButton icon={CloudArrowDown} category="Downloads" />
+				<CategoryButton icon={MusicNote} category="Music" />
+				<CategoryButton icon={Image} category="Albums" />
+				<CategoryButton icon={Heart} category="Favorites" />
+			</div> */}
+			{/* <Card className="text-ink-dull">
+				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
+				to be functional.
+			</Card> */}
+			{/* <ScreenHeading className="mt-4">Recents</ScreenHeading> */}
+
+			<div className="flex h-4 w-full shrink-0" />
+		</div>
 	);
 };
 
@@ -155,7 +141,7 @@ function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-xs text-ink-faint">23,324 items</p>
+				<p className="text-xs text-ink-faint">0 items</p>
 			</div>
 		</Card>
 	);

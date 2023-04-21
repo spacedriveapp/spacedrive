@@ -36,7 +36,7 @@ function Page({ post }: { post: BlogPost }) {
 						<img src={`/${featured_image}`} alt="" className="mt-8 rounded-xl" />
 					</figure>
 					<section className="-mx-8 flex flex-wrap gap-4 rounded-xl px-8">
-						<div className="grow">
+						<div className="w-full grow">
 							<h1 className="m-0 text-2xl leading-snug sm:text-4xl sm:leading-normal">
 								{post?.title}
 							</h1>
