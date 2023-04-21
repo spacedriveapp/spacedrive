@@ -25,18 +25,18 @@ export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root>
 
 // TODO: Replace above with this, requires refactor of usage
 export const RadixCheckbox = (props: RadixCheckboxProps) => (
-	<div className="align-center flex">
+	<div className="flex items-center">
 		<Checkbox.Root
 			className="flex h-[17px] w-[17px] shrink-0 rounded-md bg-app-button"
 			id={props.name}
 			{...props}
 		>
 			<Checkbox.Indicator className="flex h-[17px] w-[17px] items-center justify-center rounded-md bg-accent">
-				<Check weight="bold" />
+				<Check weight="bold" size={14} />
 			</Checkbox.Indicator>
 		</Checkbox.Root>
 		{props.label && (
-			<label className=" ml-2 font-medium" htmlFor={props.name}>
+			<label className="ml-2 text-sm font-medium" htmlFor={props.name}>
 				{props.label}
 			</label>
 		)}

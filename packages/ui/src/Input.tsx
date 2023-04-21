@@ -139,6 +139,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 			ref={ref}
 			right={
 				<Button
+					tabIndex={0}
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(props.buttonClassnames)}

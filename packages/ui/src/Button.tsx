@@ -1,4 +1,5 @@
 import { VariantProps, cva, cx } from 'class-variance-authority';
+import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { Link, LinkProps } from 'react-router-dom';
 
@@ -25,7 +26,7 @@ const styles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
-		'ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2'
+		'focus:ring-none focus:ring-offset-none ring-offset-app-box'
 	],
 	{
 		variants: {
@@ -54,7 +55,7 @@ const styles = cva(
 					'border-app-line hover:border-app-line active:border-app-active'
 				],
 				accent: [
-					'border-accent-deep bg-accent text-white shadow-md shadow-app-shade/10 hover:border-accent hover:bg-accent-faint active:border-accent-deep active:bg-accent'
+					'border-accent-deep bg-accent text-white shadow-md shadow-app-shade/10 hover:border-accent hover:bg-accent-faint focus:outline-none focus:ring focus:ring-accent active:border-accent-deep active:bg-accent'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''

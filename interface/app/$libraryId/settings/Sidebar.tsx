@@ -47,15 +47,15 @@ export default () => {
 						<Icon component={ShieldCheck} />
 						Privacy
 					</SidebarLink>
-					<SidebarLink to="client/appearance">
+					<SidebarLink to="client/appearance" disabled>
 						<Icon component={PaintBrush} />
 						Appearance
 					</SidebarLink>
-					<SidebarLink to="client/keybindings">
+					<SidebarLink to="client/keybindings" disabled>
 						<Icon component={KeyReturn} />
 						Keybinds
 					</SidebarLink>
-					<SidebarLink to="client/extensions">
+					<SidebarLink to="client/extensions" disabled>
 						<Icon component={PuzzlePiece} />
 						Extensions
 					</SidebarLink>
@@ -66,7 +66,7 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="library/nodes">
+					<SidebarLink to="library/nodes" disabled>
 						<Icon component={ShareNetwork} />
 						Nodes
 					</SidebarLink>
@@ -93,14 +93,14 @@ export default () => {
 						<Icon component={Receipt} />
 						Changelog
 					</SidebarLink>
-					<SidebarLink to="resources/dependencies">
+					{/* <SidebarLink to="resources/dependencies">
 						<Icon component={Graph} />
 						Dependencies
 					</SidebarLink>
 					<SidebarLink to="resources/support">
 						<Icon component={Heart} />
 						Support
-					</SidebarLink>
+					</SidebarLink> */}
 				</Section>
 			</div>
 		</div>

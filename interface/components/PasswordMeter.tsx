@@ -30,7 +30,7 @@ export const PasswordMeter = (props: PasswordMeterProps) => {
 							width: `${score !== 0 ? score * 25 : 12.5}%`
 						}}
 						className={clsx(
-							'h-2 rounded-full',
+							'h-2 rounded-full transition-all',
 							score === 0 && 'bg-red-500',
 							score === 1 && 'bg-red-500',
 							score === 2 && 'bg-amber-400',

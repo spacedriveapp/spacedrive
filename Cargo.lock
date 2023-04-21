@@ -6718,6 +6718,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "specta",
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tokio",

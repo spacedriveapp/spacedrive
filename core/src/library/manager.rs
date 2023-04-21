@@ -185,7 +185,16 @@ impl LibraryManager {
 		config: LibraryConfig,
 		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		let id = Uuid::new_v4();
+		self.create_with_uuid(Uuid::new_v4(), config, km_config)
+			.await
+	}
+
+	pub(crate) async fn create_with_uuid(
+		&self,
+		id: Uuid,
+		config: LibraryConfig,
+		km_config: OnboardingConfig,
+	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&config,
@@ -288,7 +297,7 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	pub async fn delete_library(&self, id: Uuid) -> Result<(), LibraryManagerError> {
+	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
 		let mut libraries = self.libraries.write().await;
 
 		let library = libraries

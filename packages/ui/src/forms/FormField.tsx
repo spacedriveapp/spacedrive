@@ -1,4 +1,4 @@
-import { PropsWithChildren, useId } from 'react';
+import { PropsWithChildren, ReactNode, useId } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 export interface UseFormFieldProps extends PropsWithChildren {
@@ -19,9 +19,10 @@ export const useFormField = <P extends UseFormFieldProps>(props: P) => {
 	};
 };
 
-interface FormFieldProps extends UseFormFieldProps {
+interface FormFieldProps extends Omit<UseFormFieldProps, 'label'> {
 	id: string;
 	error?: string;
+	label?: string | ReactNode;
 }
 
 export const FormField = (props: FormFieldProps) => {
@@ -33,7 +34,7 @@ export const FormField = (props: FormFieldProps) => {
 				</label>
 			)}
 			{props.children}
-			{props.error && <span className="mt-1 text-xs text-red-500">{props.error}</span>}
+			{props.error && <span className="mt-1 w-full text-xs text-red-500">{props.error}</span>}
 		</div>
 	);
 };

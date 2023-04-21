@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense } from 'react';
+import { Suspense, useRef } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -22,6 +22,7 @@ const Layout = () => {
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
+
 	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
 
 	if (library === null && libraries.data) {

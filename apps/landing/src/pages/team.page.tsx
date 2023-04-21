@@ -71,6 +71,31 @@ export const teamMembers: Array<TeamMemberProps> = [
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
 		}
+	},
+	{
+		name: 'Ameer Al Ashhab',
+		role: 'React Engineer & Designer',
+		image: teamImages['ameer.jpg']!,
+		socials: {
+			github: 'https://github.com/ameer2468'
+		}
+	},
+	{
+		name: 'Vítor Vasconcellos',
+		role: 'React Engineer & Designer',
+		image: teamImages['vitor.jpg']!,
+		socials: {
+			github: 'https://github.com/HeavenVolkoff'
+		}
+	},
+	{
+		name: 'Nik Elšnik',
+		role: 'React Engineer & Designer',
+		image: teamImages['nikec.jpg']!,
+		socials: {
+			github: 'https://github.com/niikeec',
+			twitter: 'https://twitter.com/nikec_'
+		}
 	}
 ];
 
