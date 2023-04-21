@@ -17,16 +17,22 @@ const pageRoutes: RouteObject = {
 		{ path: 'sync', lazy: () => import('./sync') }
 	]
 };
+
+// Routes that render the explorer and don't need padding and stuff
+// provided by PageLayout
+const explorerRoutes: RouteObject[] = [
+	{ path: 'location/:id', lazy: () => import('./location/$id') },
+	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
+	{ path: 'search', lazy: () => import('./search') }
+];
+
 // Routes that should render with the top bar - pretty much everything except
 // 404 and settings
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
-	children: [
-		pageRoutes,
-		{ path: 'location/:id', lazy: () => import('./location/$id') },
-		{ path: 'tag/:id', lazy: () => import('./tag/$id') }
-	]
+	children: [pageRoutes, ...explorerRoutes]
 };
+
 export default [
 	topBarRoutes,
 	{
