@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams } from 'react-router';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
-import TopBar from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import View from './View';
 
@@ -16,17 +15,11 @@ export default function Explorer(props: Props) {
 	const { library } = useLibraryContext();
 	const locationId = useParams().id as string;
 
-	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
-
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
-
-	const onScroll = useCallback((scrolled: boolean) => {
-		setSeparateTopBar(scrolled);
-	}, []);
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = -1;
@@ -34,21 +27,16 @@ export default function Explorer(props: Props) {
 
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
-			<TopBar />
-
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
-						{props.data && <View data={props.data.items} onScroll={onScroll} />}
+						{props.data && <View data={props.data.items} />}
 					</div>
 				</ExplorerContextMenu>
 
 				{expStore.showInspector && props.data?.items[expStore.selectedRowIndex] && (
 					<div className="w-[260px] shrink-0">
-						<Inspector
-							data={props.data?.items[expStore.selectedRowIndex]}
-							onScroll={onScroll}
-						/>
+						<Inspector data={props.data?.items[expStore.selectedRowIndex]} />
 					</div>
 				)}
 			</div>
