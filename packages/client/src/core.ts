@@ -73,7 +73,6 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -308,10 +307,6 @@ export type TagAssignArgs = { object_id: number, tag_id: number, unassign: boole
 export type TagCreateArgs = { name: string, color: string }
 
 export type TagUpdateArgs = { id: number, name: string | null, color: string | null }
-
-export type TokenizeKeyArgs = { secret_key: string }
-
-export type TokenizeResponse = { token: string }
 
 export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 

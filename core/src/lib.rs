@@ -6,7 +6,6 @@ use crate::{
 	node::NodeConfigManager,
 	p2p::{P2PEvent, P2PManager},
 };
-use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
@@ -45,7 +44,6 @@ pub struct Node {
 	jobs: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	secure_temp_keystore: Arc<SecureTempKeystore>,
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
 
@@ -133,7 +131,6 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
-		let secure_temp_keystore = SecureTempKeystore::new();
 		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await;
 
 		let library_manager = LibraryManager::new(
@@ -188,7 +185,6 @@ impl Node {
 			jobs,
 			p2p,
 			event_bus,
-			secure_temp_keystore,
 			// peer_request: tokio::sync::Mutex::new(None),
 		};
 
