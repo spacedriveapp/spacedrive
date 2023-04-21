@@ -16,6 +16,7 @@ const AlertDialog = (props: Props) => {
 	// maybe a copy-to-clipboard button would be beneficial too
 	return (
 		<Dialog
+			title={props.title}
 			form={form}
 			onSubmit={form.handleSubmit(() => {})}
 			dialog={dialog}

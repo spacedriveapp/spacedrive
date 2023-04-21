@@ -74,10 +74,10 @@ export default function OnboardingNewLibrary() {
 							<Button type="submit" variant="accent" size="sm">
 								New library
 							</Button>
-							<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>
 							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
 								Import library
-							</Button>
+							</Button> */}
 						</div>
 					</>
 				)}

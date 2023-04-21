@@ -1,23 +1,16 @@
 import { DotsThreeCircle } from 'phosphor-react';
 import { HTMLAttributes } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Popover } from '@sd/ui';
+import { TOP_BAR_ICON_STYLE, ToolOption } from '.';
 import TopBarButton from './TopBarButton';
-import {
-	RoutePaths,
-	TOP_BAR_ICON_STYLE,
-	ToolOption,
-	useToolBarRouteOptions
-} from './useToolBarOptions';
 
-interface Props extends HTMLAttributes<HTMLDivElement> {}
+interface Props extends HTMLAttributes<HTMLDivElement> {
+	toolOptions?: ToolOption[][];
+}
 
-export default ({ className = '' }: Props) => {
-	const { pathname } = useLocation();
-	const getPageName = pathname.split('/')[2] as RoutePaths;
-	const { toolBarRouteOptions } = useToolBarRouteOptions();
-	const toolsNotSmFlex = toolBarRouteOptions[getPageName].options.map((group) =>
-		(group as ToolOption[]).filter((tool) => tool.showAtResolution !== 'sm:flex')
+export default ({ className = '', toolOptions }: Props) => {
+	const toolsNotSmFlex = toolOptions?.map((group) =>
+		group.filter((tool) => tool.showAtResolution !== 'sm:flex')
 	);
 
 	return (
@@ -30,13 +23,13 @@ export default ({ className = '' }: Props) => {
 				}
 			>
 				<div className="flex flex-col overflow-hidden p-2">
-					{toolsNotSmFlex.map((group, groupIndex) => {
-						return (group as ToolOption[]).map(
+					{toolsNotSmFlex?.map((group, groupIndex) => {
+						return group.map(
 							(
 								{ icon, onClick, popOverComponent, toolTipLabel, topBarActive },
 								index
 							) => {
-								const groupCount = toolBarRouteOptions[getPageName].options.length;
+								const groupCount = toolOptions?.length;
 								return (
 									<div key={toolTipLabel}>
 										{popOverComponent ? (

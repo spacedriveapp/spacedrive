@@ -1,13 +1,11 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import SearchBar from './Explorer/SearchBar';
-import * as PageLayout from './PageLayout';
 import classes from './spacedrop.module.scss';
 
 const { Form, Input, useZodForm, z } = forms;

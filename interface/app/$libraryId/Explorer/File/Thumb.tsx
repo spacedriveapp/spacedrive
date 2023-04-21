@@ -12,10 +12,12 @@ interface Props {
 	size: number;
 	loadOriginal?: boolean;
 	className?: string;
+	forceShowExtension?: boolean;
+	extensionClassName?: string;
 }
 
-export default function Thumb({ data, size, className, loadOriginal }: Props) {
-	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(data);
+export default function Thumb(props: Props) {
+	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
 	const store = useExplorerStore();
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
@@ -24,21 +26,28 @@ export default function Thumb({ data, size, className, loadOriginal }: Props) {
 	const [fullPreviewUrl, setFullPreviewUrl] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (loadOriginal && hasThumbnail) {
-			const url = platform.getFileUrl(library.uuid, store.locationId!, data.item.id);
+		if (props.loadOriginal && hasThumbnail) {
+			const url = platform.getFileUrl(library.uuid, store.locationId!, props.data.item.id);
 			if (url) setFullPreviewUrl(url);
 		}
-	}, [data.item.id, hasThumbnail, library.uuid, loadOriginal, platform, store.locationId]);
+	}, [
+		props.data.item.id,
+		hasThumbnail,
+		library.uuid,
+		props.loadOriginal,
+		platform,
+		store.locationId
+	]);
 
-	const videoBarsHeight = Math.floor(size / 10);
-	const videoHeight = Math.floor((size * 9) / 16) + videoBarsHeight * 2;
+	const videoBarsHeight = Math.floor(props.size / 10);
+	const videoHeight = Math.floor((props.size * 9) / 16) + videoBarsHeight * 2;
 
 	const imgStyle: CSSProperties =
 		kind === 'Video'
 			? {
 					borderTopWidth: videoBarsHeight,
 					borderBottomWidth: videoBarsHeight,
-					width: size,
+					width: props.size,
 					height: videoHeight
 			  }
 			: {};
@@ -67,28 +76,36 @@ export default function Thumb({ data, size, className, loadOriginal }: Props) {
 		<div
 			className={clsx(
 				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent',
-				className
+				props.className
 			)}
 		>
 			<img
-				style={{ ...imgStyle, maxWidth: size, width: size - 10 }}
+				style={{ ...imgStyle, maxWidth: props.size, width: props.size - 10 }}
 				decoding="async"
 				className={clsx(
 					'z-90 pointer-events-none',
 					hasThumbnail &&
 						'max-h-full w-auto max-w-full rounded-sm object-cover shadow shadow-black/30',
 					kind === 'Image' && classes.checkers,
-					kind === 'Image' && size > 60 && 'border-2 border-app-line',
+					kind === 'Image' && props.size > 60 && 'border-2 border-app-line',
 					kind === 'Video' && 'rounded border-x-0 !border-black',
-					className
+					props.className
 				)}
 				src={fullPreviewUrl || platform.getThumbnailUrlById(cas_id)}
 			/>
-			{extension && kind === 'Video' && hasThumbnail && size > 80 && (
-				<div className="absolute bottom-[13%] right-[5%] rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70">
-					{extension}
-				</div>
-			)}
+			{extension &&
+				kind === 'Video' &&
+				hasThumbnail &&
+				(props.size > 80 || props.forceShowExtension) && (
+					<div
+						className={clsx(
+							'absolute bottom-[13%] right-[5%] rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70',
+							props.extensionClassName
+						)}
+					>
+						{extension}
+					</div>
+				)}
 		</div>
 	);
 }
