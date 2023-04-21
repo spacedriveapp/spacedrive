@@ -107,7 +107,7 @@ export default () => {
 	}
 
 	// Resize view on initial render
-	useLayoutEffect(() => handleWindowResize(), []);
+	useEffect(() => handleWindowResize(), []);
 
 	// Resize view on window resize
 	useOnWindowResize(handleWindowResize);

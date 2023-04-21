@@ -70,6 +70,7 @@ export default () => {
 	const { data, scrollRef } = useExplorerView();
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
+	const [sized, setSized] = useState(false);
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [locked, setLocked] = useState(true);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(
@@ -207,7 +208,7 @@ export default () => {
 	}
 
 	// Measure initial column widths
-	useLayoutEffect(() => {
+	useEffect(() => {
 		if (scrollRef.current) {
 			const columns = table.getAllColumns();
 			const sizings = columns.reduce(
@@ -219,6 +220,7 @@ export default () => {
 			const sizingsSum = Object.values(sizings).reduce((a, b) => a + b, 0);
 			const nameWidth = scrollWidth - paddingX * 2 - scrollBarWidth - sizingsSum;
 			table.setColumnSizing({ ...sizings, Name: nameWidth });
+			setSized(true);
 		}
 	}, []);
 
@@ -285,6 +287,7 @@ export default () => {
 		{ when: !explorerStore.isRenaming }
 	);
 
+	if (!sized) return null;
 	return (
 		<div role="table" className="table w-full overflow-x-auto">
 			<div
