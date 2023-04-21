@@ -34,7 +34,7 @@ const state = {
 	quickViewObject: null as ExplorerItem | null,
 	isRenaming: false,
 	mediaColumns: 8,
-	mediaAspectSquare: false
+	mediaAspectSquare: true
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.

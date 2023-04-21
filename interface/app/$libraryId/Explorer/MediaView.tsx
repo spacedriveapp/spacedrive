@@ -24,7 +24,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 			data={data}
 			index={index}
 			className={clsx(
-				'h-full w-full overflow-hidden rounded-lg border-2 border-transparent',
+				'h-full w-full overflow-hidden border-2 border-transparent',
 				selected && 'border-accent'
 			)}
 		>
@@ -38,7 +38,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 					data={data}
 					size={0}
 					className={clsx(
-						'!max-w-none !border-0',
+						'!max-w-none !rounded-none !border-0',
 						explorerStore.mediaAspectSquare
 							? '!h-full !w-full'
 							: '!h-auto max-h-full !w-[90%]'
@@ -68,7 +68,7 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const { data, scrollRef } = useExplorerView();
 
-	const gridPadding = 20;
+	const gridPadding = 2;
 	const scrollBarWidth = 6;
 
 	const [width, setWidth] = useState(0);
