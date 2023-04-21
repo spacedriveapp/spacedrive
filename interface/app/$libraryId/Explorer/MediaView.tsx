@@ -44,11 +44,6 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 							: '!h-auto max-h-full !w-[90%]'
 					)}
 					forceShowExtension
-					extensionClassName={clsx(
-						explorerStore.mediaAspectSquare
-							? '!bottom-2 !right-2'
-							: '!bottom-[8%] !right-[8%]'
-					)}
 				/>
 
 				<Button

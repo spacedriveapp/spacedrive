@@ -19,3 +19,7 @@ export function arraysEqual<T>(a: T[], b: T[]) {
 
 	return a.every((n, i) => b[i] === n);
 }
+
+export function isKeyOf<T extends object>(obj: T, key: PropertyKey): key is keyof T {
+	return key in obj;
+}
