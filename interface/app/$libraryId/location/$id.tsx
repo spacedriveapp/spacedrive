@@ -117,6 +117,8 @@ export const Component = () => {
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: mutateQuickRescan, ...quickRescan } =
 		useLibraryMutation('locations.quickRescan');
+
+	const explorerStore = useExplorerStore();
 	const explorerState = getExplorerStore();
 	useEffect(() => {
 		explorerState.locationId = location_id;
@@ -129,9 +131,10 @@ export const Component = () => {
 		'locations.getExplorerData',
 		{
 			location_id,
-			path,
+			path: explorerStore.layoutMode === 'media' ? null : path,
 			limit,
-			cursor: null
+			cursor: null,
+			kind: explorerStore.layoutMode === 'media' ? [5, 7] : null
 		}
 	]);
 

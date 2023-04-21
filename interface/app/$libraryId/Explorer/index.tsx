@@ -19,17 +19,11 @@ export default function Explorer(props: Props) {
 	const { library } = useLibraryContext();
 	const locationId = useParams().id as string;
 
-	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
-
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
-
-	const onScroll = useCallback((scrolled: boolean) => {
-		setSeparateTopBar(scrolled);
-	}, []);
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = -1;
@@ -45,16 +39,13 @@ export default function Explorer(props: Props) {
 				<div className="flex flex-1">
 					<ExplorerContextMenu>
 						<div className="flex-1 overflow-hidden">
-							{props.data && <View data={props.data.items} onScroll={onScroll} />}
+							{props.data && <View data={props.data.items} />}
 						</div>
 					</ExplorerContextMenu>
 
 					{expStore.showInspector && props.data?.items[expStore.selectedRowIndex] && (
 						<div className="w-[260px] shrink-0">
-							<Inspector
-								data={props.data?.items[expStore.selectedRowIndex]}
-								onScroll={onScroll}
-							/>
+							<Inspector data={props.data?.items[expStore.selectedRowIndex]} />
 						</div>
 					)}
 				</div>
