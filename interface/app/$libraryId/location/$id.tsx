@@ -59,6 +59,7 @@ export const Component = () => {
 				toolTipLabel: 'Media view',
 				icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
 				topBarActive: store.layoutMode === 'media',
+				onClick: () => (getExplorerStore().layoutMode = 'media'),
 				showAtResolution: 'sm:flex'
 			}
 		],
