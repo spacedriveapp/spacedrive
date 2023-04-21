@@ -52,13 +52,7 @@ export default function OnboardingCreatingLibrary() {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
 
 		createLibrary.mutate({
-			name: obStore.newLibraryName,
-			auth: {
-				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken || ''
-			},
-			algorithm: obStore.algorithm,
-			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
+			name: obStore.newLibraryName
 		});
 
 		return;

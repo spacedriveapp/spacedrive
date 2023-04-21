@@ -33,7 +33,7 @@ export default function OnboardingNewLibrary() {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
-		navigate('/onboarding/master-password');
+		navigate('/onboarding/privacy');
 	});
 
 	const handleImport = () => {

@@ -3,11 +3,14 @@ import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/clie
 import { Button, ButtonLink, Tabs } from '@sd/ui';
 import KeyList from './List';
 import KeyMounter from './Mounter';
+import NotSetup from './NotSetup';
 import NotUnlocked from './NotUnlocked';
 
 export function KeyManager() {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const isSetup = useLibraryQuery(['keys.isSetup']);
 
+	if (!isSetup?.data) return <NotSetup />;
 	if (!isUnlocked?.data) return <NotUnlocked />;
 	else return <Unlocked />;
 }
