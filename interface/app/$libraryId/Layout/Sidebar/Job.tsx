@@ -47,39 +47,27 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 		icon: Fingerprint
 	},
 	file_encryptor: {
-		name: `Encrypted ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Encrypted ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
 		icon: LockSimple
 	},
 	file_decryptor: {
-		name: `Decrypted ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Decrypted ${numberWithCommas(job.task_count)}${filesTextCondition(job)}`,
 		icon: LockSimpleOpen
 	},
 	file_eraser: {
-		name: `Securely erased ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Securely erased ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
 		icon: TrashSimple
 	},
 	file_deleter: {
-		name: `Deleted ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Deleted ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
 		icon: Trash
 	},
 	file_copier: {
-		name: `Copied ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Copied ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
 		icon: Copy
 	},
 	file_cutter: {
-		name: `Moved ${numberWithCommas(job.task_count)} ${
-			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
-		}`,
+		name: `Moved ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
 		icon: Scissors
 	}
 });
@@ -104,22 +92,24 @@ function Job({ job, clearAJob }: { job: JobReport; clearAJob?: (arg: string) => 
 		// Do we actually need bg-opacity-60 here? Where is the bg?
 		// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
 		<div className="border-b border-app-line/50 p-3 pl-4">
-			<div className="flex items-center bg-opacity-60">
+			<div className="flex">
 				<Tooltip label={job.status}>
-					<niceData.icon className={clsx('mr-3 h-5 w-5')} />
+					<niceData.icon className={clsx('relative top-2 mr-3 h-5 w-5')} />
 				</Tooltip>
-				<div className="flex flex-col truncate">
-					<span className="truncate font-semibold">{niceData.name}</span>
-					<div className="flex items-center truncate text-ink-faint">
-						<span className="text-xs">
-							<JobTimeText job={job} />
-						</span>
-						{<span className="text-xs">{dayjs(job.created_at).fromNow()}</span>}
-					</div>
-				</div>
-				<div className="grow" />
-				<div className="ml-7 flex flex-row space-x-2">
-					{/* {job.status === 'Running' && (
+				<div className="flex w-full flex-col bg-opacity-60">
+					<div className="flex items-center">
+						<div className="truncate">
+							<span className="truncate font-semibold">{niceData.name}</span>
+							<div className="flex truncate text-ink-faint">
+								<span className="text-xs">
+									<JobTimeText job={job} />
+								</span>
+								<span className="text-xs">{dayjs(job.created_at).fromNow()}</span>
+							</div>
+						</div>
+						<div className="grow" />
+						<div className="ml-7 flex flex-row space-x-2">
+							{/* {job.status === 'Running' && (
 						<Button size="icon">
 							<Tooltip label="Coming Soon">
 								<Pause weight="fill" className="w-4 h-4 opacity-30" />
@@ -133,20 +123,26 @@ function Job({ job, clearAJob }: { job: JobReport; clearAJob?: (arg: string) => 
 							</Tooltip>
 						</Button>
 					)} */}
-					{job.status !== 'Running' && (
-						<Button onClick={() => clearAJob?.(job.id)} size="icon">
-							<Tooltip label="Remove">
-								<X className="h-4 w-4" />
-							</Tooltip>
-						</Button>
+							{job.status !== 'Running' && (
+								<Button
+									className="relative left-1"
+									onClick={() => clearAJob?.(job.id)}
+									size="icon"
+								>
+									<Tooltip label="Remove">
+										<X className="h-4 w-4" />
+									</Tooltip>
+								</Button>
+							)}
+						</div>
+					</div>
+					{isRunning && (
+						<div className="mt-3 mb-1 w-full">
+							<ProgressBar value={job.completed_task_count} total={job.task_count} />
+						</div>
 					)}
 				</div>
 			</div>
-			{isRunning && (
-				<div className="mt-3 mb-1 w-full">
-					<ProgressBar value={job.completed_task_count} total={job.task_count} />
-				</div>
-			)}
 		</div>
 	);
 }
@@ -175,6 +171,10 @@ function JobTimeText({ job }: { job: JobReport }) {
 	}, [job.status]);
 
 	return <>{checkForNaN ? '' : text}</>;
+}
+
+function filesTextCondition(job: JobReport) {
+	return job?.task_count > 1 || job?.task_count === 0 ? 'files' : 'file';
 }
 
 function numberWithCommas(x: number) {

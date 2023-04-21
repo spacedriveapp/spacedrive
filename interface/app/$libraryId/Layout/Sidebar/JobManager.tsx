@@ -51,6 +51,7 @@ export function JobsManager() {
 		showAlertDialog({
 			title: 'Clear Jobs',
 			value: 'Are you sure you want to clear all jobs? This cannot be undone.',
+			label: 'Clear',
 			onSubmit: () => clearAllJobs(null)
 		});
 	};
