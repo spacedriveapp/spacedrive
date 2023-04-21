@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     branches:
-      - fix-releases
       - main
   workflow_dispatch:
 
