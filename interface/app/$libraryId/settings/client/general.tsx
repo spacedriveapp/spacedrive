@@ -38,6 +38,7 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
+								disabled
 							/>
 						</div>
 						<div className="flex flex-col">
@@ -48,6 +49,7 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
+								disabled
 							/>
 						</div>
 					</div>
@@ -74,16 +76,18 @@ export const Component = () => {
 					</div>
 				</div>
 			</Card>
-			<Setting
-				mini
-				title="Debug mode"
-				description="Enable extra debugging features within the app."
-			>
-				<Switch
-					checked={debugState.enabled}
-					onClick={() => (getDebugState().enabled = !debugState.enabled)}
-				/>
-			</Setting>
+			{isDev && (
+				<Setting
+					mini
+					title="Debug mode"
+					description="Enable extra debugging features within the app."
+				>
+					<Switch
+						checked={debugState.enabled}
+						onClick={() => (getDebugState().enabled = !debugState.enabled)}
+					/>
+				</Setting>
+			)}
 		</>
 	);
 };

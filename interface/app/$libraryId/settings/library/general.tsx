@@ -43,7 +43,7 @@ export const Component = () => {
 				</div>
 			</div>
 
-			<Setting
+			{/* <Setting
 				mini
 				title="Encrypt Library"
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
@@ -51,14 +51,14 @@ export const Component = () => {
 				<div className="ml-3 flex items-center">
 					<Switch checked={false} />
 				</div>
-			</Setting>
-			<Setting mini title="Export Library" description="Export this library to a file.">
+			</Setting> */}
+			{/* <Setting mini title="Export Library" description="Export this library to a file.">
 				<div className="mt-2">
 					<Button size="sm" variant="gray">
 						Export
 					</Button>
 				</div>
-			</Setting>
+			</Setting> */}
 			<Setting
 				mini
 				title="Delete Library"
