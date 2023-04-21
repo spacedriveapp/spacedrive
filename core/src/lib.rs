@@ -63,6 +63,9 @@ impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
+		#[cfg(debug_assertions)]
+		let init_data = util::debug_initializer::InitConfig::load(data_dir).await;
+
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
 
@@ -107,10 +110,10 @@ impl Node {
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				), // .add_directive(
-			    // 	"rspc=debug"
-			    // 		.parse()
-			    // 		.expect("Error invalid tracing directive!"),
-			    // ),
+			   // 	"rspc=debug"
+			   // 		.parse()
+			   // 		.expect("Error invalid tracing directive!"),
+			   // ),
 		);
 		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
@@ -144,6 +147,11 @@ impl Node {
 			},
 		)
 		.await?;
+
+		#[cfg(debug_assertions)]
+		if let Some(init_data) = init_data {
+			init_data.apply(&library_manager).await;
+		}
 
 		debug!("Watching locations");
 
@@ -222,4 +230,6 @@ pub enum NodeError {
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("Location manager error: {0}")]
 	LocationManager(#[from] LocationManagerError),
+	#[error("invalid platform integer")]
+	InvalidPlatformInt(i32),
 }

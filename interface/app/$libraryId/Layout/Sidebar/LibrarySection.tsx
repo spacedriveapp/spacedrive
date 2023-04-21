@@ -71,12 +71,12 @@ export const LibrarySection = () => {
 					</div>
 				</Section>
 			)}
-			<Section name="Debug">
+			{/* <Section name="Debug">
 				<SidebarLink to="sync">
 					<Icon component={ArrowsClockwise} />
 					Sync
 				</SidebarLink>
-			</Section>
+			</Section> */}
 		</>
 	);
 };

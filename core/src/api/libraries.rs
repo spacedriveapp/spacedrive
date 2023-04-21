@@ -168,7 +168,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.mutation("delete", |t| {
-			t(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
+			t(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete(id).await?) })
 		})
 	// .yolo_merge("peer.guest.", peer_guest_router())
 	// .yolo_merge("peer.host.", peer_host_router())

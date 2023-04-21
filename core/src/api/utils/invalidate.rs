@@ -232,22 +232,25 @@ pub fn mount_invalidate() -> RouterBuilder {
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
 
-					tokio::select! {
-						event = event_bus_rx.recv() => {
-							if let Ok(event) = event {
-								if let CoreEvent::InvalidateOperation(op) = event {
-									// Newer data replaces older data in the buffer
-									buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+					loop {
+						tokio::select! {
+							event = event_bus_rx.recv() => {
+								if let Ok(event) = event {
+									if let CoreEvent::InvalidateOperation(op) = event {
+										// Newer data replaces older data in the buffer
+										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+									}
+								} else {
+									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
 								}
-							} else {
-								warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
-							}
-						},
-						// Given human reaction time of ~250 milli this should be a good ballance.
-						_ = tokio::time::sleep(Duration::from_millis(200)) => {
-							match tx.send(buf.drain().map(|(_k, v)| v).collect::<Vec<_>>()) {
-								Ok(_) => {},
-								Err(_) => warn!("Error emitting invalidation manager events!"),
+							},
+							// Given human reaction time of ~250 milli this should be a good ballance.
+							_ = tokio::time::sleep(Duration::from_millis(200)) => {
+								let x = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
+								match tx.send(x) {
+									Ok(_) => {},
+									Err(_) => warn!("Error emitting invalidation manager events!"),
+								}
 							}
 						}
 					}

@@ -25,7 +25,7 @@ const styles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
-		'ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2'
+		'focus:ring-none focus:ring-offset-none ring-offset-app-box'
 	],
 	{
 		variants: {

@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
+import { useRef } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -11,6 +12,8 @@ import {
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { QuickPreview } from '../Explorer/QuickPreview';
+import { TopBarContext } from '../PageLayout';
+import TopBar from '../TopBar/.';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -18,6 +21,7 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 
 	const os = useOperatingSystem();
+	const topBarChildrenRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
