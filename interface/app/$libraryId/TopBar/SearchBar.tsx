@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useEffect, useTransition } from 'react';
 import { useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useMatch, useNavigate } from 'react-router';
 import { useSearchParams } from 'react-router-dom';
 import { Input, Shortcut } from '@sd/ui';
 import { useLibraryContext } from '~/../packages/client/src';
@@ -44,7 +44,9 @@ export default () => {
 	// Wrapping param updates in a transition allows us to track whether
 	// updating the params triggers a Suspense somewhere else, providing a free
 	// loading state!
-	const [isPending, startTransition] = useTransition();
+	const [_isPending, startTransition] = useTransition();
+
+	const match = useMatch('./search');
 
 	return (
 		<Input
@@ -65,8 +67,7 @@ export default () => {
 			}}
 			// TODO: Use relative navigation. Will require refactor of explorer routes
 			onFocus={() => {
-				if (location.pathname !== `/${library.uuid}/search`)
-					navigate(`/${library.uuid}/search`, { replace: true });
+				if (match === null) navigate(`./search`, { replace: true });
 			}}
 			value={searchParams.get(SEARCH_PARAM_KEY)! || ''}
 			right={
@@ -93,7 +94,8 @@ export default () => {
 							/>
 						)}
 					</div>
-					{isPending && <div className="h-8 w-8 bg-red-500" />}
+					{/* This indicates whether the search is loading, a spinner could be put here */}
+					{/* {_isPending && <div className="h-8 w-8 bg-red-500" />} */}
 				</>
 			}
 		/>

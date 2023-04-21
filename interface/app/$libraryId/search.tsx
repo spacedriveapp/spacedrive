@@ -36,10 +36,8 @@ export const Component = () => {
 	const search = useDeferredValue(searchObj);
 
 	return (
-		<>
-			<Suspense fallback="This only shows on first render!">
-				<ExplorerStuff args={search} />
-			</Suspense>
-		</>
+		<Suspense fallback="LOADING FIRST RENDER">
+			<ExplorerStuff args={search} />
+		</Suspense>
 	);
 };
