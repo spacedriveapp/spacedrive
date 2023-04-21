@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - eng-481-update-server
   workflow_dispatch:
 
 jobs:
