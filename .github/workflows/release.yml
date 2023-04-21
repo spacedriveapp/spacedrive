@@ -34,4 +34,4 @@ jobs:
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
-          profile: debug
+          profile: release
