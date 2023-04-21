@@ -110,7 +110,8 @@ export const Component = () => {
 					/>
 				),
 				individual: true,
-				showAtResolution: 'xl:flex'
+				showAtResolution: 'xl:flex',
+				topBarActive: store.showInspector
 			}
 		]
 	];
