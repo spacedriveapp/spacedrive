@@ -1,4 +1,4 @@
-import { ExplorerItem, ObjectKind, ObjectKinds, isObject, isPath } from '@sd/client';
+import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
 
 export function getExplorerItemData(data: ExplorerItem) {
 	const objectData = getItemObject(data);
@@ -7,7 +7,7 @@ export function getExplorerItemData(data: ExplorerItem) {
 	return {
 		cas_id: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
-		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKinds) || null,
+		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
 		hasThumbnail: data.has_thumbnail,
 		extension: filePath?.extension || null
 	};

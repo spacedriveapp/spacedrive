@@ -53,7 +53,7 @@ const pdfViewerEnabled = () => {
 
 function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
 	const className = clsx('relative inset-y-2/4 max-h-full max-w-full translate-y-[-50%]');
-	const fileThumb = <FileThumb size={0} data={explorerItem} cover={true} className={className} />;
+	const fileThumb = <FileThumb size={0} data={explorerItem} cover className={className} />;
 	switch (kind) {
 		case 'PDF':
 			return <object data={src} type="application/pdf" className="h-full w-full border-0" />;

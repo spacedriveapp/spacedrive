@@ -25,4 +25,4 @@ export enum ObjectKind {
 	Database
 }
 
-export type ObjectKinds = keyof typeof ObjectKind;
+export type ObjectKindKey = keyof typeof ObjectKind;
