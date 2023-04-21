@@ -94,8 +94,8 @@ export default function Thumb({ size, ...props }: Props) {
 				'relative flex shrink-0 items-center justify-center',
 				src &&
 					kind !== 'Video' && [classes.checkers, size && 'border-2 border-transparent'],
-				props.className,
-				size || ['h-full', props.cover ? 'w-full overflow-hidden' : 'w-[90%]']
+				size || ['h-full', props.cover ? 'w-full overflow-hidden' : 'w-[90%]'],
+				props.className
 			)}
 		>
 			{src ? (
@@ -111,7 +111,11 @@ export default function Thumb({ size, ...props }: Props) {
 						}}
 						style={style}
 						autoPlay
-						className={clsx(childClassName, size && 'rounded border-x-0 border-black')}
+						className={clsx(
+							childClassName,
+							size && 'rounded border-x-0 border-black',
+							props.className
+						)}
 						playsInline
 					/>
 				) : (
@@ -133,7 +137,8 @@ export default function Thumb({ size, ...props }: Props) {
 								size &&
 									(kind === 'Video'
 										? 'border-x-0 border-black'
-										: size > 60 && 'border-2 border-app-line')
+										: size > 60 && 'border-2 border-app-line'),
+								props.className
 							)}
 						/>
 						{kind === 'Video' && (!size || size > 80) && (
@@ -163,7 +168,7 @@ export default function Thumb({ size, ...props }: Props) {
 				<img
 					src={getIcon(isDir, isDark, kind, extension)}
 					decoding="async"
-					className={childClassName}
+					className={clsx(childClassName, props.className)}
 				/>
 			)}
 		</div>
