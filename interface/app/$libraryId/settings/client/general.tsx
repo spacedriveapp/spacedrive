@@ -38,6 +38,7 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
+								disabled
 							/>
 						</div>
 						<div className="flex flex-col">
@@ -48,6 +49,7 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
+								disabled
 							/>
 						</div>
 					</div>
