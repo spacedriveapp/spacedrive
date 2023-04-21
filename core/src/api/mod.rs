@@ -128,7 +128,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				#[specta(optional)]
 				extension: Option<String>,
 				#[specta(optional)]
-				kind: Option<ObjectKind>,
+				kind: Option<i32>,
 				#[specta(optional)]
 				#[serde(default)]
 				tags: Vec<i32>,
@@ -155,9 +155,8 @@ pub(crate) fn mount() -> Arc<Router> {
 					.into_iter()
 					.chain([
 						args.location_id.map(file_path::location_id::equals),
-						args.kind.map(|kind| {
-							file_path::object::is(vec![object::kind::equals(kind as i32)])
-						}),
+						args.kind
+							.map(|kind| file_path::object::is(vec![object::kind::equals(kind)])),
 						args.extension.map(file_path::extension::equals),
 						(args.tags.len() > 0).then(|| {
 							file_path::object::is(vec![object::tags::some(vec![

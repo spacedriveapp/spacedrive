@@ -27,13 +27,13 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 		<div
 			data-tauri-drag-region
 			className="
-				duration-250 top-bar-blur absolute top-0 left-0 z-50 grid h-[46px]
-				w-full shrink-0 grid-cols-3 items-center justify-center overflow-hidden
+				duration-250 top-bar-blur absolute top-0 left-0 z-50 flex
+				h-[46px] w-full flex-row items-center justify-center overflow-hidden
 				border-b border-sidebar-divider bg-app/90 px-5
 				transition-[background-color,border-color] ease-out
 			"
 		>
-			<div data-tauri-drag-region className="flex">
+			<div data-tauri-drag-region className="flex flex-1">
 				<Tooltip label="Navigate back">
 					<TopBarButton onClick={() => navigate(-1)}>
 						<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
@@ -48,7 +48,7 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 
 			<SearchBar />
 
-			<div ref={ref} />
+			<div className="flex-1" ref={ref} />
 		</div>
 	);
 });

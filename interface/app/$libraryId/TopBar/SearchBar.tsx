@@ -1,8 +1,9 @@
 import clsx from 'clsx';
-import { useEffect, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRef } from 'react';
-import { useLocation, useMatch, useNavigate } from 'react-router';
+import { useLocation, useMatch, useMatches, useNavigate, useResolvedPath } from 'react-router';
 import { useSearchParams } from 'react-router-dom';
+import { useDebouncedCallback } from 'use-debounce';
 import { Input, Shortcut } from '@sd/ui';
 import { useLibraryContext } from '~/../packages/client/src';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -46,7 +47,21 @@ export default () => {
 	// loading state!
 	const [_isPending, startTransition] = useTransition();
 
-	const match = useMatch('./search');
+	const searchPath = useResolvedPath('search');
+
+	const [value, setValue] = useState(searchParams.get(SEARCH_PARAM_KEY) || '');
+
+	const updateParams = useDebouncedCallback((value: string) => {
+		startTransition(() =>
+			setSearchParams((p) => (p.set(SEARCH_PARAM_KEY, value), p), {
+				replace: true
+			})
+		);
+	}, 300);
+
+	useEffect(() => {
+		updateParams(value);
+	}, [value]);
 
 	return (
 		<Input
@@ -54,22 +69,20 @@ export default () => {
 			placeholder="Search"
 			className="w-52 transition-all duration-200 focus-within:w-60"
 			size="sm"
-			onChange={(e) => {
-				startTransition(() =>
-					setSearchParams((p) => (p.set(SEARCH_PARAM_KEY, e.target.value), p))
-				);
-			}}
+			onChange={(e) => setValue(e.target.value)}
 			onBlur={() => {
-				if ((searchParams.get(SEARCH_PARAM_KEY) || '') === '') {
-					setSearchParams((p) => (p.delete(SEARCH_PARAM_KEY), p));
+				if (value === '') {
+					setSearchParams((p) => (p.delete(SEARCH_PARAM_KEY), p), { replace: true });
 					navigate(-1);
 				}
 			}}
-			// TODO: Use relative navigation. Will require refactor of explorer routes
 			onFocus={() => {
-				if (match === null) navigate(`./search`, { replace: true });
+				if (searchPath.pathname !== location.pathname) {
+					// Replace here so that navigate(-1) functions properly
+					navigate(`search`, { replace: true });
+				}
 			}}
-			value={searchParams.get(SEARCH_PARAM_KEY)! || ''}
+			value={value}
 			right={
 				<>
 					<div

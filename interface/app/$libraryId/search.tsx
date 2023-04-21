@@ -2,6 +2,7 @@ import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
+import Explorer from './Explorer';
 
 const schema = z.object({
 	search: z.string().optional(),
@@ -17,10 +18,8 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	});
 
 	return (
-		<div className="page-scroll custom-scroll flex flex-col space-y-5">
-			<code>
-				<pre>{JSON.stringify(query.data, null, 4)}</pre>
-			</code>
+		<div className="page-scroll custom-scroll flex w-full flex-col space-y-5">
+			<Explorer items={query.data} />
 		</div>
 	);
 });
