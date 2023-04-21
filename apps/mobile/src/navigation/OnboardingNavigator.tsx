@@ -1,7 +1,6 @@
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';
-import MasterPasswordScreen from '~/screens/onboarding/MasterPassword';
 import NewLibraryScreen from '~/screens/onboarding/NewLibrary';
 import PrivacyScreen from '~/screens/onboarding/Privacy';
 
@@ -16,7 +15,6 @@ export default function OnboardingNavigator() {
 		>
 			<OnboardingStack.Screen name="GetStarted" component={GetStartedScreen} />
 			<OnboardingStack.Screen name="NewLibrary" component={NewLibraryScreen} />
-			<OnboardingStack.Screen name="MasterPassword" component={MasterPasswordScreen} />
 			<OnboardingStack.Screen name="Privacy" component={PrivacyScreen} />
 			<OnboardingStack.Screen
 				name="CreatingLibrary"
@@ -33,7 +31,6 @@ export default function OnboardingNavigator() {
 export type OnboardingStackParamList = {
 	GetStarted: undefined;
 	NewLibrary: undefined;
-	MasterPassword: undefined;
 	Privacy: undefined;
 	CreatingLibrary: undefined;
 };

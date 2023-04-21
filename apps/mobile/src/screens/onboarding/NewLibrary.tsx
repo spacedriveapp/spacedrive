@@ -25,7 +25,7 @@ const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary
 
 	const handleNewLibrary = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
-		navigation.navigate('MasterPassword');
+		navigation.navigate('Privacy');
 	});
 
 	const handleImport = () => {
