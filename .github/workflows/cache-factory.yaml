@@ -27,5 +27,8 @@ jobs:
         with:
           save-cache: 'true'
 
-      - name: Compile workspace with stable Rust
+      - name: Compile (debug)
         run: cargo test --workspace --all-features --no-run
+      
+      - name: Compile (release)
+        run: cargo test --workspace --all-features --no-run --release

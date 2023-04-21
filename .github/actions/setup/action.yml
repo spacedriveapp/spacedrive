@@ -20,9 +20,9 @@ runs:
         version: 7.x.x
 
     - name: Cache Rust deps
-      uses: Swatinem/rust-cache@v2
+      uses: ./.github/actions/cache-rust-deps
       with:
-        save-if: ${{ inputs.save-cache }} == "true"
+        save-cache: ${{ inputs.save-cache }} == "true"
 
     - name: Run 'setup-system.sh' script
       shell: bash
