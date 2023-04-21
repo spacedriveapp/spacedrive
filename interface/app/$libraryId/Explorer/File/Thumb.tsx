@@ -1,6 +1,6 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
@@ -28,7 +28,12 @@ export const getIcon = (
 	];
 };
 
-interface Props {
+interface VideoThumbSize {
+	width: number;
+	height: number;
+}
+
+export interface ThumbProps {
 	data: ExplorerItem;
 	size: null | number;
 	cover?: boolean;
@@ -36,44 +41,35 @@ interface Props {
 	loadOriginal?: boolean;
 }
 
-export default function Thumb({ size, ...props }: Props) {
+function Thumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
 	const platform = usePlatform();
+	const thumbImg = useRef<HTMLImageElement>(null);
 	const { library } = useLibraryContext();
 	const { locationId } = useExplorerStore();
-	const videoThumb = useRef<HTMLImageElement>(null);
+	const [videoThumbSize, setVideoThumbSize] = useState<null | VideoThumbSize>(null);
 	const [videoThumbLoaded, setVideoThumbLoaded] = useState<boolean>(false);
-	const [thumbSize, setThumbSize] = useState<null | { width: number; height: number }>(null);
 	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
 
+	// Allows disabling thumbnails when they fail to load
+	const [useThumb, setUseThumb] = useState<boolean>(hasThumbnail);
+
 	useLayoutEffect(() => {
-		const img = videoThumb.current;
-		if (props.cover || kind !== 'Video' || !img || !videoThumbLoaded) return;
+		const img = thumbImg.current;
+		if (cover || kind !== 'Video' || !img || !videoThumbLoaded) return;
 
-		// This is needed because the image might not be loaded yet
-		// https://stackoverflow.com/q/61864491#61864635
-		let counter = 0;
-		const waitImageRender = () => {
+		const resizeObserver = new ResizeObserver(() => {
 			const { width, height } = img;
-			if (width && height) {
-				setThumbSize({ width, height });
-			} else if (++counter < 3) {
-				requestAnimationFrame(waitImageRender);
-			} else {
-				setThumbSize(null);
-			}
-		};
+			setVideoThumbSize(width && height ? { width, height } : null);
+		});
 
-		waitImageRender();
-
-		return () => {
-			counter = 3;
-		};
-	}, [kind, props.cover, videoThumb, videoThumbLoaded]);
+		resizeObserver.observe(img);
+		return () => resizeObserver.disconnect();
+	}, [kind, cover, thumbImg, videoThumbLoaded]);
 
 	// Only Videos and Images can show the original file
 	const loadOriginal = (kind === 'Video' || kind === 'Image') && props.loadOriginal;
-	const src = hasThumbnail
+	const src = useThumb
 		? loadOriginal && locationId
 			? platform.getFileUrl(library.uuid, locationId, props.data.item.id)
 			: cas_id && platform.getThumbnailUrlById(cas_id)
@@ -96,7 +92,7 @@ export default function Thumb({ size, ...props }: Props) {
 				'relative flex shrink-0 items-center justify-center',
 				src &&
 					kind !== 'Video' && [classes.checkers, size && 'border-2 border-transparent'],
-				size || ['h-full', props.cover ? 'w-full overflow-hidden' : 'w-[90%]'],
+				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
 		>
@@ -124,12 +120,20 @@ export default function Thumb({ size, ...props }: Props) {
 					<>
 						<img
 							src={src}
-							ref={videoThumb}
+							ref={thumbImg}
 							style={style}
-							onLoad={() => setVideoThumbLoaded(true)}
+							onLoad={() => {
+								setUseThumb(true);
+								setVideoThumbLoaded(true);
+							}}
+							onError={() => {
+								setUseThumb(false);
+								setVideoThumbSize(null);
+								setVideoThumbLoaded(false);
+							}}
 							decoding="async"
 							className={clsx(
-								props.cover
+								cover
 									? 'min-h-full min-w-full object-cover object-center'
 									: childClassName,
 								'shadow shadow-black/30',
@@ -144,15 +148,18 @@ export default function Thumb({ size, ...props }: Props) {
 						{kind === 'Video' && (!size || size > 80) && (
 							<div
 								style={
-									props.cover || thumbSize == null
+									cover
 										? {}
-										: {
-												marginTop: Math.floor(thumbSize.height / 2) - 2,
-												marginLeft: Math.floor(thumbSize.width / 2) - 2
+										: videoThumbSize
+										? {
+												marginTop:
+													Math.floor(videoThumbSize.height / 2) - 2,
+												marginLeft: Math.floor(videoThumbSize.width / 2) - 2
 										  }
+										: { display: 'none' }
 								}
 								className={clsx(
-									props.cover
+									cover
 										? 'right-1 bottom-1'
 										: 'left-1/2 top-1/2 -translate-x-full -translate-y-full',
 									'absolute rounded',
@@ -174,3 +181,5 @@ export default function Thumb({ size, ...props }: Props) {
 		</div>
 	);
 }
+
+export default memo(Thumb);
