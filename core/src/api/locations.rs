@@ -8,7 +8,10 @@ use crate::{
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
-use std::path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
+use std::{
+	collections::BTreeSet,
+	path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+};
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
@@ -88,32 +91,36 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				let mut directory_id = None;
-
-				let path: Option<String> = args.path.clone();
-				if path.is_some() {
-					let mut path = path.unwrap();
+				let directory_id = if let Some(mut path) = args.path {
 					if !path.ends_with(MAIN_SEPARATOR) {
 						path += MAIN_SEPARATOR_STR;
 					}
 
-					let directory = db
-						.file_path()
-						.find_first(vec![
-							file_path::location_id::equals(location.id),
-							file_path::materialized_path::equals(path),
-							file_path::is_dir::equals(true),
-						])
-						.exec()
-						.await?
-						.ok_or_else(|| {
-							rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
-						})?;
+					Some(
+						db.file_path()
+							.find_first(vec![
+								file_path::location_id::equals(location.id),
+								file_path::materialized_path::equals(path),
+								file_path::is_dir::equals(true),
+							])
+							.select(file_path::select!({ id }))
+							.exec()
+							.await?
+							.ok_or_else(|| {
+								rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
+							})?
+							.id,
+					)
+				} else {
+					None
+				};
 
-					directory_id = Some(directory.id);
-				}
+				let expected_kinds = args
+					.kind
+					.map(|kinds| kinds.into_iter().collect::<BTreeSet<_>>())
+					.unwrap_or_default();
 
-				let file_paths = db
+				let mut file_paths = db
 					.file_path()
 					.find_many(if directory_id.is_some() {
 						vec![
@@ -127,23 +134,21 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.exec()
 					.await?;
 
-				let mut items = Vec::with_capacity(file_paths.len());
-
-				let kind = args.kind.clone();
-
-				for file_path in file_paths {
-					if kind.is_some() {
-						let object = file_path_with_object::Data::clone(&file_path).object;
-						if object.is_some() {
-							let object_kind = object.unwrap().kind;
-							if !kind.clone().unwrap().contains(&object_kind) {
-								continue;
+				if !expected_kinds.is_empty() {
+					file_paths = file_paths
+						.into_iter()
+						.filter(|file_path| {
+							if let Some(ref object) = file_path.object {
+								expected_kinds.contains(&object.kind)
+							} else {
+								false
 							}
-						} else {
-							continue;
-						}
-					}
+						})
+						.collect::<Vec<_>>();
+				}
 
+				let mut items = Vec::with_capacity(file_paths.len());
+				for file_path in file_paths {
 					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
 						library
 							.thumbnail_exists(cas_id)

@@ -106,10 +106,10 @@ impl Node {
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				), // .add_directive(
-			    // 	"rspc=debug"
-			    // 		.parse()
-			    // 		.expect("Error invalid tracing directive!"),
-			    // ),
+			   // 	"rspc=debug"
+			   // 		.parse()
+			   // 		.expect("Error invalid tracing directive!"),
+			   // ),
 		);
 		#[cfg(not(target_os = "android"))]
 		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
