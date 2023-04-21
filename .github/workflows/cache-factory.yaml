@@ -6,7 +6,6 @@ name: Cache Factory
 on:
   push:
     branches:
-      - fix-releases
       - main
 
 concurrency:
