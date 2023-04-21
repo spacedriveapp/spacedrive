@@ -63,12 +63,10 @@ export const Component = () => {
 	);
 
 	return (
-		<>
-			<ul className="space-y-2">
-				{messages.data?.map((op) => (
-					<OperationItem key={op.id} op={op} />
-				))}
-			</ul>
-		</>
+		<ul className="space-y-2">
+			{messages.data?.map((op) => (
+				<OperationItem key={op.id} op={op} />
+			))}
+		</ul>
 	);
 };

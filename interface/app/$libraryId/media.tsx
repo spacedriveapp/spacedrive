@@ -1,9 +1,5 @@
 import { ScreenHeading } from '@sd/ui';
 
 export const Component = () => {
-	return (
-		<>
-			<ScreenHeading>Media</ScreenHeading>
-		</>
-	);
+	return <ScreenHeading>Media</ScreenHeading>;
 };

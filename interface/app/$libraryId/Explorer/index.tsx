@@ -19,7 +19,7 @@ export default function Explorer(props: Props) {
 	const { library } = useLibraryContext();
 	const locationId = useParams().id as string;
 
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
