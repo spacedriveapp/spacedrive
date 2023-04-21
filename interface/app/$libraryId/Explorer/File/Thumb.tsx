@@ -45,10 +45,10 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 	const thumbImg = useRef<HTMLImageElement>(null);
+	const [thumbSize, setThumbSize] = useState<null | VideoThumbSize>(null);
 	const { library } = useLibraryContext();
+	const [thumbLoaded, setThumbLoaded] = useState<boolean>(false);
 	const { locationId } = useExplorerStore();
-	const [videoThumbSize, setVideoThumbSize] = useState<null | VideoThumbSize>(null);
-	const [videoThumbLoaded, setVideoThumbLoaded] = useState<boolean>(false);
 	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
 
 	// Allows disabling thumbnails when they fail to load
@@ -56,16 +56,16 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 
 	useLayoutEffect(() => {
 		const img = thumbImg.current;
-		if (cover || kind !== 'Video' || !img || !videoThumbLoaded) return;
+		if (cover || kind !== 'Video' || !img || !thumbLoaded) return;
 
 		const resizeObserver = new ResizeObserver(() => {
 			const { width, height } = img;
-			setVideoThumbSize(width && height ? { width, height } : null);
+			setThumbSize(width && height ? { width, height } : null);
 		});
 
 		resizeObserver.observe(img);
 		return () => resizeObserver.disconnect();
-	}, [kind, cover, thumbImg, videoThumbLoaded]);
+	}, [kind, cover, thumbImg, thumbLoaded]);
 
 	// Only Videos and Images can show the original file
 	const loadOriginal = (kind === 'Video' || kind === 'Image') && props.loadOriginal;
@@ -124,12 +124,12 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 							style={style}
 							onLoad={() => {
 								setUseThumb(true);
-								setVideoThumbLoaded(true);
+								setThumbLoaded(true);
 							}}
 							onError={() => {
 								setUseThumb(false);
-								setVideoThumbSize(null);
-								setVideoThumbLoaded(false);
+								setThumbSize(null);
+								setThumbLoaded(false);
 							}}
 							decoding="async"
 							className={clsx(
@@ -150,11 +150,10 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 								style={
 									cover
 										? {}
-										: videoThumbSize
+										: thumbSize
 										? {
-												marginTop:
-													Math.floor(videoThumbSize.height / 2) - 2,
-												marginLeft: Math.floor(videoThumbSize.width / 2) - 2
+												marginTop: Math.floor(thumbSize.height / 2) - 2,
+												marginLeft: Math.floor(thumbSize.width / 2) - 2
 										  }
 										: { display: 'none' }
 								}
