@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { animated, useTransition } from 'react-spring';
 import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { Form, PasswordInput, useZodForm, z } from '@sd/ui/src/forms';
@@ -13,6 +14,15 @@ const schema = z.object({
 	algorithm: z.string(),
 	hashing_algorithm: z.string()
 });
+
+const AnimatedCard = animated(Card);
+
+const transitionConfig = {
+	from: { opacity: 0, transform: `translateY(-40px)` },
+	enter: { opacity: 1, transform: `translateY(0px)` },
+	leave: { opacity: 0, transform: `translateY(-40px)` },
+	config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 }
+};
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
@@ -62,6 +72,11 @@ export default function OnboardingNewLibrary() {
 		}
 	});
 
+	const pswTransition = useTransition(showPasswordValidate, transitionConfig);
+	const pswErrTransition = useTransition(
+		form.formState.errors.password_validate,
+		transitionConfig
+	);
 	return (
 		<Form form={form} onSubmit={onSubmit}>
 			<OnboardingContainer>
@@ -72,33 +87,45 @@ export default function OnboardingNewLibrary() {
 				</OnboardingDescription>
 
 				<div className="mt-4 flex w-[450px] flex-col">
-					{form.formState.errors.password_validate && (
-						<Card className="mt-2 flex flex-col border-red-500/10 bg-red-500/20">
-							<span className="text-sm font-medium text-red-500">
-								{form.formState.errors.password_validate.message}
-							</span>
-						</Card>
+					{pswErrTransition(
+						(styles, pswValidateErr) =>
+							pswValidateErr && (
+								<AnimatedCard
+									style={styles}
+									className="mt-2 flex flex-col border-red-500/10 bg-red-500/20"
+								>
+									<span className="text-sm font-medium text-red-500">
+										{pswValidateErr.message}
+									</span>
+								</AnimatedCard>
+							)
 					)}
+
 					<div className="my-2 flex grow">
 						<PasswordInput
 							{...form.register('password')}
 							size="lg"
 							autoFocus
+							tabIndex={1}
 							className="w-full"
 							disabled={form.formState.isSubmitting}
 						/>
 					</div>
-					{showPasswordValidate && (
-						<div className="mb-2 flex grow">
-							<PasswordInput
-								{...form.register('password_validate')}
-								size="lg"
-								placeholder="Confirm password"
-								autoFocus
-								className="w-full"
-								disabled={form.formState.isSubmitting}
-							/>
-						</div>
+					{pswTransition(
+						(styles, show) =>
+							show && (
+								<animated.div style={styles} className="mb-2 flex grow">
+									<PasswordInput
+										{...form.register('password_validate')}
+										size="lg"
+										tabIndex={2}
+										placeholder="Confirm password"
+										autoFocus
+										className="w-full"
+										disabled={form.formState.isSubmitting}
+									/>
+								</animated.div>
+							)
 					)}
 
 					<div className="mt-3 flex flex-col">
@@ -130,6 +157,7 @@ export default function OnboardingNewLibrary() {
 							</Button>
 						)}
 						<Button
+							tabIndex={3}
 							disabled={form.formState.isSubmitting}
 							type="submit"
 							variant="accent"

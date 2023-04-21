@@ -18,6 +18,7 @@ import Explorer from '../Explorer';
 import OptionsPanel from '../Explorer/OptionsPanel';
 import { KeyManager } from '../KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar';
+import TopBarChildren from '../TopBar/TopBarChildren';
 
 export function useExplorerParams() {
 	const { id } = useParams<{ id?: string }>();
@@ -109,7 +110,8 @@ export const Component = () => {
 					/>
 				),
 				individual: true,
-				showAtResolution: 'xl:flex'
+				showAtResolution: 'xl:flex',
+				topBarActive: store.showInspector
 			}
 		]
 	];
@@ -120,7 +122,9 @@ export const Component = () => {
 		useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = useExplorerStore();
+
 	const explorerState = getExplorerStore();
+
 	useEffect(() => {
 		explorerState.locationId = location_id;
 		if (location_id !== null) mutateQuickRescan({ location_id, sub_path: path });
@@ -141,8 +145,9 @@ export const Component = () => {
 
 	return (
 		<>
+			<TopBarChildren toolOptions={toolBarOptions} />
 			<div className="relative flex w-full flex-col">
-				<Explorer data={explorerData.data} toolOptions={toolBarOptions} />
+				<Explorer data={explorerData.data} />
 			</div>
 		</>
 	);

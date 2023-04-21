@@ -37,6 +37,7 @@ const Devtools = () => {
 			position="bottom-right"
 			context={defaultContext}
 			toggleButtonProps={{
+				tabIndex: -1,
 				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
 			}}
 		/>
