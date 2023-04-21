@@ -26,6 +26,7 @@ const state = {
 	contextMenuActiveObject: null as object | null,
 	newThumbnails: {} as Record<string, boolean>,
 	cutCopyState: {
+		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
 		sourcePathId: 0,
 		actionType: 'Cut',

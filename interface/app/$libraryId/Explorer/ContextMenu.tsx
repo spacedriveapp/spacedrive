@@ -74,32 +74,34 @@ export default (props: PropsWithChildren) => {
 				icon={Repeat}
 			/>
 
-			<CM.Item
-				label="Paste"
-				keybind="⌘V"
-				hidden={!store.cutCopyState.active}
-				onClick={() => {
-					if (store.cutCopyState.actionType == 'Copy') {
-						store.locationId &&
-							copyFiles.mutate({
-								source_location_id: store.cutCopyState.sourceLocationId,
-								source_path_id: store.cutCopyState.sourcePathId,
-								target_location_id: store.locationId,
-								target_path: params.path,
-								target_file_name_suffix: null
-							});
-					} else {
-						store.locationId &&
-							cutFiles.mutate({
-								source_location_id: store.cutCopyState.sourceLocationId,
-								source_path_id: store.cutCopyState.sourcePathId,
-								target_location_id: store.locationId,
-								target_path: params.path
-							});
-					}
-				}}
-				icon={Clipboard}
-			/>
+			{store.cutCopyState.sourcePath !== params.path && (
+				<CM.Item
+					label="Paste"
+					keybind="⌘V"
+					hidden={!store.cutCopyState.active}
+					onClick={() => {
+						if (store.cutCopyState.actionType == 'Copy') {
+							store.locationId &&
+								copyFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path,
+									target_file_name_suffix: null
+								});
+						} else {
+							store.locationId &&
+								cutFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path
+								});
+						}
+					}}
+					icon={Clipboard}
+				/>
+			)}
 
 			<CM.Item
 				label="Deselect"
