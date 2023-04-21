@@ -7,7 +7,10 @@ import ExplorerContextMenu from './ContextMenu';
 import View from './View';
 
 interface Props {
-	data?: ExplorerData;
+	// TODO: not using data since context isn't actually used
+	// and it's not exactly compatible with search
+	// data?: ExplorerData;
+	items?: ExplorerData['items'];
 }
 
 export default function Explorer(props: Props) {
@@ -30,13 +33,13 @@ export default function Explorer(props: Props) {
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
-						{props.data && <View data={props.data.items} />}
+						{props.items && <View data={props.items} />}
 					</div>
 				</ExplorerContextMenu>
 
-				{expStore.showInspector && props.data?.items[expStore.selectedRowIndex] && (
+				{expStore.showInspector && props.items?.[expStore.selectedRowIndex] && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={props.data?.items[expStore.selectedRowIndex]} />
+						<Inspector data={props.items?.[expStore.selectedRowIndex]} />
 					</div>
 				)}
 			</div>
