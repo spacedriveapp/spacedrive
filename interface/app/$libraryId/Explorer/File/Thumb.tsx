@@ -1,6 +1,6 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
@@ -41,18 +41,20 @@ export default function Thumb({ size, ...props }: Props) {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
 	const { locationId } = useExplorerStore();
-	const [image, setImage] = useState<HTMLImageElement>();
+	const videoThumb = useRef<HTMLImageElement>(null);
+	const [videoThumbLoaded, setVideoThumbLoaded] = useState<boolean>(false);
 	const [thumbSize, setThumbSize] = useState<null | { width: number; height: number }>(null);
 	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
 
 	useLayoutEffect(() => {
-		if (!image) return;
+		const img = videoThumb.current;
+		if (props.cover || kind !== 'Video' || !img || !videoThumbLoaded) return;
 
 		// This is needed because the image might not be loaded yet
 		// https://stackoverflow.com/q/61864491#61864635
 		let counter = 0;
 		const waitImageRender = () => {
-			const { width, height } = image;
+			const { width, height } = img;
 			if (width && height) {
 				setThumbSize({ width, height });
 			} else if (++counter < 3) {
@@ -67,7 +69,7 @@ export default function Thumb({ size, ...props }: Props) {
 		return () => {
 			counter = 3;
 		};
-	}, [image]);
+	}, [kind, props.cover, videoThumb, videoThumbLoaded]);
 
 	// Only Videos and Images can show the original file
 	const loadOriginal = (kind === 'Video' || kind === 'Image') && props.loadOriginal;
@@ -122,11 +124,9 @@ export default function Thumb({ size, ...props }: Props) {
 					<>
 						<img
 							src={src}
+							ref={videoThumb}
 							style={style}
-							onLoad={(e) => {
-								if (kind === 'Video' && !props.cover)
-									setImage(e.target as HTMLImageElement);
-							}}
+							onLoad={() => setVideoThumbLoaded(true)}
 							decoding="async"
 							className={clsx(
 								props.cover
