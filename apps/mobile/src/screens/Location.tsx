@@ -13,7 +13,8 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			location_id: id,
 			path: path ?? '',
 			limit: 100,
-			cursor: null
+			cursor: null,
+			kind: null
 		}
 	]);
 
