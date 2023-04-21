@@ -34,17 +34,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 					selected && 'bg-app-selected/20'
 				)}
 			>
-				<Thumb
-					data={data}
-					size={0}
-					className={clsx(
-						'!max-w-none !rounded-none !border-0',
-						explorerStore.mediaAspectSquare
-							? '!h-full !w-full'
-							: '!h-auto max-h-full !w-[90%]'
-					)}
-					forceShowExtension
-				/>
+				<Thumb data={data} size={0} cover={explorerStore.mediaAspectSquare} className="!rounded-none" />
 
 				<Button
 					variant="gray"
