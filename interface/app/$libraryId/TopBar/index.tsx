@@ -1,5 +1,5 @@
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { PropsWithChildren, RefObject, forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip } from '@sd/ui';
 import SearchBar from '../Explorer/SearchBar';
@@ -21,9 +21,7 @@ export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '
 
 export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 
-interface Props extends PropsWithChildren<{ ref: RefObject<HTMLDivElement> }> {}
-
-const TopBar = forwardRef<HTMLDivElement, Props>((props, ref) => {
+const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 	const navigate = useNavigate();
 
 	return (
@@ -45,6 +43,7 @@ const TopBar = forwardRef<HTMLDivElement, Props>((props, ref) => {
 			</div>
 
 			<SearchBar formClassName="justify-center mr-12 lg:mr-0" />
+
 			<div ref={ref} />
 		</div>
 	);

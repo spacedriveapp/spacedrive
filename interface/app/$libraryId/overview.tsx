@@ -102,7 +102,6 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren />
 			<div className="flex h-screen w-full flex-col">
 				<ScreenHeading>Overview</ScreenHeading>
 				{/* STAT HEADER */}

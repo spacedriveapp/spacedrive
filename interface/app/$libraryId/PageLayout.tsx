@@ -17,6 +17,7 @@ export const TopBarContext = createContext<TopBarContext>({
 export const Component = () => {
 	const ref = useRef<HTMLDivElement>(null);
 	const topBarChildrenRef = useRef<HTMLDivElement>(null);
+
 	return (
 		<TopBarContext.Provider value={{ topBarChildrenRef }}>
 			<PageLayoutContext.Provider value={{ ref }}>

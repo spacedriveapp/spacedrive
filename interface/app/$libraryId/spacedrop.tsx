@@ -6,7 +6,6 @@ import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
-import TopBarChildren from './TopBar/TopBarChildren';
 import classes from './spacedrop.module.scss';
 
 const { Form, Input, useZodForm, z } = forms;
@@ -165,7 +164,6 @@ function TemporarySpacedropDemo() {
 export const Component = () => {
 	return (
 		<>
-			<TopBarChildren toolOptions={[[]]} />
 			<TemporarySpacedropDemo />
 			<div className={classes.honeycombOuter}>
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>

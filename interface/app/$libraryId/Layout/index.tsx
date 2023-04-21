@@ -54,13 +54,10 @@ const Layout = () => {
 			<div className="relative flex w-full overflow-hidden">
 				{library ? (
 					<LibraryContextProvider library={library}>
-						<TopBarContext.Provider value={{ topBarChildrenRef }}>
-							<TopBar ref={topBarChildrenRef} />
-							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-								<Outlet />
-							</Suspense>
-							<QuickPreview libraryUuid={library.uuid} />
-						</TopBarContext.Provider>
+						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+							<Outlet />
+						</Suspense>
+						<QuickPreview libraryUuid={library.uuid} />
 					</LibraryContextProvider>
 				) : (
 					<h1 className="p-4 text-white">

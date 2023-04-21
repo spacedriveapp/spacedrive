@@ -4,8 +4,7 @@ import {
 	useLibraryContext,
 	useLibraryQuery
 } from '@sd/client';
-import { tw } from '~/../packages/ui/src';
-import TopBarChildren from './TopBar/TopBarChildren';
+import { tw } from '@sd/ui';
 
 const Label = tw.span`text-gray-300`;
 const Pill = tw.span`rounded-full bg-gray-500 px-2 py-1`;
@@ -65,7 +64,6 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren toolOptions={[[]]} />
 			<ul className="space-y-2">
 				{messages.data?.map((op) => (
 					<OperationItem key={op.id} op={op} />
