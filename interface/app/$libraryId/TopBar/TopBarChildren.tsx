@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Popover, Tooltip } from '@sd/ui';
 import { ToolOption } from '.';
-import { TopBarContext } from '../PageLayout';
+import { TopBarContext } from './Layout';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
