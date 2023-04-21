@@ -26,7 +26,7 @@ export default (props: PropsWithChildren<NavLinkProps & { disabled?: boolean }>)
 	return (
 		<NavLink
 			{...props}
-			onClick={(e) => props.disabled && e.preventDefault()}
+			onClick={(e) => (props.disabled ? e.preventDefault() : props.onClick?.(e))}
 			className={({ isActive }) =>
 				clsx(
 					styles({ active: isActive, transparent: os === 'macOS' }),
