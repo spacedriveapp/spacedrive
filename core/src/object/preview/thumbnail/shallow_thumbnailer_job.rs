@@ -60,6 +60,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 	type Step = ThumbnailerJobStep;
 
 	const NAME: &'static str = "shallow_thumbnailer";
+	const IS_BACKGROUND: bool = true;
 
 	fn new() -> Self {
 		Self {}
