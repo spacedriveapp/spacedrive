@@ -10,3 +10,4 @@ Pods/
 pnpm-lock.yaml
 # codegen from rspc -- not supposed to look nice
 /packages/client/src/core.ts
+/apps/releases

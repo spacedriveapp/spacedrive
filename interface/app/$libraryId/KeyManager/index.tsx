@@ -17,12 +17,13 @@ export function KeyManager() {
 
 const Unlocked = () => {
 	const { library } = useLibraryContext();
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 
 	return (
-		<div>
+		<div className="w-[350px]">
 			<Tabs.Root defaultValue="mount">
 				<div className="flex flex-col">
 					<Tabs.List>
@@ -36,8 +37,10 @@ const Unlocked = () => {
 						<Button
 							size="icon"
 							onClick={() => {
-								unmountAll.mutate(null);
-								clearMasterPassword.mutate(null);
+								unmountAll
+									.mutateAsync(null)
+									.then(() => clearMasterPassword.mutateAsync(null))
+									.then(() => isUnlocked.refetch());
 							}}
 							variant="subtle"
 							className="text-ink-faint"

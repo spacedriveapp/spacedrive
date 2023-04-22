@@ -24,6 +24,7 @@ packages/*/node_modules
 packages/*/data
 apps/*/data
 apps/*/stats.html
+apps/releases
 docs/public/*.st
 docs/public/*.toml
 dev.db
