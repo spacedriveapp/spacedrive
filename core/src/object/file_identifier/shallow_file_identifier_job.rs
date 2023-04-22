@@ -61,6 +61,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 	type Step = ();
 
 	const NAME: &'static str = "shallow_file_identifier";
+	const IS_BACKGROUND: bool = true;
 
 	fn new() -> Self {
 		Self {}

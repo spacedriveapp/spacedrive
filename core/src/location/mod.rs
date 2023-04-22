@@ -330,10 +330,13 @@ pub async fn scan_location(
 
 	library
 		.spawn_job(
-			Job::new(IndexerJobInit {
-				location,
-				sub_path: None,
-			})
+			Job::new_with_action(
+				IndexerJobInit {
+					location,
+					sub_path: None,
+				},
+				"scan_location",
+			)
 			.queue_next(FileIdentifierJobInit {
 				location: location_base_data.clone(),
 				sub_path: None,
@@ -362,10 +365,13 @@ pub async fn scan_location_sub_path(
 
 	library
 		.spawn_job(
-			Job::new(IndexerJobInit {
-				location,
-				sub_path: Some(sub_path.clone()),
-			})
+			Job::new_with_action(
+				IndexerJobInit {
+					location,
+					sub_path: Some(sub_path.clone()),
+				},
+				"scan_location_sub_path",
+			)
 			.queue_next(FileIdentifierJobInit {
 				location: location_base_data.clone(),
 				sub_path: Some(sub_path.clone()),
@@ -393,10 +399,13 @@ pub async fn light_scan_location(
 
 	library
 		.spawn_job(
-			Job::new(ShallowIndexerJobInit {
-				location,
-				sub_path: sub_path.clone(),
-			})
+			Job::new_with_action(
+				ShallowIndexerJobInit {
+					location,
+					sub_path: sub_path.clone(),
+				},
+				"light_scan_location",
+			)
 			.queue_next(ShallowFileIdentifierJobInit {
 				location: location_base_data.clone(),
 				sub_path: sub_path.clone(),
