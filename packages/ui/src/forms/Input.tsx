@@ -58,7 +58,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 			{strength && (
 				<span
 					className={clsx(
-						'mr-2 text-xs',
+						'mr-2 text-xs transition-[color]',
 						strength.score === 0 && 'text-red-500',
 						strength.score === 1 && 'text-red-500',
 						strength.score === 2 && 'text-amber-400',
@@ -77,7 +77,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 							width: `${strength.score !== 0 ? strength.score * 25 : 12.5}%`
 						}}
 						className={clsx(
-							'h-full rounded-full',
+							'h-full rounded-full transition-[width]',
 							strength.score === 0 && 'bg-red-500',
 							strength.score === 1 && 'bg-red-500',
 							strength.score === 2 && 'bg-amber-400',

@@ -10,10 +10,6 @@ use crate::{
 	location::{delete_location, scan_location, LocationCreateArgs},
 	prisma::location,
 };
-use sd_crypto::{
-	types::{Algorithm, HashingAlgorithm, OnboardingConfig, Params},
-	Protected,
-};
 use serde::Deserialize;
 use tokio::{
 	fs::{self, metadata},
@@ -36,7 +32,6 @@ pub struct LibraryInitConfig {
 	id: Uuid,
 	name: String,
 	description: Option<String>,
-	password: String,
 	#[serde(default)]
 	reset_locations_on_startup: bool,
 	locations: Vec<LocationInitConfig>,
@@ -95,13 +90,6 @@ impl InitConfig {
 							LibraryConfig {
 								name: lib.name,
 								description: lib.description.unwrap_or("".to_string()),
-							},
-							OnboardingConfig {
-								password: Protected::new(lib.password),
-								algorithm: Algorithm::XChaCha20Poly1305,
-								hashing_algorithm: HashingAlgorithm::BalloonBlake3(
-									Params::Standard,
-								),
 							},
 						)
 						.await

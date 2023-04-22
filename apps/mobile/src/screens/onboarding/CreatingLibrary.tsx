@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import {
-	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
@@ -50,16 +49,7 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 
 	const create = async () => {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
-
-		createLibrary.mutate({
-			name: obStore.newLibraryName,
-			auth: {
-				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken || ''
-			},
-			algorithm: obStore.algorithm,
-			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
-		});
+		createLibrary.mutate({ name: obStore.newLibraryName });
 
 		return;
 	};

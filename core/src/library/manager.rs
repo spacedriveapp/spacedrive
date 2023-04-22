@@ -5,7 +5,7 @@ use crate::{
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db::{load_and_migrate, write_storedkey_to_db},
+		db::load_and_migrate,
 		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
@@ -13,7 +13,7 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	types::{EncryptedKey, Nonce, OnboardingConfig, Salt},
+	types::{EncryptedKey, Nonce, Salt},
 };
 use std::{
 	env, fs, io,
@@ -183,17 +183,14 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), config, km_config)
-			.await
+		self.create_with_uuid(Uuid::new_v4(), config).await
 	}
 
 	pub(crate) async fn create_with_uuid(
 		&self,
 		id: Uuid,
 		config: LibraryConfig,
-		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
@@ -210,14 +207,6 @@ impl LibraryManager {
 
 		// Run seeders
 		indexer_rules_seeder(&library.db).await?;
-
-		// setup master password
-		let verification_key = KeyManager::onboarding(km_config, library.id).await?;
-
-		write_storedkey_to_db(&library.db, &verification_key).await?;
-
-		// populate KM with the verification key
-		seed_keymanager(&library.db, &library.key_manager).await?;
 
 		invalidate_query!(library, "library.list");
 

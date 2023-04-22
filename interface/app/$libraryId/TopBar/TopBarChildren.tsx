@@ -80,7 +80,7 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 													</TopBarButton>
 												}
 											>
-												<div className="block w-[250px] ">
+												<div className="block min-w-[250px] max-w-[500px]">
 													{popOverComponent}
 												</div>
 											</Popover>

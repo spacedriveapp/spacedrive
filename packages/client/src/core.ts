@@ -11,6 +11,7 @@ export type Procedures = {
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean | null } | 
+        { key: "keys.isSetup", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: StoredKey[] } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
@@ -55,6 +56,7 @@ export type Procedures = {
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setup", input: LibraryArgs<OnboardingConfig>, result: null } | 
         { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unlockKeyManager", input: LibraryArgs<UnlockKeyManagerArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
@@ -72,7 +74,6 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.tokenizeSensitiveKey", input: TokenizeKeyArgs, result: TokenizeResponse } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -91,8 +92,6 @@ export type Procedures = {
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
-export type AuthOption = { type: "Password", value: string } | { type: "TokenizedPassword", value: string }
-
 export type AutomountUpdateArgs = { uuid: string, status: boolean }
 
 export type BuildInfo = { version: string, commit: string }
@@ -101,7 +100,7 @@ export type CRDTOperation = { node: string, timestamp: number, id: string, typ: 
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
-export type CreateLibraryArgs = { name: string, auth: AuthOption, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export type CreateLibraryArgs = { name: string }
 
 export type EditLibraryArgs = { id: string, name: string | null, description: string | null }
 
@@ -224,6 +223,8 @@ export type Object = { id: number, pub_id: number[], kind: number, key_id: numbe
 
 export type ObjectValidatorArgs = { id: number, path: string }
 
+export type OnboardingConfig = { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+
 /**
  *  Represents the operating system which the remote peer is running.
  *  This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
@@ -307,10 +308,6 @@ export type TagAssignArgs = { object_id: number, tag_id: number, unassign: boole
 export type TagCreateArgs = { name: string, color: string }
 
 export type TagUpdateArgs = { id: number, name: string | null, color: string | null }
-
-export type TokenizeKeyArgs = { secret_key: string }
-
-export type TokenizeResponse = { token: string }
 
 export type UnlockKeyManagerArgs = { password: string, secret_key: string }
 

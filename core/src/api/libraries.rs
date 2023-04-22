@@ -5,13 +5,8 @@ use crate::{
 	volume::{get_volumes, save_volume},
 };
 
-use sd_crypto::{
-	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
-	Protected,
-};
-
 use chrono::Utc;
-use rspc::{Error, ErrorCode, Type};
+use rspc::Type;
 use serde::Deserialize;
 use tracing::debug;
 use uuid::Uuid;
@@ -90,57 +85,19 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.mutation("create", |t| {
 			#[derive(Deserialize, Type)]
-			#[serde(tag = "type", content = "value")]
-			#[specta(inline)]
-			enum AuthOption {
-				Password(Protected<String>),
-				TokenizedPassword(String),
-			}
-
-			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				auth: AuthOption,
-				algorithm: Algorithm,
-				hashing_algorithm: HashingAlgorithm,
 			}
 
 			t(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
-				let password = match args.auth {
-					AuthOption::Password(password) => password,
-					AuthOption::TokenizedPassword(tokenized_pw) => {
-						let token = Uuid::parse_str(&tokenized_pw).map_err(|err| {
-							Error::with_cause(
-								ErrorCode::BadRequest,
-								"Failed to parse UUID".to_string(),
-								err,
-							)
-						})?;
-						Protected::new(ctx.secure_temp_keystore.claim(token).map_err(|err| {
-							Error::with_cause(
-								ErrorCode::InternalServerError,
-								"Failed to claim token from keystore".to_string(),
-								err,
-							)
-						})?)
-					}
-				};
-
 				let new_library = ctx
 					.library_manager
-					.create(
-						LibraryConfig {
-							name: args.name.to_string(),
-							..Default::default()
-						},
-						OnboardingConfig {
-							password,
-							algorithm: args.algorithm,
-							hashing_algorithm: args.hashing_algorithm,
-						},
-					)
+					.create(LibraryConfig {
+						name: args.name.to_string(),
+						..Default::default()
+					})
 					.await?;
 
 				invalidate_query!(
