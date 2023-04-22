@@ -9,7 +9,7 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
 
@@ -151,9 +151,15 @@ impl StatefulJob for FileCopierJob {
 					));
 				}
 
-				trace!("Copying from {:?} to {:?}", path, target_path);
+				if target_path.exists() {
+					// only skip as it could be half way through a huge directory copy and run into an issue
+					warn!("Skipping {:?} as it would be overwritten", &target_path);
+				// TODO(brxken128): could possibly return an error if the skipped file was the *only* file to be copied?
+				} else {
+					trace!("Copying from {:?} to {:?}", path, target_path);
 
-				tokio::fs::copy(&path, &target_path).await?;
+					tokio::fs::copy(&path, &target_path).await?;
+				}
 			}
 			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir

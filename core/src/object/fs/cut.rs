@@ -9,7 +9,7 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::trace;
+use tracing::{log::trace, warn};
 
 use super::{context_menu_fs_info, get_path_from_location_id, FsInfo};
 
@@ -97,6 +97,17 @@ impl StatefulJob for FileCutterJob {
 			return Err(JobError::MatchingSrcDest(
 				source_info
 					.fs_path
+					.to_str()
+					.map_or(String::new(), str::to_string),
+			));
+		}
+
+		if full_output.exists() {
+			warn!("Skipping {:?} as it would be overwritten", &full_output);
+
+			return Err(JobError::WouldOverwrite(
+				full_output
+					.clone()
 					.to_str()
 					.map_or(String::new(), str::to_string),
 			));
