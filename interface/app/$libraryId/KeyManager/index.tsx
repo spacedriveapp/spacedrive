@@ -27,10 +27,10 @@ const Unlocked = () => {
 			<Tabs.Root defaultValue="mount">
 				<div className="flex flex-col">
 					<Tabs.List>
-						<Tabs.Trigger className="text-sm font-medium" value="mount">
+						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="mount">
 							Mount
 						</Tabs.Trigger>
-						<Tabs.Trigger className="text-sm font-medium" value="keys">
+						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="keys">
 							Keys
 						</Tabs.Trigger>
 						<div className="grow" />

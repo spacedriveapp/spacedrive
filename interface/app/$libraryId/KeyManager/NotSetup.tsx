@@ -61,6 +61,8 @@ export default () => {
 			.then(() => isSetup.refetch())
 	);
 
+	const isSettingUp = setupKeyManager.isLoading || form.formState.isSubmitting;
+
 	return (
 		<Form form={form} onSubmit={onSubmit} className="w-[350px] p-4">
 			<div className="space-y-4">
@@ -68,7 +70,7 @@ export default () => {
 
 				<PasswordInput
 					{...form.register('passwordValidate', {
-						onBlur: () => form.trigger('passwordValidate')
+						onChange: () => form.trigger('passwordValidate')
 					})}
 					label="Confirm password"
 				/>
@@ -118,13 +120,13 @@ export default () => {
 				</div>
 
 				<Button
-					className="w-full"
-					variant="accent"
-					disabled={!form.formState.isValid}
 					type="submit"
+					variant="accent"
+					disabled={isSettingUp || !form.formState.isValid}
+					className="w-full"
 				>
-					{form.formState.isSubmitting ? (
-						<Spinner className="h-6 w-6 animate-spin fill-white text-white text-opacity-40" />
+					{isSettingUp ? (
+						<Spinner className="mx-auto h-6 w-6 animate-spin fill-white text-white text-opacity-40" />
 					) : (
 						'Set up'
 					)}
