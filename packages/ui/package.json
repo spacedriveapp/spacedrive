@@ -21,6 +21,8 @@
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",
 		"@headlessui/tailwindcss": "^0.1.1",
+		"@hookform/error-message": "^2.0.1",
+		"@hookform/resolvers": "^3.1.0",
 		"@radix-ui/react-checkbox": "^1.0.3",
 		"@radix-ui/react-context-menu": "^1.0.0",
 		"@radix-ui/react-dialog": "^1.0.0",
@@ -42,7 +44,8 @@
 		"react-router-dom": "6.9.0",
 		"react-spring": "^9.5.5",
 		"tailwindcss-radix": "^2.6.0",
-		"use-debounce": "^9.0.4"
+		"use-debounce": "^9.0.4",
+		"zod": "^3.21.4"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.19.3",
