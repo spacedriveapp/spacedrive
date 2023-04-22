@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { MonitorPlay } from 'phosphor-react';
 import {
 	HTMLAttributes,
 	PropsWithChildren,
@@ -12,6 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ExplorerItem, isPath } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
+import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -96,7 +98,20 @@ export default memo((props: Props) => {
 			<context.Provider value={{ data: props.data, scrollRef }}>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
-				{layoutMode === 'media' && <MediaView />}
+				{layoutMode === 'media' && (
+					<>
+						<DismissibleNotice
+							title={
+								<>
+									<span className="font-normal">Meet</span> Media View
+								</>
+							}
+							description="Discover photos and videos easily, Media View will show results starting at the current location including sub directories."
+							icon={MonitorPlay}
+						/>
+						<MediaView />
+					</>
+				)}
 			</context.Provider>
 		</div>
 	);
