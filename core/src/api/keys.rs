@@ -1,6 +1,6 @@
 use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
-use sd_crypto::types::{Algorithm, HashingAlgorithm, SecretKeyString};
+use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
 use sd_crypto::{Error, Protected};
 use serde::Deserialize;
 use specta::Type;
@@ -57,6 +57,26 @@ pub(crate) fn mount() -> RouterBuilder {
 		// do not unlock the key manager until this route returns true
 		.library_query("isUnlocked", |t| {
 			t(|_, _: (), library| async move { Ok(library.key_manager.is_unlocked().await) })
+		})
+		.library_query("isSetup", |t| {
+			t(|_, _: (), library| async move {
+				Ok(!library.db.key().find_many(vec![]).exec().await?.is_empty())
+			})
+		})
+		.library_mutation("setup", |t| {
+			t(|_, config: OnboardingConfig, library| async move {
+				let root_key = library.key_manager.onboarding(config, library.id).await?;
+				write_storedkey_to_db(&library.db, &root_key).await?;
+				library
+					.key_manager
+					.populate_keystore(vec![root_key])
+					.await?;
+
+				invalidate_query!(library, "keys.isSetup");
+				invalidate_query!(library, "keys.isUnlocked");
+
+				Ok(())
+			})
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {

@@ -245,7 +245,11 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub async fn onboarding(config: OnboardingConfig, library_uuid: Uuid) -> Result<StoredKey> {
+	pub async fn onboarding(
+		&self,
+		config: OnboardingConfig,
+		library_uuid: Uuid,
+	) -> Result<StoredKey> {
 		let content_salt = Salt::generate();
 		let secret_key = SecretKey::generate();
 
@@ -318,6 +322,8 @@ impl KeyManager {
 			memory_only: false,
 			automount: false,
 		};
+
+		*self.root_key.lock().await = Some(root_key);
 
 		Ok(verification_key)
 	}

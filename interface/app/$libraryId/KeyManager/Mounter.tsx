@@ -105,7 +105,12 @@ export default () => {
 			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
-					<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
+					<Select
+						size="lg"
+						value={encryptionAlgo}
+						onChange={setEncryptionAlgo}
+						className="mt-2"
+					>
 						<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
 						<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
 					</Select>
@@ -113,9 +118,10 @@ export default () => {
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Hashing</span>
 					<Select
-						className="mt-2"
-						onChange={(s) => setHashingAlgo(s as HashingAlgoSlug)}
+						size="lg"
 						value={hashingAlgo}
+						onChange={(s) => setHashingAlgo(s as HashingAlgoSlug)}
+						className="mt-2"
 					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
