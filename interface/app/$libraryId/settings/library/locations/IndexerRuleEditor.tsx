@@ -445,7 +445,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 											<Tabs.Root
 												value={currentTab}
 												onValueChange={(tab) =>
-													isKeyOf(tab, RuleTabsInput) &&
+													isKeyOf(RuleTabsInput, tab) &&
 													setCurrentTab(tab)
 												}
 											>

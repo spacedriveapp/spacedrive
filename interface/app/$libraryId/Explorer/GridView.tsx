@@ -33,7 +33,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 					height: explorerStore.gridItemSize
 				}}
 				className={clsx(
-					'mb-1 rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
+					'mb-1 flex items-center justify-center justify-items-center rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
 					{
 						'bg-app-selected/20': selected
 					}
