@@ -80,6 +80,7 @@ export default ({ data, className, ...props }: Props) => {
 					keybind="⌘X"
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Cut',
@@ -94,6 +95,7 @@ export default ({ data, className, ...props }: Props) => {
 					keybind="⌘C"
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Copy',
