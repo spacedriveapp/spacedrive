@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - releases-with-signatures
   workflow_dispatch:
 
 jobs:
