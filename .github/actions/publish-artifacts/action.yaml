@@ -57,4 +57,4 @@ runs:
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Updaters-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/${{ inputs.profile }}/bundle/*/*.tar.gz*
+        path: ./target/${{ inputs.profile }}/bundle/*/*.{tar.gz|zip}*
