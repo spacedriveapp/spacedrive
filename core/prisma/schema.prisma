@@ -371,7 +371,7 @@ model Job {
     id      Bytes   @id
     name    String
     node_id Int
-    action  String? // Will be composed of "{action_description}_{uuid_of_parent_job}"
+    action  String? // Will be composed of "{action_description}(-{children_order})*"
 
     // Enum: sd_core::job::job_manager:JobStatus
     status Int @default(0) // 0 = Queued

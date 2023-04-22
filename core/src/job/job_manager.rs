@@ -383,7 +383,7 @@ impl JobReport {
 
 	pub fn new_with_action(uuid: Uuid, name: String, action: impl AsRef<str>) -> Self {
 		let mut report = Self::new(uuid, name);
-		report.action = Some(format!("{}_{uuid}", action.as_ref()));
+		report.action = Some(action.as_ref().to_string());
 		report
 	}
 
@@ -391,11 +391,11 @@ impl JobReport {
 		uuid: Uuid,
 		name: String,
 		parent_id: Uuid,
-		parent_action: Option<String>,
+		action: Option<String>,
 	) -> Self {
 		let mut report = Self::new(uuid, name);
 		report.parent_id = Some(parent_id);
-		report.action = parent_action;
+		report.action = action;
 		report
 	}
 
