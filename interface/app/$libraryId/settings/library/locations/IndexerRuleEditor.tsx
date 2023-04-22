@@ -13,6 +13,7 @@ import {
 } from '@sd/client';
 import { Button, Card, Divider, Input, Switch, Tabs, Tooltip, inputSizes } from '@sd/ui';
 import { ErrorMessage, Form, Input as FormInput, useZodForm, z } from '@sd/ui/src/forms';
+import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -230,21 +231,26 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	}, [form]);
 
 	const onSubmit = form.handleSubmit(({ kind, name, parameters }) =>
-		createIndexerRules.mutateAsync({
-			kind,
-			name,
-			parameters: parameters.flatMap(([kind, rule]) => {
-				switch (kind) {
-					case 'Name':
-						return `**/${rule}`;
-					case 'Extension':
-						// .tar should work for .tar.gz, .tar.bz2, etc.
-						return [`**/*${rule}`, `**/*${rule}.*`];
-					default:
-						return rule;
-				}
+		createIndexerRules
+			.mutateAsync({
+				kind,
+				name,
+				parameters: parameters.flatMap(([kind, rule]) => {
+					switch (kind) {
+						case 'Name':
+							return `**/${rule}`;
+						case 'Extension':
+							// .tar should work for .tar.gz, .tar.bz2, etc.
+							return [`**/*${rule}`, `**/*${rule}.*`];
+						default:
+							return rule;
+					}
+				})
 			})
-		})
+			.then(async () => {
+				await listIndexerRules.refetch();
+				form.reset();
+			}, onSubmitError)
 	);
 
 	const onSubmitError = (error: Error) => {
@@ -297,7 +303,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 								{rule.name}
 								{editable && !rule.default && (
 									<X
-										size={10}
+										size={12}
 										onClick={(e) => {
 											e.stopPropagation();
 											const elem = e.target as SVGElement;
@@ -346,12 +352,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 						id={formId}
 						form={form}
 						disabled={isFormSubmitting}
-						onSubmit={(e) =>
-							onSubmit(e).then(async () => {
-								await listIndexerRules.refetch();
-								form.reset();
-							}, onSubmitError)
-						}
+						onSubmit={onSubmit}
 						className="hidden h-0 w-0"
 					/>,
 					document.body
@@ -407,15 +408,19 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 																key={index}
 																className="border-app-line/30 hover:bg-app-box/70"
 															>
-																<p className="p-1 text-sm font-semibold text-ink-dull">
+																<InfoPill className="mr-2 p-0.5">
+																	{kind}
+																</InfoPill>
+
+																<p className="p-0.5 text-sm font-semibold text-ink-dull">
 																	{rule}
 																</p>
 
 																<div className="grow" />
 
-																<p className="mx-2 rounded-md border border-app-line/30 bg-app-overlay/80 py-1 px-2 text-center text-sm text-ink-dull">
+																{/* <p className="mx-2 rounded-md border border-app-line/30 bg-app-overlay/80 py-1 px-2 text-center text-sm text-ink-dull">
 																	{kind}
-																</p>
+																</p> */}
 
 																<Button
 																	variant="gray"
@@ -447,7 +452,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												<Tabs.List className="flex flex-row">
 													{Object.keys(RuleTabsInput).map((name) => (
 														<Tabs.Trigger
-															className="flex-auto py-2 text-sm font-medium"
+															className="flex-auto !rounded-md py-2 text-sm font-medium"
 															key={name}
 															value={name}
 														>
