@@ -3,6 +3,7 @@ import { useParams } from 'react-router';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
+import { useExplorerParams } from '../location/$id';
 import ExplorerContextMenu from './ContextMenu';
 import View from './View';
 
@@ -16,7 +17,7 @@ interface Props {
 export default function Explorer(props: Props) {
 	const expStore = useExplorerStore();
 	const { library } = useLibraryContext();
-	const locationId = useParams().id as string;
+	const { location_id, path } = useExplorerParams();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
 		onData: (cas_id) => {
@@ -26,7 +27,7 @@ export default function Explorer(props: Props) {
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = -1;
-	}, [locationId]);
+	}, [location_id, path]);
 
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
