@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use prisma_client_rust::{operator::or, Direction};
 use rspc::{Config, Type};
-use sd_file_ext::kind::ObjectKind;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -84,7 +83,7 @@ pub(crate) fn mount() -> Arc<Router> {
 			})
 		})
 		.library_query("search", |t| {
-			#[derive(Deserialize, Type, Debug)]
+			#[derive(Deserialize, Type, Debug, Clone, Copy)]
 			#[serde(rename_all = "camelCase")]
 			#[specta(inline)]
 			enum Ordering {
@@ -145,7 +144,7 @@ pub(crate) fn mount() -> Arc<Router> {
 					.search
 					.map(|search| {
 						search
-							.split(" ")
+							.split(' ')
 							.map(str::to_string)
 							.map(file_path::materialized_path::contains)
 							.map(Some)
@@ -158,7 +157,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						args.kind
 							.map(|kind| file_path::object::is(vec![object::kind::equals(kind)])),
 						args.extension.map(file_path::extension::equals),
-						(args.tags.len() > 0).then(|| {
+						(!args.tags.is_empty()).then(|| {
 							file_path::object::is(vec![object::tags::some(vec![
 								tag_on_object::tag::is(vec![or(args
 									.tags
