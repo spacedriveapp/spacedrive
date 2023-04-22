@@ -8,7 +8,10 @@ use crate::{
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
-use std::path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
+use std::{
+	collections::BTreeSet,
+	path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+};
 
 use rspc::{self, ErrorCode, RouterBuilderLike, Type};
 use serde::{Deserialize, Serialize};
@@ -74,12 +77,13 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LocationExplorerArgs {
 				pub location_id: i32,
-				pub path: String,
+				pub path: Option<String>,
 				pub limit: i32,
 				pub cursor: Option<String>,
+				pub kind: Option<Vec<i32>>,
 			}
 
-			t(|_, mut args: LocationExplorerArgs, library| async move {
+			t(|_, args: LocationExplorerArgs, library| async move {
 				let Library { db, .. } = &library;
 
 				let location = find_location(&library, args.location_id)
@@ -87,35 +91,63 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 					.await?
 					.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-				if !args.path.ends_with(MAIN_SEPARATOR) {
-					args.path += MAIN_SEPARATOR_STR;
-				}
+				let directory_id = if let Some(mut path) = args.path {
+					if !path.ends_with(MAIN_SEPARATOR) {
+						path += MAIN_SEPARATOR_STR;
+					}
 
-				let directory = db
-					.file_path()
-					.find_first(vec![
-						file_path::location_id::equals(location.id),
-						file_path::materialized_path::equals(args.path),
-						file_path::is_dir::equals(true),
-					])
-					.exec()
-					.await?
-					.ok_or_else(|| {
-						rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
-					})?;
+					Some(
+						db.file_path()
+							.find_first(vec![
+								file_path::location_id::equals(location.id),
+								file_path::materialized_path::equals(path),
+								file_path::is_dir::equals(true),
+							])
+							.select(file_path::select!({ id }))
+							.exec()
+							.await?
+							.ok_or_else(|| {
+								rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
+							})?
+							.id,
+					)
+				} else {
+					None
+				};
 
-				let file_paths = db
+				let expected_kinds = args
+					.kind
+					.map(|kinds| kinds.into_iter().collect::<BTreeSet<_>>())
+					.unwrap_or_default();
+
+				let mut file_paths = db
 					.file_path()
-					.find_many(vec![
-						file_path::location_id::equals(location.id),
-						file_path::parent_id::equals(Some(directory.id)),
-					])
+					.find_many(if directory_id.is_some() {
+						vec![
+							file_path::location_id::equals(location.id),
+							file_path::parent_id::equals(directory_id),
+						]
+					} else {
+						vec![file_path::location_id::equals(location.id)]
+					})
 					.include(file_path_with_object::include())
 					.exec()
 					.await?;
 
-				let mut items = Vec::with_capacity(file_paths.len());
+				if !expected_kinds.is_empty() {
+					file_paths = file_paths
+						.into_iter()
+						.filter(|file_path| {
+							if let Some(ref object) = file_path.object {
+								expected_kinds.contains(&object.kind)
+							} else {
+								false
+							}
+						})
+						.collect::<Vec<_>>();
+				}
 
+				let mut items = Vec::with_capacity(file_paths.len());
 				for file_path in file_paths {
 					let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
 						library

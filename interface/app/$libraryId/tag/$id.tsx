@@ -8,6 +8,8 @@ export const Component = () => {
 	const explorerData = useLibraryQuery(['tags.getExplorerData', Number(id)]);
 
 	return (
-		<div className="w-full">{explorerData.data && <Explorer data={explorerData.data} />}</div>
+		<div className="w-full">
+			{explorerData.data && <Explorer items={explorerData.data.items} />}
+		</div>
 	);
 };

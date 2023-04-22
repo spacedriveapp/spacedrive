@@ -71,3 +71,4 @@ dev.db-journal
 .build/
 .swiftpm
 /core/migration_test
+sd_init.json

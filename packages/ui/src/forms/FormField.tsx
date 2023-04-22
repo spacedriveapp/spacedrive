@@ -34,7 +34,7 @@ export const FormField = (props: FormFieldProps) => {
 				</label>
 			)}
 			{props.children}
-			{props.error && <span className="mt-1 text-xs text-red-500">{props.error}</span>}
+			{props.error && <span className="mt-1 w-full text-xs text-red-500">{props.error}</span>}
 		</div>
 	);
 };

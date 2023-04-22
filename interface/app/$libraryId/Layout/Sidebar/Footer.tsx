@@ -23,6 +23,7 @@ export default () => {
 					</Tooltip>
 				</ButtonLink>
 				<Popover
+					ignoreOpenState={true}
 					trigger={
 						<Button
 							size="icon"

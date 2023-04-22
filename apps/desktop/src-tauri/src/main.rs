@@ -70,7 +70,10 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.setup(|app| {
+			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
+
 			let app = app.handle();
+
 			app.windows().iter().for_each(|(_, window)| {
 				// window.hide().unwrap();
 

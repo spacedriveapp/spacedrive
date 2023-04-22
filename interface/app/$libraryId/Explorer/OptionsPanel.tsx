@@ -24,16 +24,30 @@ export default () => {
 		<div className="p-4 ">
 			{/* <Heading>Explorer Appearance</Heading> */}
 			<Subheading>Item size</Subheading>
-			<Slider
-				onValueChange={(value) => {
-					getExplorerStore().gridItemSize = value[0] || 100;
-					console.log({ value: value, gridItemSize: explorerStore.gridItemSize });
-				}}
-				defaultValue={[explorerStore.gridItemSize]}
-				max={200}
-				step={10}
-				min={60}
-			/>
+			{explorerStore.layoutMode === 'media' ? (
+				<Slider
+					defaultValue={[10 - explorerStore.mediaColumns]}
+					min={0}
+					max={6}
+					step={2}
+					onValueChange={([val]) => {
+						if (val !== undefined) {
+							getExplorerStore().mediaColumns = 10 - val;
+						}
+					}}
+				/>
+			) : (
+				<Slider
+					onValueChange={(value) => {
+						getExplorerStore().gridItemSize = value[0] || 100;
+					}}
+					defaultValue={[explorerStore.gridItemSize]}
+					max={200}
+					step={10}
+					min={60}
+				/>
+			)}
+
 			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">
 					<Subheading>Sort by</Subheading>
@@ -55,17 +69,29 @@ export default () => {
 				</div>
 			</div>
 			<div className="flex w-full pt-2">
-				<RadixCheckbox
-					checked={explorerStore.showBytesInGridView}
-					label="Show Object size"
-					name="showBytesInGridView"
-					onCheckedChange={(value) => {
-						console.log(value);
-						if (typeof value === 'boolean') {
-							getExplorerStore().showBytesInGridView = value;
-						}
-					}}
-				/>
+				{explorerStore.layoutMode === 'media' ? (
+					<RadixCheckbox
+						checked={explorerStore.mediaAspectSquare}
+						label="Show square thumbnails"
+						name="mediaAspectSquare"
+						onCheckedChange={(value) => {
+							if (typeof value === 'boolean') {
+								getExplorerStore().mediaAspectSquare = value;
+							}
+						}}
+					/>
+				) : (
+					<RadixCheckbox
+						checked={explorerStore.showBytesInGridView}
+						label="Show Object size"
+						name="showBytesInGridView"
+						onCheckedChange={(value) => {
+							if (typeof value === 'boolean') {
+								getExplorerStore().showBytesInGridView = value;
+							}
+						}}
+					/>
+				)}
 			</div>
 		</div>
 	);
