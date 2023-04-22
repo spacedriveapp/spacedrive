@@ -9,6 +9,7 @@ use std::{
 	fmt::Debug,
 	hash::{Hash, Hasher},
 	mem,
+	path::PathBuf,
 	sync::Arc,
 };
 
@@ -66,6 +67,10 @@ pub enum JobError {
 	IdentifierError(#[from] FileIdentifierJobError),
 	#[error("Crypto error: {0}")]
 	CryptoError(#[from] CryptoError),
+	#[error("source and destination path are the same: {}", .0.display())]
+	MatchingSrcDest(PathBuf),
+	#[error("action would overwrite another file: {}", .0.display())]
+	WouldOverwrite(PathBuf),
 
 	// Not errors
 	#[error("Job had a early finish: <name='{name}', reason='{reason}'>")]
