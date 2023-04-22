@@ -84,7 +84,16 @@ impl StatefulJob for FileCutterJob {
 			.target_directory
 			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
-		if source_info.fs_path.canonicalize()? == full_output.canonicalize()? {
+		if source_info
+			.fs_path
+			.parent()
+			.map_or(Err(JobError::Path), Ok)?
+			.canonicalize()?
+			== full_output
+				.parent()
+				.map_or(Err(JobError::Path), Ok)?
+				.canonicalize()?
+		{
 			return Err(JobError::MatchingSrcDest(
 				source_info
 					.fs_path

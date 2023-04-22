@@ -138,7 +138,14 @@ impl StatefulJob for FileCopierJob {
 					);
 				}
 
-				if path.canonicalize()? == target_path.canonicalize()? {
+				if path
+					.parent()
+					.map_or(Err(JobError::Path), Ok)?
+					.canonicalize()? == target_path
+					.parent()
+					.map_or(Err(JobError::Path), Ok)?
+					.canonicalize()?
+				{
 					return Err(JobError::MatchingSrcDest(
 						path.to_str().map_or(String::new(), str::to_string),
 					));
