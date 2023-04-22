@@ -12,26 +12,25 @@ runs:
         export GITHUB_SHA_SHORT=$(git rev-parse --short "$GITHUB_SHA")
         echo "GITHUB_SHA_SHORT=$GITHUB_SHA_SHORT" >> $GITHUB_ENV
 
-    - name: Set AppImage file permissions & compress it
+    - name: Set AppImage file permissions
       if: matrix.platform == 'ubuntu-latest'
       shell: bash
       run: |
-        chmod +x ./target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
-        tar -czvf ./Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}.tar.gz ./target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
+        chmod +x target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
 
     - name: Publish artifacts (AppImage)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}
-        path: ./Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}.tar.gz
+        path: target/${{ inputs.profile }}/bundle/appimage/*.AppImage
 
     - name: Publish artifacts (deb)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-deb-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/${{ inputs.profile }}/bundle/deb/spacedrive*.deb
+        path: target/${{ inputs.profile }}/bundle/deb/*.deb
 
     # - name: Publish artifacts (server)
     #   if: matrix.platform == 'ubuntu-latest'
@@ -45,11 +44,25 @@ runs:
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-${{ env.GITHUB_SHA_SHORT }}
-        path: .\target\${{ inputs.profile }}\bundle\msi\*.msi
+        path: target\${{ inputs.profile }}\bundle\msi\*.msi
+
+    - name: Set app file permissions
+      if: matrix.platform == 'macos-latest'
+      shell: bash
+      run: |
+        chmod +x target/${{ inputs.profile }}/bundle/macos/*.app/Contents/MacOS/Spacedrive
 
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS-${{ env.GITHUB_SHA_SHORT }}
-        path: ./target/${{ inputs.profile }}/bundle/macos/*.app
+        path: target/${{ inputs.profile }}/bundle/macos/*.app
+
+    - name: Publish updater binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-Updaters-${{ env.GITHUB_SHA_SHORT }}
+        path: |
+          target/${{ inputs.profile }}/bundle/*/*.tar.gz*
+          target/${{ inputs.profile }}/bundle/*/*.zip*
