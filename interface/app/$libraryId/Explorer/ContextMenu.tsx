@@ -46,6 +46,13 @@ export default (props: PropsWithChildren) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
+	const isPastable =
+		store.cutCopyState.sourceLocationId !== store.locationId
+			? true
+			: store.cutCopyState.sourcePath !== params.path
+			? true
+			: false;
+
 	return (
 		<CM.Root trigger={props.children}>
 			<OpenInNativeExplorer />
@@ -74,7 +81,7 @@ export default (props: PropsWithChildren) => {
 				icon={Repeat}
 			/>
 
-			{store.cutCopyState.sourcePath !== params.path && (
+			{isPastable && (
 				<CM.Item
 					label="Paste"
 					keybind="⌘V"
