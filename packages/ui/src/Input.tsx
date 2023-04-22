@@ -14,6 +14,12 @@ export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 's
 
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
+export const inputSizes = {
+	sm: 'h-[30px]',
+	md: 'h-[34px]',
+	lg: 'h-[38px]'
+};
+
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-7',
@@ -30,11 +36,7 @@ export const inputStyles = cva(
 			error: {
 				true: 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30'
 			},
-			size: {
-				sm: 'h-[30px]',
-				md: 'h-[34px]',
-				lg: 'h-[38px]'
-			}
+			size: inputSizes
 		},
 		defaultVariants: {
 			variant: 'default',

@@ -169,7 +169,7 @@ export const Component = () => {
 					</InfoText>
 					<Controller
 						name="indexerRulesIds"
-						render={({ field }) => <IndexerRuleEditor field={field} />}
+						render={({ field }) => <IndexerRuleEditor field={field} editable />}
 						control={form.control}
 					/>
 				</div>

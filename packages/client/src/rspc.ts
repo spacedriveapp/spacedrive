@@ -1,4 +1,4 @@
-import { ProcedureDef } from '@rspc/client';
+import { ProcedureDef, RSPCError } from '@rspc/client';
 import { internal_createReactHooksFactory } from '@rspc/react';
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
@@ -98,4 +98,23 @@ export function useInvalidateQuery() {
 			}
 		}
 	});
+}
+
+export function extractInfoRSPCError(error: unknown) {
+	if (
+		error == null ||
+		typeof error !== 'object' ||
+		!('cause' in error && error.cause instanceof RSPCError)
+	)
+		return null;
+
+	// TODO: error.code property is not yet implemented in RSPCError
+	// https://github.com/oscartbeaumont/rspc/blob/60a4fa93187c20bc5cb565cc6ee30b2f0903840e/packages/client/src/interop/error.ts#L59
+	// So we grab it from the shape for now
+	const { code } = error.cause.shape;
+
+	return {
+		code: Number.isInteger(code) ? code : 500,
+		message: 'message' in error ? String(error.message) : ''
+	};
 }

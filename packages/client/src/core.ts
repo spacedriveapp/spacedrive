@@ -155,7 +155,7 @@ export type IndexerRule = { id: number, kind: number, name: string, default: boo
  *  In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  *  `parameters` field must be a vector of strings containing the names of the directories.
  */
-export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
+export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: string[] }
 
 export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 

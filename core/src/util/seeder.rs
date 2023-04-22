@@ -31,6 +31,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 					],
 					// Globset, even on Windows, requires the use of / as a separator
 					// https://github.com/github/gitignore/blob/main/Global/Windows.gitignore
+					// https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 					#[cfg(target_os = "windows")]
 					vec![
 						// Windows thumbnail cache files
@@ -43,6 +44,9 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 						"**/$RECYCLE.BIN",
 						// Chkdsk recovery directory
 						"**/FOUND.[0-9][0-9][0-9]",
+						// Reserved names
+						"**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}",
+						"**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}.*",
 						// User special files
 						"C:/Users/*/NTUSER.DAT*",
 						"C:/Users/*/ntuser.dat*",

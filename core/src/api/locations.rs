@@ -269,6 +269,27 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 		})
 		.library_mutation("delete", |t| {
 			t(|_, indexer_rule_id: i32, library| async move {
+				let indexer_rule_db = library.db.indexer_rule();
+
+				if let Some(indexer_rule) = indexer_rule_db
+					.to_owned()
+					.find_unique(indexer_rule::id::equals(indexer_rule_id))
+					.exec()
+					.await?
+				{
+					if indexer_rule.default {
+						return Err(rspc::Error::new(
+							ErrorCode::Forbidden,
+							format!("Indexer rule <id={indexer_rule_id}> can't be deleted"),
+						));
+					}
+				} else {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						format!("Indexer rule <id={indexer_rule_id}> not found"),
+					));
+				}
+
 				library
 					.db
 					.indexer_rules_in_location()
@@ -278,9 +299,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				library
-					.db
-					.indexer_rule()
+				indexer_rule_db
 					.delete(indexer_rule::id::equals(indexer_rule_id))
 					.exec()
 					.await?;
