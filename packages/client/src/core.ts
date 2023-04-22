@@ -42,6 +42,7 @@ export type Procedures = {
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
+        { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
@@ -154,7 +155,7 @@ export type IndexerRule = { id: number, kind: number, name: string, default: boo
  *  In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  *  `parameters` field must be a vector of strings containing the names of the directories.
  */
-export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: number[] }
+export type IndexerRuleCreateArgs = { kind: RuleKind, name: string, parameters: string[] }
 
 export type InvalidateOperationEvent = { key: string, arg: any, result: any | null }
 

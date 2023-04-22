@@ -9,7 +9,8 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::trace;
+use tokio::fs;
+use tracing::{trace, warn};
 
 use super::{context_menu_fs_info, get_path_from_location_id, FsInfo};
 
@@ -84,9 +85,34 @@ impl StatefulJob for FileCutterJob {
 			.target_directory
 			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
-		trace!("Cutting {:?} to {:?}", source_info.fs_path, full_output);
+		if fs::canonicalize(
+			source_info
+				.fs_path
+				.parent()
+				.map_or(Err(JobError::Path), Ok)?,
+		)
+		.await? == fs::canonicalize(full_output.parent().map_or(Err(JobError::Path), Ok)?)
+			.await?
+		{
+			return Err(JobError::MatchingSrcDest(source_info.fs_path.clone()));
+		}
 
-		tokio::fs::rename(&source_info.fs_path, &full_output).await?;
+		if fs::metadata(&full_output).await.is_ok() {
+			warn!(
+				"Skipping {} as it would be overwritten",
+				full_output.display()
+			);
+
+			return Err(JobError::WouldOverwrite(full_output));
+		}
+
+		trace!(
+			"Cutting {} to {}",
+			source_info.fs_path.display(),
+			full_output.display()
+		);
+
+		fs::rename(&source_info.fs_path, &full_output).await?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

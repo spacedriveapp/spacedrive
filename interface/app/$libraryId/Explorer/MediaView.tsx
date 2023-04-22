@@ -96,8 +96,14 @@ export default () => {
 		}
 	}
 
-	// Resize view on initial render
-	useEffect(() => handleWindowResize(), []);
+	// Resize view on initial render and reset selected item
+	useEffect(() => {
+		handleWindowResize();
+		getExplorerStore().selectedRowIndex = -1;
+		return () => {
+			getExplorerStore().selectedRowIndex = -1;
+		};
+	}, []);
 
 	// Resize view on window resize
 	useOnWindowResize(handleWindowResize);

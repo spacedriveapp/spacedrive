@@ -24,23 +24,22 @@ use tokio::fs;
 pub struct IndexerRuleCreateArgs {
 	pub kind: RuleKind,
 	pub name: String,
-	pub parameters: Vec<u8>,
+	pub parameters: Vec<String>,
 }
 
 impl IndexerRuleCreateArgs {
 	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerError> {
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
-				&serde_json::from_slice::<Vec<String>>(&self.parameters)?
+				&self
+					.parameters
 					.into_iter()
-					.map(|s| Glob::new(&s))
+					.map(|s| Glob::new(s.as_str()))
 					.collect::<Result<Vec<Glob>, _>>()?,
 			)?,
 
 			RuleKind::AcceptIfChildrenDirectoriesArePresent
-			| RuleKind::RejectIfChildrenDirectoriesArePresent => {
-				rmp_serde::to_vec(&serde_json::from_slice::<Vec<String>>(&self.parameters)?)?
-			}
+			| RuleKind::RejectIfChildrenDirectoriesArePresent => rmp_serde::to_vec(&self.parameters)?,
 		};
 
 		library
