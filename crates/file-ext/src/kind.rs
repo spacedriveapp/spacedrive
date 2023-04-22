@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use specta::Type;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
