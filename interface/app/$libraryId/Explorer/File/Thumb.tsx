@@ -1,111 +1,184 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
-import { CSSProperties, useEffect, useState } from 'react';
-import { ExplorerItem, useLibraryContext } from '@sd/client';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
+import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
 import { getExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
 
-interface Props {
-	data: ExplorerItem;
-	size: number;
-	loadOriginal?: boolean;
-	className?: string;
-	forceShowExtension?: boolean;
-	extensionClassName?: string;
+export const getIcon = (
+	isDir: boolean,
+	isDark: boolean,
+	kind: string,
+	extension?: string | null
+) => {
+	if (isDir) return icons[isDark ? 'Folder' : 'Folder_Light'];
+
+	let document: Extract<keyof typeof icons, 'Document' | 'Document_Light'> = 'Document';
+	if (extension) extension = `${kind}_${extension.toLowerCase()}`;
+	if (!isDark) {
+		kind = kind + '_Light';
+		document = 'Document_Light';
+		if (extension) extension = extension + '_Light';
+	}
+
+	return icons[
+		extension && isKeyOf(icons, extension) ? extension : isKeyOf(icons, kind) ? kind : document
+	];
+};
+
+interface VideoThumbSize {
+	width: number;
+	height: number;
 }
 
-export default function Thumb(props: Props) {
-	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
-	const store = useExplorerStore();
-	const platform = usePlatform();
-	const { library } = useLibraryContext();
+export interface ThumbProps {
+	data: ExplorerItem;
+	size: null | number;
+	cover?: boolean;
+	className?: string;
+	loadOriginal?: boolean;
+}
+
+function Thumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
+	const platform = usePlatform();
+	const thumbImg = useRef<HTMLImageElement>(null);
+	const [thumbSize, setThumbSize] = useState<null | VideoThumbSize>(null);
+	const { library } = useLibraryContext();
+	const [thumbLoaded, setThumbLoaded] = useState<boolean>(false);
+	const { locationId } = useExplorerStore();
+	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
 
-	const [fullPreviewUrl, setFullPreviewUrl] = useState<string | null>(null);
+	// Allows disabling thumbnails when they fail to load
+	const [useThumb, setUseThumb] = useState<boolean>(hasThumbnail);
 
-	useEffect(() => {
-		if (props.loadOriginal && hasThumbnail) {
-			const url = platform.getFileUrl(library.uuid, store.locationId!, props.data.item.id);
-			if (url) setFullPreviewUrl(url);
-		}
-	}, [
-		props.data.item.id,
-		hasThumbnail,
-		library.uuid,
-		props.loadOriginal,
-		platform,
-		store.locationId
-	]);
+	useLayoutEffect(() => {
+		const img = thumbImg.current;
+		if (cover || kind !== 'Video' || !img || !thumbLoaded) return;
 
-	const videoBarsHeight = Math.floor(props.size / 10);
-	const videoHeight = Math.floor((props.size * 9) / 16) + videoBarsHeight * 2;
+		const resizeObserver = new ResizeObserver(() => {
+			const { width, height } = img;
+			setThumbSize(width && height ? { width, height } : null);
+		});
 
-	const imgStyle: CSSProperties =
-		kind === 'Video'
-			? {
-					borderTopWidth: videoBarsHeight,
-					borderBottomWidth: videoBarsHeight,
-					width: props.size,
-					height: videoHeight
-			  }
-			: {};
+		resizeObserver.observe(img);
+		return () => resizeObserver.disconnect();
+	}, [kind, cover, thumbImg, thumbLoaded]);
 
-	let icon = icons['Document'];
-	if (isDir) {
-		icon = icons['Folder'];
-	} else if (
-		kind &&
-		extension &&
-		icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons]
-	) {
-		icon = icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons];
-	} else if (kind !== 'Unknown' && kind && icons[kind as keyof typeof icons]) {
-		icon = icons[kind as keyof typeof icons];
+	// Only Videos and Images can show the original file
+	const loadOriginal = (kind === 'Video' || kind === 'Image') && props.loadOriginal;
+	const src = useThumb
+		? loadOriginal && locationId
+			? platform.getFileUrl(library.uuid, locationId, props.data.item.id)
+			: cas_id && platform.getThumbnailUrlById(cas_id)
+		: null;
+
+	let style = {};
+	if (size && kind === 'Video') {
+		const videoBarsHeight = Math.floor(size / 10);
+		style = {
+			borderTopWidth: videoBarsHeight,
+			borderBottomWidth: videoBarsHeight
+		};
 	}
 
-	if (!hasThumbnail || !cas_id) {
-		if (!isDark) {
-			icon = icon?.substring(0, icon.length - 4) + '_Light' + '.png';
-		}
-		return <img src={icon} className={clsx('h-full overflow-hidden')} />;
-	}
-
+	const childClassName = 'max-h-full max-w-full object-contain';
 	return (
 		<div
+			style={size ? { maxWidth: size, width: size - 10, height: size } : {}}
 			className={clsx(
-				'relative flex h-full shrink-0 items-center justify-center border-2 border-transparent',
+				'relative flex shrink-0 items-center justify-center',
+				src &&
+					kind !== 'Video' && [classes.checkers, size && 'border-2 border-transparent'],
+				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
 		>
-			<img
-				style={{ ...imgStyle, maxWidth: props.size, width: props.size - 10 }}
-				decoding="async"
-				className={clsx(
-					'z-90 pointer-events-none',
-					hasThumbnail &&
-						'max-h-full w-auto max-w-full rounded-sm object-cover shadow shadow-black/30',
-					kind === 'Image' && classes.checkers,
-					kind === 'Image' && props.size > 60 && 'border-2 border-app-line',
-					kind === 'Video' && 'rounded border-x-0 !border-black',
-					props.className
-				)}
-				src={fullPreviewUrl || platform.getThumbnailUrlById(cas_id)}
-			/>
-			{extension &&
-				kind === 'Video' &&
-				hasThumbnail &&
-				(props.size > 80 || props.forceShowExtension) && (
-					<div
+			{src ? (
+				kind === 'Video' && loadOriginal ? (
+					<video
+						src={src}
+						onCanPlay={(e) => {
+							const video = e.target as HTMLVideoElement;
+							// Why not use the element's attribute? Because React...
+							// https://github.com/facebook/react/issues/10389
+							video.loop = true;
+							video.muted = true;
+						}}
+						style={style}
+						autoPlay
 						className={clsx(
-							'absolute bottom-[13%] right-[5%] rounded bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70',
-							props.extensionClassName
+							childClassName,
+							size && 'rounded border-x-0 border-black',
+							props.className
 						)}
-					>
-						{extension}
-					</div>
-				)}
+						playsInline
+					/>
+				) : (
+					<>
+						<img
+							src={src}
+							ref={thumbImg}
+							style={style}
+							onLoad={() => {
+								setUseThumb(true);
+								setThumbLoaded(true);
+							}}
+							onError={() => {
+								setUseThumb(false);
+								setThumbSize(null);
+								setThumbLoaded(false);
+							}}
+							decoding="async"
+							className={clsx(
+								cover
+									? 'min-h-full min-w-full object-cover object-center'
+									: childClassName,
+								'shadow shadow-black/30',
+								kind === 'Video' ? 'rounded' : 'rounded-sm',
+								size &&
+									(kind === 'Video'
+										? 'border-x-0 border-black'
+										: size > 60 && 'border-2 border-app-line'),
+								props.className
+							)}
+						/>
+						{kind === 'Video' && (!size || size > 80) && (
+							<div
+								style={
+									cover
+										? {}
+										: thumbSize
+										? {
+												marginTop: Math.floor(thumbSize.height / 2) - 2,
+												marginLeft: Math.floor(thumbSize.width / 2) - 2
+										  }
+										: { display: 'none' }
+								}
+								className={clsx(
+									cover
+										? 'right-1 bottom-1'
+										: 'left-1/2 top-1/2 -translate-x-full -translate-y-full',
+									'absolute rounded',
+									'bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70'
+								)}
+							>
+								{extension}
+							</div>
+						)}
+					</>
+				)
+			) : (
+				<img
+					src={getIcon(isDir, isDark, kind, extension)}
+					decoding="async"
+					className={clsx(childClassName, props.className)}
+				/>
+			)}
 		</div>
 	);
 }
+
+export default memo(Thumb);

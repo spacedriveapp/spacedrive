@@ -35,20 +35,10 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 				)}
 			>
 				<Thumb
-					data={data}
 					size={0}
-					className={clsx(
-						'!max-w-none !rounded-none !border-0',
-						explorerStore.mediaAspectSquare
-							? '!h-full !w-full'
-							: '!h-auto max-h-full !w-[90%]'
-					)}
-					forceShowExtension
-					extensionClassName={clsx(
-						explorerStore.mediaAspectSquare
-							? '!bottom-2 !right-2'
-							: '!bottom-[8%] !right-[8%]'
-					)}
+					data={data}
+					cover={explorerStore.mediaAspectSquare}
+					className="!rounded-none"
 				/>
 
 				<Button

@@ -79,7 +79,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 					{explorerStore.layoutMode !== 'media' && (
 						<div
 							className={clsx(
-								'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
+								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
 							)}
 						>
 							<FileThumb loadOriginal size={240} data={data} />
