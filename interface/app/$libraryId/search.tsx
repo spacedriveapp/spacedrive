@@ -1,8 +1,13 @@
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { MagnifyingGlass } from 'phosphor-react';
+import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useToolOptions } from '~/hooks/useToolOptions';
 import Explorer from './Explorer';
+import { getExplorerItemData } from './Explorer/util';
+import TopBarChildren from './TopBar/TopBarChildren';
 
 const schema = z.object({
 	search: z.string().optional(),
@@ -13,14 +18,49 @@ const schema = z.object({
 export type SearchArgs = z.infer<typeof schema>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
+	const explorerStore = useExplorerStore();
+	const { explorerViewOptions, explorerControlOptions } = useToolOptions();
+
 	const query = useLibraryQuery(['search', props.args], {
-		suspense: true
+		suspense: true,
+		enabled: !!props.args.search
 	});
 
+	const items = useMemo(() => {
+		const queryData = query.data;
+		if (explorerStore.layoutMode !== 'media') return queryData;
+
+		const mediaItems = queryData?.filter((item) => {
+			const { kind } = getExplorerItemData(item);
+			return kind === 'Video' || kind === 'Image';
+		});
+		return mediaItems;
+	}, [query.data, explorerStore.layoutMode]);
+
+	useEffect(() => {
+		getExplorerStore().selectedRowIndex = -1;
+	}, [props.args.search]);
+
 	return (
-		<div className="page-scroll custom-scroll flex w-full flex-col space-y-5">
-			<Explorer items={query.data} />
-		</div>
+		<>
+			{items && items.length > 0 ? (
+				<>
+					<TopBarChildren toolOptions={[explorerViewOptions, explorerControlOptions]} />
+					<Explorer items={items} />
+				</>
+			) : (
+				<div className="flex flex-1 flex-col items-center justify-center">
+					{!props.args.search && (
+						<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
+					)}
+					<p className="text-xs text-ink-faint">
+						{props.args.search
+							? `No results found for "${props.args.search}"`
+							: 'Search for files...'}
+					</p>
+				</div>
+			)}
+		</>
 	);
 });
 
