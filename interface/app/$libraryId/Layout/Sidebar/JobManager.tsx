@@ -33,20 +33,6 @@ export function JobsManager() {
 		}
 	});
 
-	const jobsToFilter = [
-		'shallow_thumbnailer',
-		'shallow_indexer',
-		'shallow_file_identifier',
-		'indexer',
-		'thumbnailer'
-	];
-	const updatedJobsWithFilter = jobs?.filter((job) => !jobsToFilter.includes(job.name));
-
-	const runningJobsToFilter = ['indexer'];
-	const updatedRunningJobsWithFilter = runningJobs?.filter(
-		(job) => !runningJobsToFilter.includes(job.name)
-	);
-
 	const clearAllJobsHandler = () => {
 		showAlertDialog({
 			title: 'Clear Jobs',
@@ -83,22 +69,21 @@ export function JobsManager() {
 			<div className="custom-scroll inspector-scroll mr-1 h-full overflow-x-hidden">
 				<div className="">
 					<div className="py-1">
-						{updatedRunningJobsWithFilter?.map((job) => (
+						{runningJobs?.map((job) => (
 							<Job key={job.id} job={job} />
 						))}
-						{updatedJobsWithFilter?.map((job) => (
+						{jobs?.map((job) => (
 							<Job
 								clearAJob={(arg: string) => clearAJobHandler(arg)}
 								key={job.id}
 								job={job}
 							/>
 						))}
-						{updatedJobsWithFilter?.length === 0 &&
-							updatedRunningJobsWithFilter?.length === 0 && (
-								<div className="flex h-32 items-center justify-center text-ink-dull">
-									No jobs.
-								</div>
-							)}
+						{jobs?.length === 0 && runningJobs?.length === 0 && (
+							<div className="flex h-32 items-center justify-center text-ink-dull">
+								No jobs.
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
