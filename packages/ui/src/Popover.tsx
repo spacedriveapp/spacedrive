@@ -15,7 +15,10 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 		if (popOverRef.current && triggerRef.current) {
 			if (
 				!popOverRef.current.contains(event.target as Node) &&
-				!triggerRef.current.contains(event.target as Node)
+				!triggerRef.current.contains(event.target as Node) &&
+				// FIX-ME: WORKAROUND for Portal elements inside Popover
+				event.target !== document.body &&
+				event.target !== document.body.parentElement
 			) {
 				setOpen(false);
 			}
