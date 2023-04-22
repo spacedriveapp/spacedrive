@@ -63,6 +63,8 @@ pub enum JobError {
 	IdentifierError(#[from] FileIdentifierJobError),
 	#[error("Crypto error: {0}")]
 	CryptoError(#[from] CryptoError),
+	#[error("source and destination path are the same")]
+	MatchingSrcDest(String),
 
 	// Not errors
 	#[error("Job had a early finish: <name='{name}', reason='{reason}'>")]

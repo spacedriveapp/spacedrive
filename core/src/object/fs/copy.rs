@@ -138,6 +138,12 @@ impl StatefulJob for FileCopierJob {
 					);
 				}
 
+				if path.canonicalize()? == target_path.canonicalize()? {
+					return Err(JobError::MatchingSrcDest(
+						path.to_str().map_or(String::new(), str::to_string),
+					));
+				}
+
 				trace!("Copying from {:?} to {:?}", path, target_path);
 
 				tokio::fs::copy(&path, &target_path).await?;

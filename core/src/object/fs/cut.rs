@@ -84,6 +84,15 @@ impl StatefulJob for FileCutterJob {
 			.target_directory
 			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
+		if source_info.fs_path.canonicalize()? == full_output.canonicalize()? {
+			return Err(JobError::MatchingSrcDest(
+				source_info
+					.fs_path
+					.to_str()
+					.map_or(String::new(), str::to_string),
+			));
+		}
+
 		trace!("Cutting {:?} to {:?}", source_info.fs_path, full_output);
 
 		tokio::fs::rename(&source_info.fs_path, &full_output).await?;
