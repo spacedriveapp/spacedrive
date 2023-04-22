@@ -5,9 +5,17 @@ import React, { useEffect, useRef, useState } from 'react';
 interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
 	disabled?: boolean;
+	ignoreOpenState?: boolean; //this makes the PopoverClose component work if set to true
 }
 
-export const Popover = ({ trigger, children, disabled, className, ...props }: Props) => {
+export const Popover = ({
+	trigger,
+	children,
+	disabled,
+	ignoreOpenState,
+	className,
+	...props
+}: Props) => {
 	const [open, setOpen] = useState(false);
 	const popOverRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -33,7 +41,7 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 		};
 	}, []);
 	return (
-		<Radix.Root open={open}>
+		<Radix.Root open={ignoreOpenState ? undefined : open}>
 			<Radix.Trigger
 				ref={triggerRef}
 				onClick={() => setOpen(!open)}
