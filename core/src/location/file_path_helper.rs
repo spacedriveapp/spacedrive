@@ -278,6 +278,12 @@ pub async fn create_file_path(
 
 	let params = util::db::chain_optional_iter(
 		[
+			(
+				"location",
+				json!(sync::location::SyncId {
+					pub_id: location.pub_id
+				}),
+			),
 			("cas_id", json!(cas_id)),
 			("materialized_path", json!(materialized_path)),
 			("name", json!(name)),
@@ -312,7 +318,7 @@ pub async fn create_file_path(
 			),
 			db.file_path().create(
 				pub_id,
-				location::id::equals(location_id),
+				location::id::equals(location.id),
 				materialized_path.into_owned(),
 				name.into_owned(),
 				extension.into_owned(),
