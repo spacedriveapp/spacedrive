@@ -11,7 +11,7 @@ import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
-export const useToolOptions = () => {
+export const useTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 
 	const explorerViewOptions: ToolOption[] = [
