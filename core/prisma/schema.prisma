@@ -117,9 +117,17 @@ model Location {
     @@map("location")
 }
 
-/// @shared(id: [location, id])
+/// @shared(id: pub_id)
 model FilePath {
-    id     Int
+    id Int @id @default(autoincrement())
+
+    /// @rust(
+    /// 	type: Uuid, 
+    /// 	serialize: |v| v.as_bytes().to_vec(), 
+    /// 	deserialize: |v| Uuid::parse(v).unwrap()
+    /// )
+    pub_id Bytes @unique
+
     is_dir Boolean @default(false)
 
     // content addressable storage id - blake3 sampled checksum
@@ -148,7 +156,7 @@ model FilePath {
     object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
     // the parent in the file tree
-    parent_id Int?
+    parent_id Bytes?
     key_id    Int? // replacement for encryption
     // permissions       String?
 
@@ -162,7 +170,6 @@ model FilePath {
 
     key Key? @relation(fields: [key_id], references: [id])
 
-    @@id([location_id, id])
     @@unique([location_id, materialized_path, name, extension])
     @@unique([location_id, inode, device])
     @@index([location_id])

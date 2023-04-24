@@ -37,7 +37,6 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
-use file_path_helper::file_path_just_object_id;
 use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
@@ -628,7 +627,7 @@ pub async fn delete_directory(
 		.db
 		.file_path()
 		.find_many(children_params.clone())
-		.select(file_path_just_object_id::select())
+		.select(file_path::select!({ object_id }))
 		.exec()
 		.await?
 		.into_iter()

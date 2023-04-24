@@ -3,6 +3,7 @@ use prisma_client_rust::{operator::or, Direction};
 use rspc::{Config, Type};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{
 	api::locations::{file_path_with_object, ExplorerItem},
@@ -117,7 +118,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				#[specta(optional)]
 				location_id: Option<i32>,
 				#[specta(optional)]
-				after_file_id: Option<(i32, i32)>,
+				after_file_id: Option<Uuid>,
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
@@ -177,8 +178,8 @@ pub(crate) fn mount() -> Arc<Router> {
 
 				let mut query = library.db.file_path().find_many(params);
 
-				if let Some((loc_id, file_id)) = args.after_file_id {
-					query = query.cursor(file_path::location_id_id(loc_id, file_id))
+				if let Some(file_id) = args.after_file_id {
+					query = query.cursor(file_path::pub_id::equals(file_id.as_bytes().to_vec()))
 				}
 
 				if let Some(order) = args.order {

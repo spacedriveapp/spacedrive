@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
-	location::{file_path_helper::LastFilePathIdManager, LocationManager},
+	location::LocationManager,
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::PrismaClient,
@@ -34,8 +34,6 @@ pub struct Library {
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	pub key_manager: Arc<KeyManager>,
-	/// last id by location keeps track of the last id by location for the library
-	pub last_file_path_id_manager: Arc<LastFilePathIdManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.

@@ -8,6 +8,7 @@ use crate::{
 		file_path_for_file_identifier, MaterializedPath,
 	},
 	prisma::{file_path, location, PrismaClient},
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -15,13 +16,13 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
-	FileIdentifierReport, FilePathIdAndLocationIdCursor, CHUNK_SIZE,
+	FileIdentifierReport, CHUNK_SIZE,
 };
 
 pub struct FileIdentifierJob {}
@@ -48,7 +49,7 @@ impl Hash for FileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
-	cursor: FilePathIdAndLocationIdCursor,
+	cursor: Uuid,
 	report: FileIdentifierReport,
 	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
 }
@@ -103,10 +104,7 @@ impl StatefulJob for FileIdentifierJob {
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
-			cursor: FilePathIdAndLocationIdCursor {
-				file_path_id: -1,
-				location_id,
-			},
+			cursor: Uuid::nil(),
 			maybe_sub_materialized_path,
 		});
 
@@ -130,21 +128,18 @@ impl StatefulJob for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let first_path_id = db
+		let first_path = db
 			.file_path()
 			.find_first(orphan_path_filters(
 				location_id,
-				None,
 				&data.maybe_sub_materialized_path,
 			))
-			.order_by(file_path::id::order(Direction::Asc))
-			.select(file_path::select!({ id }))
+			.select(file_path::select!({ pub_id }))
 			.exec()
 			.await?
-			.map(|d| d.id)
 			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
 
-		data.cursor.file_path_id = first_path_id;
+		data.cursor = Uuid::from_slice(&first_path.pub_id).unwrap();
 
 		state.steps = (0..task_count).map(|_| ()).collect();
 
@@ -168,8 +163,13 @@ impl StatefulJob for FileIdentifierJob {
 		let location = &state.init.location;
 
 		// get chunk of orphans to process
-		let file_paths =
-			get_orphan_file_paths(&ctx.library.db, cursor, maybe_sub_materialized_path).await?;
+		let file_paths = get_orphan_file_paths(
+			&ctx.library.db,
+			state.init.location.id,
+			*cursor,
+			maybe_sub_materialized_path,
+		)
+		.await?;
 
 		process_identifier_file_paths(
 			<Self as StatefulJob>::NAME,
@@ -197,7 +197,7 @@ impl StatefulJob for FileIdentifierJob {
 
 fn orphan_path_filters(
 	location_id: i32,
-	file_path_id: Option<i32>,
+	// file_path_id: Option<i32>,
 	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	let mut params = vec![
@@ -205,10 +205,12 @@ fn orphan_path_filters(
 		file_path::is_dir::equals(false),
 		file_path::location_id::equals(location_id),
 	];
+
+	// TODO: Can we do without this?
 	// this is a workaround for the cursor not working properly
-	if let Some(file_path_id) = file_path_id {
-		params.push(file_path::id::gte(file_path_id));
-	}
+	// if let Some(file_path_id) = file_path_id {
+	// 	params.push(file_path::id::gte(file_path_id));
+	// }
 
 	if let Some(ref sub_materealized_path) = maybe_sub_materialized_path {
 		params.push(file_path::materialized_path::starts_with(
@@ -227,7 +229,6 @@ async fn count_orphan_file_paths(
 	db.file_path()
 		.count(orphan_path_filters(
 			location_id,
-			None,
 			maybe_sub_materialized_path,
 		))
 		.exec()
@@ -237,7 +238,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	cursor: &FilePathIdAndLocationIdCursor,
+	location_id: i32,
+	cursor: Uuid,
 	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
@@ -246,12 +248,10 @@ async fn get_orphan_file_paths(
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(
-			cursor.location_id,
-			Some(cursor.file_path_id),
+			location_id,
 			maybe_sub_materialized_path,
 		))
-		.order_by(file_path::id::order(Direction::Asc))
-		// .cursor(cursor.into())
+		.cursor(file_path::pub_id::equals(uuid_to_bytes(cursor)))
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)
 		.select(file_path_for_file_identifier::select())

@@ -103,13 +103,13 @@ pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
 								file_path::materialized_path::equals(path),
 								file_path::is_dir::equals(true),
 							])
-							.select(file_path::select!({ id }))
+							.select(file_path::select!({ pub_id }))
 							.exec()
 							.await?
 							.ok_or_else(|| {
 								rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
 							})?
-							.id,
+							.pub_id,
 					)
 				} else {
 					None

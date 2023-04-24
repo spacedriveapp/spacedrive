@@ -18,6 +18,7 @@ use chrono::Utc;
 use itertools::Itertools;
 use tokio::time::Instant;
 use tracing::error;
+use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer,
@@ -97,7 +98,10 @@ impl StatefulJob for IndexerJob {
 				.expect("Sub path should already exist in the database");
 
 			// If we're operating with a sub_path, then we have to put its id on `dirs_ids` map
-			dirs_ids.insert(full_path.clone(), sub_path_file_path.id);
+			dirs_ids.insert(
+				full_path.clone(),
+				Uuid::from_slice(&sub_path_file_path.pub_id).unwrap(),
+			);
 
 			(full_path, Some(sub_path_file_path))
 		} else {
@@ -153,7 +157,7 @@ impl StatefulJob for IndexerJob {
 							location_id,
 							&file_path.materialized_path,
 						))),
-						file_path.id,
+						Uuid::from_slice(&file_path.pub_id).unwrap(),
 					)
 				}),
 		);
@@ -161,19 +165,12 @@ impl StatefulJob for IndexerJob {
 		// Removing all other file paths that are not in the filesystem anymore
 		let removed_paths = retain_file_paths_in_location(
 			location_id,
-			dirs_ids.values().copied().collect(),
+			dirs_ids.values().cloned().collect(),
 			maybe_parent_file_path,
 			&ctx.library.db,
 		)
 		.await
 		.map_err(IndexerError::from)?;
-
-		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
-		ctx.library
-			.last_file_path_id_manager
-			.sync(location_id, &ctx.library.db)
-			.await
-			.map_err(IndexerError::from)?;
 
 		let mut new_paths = found_paths
 			.into_iter()
@@ -193,7 +190,7 @@ impl StatefulJob for IndexerJob {
 						(!dirs_ids.contains_key(&entry.path)).then(|| {
 							IndexerJobStepEntry {
 								materialized_path,
-								file_id: 0, // To be set later
+								file_id: Uuid::new_v4(), // To be set later
 								parent_id: entry.path.parent().and_then(|parent_dir| {
 									/***************************************************************
 									 * If we're dealing with a new path which its parent already   *
@@ -210,31 +207,20 @@ impl StatefulJob for IndexerJob {
 			})
 			.collect::<Vec<_>>();
 
+		new_paths.iter_mut().for_each(|entry| {
+			// If the `parent_id` is still none here, is because the parent of this entry is also
+			// a new one in the DB
+			if entry.parent_id.is_none() {
+				entry.parent_id = entry
+					.full_path
+					.parent()
+					.and_then(|parent_dir| dirs_ids.get(parent_dir).cloned());
+			}
+
+			dirs_ids.insert(entry.full_path.clone(), entry.file_id);
+		});
+
 		let total_paths = new_paths.len();
-
-		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = ctx
-			.library
-			.last_file_path_id_manager
-			.increment(location_id, total_paths as i32, &ctx.library.db)
-			.await
-			.map_err(IndexerError::from)?;
-
-		new_paths
-			.iter_mut()
-			.zip(first_file_id..)
-			.for_each(|(entry, file_id)| {
-				// If the `parent_id` is still none here, is because the parent of this entry is also
-				// a new one in the DB
-				if entry.parent_id.is_none() {
-					entry.parent_id = entry
-						.full_path
-						.parent()
-						.and_then(|parent_dir| dirs_ids.get(parent_dir).copied());
-				}
-				entry.file_id = file_id;
-				dirs_ids.insert(entry.full_path.clone(), file_id);
-			});
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
@@ -246,6 +232,7 @@ impl StatefulJob for IndexerJob {
 		});
 
 		state.steps = VecDeque::with_capacity(new_paths.len() / BATCH_SIZE);
+
 		for (i, chunk) in new_paths
 			.into_iter()
 			.chunks(BATCH_SIZE)
