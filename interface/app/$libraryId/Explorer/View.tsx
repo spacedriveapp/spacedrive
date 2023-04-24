@@ -36,19 +36,14 @@ export const ViewItem = ({
 
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
-			const filePathData = getItemFilePath(data);
 			navigate({
-				pathname: `/${library.uuid}/location/${filePathData?.location_id}`,
+				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({ path: data.item.materialized_path }).toString()
 			});
 			getExplorerStore().selectedRowIndex = -1;
 		} else {
-			const itemData = getExplorerItemData(data);
-			if (
-				itemData.kind === 'Video' ||
-				itemData.kind === 'Image' ||
-				itemData.kind === 'Audio'
-			) {
+			const { kind } = getExplorerItemData(data);
+			if (kind === 'Video' || kind === 'Image' || kind === 'Audio') {
 				getExplorerStore().quickViewObject = data;
 			}
 		}
