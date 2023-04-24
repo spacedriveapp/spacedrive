@@ -98,7 +98,12 @@ async fn identifier_job_step(
 			&MaterializedPath::from((location.id, &file_path.materialized_path)),
 		)
 		.await
-		.map(|params| (file_path.pub_id.clone(), (params, file_path)))
+		.map(|params| {
+			(
+				Uuid::from_slice(&file_path.pub_id).unwrap(),
+				(params, file_path),
+			)
+		})
 	}))
 	.await
 	.into_iter()
@@ -127,13 +132,13 @@ async fn identifier_job_step(
 				(
 					sync.shared_update(
 						sync::file_path::SyncId {
-							pub_id: pub_id.clone(),
+							pub_id: uuid_to_bytes(*pub_id),
 						},
 						"cas_id",
 						json!(&meta.cas_id),
 					),
 					db.file_path().update(
-						file_path::pub_id::equals(pub_id.clone()),
+						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
 						vec![file_path::cas_id::set(Some(meta.cas_id.clone()))],
 					),
 				)
@@ -172,7 +177,7 @@ async fn identifier_job_step(
 								.iter()
 								.any(|fp| fp.cas_id.as_ref() == Some(&meta.cas_id))
 						})
-						.map(|o| (Uuid::from_slice(&pub_id).unwrap(), o))
+						.map(|o| (*pub_id, o))
 				})
 				.map(|(pub_id, object)| {
 					let (crdt_op, db_op) = file_path_object_connect_ops(
@@ -215,12 +220,11 @@ async fn identifier_job_step(
 		let (object_create_args, file_path_update_args): (Vec<_>, Vec<_>) =
 			file_paths_requiring_new_object
 				.iter()
-				.map(|(_, (meta, fp))| {
-					let pub_id = Uuid::new_v4();
-					let pub_id_vec = pub_id.as_bytes().to_vec();
+				.map(|(file_path_pub_id, (meta, fp))| {
+					let object_pub_id = Uuid::new_v4();
 
 					let sync_id = || sync::object::SyncId {
-						pub_id: pub_id_vec.clone(),
+						pub_id: uuid_to_bytes(object_pub_id),
 					};
 
 					let size = meta.fs_metadata.len().to_string();
@@ -240,7 +244,7 @@ async fn identifier_job_step(
 							)
 							.collect::<Vec<_>>(),
 						object::create_unchecked(
-							pub_id_vec.clone(),
+							uuid_to_bytes(object_pub_id),
 							vec![
 								object::date_created::set(fp.date_created),
 								object::kind::set(kind),
@@ -249,8 +253,12 @@ async fn identifier_job_step(
 					);
 
 					(object_creation_args, {
-						let (crdt_op, db_op) =
-							file_path_object_connect_ops(pub_id, pub_id, sync, db);
+						let (crdt_op, db_op) = file_path_object_connect_ops(
+							*file_path_pub_id,
+							object_pub_id,
+							sync,
+							db,
+						);
 
 						(crdt_op, db_op.select(file_path::select!({ pub_id })))
 					})
@@ -273,12 +281,16 @@ async fn identifier_job_step(
 		info!("Created {} new Objects in Library", total_created_files);
 
 		if total_created_files > 0 {
-			sync.write_ops(db, {
-				let (sync, db): (Vec<_>, Vec<_>) = file_path_update_args.into_iter().unzip();
+			info!("Updating file paths with created objects");
 
-				(sync, db)
+			sync.write_ops(db, {
+				let data: (Vec<_>, Vec<_>) = file_path_update_args.into_iter().unzip();
+
+				data
 			})
 			.await?;
+
+			info!("Updated file paths with created objects");
 		}
 
 		total_created_files as usize
