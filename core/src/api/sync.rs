@@ -5,9 +5,9 @@ use super::{utils::LibraryRequest, RouterBuilder};
 pub fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_subscription("newMessage", |t| {
-			t(|ctx, _: (), library_id| {
+			t(|ctx, _: (), library| {
 				async_stream::stream! {
-					let Some(lib) = ctx.library_manager.get_ctx(library_id).await else {
+					let Some(lib) = ctx.library_manager.get_ctx(library.id).await else {
 						return
 					};
 					let mut rx = lib.sync.tx.subscribe();

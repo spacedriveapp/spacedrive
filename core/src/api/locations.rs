@@ -13,8 +13,9 @@ use std::{
 	path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
-use rspc::{self, ErrorCode, RouterBuilderLike, Type};
+use rspc::{self, ErrorCode, RouterBuilderLike};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -49,7 +50,7 @@ pub struct ExplorerData {
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
 
-pub(crate) fn mount() -> impl RouterBuilderLike<Ctx> {
+pub(crate) fn mount() -> impl RouterBuilderLike<Ctx, Meta = ()> {
 	<RouterBuilder>::new()
 		.library_query("list", |t| {
 			t(|_, _: (), library| async move {

@@ -1,10 +1,10 @@
 use crate::api::{CoreEvent, Router, RouterBuilder};
 
 use async_stream::stream;
-use rspc::{internal::specta::DataType, Type};
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
+use specta::{DataType, Type};
 use std::{
 	collections::HashMap,
 	sync::{

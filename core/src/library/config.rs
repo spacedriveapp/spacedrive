@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, path::PathBuf};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 use crate::{migrations, util::migrator::FileMigrator};

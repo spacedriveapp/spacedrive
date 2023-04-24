@@ -31,6 +31,9 @@
 use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
 #[derive(Clone)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
 pub struct Protected<T>
 where
 	T: Zeroize,
@@ -95,43 +98,5 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str("[REDACTED]")
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T> serde::Deserialize<'de> for Protected<T>
-where
-	T: serde::Deserialize<'de> + Zeroize,
-{
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		Ok(Self::new(T::deserialize(deserializer)?))
-	}
-}
-
-#[cfg(feature = "rspc")]
-use rspc::internal::specta;
-
-#[cfg(feature = "rspc")]
-impl<T> specta::Type for Protected<T>
-where
-	T: specta::Type + Zeroize,
-{
-	const NAME: &'static str = T::NAME;
-	const SID: specta::TypeSid = specta::sid!();
-	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
-
-	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
-		T::inline(opts, generics)
-	}
-
-	fn reference(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
-		T::reference(opts, generics)
-	}
-
-	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
-		T::definition(opts)
 	}
 }

@@ -114,11 +114,11 @@ impl PrismaGenerator for SDSyncGenerator {
 
                         let typ = match field {
                             dml::Field::ScalarField(_) => {
-                                field.type_tokens(quote!(self))
+                                field.type_tokens(&quote!(self))
                             },
                             dml::Field::RelationField(relation)=> {
                                 let relation_model_name_snake = snake_ident(&relation.relation_info.referenced_model);
-                                quote!(super::#relation_model_name_snake::SyncId)
+                                Some(quote!(super::#relation_model_name_snake::SyncId))
                             },
                             _ => return None
                         };

@@ -1,8 +1,8 @@
 use crate::{prisma::node, NodeError};
 
 use chrono::{DateTime, Utc};
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 mod config;

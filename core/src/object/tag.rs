@@ -1,6 +1,6 @@
 use prisma_client_rust::QueryError;
-use rspc::Type;
 use serde::Deserialize;
+use specta::Type;
 
 use uuid::Uuid;
 
