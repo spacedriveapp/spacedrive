@@ -119,13 +119,7 @@ model Location {
 
 /// @shared(id: pub_id)
 model FilePath {
-    id Int @id @default(autoincrement())
-
-    /// @rust(
-    /// 	type: Uuid, 
-    /// 	serialize: |v| v.as_bytes().to_vec(), 
-    /// 	deserialize: |v| Uuid::parse(v).unwrap()
-    /// )
+    id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
 
     is_dir Boolean @default(false)
