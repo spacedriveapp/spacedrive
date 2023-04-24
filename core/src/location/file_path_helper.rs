@@ -28,6 +28,7 @@ file_path::select!(file_path_just_id_materialized_path {
 	materialized_path
 });
 file_path::select!(file_path_for_file_identifier {
+	id
 	pub_id
 	materialized_path
 	date_created

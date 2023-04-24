@@ -331,7 +331,7 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut Uuid,
+	cursor: &mut i32,
 	report: &mut FileIdentifierReport,
 	ctx: WorkerContext,
 ) -> Result<(), JobError> {
@@ -360,7 +360,7 @@ async fn process_identifier_file_paths(
 
 	// set the step data cursor to the last row of this chunk
 	if let Some(last_row) = file_paths.last() {
-		*cursor = Uuid::from_slice(&last_row.pub_id).unwrap();
+		*cursor = last_row.id;
 	}
 
 	ctx.progress(vec![

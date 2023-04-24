@@ -8,7 +8,7 @@ use crate::{
 		file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
 	},
 	prisma::{file_path, location, PrismaClient},
-	util::db::uuid_to_bytes,
+	util::db::{chain_optional_iter, uuid_to_bytes},
 };
 
 use std::{
@@ -16,6 +16,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
@@ -46,7 +47,7 @@ impl Hash for ShallowFileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct ShallowFileIdentifierJobState {
-	cursor: Uuid,
+	cursor: i32,
 	report: FileIdentifierReport,
 	sub_path_id: Uuid,
 }
@@ -112,7 +113,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
-			cursor: Uuid::nil(),
+			cursor: 0,
 			sub_path_id,
 		});
 
@@ -136,15 +137,15 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 		let first_path = db
 			.file_path()
-			.find_first(orphan_path_filters(location_id, sub_path_id))
+			.find_first(orphan_path_filters(location_id, None, sub_path_id))
 			// .order_by(file_path::id::order(Direction::Asc))
-			.select(file_path::select!({ pub_id }))
+			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
 
 		// SAFETY: We just initialized `state.data` above
-		state.data.as_mut().unwrap().cursor = Uuid::from_slice(&first_path.pub_id).unwrap();
+		state.data.as_mut().unwrap().cursor = first_path.id;
 
 		state.steps = (0..task_count).map(|_| ()).collect();
 
@@ -202,22 +203,18 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 fn orphan_path_filters(
 	location_id: i32,
-	// file_path_id: Option<i32>,
+	file_path_id: Option<i32>,
 	sub_path_id: Uuid,
 ) -> Vec<file_path::WhereParam> {
-	let params = vec![
-		file_path::object_id::equals(None),
-		file_path::is_dir::equals(false),
-		file_path::location_id::equals(location_id),
-		file_path::parent_id::equals(Some(uuid_to_bytes(sub_path_id))),
-	];
-	// TODO: Can we do without this?
-	// this is a workaround for the cursor not working properly
-	// if let Some(file_path_id) = file_path_id {
-	// 	params.push(file_path::id::gte(file_path_id));
-	// }
-
-	params
+	chain_optional_iter(
+		[
+			file_path::object_id::equals(None),
+			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
+			file_path::parent_id::equals(Some(uuid_to_bytes(sub_path_id))),
+		],
+		[file_path_id.map(file_path::id::gte)],
+	)
 }
 
 async fn count_orphan_file_paths(
@@ -226,7 +223,7 @@ async fn count_orphan_file_paths(
 	sub_path_id: Uuid,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
-		.count(orphan_path_filters(location_id, sub_path_id))
+		.count(orphan_path_filters(location_id, None, sub_path_id))
 		.exec()
 		.await
 		.map(|c| c as usize)
@@ -235,7 +232,7 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	cursor: Uuid,
+	cursor: i32,
 	sub_path_id: Uuid,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
@@ -243,8 +240,8 @@ async fn get_orphan_file_paths(
 		CHUNK_SIZE, cursor
 	);
 	db.file_path()
-		.find_many(orphan_path_filters(location_id, sub_path_id))
-		// .order_by(file_path::id::order(Direction::Asc))
+		.find_many(orphan_path_filters(location_id, Some(cursor), sub_path_id))
+		.order_by(file_path::id::order(Direction::Asc))
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)
