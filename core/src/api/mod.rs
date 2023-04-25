@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use prisma_client_rust::{operator::or, Direction};
-use rspc::{Config, Type};
+use rspc::Config;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
 use crate::{
@@ -215,16 +216,16 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(items)
 			})
 		})
-		.yolo_merge("library.", libraries::mount())
-		.yolo_merge("volumes.", volumes::mount())
-		.yolo_merge("tags.", tags::mount())
-		.yolo_merge("keys.", keys::mount())
-		.yolo_merge("locations.", locations::mount())
-		.yolo_merge("files.", files::mount())
-		.yolo_merge("jobs.", jobs::mount())
-		.yolo_merge("p2p.", p2p::mount())
-		.yolo_merge("sync.", sync::mount())
-		.yolo_merge("invalidation.", utils::mount_invalidate())
+		.merge("library.", libraries::mount())
+		.merge("volumes.", volumes::mount())
+		.merge("tags.", tags::mount())
+		.merge("keys.", keys::mount())
+		.merge("locations.", locations::mount())
+		.merge("files.", files::mount())
+		.merge("jobs.", jobs::mount())
+		.merge("p2p.", p2p::mount())
+		.merge("sync.", sync::mount())
+		.merge("invalidation.", utils::mount_invalidate())
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.

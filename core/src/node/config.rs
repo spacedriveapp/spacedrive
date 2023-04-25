@@ -1,6 +1,6 @@
-use rspc::Type;
 use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{
 	marker::PhantomData,
 	path::{Path, PathBuf},

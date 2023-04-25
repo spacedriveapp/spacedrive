@@ -1,15 +1,19 @@
-use futures::future::join_all;
+use futures::{future::join_all, StreamExt};
+use futures_channel::mpsc;
 use once_cell::sync::{Lazy, OnceCell};
-use rspc::internal::jsonrpc::*;
+use rspc::internal::jsonrpc::{self, *};
 use sd_core::{api::Router, Node};
 use serde_json::{from_str, from_value, to_string, Value};
-use std::{collections::HashMap, marker::Send, sync::Arc};
+use std::{
+	borrow::Cow,
+	collections::HashMap,
+	future::{ready, Ready},
+	marker::Send,
+	sync::Arc,
+};
 use tokio::{
 	runtime::Runtime,
-	sync::{
-		mpsc::{unbounded_channel, UnboundedSender},
-		oneshot, Mutex,
-	},
+	sync::{oneshot, Mutex},
 };
 use tracing::error;
 
@@ -19,10 +23,38 @@ pub type NodeType = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
 
 pub static NODE: NodeType = Lazy::new(|| Mutex::new(None));
 
-pub static SUBSCRIPTIONS: Lazy<Mutex<HashMap<RequestId, oneshot::Sender<()>>>> =
+#[allow(clippy::type_complexity)]
+pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>> =
 	Lazy::new(Default::default);
 
-pub static EVENT_SENDER: OnceCell<UnboundedSender<Response>> = OnceCell::new();
+pub static EVENT_SENDER: OnceCell<mpsc::Sender<Response>> = OnceCell::new();
+
+pub struct MobileSender<'a> {
+	resp: &'a mut Option<Response>,
+}
+
+impl<'a> Sender<'a> for MobileSender<'a> {
+	type SendFut = Ready<()>;
+	type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
+	type OwnedSender = OwnedMpscSender;
+
+	fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
+		SubscriptionUpgrade::Supported(
+			OwnedMpscSender::new(
+				EVENT_SENDER
+					.get()
+					.expect("Core was not started before making a request!")
+					.clone(),
+			),
+			SUBSCRIPTIONS.clone(),
+		)
+	}
+
+	fn send(self, resp: jsonrpc::Response) -> Self::SendFut {
+		*self.resp = Some(resp);
+		ready(())
+	}
+}
 
 pub fn handle_core_msg(
 	query: String,
@@ -59,22 +91,15 @@ pub fn handle_core_msg(
 			let node = node.clone();
 			let router = router.clone();
 			async move {
-				let mut channel = EVENT_SENDER.get().unwrap().clone();
-				let mut resp = Sender::ResponseAndChannel(None, &mut channel);
-
+				let mut resp = Option::<Response>::None;
 				handle_json_rpc(
 					node.clone(),
 					request,
-					&router,
-					&mut resp,
-					&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
+					Cow::Borrowed(&router),
+					MobileSender { resp: &mut resp },
 				)
 				.await;
-
-				match resp {
-					Sender::ResponseAndChannel(resp, _) => resp,
-					_ => unreachable!(),
-				}
+				resp
 			}
 		}))
 		.await;
@@ -87,11 +112,11 @@ pub fn handle_core_msg(
 }
 
 pub fn spawn_core_event_listener(callback: impl Fn(String) + Send + 'static) {
-	let (tx, mut rx) = unbounded_channel();
+	let (tx, mut rx) = mpsc::channel(100);
 	let _ = EVENT_SENDER.set(tx);
 
 	RUNTIME.spawn(async move {
-		while let Some(event) = rx.recv().await {
+		while let Some(event) = rx.next().await {
 			let data = match to_string(&event) {
 				Ok(json) => json,
 				Err(err) => {

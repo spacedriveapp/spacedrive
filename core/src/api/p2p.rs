@@ -1,6 +1,6 @@
-use rspc::Type;
 use sd_p2p::PeerId;
 use serde::Deserialize;
+use specta::Type;
 use std::path::PathBuf;
 
 use crate::p2p::P2PEvent;

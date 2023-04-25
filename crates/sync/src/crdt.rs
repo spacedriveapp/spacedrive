@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
 

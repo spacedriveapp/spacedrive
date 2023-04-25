@@ -1,8 +1,8 @@
 use crate::{library::Library, prisma::volume::*};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
+use specta::Type;
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
