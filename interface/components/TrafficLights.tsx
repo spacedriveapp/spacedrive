@@ -16,7 +16,10 @@ export function MacTrafficLights(props: TrafficLightsProps) {
 	const [focused] = useFocusState();
 
 	return (
-		<div data-tauri-drag-region className={clsx('group flex flex-row space-x-[7.5px]', className)}>
+		<div
+			data-tauri-drag-region
+			className={clsx('group flex flex-row space-x-[7.5px]', className)}
+		>
 			<TrafficLight type="close" onClick={onClose} colorful={focused ?? false} />
 			<TrafficLight type="minimize" onClick={onMinimize} colorful={focused ?? false} />
 			<TrafficLight type="fullscreen" onClick={onFullscreen} colorful={focused ?? false} />

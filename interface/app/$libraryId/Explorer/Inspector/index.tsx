@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
 	ExplorerContext,
 	ExplorerItem,
@@ -11,6 +11,8 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
 import { getItemFilePath, getItemObject } from '../util';
@@ -31,7 +33,7 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends ComponentProps<'div'> {
+interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
 }
@@ -39,6 +41,7 @@ interface Props extends ComponentProps<'div'> {
 export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
+	const explorerStore = useExplorerStore();
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -68,17 +71,20 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll z-10 mt-[-50px] h-screen w-full overflow-x-hidden pt-[55px] pl-1.5 pr-1 pb-4"
+			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pl-1.5 pr-1 pb-4"
+			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
 		>
 			{data && (
 				<>
-					<div
-						className={clsx(
-							'mb-[10px] flex h-52 w-full items-center justify-center overflow-hidden'
-						)}
-					>
-						<FileThumb loadOriginal size={240} data={data} />
-					</div>
+					{explorerStore.layoutMode !== 'media' && (
+						<div
+							className={clsx(
+								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
+							)}
+						>
+							<FileThumb loadOriginal size={240} data={data} />
+						</div>
+					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
 						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
 							{filePathData?.name}
@@ -112,10 +118,18 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+								<InfoPill>
+									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+								</InfoPill>
+								{filePathData?.extension && (
+									<InfoPill>{filePathData.extension}</InfoPill>
+								)}
 								{tags?.data?.map((tag) => (
-									<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
+									<Tooltip
+										key={tag.id}
+										label={tag.name || ''}
+										className="flex overflow-hidden"
+									>
 										<InfoPill
 											className="truncate !text-white"
 											style={{ backgroundColor: tag.color + 'CC' }}
@@ -141,13 +155,17 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 							<MetaTextLine>
 								<InspectorIcon component={Cube} />
 								<span className="mr-1.5">Size</span>
-								<MetaValue>{formatBytes(Number(filePathData?.size_in_bytes || 0))}</MetaValue>
+								<MetaValue>
+									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+								</MetaValue>
 							</MetaTextLine>
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+									<MetaValue>
+										{fullObjectData.data.media_data.duration_seconds}
+									</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -157,14 +175,18 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>{dayjs(item?.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(item?.date_created).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
 								<MetaTextLine>
 									<InspectorIcon component={Barcode} />
 									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 						</MetaContainer>
@@ -185,8 +207,12 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+												<MetaKeyName className="mr-1.5">
+													Checksum
+												</MetaKeyName>
+												<MetaValue>
+													{filePathData?.integrity_checksum}
+												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}
@@ -194,7 +220,9 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 										<Tooltip label={pub_id || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaKeyName className="mr-1.5">
+													Object ID
+												</MetaKeyName>
 												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>

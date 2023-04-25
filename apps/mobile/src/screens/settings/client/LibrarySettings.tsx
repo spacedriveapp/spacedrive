@@ -50,15 +50,15 @@ function LibraryItem({
 		<Swipeable
 			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'border-app-line bg-app-overlay rounded-lg border px-4 py-3'
+				'rounded-lg border border-app-line bg-app-overlay px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`text-ink font-semibold`}>{library.config.name}</Text>
-					<Text style={tw`text-ink-dull mt-0.5 text-xs`}>{library.uuid}</Text>
+					<Text style={tw`font-semibold text-ink`}>{library.config.name}</Text>
+					<Text style={tw`mt-0.5 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>

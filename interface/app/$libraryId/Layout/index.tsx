@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense } from 'react';
+import { Suspense, useRef } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -22,6 +22,7 @@ const Layout = () => {
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
+
 	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
 
 	if (library === null && libraries.data) {
@@ -47,19 +48,21 @@ const Layout = () => {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full">
+			<div className="relative flex w-full overflow-hidden bg-app">
 				{library ? (
 					<LibraryContextProvider library={library}>
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
 							<Outlet />
 						</Suspense>
+						<QuickPreview libraryUuid={library.uuid} />
 					</LibraryContextProvider>
 				) : (
-					<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
+					<h1 className="p-4 text-white">
+						Please select or create a library in the sidebar.
+					</h1>
 				)}
 			</div>
 			<Toasts />
-			<QuickPreview libraryUuid={library!.uuid} />
 		</div>
 	);
 };

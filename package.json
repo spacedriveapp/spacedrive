@@ -19,10 +19,10 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "turbo run typecheck",
+		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "rimraf node_modules/ **/node_modules/ target/ **/.build/ **/.next/ **/dist/**"
+		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/dist/!(.gitignore)**\""
 	},
 	"pnpm": {
 		"overrides": {
@@ -35,11 +35,10 @@
 		"@cspell/dict-typescript": "^2.0.2",
 		"@trivago/prettier-plugin-sort-imports": "^4.1.1",
 		"cspell": "^6.12.0",
-		"markdown-link-check": "^3.10.3",
 		"prettier": "^2.8.7",
 		"prettier-plugin-tailwindcss": "^0.2.6",
-		"rimraf": "^4.1.1",
-		"turbo": "^1.5.5",
+		"rimraf": "^4.3",
+		"turbo": "^1.9.3",
 		"turbo-ignore": "^0.3.0",
 		"typescript": "^4.9.4"
 	},
@@ -52,5 +51,6 @@
 		"npm": "pnpm",
 		"yarn": "pnpm",
 		"node": ">=18.0.0"
-	}
+	},
+	"eslintConfig": {}
 }

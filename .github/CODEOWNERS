@@ -22,7 +22,7 @@
 /apps/mobile/ @spacedriveapp/mobile
 
 # core logic
-/core/ @jamiepine @Brendonovich @oscartbeaumont @fogodev
+/core/ @jamiepine @Brendonovich @oscartbeaumont @fogodev @brxken128
 /packages/macos/ @jamiepine @Brendonovich @oscartbeaumont
 
 # server app

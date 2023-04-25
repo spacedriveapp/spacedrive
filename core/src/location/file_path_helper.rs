@@ -1,4 +1,3 @@
-use crate::location::Library;
 use crate::prisma::{file_path, location, PrismaClient};
 
 use std::{
@@ -6,13 +5,14 @@ use std::{
 	fmt::{Display, Formatter},
 	fs::Metadata,
 	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+	time::SystemTime,
 };
 
+use chrono::{DateTime, Utc};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
 use prisma_client_rust::{Direction, QueryError};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
@@ -46,6 +46,15 @@ file_path::select!(file_path_just_materialized_path_cas_id {
 
 // File Path includes!
 file_path::include!(file_path_with_object { object });
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct FilePathMetadata {
+	pub inode: u64,
+	pub device: u64,
+	pub size_in_bytes: u64,
+	pub created_at: DateTime<Utc>,
+	pub modified_at: DateTime<Utc>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MaterializedPath<'a> {
@@ -308,7 +317,7 @@ impl LastFilePathIdManager {
 	#[cfg(feature = "location-watcher")]
 	pub async fn create_file_path(
 		&self,
-		Library { db, sync, .. }: &Library,
+		crate::location::Library { db, sync, .. }: &crate::location::Library,
 		MaterializedPath {
 			materialized_path,
 			is_dir,
@@ -318,12 +327,12 @@ impl LastFilePathIdManager {
 		}: MaterializedPath<'_>,
 		parent_id: Option<i32>,
 		cas_id: Option<String>,
-		inode: u64,
-		device: u64,
+		metadata: FilePathMetadata,
 	) -> Result<file_path::Data, FilePathError> {
 		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 
-		use crate::sync;
+		use crate::{sync, util};
+		use serde_json::json;
 
 		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
 			Entry::Occupied(ocupied) => ocupied.into_ref(),
@@ -343,30 +352,31 @@ impl LastFilePathIdManager {
 
 		let next_id = *last_id_ref + 1;
 
-		let params = [
-			("cas_id", json!(cas_id)),
-			("materialized_path", json!(materialized_path)),
-			("name", json!(name)),
-			("extension", json!(extension)),
-			("inode", json!(inode.to_le_bytes())),
-			("device", json!(device.to_le_bytes())),
-			("is_dir", json!(is_dir)),
-		]
-		.into_iter()
-		.map(Some)
-		.chain([parent_id.map(|parent_id| {
-			(
-				"parent_id",
-				json!(sync::file_path::SyncId {
-					location: sync::location::SyncId {
-						pub_id: location.pub_id.clone()
-					},
-					id: parent_id
-				}),
-			)
-		})])
-		.flatten()
-		.collect::<Vec<_>>();
+		let params = util::db::chain_optional_iter(
+			[
+				("cas_id", json!(cas_id)),
+				("materialized_path", json!(materialized_path)),
+				("name", json!(name)),
+				("extension", json!(extension)),
+				("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
+				("inode", json!(metadata.inode.to_le_bytes())),
+				("device", json!(metadata.device.to_le_bytes())),
+				("is_dir", json!(is_dir)),
+				("date_created", json!(metadata.created_at)),
+				("date_modified", json!(metadata.modified_at)),
+			],
+			[parent_id.map(|parent_id| {
+				(
+					"parent_id",
+					json!(sync::file_path::SyncId {
+						location: sync::location::SyncId {
+							pub_id: location.pub_id.clone()
+						},
+						id: parent_id
+					}),
+				)
+			})],
+		);
 
 		let created_path = sync
 			.write_op(
@@ -386,12 +396,15 @@ impl LastFilePathIdManager {
 					materialized_path.into_owned(),
 					name.into_owned(),
 					extension.into_owned(),
-					inode.to_le_bytes().into(),
-					device.to_le_bytes().into(),
+					metadata.inode.to_le_bytes().into(),
+					metadata.device.to_le_bytes().into(),
 					vec![
 						file_path::cas_id::set(cas_id),
 						file_path::parent_id::set(parent_id),
 						file_path::is_dir::set(is_dir),
+						file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
+						file_path::date_created::set(metadata.created_at.into()),
+						file_path::date_modified::set(metadata.modified_at.into()),
 					],
 				),
 			)
@@ -498,6 +511,7 @@ pub fn filter_existing_file_path_params(
 /// With this function we try to do a loose filtering of file paths, to avoid having to do check
 /// twice for directories and for files. This is because directories have a trailing `/` or `\` in
 /// the materialized path
+#[allow(unused)]
 pub fn loose_find_existing_file_path_params(
 	MaterializedPath {
 		materialized_path,
@@ -709,5 +723,21 @@ pub async fn get_inode_and_device_from_path(
 		let info = information(&Handle::from_path_any(path.as_ref())?)?;
 
 		Ok((info.file_index(), info.volume_serial_number()))
+	}
+}
+
+pub trait MetadataExt {
+	fn created_or_now(&self) -> SystemTime;
+
+	fn modified_or_now(&self) -> SystemTime;
+}
+
+impl MetadataExt for Metadata {
+	fn created_or_now(&self) -> SystemTime {
+		self.created().unwrap_or_else(|_| SystemTime::now())
+	}
+
+	fn modified_or_now(&self) -> SystemTime {
+		self.modified().unwrap_or_else(|_| SystemTime::now())
 	}
 }

@@ -184,10 +184,17 @@ elif [[ $OSTYPE == "darwin"* ]]; then
 
 	echo "Installing Homebrew dependencies..."
 
-	BREW_DEPS="ffmpeg"
 	BREW_LIBP2P_DEPS="protobuf"
 
-	brew install -q $BREW_DEPS $BREW_LIBP2P_DEPS
+	brew install -q $BREW_LIBP2P_DEPS
+
+	if ! brew tap homebrew-ffmpeg/ffmpeg; then
+		log_err "We were unable to add the homebrew-ffmpeg tap. Please ensure that you have ran `brew uninstall ffmpeg` and try again."
+	fi
+
+	if ! brew install homebrew-ffmpeg/ffmpeg/ffmpeg; then
+		log_err "We were unable to install the homebrew-ffmpeg/ffmpeg package. Please ensure that you have ran `brew uninstall ffmpeg` and try again."
+	fi
 else
 	log_err "Your OS ($OSTYPE) is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
 	exit 1

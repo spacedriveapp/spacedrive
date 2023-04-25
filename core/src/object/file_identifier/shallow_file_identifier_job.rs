@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -21,8 +23,6 @@ use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
 	FileIdentifierReport, FilePathIdAndLocationIdCursor, CHUNK_SIZE,
 };
-
-pub const SHALLOW_FILE_IDENTIFIER_JOB_NAME: &str = "shallow_file_identifier";
 
 pub struct ShallowFileIdentifierJob {}
 
@@ -50,14 +50,21 @@ pub struct ShallowFileIdentifierJobState {
 	sub_path_id: i32,
 }
 
+impl JobInitData for ShallowFileIdentifierJobInit {
+	type Job = ShallowFileIdentifierJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ShallowFileIdentifierJob {
 	type Init = ShallowFileIdentifierJobInit;
 	type Data = ShallowFileIdentifierJobState;
 	type Step = ();
 
-	fn name(&self) -> &'static str {
-		SHALLOW_FILE_IDENTIFIER_JOB_NAME
+	const NAME: &'static str = "shallow_file_identifier";
+	const IS_BACKGROUND: bool = true;
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -113,7 +120,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
-				name: self.name().to_string(),
+				name: <Self as StatefulJob>::NAME.to_string(),
 				reason: "Found no orphan file paths to process".to_string(),
 			});
 		}
@@ -167,7 +174,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let file_paths = get_orphan_file_paths(&ctx.library.db, cursor, *sub_path_id).await?;
 
 		process_identifier_file_paths(
-			self.name(),
+			<Self as StatefulJob>::NAME,
 			location,
 			&file_paths,
 			state.step_number,

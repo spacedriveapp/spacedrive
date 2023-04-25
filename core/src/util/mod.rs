@@ -1,3 +1,5 @@
 pub mod db;
-pub mod secure_temp_keystore;
+#[cfg(debug_assertions)]
+pub mod debug_initializer;
+pub mod migrator;
 pub mod seeder;

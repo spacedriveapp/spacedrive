@@ -1,15 +1,13 @@
-import { ErrorMessage } from '@hookform/error-message';
-import { RSPCError } from '@rspc/client';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Dialog, RadixCheckbox, UseDialogProps, useDialog } from '@sd/ui';
-import { Input, useZodForm, z } from '@sd/ui/src/forms';
+import { extractInfoRSPCError, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { Platform, usePlatform } from '~/util/Platform';
+import { IndexerRuleEditor } from './IndexerRuleEditor';
 
-const schema = z.object({ path: z.string(), indexer_rules_ids: z.array(z.number()) });
+const schema = z.object({ path: z.string(), indexerRulesIds: z.array(z.number()) });
 
 interface Props extends UseDialogProps {
 	path: string;
@@ -40,26 +38,31 @@ export const openDirectoryPickerDialog = async (platform: Platform): Promise<nul
 	return path;
 };
 
-export const AddLocationDialog = (props: Props) => {
-	const dialog = useDialog(props);
+export const AddLocationDialog = ({ path, ...dialogProps }: Props) => {
+	const dialog = useDialog(dialogProps);
 	const platform = usePlatform();
-	const queryClient = useQueryClient();
+	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
-	const indexerRulesList = useLibraryQuery(['locations.indexer_rules.list']);
+	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const [remoteError, setRemoteError] = useState<null | RemoteErrorFormMessage>(null);
 
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			path: props.path,
-			indexer_rules_ids: []
-		}
-	});
+	// This is required because indexRules is undefined on first render
+	const indexerRulesIds = useMemo(
+		() => listIndexerRules.data?.filter((rule) => rule.default).map((rule) => rule.id) ?? [],
+		[listIndexerRules.data]
+	);
+
+	const form = useZodForm({ schema, defaultValues: { path, indexerRulesIds } });
 
 	useEffect(() => {
-		// Clear custom remote error when user performs any change on the form
+		// Update form values when default value changes and the user hasn't made any changes
+		if (!form.formState.isDirty) form.reset({ path, indexerRulesIds });
+	}, [form, path, indexerRulesIds]);
+
+	useEffect(() => {
+		// TODO: Instead of clearing the error on every change, the backend should suport a way to validate without committing
 		const subscription = form.watch(() => {
 			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 			setRemoteError(null);
@@ -67,10 +70,10 @@ export const AddLocationDialog = (props: Props) => {
 		return () => subscription.unsubscribe();
 	}, [form]);
 
-	const onLocationSubmit = form.handleSubmit(async ({ path, indexer_rules_ids }) => {
+	const onLocationSubmit = form.handleSubmit(async ({ path, indexerRulesIds }) => {
 		switch (remoteError) {
 			case null:
-				await createLocation.mutateAsync({ path, indexer_rules_ids });
+				await createLocation.mutateAsync({ path, indexer_rules_ids: indexerRulesIds });
 				break;
 			case 'NEED_RELINK':
 				await relinkLocation.mutateAsync(path);
@@ -85,40 +88,37 @@ export const AddLocationDialog = (props: Props) => {
 				// });
 				break;
 			case 'ADD_LIBRARY':
-				await addLocationToLibrary.mutateAsync({ path, indexer_rules_ids });
+				await addLocationToLibrary.mutateAsync({
+					path,
+					indexer_rules_ids: indexerRulesIds
+				});
 				break;
 			default:
 				throw new Error('Unimplemented custom remote error handling');
 		}
 	});
 
-	const onLocationSubmitError = async (error: Error) => {
-		if ('cause' in error && error.cause instanceof RSPCError) {
-			// TODO: error.code property is not yet implemented in RSPCError
-			// https://github.com/oscartbeaumont/rspc/blob/60a4fa93187c20bc5cb565cc6ee30b2f0903840e/packages/client/src/interop/error.ts#L59
-			// So we grab it from the shape for now
-			const { code } = error.cause.shape;
-			if (code !== 500) {
-				let { message } = error;
+	const onLocationSubmitError = (error: Error) => {
+		const rspcErrorInfo = extractInfoRSPCError(error);
+		if (rspcErrorInfo && rspcErrorInfo.code !== 500) {
+			let { message } = rspcErrorInfo;
+			if (rspcErrorInfo.code == 409 && isRemoteErrorFormMessage(message)) {
+				setRemoteError(message);
+				message = REMOTE_ERROR_FORM_MESSAGES[message];
 
-				if (code == 409 && isRemoteErrorFormMessage(message)) {
-					setRemoteError(message);
-					message = REMOTE_ERROR_FORM_MESSAGES[message];
-
-					/**
-					 * TODO: On NEED_RELINK, we should query the backend for
-					 * the current location indexer_rules_ids, then update the checkboxes
-					 * accordingly. However we don't have the location id at this point.
-					 * Maybe backend could return the location id in the error?
-					 */
-				}
-
-				form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
-				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
-
-				// Throw error to prevent dialog from closing
-				throw error;
+				/**
+				 * TODO: On NEED_RELINK, we should query the backend for
+				 * the current location indexer_rules_ids, then update the checkboxes
+				 * accordingly. However we don't have the location id at this point.
+				 * Maybe backend could return the location id in the error?
+				 */
 			}
+
+			form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
+			form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+
+			// Throw error to prevent dialog from closing
+			throw error;
 		}
 
 		showAlertDialog({
@@ -137,10 +137,9 @@ export const AddLocationDialog = (props: Props) => {
 					: ''
 			}
 			onSubmit={(event) =>
-				onLocationSubmit(event).then(
-					() => queryClient.invalidateQueries(['library.list']),
-					onLocationSubmitError
-				)
+				onLocationSubmit(event).then(async () => {
+					await listLocations.refetch();
+				}, onLocationSubmitError)
 			}
 			ctaLabel="Add"
 		>
@@ -160,40 +159,16 @@ export const AddLocationDialog = (props: Props) => {
 
 			<div className="relative flex flex-col">
 				<p className="my-2 text-sm font-bold">File indexing rules:</p>
-				<div className="grid w-full grid-cols-2 gap-4 text-xs font-medium">
+				<div className="w-full text-xs font-medium">
 					<Controller
-						name="indexer_rules_ids"
+						name="indexerRulesIds"
+						render={({ field }) => <IndexerRuleEditor field={field} />}
 						control={form.control}
-						render={({ field }) => (
-							<>
-								{indexerRulesList.data?.map((rule) => (
-									<RadixCheckbox
-										key={rule.id}
-										label={rule.name}
-										checked={field.value.includes(rule.id)}
-										onCheckedChange={(checked) =>
-											field.onChange(
-												checked && checked !== 'indeterminate'
-													? [...field.value, rule.id]
-													: field.value.filter((fieldValue) => fieldValue !== rule.id)
-											)
-										}
-									/>
-								))}
-							</>
-						)}
 					/>
 				</div>
 			</div>
 
-			<ErrorMessage
-				name={REMOTE_ERROR_FORM_FIELD}
-				render={({ message }) => (
-					<span className="mt-5 inline-block w-full whitespace-pre-wrap text-center text-sm font-semibold text-red-500">
-						{message}
-					</span>
-				)}
-			/>
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-3" />
 		</Dialog>
 	);
 };

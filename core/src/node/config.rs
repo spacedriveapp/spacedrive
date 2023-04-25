@@ -1,40 +1,31 @@
-use rspc::Type;
 use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{
-	fs::File,
-	io::{self, BufReader, Seek, Write},
+	marker::PhantomData,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
 use uuid::Uuid;
+
+use crate::{
+	migrations,
+	util::migrator::{FileMigrator, MigratorError},
+};
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
-/// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
-/// This allows us to migrate breaking changes to the config format between Spacedrive releases.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-pub struct ConfigMetadata {
-	/// version of Spacedrive. Determined from `CARGO_PKG_VERSION` environment variable.
-	pub version: Option<String>,
-}
-
-impl Default for ConfigMetadata {
-	fn default() -> Self {
-		Self {
-			version: Some(env!("CARGO_PKG_VERSION").into()),
-		}
-	}
-}
+const MIGRATOR: FileMigrator<NodeConfig> = FileMigrator {
+	current_version: migrations::NODE_VERSION,
+	migration_fn: migrations::migration_node,
+	phantom: PhantomData,
+};
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NodeConfig {
-	#[serde(flatten)]
-	pub metadata: ConfigMetadata,
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
@@ -42,7 +33,6 @@ pub struct NodeConfig {
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
-	#[serde(default = "default_keypair")]
 	#[specta(skip)]
 	pub keypair: Keypair,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
@@ -50,22 +40,7 @@ pub struct NodeConfig {
 	pub p2p_img_url: Option<String>,
 }
 
-// TODO: Probs remove this in future. It's just to prevent breaking changes.
-fn default_keypair() -> Keypair {
-	Keypair::generate()
-}
-
-#[derive(Error, Debug)]
-pub enum NodeConfigError {
-	#[error("error saving or loading the config from the filesystem")]
-	IO(#[from] io::Error),
-	#[error("error serializing or deserializing the JSON in the config file")]
-	Json(#[from] serde_json::Error),
-	#[error("error migrating the config file")]
-	Migration(String),
-}
-
-impl NodeConfig {
+impl Default for NodeConfig {
 	fn default() -> Self {
 		NodeConfig {
 			id: Uuid::new_v4(),
@@ -78,9 +53,6 @@ impl NodeConfig {
 				}
 			},
 			p2p_port: None,
-			metadata: ConfigMetadata {
-				version: Some(env!("CARGO_PKG_VERSION").into()),
-			},
 			keypair: Keypair::generate(),
 			p2p_email: None,
 			p2p_img_url: None,
@@ -92,11 +64,15 @@ pub struct NodeConfigManager(RwLock<NodeConfig>, PathBuf);
 
 impl NodeConfigManager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
-	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, NodeConfigError> {
+	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(
-			RwLock::new(Self::read(&data_path).await?),
+			RwLock::new(MIGRATOR.load(&Self::path(&data_path))?),
 			data_path,
 		)))
+	}
+
+	fn path(base_path: &Path) -> PathBuf {
+		base_path.join(NODE_STATE_CONFIG_NAME)
 	}
 
 	/// get will return the current NodeConfig in a read only state.
@@ -114,53 +90,16 @@ impl NodeConfigManager {
 	pub(crate) async fn write<F: FnOnce(RwLockWriteGuard<NodeConfig>)>(
 		&self,
 		mutation_fn: F,
-	) -> Result<NodeConfig, NodeConfigError> {
+	) -> Result<NodeConfig, MigratorError> {
 		mutation_fn(self.0.write().await);
 		let config = self.0.read().await;
-		Self::save(&self.1, &config).await?;
+		Self::save(&self.1, &config)?;
 		Ok(config.clone())
 	}
 
-	/// read will read the configuration from disk and return it.
-	async fn read(base_path: &PathBuf) -> Result<NodeConfig, NodeConfigError> {
-		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
-
-		match path.try_exists().unwrap() {
-			true => {
-				let mut file = File::open(&path)?;
-				let base_config: ConfigMetadata =
-					serde_json::from_reader(BufReader::new(&mut file))?;
-
-				Self::migrate_config(base_config.version, path)?;
-
-				file.rewind()?;
-				Ok(serde_json::from_reader(BufReader::new(&mut file))?)
-			}
-			false => {
-				let config = NodeConfig::default();
-				Self::save(base_path, &config).await?;
-				Ok(config)
-			}
-		}
-	}
-
 	/// save will write the configuration back to disk
-	async fn save(base_path: &PathBuf, config: &NodeConfig) -> Result<(), NodeConfigError> {
-		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
-		File::create(path)?.write_all(serde_json::to_string(config)?.as_bytes())?;
+	fn save(base_path: &Path, config: &NodeConfig) -> Result<(), MigratorError> {
+		MIGRATOR.save(&Self::path(base_path), config.clone())?;
 		Ok(())
-	}
-
-	/// migrate_config is a function used to apply breaking changes to the config file.
-	fn migrate_config(
-		current_version: Option<String>,
-		config_path: PathBuf,
-	) -> Result<(), NodeConfigError> {
-		match current_version {
-			None => {
-				Err(NodeConfigError::Migration(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
-			}
-			_ => Ok(()),
-		}
 	}
 }

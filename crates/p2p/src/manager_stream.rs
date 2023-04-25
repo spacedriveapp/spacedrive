@@ -1,4 +1,12 @@
-use std::{collections::VecDeque, fmt, net::SocketAddr, sync::Arc};
+use std::{
+	collections::VecDeque,
+	fmt,
+	net::SocketAddr,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+};
 
 use libp2p::{
 	futures::StreamExt,
@@ -9,12 +17,12 @@ use libp2p::{
 	Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	AsyncFn, Event, Manager, Mdns, Metadata, PeerId,
+	Event, Manager, Mdns, Metadata, PeerId,
 };
 
 /// TODO
@@ -32,6 +40,8 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 	StartStream(PeerId, oneshot::Sender<UnicastStream>),
 	/// TODO
 	BroadcastData(Vec<u8>),
+	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
+	Shutdown(oneshot::Sender<()>),
 }
 
 impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction<TMetadata> {
@@ -47,27 +57,30 @@ impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction<TMetada
 }
 
 /// TODO
-pub struct ManagerStream<TMetadata, TMetadataFn>
+pub struct ManagerStream<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Mdns<TMetadata, TMetadataFn>,
+	pub(crate) mdns: Mdns<TMetadata>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
+	pub(crate) shutdown: AtomicBool,
 }
 
-impl<TMetadata, TMetadataFn> ManagerStream<TMetadata, TMetadataFn>
+impl<TMetadata> ManagerStream<TMetadata>
 where
 	TMetadata: Metadata,
-	TMetadataFn: AsyncFn<Output = TMetadata>,
 {
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
 	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
+			if self.shutdown.load(Ordering::Relaxed) {
+				panic!("`ManagerStream::next` called after shutdown event. This is a mistake in your application code!");
+			}
+
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
@@ -81,14 +94,18 @@ where
 				},
 				event = self.event_stream_rx.recv() => {
 					// If the sender has shut down we return `None` to also shut down too.
-					if let Some(event) = self.handle_manager_stream_action(event?) {
+					if let Some(event) = self.handle_manager_stream_action(event?).await {
 						return Some(event);
 					}
 				}
 				event = self.swarm.select_next_some() => {
 					match event {
 						SwarmEvent::Behaviour(event) => {
-							if let Some(event) = self.handle_manager_stream_action(event) {
+							if let Some(event) = self.handle_manager_stream_action(event).await {
+								if let Event::Shutdown { .. } = event {
+									self.shutdown.store(true, Ordering::Relaxed);
+								}
+
 								return Some(event);
 							}
 						},
@@ -151,7 +168,7 @@ where
 		}
 	}
 
-	fn handle_manager_stream_action(
+	async fn handle_manager_stream_action(
 		&mut self,
 		event: ManagerStreamAction<TMetadata>,
 	) -> Option<Event<TMetadata>> {
@@ -206,6 +223,15 @@ where
 							event: OutboundRequest::Broadcast(data.clone()),
 						});
 				}
+			}
+			ManagerStreamAction::Shutdown(tx) => {
+				info!("Shutting down P2P Manager...");
+				self.mdns.shutdown().await;
+				tx.send(()).unwrap_or_else(|_| {
+					warn!("Error sending shutdown signal to P2P Manager!");
+				});
+
+				return Some(Event::Shutdown);
 			}
 		}
 

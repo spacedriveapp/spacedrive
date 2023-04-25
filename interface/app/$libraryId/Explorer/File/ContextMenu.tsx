@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Copy,
@@ -27,9 +28,10 @@ import EraseDialog from './EraseDialog';
 
 interface Props extends PropsWithChildren {
 	data: ExplorerItem;
+	className?: string;
 }
 
-export default ({ data, ...props }: Props) => {
+export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
 	const params = useExplorerParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
@@ -41,7 +43,7 @@ export default ({ data, ...props }: Props) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div className="relative">
+		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
 				<ContextMenu.Item label="Open" keybind="⌘O" />
 				<ContextMenu.Item
@@ -67,13 +69,18 @@ export default ({ data, ...props }: Props) => {
 
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Item label="Rename" keybind="Enter" />
+				<ContextMenu.Item
+					label="Rename"
+					keybind="Enter"
+					onClick={() => (getExplorerStore().isRenaming = true)}
+				/>
 
 				<ContextMenu.Item
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Cut',
@@ -88,6 +95,7 @@ export default ({ data, ...props }: Props) => {
 					keybind="⌘C"
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Copy',
@@ -155,7 +163,11 @@ export default ({ data, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked && hasMountedKeys) {
 								dialogManager.create((dp) => (
-									<EncryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<EncryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else if (!keyManagerUnlocked) {
 								showAlertDialog({
@@ -178,7 +190,11 @@ export default ({ data, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked) {
 								dialogManager.create((dp) => (
-									<DecryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<DecryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else {
 								showAlertDialog({

@@ -20,48 +20,44 @@ export default () => {
 	const { library } = useClientContext();
 
 	return (
-		<div className="flex flex-col pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out grow">
+		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
 			<div className="space-y-0.5">
 				<SidebarLink to="overview">
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				<SidebarLink to="spaces">
+				<SidebarLink disabled to="spaces">
 					<Icon component={CirclesFour} />
 					Spaces
 				</SidebarLink>
-				{/* <SidebarLink to="people">
-						<Icon component={UsersThree} />
-						People
-					</SidebarLink> */}
-				<SidebarLink to="media">
+				<SidebarLink disabled to="media">
 					<Icon component={MonitorPlay} />
 					Media
 				</SidebarLink>
-				<SidebarLink to="spacedrop">
+				<SidebarLink disabled to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
-				<SidebarLink to="imports">
+				<SidebarLink disabled to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink>
 			</div>
 			{library && <LibrarySection />}
 			<Section name="Tools" actionArea={<SubtleButton />}>
-				<SidebarLink to="duplicate-finder">
+				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
 					Duplicate Finder
 				</SidebarLink>
-				<SidebarLink to="lost-and-found">
+				<SidebarLink disabled to="lost-and-found">
 					<Icon component={Crosshair} />
 					Find a File
 				</SidebarLink>
-				<SidebarLink to="cache-cleaner">
+				<SidebarLink disabled to="cache-cleaner">
 					<Icon component={Eraser} />
 					Cache Cleaner
 				</SidebarLink>
-				<SidebarLink to="media-encoder">
+				<SidebarLink disabled to="media-encoder">
 					<Icon component={FilmStrip} />
 					Media Encoder
 				</SidebarLink>

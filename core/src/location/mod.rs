@@ -1,31 +1,31 @@
 use crate::{
 	invalidate_query,
-	job::Job,
+	job::{Job, JobManagerError},
 	library::Library,
 	object::{
 		file_identifier::{
-			file_identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-			shallow_file_identifier_job::{ShallowFileIdentifierJob, ShallowFileIdentifierJobInit},
+			file_identifier_job::FileIdentifierJobInit,
+			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
 		},
 		preview::{
-			shallow_thumbnailer_job::{ShallowThumbnailerJob, ShallowThumbnailerJobInit},
-			thumbnailer_job::{ThumbnailerJob, ThumbnailerJobInit},
+			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
 		},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, object},
+	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
 };
 
 use std::{
 	collections::HashSet,
-	ffi::OsStr,
-	path::{Path, PathBuf},
+	path::{Component, Path, PathBuf},
 };
 
+use futures::future::TryFutureExt;
+use normpath::PathExt;
 use prisma_client_rust::QueryError;
-use rspc::Type;
 use serde::Deserialize;
 use serde_json::json;
+use specta::Type;
 use tokio::{fs, io};
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -38,11 +38,7 @@ mod metadata;
 
 pub use error::LocationError;
 use file_path_helper::file_path_just_object_id;
-use indexer::{
-	indexer_job::IndexerJob,
-	shallow_indexer_job::{ShallowIndexerJob, ShallowIndexerJobInit},
-	IndexerJobInit,
-};
+use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -79,21 +75,20 @@ impl LocationCreateArgs {
 			}
 		};
 
-		if path_metadata.permissions().readonly() {
-			return Err(LocationError::ReadonlyLocationFailure(self.path));
-		}
-
 		if !path_metadata.is_dir() {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
 		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if metadata.has_library(library.id) {
-				Err(LocationError::NeedRelink {
-					// SAFETY: This unwrap is ok as we checked that we have this library_id
-					old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
-					new_path: self.path,
-				})
+			return if let Some(old_path) = metadata.location_path(library.id) {
+				if old_path == self.path {
+					Err(LocationError::LocationAlreadyExists(self.path))
+				} else {
+					Err(LocationError::NeedRelink {
+						old_path: old_path.to_path_buf(),
+						new_path: self.path,
+					})
+				}
 			} else {
 				Err(LocationError::AddLibraryToMetadata(self.path))
 			};
@@ -107,19 +102,25 @@ impl LocationCreateArgs {
 
 		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
 
-		// Write a location metadata on a .spacedrive file
-		SpacedriveLocationMetadataFile::create_and_save(
+		// Write location metadata to a .spacedrive file
+		if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
 			library.id,
 			uuid,
 			&self.path,
 			location.name.clone(),
 		)
-		.await?;
-
-		library
-			.location_manager()
-			.add(location.id, library.clone())
-			.await?;
+		.err_into::<LocationError>()
+		.and_then(|()| async move {
+			Ok(library
+				.location_manager()
+				.add(location.id, library.clone())
+				.await?)
+		})
+		.await
+		{
+			delete_location(library, location.id).await?;
+			Err(err)?;
+		}
 
 		info!("Created location: {location:?}");
 
@@ -320,43 +321,33 @@ async fn link_location_and_indexer_rules(
 pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: None,
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	let location_base_data = location::Data::from(&location);
 
 	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
+		.spawn_job(
+			Job::new_with_action(
+				IndexerJobInit {
+					location,
+					sub_path: None,
+				},
+				"scan_location",
+			)
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
 				sub_path: None,
 				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
-				location,
-				sub_path: None,
-			},
-			IndexerJob {},
-		))
-		.await;
-
-	Ok(())
+			}),
+		)
+		.await
 }
 
 #[cfg(feature = "location-watcher")]
@@ -364,82 +355,67 @@ pub async fn scan_location_sub_path(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
-		return;
+		return Ok(());
 	}
 
-	library
-		.queue_job(Job::new(
-			FileIdentifierJobInit {
-				location: location::Data::from(&location),
-				sub_path: Some(sub_path.clone()),
-			},
-			FileIdentifierJob {},
-		))
-		.await;
+	let location_base_data = location::Data::from(&location);
 
 	library
-		.queue_job(Job::new(
-			ThumbnailerJobInit {
-				location: location::Data::from(&location),
+		.spawn_job(
+			Job::new_with_action(
+				IndexerJobInit {
+					location,
+					sub_path: Some(sub_path.clone()),
+				},
+				"scan_location_sub_path",
+			)
+			.queue_next(FileIdentifierJobInit {
+				location: location_base_data.clone(),
 				sub_path: Some(sub_path.clone()),
-				background: true,
-			},
-			ThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			IndexerJobInit {
-				location,
+			})
+			.queue_next(ThumbnailerJobInit {
+				location: location_base_data,
 				sub_path: Some(sub_path),
-			},
-			IndexerJob {},
-		))
-		.await;
+				background: true,
+			}),
+		)
+		.await
 }
 
 pub async fn light_scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
+	let location_base_data = location::Data::from(&location);
+
 	library
-		.queue_job(Job::new(
-			ShallowFileIdentifierJobInit {
-				location: location::Data::from(&location),
+		.spawn_job(
+			Job::new_with_action(
+				ShallowIndexerJobInit {
+					location,
+					sub_path: sub_path.clone(),
+				},
+				"light_scan_location",
+			)
+			.queue_next(ShallowFileIdentifierJobInit {
+				location: location_base_data.clone(),
 				sub_path: sub_path.clone(),
-			},
-			ShallowFileIdentifierJob {},
-		))
-		.await;
-
-	library
-		.queue_job(Job::new(
-			ShallowThumbnailerJobInit {
-				location: location::Data::from(&location),
-				sub_path: sub_path.clone(),
-			},
-			ShallowThumbnailerJob {},
-		))
-		.await;
-
-	library
-		.spawn_job(Job::new(
-			ShallowIndexerJobInit { location, sub_path },
-			ShallowIndexerJob {},
-		))
-		.await;
-
-	Ok(())
+			})
+			.queue_next(ShallowThumbnailerJobInit {
+				location: location_base_data,
+				sub_path,
+			}),
+		)
+		.await
 }
 
 pub async fn relink_location(
@@ -488,18 +464,68 @@ async fn create_location(
 ) -> Result<location_with_indexer_rules::Data, LocationError> {
 	let Library { db, sync, .. } = &library;
 
-	let location_path = location_path.as_ref();
+	let mut path = location_path.as_ref().to_path_buf();
 
-	let name = location_path
-		.file_name()
-		.and_then(OsStr::to_str)
-		.map(str::to_string)
-		.unwrap();
+	let (location_path, normalized_path) = path
+		// Normalize path and also check if it exists
+		.normalize()
+		.and_then(|normalized_path| {
+			if cfg!(windows) {
+				// Use normalized path as main path on Windows
+				// This ensures we always receive a valid windows formated path
+				// ex: /Users/JohnDoe/Downloads will become C:\Users\JohnDoe\Downloads
+				// Internally `normalize` calls `GetFullPathNameW` on Windows
+				// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew
+				path = normalized_path.as_path().to_path_buf();
+			}
 
-	let path = location_path
-		.to_str()
-		.map(str::to_string)
-		.expect("Found non-UTF-8 path");
+			Ok((
+				// TODO: Maybe save the path bytes instead of the string representation to avoid depending on UTF-8
+				path.to_str().map(str::to_string).ok_or(io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"Found non-UTF-8 path",
+				))?,
+				normalized_path,
+			))
+		})
+		.map_err(|_| LocationError::DirectoryNotFound(path.clone()))?;
+
+	// Not needed on Windows because the normalization already handles it
+	if cfg!(not(windows)) {
+		// Replace location_path with normalize_path, when the first one ends in `.` or `..`
+		// This is required so localize_name doesn't panic
+		if let Some(component) = path.components().next_back() {
+			if matches!(component, Component::CurDir | Component::ParentDir) {
+				path = normalized_path.as_path().to_path_buf();
+			}
+		}
+	}
+
+	if library
+		.db
+		.location()
+		.count(vec![location::path::equals(location_path.clone())])
+		.exec()
+		.await? > 0
+	{
+		return Err(LocationError::LocationAlreadyExists(path));
+	}
+
+	if check_nested_location(&location_path, &library.db).await? {
+		return Err(LocationError::NestedLocation(path));
+	}
+
+	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
+	let mut name = path.localize_name().to_string_lossy().to_string();
+
+	// Windows doesn't have a root directory
+	if cfg!(not(windows)) && name == "/" {
+		name = "Root".to_string()
+	}
+
+	if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+		name = "Unknown".to_string()
+	}
 
 	let location = sync
 		.write_op(
@@ -511,14 +537,14 @@ async fn create_location(
 				[
 					("node", json!({ "pub_id": library.id.as_bytes() })),
 					("name", json!(&name)),
-					("path", json!(&path)),
+					("path", json!(&location_path)),
 				],
 			),
 			db.location()
 				.create(
 					location_pub_id.as_bytes().to_vec(),
 					name,
-					path,
+					location_path,
 					node::id::equals(library.node_local_id),
 					vec![],
 				)
@@ -677,6 +703,37 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			indexer_rules: None,
 		}
 	}
+}
+
+async fn check_nested_location(
+	location_path: impl AsRef<Path>,
+	db: &PrismaClient,
+) -> Result<bool, QueryError> {
+	let location_path = location_path.as_ref();
+
+	let (parents_count, children_count) = db
+		._batch((
+			db.location().count(vec![location::path::in_vec(
+				location_path
+					.ancestors()
+					.skip(1) // skip the actual location_path, we only want the parents
+					.map(|p| {
+						p.to_str()
+							.map(str::to_string)
+							.expect("Found non-UTF-8 path")
+					})
+					.collect(),
+			)]),
+			db.location().count(vec![location::path::starts_with(
+				location_path
+					.to_str()
+					.map(str::to_string)
+					.expect("Found non-UTF-8 path"),
+			)]),
+		))
+		.await?;
+
+	Ok(parents_count > 0 || children_count > 0)
 }
 
 // check if a path exists in our database at that location

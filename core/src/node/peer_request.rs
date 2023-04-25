@@ -1,5 +1,7 @@
-use rspc::Type;
+#![allow(dead_code, unused_variables)] // TODO: Reenable once this is working
+
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::sync::{mpsc, oneshot};
 
 pub enum PeerRequest {

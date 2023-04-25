@@ -1,23 +1,22 @@
-use std::{
-	fs::File,
-	io::{BufReader, Seek},
-	path::PathBuf,
-};
+use std::{marker::PhantomData, path::PathBuf};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
+use specta::Type;
 use uuid::Uuid;
 
-use crate::node::ConfigMetadata;
+use crate::{migrations, util::migrator::FileMigrator};
 
 use super::LibraryManagerError;
+
+const MIGRATOR: FileMigrator<LibraryConfig> = FileMigrator {
+	current_version: migrations::LIBRARY_VERSION,
+	migration_fn: migrations::migration_library,
+	phantom: PhantomData,
+};
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
 #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
 pub struct LibraryConfig {
-	#[serde(flatten)]
-	pub metadata: ConfigMetadata,
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: String,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
@@ -29,37 +28,17 @@ pub struct LibraryConfig {
 
 impl LibraryConfig {
 	/// read will read the configuration from disk and return it.
-	pub(super) async fn read(file_dir: PathBuf) -> Result<LibraryConfig, LibraryManagerError> {
-		let mut file = File::open(&file_dir)?;
-		let base_config: ConfigMetadata = serde_json::from_reader(BufReader::new(&mut file))?;
-
-		Self::migrate_config(base_config.version, file_dir)?;
-
-		file.rewind()?;
-		Ok(serde_json::from_reader(BufReader::new(&mut file))?)
+	pub(super) fn read(file_dir: PathBuf) -> Result<LibraryConfig, LibraryManagerError> {
+		MIGRATOR.load(&file_dir).map_err(Into::into)
 	}
 
 	/// save will write the configuration back to disk
-	pub(super) async fn save(
+	pub(super) fn save(
 		file_dir: PathBuf,
 		config: &LibraryConfig,
 	) -> Result<(), LibraryManagerError> {
-		File::create(file_dir)?.write_all(serde_json::to_string(config)?.as_bytes())?;
+		MIGRATOR.save(&file_dir, config.clone())?;
 		Ok(())
-	}
-
-	/// migrate_config is a function used to apply breaking changes to the library config file.
-	fn migrate_config(
-		current_version: Option<String>,
-		config_path: PathBuf,
-	) -> Result<(), LibraryManagerError> {
-		match current_version {
-			None => Err(LibraryManagerError::Migration(format!(
-				"Your Spacedrive library at '{}' is missing the `version` field",
-				config_path.display()
-			))),
-			_ => Ok(()),
-		}
 	}
 }
 

@@ -29,13 +29,15 @@ const DrawerLibraryManager = () => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={twStyle(
-						'bg-sidebar-box flex h-10 w-full flex-row items-center justify-between border px-3 shadow-sm',
+						'flex h-10 w-full flex-row items-center justify-between border bg-sidebar-box px-3 shadow-sm',
 						dropdownClosed
-							? 'border-sidebar-line/50 rounded-md'
-							: 'border-b-app-box border-sidebar-line bg-sidebar-button rounded-t-md'
+							? 'rounded-md border-sidebar-line/50'
+							: 'rounded-t-md border-sidebar-line border-b-app-box bg-sidebar-button'
 					)}
 				>
-					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
+					<Text style={tw`text-sm font-semibold text-ink`}>
+						{currentLibrary?.config.name}
+					</Text>
 					<MotiView
 						animate={{
 							rotate: dropdownClosed ? '0deg' : '180deg',
@@ -48,21 +50,24 @@ const DrawerLibraryManager = () => {
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
-				<View style={tw`bg-sidebar-button border-sidebar-line rounded-b-md p-2`}>
+				<View style={tw`rounded-b-md border-sidebar-line bg-sidebar-button p-2`}>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
 						// console.log('library', library);
 						return (
-							<Pressable key={library.uuid} onPress={() => (currentLibraryStore.id = library.uuid)}>
+							<Pressable
+								key={library.uuid}
+								onPress={() => (currentLibraryStore.id = library.uuid)}
+							>
 								<View
 									style={twStyle(
 										'mt-1 p-2',
-										currentLibrary?.uuid === library.uuid && 'bg-accent rounded'
+										currentLibrary?.uuid === library.uuid && 'rounded bg-accent'
 									)}
 								>
 									<Text
 										style={twStyle(
-											'text-ink text-sm font-semibold',
+											'text-sm font-semibold text-ink',
 											currentLibrary?.uuid === library.uuid && 'text-white'
 										)}
 									>
@@ -83,7 +88,9 @@ const DrawerLibraryManager = () => {
 					</CreateLibraryDialog>
 					{/* Manage Library */}
 					<Pressable
-						onPress={() => navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })}
+						onPress={() =>
+							navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })
+						}
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Gear size={18} weight="bold" color="white" style={tw`mr-2`} />

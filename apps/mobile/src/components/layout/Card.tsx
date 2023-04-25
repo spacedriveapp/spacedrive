@@ -11,7 +11,10 @@ const Card = ({ children, ...props }: CardProps) => {
 
 	return (
 		<View
-			style={twStyle('border-app-line bg-app-overlay rounded-lg border px-4 py-5', style as string)}
+			style={twStyle(
+				'rounded-lg border border-app-line bg-app-overlay px-4 py-5',
+				style as string
+			)}
 			{...otherProps}
 		>
 			{children}

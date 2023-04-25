@@ -1,33 +1,31 @@
 use crate::{
 	invalidate_query,
-	library::{Library, LibraryConfig},
+	library::LibraryConfig,
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
 };
 
-use sd_crypto::{
-	types::{Algorithm, HashingAlgorithm, OnboardingConfig},
-	Protected,
-};
-
 use chrono::Utc;
-use rspc::{Error, ErrorCode, Type};
+use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
+use specta::Type;
 use tracing::debug;
 use uuid::Uuid;
 
 use super::{
-	utils::{get_size, LibraryRequest},
-	RouterBuilder,
+	utils::{get_size, library},
+	Ctx, R,
 };
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new()
-		.query("list", |t| {
-			t(|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await })
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("list", {
+			R.query(
+				|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await },
+			)
 		})
-		.library_query("getStatistics", |t| {
-			t(|_, _: (), library: Library| async move {
+		.procedure("getStatistics", {
+			R.with2(library()).query(|(_, library), _: ()| async move {
 				let _statistics = library
 					.db
 					.statistics()
@@ -88,59 +86,21 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?)
 			})
 		})
-		.mutation("create", |t| {
-			#[derive(Deserialize, Type)]
-			#[serde(tag = "type", content = "value")]
-			#[specta(inline)]
-			enum AuthOption {
-				Password(Protected<String>),
-				TokenizedPassword(String),
-			}
-
+		.procedure("create", {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				auth: AuthOption,
-				algorithm: Algorithm,
-				hashing_algorithm: HashingAlgorithm,
 			}
 
-			t(|ctx, args: CreateLibraryArgs| async move {
+			R.mutation(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
-
-				let password = match args.auth {
-					AuthOption::Password(password) => password,
-					AuthOption::TokenizedPassword(tokenized_pw) => {
-						let token = Uuid::parse_str(&tokenized_pw).map_err(|err| {
-							Error::with_cause(
-								ErrorCode::BadRequest,
-								"Failed to parse UUID".to_string(),
-								err,
-							)
-						})?;
-						Protected::new(ctx.secure_temp_keystore.claim(token).map_err(|err| {
-							Error::with_cause(
-								ErrorCode::InternalServerError,
-								"Failed to claim token from keystore".to_string(),
-								err,
-							)
-						})?)
-					}
-				};
 
 				let new_library = ctx
 					.library_manager
-					.create(
-						LibraryConfig {
-							name: args.name.to_string(),
-							..Default::default()
-						},
-						OnboardingConfig {
-							password,
-							algorithm: args.algorithm,
-							hashing_algorithm: args.hashing_algorithm,
-						},
-					)
+					.create(LibraryConfig {
+						name: args.name.to_string(),
+						..Default::default()
+					})
 					.await?;
 
 				invalidate_query!(
@@ -152,7 +112,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(new_library)
 			})
 		})
-		.mutation("edit", |t| {
+		.procedure("edit", {
 			#[derive(Type, Deserialize)]
 			pub struct EditLibraryArgs {
 				pub id: Uuid,
@@ -160,16 +120,17 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub description: Option<String>,
 			}
 
-			t(|node, args: EditLibraryArgs| async move {
-				Ok(node
+			R.mutation(|ctx, args: EditLibraryArgs| async move {
+				Ok(ctx
 					.library_manager
 					.edit(args.id, args.name, args.description)
 					.await?)
 			})
 		})
-		.mutation("delete", |t| {
-			t(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete_library(id).await?) })
-		})
+		.procedure(
+			"delete",
+			R.mutation(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete(id).await?) }),
+		)
 	// .yolo_merge("peer.guest.", peer_guest_router())
 	// .yolo_merge("peer.host.", peer_host_router())
 }

@@ -7,7 +7,7 @@
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev-vite",
-		"beforeBuildCommand": "pnpm exec vite build"
+		"beforeBuildCommand": "pnpm vite build"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -44,7 +44,11 @@
 			}
 		},
 		"updater": {
-			"active": false
+			"active": true,
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
+			"endpoints": [
+				"https://releases-6oxwxxryr-spacedrive.vercel.app/{{target}}/{{arch}}/{{current_version}}"
+			]
 		},
 		"allowlist": {
 			"all": true,

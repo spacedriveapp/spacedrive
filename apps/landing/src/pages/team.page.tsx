@@ -71,6 +71,31 @@ export const teamMembers: Array<TeamMemberProps> = [
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
 		}
+	},
+	{
+		name: 'Ameer Al Ashhab',
+		role: 'React Engineer & Designer',
+		image: teamImages['ameer.jpg']!,
+		socials: {
+			github: 'https://github.com/ameer2468'
+		}
+	},
+	{
+		name: 'Vítor Vasconcellos',
+		role: 'React Engineer & Designer',
+		image: teamImages['vitor.jpg']!,
+		socials: {
+			github: 'https://github.com/HeavenVolkoff'
+		}
+	},
+	{
+		name: 'Nik Elšnik',
+		role: 'React Engineer & Designer',
+		image: teamImages['nikec.jpg']!,
+		socials: {
+			github: 'https://github.com/niikeec',
+			twitter: 'https://twitter.com/nikec_'
+		}
 	}
 ];
 
@@ -199,16 +224,17 @@ function Page() {
 				/>
 				<div className="relative z-10">
 					<h1 className="fade-in-heading text-5xl leading-tight sm:leading-snug ">
-						We believe file management should be <span className="title-gradient">universal</span>.
+						We believe file management should be{' '}
+						<span className="title-gradient">universal</span>.
 					</h1>
 					<p className="animation-delay-2 fade-in-heading text-white/50 ">
-						Your priceless personal data shouldn't be stuck in a device ecosystem. It should be OS
-						agnostic, permanent and owned by you.
+						Your priceless personal data shouldn't be stuck in a device ecosystem. It
+						should be OS agnostic, permanent and owned by you.
 					</p>
 					<p className="animation-delay-2 fade-in-heading text-white/50 ">
-						The data we create daily is our legacy—that will long outlive us. Open source technology
-						is the only way to ensure we retain absolute control over the files that define our
-						lives, at unlimited scale.
+						The data we create daily is our legacy—that will long outlive us. Open
+						source technology is the only way to ensure we retain absolute control over
+						the files that define our lives, at unlimited scale.
 					</p>
 					<a
 						href="/docs/product/resources/faq"
@@ -236,7 +262,10 @@ function Page() {
 							</a>{' '}
 							on GitHub.
 						</p>
-						<h2 id="investors" className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 ">
+						<h2
+							id="investors"
+							className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 "
+						>
 							Our investors
 						</h2>
 						<p className="text-sm text-gray-400 ">
@@ -244,7 +273,10 @@ function Page() {
 						</p>
 						<div className="my-10 grid grid-cols-3 gap-x-5 gap-y-10 sm:grid-cols-5">
 							{investors.map((investor) => (
-								<TeamMember key={investor.name + investor.investmentRound} {...investor} />
+								<TeamMember
+									key={investor.name + investor.investmentRound}
+									{...investor}
+								/>
 							))}
 						</div>
 					</div>

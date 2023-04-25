@@ -5,7 +5,7 @@ import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 const styles = cva(
-	'max-w ring-offset-sidebar focus:ring-accent flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-offset-2',
+	'max-w flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none ring-offset-sidebar focus:ring-2 focus:ring-accent focus:ring-offset-2',
 	{
 		variants: {
 			active: {
@@ -20,14 +20,19 @@ const styles = cva(
 	}
 );
 
-export default (props: PropsWithChildren<NavLinkProps>) => {
+export default (props: PropsWithChildren<NavLinkProps & { disabled?: boolean }>) => {
 	const os = useOperatingSystem();
 
 	return (
 		<NavLink
 			{...props}
+			onClick={(e) => (props.disabled ? e.preventDefault() : props.onClick?.(e))}
 			className={({ isActive }) =>
-				clsx(styles({ active: isActive, transparent: os === 'macOS' }), props.className)
+				clsx(
+					styles({ active: isActive, transparent: os === 'macOS' }),
+					props.disabled && 'pointer-events-none opacity-50',
+					props.className
+				)
 			}
 		>
 			{props.children}

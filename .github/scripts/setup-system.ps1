@@ -1,183 +1,361 @@
+# Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
+$ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
+Set-StrictMode -Version Latest
+
+function Reset-Path {
+   $env:Path = [System.Environment]::ExpandEnvironmentVariables(
+      [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+   )
+}
+
+function Set-EnvVar($variable, $value = $null) {
+   if ($null -ne $value) {
+      [System.Environment]::SetEnvironmentVariable($variable, $value, 'User')
+      if ($env:CI -and ($variable -ne 'Path')) {
+         # If running in CI, we need to use GITHUB_ENV instead of the normal env variables
+         Add-Content $env:GITHUB_ENV "$variable=$value`n"
+      }
+   }
+   # The following is needed to make the environment variable available to the current PowerShell process
+   if ($variable -eq 'Path') {
+      Reset-Path
+   } else {
+      [System.Environment]::SetEnvironmentVariable(
+         $variable, [System.Environment]::GetEnvironmentVariable($variable, 'User'), 'Process'
+      )
+   }
+}
+
+# Verify if environment is Windows 64-bit and if the user is an administrator
+if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
+      "$env:PROCESSOR_ARCHITECTURE" -eq 'ARM64'
+   ) -or (
+      -not [System.Environment]::Is64BitOperatingSystem
+      # Powershell >= 6 is cross-platform, check if running on Windows
+   ) -or (($PSVersionTable.PSVersion.Major -ge 6) -and (-not $IsWindows))
+) {
+   $ErrorActionPreference = 'Continue'
+   Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
+   if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
+      throw 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
+   } else {
+      throw 'This script is only supported on Windows 64-bit'
+   }
+   Exit 1
+} elseif (
+   -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+) {
+   # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
+   Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
+   # NOTICE: Any modified environment variables should be reloaded here, so the user doesn't have to restart the shell after running the script
+   Reset-Path
+   Set-EnvVar('PROTOC')
+   Set-EnvVar('FFMPEG_DIR')
+   Exit
+}
+
+function Exit-WithError($err, $help = $null) {
+   if ($null -ne $help) {
+      Write-Host
+      Write-Host $help -ForegroundColor DarkRed
+   }
+   throw $err
+   Exit 1
+}
+
+function Add-DirectoryToPath($directory) {
+   if ($env:Path.Split(';') -notcontains $directory) {
+      Set-EnvVar 'Path' "$($env:Path);$directory"
+      if ($env:CI) {
+         # If running in CI, we need to use GITHUB_PATH instead of the normal PATH env variables
+         Add-Content $env:GITHUB_PATH "$directory`n"
+      }
+   }
+   Reset-Path
+}
+
+# Reset PATH to ensure the script doesn't read any stale entries
+Reset-Path
+
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
-# Get current running dir
-$currentLocation = $((Get-Location).path)
+# Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\.github\scripts)
+$projectRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 
-# Check to see if a command exists (eg if an app is installed)
-Function CheckCommand {
+# Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
+$pnpm_major = '7'
 
-   Param ($command)
+# Currently LLVM >= 16 is not supported due to incompatibilities with ffmpeg-sys-next
+# See https://github.com/spacedriveapp/spacedrive/issues/677
+$llvm_major = '15'
 
-   $oldPreference = $ErrorActionPreference
+# Change CWD to project root
+Set-Location $projectRoot
 
-   $ErrorActionPreference = 'stop'
-
-   try { if (Get-Command $command) { RETURN $true } }
-
-   Catch { RETURN $false }
-
-   Finally { $ErrorActionPreference = $oldPreference }
-
-}
-
-Write-Host "Spacedrive Development Environment Setup" -ForegroundColor Magenta
+Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @"
 
 To set up your machine for Spacedrive development, this script will do the following:
-
-1) Check for Rust and Cargo
-
-2) Install pnpm (if not installed)
-
-3) Install the latest version of Node.js using pnpm
-
-4) Install LLVM (compiler for ffmpeg-rust)
-
-4) Download ffmpeg and set as an environment variable
-
-"@ 
-
-Write-Host "Checking for Rust and Cargo..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
-
-$cargoCheck = CheckCommand cargo
-
-if ($cargoCheck -eq $false) {
-   Write-Host @"
-Cargo is not installed.
-
-To use Spacedrive on Windows, Cargo needs to be installed.
-The Visual Studio C++ Build tools are also required.
-Instructions can be found here:
-
-https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows
-
-Once you have installed Cargo, re-run this script.
-
+1) Install Windows C++ build tools
+2) Install Edge Webview 2
+3) Install Rust and Cargo
+4) Install Rust tools
+5) Install Node.js, npm and pnpm $pnpm_major
+6) Install LLVM $llvm_major (compiler for ffmpeg-rust)
+7) Download protbuf compiler and set the PROTOC environment variable
+8) Download ffmpeg and set the FFMPEG_DIR environment variable
 "@
-   Exit
-}
-else {
-   Write-Host "Cargo is installed."
-}
 
-if ($env:CI -ne $True) {
-	Write-Host "Installing Rust tools" -ForegroundColor Yellow
-	cargo install cargo-watch
+# Check connectivity to GitHub
+$ProgressPreference = 'SilentlyContinue'
+if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
+   throw "Can't connect to github, maybe internet is down?"
+}
+$ProgressPreference = 'Continue'
+
+# Install C++ build tools and Rust
+# GitHub Actions already has all of this installed
+if (-not $env:CI) {
+   if (-not (Get-Command winget -ea 0)) {
+      Exit-WithError 'winget not available' @'
+Follow the instructions here to install winget:
+https://learn.microsoft.com/windows/package-manager/winget/
+'@
+   }
+
+   Write-Host
+   Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
+   Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
+   # Force install because BuildTools is itself an installer for multiple packages, so let itself decide if it need to install anythin or not
+   winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
+
+   Write-Host
+   Write-Host 'Installing Edge Webview 2...' -ForegroundColor Yellow
+   try {
+      # This is normally already available, but on some early Windows 10 versions it isn't
+      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Microsoft.EdgeWebView2Runtime
+   } catch {}
+
+   Write-Host
+   Write-Host 'Installing Rust and Cargo...' -ForegroundColor Yellow
+   try {
+      winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
+      Reset-Path # Reset Path to ensure that cargo is available to the command bellow
+   } catch {}
+
+   Write-Host
+   Write-Host 'Installing Rust tools' -ForegroundColor Yellow
+   cargo install cargo-watch
 }
 
 Write-Host
-Write-Host "Checking for pnpm..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
+Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
+if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
+   Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
+} else {
+   # Check for pnpm installed with standalone installer
+   if (($null -ne $env:PNPM_HOME) -and (Test-Path "$env:PNPM_HOME/pnpm.exe" -PathType Leaf)) {
+      Exit-WithError 'You have a incompatible version of pnpm installed, please remove it and run this script again' @'
+Follow the instructions here to uninstall pnpm:
+https://pnpm.io/uninstall
+'@
+   } else {
+      # Remove possible remaining envvars from old pnpm installation
+      [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::Machine)
+      [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::User)
+   }
 
-$pnpmCheck = CheckCommand pnpm
-if ($pnpmCheck -eq $false) {
+   if (-not $env:CI) {
+      Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
+      try {
+         winget install --exact --no-upgrade --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
+         # Add NodeJS to the PATH
+         Add-DirectoryToPath "$env:SystemDrive\Program Files\nodejs"
+      } catch {}
+   }
 
-   Write-Host "pnpm is not installed. Installing now."
-   Write-Host "Running the pnpm installer..."
-
-   #pnpm installer taken from https://pnpm.io
-   Invoke-WebRequest https://get.pnpm.io/install.ps1 -useb | Invoke-Expression
-
-   # Reset the PATH env variables to make sure pnpm is accessible 
-   $env:PNPM_HOME = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", "User")
-   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable("Path", "User"))
-
-}
-else {
-   Write-Host "pnpm is installed."
-}
-
-# A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
-if ($env:CI -eq $True) {
-   Write-Host
-   Write-Host "Running with Ci, skipping Node install." -ForegroundColor Yellow
-}
-else {
-   Write-Host
-   Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
-   Write-Host "This will set your global Node version to the latest!"
-   Start-Sleep -Milliseconds 150
-
-   # Runs the pnpm command to use the latest version of node, which also installs it
-   Start-Process -Wait -FilePath "pnpm" -ArgumentList "env use --global latest" -PassThru -Verb runAs
+   Write-Host 'Installing pnpm...'
+   # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
+   npm install -g 'pnpm@latest-7'
+   # Add NPM global modules to the PATH
+   if (Test-Path "$env:APPDATA\npm" -PathType Container) {
+      Add-DirectoryToPath "$env:APPDATA\npm"
+   }
 }
 
+Write-Host
+Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
+if ($env:CI) {
+   # The CI has LLVM installed already, so we instead just set the env variables.
+   Write-Host 'Running with Ci, skipping LLVM install.' -ForegroundColor Green
 
-
-# The ci has LLVM installed already, so we instead just set the env variables.
-if ($env:CI -eq $True) {
-   Write-Host
-   Write-Host "Running with Ci, skipping LLVM install." -ForegroundColor Yellow
-
+   # TODO: Check if CI LLVM version match our required major version
    $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
    Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-
+} elseif (
+   (Get-Command clang -ea 0) -and (
+      (clang --version | Select-String -Pattern 'version\s+(\d+)' | ForEach-Object { $_.Matches.Groups[1].Value }) -eq "$llvm_major"
+   )
+) {
+   Write-Host "LLVM $llvm_major is installed." -ForegroundColor Green
 } else {
-   Write-Host
-   Write-Host "Downloading the LLVM installer..." -ForegroundColor Yellow
-   # Downloads latest installer for LLVM
-   $filenamePattern = "*-win64.exe"
-   $releasesUri = "https://api.github.com/repos/llvm/llvm-project/releases/latest"
-   $downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
+   $downloadUri = $null
+   $releasesUri = 'https://api.github.com/repos/llvm/llvm-project/releases'
+   $llvmVersion = "LLVM $llvm_major*"
+   $filenamePattern = '*-win64.exe'
 
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\llvm.exe"
+   Write-Host "Downloading LLVM $llvm_major installer..." -ForegroundColor Yellow
+   $releases = Invoke-RestMethod -Uri $releasesUri
+   $downloadUri = $releases | ForEach-Object {
+      if ($_.name -like $llvmVersion) {
+         $_.assets | Where-Object { $_.name -like $filenamePattern } | Select-Object -ExpandProperty 'browser_download_url'
+      }
+   } | Select-Object -First 1
 
-   Write-Host
-   Write-Host "Running the LLVM installer..." -ForegroundColor Yellow
-   Write-Host "Please follow the instructions to install LLVM."
-   Write-Host "Ensure you add LLVM to your PATH."
+   if ($null -eq $downloadUri) {
+      Exit-WithError "Couldn't find a LLVM installer for version: $llvm_major"
+   }
 
-   Start-Process "$temp\llvm.exe" -Wait
-}
+   $oldUninstaller = "$env:SystemDrive\Program Files\LLVM\Uninstall.exe"
+   if (Test-Path $oldUninstaller -PathType Leaf) {
+      Exit-WithError 'You have a incompatible version of LLVM installed' 'Uninstall the current version of LLVM and run this script again'
+   }
 
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\llvm.exe"
 
-Write-Host
-Write-Host "Install protobuf compiler..." -ForegroundColor Yellow
-choco install protoc
+   Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
+   Write-Host 'This may take a while and will have no visual feedback, please wait...' -ForegroundColor Cyan
+   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait -ErrorAction Stop
 
-Write-Host
-Write-Host "Downloading the latest ffmpeg build..." -ForegroundColor Yellow
+   Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
-# Downloads the latest shared build of ffmpeg from GitHub
-# $filenamePattern = "*-full_build-shared.zip"
-# $releasesUri = "https://api.github.com/repos/GyanD/codexffmpeg/releases/latest"
-$downloadUri = "https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
-$filename = "ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).name
-$remove = ".zip"
-$foldername = $filename.Substring(0, ($filename.Length - $remove.Length))
-
-Start-BitsTransfer -Source $downloadUri -Destination "$temp\ffmpeg.zip"
-
-Write-Host
-Write-Host "Expanding ffmpeg zip..." -ForegroundColor Yellow
-
-Expand-Archive "$temp\ffmpeg.zip" $HOME -ErrorAction SilentlyContinue
-
-Remove-Item "$temp\ffmpeg.zip"
-
-Write-Host
-Write-Host "Setting environment variables..." -ForegroundColor Yellow
-
-if ($env:CI -eq $True) {
-   # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
-   Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
-   Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
-}
-else {
-   # Sets environment variable for ffmpeg
-   [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$HOME\$foldername", [System.EnvironmentVariableTarget]::User)
+   Remove-Item "$temp\llvm.exe"
 }
 
 Write-Host
-Write-Host "Copying Required .dll files..." -ForegroundColor Yellow
+Write-Host 'Checking for protobuf compiler...' -ForegroundColor Yellow
+$protocVersion = $null
+if (($null -ne $env:PROTOC) -and (Test-Path $env:PROTOC -PathType Leaf)) {
+   $protocVersion = &"$env:PROTOC" --version 2>&1 | Out-String
+}
 
+if ($protocVersion) {
+   Write-Host 'protobuf compiler is installed.' -ForegroundColor Green
+} else {
+   $filename = $null
+   $downloadUri = $null
+   $releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
+   $filenamePattern = '*-win64.zip'
+
+   Write-Host 'Downloading protobuf compiler...' -ForegroundColor Yellow
+   $releases = Invoke-RestMethod -Uri $releasesUri
+   for ($i = 0; $i -lt $releases.Count; $i++) {
+      $release = $releases[$i]
+      foreach ($asset in $release.assets) {
+         if ($asset.name -like $filenamePattern) {
+            $filename = $asset.name
+            $downloadUri = $asset.browser_download_url
+            $i = $releases.Count
+            break
+         }
+      }
+   }
+
+   if (-not ($filename -and $downloadUri)) {
+      Exit-WithError "Couldn't find a protobuf compiler installer"
+   }
+
+   $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
+   New-Item -Path $foldername -ItemType Directory -ErrorAction SilentlyContinue
+
+   Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
+
+   Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
+   Expand-Archive "$temp\protobuf.zip" $foldername -ErrorAction SilentlyContinue
+   Remove-Item "$temp\protobuf.zip"
+
+   Write-Host 'Setting PROTOC environment variable...' -ForegroundColor Yellow
+   Set-EnvVar 'PROTOC' "$foldername\bin\protoc.exe"
+   Add-DirectoryToPath "$foldername\bin"
+}
+
+Write-Host
+Write-Host 'Update cargo packages...' -ForegroundColor Yellow
+# Run first time to ensure packages are up to date
+cargo metadata --format-version 1 > $null
+
+Write-Host
+Write-Host 'Checking for ffmpeg build...' -ForegroundColor Yellow
+# Get ffmpeg-sys-next version
+$ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
+   $_.name -like 'ffmpeg-sys-next'
+} | Select-Object -ExpandProperty 'req' | ForEach-Object {
+   $_ -replace '[~^<>=!*]+', ''
+} | Sort-Object -Unique | Select-Object -Last 1
+
+if (($null -ne $env:FFMPEG_DIR) -and (
+      $ffmpegVersion.StartsWith(
+         (($env:FFMPEG_DIR.split('\') | Where-Object { $_ -like 'ffmpeg-*' }) -replace 'ffmpeg-(\d+(\.\d+)*).*', '$1'),
+         [System.StringComparison]::InvariantCulture
+      )
+   )
+) {
+   Write-Host 'ffmpeg is installed.' -ForegroundColor Green
+} else {
+   $filename = $null
+   $downloadUri = $null
+   $releasesUri = 'https://api.github.com/repos/GyanD/codexffmpeg/releases'
+   $filenamePattern = '*-full_build-shared.zip'
+
+   # Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
+   $releases = Invoke-RestMethod -Uri $releasesUri
+   $version = $ffmpegVersion
+   while (-not ($filename -and $downloadUri) -and $version) {
+      for ($i = 0; $i -lt $releases.Count; $i++) {
+         $release = $releases[$i]
+         if ($release.tag_name -eq $version) {
+            foreach ($asset in $release.assets) {
+               if ($asset.name -like $filenamePattern) {
+                  $filename = $asset.name
+                  $downloadUri = $asset.browser_download_url
+                  $i = $releases.Count
+                  break
+               }
+            }
+         }
+      }
+      $version = $version -replace '\.?\d+$'
+   }
+
+   if (-not ($filename -and $downloadUri)) {
+      Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
+   }
+
+   $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
+
+   Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
+   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
+
+   Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
+   # FFmpeg zip contains a subdirectory with the same name as the zip file
+   Expand-Archive "$temp\ffmpeg.zip" $env:LOCALAPPDATA -ErrorAction SilentlyContinue
+   Remove-Item "$temp\ffmpeg.zip"
+
+   Write-Host 'Setting FFMPEG_DIR environment variable...' -ForegroundColor Yellow
+   Set-EnvVar 'FFMPEG_DIR' "$foldername"
+   Add-DirectoryToPath "$foldername\bin"
+}
+
+Write-Host
+Write-Host 'Copying Required .dll files...' -ForegroundColor Yellow
 # Create target\debug folder, continue if already exists
-New-Item -Path $currentLocation\target\debug -ItemType Directory -ErrorAction SilentlyContinue
-
+New-Item -Path $projectRoot\target\debug -ItemType Directory -ErrorAction SilentlyContinue
 # Copies all .dll required for rust-ffmpeg to target\debug folder
-Get-ChildItem "$HOME\$foldername\bin" -recurse -filter *.dll | Copy-Item -Destination "$currentLocation\target\debug"
+Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destination "$projectRoot\target\debug"
 
 Write-Host
-Write-Host "Your machine has been setup for Spacedrive development!"
+Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
+Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
+if (-not $env:CI) { Read-Host 'Press Enter to continue' }

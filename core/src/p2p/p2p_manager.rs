@@ -5,14 +5,14 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use rspc::Type;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
-	Event, Manager, PeerId,
+	Event, Manager, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
 use serde::Serialize;
+use specta::Type;
 use tokio::{
 	fs::File,
 	io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -23,7 +23,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	node::NodeConfigManager,
+	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
@@ -51,6 +51,7 @@ pub struct P2PManager {
 	events: broadcast::Sender<P2PEvent>,
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
+	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 }
 
 impl P2PManager {
@@ -59,26 +60,15 @@ impl P2PManager {
 	) -> (Arc<Self>, broadcast::Receiver<(Uuid, Vec<CRDTOperation>)>) {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(
-				PeerMetadata {
-					name: config.name.clone(),
-					operating_system: Some(OperatingSystem::get_os()),
-					version: Some(env!("CARGO_PKG_VERSION").to_string()),
-					email: config.p2p_email.clone(),
-					img_url: config.p2p_img_url.clone(),
-				},
-				config.keypair,
-			)
-		}; // TODO: Update this throughout the application lifecycle
+			(Self::config_to_metadata(&config), config.keypair)
+		};
 
-		let (manager, mut stream) = Manager::new(SPACEDRIVE_APP_ID, &keypair, {
-			move || {
-				let config = config.clone();
-				async move { config }
-			}
-		})
-		.await
-		.unwrap();
+		let metadata_manager = MetadataManager::new(config);
+
+		let (manager, mut stream) =
+			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone())
+				.await
+				.unwrap();
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -96,6 +86,7 @@ impl P2PManager {
 			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 
 			async move {
+				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {
 						Event::PeerDiscovered(event) => {
@@ -106,7 +97,7 @@ impl P2PManager {
 
 							events
 								.send(P2PEvent::DiscoveredPeer {
-									peer_id: event.peer_id.clone(),
+									peer_id: event.peer_id,
 									metadata: event.metadata.clone(),
 								})
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
@@ -198,13 +189,19 @@ impl P2PManager {
 								}
 							});
 						}
+						Event::Shutdown => {
+							shutdown = true;
+							break;
+						}
 						_ => debug!("event: {:?}", event),
 					}
 				}
 
-				error!(
-					"Manager event stream closed! The core is unstable from this point forward!"
-				);
+				if !shutdown {
+					error!(
+						"Manager event stream closed! The core is unstable from this point forward!"
+					);
+				}
 			}
 		});
 
@@ -216,6 +213,7 @@ impl P2PManager {
 			events: tx,
 			manager,
 			spacedrop_pairing_reqs,
+			metadata_manager,
 		});
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
@@ -284,6 +282,21 @@ impl P2PManager {
 		}
 
 		(this, rx2)
+	}
+
+	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
+		PeerMetadata {
+			name: config.name.clone(),
+			operating_system: Some(OperatingSystem::get_os()),
+			version: Some(env!("CARGO_PKG_VERSION").to_string()),
+			email: config.p2p_email.clone(),
+			img_url: config.p2p_img_url.clone(),
+		}
+	}
+
+	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
+		self.metadata_manager
+			.update(Self::config_to_metadata(&node_config_manager.get().await));
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
@@ -358,5 +371,9 @@ impl P2PManager {
 			"Finished Spacedrop to peer '{peer_id}' after '{:?}",
 			i.elapsed()
 		);
+	}
+
+	pub async fn shutdown(&self) {
+		self.manager.shutdown().await;
 	}
 }

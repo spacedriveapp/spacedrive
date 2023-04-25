@@ -4,7 +4,10 @@ import { tw } from '~/lib/tailwind';
 
 export const Switch: FC<SwitchProps> = ({ ...props }) => {
 	return (
-		<RNSwitch trackColor={{ false: tw.color('app-line'), true: tw.color('accent') }} {...props} />
+		<RNSwitch
+			trackColor={{ false: tw.color('app-line'), true: tw.color('accent') }}
+			{...props}
+		/>
 	);
 };
 
@@ -14,10 +17,13 @@ export const SwitchContainer: FC<SwitchContainerProps> = ({ title, description, 
 	return (
 		<View style={tw`flex flex-row items-center justify-between pb-6`}>
 			<View style={tw`w-[80%]`}>
-				<Text style={tw`text-ink text-sm font-medium`}>{title}</Text>
-				{description && <Text style={tw`text-ink-dull mt-2 text-sm`}>{description}</Text>}
+				<Text style={tw`text-sm font-medium text-ink`}>{title}</Text>
+				{description && <Text style={tw`mt-2 text-sm text-ink-dull`}>{description}</Text>}
 			</View>
-			<Switch trackColor={{ false: tw.color('app-line'), true: tw.color('accent') }} {...props} />
+			<Switch
+				trackColor={{ false: tw.color('app-line'), true: tw.color('accent') }}
+				{...props}
+			/>
 		</View>
 	);
 };

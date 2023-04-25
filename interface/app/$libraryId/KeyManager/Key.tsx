@@ -103,7 +103,11 @@ export const Key = ({ data }: { data: Key }) => {
 				<KeyIcon
 					className={clsx(
 						'ml-1 mr-3 h-5 w-5',
-						data.mounted ? (data.locked ? 'text-accent' : 'text-accent') : 'text-gray-400/80'
+						data.mounted
+							? data.locked
+								? 'text-accent'
+								: 'text-accent'
+							: 'text-gray-400/80'
 					)}
 				/>
 				<div className="flex flex-col ">
@@ -111,7 +115,9 @@ export const Key = ({ data }: { data: Key }) => {
 						<div className="font-semibold">{data.name}</div>
 						{data.mounted && (
 							<div className="ml-2 inline rounded bg-gray-500 px-1 text-[8pt] font-medium text-gray-300">
-								{data.nodes?.length || 0 > 0 ? `${data.nodes?.length || 0} nodes` : 'This node'}
+								{data.nodes?.length || 0 > 0
+									? `${data.nodes?.length || 0} nodes`
+									: 'This node'}
 							</div>
 						)}
 						{data.default && (

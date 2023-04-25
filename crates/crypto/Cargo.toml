@@ -8,7 +8,8 @@ edition = "2021"
 rust-version = "1.67.0"
 
 [features]
-rspc = ["dep:rspc"]
+rspc = ["dep:rspc", "dep:specta"]
+specta = ["dep:specta"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
 keymanager = ["dep:dashmap", "os-keyrings"]
 os-keyrings = ["dep:secret-service", "dep:security-framework"]
@@ -46,7 +47,8 @@ uuid = { version = "1.1.2", features = ["v4"] }
 dashmap = { version = "5.4.0", optional = true }
 
 # optional, for support with rspc
-rspc = { workspace = true, features = ["uuid"], optional = true }
+rspc = { workspace = true, features = [], optional = true }
+specta = { workspace = true, features = ["uuid"], optional = true }
 
 # for asynchronous crypto
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread", "sync"] }

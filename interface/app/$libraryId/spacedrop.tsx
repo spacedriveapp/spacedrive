@@ -1,6 +1,7 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
+<<<<<<< HEAD
 import { useRef, useState } from 'react';
 import { Button, Card, Label, Loader, Select, SelectOption, forms, tw } from '@sd/ui';
 import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
@@ -9,6 +10,13 @@ import { OperatingSystem } from '~/util/Platform';
 import DragRegion from '../../components/DragRegion';
 import { SearchBar } from './Explorer/TopBar';
 import * as PageLayout from './PageLayout';
+=======
+import { useState } from 'react';
+import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
+import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
+import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
+import { OperatingSystem } from '~/util/Platform';
+>>>>>>> origin/main
 import classes from './spacedrop.module.scss';
 
 const { Form, Input, useZodForm, z } = forms;
@@ -59,7 +67,16 @@ function DropItem(props: DropItemProps) {
 	}
 
 	return (
+<<<<<<< HEAD
 		<div className={clsx(classes.honeycombItem, 'overflow-hidden ', ' hover:bg-app-box/50')}>
+=======
+		<div
+			className={clsx(
+				classes.honeycombItem,
+				'overflow-hidden bg-app-box/20 hover:bg-app-box/50'
+			)}
+		>
+>>>>>>> origin/main
 			<div className="group relative flex h-full w-full flex-col items-center justify-center ">
 				{/* <SubtleButtonContainer className="absolute left-[12px] top-[55px]">
 					<SubtleButton icon={Star} />
@@ -153,14 +170,13 @@ export const Component = () => {
 		}
 	});
 
-	console.log({ discoveredPeers });
-
 	const onSubmit = form.handleSubmit((data) => {
 		doSpacedrop.mutate({
 			peer_id: data.target_peer,
 			file_path: data.file_path
 		});
 	});
+<<<<<<< HEAD
 	return (
 		<>
 			{discoveredPeers.size === 0 && (
@@ -187,6 +203,68 @@ export const Component = () => {
 						))}
 
 						{/* <DropItem
+=======
+
+	// TODO: Input select
+	return (
+		<Form onSubmit={onSubmit} form={form}>
+			<ScreenHeading>Spacedrop Demo</ScreenHeading>
+			<p className="text-xs text-ink-dull">
+				Note: Right now the file must be less than 255 bytes long and only contain UTF-8
+				chars. Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by
+				default)
+			</p>
+			<div className="mt-2 flex flex-row items-center space-x-4">
+				<Input
+					size="sm"
+					placeholder="/Users/oscar/Desktop/sd/demo.txt"
+					value="/Users/jamie/Desktop/Jeff.txt"
+					className="w-full"
+					{...form.register('file_path')}
+				/>
+
+				<Button className="block shrink-0" variant="gray">
+					Select File
+				</Button>
+
+				<Select
+					onChange={(e) => form.setValue('target_peer', e)}
+					value={form.watch('target_peer')}
+				>
+					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
+						<SelectOption default={index === 0} key={peerId} value={peerId}>
+							{metadata.name}
+						</SelectOption>
+					))}
+				</Select>
+
+				<Button
+					disabled={!form.getValues().target_peer}
+					className="block shrink-0"
+					variant="accent"
+					type="submit"
+				>
+					Send
+				</Button>
+			</div>
+		</Form>
+	);
+}
+
+export const Component = () => {
+	return (
+		<>
+			<TemporarySpacedropDemo />
+			<div className={classes.honeycombOuter}>
+				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
+					<DropItem
+						name="Jamie's MacBook Pro"
+						receivingNodeOsType="macOS"
+						connectionType="lan"
+						icon={Laptop}
+					/>
+					<DropItem
+>>>>>>> origin/main
 						name="Jamie's iPhone"
 						receivingNodeOsType="iOS"
 						connectionType="lan"
@@ -204,7 +282,11 @@ export const Component = () => {
 						connectionType="lan"
 						icon={DeviceMobile}
 					/>
-					<DropItem name="Jamie's Google Drive" brandIcon="google-drive" connectionType="cloud" />
+					<DropItem
+						name="Jamie's Google Drive"
+						brandIcon="google-drive"
+						connectionType="cloud"
+					/>
 					<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
 					<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
 					<DropItem
@@ -222,7 +304,11 @@ export const Component = () => {
 						image="https://github.com/oscartbeaumont.png"
 						connectionType="p2p"
 					/>
-					<DropItem name="Polar" image="https://github.com/polargh.png" connectionType="p2p" />
+					<DropItem
+						name="Polar"
+						image="https://github.com/polargh.png"
+						connectionType="p2p"
+					/>
 					<DropItem
 						name="Andrew Haskell"
 						image="https://github.com/andrewtechx.png"

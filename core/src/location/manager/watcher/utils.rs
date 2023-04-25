@@ -6,7 +6,7 @@ use crate::{
 		file_path_helper::{
 			extract_materialized_path, file_path_with_object, filter_existing_file_path_params,
 			get_parent_dir, get_parent_dir_id, loose_find_existing_file_path_params, FilePathError,
-			MaterializedPath,
+			FilePathMetadata, MaterializedPath, MetadataExt,
 		},
 		find_location, location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -40,7 +40,6 @@ use std::{
 use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, Local};
-use int_enum::IntEnum;
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
@@ -113,15 +112,20 @@ pub(super) async fn create_dir(
 			materialized_path,
 			Some(parent_directory.id),
 			None,
-			inode,
-			device,
+			FilePathMetadata {
+				inode,
+				device,
+				size_in_bytes: metadata.len(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
+			},
 		)
 		.await?;
 
 	info!("Created path: {}", created_path.materialized_path);
 
 	// scan the new directory
-	scan_location_sub_path(library, location, &created_path.materialized_path).await;
+	scan_location_sub_path(library, location, &created_path.materialized_path).await?;
 
 	invalidate_query!(library, "locations.getExplorerData");
 
@@ -182,8 +186,13 @@ pub(super) async fn create_file(
 			materialized_path,
 			Some(parent_directory.id),
 			Some(cas_id.clone()),
-			inode,
-			device,
+			FilePathMetadata {
+				inode,
+				device,
+				size_in_bytes: metadata.len(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
+			},
 		)
 		.await?;
 
@@ -207,9 +216,9 @@ pub(super) async fn create_file(
 				Uuid::new_v4().as_bytes().to_vec(),
 				vec![
 					object::date_created::set(
-						DateTime::<Local>::from(fs_metadata.created().unwrap()).into(),
+						DateTime::<Local>::from(fs_metadata.created_or_now()).into(),
 					),
-					object::kind::set(kind.int_value()),
+					object::kind::set(kind as i32),
 				],
 			)
 			.select(object_just_id_has_thumbnail::select())
@@ -363,7 +372,7 @@ async fn inner_update_file(
 					file_path::size_in_bytes::set(fs_metadata.len().to_string()),
 				),
 				{
-					let date = DateTime::<Local>::from(fs_metadata.created().unwrap()).into();
+					let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
 
 					(
 						("date_modified", json!(date)),
@@ -421,7 +430,7 @@ async fn inner_update_file(
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 				}
 
-				let int_kind = kind.int_value();
+				let int_kind = kind as i32;
 
 				if object.kind != int_kind {
 					sync.write_op(

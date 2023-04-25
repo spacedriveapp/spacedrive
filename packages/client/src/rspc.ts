@@ -1,4 +1,4 @@
-import { ProcedureDef } from '@rspc/client';
+import { ProcedureDef, RSPCError } from '@rspc/client';
 import { internal_createReactHooksFactory } from '@rspc/react';
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
@@ -56,13 +56,16 @@ const libraryHooks = hooks.createHooks<
 					const libraryId = currentLibraryCache.id;
 					if (libraryId === null)
 						throw new Error('Attempted to do library operation with no library set!');
-					return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] || null }];
+					return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 				},
 				doMutation: (keyAndInput, next) => {
 					const libraryId = currentLibraryCache.id;
 					if (libraryId === null)
 						throw new Error('Attempted to do library operation with no library set!');
-					return next([keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] || null }]);
+					return next([
+						keyAndInput[0],
+						{ library_id: libraryId, arg: keyAndInput[1] ?? null }
+					]);
 				}
 			};
 		})
@@ -79,13 +82,39 @@ export const useLibraryMutation = libraryHooks.useMutation;
 
 export function useInvalidateQuery() {
 	const context = rspc.useContext();
-	rspc.useSubscription(['invalidateQuery'], {
-		onData: (invalidateOperation) => {
-			const key = [invalidateOperation.key];
-			if (invalidateOperation.arg !== null) {
-				key.concat(invalidateOperation.arg);
+	rspc.useSubscription(['invalidation.listen'], {
+		onData: (ops) => {
+			for (const op of ops) {
+				const key = [op.key];
+				if (op.arg !== null) {
+					key.concat(op.arg);
+				}
+
+				if (op.result !== null) {
+					context.queryClient.setQueryData(key, op.result);
+				} else {
+					context.queryClient.invalidateQueries(key);
+				}
 			}
-			context.queryClient.invalidateQueries(key);
 		}
 	});
+}
+
+export function extractInfoRSPCError(error: unknown) {
+	if (
+		error == null ||
+		typeof error !== 'object' ||
+		!('cause' in error && error.cause instanceof RSPCError)
+	)
+		return null;
+
+	// TODO: error.code property is not yet implemented in RSPCError
+	// https://github.com/oscartbeaumont/rspc/blob/60a4fa93187c20bc5cb565cc6ee30b2f0903840e/packages/client/src/interop/error.ts#L59
+	// So we grab it from the shape for now
+	const { code } = error.cause.shape;
+
+	return {
+		code: Number.isInteger(code) ? code : 500,
+		message: 'message' in error ? String(error.message) : ''
+	};
 }

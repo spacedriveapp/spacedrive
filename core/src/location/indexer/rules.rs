@@ -5,11 +5,10 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use globset::Glob;
-use int_enum::IntEnum;
+use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde;
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{collections::HashSet, path::Path};
 use tokio::fs;
 
@@ -25,20 +24,22 @@ use tokio::fs;
 pub struct IndexerRuleCreateArgs {
 	pub kind: RuleKind,
 	pub name: String,
-	pub parameters: Vec<u8>,
+	pub parameters: Vec<String>,
 }
 
 impl IndexerRuleCreateArgs {
 	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerError> {
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
-				&Glob::new(&serde_json::from_slice::<String>(&self.parameters)?)?,
+				&self
+					.parameters
+					.into_iter()
+					.map(|s| Glob::new(s.as_str()))
+					.collect::<Result<Vec<Glob>, _>>()?,
 			)?,
 
 			RuleKind::AcceptIfChildrenDirectoriesArePresent
-			| RuleKind::RejectIfChildrenDirectoriesArePresent => {
-				rmp_serde::to_vec(&serde_json::from_slice::<Vec<String>>(&self.parameters)?)?
-			}
+			| RuleKind::RejectIfChildrenDirectoriesArePresent => rmp_serde::to_vec(&self.parameters)?,
 		};
 
 		library
@@ -53,12 +54,28 @@ impl IndexerRuleCreateArgs {
 
 #[repr(i32)]
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, Hash)]
 pub enum RuleKind {
 	AcceptFilesByGlob = 0,
 	RejectFilesByGlob = 1,
 	AcceptIfChildrenDirectoriesArePresent = 2,
 	RejectIfChildrenDirectoriesArePresent = 3,
+}
+
+impl TryFrom<i32> for RuleKind {
+	type Error = IndexerError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		let s = match value {
+			0 => Self::AcceptFilesByGlob,
+			1 => Self::RejectFilesByGlob,
+			2 => Self::AcceptIfChildrenDirectoriesArePresent,
+			3 => Self::RejectIfChildrenDirectoriesArePresent,
+			_ => return Err(IndexerError::InvalidRuleKindInt(value)),
+		};
+
+		Ok(s)
+	}
 }
 
 /// `ParametersPerKind` is a mapping from `RuleKind` to the parameters required for each kind of rule.
@@ -70,8 +87,11 @@ pub enum RuleKind {
 /// first we change the data structure to a vector, then we serialize it.
 #[derive(Debug)]
 pub enum ParametersPerKind {
-	AcceptFilesByGlob(Glob),
-	RejectFilesByGlob(Glob),
+	// TODO: Add an indexer rule that filter files based on their extended attributes
+	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+	// https://en.wikipedia.org/wiki/Extended_file_attributes
+	AcceptFilesByGlob(Vec<Glob>),
+	RejectFilesByGlob(Vec<Glob>),
 	AcceptIfChildrenDirectoriesArePresent(HashSet<String>),
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
 }
@@ -109,17 +129,19 @@ pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub kind: RuleKind,
 	pub name: String,
+	pub default: bool,
 	pub parameters: ParametersPerKind,
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
 }
 
 impl IndexerRule {
-	pub fn new(kind: RuleKind, name: String, parameters: ParametersPerKind) -> Self {
+	pub fn new(kind: RuleKind, name: String, default: bool, parameters: ParametersPerKind) -> Self {
 		Self {
 			id: None,
 			kind,
 			name,
+			default,
 			parameters,
 			date_created: Utc::now(),
 			date_modified: Utc::now(),
@@ -140,7 +162,7 @@ impl IndexerRule {
 						self.kind as i32,
 						self.name,
 						self.parameters.serialize()?,
-						vec![],
+						vec![indexer_rule::default::set(self.default)],
 					),
 					vec![indexer_rule::date_modified::set(Utc::now().into())],
 				)
@@ -153,7 +175,7 @@ impl IndexerRule {
 					self.kind as i32,
 					self.name,
 					self.parameters.serialize()?,
-					vec![],
+					vec![indexer_rule::default::set(self.default)],
 				)
 				.exec()
 				.await?;
@@ -167,12 +189,13 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	type Error = IndexerError;
 
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
-		let kind = RuleKind::from_int(data.kind)?;
+		let kind = RuleKind::try_from(data.kind)?;
 
 		Ok(Self {
 			id: Some(data.id),
 			kind,
 			name: data.name.clone(),
+			default: data.default,
 			parameters: match kind {
 				RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => {
 					let glob_str = rmp_serde::from_slice(&data.parameters)?;
@@ -208,12 +231,24 @@ impl TryFrom<indexer_rule::Data> for IndexerRule {
 	}
 }
 
-fn accept_by_glob(source: impl AsRef<Path>, glob: &Glob) -> Result<bool, IndexerError> {
-	Ok(glob.compile_matcher().is_match(source.as_ref()))
+// TODO: memoize this
+fn globset_from_globs(globs: &[Glob]) -> Result<GlobSet, globset::Error> {
+	globs
+		.iter()
+		.fold(&mut GlobSetBuilder::new(), |builder, glob| {
+			builder.add(glob.to_owned())
+		})
+		.build()
 }
 
-fn reject_by_glob(source: impl AsRef<Path>, reject_glob: &Glob) -> Result<bool, IndexerError> {
-	Ok(!reject_glob.compile_matcher().is_match(source.as_ref()))
+fn accept_by_glob(source: impl AsRef<Path>, globs: &[Glob]) -> Result<bool, IndexerError> {
+	globset_from_globs(globs)
+		.map(|glob_set| glob_set.is_match(source.as_ref()))
+		.map_err(IndexerError::GlobBuilderError)
+}
+
+fn reject_by_glob(source: impl AsRef<Path>, reject_globs: &[Glob]) -> Result<bool, IndexerError> {
+	accept_by_glob(source.as_ref(), reject_globs).map(|accept| !accept)
 }
 
 async fn accept_dir_for_its_children(
@@ -267,7 +302,8 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectFilesByGlob,
 			"ignore hidden files".to_string(),
-			ParametersPerKind::RejectFilesByGlob(Glob::new("**/.*").unwrap()),
+			false,
+			ParametersPerKind::RejectFilesByGlob(vec![Glob::new("**/.*").unwrap()]),
 		);
 		assert!(!rule.apply(hidden).await.unwrap());
 		assert!(rule.apply(normal).await.unwrap());
@@ -286,7 +322,10 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectFilesByGlob,
 			"ignore build directory".to_string(),
-			ParametersPerKind::RejectFilesByGlob(Glob::new("{**/target/*,**/target}").unwrap()),
+			false,
+			ParametersPerKind::RejectFilesByGlob(vec![
+				Glob::new("{**/target/*,**/target}").unwrap()
+			]),
 		);
 
 		assert!(rule.apply(project_file).await.unwrap());
@@ -309,7 +348,8 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::AcceptFilesByGlob,
 			"only photos".to_string(),
-			ParametersPerKind::AcceptFilesByGlob(Glob::new("*.{jpg,png,jpeg}").unwrap()),
+			false,
+			ParametersPerKind::AcceptFilesByGlob(vec![Glob::new("*.{jpg,png,jpeg}").unwrap()]),
 		);
 		assert!(!rule.apply(text).await.unwrap());
 		assert!(rule.apply(png).await.unwrap());
@@ -344,6 +384,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::AcceptIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
+			false,
 			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(childrens),
 		);
 
@@ -373,6 +414,7 @@ mod tests {
 		let rule = IndexerRule::new(
 			RuleKind::RejectIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
+			false,
 			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(childrens),
 		);
 

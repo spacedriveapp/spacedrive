@@ -1,3 +1,4 @@
 {
-	"expo.jsEngine": "hermes"
+	"expo.jsEngine": "hermes",
+	"ios.deploymentTarget": "13.0"
 }

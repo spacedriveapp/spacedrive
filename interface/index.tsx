@@ -9,7 +9,6 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
-import { Dialogs } from '@sd/ui';
 import ErrorFallback from './ErrorFallback';
 
 export * from './util/keybind';
@@ -38,6 +37,7 @@ const Devtools = () => {
 			position="bottom-right"
 			context={defaultContext}
 			toggleButtonProps={{
+				tabIndex: -1,
 				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
 			}}
 		/>
@@ -49,7 +49,6 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
 			<RouterProvider router={props.router} />
-			<Dialogs />
 		</ErrorBoundary>
 	);
 };

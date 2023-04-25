@@ -1,16 +1,5 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
-import {
-	AppWindow,
-	Camera,
-	CloudArrowDown,
-	FileText,
-	FrameCorners,
-	Heart,
-	Image,
-	MusicNote,
-	Wrench
-} from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
@@ -69,7 +58,11 @@ const StatItem = (props: StatItemProps) => {
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
-						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
+						<Skeleton
+							enableAnimation={true}
+							baseColor={'#21212e'}
+							highlightColor={'#13131a'}
+						/>
 					</div>
 				)}
 				<div
@@ -113,9 +106,8 @@ export const Component = () => {
 						);
 					})}
 				</div>
-				<div className="grow" />
 			</div>
-			<div className="mt-4 grid grid-cols-5 gap-3 pb-4">
+			{/* <div className="mt-4 grid grid-cols-5 gap-3 pb-4">
 				<CategoryButton icon={Heart} category="Favorites" />
 				<CategoryButton icon={FileText} category="Documents" />
 				<CategoryButton icon={Camera} category="Movies" />
@@ -126,11 +118,13 @@ export const Component = () => {
 				<CategoryButton icon={MusicNote} category="Music" />
 				<CategoryButton icon={Image} category="Albums" />
 				<CategoryButton icon={Heart} category="Favorites" />
-			</div>
-			<Card className="text-ink-dull">
-				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet to be
-				functional.
-			</Card>
+			</div> */}
+			{/* <Card className="text-ink-dull">
+				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
+				to be functional.
+			</Card> */}
+			{/* <ScreenHeading className="mt-4">Recents</ScreenHeading> */}
+
 			<div className="flex h-4 w-full shrink-0" />
 		</div>
 	);
@@ -147,7 +141,7 @@ function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
 			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
 			<div>
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-xs text-ink-faint">23,324 items</p>
+				<p className="text-xs text-ink-faint">0 items</p>
 			</div>
 		</Card>
 	);

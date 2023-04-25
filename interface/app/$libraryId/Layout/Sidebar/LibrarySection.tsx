@@ -47,7 +47,7 @@ export const LibrarySection = () => {
 						</SidebarLink>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && <AddLocationButton />}
+				{(locations.data?.length || 0) < 4 && <AddLocationButton className="mt-1" />}
 			</Section>
 			{!!tags.data?.length && (
 				<Section

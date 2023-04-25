@@ -15,7 +15,6 @@ impl Header {
 	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, ()> {
 		let discriminator = stream.read_u8().await.map_err(|e| {
 			dbg!(e);
-			()
 		})?; // TODO: Error handling
 
 		match discriminator {

@@ -1,4 +1,4 @@
-import { VariantProps, cva, cx } from 'class-variance-authority';
+import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from 'phosphor-react';
 import { PropsWithChildren, createElement, forwardRef, isValidElement, useState } from 'react';
@@ -14,6 +14,12 @@ export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 's
 
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
+export const inputSizes = {
+	sm: 'h-[30px]',
+	md: 'h-[34px]',
+	lg: 'h-[38px]'
+};
+
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-7',
@@ -23,18 +29,14 @@ export const inputStyles = cva(
 		variants: {
 			variant: {
 				default: [
-					'bg-app-input focus-within:bg-app-focus placeholder-ink-faint border-app-line',
-					'focus-within:ring-app-selected/30 focus-within:border-app-divider/80'
+					'border-app-line bg-app-input placeholder-ink-faint focus-within:bg-app-focus',
+					'focus-within:border-app-divider/80 focus-within:ring-app-selected/30'
 				]
 			},
 			error: {
 				true: 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30'
 			},
-			size: {
-				sm: 'h-[30px]',
-				md: 'h-[34px]',
-				lg: 'h-[38px]'
-			}
+			size: inputSizes
 		},
 		defaultVariants: {
 			variant: 'default',
@@ -106,7 +108,11 @@ export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
 	return (
 		<textarea
 			{...props}
-			className={clsx('h-auto px-3 py-2', inputStyles({ size, variant, error }), props.className)}
+			className={clsx(
+				'h-auto px-3 py-2',
+				inputStyles({ size, variant, error }),
+				props.className
+			)}
 		/>
 	);
 };
@@ -135,11 +141,12 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 			ref={ref}
 			right={
 				<Button
+					tabIndex={0}
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(props.buttonClassnames)}
 				>
-					<CurrentEyeIcon className="h-4 w-4" />
+					<CurrentEyeIcon className="!pointer-events-none h-4 w-4" />
 				</Button>
 			}
 		/>

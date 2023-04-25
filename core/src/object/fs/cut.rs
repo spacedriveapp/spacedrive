@@ -1,10 +1,16 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+};
 
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::trace;
+use tokio::fs;
+use tracing::{trace, warn};
 
 use super::{context_menu_fs_info, get_path_from_location_id, FsInfo};
 
@@ -27,7 +33,9 @@ pub struct FileCutterJobStep {
 	pub target_directory: PathBuf,
 }
 
-pub const CUT_JOB_NAME: &str = "file_cutter";
+impl JobInitData for FileCutterJobInit {
+	type Job = FileCutterJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJob {
@@ -35,8 +43,10 @@ impl StatefulJob for FileCutterJob {
 	type Data = FileCutterJobState;
 	type Step = FileCutterJobStep;
 
-	fn name(&self) -> &'static str {
-		CUT_JOB_NAME
+	const NAME: &'static str = "file_cutter";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -75,9 +85,34 @@ impl StatefulJob for FileCutterJob {
 			.target_directory
 			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
-		trace!("Cutting {:?} to {:?}", source_info.fs_path, full_output);
+		if fs::canonicalize(
+			source_info
+				.fs_path
+				.parent()
+				.map_or(Err(JobError::Path), Ok)?,
+		)
+		.await? == fs::canonicalize(full_output.parent().map_or(Err(JobError::Path), Ok)?)
+			.await?
+		{
+			return Err(JobError::MatchingSrcDest(source_info.fs_path.clone()));
+		}
 
-		tokio::fs::rename(&source_info.fs_path, &full_output).await?;
+		if fs::metadata(&full_output).await.is_ok() {
+			warn!(
+				"Skipping {} as it would be overwritten",
+				full_output.display()
+			);
+
+			return Err(JobError::WouldOverwrite(full_output));
+		}
+
+		trace!(
+			"Cutting {} to {}",
+			source_info.fs_path.display(),
+			full_output.display()
+		);
+
+		fs::rename(&source_info.fs_path, &full_output).await?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
@@ -85,7 +120,9 @@ impl StatefulJob for FileCutterJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "locations.getExplorerData");
+
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }

@@ -4,7 +4,7 @@ import {
 	useLibraryContext,
 	useLibraryQuery
 } from '@sd/client';
-import { tw } from '~/../packages/ui/src';
+import { tw } from '@sd/ui';
 
 const Label = tw.span`text-gray-300`;
 const Pill = tw.span`rounded-full bg-gray-500 px-2 py-1`;

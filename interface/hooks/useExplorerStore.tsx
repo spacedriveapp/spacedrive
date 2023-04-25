@@ -26,12 +26,16 @@ const state = {
 	contextMenuActiveObject: null as object | null,
 	newThumbnails: {} as Record<string, boolean>,
 	cutCopyState: {
+		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
 		sourcePathId: 0,
 		actionType: 'Cut',
 		active: false
 	},
-	quickViewObject: null as ExplorerItem | null
+	quickViewObject: null as ExplorerItem | null,
+	isRenaming: false,
+	mediaColumns: 8,
+	mediaAspectSquare: true
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.

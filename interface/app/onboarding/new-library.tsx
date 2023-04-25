@@ -33,7 +33,7 @@ export default function OnboardingNewLibrary() {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
-		navigate('/onboarding/master-password');
+		navigate('/onboarding/privacy');
 	});
 
 	const handleImport = () => {
@@ -46,8 +46,8 @@ export default function OnboardingNewLibrary() {
 				<OnboardingImg src={Database} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
-					Libraries are a secure, on-device database. Your files remain where they are, the Library
-					catalogs them and stores all Spacedrive related data.
+					Libraries are a secure, on-device database. Your files remain where they are,
+					the Library catalogs them and stores all Spacedrive related data.
 				</OnboardingDescription>
 
 				{importMode ? (
@@ -74,10 +74,10 @@ export default function OnboardingNewLibrary() {
 							<Button type="submit" variant="accent" size="sm">
 								New library
 							</Button>
-							<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>
 							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
 								Import library
-							</Button>
+							</Button> */}
 						</div>
 					</>
 				)}

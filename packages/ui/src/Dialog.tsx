@@ -141,7 +141,9 @@ export function Dialog<S extends FieldValues>({
 
 	return (
 		<DialogPrimitive.Root open={stateSnap.open} onOpenChange={setOpen}>
-			{props.trigger && <DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>}
+			{props.trigger && (
+				<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
+			)}
 			{transitions((styles, show) =>
 				show ? (
 					<DialogPrimitive.Portal forceMount>
@@ -156,7 +158,7 @@ export function Dialog<S extends FieldValues>({
 
 						<DialogPrimitive.Content asChild forceMount>
 							<animated.div
-								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center"
+								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
 								style={styles}
 							>
 								<Form
@@ -166,7 +168,7 @@ export function Dialog<S extends FieldValues>({
 										dialog.onSubmit?.();
 										setOpen(false);
 									}}
-									className="!pointer-events-auto min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
+									className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 								>
 									<div className="p-5">
 										<DialogPrimitive.Title className="mb-2 font-bold">
@@ -181,16 +183,24 @@ export function Dialog<S extends FieldValues>({
 										{form.formState.isSubmitting && <Loader />}
 										<div className="grow" />
 										<DialogPrimitive.Close asChild>
-											<Button disabled={props.loading} size="sm" variant="gray">
+											<Button
+												disabled={props.loading}
+												size="sm"
+												variant="gray"
+											>
 												Close
 											</Button>
 										</DialogPrimitive.Close>
 										<Button
 											type="submit"
 											size="sm"
-											disabled={form.formState.isSubmitting || props.submitDisabled}
+											disabled={
+												form.formState.isSubmitting || props.submitDisabled
+											}
 											variant={props.ctaDanger ? 'colored' : 'accent'}
-											className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+											className={clsx(
+												props.ctaDanger && 'border-red-500 bg-red-500'
+											)}
 										>
 											{props.ctaLabel}
 										</Button>

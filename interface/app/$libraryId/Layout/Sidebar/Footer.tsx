@@ -19,10 +19,11 @@ export default () => {
 					className="text-ink-faint ring-offset-sidebar"
 				>
 					<Tooltip label="Settings">
-						<Gear className="w-5 h-5" />
+						<Gear className="h-5 w-5" />
 					</Tooltip>
 				</ButtonLink>
 				<Popover
+					ignoreOpenState={true}
 					trigger={
 						<Button
 							size="icon"

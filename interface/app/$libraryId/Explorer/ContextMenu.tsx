@@ -46,35 +46,42 @@ export default (props: PropsWithChildren) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
+	const isPastable =
+		store.cutCopyState.sourceLocationId !== store.locationId
+			? true
+			: store.cutCopyState.sourcePath !== params.path
+			? true
+			: false;
+
 	return (
-		<div className="relative">
-			<CM.Root trigger={props.children}>
-				<OpenInNativeExplorer />
+		<CM.Root trigger={props.children}>
+			<OpenInNativeExplorer />
 
-				<CM.Separator />
+			<CM.Separator />
 
-				<CM.Item
-					label="Share"
-					icon={Share}
-					onClick={(e) => {
-						e.preventDefault();
+			<CM.Item
+				label="Share"
+				icon={Share}
+				onClick={(e) => {
+					e.preventDefault();
 
-						navigator.share?.({
-							title: 'Spacedrive',
-							text: 'Check out this cool app',
-							url: 'https://spacedrive.com'
-						});
-					}}
-				/>
+					navigator.share?.({
+						title: 'Spacedrive',
+						text: 'Check out this cool app',
+						url: 'https://spacedrive.com'
+					});
+				}}
+			/>
 
-				<CM.Separator />
+			<CM.Separator />
 
-				<CM.Item
-					onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
-					label="Re-index"
-					icon={Repeat}
-				/>
+			<CM.Item
+				onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
+				label="Re-index"
+				icon={Repeat}
+			/>
 
+			{isPastable && (
 				<CM.Item
 					label="Paste"
 					keybind="⌘V"
@@ -101,39 +108,38 @@ export default (props: PropsWithChildren) => {
 					}}
 					icon={Clipboard}
 				/>
+			)}
 
+			<CM.Item
+				label="Deselect"
+				hidden={!store.cutCopyState.active}
+				onClick={() => {
+					getExplorerStore().cutCopyState = {
+						...store.cutCopyState,
+						active: false
+					};
+				}}
+				icon={FileX}
+			/>
+
+			<CM.SubMenu label="More actions..." icon={Plus}>
 				<CM.Item
-					label="Deselect"
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						getExplorerStore().cutCopyState = {
-							...store.cutCopyState,
-							active: false
-						};
-					}}
-					icon={FileX}
+					onClick={() =>
+						store.locationId &&
+						generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+					}
+					label="Regen Thumbnails"
+					icon={Image}
 				/>
-
-				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
-						onClick={() =>
-							store.locationId &&
-							generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
-						}
-						label="Regen Thumbnails"
-						icon={Image}
-					/>
-					<CM.Item
-						onClick={() =>
-							store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
-						}
-						label="Generate Checksums"
-						icon={ShieldCheck}
-					/>
-				</CM.SubMenu>
-
-				<CM.Separator />
-			</CM.Root>
-		</div>
+				<CM.Item
+					onClick={() =>
+						store.locationId &&
+						objectValidator.mutate({ id: store.locationId, path: '' })
+					}
+					label="Generate Checksums"
+					icon={ShieldCheck}
+				/>
+			</CM.SubMenu>
+		</CM.Root>
 	);
 };
