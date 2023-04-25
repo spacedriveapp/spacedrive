@@ -1,4 +1,4 @@
-import { Image, Video } from '@sd/assets/icons';
+import { Collection, Image, Video } from '@sd/assets/icons';
 import clsx from 'clsx';
 import DismissibleNotice from '~/components/DismissibleNotice';
 
@@ -9,16 +9,22 @@ const MediaViewIcon = () => (
 	</div>
 );
 
+const CollectionIcon = () => (
+	<div className="mr-4 ml-3 h-14 w-14 flex-shrink-0">
+		<img src={Collection} />
+	</div>
+);
+
 const notices = {
 	gridView: {
 		title: 'Grid View',
 		description: 'Explore your collection in a grid layout.',
-		icon: <MediaViewIcon />
+		icon: <CollectionIcon />
 	},
 	listView: {
 		title: 'List View',
 		description: 'Explore your collection in a list layout.',
-		icon: <MediaViewIcon />
+		icon: <CollectionIcon />
 	},
 	mediaView: {
 		title: 'Media View',
