@@ -2,6 +2,7 @@ import { CaretLeft, CaretRight } from 'phosphor-react';
 import { forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip } from '@sd/ui';
+import { useSearchStore } from '~/hooks/useSearchStore';
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
 
@@ -22,6 +23,7 @@ export const TOP_BAR_HEIGHT = 46;
 
 const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 	const navigate = useNavigate();
+	const { isFocused } = useSearchStore();
 
 	return (
 		<div
@@ -35,12 +37,12 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 		>
 			<div data-tauri-drag-region className="flex flex-1">
 				<Tooltip label="Navigate back">
-					<TopBarButton onClick={() => navigate(-1)}>
+					<TopBarButton onClick={() => navigate(-1)} disabled={isFocused}>
 						<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
 					</TopBarButton>
 				</Tooltip>
 				<Tooltip label="Navigate forward">
-					<TopBarButton onClick={() => navigate(1)}>
+					<TopBarButton onClick={() => navigate(1)} disabled={isFocused}>
 						<CaretRight weight="bold" className={TOP_BAR_ICON_STYLE} />
 					</TopBarButton>
 				</Tooltip>
