@@ -7,6 +7,8 @@ appId: com.spacedrive.app
     id: 'library-name'
 - inputText: 'TestLib'
 - tapOn: 'New Library'
+- tapOn:
+    id: 'share-nothing'
 - tapOn: 'Continue'
 # Library creation can take a while...
 - extendedWaitUntil:

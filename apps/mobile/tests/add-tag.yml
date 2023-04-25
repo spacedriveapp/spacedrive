@@ -1,0 +1,10 @@
+appId: com.spacedrive.app
+---
+- launchApp
+- tapOn:
+    id: 'drawer-toggle'
+- tapOn: 'Add Tag'
+- tapOn:
+    id: 'create-tag-name'
+- inputText: 'Secret'
+- tapOn: Create
