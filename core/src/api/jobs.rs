@@ -8,8 +8,8 @@ use crate::{
 	},
 };
 
-use rspc::Type;
 use serde::Deserialize;
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 

@@ -31,8 +31,8 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::Direction;
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
 use tokio::{
 	sync::{broadcast, mpsc, Mutex, RwLock},

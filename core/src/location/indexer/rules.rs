@@ -7,8 +7,8 @@ use crate::{
 use chrono::{DateTime, Utc};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde;
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{collections::HashSet, path::Path};
 use tokio::fs;
 

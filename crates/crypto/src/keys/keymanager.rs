@@ -62,7 +62,7 @@ use super::keyring::{Identifier, KeyringInterface};
 /// It contains no sensitive information that is not encrypted.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct StoredKey {
 	pub uuid: Uuid, // uuid for identification. shared with mounted keys
 	pub version: StoredKeyVersion,
@@ -82,7 +82,7 @@ pub struct StoredKey {
 /// This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum StoredKeyType {
 	User,
 	Root,
@@ -91,7 +91,7 @@ pub enum StoredKeyType {
 /// This denotes the `StoredKey` version.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum StoredKeyVersion {
 	V1,
 }

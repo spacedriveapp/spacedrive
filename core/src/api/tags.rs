@@ -1,5 +1,6 @@
-use rspc::{ErrorCode, Type};
+use rspc::ErrorCode;
 use serde::Deserialize;
+use specta::Type;
 
 use serde_json::json;
 use tracing::info;

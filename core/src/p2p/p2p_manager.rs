@@ -1,12 +1,12 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use rspc::Type;
 use sd_p2p::{
 	spaceblock::{BlockSize, TransferRequest},
 	Event, Manager, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
 use serde::Serialize;
+use specta::Type;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},

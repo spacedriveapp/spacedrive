@@ -20,3 +20,5 @@ openssl-sys = { version = "0.9.76", features = [
 ] } # Override features of transitive dependencies to support IOS Simulator on M1
 futures = "0.3.24"
 tracing = "0.1.37"
+futures-channel = "0.3.28"
+futures-locks = "0.7.1"

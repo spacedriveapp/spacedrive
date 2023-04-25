@@ -9,8 +9,9 @@ use crate::{
 	prisma::{location, object},
 };
 
-use rspc::{ErrorCode, Type};
+use rspc::ErrorCode;
 use serde::Deserialize;
+use specta::Type;
 use std::path::Path;
 use tokio::fs;
 

@@ -6,8 +6,8 @@ use crate::{
 };
 
 use chrono::Utc;
-use rspc::Type;
 use serde::Deserialize;
+use specta::Type;
 use tracing::debug;
 use uuid::Uuid;
 
