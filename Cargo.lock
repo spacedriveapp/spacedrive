@@ -2387,9 +2387,11 @@ dependencies = [
 [[package]]
 name = "futures-locks"
 version = "0.7.1"
-source = "git+https://github.com/oscartbeaumont/futures-locks?rev=a2e880337e6bfb3140a261932667149607e3ada9#a2e880337e6bfb3140a261932667149607e3ada9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45ec6fe3675af967e67c5536c0b9d44e34e6c52f86bedc4ea49c5317b8e94d06"
 dependencies = [
  "futures-channel",
+ "futures-task",
  "tokio",
 ]
 
@@ -6409,7 +6411,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=d9a39c8cb08d4c805035e9aa609e107c736c62d2#d9a39c8cb08d4c805035e9aa609e107c736c62d2"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=9cb64def32aef5a987f9f06f727b4160c321b5f8#9cb64def32aef5a987f9f06f727b4160c321b5f8"
 dependencies = [
  "futures",
  "futures-channel",
@@ -6816,6 +6818,8 @@ name = "sd-mobile-core"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "futures-channel",
+ "futures-locks",
  "once_cell",
  "openssl",
  "openssl-sys",

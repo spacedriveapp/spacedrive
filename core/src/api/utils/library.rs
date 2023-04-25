@@ -106,10 +106,10 @@ where
 							)
 						})?;
 
-					Ok(resolver(ctx, args.arg, library)
+					resolver(ctx, args.arg, library)
 						.into_layer_result()?
 						.into_value_or_stream()
-						.await?)
+						.await
 				})))
 			},
 			phantom: PhantomData,
@@ -162,10 +162,10 @@ where
 							)
 						})?;
 
-					Ok(resolver(ctx, args.arg, library)
+					resolver(ctx, args.arg, library)
 						.into_layer_result()?
 						.into_value_or_stream()
-						.await?)
+						.await
 				})))
 			},
 			phantom: PhantomData,
@@ -216,10 +216,10 @@ where
 							)
 						})?;
 
-					Ok(resolver(ctx, args.arg, library)
+					resolver(ctx, args.arg, library)
 						.into_layer_result()?
 						.into_value_or_stream()
-						.await?)
+						.await
 				})))
 			},
 			phantom: PhantomData,
