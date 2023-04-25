@@ -8,15 +8,15 @@ import {
 	useContext,
 	useRef
 } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ExplorerItem, isPath } from '@sd/client';
+import { createSearchParams, useNavigate } from 'react-router-dom';
+import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
-import { getExplorerItemData } from './util';
+import { getExplorerItemData, getItemFilePath } from './util';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -31,19 +31,21 @@ export const ViewItem = ({
 	contextMenuClassName,
 	...props
 }: ViewItemProps) => {
-	const itemData = getExplorerItemData(data);
-	const [_, setSearchParams] = useSearchParams();
+	const { library } = useLibraryContext();
+	const navigate = useNavigate();
 
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
-			setSearchParams({ path: data.item.materialized_path });
+			navigate({
+				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
+				search: createSearchParams({ path: data.item.materialized_path }).toString()
+			});
 			getExplorerStore().selectedRowIndex = -1;
-		} else if (
-			itemData.kind === 'Video' ||
-			itemData.kind === 'Image' ||
-			itemData.kind === 'Audio'
-		) {
-			getExplorerStore().quickViewObject = data;
+		} else {
+			const { kind } = getExplorerItemData(data);
+			if (kind === 'Video' || kind === 'Image' || kind === 'Audio') {
+				getExplorerStore().quickViewObject = data;
+			}
 		}
 	};
 

@@ -10,6 +10,7 @@ export interface TopBarButtonProps {
 	className?: string;
 	onClick?: () => void;
 	checkIcon?: React.ReactNode;
+	disabled?: boolean;
 }
 
 const topBarButtonStyle = cva(
