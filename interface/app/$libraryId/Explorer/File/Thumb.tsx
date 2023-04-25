@@ -90,8 +90,7 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 			style={size ? { maxWidth: size, width: size - 10, height: size } : {}}
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
-				src &&
-					kind !== 'Video' && [classes.checkers, size && 'border-2 border-transparent'],
+				src && kind !== 'Video' && [size && 'border-2 border-transparent'],
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
@@ -138,6 +137,7 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 									: childClassName,
 								'shadow shadow-black/30',
 								kind === 'Video' ? 'rounded' : 'rounded-sm',
+								classes.checkers,
 								size &&
 									(kind === 'Video'
 										? 'border-x-0 border-black'
