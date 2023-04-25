@@ -51,13 +51,6 @@ struct NodeState {
 }
 
 pub(crate) fn mount() -> Arc<Router> {
-	let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
-
-	#[cfg(all(debug_assertions, not(feature = "mobile")))]
-	let config = config.export_ts_bindings(
-		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
-	);
-
 	let r = R
 		.router()
 		.procedure("buildInfo", {
@@ -217,7 +210,17 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("p2p.", p2p::mount())
 		.merge("sync.", sync::mount())
 		.merge("invalidation.", utils::mount_invalidate())
-		.compat_with_config(config)
+		.build({
+			let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+
+			#[cfg(all(debug_assertions, not(feature = "mobile")))]
+			let config = config.export_ts_bindings(
+				std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+					.join("../packages/client/src/core.ts"),
+			);
+
+			config
+		})
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
