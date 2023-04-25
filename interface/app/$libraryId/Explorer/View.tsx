@@ -94,25 +94,11 @@ export default memo((props: Props) => {
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
+			<DismissibleNotice />
 			<context.Provider value={{ data: props.data, scrollRef }}>
-				{layoutMode === 'grid' && (
-					<>
-						<DismissibleNotice notice="gridView" className="ml-1" />
-						<GridView />
-					</>
-				)}
-				{layoutMode === 'rows' && (
-					<>
-						<DismissibleNotice notice="listView" />
-						<ListView />
-					</>
-				)}
-				{layoutMode === 'media' && (
-					<>
-						<DismissibleNotice notice="mediaView" />
-						<MediaView />
-					</>
-				)}
+				{layoutMode === 'grid' && <GridView />}
+				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'media' && <MediaView />}
 			</context.Provider>
 		</div>
 	);
