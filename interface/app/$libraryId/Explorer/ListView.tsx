@@ -12,9 +12,10 @@ import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
+import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
 import RenameTextBox from './File/RenameTextBox';
@@ -67,6 +68,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 
 export default () => {
 	const explorerStore = useExplorerStore();
+	const dismissibleNoticeStore = useDismissibleNoticeStore();
 	const { data, scrollRef } = useExplorerView();
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
@@ -172,7 +174,8 @@ export default () => {
 		getScrollElement: () => scrollRef.current,
 		estimateSize: () => 45,
 		paddingStart: 12,
-		paddingEnd: 12
+		paddingEnd: 12,
+		overscan: !dismissibleNoticeStore.listView ? 5 : 1
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();

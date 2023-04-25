@@ -31,41 +31,39 @@
 use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
 #[derive(Clone)]
-pub struct Protected<T>
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
+pub struct Protected<T>(T)
 where
-	T: Zeroize,
-{
-	data: T,
-}
+	T: Zeroize;
 
 impl<T> Protected<T>
 where
 	T: Zeroize,
 {
 	pub const fn new(value: T) -> Self {
-		Self { data: value }
+		Self(value)
 	}
 
 	pub const fn expose(&self) -> &T {
-		&self.data
+		&self.0
 	}
 
 	pub fn zeroize(mut self) {
-		self.data.zeroize();
+		self.0.zeroize();
 	}
 }
 
 impl From<Vec<u8>> for Protected<Vec<u8>> {
 	fn from(value: Vec<u8>) -> Self {
-		Self { data: value }
+		Self(value)
 	}
 }
 
 impl From<Protected<String>> for Protected<Vec<u8>> {
 	fn from(value: Protected<String>) -> Self {
-		Self {
-			data: value.expose().as_bytes().to_vec(),
-		}
+		Self(value.expose().as_bytes().to_vec())
 	}
 }
 
@@ -75,7 +73,7 @@ where
 {
 	pub fn into_inner(mut self) -> T {
 		let mut out = Default::default();
-		swap(&mut self.data, &mut out);
+		swap(&mut self.0, &mut out);
 		out
 	}
 }
@@ -85,7 +83,7 @@ where
 	T: Zeroize,
 {
 	fn drop(&mut self) {
-		self.data.zeroize();
+		self.0.zeroize();
 	}
 }
 
@@ -95,43 +93,5 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str("[REDACTED]")
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T> serde::Deserialize<'de> for Protected<T>
-where
-	T: serde::Deserialize<'de> + Zeroize,
-{
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		Ok(Self::new(T::deserialize(deserializer)?))
-	}
-}
-
-#[cfg(feature = "rspc")]
-use rspc::internal::specta;
-
-#[cfg(feature = "rspc")]
-impl<T> specta::Type for Protected<T>
-where
-	T: specta::Type + Zeroize,
-{
-	const NAME: &'static str = T::NAME;
-	const SID: specta::TypeSid = specta::sid!();
-	const IMPL_LOCATION: specta::ImplLocation = specta::impl_location!();
-
-	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
-		T::inline(opts, generics)
-	}
-
-	fn reference(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
-		T::reference(opts, generics)
-	}
-
-	fn definition(opts: specta::DefOpts) -> specta::DataTypeExt {
-		T::definition(opts)
 	}
 }

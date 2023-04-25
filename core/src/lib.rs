@@ -26,6 +26,7 @@ pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
 
+#[allow(warnings, unused)]
 pub(crate) mod prisma;
 pub(crate) mod prisma_sync;
 
