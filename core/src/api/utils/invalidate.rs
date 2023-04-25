@@ -14,7 +14,7 @@ use std::{
 	time::Duration,
 };
 use tokio::sync::broadcast;
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[cfg(debug_assertions)]
 use std::sync::Mutex;
@@ -218,7 +218,7 @@ macro_rules! invalidate_query {
 
 pub fn mount_invalidate() -> RouterBuilder {
 	let (tx, _) = broadcast::channel(100);
-	let manager_thread_active = AtomicBool::new(false);
+	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
 	RouterBuilder::new().subscription("listen", move |t| {
@@ -229,6 +229,7 @@ pub fn mount_invalidate() -> RouterBuilder {
 			if !manager_thread_active.swap(true, Ordering::Relaxed) {
 				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				let tx = tx.clone();
+				let manager_thread_active = manager_thread_active.clone();
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
 
@@ -249,8 +250,14 @@ pub fn mount_invalidate() -> RouterBuilder {
 								let x = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
 								match tx.send(x) {
 									Ok(_) => {},
-									Err(_) => warn!("Error emitting invalidation manager events!"),
+									// All receivers are shutdown means that all clients are disconnected.
+									Err(_) => {
+										debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
+										manager_thread_active.swap(false, Ordering::Relaxed);
+										break;
+									}
 								}
+
 							}
 						}
 					}
