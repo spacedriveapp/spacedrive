@@ -4,8 +4,7 @@ import { useBridgeSubscription } from '../rspc';
 export function useOnlineLocations() {
 	const [state, setState] = useState<number[][] | null>(null);
 
-	// @ts-expect-error
-	useBridgeSubscription(['locations.online', null], {
+	useBridgeSubscription(['locations.online'], {
 		onData: (d) => setState(d)
 	});
 
