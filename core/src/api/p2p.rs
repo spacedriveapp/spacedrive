@@ -1,3 +1,4 @@
+use rspc::alpha::AlphaRouter;
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -5,12 +6,12 @@ use std::path::PathBuf;
 
 use crate::p2p::P2PEvent;
 
-use super::RouterBuilder;
+use super::{Ctx, R};
 
-pub(crate) fn mount() -> RouterBuilder {
-	RouterBuilder::new()
-		.subscription("events", |t| {
-			t(|ctx, _: ()| {
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("events", {
+			R.subscription(|ctx, _: ()| async move {
 				let mut rx = ctx.p2p.subscribe();
 				async_stream::stream! {
 					// TODO: Don't block subscription start
@@ -33,14 +34,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 			})
 		})
-		.mutation("spacedrop", |t| {
+		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
 				peer_id: PeerId,
 				file_path: String,
 			}
 
-			t(|ctx, args: SpacedropArgs| async move {
+			R.mutation(|ctx, args: SpacedropArgs| async move {
 				ctx.p2p
 					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path))
 					.await;

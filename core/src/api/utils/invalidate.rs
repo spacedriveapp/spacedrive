@@ -1,6 +1,7 @@
-use crate::api::{CoreEvent, Router, RouterBuilder};
+use crate::api::{CoreEvent, Ctx, Router, R};
 
 use async_stream::stream;
+use rspc::alpha::AlphaRouter;
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
@@ -216,13 +217,13 @@ macro_rules! invalidate_query {
 	}};
 }
 
-pub fn mount_invalidate() -> RouterBuilder {
+pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let (tx, _) = broadcast::channel(100);
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	RouterBuilder::new().subscription("listen", move |t| {
-		t(move |ctx, _: ()| {
+	R.router().procedure("listen", {
+		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
 			// Batching is important because when refetching data on the frontend rspc can fetch all invalidated queries in a single round trip.

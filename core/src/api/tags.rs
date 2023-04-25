@@ -1,4 +1,4 @@
-use rspc::ErrorCode;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 
@@ -14,98 +14,101 @@ use crate::{
 	sync,
 };
 
-use super::{utils::LibraryRequest, RouterBuilder};
+use super::{utils::library, Ctx, R};
 
-pub(crate) fn mount() -> RouterBuilder {
-	RouterBuilder::new()
-		.library_query("list", |t| {
-			t(
-				|_, _: (), library| async move { Ok(library.db.tag().find_many(vec![]).exec().await?) },
-			)
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("list", {
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library.db.tag().find_many(vec![]).exec().await?)
+			})
 		})
-		.library_query("getExplorerData", |t| {
-			t(|_, tag_id: i32, library| async move {
-				info!("Getting files for tag {}", tag_id);
+		.procedure("getExplorerData", {
+			R.with2(library())
+				.query(|(_, library), tag_id: i32| async move {
+					info!("Getting files for tag {}", tag_id);
 
-				let Library { db, .. } = &library;
+					let Library { db, .. } = &library;
 
-				let tag = db
-					.tag()
-					.find_unique(tag::id::equals(tag_id))
-					.exec()
-					.await?
-					.ok_or_else(|| {
-						rspc::Error::new(
-							ErrorCode::NotFound,
-							format!("Tag <id={tag_id}> not found"),
-						)
-					})?;
-
-				let objects = db
-					.object()
-					.find_many(vec![object::tags::some(vec![
-						tag_on_object::tag_id::equals(tag_id),
-					])])
-					.include(object_with_file_paths::include())
-					.exec()
-					.await?;
-
-				let mut items = Vec::with_capacity(objects.len());
-
-				for object in objects {
-					let cas_id = object
-						.file_paths
-						.iter()
-						.map(|fp| fp.cas_id.as_ref())
-						.find_map(|c| c);
-
-					let has_thumbnail = if let Some(cas_id) = cas_id {
-						library.thumbnail_exists(cas_id).await.map_err(|e| {
-							rspc::Error::with_cause(
-								ErrorCode::InternalServerError,
-								"Failed to check that thumbnail exists".to_string(),
-								e,
+					let tag = db
+						.tag()
+						.find_unique(tag::id::equals(tag_id))
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::NotFound,
+								format!("Tag <id={tag_id}> not found"),
 							)
-						})?
-					} else {
-						false
-					};
+						})?;
 
-					items.push(ExplorerItem::Object {
-						has_thumbnail,
-						item: object,
-					});
-				}
+					let objects = db
+						.object()
+						.find_many(vec![object::tags::some(vec![
+							tag_on_object::tag_id::equals(tag_id),
+						])])
+						.include(object_with_file_paths::include())
+						.exec()
+						.await?;
 
-				info!("Got objects {}", items.len());
+					let mut items = Vec::with_capacity(objects.len());
 
-				Ok(ExplorerData {
-					context: ExplorerContext::Tag(tag),
-					items,
+					for object in objects {
+						let cas_id = object
+							.file_paths
+							.iter()
+							.map(|fp| fp.cas_id.as_ref())
+							.find_map(|c| c);
+
+						let has_thumbnail = if let Some(cas_id) = cas_id {
+							library.thumbnail_exists(cas_id).await.map_err(|e| {
+								rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									"Failed to check that thumbnail exists".to_string(),
+									e,
+								)
+							})?
+						} else {
+							false
+						};
+
+						items.push(ExplorerItem::Object {
+							has_thumbnail,
+							item: object,
+						});
+					}
+
+					info!("Got objects {}", items.len());
+
+					Ok(ExplorerData {
+						context: ExplorerContext::Tag(tag),
+						items,
+					})
 				})
-			})
 		})
-		.library_query("getForObject", |t| {
-			t(|_, object_id: i32, library| async move {
-				Ok(library
-					.db
-					.tag()
-					.find_many(vec![tag::tag_objects::some(vec![
-						tag_on_object::object_id::equals(object_id),
-					])])
-					.exec()
-					.await?)
-			})
+		.procedure("getForObject", {
+			R.with2(library())
+				.query(|(_, library), object_id: i32| async move {
+					Ok(library
+						.db
+						.tag()
+						.find_many(vec![tag::tag_objects::some(vec![
+							tag_on_object::object_id::equals(object_id),
+						])])
+						.exec()
+						.await?)
+				})
 		})
-		.library_query("get", |t| {
-			t(|_, tag_id: i32, library| async move {
-				Ok(library
-					.db
-					.tag()
-					.find_unique(tag::id::equals(tag_id))
-					.exec()
-					.await?)
-			})
+		.procedure("get", {
+			R.with2(library())
+				.query(|(_, library), tag_id: i32| async move {
+					Ok(library
+						.db
+						.tag()
+						.find_unique(tag::id::equals(tag_id))
+						.exec()
+						.await?)
+				})
 		})
 		// .library_mutation("create", |t| {
 		// 	#[derive(Type, Deserialize)]
@@ -120,43 +123,44 @@ pub(crate) fn mount() -> RouterBuilder {
 		// 		Ok(created_tag)
 		// 	})
 		// })
-		.library_mutation("create", |t| {
+		.procedure("create", {
 			#[derive(Type, Deserialize)]
 			pub struct TagCreateArgs {
 				pub name: String,
 				pub color: String,
 			}
 
-			t(|_, args: TagCreateArgs, library| async move {
-				let Library { db, sync, .. } = &library;
+			R.with2(library())
+				.mutation(|(_, library), args: TagCreateArgs| async move {
+					let Library { db, sync, .. } = &library;
 
-				let pub_id = Uuid::new_v4().as_bytes().to_vec();
+					let pub_id = Uuid::new_v4().as_bytes().to_vec();
 
-				let created_tag = sync
-					.write_op(
-						db,
-						sync.unique_shared_create(
-							sync::tag::SyncId {
-								pub_id: pub_id.clone(),
-							},
-							[("name", json!(args.name)), ("color", json!(args.color))],
-						),
-						db.tag().create(
-							pub_id,
-							vec![
-								tag::name::set(Some(args.name)),
-								tag::color::set(Some(args.color)),
-							],
-						),
-					)
-					.await?;
+					let created_tag = sync
+						.write_op(
+							db,
+							sync.unique_shared_create(
+								sync::tag::SyncId {
+									pub_id: pub_id.clone(),
+								},
+								[("name", json!(args.name)), ("color", json!(args.color))],
+							),
+							db.tag().create(
+								pub_id,
+								vec![
+									tag::name::set(Some(args.name)),
+									tag::color::set(Some(args.color)),
+								],
+							),
+						)
+						.await?;
 
-				invalidate_query!(library, "tags.list");
+					invalidate_query!(library, "tags.list");
 
-				Ok(created_tag)
-			})
+					Ok(created_tag)
+				})
 		})
-		.library_mutation("assign", |t| {
+		.procedure("assign", {
 			#[derive(Debug, Type, Deserialize)]
 			pub struct TagAssignArgs {
 				pub object_id: i32,
@@ -164,33 +168,34 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub unassign: bool,
 			}
 
-			t(|_, args: TagAssignArgs, library| async move {
-				if args.unassign {
-					library
-						.db
-						.tag_on_object()
-						.delete(tag_on_object::tag_id_object_id(args.tag_id, args.object_id))
-						.exec()
-						.await?;
-				} else {
-					library
-						.db
-						.tag_on_object()
-						.create(
-							tag::id::equals(args.tag_id),
-							object::id::equals(args.object_id),
-							vec![],
-						)
-						.exec()
-						.await?;
-				}
+			R.with2(library())
+				.mutation(|(_, library), args: TagAssignArgs| async move {
+					if args.unassign {
+						library
+							.db
+							.tag_on_object()
+							.delete(tag_on_object::tag_id_object_id(args.tag_id, args.object_id))
+							.exec()
+							.await?;
+					} else {
+						library
+							.db
+							.tag_on_object()
+							.create(
+								tag::id::equals(args.tag_id),
+								object::id::equals(args.object_id),
+								vec![],
+							)
+							.exec()
+							.await?;
+					}
 
-				invalidate_query!(library, "tags.getForObject");
+					invalidate_query!(library, "tags.getForObject");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("update", |t| {
+		.procedure("update", {
 			#[derive(Type, Deserialize)]
 			pub struct TagUpdateArgs {
 				pub id: i32,
@@ -198,61 +203,64 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub color: Option<String>,
 			}
 
-			t(|_, args: TagUpdateArgs, library| async move {
-				let Library { sync, db, .. } = &library;
+			R.with2(library())
+				.mutation(|(_, library), args: TagUpdateArgs| async move {
+					let Library { sync, db, .. } = &library;
 
-				let tag = db
-					.tag()
-					.find_unique(tag::id::equals(args.id))
-					.select(tag::select!({ pub_id }))
-					.exec()
-					.await?
-					.unwrap();
+					let tag = db
+						.tag()
+						.find_unique(tag::id::equals(args.id))
+						.select(tag::select!({ pub_id }))
+						.exec()
+						.await?
+						.unwrap();
 
-				sync.write_ops(
-					db,
-					(
-						[
-							args.name.as_ref().map(|v| ("name", json!(v))),
-							args.color.as_ref().map(|v| ("color", json!(v))),
-						]
-						.into_iter()
-						.flatten()
-						.map(|(k, v)| {
-							sync.shared_update(
-								sync::tag::SyncId {
-									pub_id: tag.pub_id.clone(),
-								},
-								k,
-								v,
-							)
-						})
-						.collect(),
-						db.tag().update(
-							tag::id::equals(args.id),
-							vec![tag::name::set(args.name), tag::color::set(args.color)],
+					sync.write_ops(
+						db,
+						(
+							[
+								args.name.as_ref().map(|v| ("name", json!(v))),
+								args.color.as_ref().map(|v| ("color", json!(v))),
+							]
+							.into_iter()
+							.flatten()
+							.map(|(k, v)| {
+								sync.shared_update(
+									sync::tag::SyncId {
+										pub_id: tag.pub_id.clone(),
+									},
+									k,
+									v,
+								)
+							})
+							.collect(),
+							db.tag().update(
+								tag::id::equals(args.id),
+								vec![tag::name::set(args.name), tag::color::set(args.color)],
+							),
 						),
-					),
-				)
-				.await?;
-
-				invalidate_query!(library, "tags.list");
-
-				Ok(())
-			})
-		})
-		.library_mutation("delete", |t| {
-			t(|_, tag_id: i32, library| async move {
-				library
-					.db
-					.tag()
-					.delete(tag::id::equals(tag_id))
-					.exec()
+					)
 					.await?;
 
-				invalidate_query!(library, "tags.list");
+					invalidate_query!(library, "tags.list");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
+		.procedure(
+			"delete",
+			R.with2(library())
+				.mutation(|(_, library), tag_id: i32| async move {
+					library
+						.db
+						.tag()
+						.delete(tag::id::equals(tag_id))
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "tags.list");
+
+					Ok(())
+				}),
+		)
 }
