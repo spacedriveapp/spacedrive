@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-import { MonitorPlay } from 'phosphor-react';
 import {
 	HTMLAttributes,
 	PropsWithChildren,
@@ -96,19 +95,21 @@ export default memo((props: Props) => {
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
 			<context.Provider value={{ data: props.data, scrollRef }}>
-				{layoutMode === 'grid' && <GridView />}
-				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'grid' && (
+					<>
+						<DismissibleNotice notice="gridView" className="ml-1" />
+						<GridView />
+					</>
+				)}
+				{layoutMode === 'rows' && (
+					<>
+						<DismissibleNotice notice="listView" />
+						<ListView />
+					</>
+				)}
 				{layoutMode === 'media' && (
 					<>
-						<DismissibleNotice
-							title={
-								<>
-									<span className="font-normal">Meet</span> Media View
-								</>
-							}
-							description="Discover photos and videos easily, Media View will show results starting at the current location including sub directories."
-							icon={MonitorPlay}
-						/>
+						<DismissibleNotice notice="mediaView" />
 						<MediaView />
 					</>
 				)}
