@@ -1,12 +1,13 @@
 import clsx from 'clsx';
 import { useEffect, useState, useTransition } from 'react';
 import { useRef } from 'react';
-import { useLocation, useMatch, useMatches, useNavigate, useResolvedPath } from 'react-router';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useResolvedPath } from 'react-router';
+import { createSearchParams, useSearchParams } from 'react-router-dom';
+import { useKey, useKeys } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, Shortcut } from '@sd/ui';
-import { useLibraryContext } from '~/../packages/client/src';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { getSearchStore } from '~/hooks/useSearchStore';
 
 export const SEARCH_PARAM_KEY = 'search';
 
@@ -19,28 +20,6 @@ export default () => {
 
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
-
-	const { library } = useLibraryContext();
-
-	useEffect(() => {
-		const keyboardSearchFocus = (event: KeyboardEvent) => {
-			if (!searchRef.current) return;
-
-			if (event.key === 'f' && (event.metaKey || event.ctrlKey)) {
-				event.preventDefault();
-				searchRef.current?.focus();
-			} else if (searchRef.current === document.activeElement && event.key === 'Escape') {
-				setSearchParams((p) => (p.delete(SEARCH_PARAM_KEY), p));
-				searchRef.current?.blur();
-			}
-		};
-
-		document.addEventListener('keydown', keyboardSearchFocus);
-
-		return () => {
-			document.removeEventListener('keydown', keyboardSearchFocus);
-		};
-	}, [searchRef]);
 
 	// Wrapping param updates in a transition allows us to track whether
 	// updating the params triggers a Suspense somewhere else, providing a free
@@ -63,6 +42,9 @@ export default () => {
 		updateParams(value);
 	}, [value]);
 
+	useKeys([os === 'macOS' ? 'Meta' : 'Ctrl', 'f'], () => searchRef.current?.focus());
+	useKey('Escape', () => searchRef.current?.blur());
+
 	return (
 		<Input
 			ref={searchRef}
@@ -71,15 +53,19 @@ export default () => {
 			size="sm"
 			onChange={(e) => setValue(e.target.value)}
 			onBlur={() => {
+				getSearchStore().isFocused = false;
 				if (value === '') {
 					setSearchParams((p) => (p.delete(SEARCH_PARAM_KEY), p), { replace: true });
 					navigate(-1);
 				}
 			}}
 			onFocus={() => {
+				getSearchStore().isFocused = true;
 				if (searchPath.pathname !== location.pathname) {
-					// Replace here so that navigate(-1) functions properly
-					navigate(`search`, { replace: true });
+					navigate({
+						pathname: 'search',
+						search: createSearchParams({ search: value }).toString()
+					});
 				}
 			}}
 			value={value}
@@ -94,16 +80,19 @@ export default () => {
 							<Shortcut
 								chars="⌘F"
 								aria-label={'Press Command-F to focus search bar'}
+								className="border-none"
 							/>
 						) : os === 'macOS' ? (
 							<Shortcut
 								chars="⌘F"
 								aria-label={'Press Command-F to focus search bar'}
+								className="border-none"
 							/>
 						) : (
 							<Shortcut
 								chars="CTRL+F"
 								aria-label={'Press CTRL-F to focus search bar'}
+								className="border-none"
 							/>
 						)}
 					</div>
