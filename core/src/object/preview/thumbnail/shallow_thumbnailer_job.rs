@@ -11,6 +11,7 @@ use crate::{
 		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient},
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -24,6 +25,7 @@ use sd_file_ext::extensions::Extension;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	finalize_thumbnailer, process_step, ThumbnailerError, ThumbnailerJobReport,
@@ -198,7 +200,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 async fn get_files_by_extensions(
 	db: &PrismaClient,
 	location_id: LocationId,
-	parent_id: i32,
+	parent_id: Uuid,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {
@@ -207,7 +209,7 @@ async fn get_files_by_extensions(
 		.find_many(vec![
 			file_path::location_id::equals(location_id),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::parent_id::equals(Some(parent_id)),
+			file_path::parent_id::equals(Some(uuid_to_bytes(parent_id))),
 		])
 		.select(file_path_just_materialized_path_cas_id::select())
 		.exec()

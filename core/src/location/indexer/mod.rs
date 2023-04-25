@@ -4,6 +4,7 @@ use crate::{
 	library::Library,
 	prisma::file_path,
 	sync,
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -20,6 +21,7 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::io;
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
@@ -71,8 +73,8 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
-	file_id: i32,
-	parent_id: Option<i32>,
+	file_id: Uuid,
+	parent_id: Option<Uuid>,
 	metadata: FilePathMetadata,
 }
 
@@ -165,10 +167,7 @@ async fn execute_indexer_step(
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						id: entry.file_id,
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone(),
-						},
+						pub_id: uuid_to_bytes(entry.file_id),
 					},
 					[
 						("materialized_path", json!(materialized_path.clone())),
@@ -187,7 +186,7 @@ async fn execute_indexer_step(
 					],
 				),
 				file_path::create_unchecked(
-					entry.file_id,
+					uuid_to_bytes(entry.file_id),
 					location.id,
 					materialized_path.into_owned(),
 					name.into_owned(),
@@ -197,7 +196,7 @@ async fn execute_indexer_step(
 					vec![
 						is_dir::set(is_dir),
 						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
-						parent_id::set(entry.parent_id),
+						parent_id::set(entry.parent_id.map(uuid_to_bytes)),
 						date_created::set(entry.metadata.created_at.into()),
 						date_modified::set(entry.metadata.modified_at.into()),
 					],
