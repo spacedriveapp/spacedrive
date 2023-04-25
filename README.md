@@ -1,6 +1,6 @@
 <p align="center">
   <a href="#">
-    
+
   </a>
   <p align="center">
    <img width="150" height="150" src="https://github.com/spacedriveapp/spacedrive/blob/main/packages/assets/images/AppLogo.png" alt="Logo">
@@ -28,7 +28,7 @@
     <i>~ Links will be added once a release is available. ~</i>
   </p>
 </p>
-Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. 
+Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust.
 <br/>
 <br/>
 
@@ -83,7 +83,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 - Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
-- We also use [rspc](https://rspc.otbeaumont.me) which allows us to define functions in Rust and call them on the Typescript frontend in a completely typesafe manner, so no unnecessary bugs make it into production!
+- We also use [rspc](https://rspc.dev) which allows us to define functions in Rust and call them on the Typescript frontend in a completely typesafe manner, so no unnecessary bugs make it into production!
 - The core (`sdcore`) is written in pure Rust.
 
 ## Monorepo structure:

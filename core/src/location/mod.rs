@@ -23,9 +23,9 @@ use std::{
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::QueryError;
-use rspc::Type;
 use serde::Deserialize;
 use serde_json::json;
+use specta::Type;
 use tokio::{fs, io};
 use tracing::{debug, info};
 use uuid::Uuid;

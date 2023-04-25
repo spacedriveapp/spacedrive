@@ -1,10 +1,11 @@
-use crate::api::{CoreEvent, Router, RouterBuilder};
+use crate::api::{CoreEvent, Ctx, Router, R};
 
 use async_stream::stream;
-use rspc::{internal::specta::DataType, Type};
+use rspc::alpha::AlphaRouter;
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
+use specta::{DataType, Type};
 use std::{
 	collections::HashMap,
 	sync::{
@@ -14,7 +15,7 @@ use std::{
 	time::Duration,
 };
 use tokio::sync::broadcast;
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[cfg(debug_assertions)]
 use std::sync::Mutex;
@@ -216,19 +217,20 @@ macro_rules! invalidate_query {
 	}};
 }
 
-pub fn mount_invalidate() -> RouterBuilder {
+pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let (tx, _) = broadcast::channel(100);
-	let manager_thread_active = AtomicBool::new(false);
+	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	RouterBuilder::new().subscription("listen", move |t| {
-		t(move |ctx, _: ()| {
+	R.router().procedure("listen", {
+		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
 			// Batching is important because when refetching data on the frontend rspc can fetch all invalidated queries in a single round trip.
 			if !manager_thread_active.swap(true, Ordering::Relaxed) {
 				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				let tx = tx.clone();
+				let manager_thread_active = manager_thread_active.clone();
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
 
@@ -249,8 +251,14 @@ pub fn mount_invalidate() -> RouterBuilder {
 								let x = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
 								match tx.send(x) {
 									Ok(_) => {},
-									Err(_) => warn!("Error emitting invalidation manager events!"),
+									// All receivers are shutdown means that all clients are disconnected.
+									Err(_) => {
+										debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
+										manager_thread_active.swap(false, Ordering::Relaxed);
+										break;
+									}
 								}
+
 							}
 						}
 					}

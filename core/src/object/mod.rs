@@ -1,7 +1,7 @@
 use crate::prisma::{file_path, object};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 pub mod cas;
 pub mod file_identifier;
