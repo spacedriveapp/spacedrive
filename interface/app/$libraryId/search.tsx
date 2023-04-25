@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useTopBarOptions } from '~/hooks/useTopBarOptions';
+import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from './Explorer';
 import { getExplorerItemData } from './Explorer/util';
 import TopBarChildren from './TopBar/TopBarChildren';
@@ -19,7 +19,7 @@ export type SearchArgs = z.infer<typeof schema>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 
 	const query = useLibraryQuery(['search', props.args], {
 		suspense: true,

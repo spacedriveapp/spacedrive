@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useTopBarOptions } from '~/hooks/useTopBarOptions';
+import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
 import { KeyManager } from '../KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar';
@@ -22,7 +22,7 @@ export function useExplorerParams() {
 
 export const Component = () => {
 	const store = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 	const toolBarOptions: ToolOption[][] = [
 		explorerViewOptions,
 		[
