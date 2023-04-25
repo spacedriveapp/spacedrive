@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from 'react';
+import { Appearance, NativeEventSubscription } from 'react-native';
 import { useDeviceContext } from 'twrnc';
 import { subscribe } from 'valtio';
 import { getThemeStore } from '@sd/client';
@@ -19,16 +20,21 @@ export function useTheme() {
 		});
 
 		return () => {
-			// Cleanup
 			unsubscribe();
 		};
 	}, []);
 
-	// TODO: Listen for system theme changes if getThemeStore.syncThemeWithSystem is true
-	// useEffect(() => {
+	useEffect(() => {
+		let systemThemeListener: NativeEventSubscription | undefined;
+		if (getThemeStore().syncThemeWithSystem === true) {
+			systemThemeListener = Appearance.addChangeListener(({ colorScheme }) => {
+				changeTwTheme(colorScheme === 'dark' ? 'dark' : 'vanilla');
+				forceUpdate();
+			});
+		}
 
-	// 	return () => {
-	// 		second;
-	// 	};
-	// }, []);
+		return () => {
+			systemThemeListener?.remove();
+		};
+	}, []);
 }
