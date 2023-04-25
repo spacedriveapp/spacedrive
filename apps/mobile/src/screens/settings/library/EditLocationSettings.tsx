@@ -12,7 +12,7 @@ import { Divider } from '~/components/primitive/Divider';
 import {
 	SettingsContainer,
 	SettingsInputInfo,
-	SettingsInputTitle
+	SettingsTitle
 } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useZodForm, z } from '~/hooks/useZodForm';
@@ -101,7 +101,7 @@ const EditLocationSettingsScreen = ({
 		<ScrollView contentContainerStyle={tw`gap-y-6 pb-12 pt-4`}>
 			{/* Inputs */}
 			<View style={tw`px-2`}>
-				<SettingsInputTitle>Display Name</SettingsInputTitle>
+				<SettingsTitle>Display Name</SettingsTitle>
 				<Controller
 					name="displayName"
 					control={form.control}
@@ -114,7 +114,7 @@ const EditLocationSettingsScreen = ({
 					not rename the actual folder on disk.
 				</SettingsInputInfo>
 
-				<SettingsInputTitle style={tw`mt-3`}>Local Path</SettingsInputTitle>
+				<SettingsTitle style={tw`mt-3`}>Local Path</SettingsTitle>
 				<Controller
 					name="localPath"
 					control={form.control}

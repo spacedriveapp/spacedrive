@@ -54,9 +54,6 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				setTagColor('#A717D9');
 				setShowPicker(false);
 			}}
-			// Disable panning gestures
-			enableHandlePanningGesture={false}
-			enableContentPanningGesture={false}
 			showCloseButton
 		>
 			<View style={tw`p-4`}>

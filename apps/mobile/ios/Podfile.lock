@@ -12,7 +12,7 @@ PODS:
   - EXMediaLibrary (15.2.3):
     - ExpoModulesCore
     - React-Core
-  - Expo (48.0.10):
+  - Expo (48.0.11):
     - ExpoModulesCore
   - ExpoKeepAwake (12.0.1):
     - ExpoModulesCore
@@ -610,7 +610,7 @@ SPEC CHECKSUMS:
   EXFileSystem: 844e86ca9b5375486ecc4ef06d3838d5597d895d
   EXFont: 6ea3800df746be7233208d80fe379b8ed74f4272
   EXMediaLibrary: 587cd8aad27a6fc8d7c38b950bc75bc1845a7480
-  Expo: b04d142a2b477a391b47c62d179c1a9e1140e6ad
+  Expo: 81418098ffb16914b2e190f54e06db923248e4a1
   ExpoKeepAwake: 69f5f627670d62318410392d03e0b5db0f85759a
   ExpoModulesCore: 6e0259511f4c4341b6b8357db393624df2280828
   EXSplashScreen: cd7fb052dff5ba8311d5c2455ecbebffe1b7a8ca
@@ -661,6 +661,6 @@ SPEC CHECKSUMS:
   RNSVG: 07dbd870b0dcdecc99b3a202fa37c8ca163caec2
   Yoga: 5ed1699acbba8863755998a4245daa200ff3817b
 
-PODFILE CHECKSUM: 468d85abbbcf7578a977d626c82704a1c385c25a
+PODFILE CHECKSUM: 7a4bb50e685f075b59612fa770c28d9a25b9edea
 
 COCOAPODS: 1.11.3

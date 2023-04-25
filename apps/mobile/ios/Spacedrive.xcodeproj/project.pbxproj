@@ -350,7 +350,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = H7MGS2DHHJ;
+				DEVELOPMENT_TEAM = XF923AZS22;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -411,6 +411,7 @@
 					/usr/lib/swift,
 					../../../target,
 				);
+				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -451,7 +452,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = H7MGS2DHHJ;
+				DEVELOPMENT_TEAM = XF923AZS22;
 				INFOPLIST_FILE = Spacedrive/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Spacedrive;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -507,6 +508,7 @@
 					/usr/lib/swift,
 					../../../target,
 				);
+				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

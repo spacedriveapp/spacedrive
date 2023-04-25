@@ -48,8 +48,9 @@
 	"search.exclude": {
 		"**/node_modules": true,
 		"**/bower_components": true,
-		"**/*.code-search": true
+		"**/*.code-search": true,
 		// Hiding these folders bcs they create a lot of noise in the search results
+		"apps/mobile/ios/Pods": true
 		// "apps/mobile/android": true
 		// "apps/mobile/ios": true
 	},
