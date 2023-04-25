@@ -292,7 +292,7 @@ export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Pr
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
 
-export type Protected<T> = { data: T }
+export type Protected<T> = T
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
