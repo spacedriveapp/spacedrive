@@ -18,12 +18,12 @@ const CollectionIcon = () => (
 const notices = {
 	gridView: {
 		title: 'Grid View',
-		description: 'Explore your collection in a grid layout.',
+		description: 'Get a visual overview of your files with Grid View. This view displays your files and folders as thumbnail images, making it easy to quickly identify the file you're looking for.',
 		icon: <CollectionIcon />
 	},
 	listView: {
 		title: 'List View',
-		description: 'Explore your collection in a list layout.',
+		description: 'Easily navigate through your files and folders with List View. This view displays your files in a simple, organized list format, allowing you to quickly locate and access the files you need.',
 		icon: <CollectionIcon />
 	},
 	mediaView: {
