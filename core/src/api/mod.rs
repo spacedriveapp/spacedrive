@@ -4,6 +4,7 @@ use rspc::{alpha::Rspc, Config};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{
 	api::{
@@ -109,7 +110,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				#[specta(optional)]
 				location_id: Option<i32>,
 				#[specta(optional)]
-				after_file_id: Option<(i32, i32)>,
+				after_file_id: Option<Uuid>,
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
@@ -169,8 +170,8 @@ pub(crate) fn mount() -> Arc<Router> {
 						.flatten()
 						.collect();
 					let mut query = library.db.file_path().find_many(params);
-					if let Some((loc_id, file_id)) = args.after_file_id {
-						query = query.cursor(file_path::location_id_id(loc_id, file_id))
+					if let Some(file_id) = args.after_file_id {
+						query = query.cursor(file_path::pub_id::equals(file_id.as_bytes().to_vec()))
 					}
 					if let Some(order) = args.order {
 						query = query.order_by(order.to_param());

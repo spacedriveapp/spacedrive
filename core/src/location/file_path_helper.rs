@@ -1,4 +1,7 @@
-use crate::prisma::{file_path, location, PrismaClient};
+use crate::{
+	prisma::{file_path, location, PrismaClient},
+	util::db::uuid_to_bytes,
+};
 
 use std::{
 	borrow::Cow,
@@ -9,29 +12,29 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use dashmap::{mapref::entry::Entry, DashMap};
 use futures::future::try_join_all;
-use prisma_client_rust::{Direction, QueryError};
+use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::error;
+use uuid::Uuid;
 
 use super::LocationId;
 
 // File Path selectables!
 file_path::select!(file_path_just_id_materialized_path {
-	id
+	pub_id
 	materialized_path
 });
 file_path::select!(file_path_for_file_identifier {
 	id
+	pub_id
 	materialized_path
 	date_created
 });
-file_path::select!(file_path_just_object_id { object_id });
 file_path::select!(file_path_for_object_validator {
-	id
+	pub_id
 	materialized_path
 	integrity_checksum
 	location: select {
@@ -247,173 +250,94 @@ pub enum FilePathError {
 	IOError(#[from] io::Error),
 }
 
-#[derive(Debug)]
-pub struct LastFilePathIdManager {
-	last_id_by_location: DashMap<LocationId, i32>,
-}
+#[cfg(feature = "location-watcher")]
+pub async fn create_file_path(
+	crate::location::Library { db, sync, .. }: &crate::location::Library,
+	MaterializedPath {
+		materialized_path,
+		is_dir,
+		location_id,
+		name,
+		extension,
+	}: MaterializedPath<'_>,
+	parent_id: Option<Uuid>,
+	cas_id: Option<String>,
+	metadata: FilePathMetadata,
+) -> Result<file_path::Data, FilePathError> {
+	// Keeping a reference in that map for the entire duration of the function, so we keep it locked
 
-impl Default for LastFilePathIdManager {
-	fn default() -> Self {
-		Self {
-			last_id_by_location: DashMap::with_capacity(4),
-		}
-	}
-}
+	use crate::{sync, util};
+	use serde_json::json;
 
-impl LastFilePathIdManager {
-	pub fn new() -> Self {
-		Default::default()
-	}
+	let location = db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.select(location::select!({ id pub_id }))
+		.exec()
+		.await?
+		.unwrap();
 
-	pub async fn sync(
-		&self,
-		location_id: LocationId,
-		db: &PrismaClient,
-	) -> Result<(), FilePathError> {
-		if let Some(mut id_ref) = self.last_id_by_location.get_mut(&location_id) {
-			*id_ref = Self::fetch_max_file_path_id(location_id, db).await?;
-		}
-
-		Ok(())
-	}
-
-	pub async fn increment(
-		&self,
-		location_id: LocationId,
-		by: i32,
-		db: &PrismaClient,
-	) -> Result<i32, FilePathError> {
-		Ok(match self.last_id_by_location.entry(location_id) {
-			Entry::Occupied(mut entry) => {
-				let first_free_id = *entry.get() + 1;
-				*entry.get_mut() += by + 1;
-				first_free_id
-			}
-			Entry::Vacant(entry) => {
-				// I wish I could use `or_try_insert_with` method instead of this crappy match,
-				// but we don't have async closures yet ):
-				let first_free_id = Self::fetch_max_file_path_id(location_id, db).await? + 1;
-				entry.insert(first_free_id + by);
-				first_free_id
-			}
-		})
-	}
-
-	async fn fetch_max_file_path_id(
-		location_id: LocationId,
-		db: &PrismaClient,
-	) -> Result<i32, FilePathError> {
-		Ok(db
-			.file_path()
-			.find_first(vec![file_path::location_id::equals(location_id)])
-			.order_by(file_path::id::order(Direction::Desc))
-			.select(file_path::select!({ id }))
-			.exec()
-			.await?
-			.map(|r| r.id)
-			.unwrap_or(0))
-	}
-
-	#[cfg(feature = "location-watcher")]
-	pub async fn create_file_path(
-		&self,
-		crate::location::Library { db, sync, .. }: &crate::location::Library,
-		MaterializedPath {
-			materialized_path,
-			is_dir,
-			location_id,
-			name,
-			extension,
-		}: MaterializedPath<'_>,
-		parent_id: Option<i32>,
-		cas_id: Option<String>,
-		metadata: FilePathMetadata,
-	) -> Result<file_path::Data, FilePathError> {
-		// Keeping a reference in that map for the entire duration of the function, so we keep it locked
-
-		use crate::{sync, util};
-		use serde_json::json;
-
-		let mut last_id_ref = match self.last_id_by_location.entry(location_id) {
-			Entry::Occupied(ocupied) => ocupied.into_ref(),
-			Entry::Vacant(vacant) => {
-				let id = Self::fetch_max_file_path_id(location_id, db).await?;
-				vacant.insert(id)
-			}
-		};
-
-		let location = db
-			.location()
-			.find_unique(location::id::equals(location_id))
-			.select(location::select!({ id pub_id }))
-			.exec()
-			.await?
-			.unwrap();
-
-		let next_id = *last_id_ref + 1;
-
-		let params = util::db::chain_optional_iter(
-			[
-				("cas_id", json!(cas_id)),
-				("materialized_path", json!(materialized_path)),
-				("name", json!(name)),
-				("extension", json!(extension)),
-				("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
-				("inode", json!(metadata.inode.to_le_bytes())),
-				("device", json!(metadata.device.to_le_bytes())),
-				("is_dir", json!(is_dir)),
-				("date_created", json!(metadata.created_at)),
-				("date_modified", json!(metadata.modified_at)),
-			],
-			[parent_id.map(|parent_id| {
-				(
-					"parent_id",
-					json!(sync::file_path::SyncId {
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone()
-						},
-						id: parent_id
-					}),
-				)
-			})],
-		);
-
-		let created_path = sync
-			.write_op(
-				db,
-				sync.unique_shared_create(
-					sync::file_path::SyncId {
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone(),
-						},
-						id: next_id,
-					},
-					params,
-				),
-				db.file_path().create(
-					next_id,
-					location::id::equals(location_id),
-					materialized_path.into_owned(),
-					name.into_owned(),
-					extension.into_owned(),
-					metadata.inode.to_le_bytes().into(),
-					metadata.device.to_le_bytes().into(),
-					vec![
-						file_path::cas_id::set(cas_id),
-						file_path::parent_id::set(parent_id),
-						file_path::is_dir::set(is_dir),
-						file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
-						file_path::date_created::set(metadata.created_at.into()),
-						file_path::date_modified::set(metadata.modified_at.into()),
-					],
-				),
+	let params = util::db::chain_optional_iter(
+		[
+			(
+				"location",
+				json!(sync::location::SyncId {
+					pub_id: location.pub_id
+				}),
+			),
+			("cas_id", json!(cas_id)),
+			("materialized_path", json!(materialized_path)),
+			("name", json!(name)),
+			("extension", json!(extension)),
+			("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
+			("inode", json!(metadata.inode.to_le_bytes())),
+			("device", json!(metadata.device.to_le_bytes())),
+			("is_dir", json!(is_dir)),
+			("date_created", json!(metadata.created_at)),
+			("date_modified", json!(metadata.modified_at)),
+		],
+		[parent_id.map(|parent_id| {
+			(
+				"parent_id",
+				json!(sync::file_path::SyncId {
+					pub_id: uuid_to_bytes(parent_id)
+				}),
 			)
-			.await?;
+		})],
+	);
 
-		*last_id_ref = next_id;
+	let pub_id = uuid_to_bytes(Uuid::new_v4());
 
-		Ok(created_path)
-	}
+	let created_path = sync
+		.write_op(
+			db,
+			sync.unique_shared_create(
+				sync::file_path::SyncId {
+					pub_id: pub_id.clone(),
+				},
+				params,
+			),
+			db.file_path().create(
+				pub_id,
+				location::id::equals(location.id),
+				materialized_path.into_owned(),
+				name.into_owned(),
+				extension.into_owned(),
+				metadata.inode.to_le_bytes().into(),
+				metadata.device.to_le_bytes().into(),
+				vec![
+					file_path::cas_id::set(cas_id),
+					file_path::parent_id::set(parent_id.map(uuid_to_bytes)),
+					file_path::is_dir::set(is_dir),
+					file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
+					file_path::date_created::set(metadata.created_at.into()),
+					file_path::date_modified::set(metadata.modified_at.into()),
+				],
+			),
+		)
+		.await?;
+
+	Ok(created_path)
 }
 
 pub fn subtract_location_path(
@@ -543,13 +467,16 @@ pub fn loose_find_existing_file_path_params(
 pub async fn get_existing_file_path_id(
 	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
-) -> Result<Option<i32>, FilePathError> {
+) -> Result<Option<Uuid>, FilePathError> {
 	db.file_path()
 		.find_first(filter_existing_file_path_params(materialized_path))
-		.select(file_path::select!({ id }))
+		.select(file_path::select!({ pub_id }))
 		.exec()
 		.await
-		.map_or_else(|e| Err(e.into()), |r| Ok(r.map(|r| r.id)))
+		.map_or_else(
+			|e| Err(e.into()),
+			|r| Ok(r.map(|r| Uuid::from_slice(&r.pub_id).unwrap())),
+		)
 }
 
 #[cfg(feature = "location-watcher")]
@@ -570,7 +497,7 @@ pub async fn get_parent_dir(
 pub async fn get_parent_dir_id(
 	materialized_path: &MaterializedPath<'_>,
 	db: &PrismaClient,
-) -> Result<Option<i32>, FilePathError> {
+) -> Result<Option<Uuid>, FilePathError> {
 	get_existing_file_path_id(&materialized_path.parent(), db).await
 }
 
@@ -648,25 +575,25 @@ pub async fn ensure_sub_path_is_directory(
 
 pub async fn retain_file_paths_in_location(
 	location_id: LocationId,
-	to_retain: Vec<i32>,
+	to_retain: Vec<Uuid>,
 	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
 	db: &PrismaClient,
 ) -> Result<i64, FilePathError> {
 	let mut to_delete_params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::id::not_in_vec(to_retain),
+		file_path::pub_id::not_in_vec(to_retain.into_iter().map(uuid_to_bytes).collect()),
 	];
 
 	if let Some(parent_file_path) = maybe_parent_file_path {
 		// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
-		if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
-			to_delete_params.push(file_path::materialized_path::starts_with(
-				parent_file_path.materialized_path,
-			));
+		let param = if parent_file_path.materialized_path != MAIN_SEPARATOR_STR {
+			file_path::materialized_path::starts_with(parent_file_path.materialized_path)
 		} else {
 			// If the parent_materialized_path is the root path, we fetch children using the parent id
-			to_delete_params.push(file_path::parent_id::equals(Some(parent_file_path.id)));
-		}
+			file_path::parent_id::equals(Some(parent_file_path.pub_id))
+		};
+
+		to_delete_params.push(param);
 	}
 
 	db.file_path()

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs::File, io::AsyncReadExt};
 use tracing::{error, warn};
+use uuid::Uuid;
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 
@@ -25,7 +26,7 @@ pub struct FileEncryptorJobState {}
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
-	pub key_uuid: uuid::Uuid,
+	pub key_uuid: Uuid,
 	pub algorithm: Algorithm,
 	pub metadata: bool,
 	pub preview_media: bool,

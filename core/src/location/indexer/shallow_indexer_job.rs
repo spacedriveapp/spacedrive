@@ -20,6 +20,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::error;
+use uuid::Uuid;
 
 use super::{
 	execute_indexer_step, finalize_indexer, location_with_indexer_rules,
@@ -78,8 +79,11 @@ impl StatefulJob for ShallowIndexerJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
+		let db = ctx.library.db.clone();
+
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
+
 		for location_rule in &state.init.location.indexer_rules {
 			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
 
@@ -103,9 +107,7 @@ impl StatefulJob for ShallowIndexerJob {
 
 			(
 				full_path,
-				ctx.library
-					.db
-					.file_path()
+				db.file_path()
 					.find_first(filter_existing_file_path_params(&materialized_path))
 					.select(file_path_just_id_materialized_path::select())
 					.exec()
@@ -116,9 +118,7 @@ impl StatefulJob for ShallowIndexerJob {
 		} else {
 			(
 				location_path.to_path_buf(),
-				ctx.library
-					.db
-					.file_path()
+				db.file_path()
 					.find_first(filter_existing_file_path_params(
 						&MaterializedPath::new(location_id, location_path, location_path, true)
 							.map_err(IndexerError::from)?,
@@ -150,9 +150,7 @@ impl StatefulJob for ShallowIndexerJob {
 			.await?
 		};
 
-		let (already_existing_file_paths, mut to_retain) = ctx
-			.library
-			.db
+		let (already_existing_file_paths, mut to_retain): (HashSet<_>, Vec<_>) = db
 			.file_path()
 			.find_many(
 				filter_file_paths_by_many_full_path_params(
@@ -169,33 +167,27 @@ impl StatefulJob for ShallowIndexerJob {
 			.exec()
 			.await?
 			.into_iter()
-			.map(|file_path| (file_path.materialized_path, file_path.id))
-			.unzip::<_, _, HashSet<_>, Vec<_>>();
+			.map(|file_path| {
+				(
+					file_path.materialized_path,
+					Uuid::from_slice(&file_path.pub_id).unwrap(),
+				)
+			})
+			.unzip();
 
-		let parent_id = parent_file_path.id;
+		let parent_pub_id = Uuid::from_slice(&parent_file_path.pub_id).unwrap();
 
 		// Adding our parent path id
-		to_retain.push(parent_id);
+		to_retain.push(parent_pub_id);
 
 		// Removing all other file paths that are not in the filesystem anymore
-		let removed_paths = retain_file_paths_in_location(
-			location_id,
-			to_retain,
-			Some(parent_file_path),
-			&ctx.library.db,
-		)
-		.await
-		.map_err(IndexerError::from)?;
-
-		// Syncing the last file path id manager, as we potentially just removed a bunch of ids
-		ctx.library
-			.last_file_path_id_manager
-			.sync(location_id, &ctx.library.db)
-			.await
-			.map_err(IndexerError::from)?;
+		let removed_paths =
+			retain_file_paths_in_location(location_id, to_retain, Some(parent_file_path), &db)
+				.await
+				.map_err(IndexerError::from)?;
 
 		// Filter out paths that are already in the databases
-		let mut new_paths = found_paths
+		let new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
 				MaterializedPath::new(location_id, location_path, &entry.path, entry.is_dir)
@@ -210,8 +202,8 @@ impl StatefulJob for ShallowIndexerJob {
 							.then_some(IndexerJobStepEntry {
 								full_path: entry.path,
 								materialized_path,
-								file_id: 0, // To be set later
-								parent_id: Some(parent_id),
+								file_id: Uuid::new_v4(),
+								parent_id: Some(parent_pub_id),
 								metadata: entry.metadata,
 							})
 						},
@@ -220,23 +212,6 @@ impl StatefulJob for ShallowIndexerJob {
 			// Sadly we have to collect here to be able to check the length so we can set
 			// the max file path id later
 			.collect::<Vec<_>>();
-
-		let total_paths = new_paths.len();
-
-		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = ctx
-			.library
-			.last_file_path_id_manager
-			.increment(location_id, total_paths as i32, &ctx.library.db)
-			.await
-			.map_err(IndexerError::from)?;
-
-		new_paths
-			.iter_mut()
-			.zip(first_file_id..)
-			.for_each(|(entry, file_id)| {
-				entry.file_id = file_id;
-			});
 
 		let total_paths = new_paths.len();
 
