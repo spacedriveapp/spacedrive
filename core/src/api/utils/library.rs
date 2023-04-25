@@ -13,7 +13,10 @@ use crate::{api::Ctx, library::Library};
 
 /// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
 #[derive(Clone, Serialize, Deserialize, Type)]
-pub(crate) struct LibraryArgs<T>(pub Uuid, pub T);
+pub(crate) struct LibraryArgs<T> {
+	library_id: Uuid,
+	arg: T,
+}
 
 pub(crate) struct LibraryArgsLike;
 impl MwArgMapper for LibraryArgsLike {
@@ -23,7 +26,7 @@ impl MwArgMapper for LibraryArgsLike {
 	fn map<T: Serialize + DeserializeOwned + Type + 'static>(
 		arg: Self::Input<T>,
 	) -> (T, Self::State) {
-		(arg.1, arg.0)
+		(arg.arg, arg.library_id)
 	}
 }
 
