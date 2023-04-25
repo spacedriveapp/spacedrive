@@ -18,7 +18,7 @@ const CollectionIcon = () => (
 const notices = {
 	gridView: {
 		title: 'Grid View',
-		description: 'Get a visual overview of your files with Grid View. This view displays your files and folders as thumbnail images, making it easy to quickly identify the file you're looking for.',
+		description: "Get a visual overview of your files with Grid View. This view displays your files and folders as thumbnail images, making it easy to quickly identify the file you're looking for.",
 		icon: <CollectionIcon />
 	},
 	listView: {
