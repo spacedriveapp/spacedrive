@@ -25,7 +25,7 @@ const Unlocked = () => {
 	return (
 		<div className="w-[350px]">
 			<Tabs.Root defaultValue="mount">
-				<div className="flex flex-col">
+				<div className="min-w-32 flex flex-col">
 					<Tabs.List>
 						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="mount">
 							Mount

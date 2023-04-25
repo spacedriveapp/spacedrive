@@ -6,6 +6,7 @@ import React from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
+import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import Thumb from './File/Thumb';
 import { ViewItem, useExplorerView } from './View';
@@ -56,6 +57,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 
 export default () => {
 	const explorerStore = useExplorerStore();
+	const dismissibleNoticeStore = useDismissibleNoticeStore();
 	const { data, scrollRef } = useExplorerView();
 
 	const gridPadding = 2;
@@ -77,7 +79,8 @@ export default () => {
 		estimateSize: () => (itemSize < 0 ? 0 : itemSize),
 		measureElement: () => itemSize,
 		paddingStart: gridPadding,
-		paddingEnd: gridPadding
+		paddingEnd: gridPadding,
+		overscan: !dismissibleNoticeStore.mediaView ? 2 : 1
 	});
 
 	const columnVirtualizer = useVirtualizer({

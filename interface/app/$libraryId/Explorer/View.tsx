@@ -12,6 +12,7 @@ import { createSearchParams, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
+import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -95,6 +96,7 @@ export default memo((props: Props) => {
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
+			<DismissibleNotice />
 			<context.Provider value={{ data: props.data, scrollRef }}>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
