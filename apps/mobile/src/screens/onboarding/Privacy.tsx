@@ -64,7 +64,10 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 						style={tw`mt-4 mb-3`}
 					/>
 				</Pressable>
-				<Pressable onPress={() => setShareTelemetry('no-share-telemetry')}>
+				<Pressable
+					testID="share-nothing"
+					onPress={() => setShareTelemetry('no-share-telemetry')}
+				>
 					<RadioButton
 						title="Share nothing"
 						description="Do not share any telemetry data with the developers"

@@ -1,13 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
-import { Input } from '~/components/form/Input';
+import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
+import { useKeyboard } from '~/hooks/useKeyboard';
 import { tw, twStyle } from '~/lib/tailwind';
 
 const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
@@ -39,14 +41,20 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		}
 	});
 
+	const { keyboardShown } = useKeyboard();
+
 	useEffect(() => {
-		modalRef.current?.snapToIndex(showPicker ? 1 : 0);
-	}, [modalRef, showPicker]);
+		if (!keyboardShown && showPicker) {
+			modalRef.current?.snapToPosition('58');
+		} else if (keyboardShown && showPicker) {
+			modalRef.current?.snapToPosition('94');
+		}
+	}, [keyboardShown, modalRef, showPicker]);
 
 	return (
 		<Modal
 			ref={modalRef}
-			snapPoints={['30%', '60%']}
+			snapPoints={['25']}
 			title="Create Tag"
 			onDismiss={() => {
 				// Resets form onDismiss
@@ -55,14 +63,18 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				setShowPicker(false);
 			}}
 			showCloseButton
+			// Disable panning gestures
+			enableHandlePanningGesture={false}
+			enableContentPanningGesture={false}
 		>
 			<View style={tw`p-4`}>
 				<View style={tw`mt-4 flex flex-row items-center`}>
 					<Pressable
-						onPress={() => setShowPicker((v) => !v)}
+						onPress={() => setShowPicker(true)}
 						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}
 					/>
-					<Input
+					<ModalInput
+						testID="create-tag-name"
 						style={tw`ml-2 flex-1`}
 						value={tagName}
 						onChangeText={(text) => setTagName(text)}
@@ -72,7 +84,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				{/* Color Picker */}
 				{showPicker && (
 					<FadeInAnimation>
-						<View style={tw`mt-4 h-64`}>
+						<View style={tw`my-4 h-64`}>
 							<ColorPicker
 								color={tagColor}
 								onColorChangeComplete={(color) => setTagColor(color)}

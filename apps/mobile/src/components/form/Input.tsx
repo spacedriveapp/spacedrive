@@ -1,3 +1,4 @@
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { VariantProps, cva } from 'class-variance-authority';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import { useState } from 'react';
@@ -26,6 +27,18 @@ export const Input = ({ variant, size, ...props }: InputProps) => {
 	const { style, ...otherProps } = props;
 	return (
 		<TextInput
+			placeholderTextColor={tw.color('ink-faint')}
+			style={twStyle(input({ variant, size }), style as string)}
+			{...otherProps}
+		/>
+	);
+};
+
+// You need to use this in the modals for keyboard handling to work properly.
+export const ModalInput = ({ variant, size, ...props }: InputProps) => {
+	const { style, ...otherProps } = props;
+	return (
+		<BottomSheetTextInput
 			placeholderTextColor={tw.color('ink-faint')}
 			style={twStyle(input({ variant, size }), style as string)}
 			{...otherProps}

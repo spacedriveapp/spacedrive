@@ -6,5 +6,6 @@ appId: com.spacedrive.app
 - tapOn: 'Add Tag'
 - tapOn:
     id: 'create-tag-name'
-- inputText: 'Secret'
+- inputText: 'COOL'
 - tapOn: Create
+- assertVisible: 'COOL'

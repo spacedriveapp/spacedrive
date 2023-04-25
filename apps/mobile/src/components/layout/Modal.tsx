@@ -110,7 +110,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 				handleComponent={(props) =>
 					ModalHandle({ modalRef, showCloseButton: false, ...props })
 				}
-				snapPoints={props.snapPoints ?? ['25%']}
+				snapPoints={props.snapPoints ?? ['25']}
 			>
 				{/* Title */}
 				{props.title && (
