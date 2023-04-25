@@ -23,6 +23,7 @@ pub type NodeType = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
 
 pub static NODE: NodeType = Lazy::new(|| Mutex::new(None));
 
+#[allow(clippy::type_complexity)]
 pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>> =
 	Lazy::new(Default::default);
 
