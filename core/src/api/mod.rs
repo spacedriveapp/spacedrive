@@ -214,13 +214,14 @@ pub(crate) fn mount() -> Arc<Router> {
 		.build({
 			let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
 
-			#[cfg(all(debug_assertions, not(feature = "mobile")))]
-			let config = config.export_ts_bindings(
-				std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-					.join("../packages/client/src/core.ts"),
-			);
-
-			config
+			if cfg!(all(debug_assertions, not(feature = "mobile"))) {
+				config.export_ts_bindings(
+					std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+						.join("../packages/client/src/core.ts"),
+				)
+			} else {
+				config
+			}
 		})
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.

@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
-	location::LocationManager,
+	location::{file_path_helper::MaterializedPath, LocationManager},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, location, PrismaClient},
@@ -11,7 +11,7 @@ use crate::{
 
 use std::{
 	fmt::{Debug, Formatter},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
@@ -111,17 +111,17 @@ impl Library {
 			.select(file_path::select!({
 				materialized_path
 				location: select {
+					id
 					path
 				}
 			}))
 			.exec()
 			.await?
 			.map(|record| {
-				// I hate this but everything starts with `/` so we can't PathBuf::join
-				PathBuf::from(format!(
-					"{}{}",
-					record.location.path, record.materialized_path
-				))
+				Path::new(&record.location.path).join(&MaterializedPath::from((
+					record.location.id,
+					&record.materialized_path,
+				)))
 			}))
 	}
 }
