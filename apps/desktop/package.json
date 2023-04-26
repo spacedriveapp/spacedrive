@@ -20,25 +20,25 @@
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@tanstack/react-query": "^4.24.4",
+		"@tanstack/react-query": "^4.29.5",
 		"@tauri-apps/api": "1.2.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "6.9.0",
+		"react-router-dom": "6.10.0",
 		"vite-plugin-html": "^3.2.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.2.3",
 		"@types/babel-core": "^6.25.7",
-		"@types/react": "^18.0.21",
-		"@types/react-dom": "^18.0.6",
-		"@vitejs/plugin-react": "^2.1.0",
-		"react-devtools": "^4.27.2",
-		"sass": "^1.55.0",
-		"typescript": "^4.8.4",
-		"vite": "^4.0.4",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
+		"@vitejs/plugin-react": "^4.0.0",
+		"react-devtools": "^4.27.6",
+		"sass": "^1.62.0",
+		"typescript": "^5.0.4",
+		"vite": "^4.3.2",
 		"vite-plugin-svgr": "^2.2.1",
-		"vite-tsconfig-paths": "^4.0.3"
+		"vite-tsconfig-paths": "^4.2.0"
 	}
 }

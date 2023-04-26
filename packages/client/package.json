@@ -17,19 +17,19 @@
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
 		"@rspc/react": "^0.0.0-main-7c0a67c1",
 		"@sd/config": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
-		"@zxcvbn-ts/core": "^2.1.0",
+		"@tanstack/react-query": "^4.29.5",
+		"@zxcvbn-ts/core": "^2.2.1",
 		"@zxcvbn-ts/language-common": "^2.0.1",
 		"@zxcvbn-ts/language-en": "^2.1.0",
 		"plausible-tracker": "^0.3.8",
-		"valtio": "^1.7.4",
+		"valtio": "^1.10.4",
 		"zod": "^3.21.4"
 	},
 	"devDependencies": {
-		"@types/react": "^18.0.21",
+		"@types/react": "^18.2.0",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^4.8.4"
+		"typescript": "^5.0.4"
 	},
 	"peerDependencies": {
 		"react": "^18.2.0"

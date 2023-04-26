@@ -14,25 +14,25 @@
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
+		"@tanstack/react-query": "^4.29.5",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "6.9.0"
+		"react-router-dom": "6.10.0"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.30.0",
+		"@playwright/test": "^1.32.3",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.0.21",
-		"@types/react-dom": "^18.0.6",
-		"@vitejs/plugin-react": "^2.1.0",
-		"autoprefixer": "^10.4.12",
-		"postcss": "^8.4.17",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
+		"@vitejs/plugin-react": "^4.0.0",
+		"autoprefixer": "^10.4.14",
+		"postcss": "^8.4.23",
 		"rollup-plugin-visualizer": "^5.9.0",
-		"typescript": "^4.8.4",
-		"vite": "^4.0.4",
+		"typescript": "^5.0.4",
+		"vite": "^4.3.2",
 		"vite-plugin-html": "^3.2.0",
 		"vite-plugin-svgr": "^2.2.1",
-		"vite-tsconfig-paths": "^3.5.2"
+		"vite-tsconfig-paths": "^4.2.0"
 	}
 }

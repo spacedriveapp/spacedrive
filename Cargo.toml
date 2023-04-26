@@ -33,17 +33,17 @@ rspc = { version = "0.1.4" }
 specta = { version = "1.0.3" }
 httpz = { version = "0.0.3" }
 
-swift-rs = { version = "1.0.1" }
+swift-rs = { version = "1.0.5" }
 
-tokio = { version = "1.25.0" }
+tokio = { version = "1.27.0" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
-openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
+openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "f2b61de204b22fb72406a8abf01208a9680e6ae7" }
 # We patch this so that it can be built for IOS - The `main` branch uses macOS specific APIs
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d2d0730f1441df1c29294fec4c3c04193" }
-
-mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "47bac595e71b5ff21a9dbd257a081b03fb6b8fbc" }
+tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "e8e214b72ede33ca2cc09fa41a8baf56fa7e8b8e" } # Fix "`inherit_workspace` hasn't been called yet"
+mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "98279c20aae09a235596555689bb188cafacb229" } # TODO: Do upstream PR
 
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "3e2608e9658b54240a3ba076fb0f7c4307e094fc" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }

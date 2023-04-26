@@ -7,6 +7,7 @@ use std::{fmt::Display, str::FromStr};
 pub struct PeerId(#[specta(type = String)] pub(crate) libp2p::PeerId);
 
 impl FromStr for PeerId {
+	#[allow(deprecated)]
 	type Err = libp2p::core::ParseError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {

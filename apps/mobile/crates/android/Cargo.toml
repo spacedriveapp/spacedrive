@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 # FFI
-jni = "0.19.0"
+jni = "0.21.1"
 
 # Core mobile handling stuff
 sd-mobile-core = { path = "../core" }

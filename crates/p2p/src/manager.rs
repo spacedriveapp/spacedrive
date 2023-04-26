@@ -4,7 +4,7 @@ use std::{
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use libp2p::{core::muxing::StreamMuxerBox, quic, Swarm, Transport};
+use libp2p::{core::muxing::StreamMuxerBox, swarm::SwarmBuilder, Transport};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
@@ -55,13 +55,16 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			event_stream_tx,
 		});
 
-		let mut swarm = Swarm::with_tokio_executor(
-			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
-				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-				.boxed(),
+		let mut swarm = SwarmBuilder::with_tokio_executor(
+			libp2p_quic::GenTransport::<libp2p_quic::tokio::Provider>::new(
+				libp2p_quic::Config::new(keypair.inner()),
+			)
+			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
+			.boxed(),
 			SpaceTime::new(this.clone()),
 			keypair.public().to_peer_id(),
-		);
+		)
+		.build();
 		{
 			let listener_id = swarm
             .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))

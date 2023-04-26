@@ -156,7 +156,7 @@ where
 									&info
 										.get_properties()
 										.iter()
-										.map(|v| (v.key().to_owned(), v.val().to_owned()))
+										.map(|v| (v.key().to_owned(), v.val().map(|v| String::from_utf8_lossy(v).to_string()).unwrap_or_default()))
 										.collect(),
 								) {
 									Ok(metadata) => {
