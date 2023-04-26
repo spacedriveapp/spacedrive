@@ -125,7 +125,6 @@ function SpacedropRequestDialog(
 				<Input
 					size="sm"
 					placeholder="/Users/oscar/Desktop/demo.txt"
-					value="/Users/oscar/Desktop/demo.txt"
 					className="w-full"
 					{...form.register('file_path')}
 				/>
