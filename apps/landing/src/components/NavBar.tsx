@@ -1,5 +1,5 @@
 import { AppLogo } from '@sd/assets/images';
-import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
+import { SiAcademia, SiDiscord, SiGithub } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
@@ -75,7 +75,7 @@ export default function NavBar() {
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
-							<span className="absolute -top-1 -right-2 rounded-md bg-primary/80 px-[5px] text-xs">
+							<span className="absolute -right-2 -top-1 rounded-md bg-primary/80 px-[5px] text-xs">
 								{` ${positions.length} `}
 							</span>
 						) : null}
@@ -88,18 +88,18 @@ export default function NavBar() {
 							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
 						</Button>
 					}
-					className="top-2 right-4 block h-6 w-44 text-white lg:hidden"
+					className="right-4 top-2 block h-6 w-44 text-white lg:hidden"
 					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500 text-[15px]"
 				>
 					<Dropdown.Section>
 						<Dropdown.Item
-							icon={Github}
+							icon={SiGithub}
 							onClick={redirect('https://github.com/spacedriveapp/spacedrive')}
 						>
 							Repository
 						</Dropdown.Item>
 						<Dropdown.Item
-							icon={Discord}
+							icon={SiDiscord}
 							onClick={redirect('https://discord.gg/gTaF2Z44f5')}
 						>
 							Join Discord
@@ -121,7 +121,7 @@ export default function NavBar() {
 						<Dropdown.Item icon={Chat} {...link('/blog')}>
 							Blog
 						</Dropdown.Item>
-						<Dropdown.Item icon={Academia} {...link('/careers')}>
+						<Dropdown.Item icon={SiAcademia} {...link('/careers')}>
 							Careers
 							{positions.length > 0 ? (
 								<span className="ml-2 rounded-md bg-primary px-[5px] py-px text-xs">
@@ -134,14 +134,14 @@ export default function NavBar() {
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<Discord className="text-white" />
+						<SiDiscord className="text-white" />
 					</a>
 					<a
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="text-white" />
+						<SiGithub className="text-white" />
 					</a>
 				</div>
 			</div>

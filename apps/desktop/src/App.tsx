@@ -98,7 +98,6 @@ export default function App() {
 	}
 
 	return (
-		// @ts-expect-error: Just a version mismatch
 		<hooks.Provider client={client} queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>

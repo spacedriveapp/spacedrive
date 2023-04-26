@@ -1,4 +1,4 @@
-import { Dribbble, Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
+import { SiDribbble, SiGithub, SiTwitch, SiTwitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
 
@@ -57,7 +57,7 @@ export function TeamMember(props: TeamMemberProps) {
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
-			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
+			<h3 className="mb-0 mt-4 text-base">{props.name}</h3>
 			<p
 				className={clsx('text-xs', {
 					'mb-0': props.investmentRound
@@ -71,22 +71,22 @@ export function TeamMember(props: TeamMemberProps) {
 			<div className="mt-auto flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<Twitter className="h-[20px] w-[20px]" />
+						<SiTwitter className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<Github className="h-[20px] w-[20px]" />
+						<SiGithub className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<Twitch className="h-[20px] w-[20px]" />
+						<SiTwitch className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
-						<Dribbble className="h-[20px] w-[20px]" />
+						<SiDribbble className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 			</div>

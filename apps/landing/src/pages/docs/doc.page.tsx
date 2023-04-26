@@ -1,4 +1,4 @@
-import { Github } from '@icons-pack/react-simple-icons';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import { CaretRight } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { Helmet } from 'react-helmet';
@@ -43,7 +43,7 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 							className="w-full"
 						>
 							<BottomCard>
-								<Github className="mr-3 w-5" />
+								<SiGithub className="mr-3 w-5" />
 								Edit this page on GitHub
 							</BottomCard>
 						</a>

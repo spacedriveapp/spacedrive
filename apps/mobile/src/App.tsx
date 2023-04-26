@@ -139,7 +139,6 @@ export default function App() {
 	}, []);
 
 	return (
-		// @ts-expect-error: Version mismatch
 		<rspc.Provider client={client} queryClient={queryClient}>
 			<AppContainer />
 		</rspc.Provider>
