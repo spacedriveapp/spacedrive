@@ -249,7 +249,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 							// Given human reaction time of ~250 milli this should be a good ballance.
 							_ = tokio::time::sleep(Duration::from_millis(200)) => {
 								let x = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
-								if x.len() > 0 {
+								if !x.is_empty() {
 									match tx.send(x) {
 										Ok(_) => {},
 										// All receivers are shutdown means that all clients are disconnected.
