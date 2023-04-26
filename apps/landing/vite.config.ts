@@ -30,6 +30,17 @@ export default defineConfig({
 			}
 		]
 	},
+	ssr: {
+		noExternal: [
+			'react-spring',
+			'@react-spring/web',
+			'@react-spring/core',
+			'@react-spring/shared',
+			'@react-spring/rafz',
+			'@react-spring/animated',
+			'@react-spring/types'
+		]
+	},
 	server: {
 		port: 8003
 	},

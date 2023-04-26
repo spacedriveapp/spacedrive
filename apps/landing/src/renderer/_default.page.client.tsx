@@ -1,5 +1,5 @@
 import { hydrateRoot } from 'react-dom/client';
-import type { PageContextBuiltInClient } from 'vite-plugin-ssr/client';
+import type { PageContextBuiltInClientWithServerRouting } from 'vite-plugin-ssr/types';
 import App from '../App';
 import type { PageContext } from './types';
 
@@ -11,7 +11,7 @@ export const clientRouting = true;
 // See `Link prefetching` section below. Default value: `{ when: 'HOVER' }`.
 export const prefetchStaticAssets = { when: 'HOVER' };
 
-async function render(pageContext: PageContextBuiltInClient & PageContext) {
+async function render(pageContext: PageContextBuiltInClientWithServerRouting & PageContext) {
 	const { Page, pageProps } = pageContext;
 	hydrateRoot(
 		document.getElementById('page-view')!,
