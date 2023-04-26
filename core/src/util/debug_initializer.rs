@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
 	library::LibraryConfig,
-	location::{delete_location, scan_location, LocationCreateArgs},
+	location::{delete_location, scan_location, LocationCreateArgs, LocationError},
 	prisma::location,
 };
 use serde::Deserialize;
@@ -134,10 +134,12 @@ impl InitConfig {
 
 				let location = LocationCreateArgs {
 					path: loc.path.into(),
+					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
 				.create(&library)
 				.await
+				.and_then(|location| location.ok_or(LocationError::DryRunError))
 				.unwrap();
 
 				scan_location(&library, location).await.unwrap();

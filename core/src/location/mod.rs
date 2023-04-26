@@ -94,10 +94,13 @@ impl LocationCreateArgs {
 			};
 		}
 
-		debug!(
-			"Trying to create new location for '{}'",
-			self.path.display()
-		);
+		if !self.dry_run {
+			debug!(
+				"Trying to create new location for '{}'",
+				self.path.display()
+			);
+		}
+
 		let uuid = Uuid::new_v4();
 
 		let location = create_location(
@@ -138,7 +141,7 @@ impl LocationCreateArgs {
 
 			Ok(Some(location))
 		} else {
-			Err(LocationError::DryRunError())
+			Err(LocationError::DryRunError)
 		}
 	}
 
@@ -196,7 +199,7 @@ impl LocationCreateArgs {
 
 			Ok(Some(location))
 		} else {
-			Err(LocationError::DryRunError())
+			Err(LocationError::DryRunError)
 		}
 	}
 }

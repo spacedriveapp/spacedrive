@@ -1,4 +1,5 @@
 use crate::{
+	invalidate_query,
 	library::Library,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
@@ -181,7 +182,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.create(&library).await? {
 						scan_location(&library, location).await?;
-				}
+						invalidate_query!(library, "locations.list");
+					}
+
 					Ok(())
 				})
 		})
@@ -194,9 +197,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("delete", {
 			R.with2(library())
 				.mutation(|(_, library), location_id: i32| async move {
-					delete_location(&library, location_id)
-						.await
-						.map_err(Into::into)
+					delete_location(&library, location_id).await?;
+					invalidate_query!(library, "locations.list");
+					Ok(())
 				})
 		})
 		.procedure("relink", {
@@ -212,7 +215,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.add_library(&library).await? {
 						scan_location(&library, location).await?;
-				}
+						invalidate_query!(library, "locations.list");
+					}
 					Ok(())
 				})
 		})
@@ -281,7 +285,11 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: IndexerRuleCreateArgs| async move {
-					args.create(&library).await.map_err(Into::into)
+					if args.create(&library).await?.is_some() {
+						invalidate_query!(library, "locations.indexer_rules.list");
+					}
+
+					Ok(())
 				})
 		})
 		.procedure("delete", {
@@ -321,6 +329,8 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.delete(indexer_rule::id::equals(indexer_rule_id))
 						.exec()
 						.await?;
+
+					invalidate_query!(library, "locations.indexer_rules.list");
 
 					Ok(())
 				})
