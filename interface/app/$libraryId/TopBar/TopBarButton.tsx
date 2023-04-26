@@ -36,7 +36,7 @@ const topBarButtonStyle = cva(
 );
 
 export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
-	({ active, rounding, className, ...props }, ref) => {
+	({ active, rounding, className, checkIcon, ...props }, ref) => {
 		return (
 			<Button
 				{...props}
@@ -44,7 +44,7 @@ export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 				className={topBarButtonStyle({ active, rounding, className })}
 			>
 				{props.children}
-				{props.checkIcon && active && (
+				{checkIcon && active && (
 					<Check className="absolute right-2 m-0.5 h-5 w-5 text-ink-dull" />
 				)}
 			</Button>
