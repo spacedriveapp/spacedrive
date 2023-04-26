@@ -51,7 +51,7 @@ export default ({ className = '', toolOptions }: Props) => {
 													</TopBarButton>
 												}
 											>
-												<div className="block w-[250px] ">
+												<div className="min-w-[250px]">
 													{popOverComponent}
 												</div>
 											</Popover>
