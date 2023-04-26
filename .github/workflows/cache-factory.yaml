@@ -25,10 +25,10 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          save-cache: "true"
+          save-cache: 'true'
 
       - name: Compile (debug)
         run: cargo test --workspace --all-features --no-run
-      
+
       - name: Compile (release)
         run: cargo test --workspace --all-features --no-run --release

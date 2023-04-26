@@ -1,10 +1,14 @@
 name: Setup
 description: Sets up runner, Rust and pnpm
 inputs:
+  token:
+    description: Github token
+    required: false
+    default: ''
   save-cache:
     description: Whether to save the Rust cache
     required: false
-    default: "false"
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -18,6 +22,22 @@ runs:
       uses: pnpm/action-setup@v2.2.2
       with:
         version: 7.x.x
+        run_install: false
+
+    - name: Cache LLVM and Clang
+      if: runner.os == 'Windows'
+      id: cache-llvm
+      uses: actions/cache@v3
+      with:
+        path: C:/Program Files/LLVM
+        key: llvm-15
+
+    - name: Install LLVM and Clang
+      if: runner.os == 'Windows'
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: '15'
+        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
     - name: Cache Rust deps
       uses: ./.github/actions/cache-rust-deps
@@ -33,6 +53,8 @@ runs:
       shell: powershell
       if: runner.os == 'Windows'
       run: ./.github/scripts/setup-system.ps1
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Generate Prisma client
       uses: ./.github/actions/generate-prisma-client

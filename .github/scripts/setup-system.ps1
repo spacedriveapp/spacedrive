@@ -74,6 +74,30 @@ function Add-DirectoryToPath($directory) {
    Reset-Path
 }
 
+function Invoke-RestMethodGithub {
+	[CmdletBinding()]
+	param (
+			[Parameter(Mandatory=$true)]
+			[string]$Uri,
+			[string]$Method = 'GET',
+			[hashtable]$Headers = @{},
+			[string]$UserAgent = 'PowerShell'
+	)
+
+	if (![string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
+			$headers.Add("Authorization", "Bearer $($env:GITHUB_TOKEN)")
+	}
+
+	$params = @{
+			Uri = $Uri
+			Method = $Method
+			Headers = $Headers
+			UserAgent = $UserAgent
+	}
+
+	Invoke-RestMethod @params
+}
+
 # Reset PATH to ensure the script doesn't read any stale entries
 Reset-Path
 
@@ -189,10 +213,6 @@ Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
 if ($env:CI) {
    # The CI has LLVM installed already, so we instead just set the env variables.
    Write-Host 'Running with Ci, skipping LLVM install.' -ForegroundColor Green
-
-   # TODO: Check if CI LLVM version match our required major version
-   $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-   Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
 } elseif (
    (Get-Command clang -ea 0) -and (
       (clang --version | Select-String -Pattern 'version\s+(\d+)' | ForEach-Object { $_.Matches.Groups[1].Value }) -eq "$llvm_major"
@@ -206,7 +226,7 @@ if ($env:CI) {
    $filenamePattern = '*-win64.exe'
 
    Write-Host "Downloading LLVM $llvm_major installer..." -ForegroundColor Yellow
-   $releases = Invoke-RestMethod -Uri $releasesUri
+   $releases = Invoke-RestMethodGithub -Uri $releasesUri
    $downloadUri = $releases | ForEach-Object {
       if ($_.name -like $llvmVersion) {
          $_.assets | Where-Object { $_.name -like $filenamePattern } | Select-Object -ExpandProperty 'browser_download_url'
@@ -249,7 +269,7 @@ if ($protocVersion) {
    $filenamePattern = '*-win64.zip'
 
    Write-Host 'Downloading protobuf compiler...' -ForegroundColor Yellow
-   $releases = Invoke-RestMethod -Uri $releasesUri
+   $releases = Invoke-RestMethodGithub -Uri $releasesUri
    for ($i = 0; $i -lt $releases.Count; $i++) {
       $release = $releases[$i]
       foreach ($asset in $release.assets) {
@@ -310,7 +330,7 @@ if (($null -ne $env:FFMPEG_DIR) -and (
    $filenamePattern = '*-full_build-shared.zip'
 
    # Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
-   $releases = Invoke-RestMethod -Uri $releasesUri
+   $releases = Invoke-RestMethodGithub -Uri $releasesUri
    $version = $ffmpegVersion
    while (-not ($filename -and $downloadUri) -and $version) {
       for ($i = 0; $i -lt $releases.Count; $i++) {
