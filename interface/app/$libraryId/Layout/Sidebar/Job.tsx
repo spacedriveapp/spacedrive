@@ -137,7 +137,7 @@ function Job({ job, clearAJob }: { job: JobReport; clearAJob?: (arg: string) => 
 						</div>
 					</div>
 					{isRunning && (
-						<div className="mt-3 mb-1 w-full">
+						<div className="mb-1 mt-3 w-full">
 							<ProgressBar value={job.completed_task_count} total={job.task_count} />
 						</div>
 					)}

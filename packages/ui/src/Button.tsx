@@ -32,9 +32,9 @@ const styles = cva(
 		variants: {
 			size: {
 				icon: '!p-1',
-				lg: 'text-md py-1.5 px-3 font-medium',
-				md: 'py-1.5 px-2.5 text-sm font-medium',
-				sm: 'py-1 px-2 text-sm font-medium'
+				lg: 'text-md px-3 py-1.5 font-medium',
+				md: 'px-2.5 py-1.5 text-sm font-medium',
+				sm: 'px-2 py-1 text-sm font-medium'
 			},
 			variant: {
 				default: [

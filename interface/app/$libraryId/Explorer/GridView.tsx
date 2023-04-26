@@ -177,7 +177,7 @@ export default () => {
 			{rowVirtualizer.getVirtualItems().map((virtualRow) => (
 				<div
 					key={virtualRow.key}
-					className="absolute top-0 left-0 flex w-full"
+					className="absolute left-0 top-0 flex w-full"
 					style={{
 						height: virtualRow.size,
 						transform: `translateY(${virtualRow.start}px)`

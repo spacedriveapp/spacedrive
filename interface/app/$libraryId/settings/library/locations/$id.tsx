@@ -164,7 +164,7 @@ export const Component = () => {
 				<Divider />
 				<div className="flex flex-col">
 					<Label className="grow">Indexer rules</Label>
-					<InfoText className="mt-0 mb-1">
+					<InfoText className="mb-1 mt-0">
 						Indexer rules allow you to specify paths to ignore using RegEx.
 					</InfoText>
 					<Controller
@@ -182,7 +182,7 @@ export const Component = () => {
 								size="sm"
 								variant="outline"
 							>
-								<ArrowsClockwise className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+								<ArrowsClockwise className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Full Reindex
 							</Button>
 						</div>
@@ -196,7 +196,7 @@ export const Component = () => {
 								variant="outline"
 								className=""
 							>
-								<Archive className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+								<Archive className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Archive
 							</Button>
 						</div>
@@ -212,7 +212,7 @@ export const Component = () => {
 								variant="colored"
 								className="border-red-500 bg-red-500"
 							>
-								<Trash className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Delete
 							</Button>
 						</div>

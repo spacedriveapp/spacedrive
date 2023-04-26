@@ -131,7 +131,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	return (
 		<Modal ref={modalRef} snapPoints={['25%']}>
-			<View style={tw`flex-1 px-8 pt-8 pb-2`}>
+			<View style={tw`flex-1 px-8 pb-2 pt-8`}>
 				{/* <Button variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}

@@ -24,7 +24,7 @@ const topBarButtonStyle = cva(
 			rounding: {
 				none: 'rounded-none',
 				left: 'rounded-l-md rounded-r-none',
-				right: 'rounded-r-md rounded-l-none',
+				right: 'rounded-l-none rounded-r-md',
 				both: 'rounded-md'
 			}
 		},

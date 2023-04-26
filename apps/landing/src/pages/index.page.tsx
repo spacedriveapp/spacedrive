@@ -121,7 +121,7 @@ function Page() {
 			<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-6xl">
 				A file explorer from the future.
 			</h1>
-			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mt-1 mb-8 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 				Combine your drives and clouds into one database that you can organize and explore
 				from any device.
 				<br />

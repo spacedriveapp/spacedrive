@@ -159,10 +159,10 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 								}
 								className={clsx(
 									cover
-										? 'right-1 bottom-1'
+										? 'bottom-1 right-1'
 										: 'left-1/2 top-1/2 -translate-x-full -translate-y-full',
 									'absolute rounded',
-									'bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70'
+									'bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase opacity-70'
 								)}
 							>
 								{extension}
