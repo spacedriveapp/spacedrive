@@ -12,14 +12,15 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
+    - name: Install Rust
+      id: toolchain
+      uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
-        profile: minimal
+        components: clippy, rustfmt
 
     - name: Install pnpm
-      uses: pnpm/action-setup@v2.2.2
+      uses: pnpm/action-setup@v2
       with:
         version: 7.x.x
         run_install: false

@@ -175,7 +175,10 @@ https://learn.microsoft.com/windows/package-manager/winget/
 
 Write-Host
 Write-Host 'Checking for pnpm...' -ForegroundColor Yellow
-if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
+if ($env:CI) {
+	# The CI has pnpm installed already
+	Write-Host 'Running with CI, skipping pnpm install.' -ForegroundColor Green
+}if ((Get-Command pnpm -ea 0) -and (pnpm --version | Select-Object -First 1) -match "^$pnpm_major\." ) {
    Write-Host "pnpm $pnpm_major is installed." -ForegroundColor Green
 } else {
    # Check for pnpm installed with standalone installer
@@ -211,8 +214,8 @@ https://pnpm.io/uninstall
 Write-Host
 Write-Host 'Checking for LLVM...' -ForegroundColor Yellow
 if ($env:CI) {
-   # The CI has LLVM installed already, so we instead just set the env variables.
-   Write-Host 'Running with Ci, skipping LLVM install.' -ForegroundColor Green
+   # The CI has LLVM installed already
+   Write-Host 'Running with CI, skipping LLVM install.' -ForegroundColor Green
 } elseif (
    (Get-Command clang -ea 0) -and (
       (clang --version | Select-String -Pattern 'version\s+(\d+)' | ForEach-Object { $_.Matches.Groups[1].Value }) -eq "$llvm_major"
