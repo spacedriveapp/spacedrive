@@ -74,6 +74,8 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
+        { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -202,11 +204,6 @@ export type FileEraserJobInit = { location_id: number; path_id: number; passes: 
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SyncOperation"; library_id: string; operations: CRDTOperation[] }
-
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
 
 export type FileDeleterJobInit = { location_id: number; path_id: number }
@@ -222,13 +219,18 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
-export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
-
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+/**
+ * TODO: P2P event for the frontend
+ */
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
+
+export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string }
 
@@ -273,6 +275,8 @@ export type SharedOperationData = SharedOperationCreateData | { field: string; v
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
+export type ChangeNodeNameArgs = { name: string }
 
 /**
  * This defines all available password hashing algorithms.

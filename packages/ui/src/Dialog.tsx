@@ -117,6 +117,7 @@ export interface DialogProps<S extends FieldValues>
 	transformOrigin?: string;
 	loading?: boolean;
 	submitDisabled?: boolean;
+	onCancelled?: () => void;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -188,6 +189,7 @@ export function Dialog<S extends FieldValues>({
 												disabled={props.loading}
 												size="sm"
 												variant="gray"
+												onClick={props.onCancelled}
 											>
 												{props.closeLabel || 'Close'}
 											</Button>
