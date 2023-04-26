@@ -209,6 +209,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build({
