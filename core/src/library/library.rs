@@ -4,13 +4,14 @@ use crate::{
 	location::LocationManager,
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
-	prisma::PrismaClient,
+	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
 	NodeContext,
 };
 
 use std::{
 	fmt::{Debug, Formatter},
+	path::PathBuf,
 	sync::Arc,
 };
 
@@ -18,7 +19,7 @@ use sd_crypto::keys::keymanager::KeyManager;
 use tracing::warn;
 use uuid::Uuid;
 
-use super::LibraryConfig;
+use super::{LibraryConfig, LibraryManagerError};
 
 /// LibraryContext holds context for a library which can be passed around the application.
 #[derive(Clone)]
@@ -96,5 +97,31 @@ impl Library {
 			Err(e) if e.kind() == tokio::io::ErrorKind::NotFound => Ok(false),
 			Err(e) => Err(e),
 		}
+	}
+
+	/// Returns the full path of a file
+	pub async fn get_file_path(&self, id: i32) -> Result<Option<PathBuf>, LibraryManagerError> {
+		Ok(self
+			.db
+			.file_path()
+			.find_first(vec![
+				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
+				file_path::id::equals(id),
+			])
+			.select(file_path::select!({
+				materialized_path
+				location: select {
+					path
+				}
+			}))
+			.exec()
+			.await?
+			.map(|record| {
+				// I hate this but everything starts with `/` so we can't PathBuf::join
+				PathBuf::from(format!(
+					"{}{}",
+					record.location.path, record.materialized_path
+				))
+			}))
 	}
 }

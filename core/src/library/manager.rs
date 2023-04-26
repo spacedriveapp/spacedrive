@@ -304,7 +304,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<Library> {
+	pub async fn get_library(&self, library_id: Uuid) -> Option<Library> {
 		self.libraries
 			.read()
 			.await
