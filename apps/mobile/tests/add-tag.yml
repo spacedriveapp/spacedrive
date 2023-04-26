@@ -10,4 +10,3 @@ appId: com.spacedrive.app
 - tapOn: Create
 - extendedWaitUntil:
     visible: 'COOL'
-- assertVisible: 'COOL'
