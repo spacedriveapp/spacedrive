@@ -263,6 +263,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	useCallbackToWatchForm(
 		async (values) => {
 			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+			// Only validate with backend if the form is locally valid
 			if (!form.formState.isValid) return;
 			try {
 				await addIndexerRules(values, true);
@@ -529,7 +530,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												render={({ field }) => (
 													<Switch
 														onCheckedChange={(checked) => {
-															// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for it
+															// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for them
 															// kind.AcceptIfChildrenDirectoriesArePresent
 															// kind.RejectIfChildrenDirectoriesArePresent
 															const kind = ruleKindEnum.enum;

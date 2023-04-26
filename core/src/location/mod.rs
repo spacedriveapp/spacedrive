@@ -94,12 +94,15 @@ impl LocationCreateArgs {
 			};
 		}
 
-		if !self.dry_run {
-			debug!(
-				"Trying to create new location for '{}'",
-				self.path.display()
-			);
-		}
+		debug!(
+			"{} new location for '{}'",
+			if self.dry_run {
+				"Dry run: Would create"
+			} else {
+				"Trying to create"
+			},
+			self.path.display()
+		);
 
 		let uuid = Uuid::new_v4();
 
@@ -162,7 +165,12 @@ impl LocationCreateArgs {
 		}
 
 		debug!(
-			"Trying to add a new library (library_id = {}) to an already existing location '{}'",
+			"{} a new library (library_id = {}) to an already existing location '{}'",
+			if self.dry_run {
+				"Dry run: Would add"
+			} else {
+				"Trying to add"
+			},
 			library.id,
 			self.path.display()
 		);

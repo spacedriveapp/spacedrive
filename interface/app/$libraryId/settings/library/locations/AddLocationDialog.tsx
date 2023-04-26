@@ -79,13 +79,6 @@ export const AddLocationDialog = ({
 			form.reset({ path, method, indexerRulesIds }, { keepErrors: true });
 	}, [form, path, method, indexerRulesIds]);
 
-	useEffect(() => {
-		form.watch((_, { name }) => {
-			// Reset method when path changes
-			if (name === 'path') form.setValue('method', 'CREATE');
-		});
-	}, [form]);
-
 	const addLocation = useCallback(
 		async ({ path, method, indexerRulesIds }: SchemaType, dryRun = false) => {
 			switch (method) {
@@ -123,7 +116,7 @@ export const AddLocationDialog = ({
 	);
 
 	const handleAddError = useCallback(
-		(method: RemoteErrorFormMessage, error: unknown) => {
+		(error: unknown) => {
 			const rspcErrorInfo = extractInfoRSPCError(error);
 			if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
 
@@ -135,7 +128,7 @@ export const AddLocationDialog = ({
 				 * accordingly. However we don't have the location id at this point.
 				 * Maybe backend could return the location id in the error?
 				 */
-				if (method !== message) {
+				if (form.getValues().method !== message) {
 					form.setValue('method', message);
 					message = REMOTE_ERROR_FORM_MESSAGE[message];
 				} else {
@@ -152,14 +145,22 @@ export const AddLocationDialog = ({
 
 	useCallbackToWatchForm(
 		async (values, { name }) => {
-			if (name !== 'method') form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+			if (name !== 'method')
+				// Remote errors should not be cleared by method changes,
+				// as the previous error is used to notify the user of this change
+				form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+
+			if (name === 'path' && form.getValues().method !== method)
+				// Reset method when path changes
+				form.setValue('method', method);
+
 			try {
 				await addLocation(values, true);
 			} catch (error) {
-				handleAddError(values.method, error);
+				handleAddError(error);
 			}
 		},
-		[form, addLocation, handleAddError]
+		[form, method, addLocation, handleAddError]
 	);
 
 	return (
@@ -175,7 +176,7 @@ export const AddLocationDialog = ({
 				try {
 					await addLocation(values);
 				} catch (error) {
-					if (handleAddError(values.method, error)) {
+					if (handleAddError(error)) {
 						// Reset form to remove isSubmitting state
 						form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
 						// Throw error to prevent dialog from closing

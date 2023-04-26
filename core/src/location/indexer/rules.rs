@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::HashSet, path::Path};
 use tokio::fs;
+use tracing::debug;
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
 /// Note that `parameters` field **MUST** be a JSON object serialized to bytes.
@@ -33,6 +34,17 @@ impl IndexerRuleCreateArgs {
 		self,
 		library: &Library,
 	) -> Result<Option<indexer_rule::Data>, IndexerError> {
+		debug!(
+			"{} a new indexer rule (name = {}, params = {:?})",
+			if self.dry_run {
+				"Dry run: Would create"
+			} else {
+				"Trying to create"
+			},
+			self.name,
+			self.parameters
+		);
+
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
 				&self
