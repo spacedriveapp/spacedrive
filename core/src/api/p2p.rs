@@ -38,12 +38,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
 				peer_id: PeerId,
-				file_path: String,
+				file_path: Vec<String>,
 			}
 
 			R.mutation(|ctx, args: SpacedropArgs| async move {
+				// TODO: Handle multiple files path and error if zero paths
 				ctx.p2p
-					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path))
+					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path.first().unwrap()))
 					.await;
 			})
 		})

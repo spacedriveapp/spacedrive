@@ -109,6 +109,7 @@ export interface DialogProps<S extends FieldValues>
 	dialog: ReturnType<typeof useDialog>;
 	trigger?: ReactNode;
 	ctaLabel?: string;
+	closeLabel?: string;
 	ctaDanger?: boolean;
 	title?: string;
 	description?: string;
@@ -188,7 +189,7 @@ export function Dialog<S extends FieldValues>({
 												size="sm"
 												variant="gray"
 											>
-												Close
+												{props.closeLabel || 'Close'}
 											</Button>
 										</DialogPrimitive.Close>
 										<Button
