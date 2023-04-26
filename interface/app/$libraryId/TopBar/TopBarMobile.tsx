@@ -50,7 +50,7 @@ export default ({ toolOptions, className }: Props) => {
 									<React.Fragment key={tool.toolTipLabel}>
 										{tool.popOverComponent ? (
 											<Popover trigger={<GroupTool tool={tool} />}>
-												<div className="block w-[250px] ">
+												<div className="min-w-[250px]">
 													{tool.popOverComponent}
 												</div>
 											</Popover>
