@@ -8,4 +8,6 @@ appId: com.spacedrive.app
     id: 'create-tag-name'
 - inputText: 'COOL'
 - tapOn: Create
+- extendedWaitUntil:
+    visible: 'COOL'
 - assertVisible: 'COOL'
