@@ -262,7 +262,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 
 	useCallbackToWatchForm(
 		form,
-		async (values: SchemaType) => {
+		async (values) => {
 			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 			if (!form.formState.isValid) return;
 			try {

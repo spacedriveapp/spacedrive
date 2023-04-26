@@ -152,7 +152,7 @@ export const AddLocationDialog = ({
 
 	useCallbackToWatchForm(
 		form,
-		async (values: SchemaType, { name }) => {
+		async (values, { name }) => {
 			if (name !== 'method') form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 			try {
 				await addLocation(values, true);
