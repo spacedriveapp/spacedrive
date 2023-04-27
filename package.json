@@ -52,5 +52,7 @@
 		"yarn": "pnpm",
 		"node": ">=18.0.0"
 	},
-	"eslintConfig": {}
+	"eslintConfig": {
+		"root": true
+	}
 }
