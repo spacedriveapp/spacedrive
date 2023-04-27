@@ -102,6 +102,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1
