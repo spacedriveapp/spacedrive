@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -14,6 +14,7 @@ use tracing::{debug, error};
 #[cfg(target_os = "linux")]
 mod app_linux;
 
+mod file;
 mod menu;
 
 #[tauri::command(async)]
@@ -24,24 +25,6 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	window.show().unwrap();
 }
 
-#[tauri::command(async)]
-#[specta::specta]
-async fn open_file_path(
-	library: uuid::Uuid,
-	id: i32,
-	node: tauri::State<'_, Arc<Node>>,
-) -> Result<(), ()> {
-	if let Some(library) = node.library_manager.get_library(library).await {
-		let path = library.get_file_path(id).await.unwrap().unwrap();
-
-		dbg!(&path);
-
-		opener::open(path).ok();
-	}
-
-	Ok(())
-}
-
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(r#"window.__SD_ERROR__ = "{err}";"#))
@@ -49,7 +32,7 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 }
 
 macro_rules! tauri_handlers {
-	($($name:ident),+) => {{
+	($($name:path),+) => {{
 		#[cfg(debug_assertions)]
 		tauri_specta::ts::export(specta::collect_types![$($name),+], "../src/commands.ts").unwrap();
 
@@ -138,7 +121,7 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
-		.invoke_handler(tauri_handlers![app_ready, open_file_path])
+		.invoke_handler(tauri_handlers![app_ready, file::open_file_path])
 		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {
