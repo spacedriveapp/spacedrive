@@ -6,24 +6,21 @@ ARG MACOS_VERSION=12.3 \
 	FFMPEG_VERSION=6.0 \
 	FFMEG_OUT_DIR=/ffmpeg
 
-ARG MACPORT_DEPS="bzip2 lzo2 xz zimg zlib libgsm aom x264 XviD x265 soxr webp rav1e lame svt-av1 \
-libvidstab libopus openjpeg libvorbis libtheora fontconfig freetype fribidi libvpx-devel"
+# Runtime macOS dependendies for ffmpeg
+ARG MACPORT_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libopus libtheora libvidstab libvorbis \
+	libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 webp x264 x265 XviD xz zimg zlib"
 
 FROM alpine:3.17 as base
 
 WORKDIR /srv
 
-# 1037 MiB
-RUN apk --no-cache add xz git perl curl bash cmake clang15 yasm python3 \
-	libuuid openssl build-base gmp-dev mpfr-dev mpc1-dev libc-dev libc++-dev \
-	zlib-dev musl-fts-dev bzip2-dev llvm15-dev llvm15-static libxml2-dev \
-	openssl-dev bsd-compat-headers
+# Host dependencies, required to build osxcross, gcc for macOS and ffmpeg. ~1GiB
+# hadolint ignore=DL3018
+RUN --mount=type=cache,target=/var/cache/apk ln -vs /var/cache/apk /etc/apk/cache && apk add --update \
+	bash bsd-compat-headers build-base bzip2-dev clang15 cmake curl git gmp-dev libc++-dev libc-dev libuuid libxml2-dev \
+	llvm15-dev llvm15-static mpc1-dev mpfr-dev musl-fts-dev openssl openssl-dev perl python3 xz yasm zlib-dev
 
-# Make clang 15 accessible without the version suffix
-RUN ln -s $(command -v clang-15) /usr/local/bin/clang
-RUN ln -s $(command -v clang++-15) /usr/local/bin/clang++
-
-# Download osxcross
+# Download osxcross, use a specific commit to avoid breaking changes and allow docker to cache it
 ADD https://github.com/tpoechtrager/osxcross/archive/50e86ebca7d14372febd0af8cd098705049161b9.zip /srv/osxcross.zip
 RUN unzip osxcross.zip && mv osxcross-* osxcross && rm osxcross.zip
 
@@ -33,28 +30,34 @@ WORKDIR /srv/osxcross/tarballs
 ARG MACOS_VERSION
 ADD "https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_VERSION}/MacOSX${MACOS_VERSION}.sdk.tar.xz" ./
 
-# Build osxcross
-WORKDIR /srv/osxcross
-
+# Setupt osxcross environment variables
 ARG MACOS_MIN_VERSION
-ENV UNATTENDED=yes \
+ENV PATH="$PATH:/opt/osxcross/bin" \
+	UNATTENDED=yes \
 	OSXCROSS_MP_INC=1 \
 	OSX_VERSION_MIN="$MACOS_MIN_VERSION" \
 	MACOSX_DEPLOYMENT_TARGET="$MACOS_MIN_VERSION"
 
-RUN ./build.sh
-RUN ./build_compiler_rt.sh
+# Build osxcross
+WORKDIR /srv/osxcross
+RUN set -eux; export TARGET_DIR=/opt/osxcross \
+	&& \
+	./build.sh \
+	&& \
+	./build_compiler_rt.sh \
+	&& \
+	# Ugly workaround for linker not finding the macOS SDK's Framework directory
+	ln -fs "${TARGET_DIR}/SDK/MacOSX${MACOS_VERSION}.sdk/System" '/System' \
+	&& \
+	./cleanup.sh
 
-# Add osxcross tools to PATH
-ENV PATH="$PATH:/srv/osxcross/target/bin"
-
-# Ugly workaround for linker not finding the SDK Framework
-RUN ln -fs "/srv/osxcross/target/SDK/MacOSX${MACOS_VERSION}.sdk/System" '/System'
+WORKDIR /srv
 
 # Setup macports
 RUN osxcross-macports --help
 
-WORKDIR /srv
+# ---
+FROM base as ffmpeg
 
 # Download ffmpeg
 ARG FFMPEG_VERSION
@@ -66,31 +69,35 @@ WORKDIR /srv/ffmpeg-${FFMPEG_VERSION}
 COPY ./ffmpeg-build-macos.sh ./
 
 # ---
-from base as x86_64
+FROM ffmpeg as x86_64
 
-ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR MACPORT_DEPS
+ARG MACPORT_DEPS
 
-RUN osxcross-macports install $MACPORT_DEPS nasm
+# Install macOS dependencies required to build ffmpeg
+# hadolint ignore=SC2086
+RUN osxcross-macports install $MACPORT_DEPS
 
-RUN ./ffmpeg-build-macos.sh x86_64 $DARWIN_VERSION $MACOS_VERSION $FFMEG_OUT_DIR
+ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR
+RUN ./ffmpeg-build-macos.sh x86_64 "$DARWIN_VERSION" "$MACOS_VERSION" "$FFMEG_OUT_DIR"
 
 # ---
-from base as aarch64
-
-ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR MACPORT_DEPS
+FROM ffmpeg as aarch64
 
 # https://ffmpeg.org/pipermail/ffmpeg-user/2016-January/030202.html
 ADD https://raw.githubusercontent.com/yuvi/gas-preprocessor/master/gas-preprocessor.pl /usr/local/bin/
 RUN chmod +x /usr/local/bin/gas-preprocessor.pl
 
-# aarch64 requires a higher macOS version to build ffmpeg
-ARG MACOS_MIN_VERSION=11.0
+# aarch64 requires a higher min macOS version to build ffmpeg
+ARG MACPORT_DEPS MACOS_MIN_VERSION=11.0
 ENV OSX_VERSION_MIN="$MACOS_MIN_VERSION" \
 	MACOSX_DEPLOYMENT_TARGET="$MACOS_MIN_VERSION"
 
+# Install macOS dependencies required to build ffmpeg
+# hadolint ignore=SC2086
 RUN osxcross-macports install --arm64 $MACPORT_DEPS
 
-RUN ./ffmpeg-build-macos.sh aarch64 $DARWIN_VERSION $MACOS_VERSION $FFMEG_OUT_DIR
+ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR
+RUN ./ffmpeg-build-macos.sh aarch64 "$DARWIN_VERSION" "$MACOS_VERSION" "$FFMEG_OUT_DIR"
 
 # ---
 FROM scratch as ffmpeg-${FFMPEG_VERSION}

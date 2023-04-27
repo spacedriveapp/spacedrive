@@ -13,19 +13,31 @@ MACOS_VERSION="$3"
 OUT_DIR="$4"
 TRIPLE="${ARCH}-apple-${DARWIN_VERSION}"
 
-if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "aarch64" ]; then
+# Clear command line arguments
+set --
+if [ "$ARCH" = "x86_64" ]; then
+  set -- --enable-x86asm
+elif [ "$ARCH" = "aarch64" ]; then
+  set -- --disable-fft
+else
   echo "Unsupported architecture: $ARCH" >&2
   exit 1
 fi
 
-# check clang can run
+# Check macOS gcc exists
 if ! CLANG="$(command -v "${TRIPLE}-clang" 2>/dev/null)"; then
-  echo "clang not found" >&2
+  echo "${TRIPLE}-clang not found" >&2
   exit 1
 fi
 
 _osxcross_root="$(dirname "$(dirname "$CLANG")")"
+
+# Check macports root exists
 _macports_root="${_osxcross_root}/macports/pkgs/opt/local"
+if ! [ -d "$_macports_root" ]; then
+  echo "macports root not found: $_macports_root" >&2
+  exit 1
+fi
 
 # Check SDK exists
 _sdk="${_osxcross_root}/SDK/MacOSX${MACOS_VERSION}.sdk"
@@ -39,15 +51,25 @@ if [ -e "$OUT_DIR" ] && ! [ -d "$OUT_DIR" ]; then
   echo "Invalid output directory: $OUT_DIR" >&2
   exit 1
 fi
+
+# Change cwd to the script directory (which should be ffmpeg source directory)
+cd "$(dirname "$0")"
+
+# Create OUT_DIR if it doesn't exists
 mkdir -p "$OUT_DIR"
 
-TARGET_DIR="$(pwd)/target"
+# Create a tmp TARGET_DIR
+TARGET_DIR="$(mktemp -d -t ffmpeg-macos-XXXXXXXXXX)"
 
-# NOTE: Only gnu linker is supported
+# Replace ffmpeg linker options to be compatible with clang linker
+sed -i -e 's/^\( *\)add_ldflags -Wl,-dynamic,-search_paths_first$/\1add_ldflags -dynamic\n\1add_ldflags -search_paths_first/' configure
+
+# This isn't autotools
 ./configure \
   --nm="${TRIPLE}-nm" \
   --ar="${TRIPLE}-ar" \
   --as="${TRIPLE}-as" \
+  --ld="${TRIPLE}-ld" \
   --cc="$CLANG" \
   --cxx="${TRIPLE}-clang++" \
   --arch="${ARCH}" \
@@ -55,12 +77,11 @@ TARGET_DIR="$(pwd)/target"
   --strip="${TRIPLE}-strip" \
   --ranlib="${TRIPLE}-ranlib" \
   --prefix="${TARGET_DIR}" \
-  --target="${TRIPLE}" \
   --target-os='darwin' \
   --pkg-config="${TRIPLE}-pkg-config" \
-  --extra-cflags="-I${_osxcross_root}/include -I${_macports_root}/include" \
+  --extra-cflags="-I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
   --extra-ldflags="-L${_sdk}/usr/lib -L${_osxcross_root}/lib -L${_macports_root}/lib -lSystem" \
-  --extra-cxxflags="-I${_osxcross_root}/include -I${_macports_root}/include" \
+  --extra-cxxflags="-lc++ -xc++-header -I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
   --disable-avdevice \
   --disable-debug \
   --disable-doc \
@@ -122,19 +143,19 @@ TARGET_DIR="$(pwd)/target"
   --enable-version3 \
   --enable-videotoolbox \
   --enable-zlib \
-  --enable-cross-compile
+  --enable-cross-compile \
+  "$@"
 
 make -j"$(nproc)" install
 
 cd "$TARGET_DIR/lib"
 
-# Copy all symlinks to dylibs to the output directory
-find . -type l -exec cp -t "$OUT_DIR" '{}' +
+# Move all symlinks to ffmpeg libraries to the output directory
+find . -type l -exec mv -t "$OUT_DIR" '{}' +
 
 # Clear command line arguments
 set --
-
-# Populate queue with ffmpeg dylibs
+# Populate queue with ffmpeg libraries
 for _lib in *.dylib; do
   set -- "$@" "$_lib"
 done
@@ -143,17 +164,17 @@ while [ $# -gt 0 ]; do
   # loop through each library dependency
   for _library in $("${TRIPLE}-otool" -L "$1" | awk '{print $1}'); do
     case "$_library" in
-      /opt/local/*) # check if the library is in /opt/local (which mean it was installed by macports)
+      /opt/local/*) # check if the dependency is in /opt/local (which mean it was installed by macports)
         _filename=$(basename "$_library")
 
-        # copy the library to the current directory if this is the first time we see it
-        # and add it to the queue
+        # copy the dependency to the current directory if this is the first time we see it,
+        # then add it to the queue to have it's dependencies processed
         if [ ! -f "$_filename" ]; then
           cp "${_macports_root}/${_filename}" ./
           set -- "$@" "$_filename"
         fi
 
-        # change the dependency linked path to use @executable_path/../Frameworks
+        # change the linked dependency path to use @executable_path/../Frameworks (make it compatible with an .app bundle)
         "${TRIPLE}-install_name_tool" -change "$_library" "@executable_path/../Frameworks/$_filename" "$1"
         ;;
       *) # System library are ignored
@@ -164,5 +185,8 @@ while [ $# -gt 0 ]; do
   # Copy the library to the output directory
   cp "$1" "$OUT_DIR"
 
+  # Remove library from queue
   shift
 done
+
+rm -rf "$TARGET_DIR"
