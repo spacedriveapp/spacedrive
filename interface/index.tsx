@@ -10,7 +10,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
 import ErrorFallback from './ErrorFallback';
-import { SpacedropUI } from './app/spacedrop';
+import { SpacedropUI } from './app/Spacedrop';
 
 export * from './util/keybind';
 export * from './util/Platform';
