@@ -1,10 +1,52 @@
 import { CaretLeft, CaretRight } from 'phosphor-react';
-import { forwardRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { forwardRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Tooltip } from '@sd/ui';
+import { useNavigationHistory } from '~/hooks/useNavigationHistory';
 import { useSearchStore } from '~/hooks/useSearchStore';
 import SearchBar from './SearchBar';
 import TopBarButton from './TopBarButton';
+
+const Navigation = () => {
+	const location = useLocation();
+	const navigate = useNavigate();
+	const { isFocused } = useSearchStore();
+	const history = useNavigationHistory();
+
+	const canNavigateBack = useMemo(() => {
+		if (history.has(location.key)) {
+			const keys = [...history];
+			const index = keys.indexOf(location.key);
+			return !!keys[index - 1];
+		}
+	}, [location, history]);
+
+	const canNavigateForward = useMemo(() => {
+		if (history.has(location.key)) {
+			const keys = [...history];
+			const index = keys.indexOf(location.key);
+			return !!keys[index + 1];
+		}
+	}, [location, history]);
+
+	return (
+		<div data-tauri-drag-region className="flex flex-1">
+			<Tooltip label="Navigate back">
+				<TopBarButton onClick={() => navigate(-1)} disabled={isFocused || !canNavigateBack}>
+					<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
+				</TopBarButton>
+			</Tooltip>
+			<Tooltip label="Navigate forward">
+				<TopBarButton
+					onClick={() => navigate(1)}
+					disabled={isFocused || !canNavigateForward}
+				>
+					<CaretRight weight="bold" className={TOP_BAR_ICON_STYLE} />
+				</TopBarButton>
+			</Tooltip>
+		</div>
+	);
+};
 
 export interface ToolOption {
 	icon: JSX.Element;
@@ -22,9 +64,6 @@ export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 export const TOP_BAR_HEIGHT = 46;
 
 const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
-	const navigate = useNavigate();
-	const { isFocused } = useSearchStore();
-
 	return (
 		<div
 			data-tauri-drag-region
@@ -35,21 +74,8 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 				transition-[background-color,border-color] ease-out
 			"
 		>
-			<div data-tauri-drag-region className="flex flex-1">
-				<Tooltip label="Navigate back">
-					<TopBarButton onClick={() => navigate(-1)} disabled={isFocused}>
-						<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
-					</TopBarButton>
-				</Tooltip>
-				<Tooltip label="Navigate forward">
-					<TopBarButton onClick={() => navigate(1)} disabled={isFocused}>
-						<CaretRight weight="bold" className={TOP_BAR_ICON_STYLE} />
-					</TopBarButton>
-				</Tooltip>
-			</div>
-
+			<Navigation />
 			<SearchBar />
-
 			<div className="flex-1" ref={ref} />
 		</div>
 	);

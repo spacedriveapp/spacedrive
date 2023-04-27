@@ -5,6 +5,7 @@ import { Outlet, useNavigate } from 'react-router';
 import { getOnboardingStore, useDebugState } from '@sd/client';
 import { tw } from '@sd/ui';
 import DragRegion from '~/components/DragRegion';
+import { getNavigationHistory } from '~/hooks/useNavigationHistory';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import DebugPopover from '../$libraryId/Layout/Sidebar/DebugPopover';
 import Progress from './Progress';
@@ -21,6 +22,7 @@ export const Component = () => {
 
 	useEffect(
 		() => {
+			getNavigationHistory().clear();
 			const obStore = getOnboardingStore();
 
 			// This is neat because restores the last active screen, but only if it is not the starting screen

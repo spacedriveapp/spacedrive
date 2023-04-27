@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense, useRef } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -8,6 +8,7 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
+import { getNavigationHistory } from '~/hooks/useNavigationHistory';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { QuickPreview } from '../Explorer/QuickPreview';
@@ -16,7 +17,7 @@ import Toasts from './Toasts';
 
 const Layout = () => {
 	const { libraries, library } = useClientContext();
-
+	const location = useLocation();
 	const os = useOperatingSystem();
 
 	initPlausible({
@@ -24,6 +25,10 @@ const Layout = () => {
 	});
 
 	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
+
+	useEffect(() => {
+		library && getNavigationHistory().add(location.key);
+	}, [location]);
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
