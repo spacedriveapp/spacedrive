@@ -115,10 +115,6 @@ impl LocationCreateArgs {
 		)
 		.await?;
 
-		if self.dry_run {
-			return Ok(None);
-		}
-
 		if let Some(location) = location {
 			// Write location metadata to a .spacedrive file
 			if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
@@ -144,7 +140,7 @@ impl LocationCreateArgs {
 
 			Ok(Some(location))
 		} else {
-			Err(LocationError::DryRunError)
+			Ok(None)
 		}
 	}
 
@@ -186,10 +182,6 @@ impl LocationCreateArgs {
 		)
 		.await?;
 
-		if self.dry_run {
-			return Ok(None);
-		}
-
 		if let Some(location) = location {
 			metadata
 				.add_library(library.id, uuid, &self.path, location.name.clone())
@@ -207,7 +199,7 @@ impl LocationCreateArgs {
 
 			Ok(Some(location))
 		} else {
-			Err(LocationError::DryRunError)
+			Ok(None)
 		}
 	}
 }
