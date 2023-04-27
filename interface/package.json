@@ -8,7 +8,8 @@
 	"exports": {
 		".": "./index.tsx",
 		"./assets/*": "./assets/*",
-		"./components/*": "./components/*"
+		"./components/*": "./components/*",
+		"./hooks/*": "./hooks/*"
 	},
 	"scripts": {
 		"lint": "eslint . --cache",

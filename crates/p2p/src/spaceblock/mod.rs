@@ -13,7 +13,7 @@ use tokio::io::AsyncReadExt;
 use crate::spacetime::{SpaceTimeStream, UnicastStream};
 
 /// TODO
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockSize(i64);
 
 impl BlockSize {
@@ -26,15 +26,15 @@ impl BlockSize {
 }
 
 /// TODO
-#[derive(Debug, PartialEq, Eq)]
-pub struct TransferRequest {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpacedropRequest {
 	pub name: String,
 	pub size: u64,
 	// TODO: Include file permissions
 	pub block_size: BlockSize,
 }
 
-impl TransferRequest {
+impl SpacedropRequest {
 	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, ()> {
 		let name_len = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 		let mut name = vec![0u8; name_len as usize];

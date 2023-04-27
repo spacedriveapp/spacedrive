@@ -109,6 +109,7 @@ export interface DialogProps<S extends FieldValues>
 	dialog: ReturnType<typeof useDialog>;
 	trigger?: ReactNode;
 	ctaLabel?: string;
+	closeLabel?: string;
 	ctaDanger?: boolean;
 	title?: string;
 	description?: string;
@@ -116,6 +117,7 @@ export interface DialogProps<S extends FieldValues>
 	transformOrigin?: string;
 	loading?: boolean;
 	submitDisabled?: boolean;
+	onCancelled?: () => void;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -187,8 +189,9 @@ export function Dialog<S extends FieldValues>({
 												disabled={props.loading}
 												size="sm"
 												variant="gray"
+												onClick={props.onCancelled}
 											>
-												Close
+												{props.closeLabel || 'Close'}
 											</Button>
 										</DialogPrimitive.Close>
 										<Button

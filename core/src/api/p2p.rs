@@ -3,6 +3,7 @@ use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 use crate::p2p::P2PEvent;
 
@@ -38,13 +39,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
 				peer_id: PeerId,
-				file_path: String,
+				file_path: Vec<String>,
 			}
 
 			R.mutation(|ctx, args: SpacedropArgs| async move {
+				// TODO: Handle multiple files path and error if zero paths
 				ctx.p2p
-					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path))
+					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path.first().unwrap()))
 					.await;
+			})
+		})
+		.procedure("acceptSpacedrop", {
+			R.mutation(|ctx, (id, path): (Uuid, Option<String>)| async move {
+				match path {
+					Some(path) => {
+						ctx.p2p.accept_spacedrop(id, path).await;
+					}
+					None => {
+						ctx.p2p.reject_spacedrop(id).await;
+					}
+				}
 			})
 		})
 }
