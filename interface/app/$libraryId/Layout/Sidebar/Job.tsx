@@ -26,7 +26,10 @@ interface JobNiceData {
 	filesDiscovered: string;
 }
 
-const getNiceData = (job: JobReport, isGroup: boolean): Record<string, JobNiceData> => ({
+const getNiceData = (
+	job: JobReport,
+	isGroup: boolean | undefined
+): Record<string, JobNiceData> => ({
 	indexer: {
 		name: isGroup
 			? 'Indexing paths'
