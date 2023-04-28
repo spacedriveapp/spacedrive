@@ -725,6 +725,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d4260bcc2e8fc9df1eac4919a720effeb63a3f0952f5bf4944adfa18897f09"
+dependencies = [
+ "memchr",
+ "once_cell",
+ "regex-automata",
+ "serde",
+]
+
+[[package]]
 name = "builtin-psl-connectors"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?tag=pcr-0.6.5#7cc20cc54a7ab0b5e38c81901826939a91a17ba0"
@@ -732,7 +744,7 @@ dependencies = [
  "connection-string",
  "either",
  "enumflags2 0.7.5",
- "indoc",
+ "indoc 1.0.8",
  "lsp-types",
  "once_cell",
  "psl-core",
@@ -1053,7 +1065,7 @@ version = "4.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0177313f9f02afc995627906bbd8967e2be069f5261954222dac78290c2b9014"
 dependencies = [
- "heck 0.4.0",
+ "heck 0.4.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -1076,7 +1088,7 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
- "indoc",
+ "indoc 1.0.8",
  "sd-crypto",
  "tokio",
 ]
@@ -1807,7 +1819,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?tag=pcr-0.6.5#7cc20cc54a7ab0b5e38c81901826939a91a17ba0"
 dependencies = [
  "colored",
- "indoc",
+ "indoc 1.0.8",
  "pest",
 ]
 
@@ -1898,7 +1910,7 @@ dependencies = [
  "cuid",
  "either",
  "enumflags2 0.7.5",
- "indoc",
+ "indoc 1.0.8",
  "prisma-value",
  "psl-core",
  "schema-ast",
@@ -2054,7 +2066,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9720bba047d567ffc8a3cba48bf19126600e249ab7f128e9233e6376976a116"
 dependencies = [
- "heck 0.4.0",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 1.0.107",
@@ -2674,7 +2686,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25a68131a662b04931e71891fb14aaf65ee4b44d08e8abc10f49e77418c86c64"
 dependencies = [
  "anyhow",
- "heck 0.4.0",
+ "heck 0.4.1",
  "proc-macro-crate 1.2.1",
  "proc-macro-error",
  "proc-macro2",
@@ -2705,7 +2717,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a1e17342619edbc21a964c2afbeb6c820c6a2560032872f397bb97ea127bd0a"
 dependencies = [
  "aho-corasick",
- "bstr",
+ "bstr 0.2.17",
  "fnv",
  "log",
  "regex",
@@ -2890,9 +2902,9 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
+checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hermit-abi"
@@ -3263,6 +3275,12 @@ name = "indoc"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da2d6f23ffea9d7e76c53eee25dfb67bcd8fde7f1198b0855350698c9f07c780"
+
+[[package]]
+name = "indoc"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f2cb48b81b1dc9f39676bf99f5499babfec7cd8fe14307f7b3d747208fb5690"
 
 [[package]]
 name = "infer"
@@ -4909,6 +4927,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "opener"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c62dcb6174f9cb326eac248f07e955d5d559c272730b6c03e396b443b562788"
+dependencies = [
+ "bstr 1.4.0",
+ "normpath",
+ "winapi",
+]
+
+[[package]]
 name = "openssl"
 version = "0.10.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5757,7 +5786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c828f93f5ca4826f97fedcbd3f9a536c16b12cff3dbbb4a007f932bbad95b12"
 dependencies = [
  "bytes",
- "heck 0.4.0",
+ "heck 0.4.1",
  "itertools",
  "lazy_static",
  "log",
@@ -5826,7 +5855,7 @@ dependencies = [
  "chrono",
  "diagnostics",
  "enumflags2 0.7.5",
- "indoc",
+ "indoc 1.0.8",
  "itertools",
  "lsp-types",
  "once_cell",
@@ -7395,16 +7424,20 @@ dependencies = [
  "axum",
  "http",
  "httpz 0.0.3",
+ "opener",
  "percent-encoding",
  "rand 0.8.5",
  "rspc",
  "sd-core",
  "sd-desktop-macos",
  "serde",
+ "specta",
  "tauri",
  "tauri-build",
+ "tauri-specta",
  "tokio",
  "tracing",
+ "uuid 1.2.1",
  "window-shadows",
 ]
 
@@ -7417,12 +7450,13 @@ dependencies = [
  "chrono",
  "document-features",
  "indexmap",
- "indoc",
+ "indoc 1.0.8",
  "once_cell",
  "paste",
  "serde",
  "serde_json",
  "specta-macros",
+ "tauri",
  "thiserror",
  "tokio",
  "uhlc",
@@ -7506,7 +7540,7 @@ dependencies = [
  "connection-string",
  "either",
  "enumflags2 0.7.5",
- "indoc",
+ "indoc 1.0.8",
  "migration-connector",
  "once_cell",
  "psl",
@@ -7564,7 +7598,7 @@ dependencies = [
  "bigdecimal",
  "enumflags2 0.7.5",
  "indexmap",
- "indoc",
+ "indoc 1.0.8",
  "once_cell",
  "psl",
  "quaint",
@@ -7675,7 +7709,7 @@ version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
 dependencies = [
- "heck 0.4.0",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -7823,7 +7857,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a45a1c4c9015217e12347f2a411b57ce2c4fc543913b14b6fe40483328e709"
 dependencies = [
  "cfg-expr 0.10.3",
- "heck 0.4.0",
+ "heck 0.4.1",
  "pkg-config",
  "toml",
  "version-compare 0.1.0",
@@ -7910,7 +7944,7 @@ dependencies = [
  "glib",
  "glob",
  "gtk",
- "heck 0.4.0",
+ "heck 0.4.1",
  "http",
  "ignore",
  "minisign-verify",
@@ -7957,7 +7991,7 @@ checksum = "0991fb306849897439dbd4a72e4cbed2413e2eb26cb4b3ba220b94edba8b4b88"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "heck 0.4.0",
+ "heck 0.4.1",
  "json-patch",
  "semver 1.0.14",
  "serde_json",
@@ -7997,7 +8031,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "069319e5ecbe653a799b94b0690d9f9bf5d00f7b1d3989aa331c524d4e354075"
 dependencies = [
- "heck 0.4.0",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 1.0.107",
@@ -8046,6 +8080,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-specta"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23419889204476d5a70a04077d4628061a5bb667b18804a4572df2fe6ccb8ba5"
+dependencies = [
+ "heck 0.4.1",
+ "indoc 2.0.1",
+ "serde",
+ "serde_json",
+ "specta",
+ "tauri",
+ "thiserror",
+]
+
+[[package]]
 name = "tauri-utils"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8054,7 +8103,7 @@ dependencies = [
  "brotli",
  "ctor",
  "glob",
- "heck 0.4.0",
+ "heck 0.4.1",
  "html5ever",
  "infer",
  "json-patch",
@@ -8739,7 +8788,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?tag=pcr-0.6.5#7cc20cc54a7ab0b5e38c81901826939a91a17ba0"
 dependencies = [
  "backtrace",
- "indoc",
+ "indoc 1.0.8",
  "quaint",
  "serde",
  "serde_json",

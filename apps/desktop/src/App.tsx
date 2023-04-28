@@ -19,6 +19,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
+import { appReady, openFilePath } from './commands';
 
 const client = hooks.createClient({
 	links: [
@@ -72,7 +73,8 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path)
+	openPath: (path) => shell.open(path),
+	openFilePath
 };
 
 const queryClient = new QueryClient();
@@ -82,7 +84,7 @@ const router = createMemoryRouter(routes);
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		invoke('app_ready');
+		appReady();
 	}, []);
 
 	useEffect(() => {
