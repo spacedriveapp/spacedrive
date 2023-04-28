@@ -11,5 +11,5 @@ index 82bf65c40..a81ce97b7 100644
 +          fargs.push_back("-lc++");
 +        }
        }
- 
+
        if (stdlib == StdLib::libstdcxx && usegcclibs && targetarch.size() < 2 &&
