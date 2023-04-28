@@ -10,12 +10,8 @@ rust-version = "1.68.1"
 
 [features]
 default = []
-mobile = [
-] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = [
-	"dep:ffmpeg-next",
-	"dep:sd-ffmpeg",
-] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = ["dep:ffmpeg-next", "dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 sync-messages = []
 

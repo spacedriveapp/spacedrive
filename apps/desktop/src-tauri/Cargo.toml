@@ -19,6 +19,10 @@ tracing = "0.1.36"
 serde = "1.0.145"
 percent-encoding = "2.2.0"
 http = "0.2.8"
+opener = "0.6.1"
+specta.workspace = true
+tauri-specta = { version = "1.0.0", features = ["typescript"] }
+uuid = { version = "1.1.2", features = ["serde"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 axum = { version = "0.6.4", features = ["headers", "query"] }

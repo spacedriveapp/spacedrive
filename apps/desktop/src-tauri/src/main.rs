@@ -14,9 +14,11 @@ use tracing::{debug, error};
 #[cfg(target_os = "linux")]
 mod app_linux;
 
+mod file;
 mod menu;
 
 #[tauri::command(async)]
+#[specta::specta]
 async fn app_ready(app_handle: tauri::AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
@@ -27,6 +29,15 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(r#"window.__SD_ERROR__ = "{err}";"#))
 		.build()
+}
+
+macro_rules! tauri_handlers {
+	($($name:path),+) => {{
+		#[cfg(debug_assertions)]
+		tauri_specta::ts::export(specta::collect_types![$($name),+], "../src/commands.ts").unwrap();
+
+		tauri::generate_handler![$($name),+]
+	}};
 }
 
 #[tokio::main]
@@ -58,10 +69,12 @@ async fn main() -> tauri::Result<()> {
 				endpoint.tauri_uri_scheme("spacedrive"),
 			);
 
-			let app = app.plugin(rspc::integrations::tauri::plugin(router, {
-				let node = node.clone();
-				move || node.clone()
-			}));
+			let app = app
+				.plugin(rspc::integrations::tauri::plugin(router, {
+					let node = node.clone();
+					move || node.clone()
+				}))
+				.manage(node.clone());
 
 			(Some(node), app)
 		}
@@ -107,8 +120,8 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.invoke_handler(tauri::generate_handler![app_ready])
 		.menu(menu::get_menu())
+		.invoke_handler(tauri_handlers![app_ready, file::open_file_path])
 		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {
