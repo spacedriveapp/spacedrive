@@ -6,7 +6,7 @@ import { JobReport } from '@sd/client';
 import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import GroupedJobs from './GroupedJobs';
-import Job from './Job';
+import Job, { AllRunningJobsWithoutChildren } from './Job';
 
 export function JobsManager() {
 	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
@@ -91,9 +91,7 @@ export function JobsManager() {
 					jobs={allJobsWithActions}
 					runningJobs={allRunningJobsWithActions}
 				/>
-				{allRunningJobsWithoutChildren()?.map((job) => (
-					<Job key={job.id} job={job} />
-				))}
+				<AllRunningJobsWithoutChildren jobs={jobs} runningJobs={runningJobs} />
 				{allIndividualRunningJobs?.map((job) => (
 					<Job key={job.id} job={job} />
 				))}

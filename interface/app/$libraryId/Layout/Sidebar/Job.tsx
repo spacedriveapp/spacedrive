@@ -208,4 +208,25 @@ function numberWithCommas(x: number) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+export function AllRunningJobsWithoutChildren({
+	jobs = [],
+	runningJobs = []
+}: {
+	jobs?: JobReport[];
+	runningJobs?: JobReport[];
+}) {
+	const filterRunning = runningJobs?.filter(
+		(job) => job.action !== null && job.parent_id === null
+	);
+	const mapJobsForIds = jobs?.map((job) => job.id);
+	const checkIfJobHasChildren = filterRunning?.filter((job) => !mapJobsForIds?.includes(job.id));
+	return (
+		<>
+			{checkIfJobHasChildren.map((job) => (
+				<Job key={job.id} job={job} />
+			))}
+		</>
+	);
+}
+
 export default memo(Job);
