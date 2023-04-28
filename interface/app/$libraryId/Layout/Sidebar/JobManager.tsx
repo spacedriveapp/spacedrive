@@ -2,15 +2,22 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { JobReport } from '@sd/client';
 import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
-import Job from './Job';
+import GroupedJobs from './GroupedJobs';
+import Job, { AllRunningJobsWithoutChildren } from './Job';
 
 export function JobsManager() {
 	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
 	const { data: jobs } = useLibraryQuery(['jobs.getHistory']);
 	const queryClient = useQueryClient();
-	const { mutate: clearAllJobs } = useLibraryMutation(['jobs.clearAll'], {
+	const allIndividualJobs = jobs?.filter((job) => job.action === null); //jobs without actions are individual
+	const allIndividualRunningJobs = runningJobs?.filter((job) => job.action === null);
+	const allJobsWithActions = jobs?.filter((job) => job.action !== null); //jobs with actions means they are grouped
+	const allRunningJobsWithActions = runningJobs?.filter((job) => job.action !== null);
+
+	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
 			showAlertDialog({
 				title: 'Error',
@@ -21,7 +28,7 @@ export function JobsManager() {
 			queryClient.invalidateQueries(['jobs.getHistory']);
 		}
 	});
-	const { mutate: clearAJob } = useLibraryMutation(['jobs.clear'], {
+	const clearAJob = useLibraryMutation(['jobs.clear'], {
 		onError: () => {
 			showAlertDialog({
 				title: 'Error',
@@ -38,12 +45,12 @@ export function JobsManager() {
 			title: 'Clear Jobs',
 			value: 'Are you sure you want to clear all jobs? This cannot be undone.',
 			label: 'Clear',
-			onSubmit: () => clearAllJobs(null)
+			onSubmit: () => clearAllJobs.mutate(null)
 		});
 	};
 	const clearAJobHandler = useCallback(
 		(id: string) => {
-			clearAJob(id);
+			clearAJob.mutate(id);
 		},
 		[clearAJob]
 	);
@@ -66,26 +73,24 @@ export function JobsManager() {
 					</Button>
 				</PopoverClose>
 			</div>
-			<div className="custom-scroll inspector-scroll mr-1 h-full overflow-x-hidden">
-				<div className="">
-					<div className="py-1">
-						{runningJobs?.map((job) => (
-							<Job key={job.id} job={job} />
-						))}
-						{jobs?.map((job) => (
-							<Job
-								clearAJob={(arg: string) => clearAJobHandler(arg)}
-								key={job.id}
-								job={job}
-							/>
-						))}
-						{jobs?.length === 0 && runningJobs?.length === 0 && (
-							<div className="flex h-32 items-center justify-center text-ink-dull">
-								No jobs.
-							</div>
-						)}
+			<div className="no-scrollbar h-full overflow-x-hidden">
+				<GroupedJobs
+					clearAJob={clearAJobHandler}
+					jobs={allJobsWithActions}
+					runningJobs={allRunningJobsWithActions}
+				/>
+				<AllRunningJobsWithoutChildren jobs={jobs} runningJobs={runningJobs} />
+				{allIndividualRunningJobs?.map((job) => (
+					<Job key={job.id} job={job} />
+				))}
+				{allIndividualJobs?.map((job) => (
+					<Job clearAJob={(arg) => clearAJobHandler(arg)} key={job.id} job={job} />
+				))}
+				{jobs?.length === 0 && runningJobs?.length === 0 && (
+					<div className="flex h-32 items-center justify-center text-ink-dull">
+						No jobs.
 					</div>
-				</div>
+				)}
 			</div>
 		</div>
 	);
