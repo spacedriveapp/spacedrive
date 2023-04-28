@@ -47,7 +47,7 @@ ARG FFMEG_OUT_DIR
 RUN ./ffmpeg-build-macos.sh aarch64 "$MACOSX_SDK" "$FFMEG_OUT_DIR"
 
 # ---
-FROM scratch as ffmpeg-${FFMPEG_VERSION}
+FROM scratch
 
 ARG FFMEG_OUT_DIR
 
