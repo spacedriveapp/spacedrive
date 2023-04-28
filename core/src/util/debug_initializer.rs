@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
 	library::LibraryConfig,
-	location::{delete_location, scan_location, LocationCreateArgs, LocationError},
+	location::{delete_location, scan_location, LocationCreateArgs},
 	prisma::location,
 };
 use serde::Deserialize;
