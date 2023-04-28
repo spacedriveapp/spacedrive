@@ -1,7 +1,7 @@
 import { cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
-import { NavLink, NavLinkProps, useLocation } from 'react-router-dom';
+import { NavLink, NavLinkProps, useMatch } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
 const styles = cva(
@@ -22,19 +22,21 @@ const styles = cva(
 
 export default ({
 	className,
+	onClick,
+	disabled,
 	...props
 }: PropsWithChildren<NavLinkProps & { disabled?: boolean }>) => {
 	const os = useOperatingSystem();
-	const location = useLocation();
+	const inSettings = !!useMatch('/:libraryId/settings/*');
 
 	return (
 		<NavLink
-			onClick={(e) => (props.disabled ? e.preventDefault() : props.onClick?.(e))}
-			replace={!!location.pathname.match(/^\/[\w\d-]+\/settings\//)}
+			onClick={(e) => (disabled ? e.preventDefault() : onClick?.(e))}
+			replace={inSettings}
 			className={({ isActive }) =>
 				clsx(
 					styles({ active: isActive, transparent: os === 'macOS' }),
-					props.disabled && 'pointer-events-none opacity-50',
+					disabled && 'pointer-events-none opacity-50',
 					className
 				)
 			}
