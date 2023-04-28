@@ -139,7 +139,7 @@ impl InitConfig {
 				}
 				.create(&library)
 				.await
-				.and_then(|location| location.ok_or(LocationError::DryRunError))
+				.unwrap()
 				.unwrap();
 
 				scan_location(&library, location).await.unwrap();
