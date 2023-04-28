@@ -66,3 +66,8 @@ indent_style = space
 [*.prisma]
 indent_size = 4
 indent_style = space
+
+# YAML
+# http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
+[*.{yaml,yml}]
+indent_style = space

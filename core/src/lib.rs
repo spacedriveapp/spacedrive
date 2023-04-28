@@ -4,7 +4,7 @@ use crate::{
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
-	p2p::{P2PEvent, P2PManager},
+	p2p::P2PManager,
 };
 
 use std::{path::Path, sync::Arc};
@@ -42,6 +42,7 @@ pub struct NodeContext {
 pub struct Node {
 	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
+	location_manager: Arc<LocationManager>,
 	jobs: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
@@ -158,23 +159,17 @@ impl Node {
 			let library_manager = library_manager.clone();
 
 			async move {
-				while let Ok(ops) = p2p_rx.recv().await {
-					if let P2PEvent::SyncOperation {
-						library_id,
-						operations,
-					} = ops
-					{
-						debug!("going to ingest {} operations", operations.len());
+				while let Ok((library_id, operations)) = p2p_rx.recv().await {
+					debug!("going to ingest {} operations", operations.len());
 
-						let Some(library) = library_manager.get_library(library_id).await else {
+					let Some(library) = library_manager.get_library(library_id).await else {
 						warn!("no library found!");
 						continue;
 					};
 
-						for op in operations {
-							println!("ingest lib id: {}", library.id);
-							library.sync.ingest_op(op).await.unwrap();
-						}
+					for op in operations {
+						println!("ingest lib id: {}", library.id);
+						library.sync.ingest_op(op).await.unwrap();
 					}
 				}
 			}
@@ -184,6 +179,7 @@ impl Node {
 		let node = Node {
 			config,
 			library_manager,
+			location_manager,
 			jobs,
 			p2p,
 			event_bus,

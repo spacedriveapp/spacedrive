@@ -74,6 +74,8 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
+        { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -206,11 +208,6 @@ export type FileEraserJobInit = { location_id: number; path_id: number; passes: 
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SyncOperation"; library_id: string; operations: CRDTOperation[] }
-
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
@@ -230,11 +227,16 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
-export type SpacedropArgs = { peer_id: PeerId; file_path: string }
-
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
+
+/**
+ * TODO: P2P event for the frontend
+ */
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
+
+export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 
@@ -275,6 +277,8 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
+export type ChangeNodeNameArgs = { name: string }
 
 /**
  * This defines all available password hashing algorithms.

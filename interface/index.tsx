@@ -10,6 +10,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { useDebugState } from '@sd/client';
 import ErrorFallback from './ErrorFallback';
+import { SpacedropUI } from './app/Spacedrop';
 
 export * from './util/keybind';
 export * from './util/Platform';
@@ -48,6 +49,7 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<Devtools />
+			<SpacedropUI />
 			<RouterProvider router={props.router} />
 		</ErrorBoundary>
 	);

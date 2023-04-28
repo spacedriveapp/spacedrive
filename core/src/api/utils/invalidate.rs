@@ -244,6 +244,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 									}
 								} else {
 									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
+									break;
 								}
 							},
 							// Given human reaction time of ~250 milli this should be a good ballance.

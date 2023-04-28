@@ -256,7 +256,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"online",
 			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+				let location_manager = ctx.location_manager.clone();
 
 				let mut rx = location_manager.online_rx();
 
