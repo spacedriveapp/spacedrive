@@ -55,18 +55,6 @@ export function JobsManager() {
 		[clearAJob]
 	);
 
-	//When a running job/parent has its children removed, it should still render on its own
-	const allRunningJobsWithoutChildren = () => {
-		const filterRunning = runningJobs?.filter(
-			(job) => job.action !== null && job.parent_id === null
-		);
-		const mapJobsForIds = jobs?.map((job) => job.id);
-		const checkIfJobHasChildren = filterRunning?.filter(
-			(job) => !mapJobsForIds?.includes(job.id)
-		);
-		return checkIfJobHasChildren;
-	};
-
 	return (
 		<div className="h-full overflow-hidden pb-10">
 			<div className="z-20 flex h-10 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/70 px-2">
