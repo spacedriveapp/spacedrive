@@ -38,8 +38,13 @@ ENV PATH="$PATH:/opt/osxcross/bin" \
 	OSX_VERSION_MIN="$MACOS_MIN_VERSION" \
 	MACOSX_DEPLOYMENT_TARGET="$MACOS_MIN_VERSION"
 
-# Build osxcross
 WORKDIR /srv/osxcross
+
+# Some important unmerged PRs
+COPY 180.diff 314.diff 379.diff ./
+RUN set -eux; for patch in *.diff; do patch -p1 < "$patch"; done
+
+# Build osxcross
 RUN set -eux; export TARGET_DIR=/opt/osxcross \
 	&& \
 	./build.sh \

@@ -25,12 +25,13 @@ else
 fi
 
 # Check macOS gcc exists
-if ! CLANG="$(command -v "${TRIPLE}-clang" 2>/dev/null)"; then
+if ! CC="$(command -v "${TRIPLE}-clang" 2>/dev/null)"; then
   echo "${TRIPLE}-clang not found" >&2
   exit 1
 fi
+export CC
 
-_osxcross_root="$(dirname "$(dirname "$CLANG")")"
+_osxcross_root="$(dirname "$(dirname "$CC")")"
 
 # Check macports root exists
 _macports_root="${_osxcross_root}/macports/pkgs/opt/local"
@@ -60,28 +61,27 @@ mkdir -p "$OUT_DIR"
 
 # Create a tmp TARGET_DIR
 TARGET_DIR="$(mktemp -d -t ffmpeg-macos-XXXXXXXXXX)"
-
-# Replace ffmpeg linker options to be compatible with clang linker
-sed -i -e 's/^\( *\)add_ldflags -Wl,-dynamic,-search_paths_first$/\1add_ldflags -dynamic\n\1add_ldflags -search_paths_first/' configure
+trap 'rm -rf "$TARGET_DIR"' EXIT
 
 # This isn't autotools
 ./configure \
   --nm="${TRIPLE}-nm" \
   --ar="${TRIPLE}-ar" \
-  --as="${TRIPLE}-as" \
-  --ld="${TRIPLE}-ld" \
-  --cc="$CLANG" \
+  --as="$CC" \
+  --ld="$CC" \
+  --cc="$CC" \
   --cxx="${TRIPLE}-clang++" \
   --arch="${ARCH}" \
-  --objcc="$CLANG" \
+  --objcc="$CC" \
   --strip="${TRIPLE}-strip" \
+  --dep-cc="$CC" \
   --ranlib="${TRIPLE}-ranlib" \
   --prefix="${TARGET_DIR}" \
   --target-os='darwin' \
   --pkg-config="${TRIPLE}-pkg-config" \
   --extra-cflags="-I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
   --extra-ldflags="-L${_sdk}/usr/lib -L${_osxcross_root}/lib -L${_macports_root}/lib -lSystem" \
-  --extra-cxxflags="-lc++ -xc++-header -I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
+  --extra-cxxflags="-xc++-header -I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
   --disable-avdevice \
   --disable-debug \
   --disable-doc \
@@ -188,5 +188,3 @@ while [ $# -gt 0 ]; do
   # Remove library from queue
   shift
 done
-
-rm -rf "$TARGET_DIR"
