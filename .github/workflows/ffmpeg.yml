@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FFMPEG_VERSION: 6.0
+  FFMPEG_VERSION: '6.0'
 
 jobs:
   build-ffmpeg-macos:
