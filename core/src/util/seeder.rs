@@ -116,14 +116,14 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 				.into_iter()
 				.flatten()
 				.map(Glob::new)
-				.collect::<Result<Vec<Glob>, _>>().map_err(IndexerError::GlobBuilderError)?),
+				.collect::<Result<Vec<Glob>, _>>().map_err(IndexerError::GlobBuilder)?),
 			),
 			IndexerRule::new(
 				RuleKind::RejectFilesByGlob,
 				"No Hidden".to_string(),
 				true,
 				ParametersPerKind::RejectFilesByGlob(vec![
-					Glob::new("**/.*").map_err(IndexerError::GlobBuilderError)?
+					Glob::new("**/.*").map_err(IndexerError::GlobBuilder)?
 				]),
 			),
 			IndexerRule::new(
@@ -141,7 +141,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 				ParametersPerKind::AcceptFilesByGlob(vec![Glob::new(
 					"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
 				)
-				.map_err(IndexerError::GlobBuilderError)?]),
+				.map_err(IndexerError::GlobBuilder)?]),
 			),
 		] {
 			rule.save(client).await?;

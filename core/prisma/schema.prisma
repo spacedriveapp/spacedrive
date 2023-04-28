@@ -135,10 +135,10 @@ model FilePath {
 
     // the path of the file relative to its location
     materialized_path String
+
     // the name and extension
-    // Must have 'COLLATE NOCASE' in migration
-    name              String
-    extension         String
+    name      String
+    extension String // Extension MUST have 'COLLATE NOCASE' in migration
 
     size_in_bytes String @default("0")
 
@@ -149,9 +149,7 @@ model FilePath {
     object_id Int?
     object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
-    // the parent in the file tree
-    parent_id Bytes?
-    key_id    Int? // replacement for encryption
+    key_id Int? // replacement for encryption
     // permissions       String?
 
     date_created  DateTime @default(now())
@@ -167,6 +165,7 @@ model FilePath {
     @@unique([location_id, materialized_path, name, extension])
     @@unique([location_id, inode, device])
     @@index([location_id])
+    @@index([location_id, materialized_path])
     @@map("file_path")
 }
 

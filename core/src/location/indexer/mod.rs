@@ -4,10 +4,11 @@ use crate::{
 	library::Library,
 	prisma::file_path,
 	sync,
-	util::db::uuid_to_bytes,
+	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
 use std::{
+	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	time::Duration,
@@ -24,7 +25,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use super::{
-	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
+	file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData},
 	location_with_indexer_rules,
 };
 
@@ -56,6 +57,7 @@ impl Hash for IndexerJobInit {
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
 	indexed_path: PathBuf,
+	rules_by_kind: HashMap<rules::RuleKind, Vec<rules::IndexerRule>>,
 	db_write_start: DateTime<Utc>,
 	scan_read_time: Duration,
 	total_paths: usize,
@@ -67,15 +69,15 @@ pub struct IndexerJobData {
 /// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
 pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 
-/// `IndexerJobStepEntry` represents a single file to be indexed, given its metadata to be written
-/// on the `file_path` table in the database
+/// `IndexerJobStepEntry` represents a single directory to be walked and have its children indexed
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
-	materialized_path: MaterializedPath<'static>,
-	file_id: Uuid,
-	parent_id: Option<Uuid>,
-	metadata: FilePathMetadata,
+	pub_id: Uuid,
+	// materialized_path: MaterializedPath<'static>,
+	// file_id: Uuid,
+	// parent_id: Option<Uuid>,
+	// metadata: FilePathMetadata,
 }
 
 impl IndexerJobData {
@@ -104,28 +106,29 @@ pub enum ScanProgress {
 #[derive(Error, Debug)]
 pub enum IndexerError {
 	// Not Found errors
-	#[error("Indexer rule not found: <id={0}>")]
+	#[error("indexer rule not found: <id={0}>")]
 	IndexerRuleNotFound(i32),
 
 	// User errors
-	#[error("Invalid indexer rule kind integer: {0}")]
+	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
-	#[error("Glob builder error: {0}")]
-	GlobBuilderError(#[from] globset::Error),
+	#[error("glob builder error")]
+	GlobBuilder(#[from] globset::Error),
 
 	// Internal Errors
-	#[error("Database error: {0}")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("I/O error: {0}")]
-	IOError(#[from] io::Error),
-	#[error("Indexer rule parameters json serialization error: {0}")]
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
+	#[error("indexer rule parameters json serialization error: {0}")]
 	RuleParametersSerdeJson(#[from] serde_json::Error),
-	#[error("Indexer rule parameters encode error: {0}")]
+	#[error("indexer rule parameters encode error: {0}")]
 	RuleParametersRMPEncode(#[from] encode::Error),
-	#[error("Indexer rule parameters decode error: {0}")]
+	#[error("indexer rule parameters decode error: {0}")]
 	RuleParametersRMPDecode(#[from] decode::Error),
-	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	FilePath(#[from] FilePathError),
 }
 
 impl From<IndexerError> for rspc::Error {
@@ -135,7 +138,7 @@ impl From<IndexerError> for rspc::Error {
 				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
-			IndexerError::InvalidRuleKindInt(_) | IndexerError::GlobBuilderError(_) => {
+			IndexerError::InvalidRuleKindInt(_) | IndexerError::GlobBuilder(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
@@ -154,7 +157,7 @@ async fn execute_indexer_step(
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = step
 		.iter()
 		.map(|entry| {
-			let MaterializedPath {
+			let IsolatedFilePathData {
 				materialized_path,
 				is_dir,
 				name,

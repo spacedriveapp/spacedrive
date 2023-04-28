@@ -2,6 +2,7 @@ use crate::{
 	library::Library,
 	location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
+	util::error::FileIOError,
 };
 
 use chrono::{DateTime, Utc};
@@ -62,6 +63,13 @@ pub enum RuleKind {
 	RejectIfChildrenDirectoriesArePresent = 3,
 }
 
+impl RuleKind {
+	pub const fn variant_count() -> usize {
+		// TODO: Use https://doc.rust-lang.org/std/mem/fn.variant_count.html if it ever gets stabilized
+		4
+	}
+}
+
 impl TryFrom<i32> for RuleKind {
 	type Error = IndexerError;
 
@@ -85,7 +93,7 @@ impl TryFrom<i32> for RuleKind {
 ///
 /// In case of `ParametersPerKind::AcceptIfChildrenDirectoriesArePresent` or `ParametersPerKind::RejectIfChildrenDirectoriesArePresent`
 /// first we change the data structure to a vector, then we serialize it.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ParametersPerKind {
 	// TODO: Add an indexer rule that filter files based on their extended attributes
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
@@ -110,21 +118,9 @@ impl ParametersPerKind {
 			ParametersPerKind::RejectFilesByGlob(glob) => reject_by_glob(source, glob),
 		}
 	}
-
-	fn serialize(self) -> Result<Vec<u8>, IndexerError> {
-		match self {
-			Self::AcceptFilesByGlob(glob) | Self::RejectFilesByGlob(glob) => {
-				rmp_serde::to_vec_named(&glob).map_err(Into::into)
-			}
-			Self::AcceptIfChildrenDirectoriesArePresent(children)
-			| Self::RejectIfChildrenDirectoriesArePresent(children) => {
-				rmp_serde::to_vec(&children.into_iter().collect::<Vec<_>>()).map_err(Into::into)
-			}
-		}
-	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub kind: RuleKind,
@@ -161,7 +157,7 @@ impl IndexerRule {
 					(
 						self.kind as i32,
 						self.name,
-						self.parameters.serialize()?,
+						rmp_serde::to_vec_named(&self.parameters)?,
 						vec![indexer_rule::default::set(self.default)],
 					),
 					vec![indexer_rule::date_modified::set(Utc::now().into())],
@@ -174,7 +170,7 @@ impl IndexerRule {
 				.create(
 					self.kind as i32,
 					self.name,
-					self.parameters.serialize()?,
+					rmp_serde::to_vec_named(&self.parameters)?,
 					vec![indexer_rule::default::set(self.default)],
 				)
 				.exec()
@@ -244,7 +240,7 @@ fn globset_from_globs(globs: &[Glob]) -> Result<GlobSet, globset::Error> {
 fn accept_by_glob(source: impl AsRef<Path>, globs: &[Glob]) -> Result<bool, IndexerError> {
 	globset_from_globs(globs)
 		.map(|glob_set| glob_set.is_match(source.as_ref()))
-		.map_err(IndexerError::GlobBuilderError)
+		.map_err(IndexerError::GlobBuilder)
 }
 
 fn reject_by_glob(source: impl AsRef<Path>, reject_globs: &[Glob]) -> Result<bool, IndexerError> {
@@ -256,10 +252,19 @@ async fn accept_dir_for_its_children(
 	children: &HashSet<String>,
 ) -> Result<bool, IndexerError> {
 	let source = source.as_ref();
-	let mut read_dir = fs::read_dir(source).await?;
-	while let Some(entry) = read_dir.next_entry().await? {
-		if entry.metadata().await?.is_dir()
-			&& children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
+	let mut read_dir = fs::read_dir(source)
+		.await
+		.map_err(|e| FileIOError::from((source, e)))?;
+	while let Some(entry) = read_dir
+		.next_entry()
+		.await
+		.map_err(|e| FileIOError::from((source, e)))?
+	{
+		if entry
+			.metadata()
+			.await
+			.map_err(|e| FileIOError::from((source, e)))?
+			.is_dir() && children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
 		{
 			return Ok(true);
 		}
@@ -273,10 +278,19 @@ async fn reject_dir_for_its_children(
 	children: &HashSet<String>,
 ) -> Result<bool, IndexerError> {
 	let source = source.as_ref();
-	let mut read_dir = fs::read_dir(source).await?;
-	while let Some(entry) = read_dir.next_entry().await? {
-		if entry.metadata().await?.is_dir()
-			&& children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
+	let mut read_dir = fs::read_dir(source)
+		.await
+		.map_err(|e| FileIOError::from((source, e)))?;
+	while let Some(entry) = read_dir
+		.next_entry()
+		.await
+		.map_err(|e| FileIOError::from((source, e)))?
+	{
+		if entry
+			.metadata()
+			.await
+			.map_err(|e| FileIOError::from((source, e)))?
+			.is_dir() && children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
 		{
 			return Ok(false);
 		}

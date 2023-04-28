@@ -6,12 +6,10 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	util::db::chain_optional_iter,
 };
 
-use std::{
-	collections::BTreeSet,
-	path::{PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-};
+use std::{collections::BTreeSet, path::PathBuf};
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -94,29 +92,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-					let directory_id = if let Some(mut path) = args.path {
-						if !path.ends_with(MAIN_SEPARATOR) {
-							path += MAIN_SEPARATOR_STR;
-						}
+					let directory_materialized_path_str = if let Some(path) = args.path {
+						let (materialized_path, name) = path
+							.rsplit_once('/')
+							.map(|(path, name)| {
+								(
+									path.to_string(),
+									(!name.is_empty()).then(|| name.to_string()),
+								)
+							})
+							.unwrap_or(("/".to_string(), None));
 
-						Some(
-							db.file_path()
-								.find_first(vec![
+						let parent_dir = db
+							.file_path()
+							.find_first(chain_optional_iter(
+								[
 									file_path::location_id::equals(location.id),
-									file_path::materialized_path::equals(path),
+									file_path::materialized_path::equals(materialized_path),
 									file_path::is_dir::equals(true),
-								])
-								.select(file_path::select!({ pub_id }))
-								.exec()
-								.await?
-								.ok_or_else(|| {
-									rspc::Error::new(
-										ErrorCode::NotFound,
-										"Directory not found".into(),
-									)
-								})?
-								.pub_id,
-						)
+								],
+								[name.map(file_path::name::equals)],
+							))
+							.select(file_path::select!({ materialized_path name }))
+							.exec()
+							.await?
+							.ok_or_else(|| {
+								rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
+							})?;
+
+						Some(format!(
+							"{}/{}/",
+							parent_dir.materialized_path, parent_dir.name
+						))
 					} else {
 						None
 					};
@@ -128,14 +135,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let mut file_paths = db
 						.file_path()
-						.find_many(if directory_id.is_some() {
-							vec![
-								file_path::location_id::equals(location.id),
-								file_path::parent_id::equals(directory_id),
-							]
-						} else {
-							vec![file_path::location_id::equals(location.id)]
-						})
+						.find_many(chain_optional_iter(
+							[file_path::location_id::equals(location.id)],
+							[directory_materialized_path_str
+								.map(file_path::materialized_path::equals)],
+						))
 						.include(file_path_with_object::include())
 						.exec()
 						.await?;
@@ -144,11 +148,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						file_paths = file_paths
 							.into_iter()
 							.filter(|file_path| {
-								if let Some(ref object) = file_path.object {
-									expected_kinds.contains(&object.kind)
-								} else {
-									false
-								}
+								file_path
+									.object
+									.map(|ref object| expected_kinds.contains(&object.kind))
+									.unwrap_or(false)
 							})
 							.collect::<Vec<_>>();
 					}

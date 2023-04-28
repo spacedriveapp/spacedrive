@@ -12,7 +12,7 @@ use specta::Type;
 use tokio::fs;
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
+use super::{context_menu_fs_info, get_location_path_from_location_id, osstr_to_string, FsInfo};
 
 pub struct FileCopierJob {}
 
@@ -76,7 +76,8 @@ impl StatefulJob for FileCopierJob {
 		.await?;
 
 		let mut full_target_path =
-			get_path_from_location_id(&ctx.library.db, state.init.target_location_id).await?;
+			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
+				.await?;
 
 		// add the currently viewed subdirectory to the location root
 		full_target_path.push(&state.init.target_path);

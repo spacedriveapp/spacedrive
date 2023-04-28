@@ -5,8 +5,8 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_just_materialized_path_cas_id, get_existing_file_path_id, MaterializedPath,
+			check_existing_file_path, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			file_path_for_thumbnailer, get_existing_file_path_id, IsolatedFilePathData,
 		},
 		LocationId,
 	},
@@ -80,7 +80,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let location_id = state.init.location.id;
 		let location_path = PathBuf::from(&state.init.location.path);
 
-		let sub_path_id = if state.init.sub_path != Path::new("") {
+		let sub_isolated_file_path = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(&location_path, &state.init.sub_path)
 				.await
 				.map_err(ThumbnailerError::from)?;
@@ -88,26 +88,24 @@ impl StatefulJob for ShallowThumbnailerJob {
 				.await
 				.map_err(ThumbnailerError::from)?;
 
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, &location_path, &full_path, true)
-					.map_err(ThumbnailerError::from)?,
-				db,
-			)
-			.await
-			.map_err(ThumbnailerError::from)?
-			.expect("Sub path should already exist in the database")
+			IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+				.map_err(ThumbnailerError::from)?
 		} else {
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, &location_path, &location_path, true)
-					.map_err(ThumbnailerError::from)?,
-				db,
-			)
-			.await
-			.map_err(ThumbnailerError::from)?
-			.expect("Location root path should already exist in the database")
+			IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
+				.map_err(ThumbnailerError::from)?
 		};
 
-		info!("Searching for images in location {location_id} at parent directory with id {sub_path_id}");
+		if !check_existing_file_path(&sub_isolated_file_path, db)
+			.await
+			.map_err(ThumbnailerError::from)?
+		{
+			return Err(ThumbnailerError::SubPathNotFound(state.init.sub_path.into()).into());
+		}
+
+		info!(
+			"Searching for images in location {location_id} at path {}",
+			sub_isolated_file_path.to_relative_path_str()
+		);
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir).await?;
@@ -116,7 +114,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let image_files = get_files_by_extensions(
 			db,
 			location_id,
-			sub_path_id,
+			&sub_isolated_file_path,
 			&FILTERED_IMAGE_EXTENSIONS,
 			ThumbnailerJobStepKind::Image,
 		)
@@ -129,7 +127,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 			let video_files = get_files_by_extensions(
 				db,
 				location_id,
-				sub_path_id,
+				&sub_isolated_file_path,
 				&FILTERED_VIDEO_EXTENSIONS,
 				ThumbnailerJobStepKind::Video,
 			)
@@ -154,7 +152,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 			location_path,
 			report: ThumbnailerJobReport {
 				location_id,
-				materialized_path: if state.init.sub_path != Path::new("") {
+				sub_path_str: if state.init.sub_path != Path::new("") {
 					// SAFETY: We know that the sub_path is a valid UTF-8 string because we validated it before
 					state.init.sub_path.to_str().unwrap().to_string()
 				} else {
@@ -200,7 +198,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 async fn get_files_by_extensions(
 	db: &PrismaClient,
 	location_id: LocationId,
-	parent_id: Uuid,
+	parent_isolated_file_path_data: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {
@@ -209,9 +207,11 @@ async fn get_files_by_extensions(
 		.find_many(vec![
 			file_path::location_id::equals(location_id),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::parent_id::equals(Some(uuid_to_bytes(parent_id))),
+			file_path::materialized_path::equals(
+				parent_isolated_file_path_data.materialized_path.to_string(),
+			),
 		])
-		.select(file_path_just_materialized_path_cas_id::select())
+		.select(file_path_for_thumbnailer::select())
 		.exec()
 		.await?
 		.into_iter()

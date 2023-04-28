@@ -1,4 +1,4 @@
-use crate::{job::JobManagerError, library::Library};
+use crate::{job::JobManagerError, library::Library, util::error::FileIOError};
 
 use std::{
 	collections::BTreeSet,
@@ -92,18 +92,22 @@ pub enum LocationManagerError {
 	#[error("Non local location: <id='{0}'>")]
 	NonLocalLocation(LocationId),
 
+	#[error("failed to move file '{}' for reason: {reason}", .path.display())]
+	MoveError { path: Box<Path>, reason: String },
+
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
 	#[error("Database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("I/O error: {0}")]
-	IOError(#[from] io::Error),
 	#[error("File path related error (error: {0})")]
 	FilePathError(#[from] FilePathError),
 	#[error("Corrupted location pub_id on database: (error: {0})")]
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
 	JobManager(#[from] JobManagerError),
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;

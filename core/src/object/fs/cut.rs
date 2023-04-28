@@ -12,7 +12,7 @@ use specta::Type;
 use tokio::fs;
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_path_from_location_id, FsInfo};
+use super::{context_menu_fs_info, get_location_path_from_location_id, FsInfo};
 
 pub struct FileCutterJob {}
 
@@ -58,7 +58,8 @@ impl StatefulJob for FileCutterJob {
 		.await?;
 
 		let mut full_target_path =
-			get_path_from_location_id(&ctx.library.db, state.init.target_location_id).await?;
+			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
+				.await?;
 		full_target_path.push(&state.init.target_path);
 
 		state.steps = [FileCutterJobStep {

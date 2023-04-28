@@ -3,11 +3,10 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	location::{
-		file_path_helper::{
-			file_path_just_materialized_path_cas_id, FilePathError, MaterializedPath,
-		},
+		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 		LocationId,
 	},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -64,16 +63,19 @@ pub struct ThumbnailerJobState {
 
 #[derive(Error, Debug)]
 pub enum ThumbnailerError {
-	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
-	#[error("IO error (error: {0})")]
-	IOError(#[from] io::Error),
+	#[error("sub path not found: <path='{}'>", .0.display())]
+	SubPathNotFound(Box<Path>),
+
+	#[error(transparent)]
+	FilePath(#[from] FilePathError),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobReport {
 	location_id: LocationId,
-	materialized_path: String,
+	sub_path_str: String,
 	thumbnails_created: u32,
 }
 
@@ -86,7 +88,7 @@ enum ThumbnailerJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobStep {
-	file_path: file_path_just_materialized_path_cas_id::Data,
+	file_path: file_path_for_thumbnailer::Data,
 	kind: ThumbnailerJobStepKind,
 }
 
@@ -150,10 +152,10 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
 		data.location_path
-			.join(&MaterializedPath::from((
+			.join(&IsolatedFilePathData::from_relative_str(
 				data.report.location_id,
-				&data.report.materialized_path
-			)))
+				&data.report.sub_path_str
+			))
 			.display()
 	);
 
@@ -190,10 +192,13 @@ async fn inner_process_step(
 	ctx: &WorkerContext,
 ) -> Result<(), JobError> {
 	// assemble the file path
-	let path = data.location_path.join(&MaterializedPath::from((
+	let path = data.location_path.join(&IsolatedFilePathData::from_db_data(
 		data.report.location_id,
 		&step.file_path.materialized_path,
-	)));
+		step.file_path.is_dir,
+		&step.file_path.name,
+		&step.file_path.extension,
+	));
 	trace!("image_file {:?}", step);
 
 	// get cas_id, if none found skip
@@ -240,7 +245,7 @@ async fn inner_process_step(
 
 			data.report.thumbnails_created += 1;
 		}
-		Err(e) => return Err(ThumbnailerError::from(e).into()),
+		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
 
 	Ok(())

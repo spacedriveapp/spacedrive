@@ -5,7 +5,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
+		file_path_for_file_identifier, get_existing_file_path_id, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient},
 	util::db::{chain_optional_iter, uuid_to_bytes},
@@ -49,7 +49,7 @@ impl Hash for ShallowFileIdentifierJobInit {
 pub struct ShallowFileIdentifierJobState {
 	cursor: i32,
 	report: FileIdentifierReport,
-	sub_path_id: Uuid,
+	sub_path_materialized_path: IsolatedFilePathData<'static>,
 }
 
 impl JobInitData for ShallowFileIdentifierJobInit {
@@ -77,7 +77,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
-		let sub_path_id = if state.init.sub_path != Path::new("") {
+		let sub_path_materialized_path = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(location_path, &state.init.sub_path)
 				.await
 				.map_err(FileIdentifierJobError::from)?;
@@ -85,26 +85,25 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				.await
 				.map_err(FileIdentifierJobError::from)?;
 
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, location_path, &full_path, true)
-					.map_err(FileIdentifierJobError::from)?,
-				db,
-			)
-			.await
-			.map_err(FileIdentifierJobError::from)?
-			.expect("Sub path should already exist in the database")
+			IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+				.map_err(FileIdentifierJobError::from)?
 		} else {
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, location_path, location_path, true)
-					.map_err(FileIdentifierJobError::from)?,
-				db,
-			)
-			.await
-			.map_err(FileIdentifierJobError::from)?
-			.expect("Location root path should already exist in the database")
+			IsolatedFilePathData::new(location_id, location_path, location_path, true)
+				.map_err(FileIdentifierJobError::from)?
 		};
 
-		let orphan_count = count_orphan_file_paths(db, location_id, sub_path_id).await?;
+		if db
+			.file_path()
+			.count(vec![
+				file_path::location_id::equals(location_id),
+				file_path::materialized_path::equals(sub_path_materialized_path.to_string()),
+			])
+			.exec()
+			.await? == 0
+		{}
+
+		let orphan_count =
+			count_orphan_file_paths(db, location_id, &sub_path_materialized_path).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
 		state.data = Some(ShallowFileIdentifierJobState {
@@ -114,7 +113,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				..Default::default()
 			},
 			cursor: 0,
-			sub_path_id,
+			sub_path_materialized_path,
 		});
 
 		if orphan_count == 0 {
@@ -135,17 +134,25 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
+		let mut data = state
+			.data
+			.as_mut()
+			.expect("we just initialized `state.data` above");
+
 		let first_path = db
 			.file_path()
-			.find_first(orphan_path_filters(location_id, None, sub_path_id))
+			.find_first(orphan_path_filters(
+				location_id,
+				None,
+				&data.sub_path_materialized_path,
+			))
 			// .order_by(file_path::id::order(Direction::Asc))
 			.select(file_path::select!({ id }))
 			.exec()
 			.await?
 			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
 
-		// SAFETY: We just initialized `state.data` above
-		state.data.as_mut().unwrap().cursor = first_path.id;
+		data.cursor = first_path.id;
 
 		state.steps = (0..task_count).map(|_| ()).collect();
 
@@ -160,7 +167,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let ShallowFileIdentifierJobState {
 			ref mut cursor,
 			ref mut report,
-			ref sub_path_id,
+			ref sub_path_materialized_path,
 		} = state
 			.data
 			.as_mut()
@@ -173,7 +180,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			&ctx.library.db,
 			state.init.location.id,
 			*cursor,
-			*sub_path_id,
+			sub_path_materialized_path,
 		)
 		.await?;
 
@@ -204,14 +211,14 @@ impl StatefulJob for ShallowFileIdentifierJob {
 fn orphan_path_filters(
 	location_id: i32,
 	file_path_id: Option<i32>,
-	sub_path_id: Uuid,
+	sub_path_materialized_path: &IsolatedFilePathData<'_>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
 			file_path::is_dir::equals(false),
 			file_path::location_id::equals(location_id),
-			file_path::parent_id::equals(Some(uuid_to_bytes(sub_path_id))),
+			file_path::materialized_path::equals(sub_path_materialized_path.to_string()),
 		],
 		[file_path_id.map(file_path::id::gte)],
 	)
@@ -220,10 +227,14 @@ fn orphan_path_filters(
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	sub_path_id: Uuid,
+	sub_path_materialized_path: &IsolatedFilePathData<'_>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
-		.count(orphan_path_filters(location_id, None, sub_path_id))
+		.count(orphan_path_filters(
+			location_id,
+			None,
+			sub_path_materialized_path,
+		))
 		.exec()
 		.await
 		.map(|c| c as usize)
@@ -232,15 +243,19 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	cursor: i32,
-	sub_path_id: Uuid,
+	file_path_id_cursor: i32,
+	sub_path_materialized_path: &IsolatedFilePathData<'_>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",
-		CHUNK_SIZE, cursor
+		CHUNK_SIZE, file_path_id_cursor
 	);
 	db.file_path()
-		.find_many(orphan_path_filters(location_id, Some(cursor), sub_path_id))
+		.find_many(orphan_path_filters(
+			location_id,
+			Some(file_path_id_cursor),
+			sub_path_materialized_path,
+		))
 		.order_by(file_path::id::order(Direction::Asc))
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)

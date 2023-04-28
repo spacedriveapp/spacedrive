@@ -139,9 +139,29 @@ pub(crate) fn mount() -> Arc<Router> {
 						.map(|search| {
 							search
 								.split(' ')
-								.map(str::to_string)
-								.map(file_path::materialized_path::contains)
-								.map(Some)
+								.map(|name_and_maybe_extension| {
+									name_and_maybe_extension
+										.rsplit_once('.')
+										.map(|(name, extension)| {
+											[
+												Some(file_path::name::contains(name.to_string())),
+												(!extension.is_empty()).then(|| {
+													file_path::extension::contains(
+														extension.to_string(),
+													)
+												}),
+											]
+										})
+										.unwrap_or_else(|| {
+											[
+												Some(file_path::name::contains(
+													name_and_maybe_extension.to_string(),
+												)),
+												None,
+											]
+										})
+								})
+								.flatten()
 								.collect::<Vec<_>>()
 						})
 						.unwrap_or_default()

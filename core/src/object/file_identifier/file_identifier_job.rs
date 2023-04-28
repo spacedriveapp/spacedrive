@@ -5,7 +5,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, MaterializedPath,
+		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient},
 	util::db::chain_optional_iter,
@@ -51,7 +51,7 @@ impl Hash for FileIdentifierJobInit {
 pub struct FileIdentifierJobState {
 	cursor: i32,
 	report: FileIdentifierReport,
-	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
+	maybe_sub_materialized_path: Option<IsolatedFilePathData<'static>>,
 }
 
 impl JobInitData for FileIdentifierJobInit {
@@ -87,7 +87,7 @@ impl StatefulJob for FileIdentifierJob {
 				.map_err(FileIdentifierJobError::from)?;
 
 			Some(
-				MaterializedPath::new(location_id, location_path, &full_path, true)
+				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
 					.map_err(FileIdentifierJobError::from)?,
 			)
 		} else {
@@ -199,7 +199,7 @@ impl StatefulJob for FileIdentifierJob {
 fn orphan_path_filters(
 	location_id: i32,
 	file_path_id: Option<i32>,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
 		[
@@ -210,9 +210,13 @@ fn orphan_path_filters(
 		[
 			// this is a workaround for the cursor not working properly
 			file_path_id.map(file_path::id::gte),
-			maybe_sub_materialized_path
-				.as_ref()
-				.map(|p| file_path::materialized_path::starts_with(p.into())),
+			maybe_sub_iso_file_path.map(|ref sub_iso_file_path| {
+				file_path::materialized_path::starts_with(
+					sub_iso_file_path
+						.materialized_path_for_children()
+						.expect("sub path iso_file_path must be a directory"),
+				)
+			}),
 		],
 	)
 }
@@ -220,7 +224,7 @@ fn orphan_path_filters(
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
 		.count(orphan_path_filters(
@@ -237,7 +241,7 @@ async fn get_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
 	file_path_id: i32,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",

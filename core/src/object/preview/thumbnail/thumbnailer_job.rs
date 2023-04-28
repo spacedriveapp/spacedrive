@@ -4,8 +4,8 @@ use crate::{
 	},
 	library::Library,
 	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_just_materialized_path_cas_id, MaterializedPath,
+		ensure_sub_path_is_directory, ensure_sub_path_is_in_location, file_path_for_thumbnailer,
+		IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient},
 };
@@ -73,7 +73,7 @@ impl StatefulJob for ThumbnailerJob {
 		let location_id = state.init.location.id;
 		let location_path = PathBuf::from(&state.init.location.path);
 
-		let materialized_path = if let Some(ref sub_path) = state.init.sub_path {
+		let iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
 				.await
 				.map_err(ThumbnailerError::from)?;
@@ -81,14 +81,17 @@ impl StatefulJob for ThumbnailerJob {
 				.await
 				.map_err(ThumbnailerError::from)?;
 
-			MaterializedPath::new(location_id, &location_path, &full_path, true)
+			IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
 				.map_err(ThumbnailerError::from)?
 		} else {
-			MaterializedPath::new(location_id, &location_path, &location_path, true)
+			IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
 				.map_err(ThumbnailerError::from)?
 		};
 
-		info!("Searching for images in location {location_id} at directory {materialized_path}");
+		info!(
+			"Searching for images in location {location_id} at directory {}",
+			iso_file_path.to_relative_path_str()
+		);
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir).await?;
@@ -96,7 +99,7 @@ impl StatefulJob for ThumbnailerJob {
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
 			db,
-			&materialized_path,
+			&iso_file_path,
 			&FILTERED_IMAGE_EXTENSIONS,
 			ThumbnailerJobStepKind::Image,
 		)
@@ -108,7 +111,7 @@ impl StatefulJob for ThumbnailerJob {
 			// query database for all video files in this location that need thumbnails
 			let video_files = get_files_by_extensions(
 				db,
-				&materialized_path,
+				&iso_file_path,
 				&FILTERED_VIDEO_EXTENSIONS,
 				ThumbnailerJobStepKind::Video,
 			)
@@ -133,7 +136,7 @@ impl StatefulJob for ThumbnailerJob {
 			location_path,
 			report: ThumbnailerJobReport {
 				location_id,
-				materialized_path: materialized_path.into(),
+				sub_path_str: iso_file_path.to_relative_path_str(),
 				thumbnails_created: 0,
 			},
 		});
@@ -173,18 +176,22 @@ impl StatefulJob for ThumbnailerJob {
 
 async fn get_files_by_extensions(
 	db: &PrismaClient,
-	materialized_path: &MaterializedPath<'_>,
+	iso_file_path: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {
 	Ok(db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(materialized_path.location_id()),
+			file_path::location_id::equals(iso_file_path.location_id),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::materialized_path::starts_with(materialized_path.into()),
+			file_path::materialized_path::starts_with(
+				iso_file_path
+					.materialized_path_for_children()
+					.expect("sub path iso_file_path must be a directory"),
+			),
 		])
-		.select(file_path_just_materialized_path_cas_id::select())
+		.select(file_path_for_thumbnailer::select())
 		.exec()
 		.await?
 		.into_iter()

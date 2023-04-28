@@ -3,7 +3,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::{file_path_for_object_validator, MaterializedPath},
+	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
 	prisma::{file_path, location},
 	sync,
 };
@@ -100,7 +100,7 @@ impl StatefulJob for ObjectValidatorJob {
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&MaterializedPath::from((
+			let checksum = file_checksum(data.root_path.join(&IsolatedFilePathData::from((
 				file_path.location.id,
 				&file_path.materialized_path,
 			))))

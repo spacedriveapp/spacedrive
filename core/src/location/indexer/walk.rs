@@ -1,4 +1,7 @@
-use crate::location::file_path_helper::{FilePathMetadata, MetadataExt};
+use crate::{
+	location::file_path_helper::{FilePathMetadata, MetadataExt},
+	prisma::file_path,
+};
 
 #[cfg(target_family = "unix")]
 use crate::location::file_path_helper::get_inode_and_device;
@@ -9,12 +12,14 @@ use crate::location::file_path_helper::get_inode_and_device_from_path;
 use std::{
 	cmp::Ordering,
 	collections::{HashMap, VecDeque},
+	future::Future,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 };
 
 use tokio::fs;
 use tracing::{error, trace};
+use uuid::Uuid;
 
 use super::{
 	rules::{IndexerRule, RuleKind},
@@ -25,6 +30,8 @@ use super::{
 /// consider the path itself, not the metadata.
 #[derive(Clone, Debug)]
 pub(super) struct WalkEntry {
+	pub(super) id: Uuid,
+	pub(super) parent_id: Option<Uuid>,
 	pub(super) path: PathBuf,
 	pub(super) is_dir: bool,
 	pub(super) metadata: FilePathMetadata,
@@ -56,39 +63,52 @@ impl Ord for WalkEntry {
 	}
 }
 
-type ToWalkEntry = (PathBuf, Option<bool>);
+pub(super) struct PubIdAndPath {
+	pub(super) id: Uuid,
+	pub(super) path: PathBuf,
+}
+
+struct ToWalkEntry {
+	id: Uuid,
+	path: PathBuf,
+	parent_dir_accepted_by_its_children: Option<bool>,
+}
 
 /// This function walks through the filesystem, applying the rules to each entry and then returning
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
-pub(super) async fn walk(
+pub(super) async fn walk<F>(
 	root: impl AsRef<Path>,
+	root_id: Uuid,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
-	include_root: bool,
-) -> Result<Vec<WalkEntry>, IndexerError> {
+	db_paths_fetcher: impl Fn(Uuid) -> F,
+) -> Result<Vec<WalkEntry>, IndexerError>
+where
+	F: Future<Output = Result<Vec<file_path::Data>, ()>>,
+{
 	let root = root.as_ref().to_path_buf();
 
 	let mut to_walk = VecDeque::with_capacity(1);
-	to_walk.push_back((root.clone(), None));
+	to_walk.push_back(ToWalkEntry {
+		id: root_id,
+		path: root.clone(),
+		parent_dir_accepted_by_its_children: None,
+	});
 	let mut indexed_paths = HashMap::new();
 
-	while let Some((current_path, parent_dir_accepted_by_its_children)) = to_walk.pop_front() {
-		let mut read_dir = match fs::read_dir(&current_path).await {
+	while let Some(entry) = to_walk.pop_front() {
+		let mut read_dir = match fs::read_dir(&entry.path).await {
 			Ok(read_dir) => read_dir,
 			Err(e) => {
-				error!(
-					"Error reading directory {}: {:#?}",
-					current_path.display(),
-					e
-				);
+				error!("Error reading directory {}: {e:#?}", entry.path.display());
 				continue;
 			}
 		};
 
 		inner_walk_single_dir(
 			&root,
-			(current_path, parent_dir_accepted_by_its_children),
+			entry,
 			&mut read_dir,
 			rules_per_kind,
 			&mut update_notifier,
@@ -98,17 +118,21 @@ pub(super) async fn walk(
 		.await?;
 	}
 
-	prepared_indexed_paths(root, indexed_paths, include_root).await
+	prepared_indexed_paths(root, indexed_paths).await
 }
 
 async fn inner_walk_single_dir(
 	root: impl AsRef<Path>,
-	(current_path, parent_dir_accepted_by_its_children): ToWalkEntry,
+	ToWalkEntry {
+		id,
+		path,
+		parent_dir_accepted_by_its_children,
+	}: ToWalkEntry,
 	read_dir: &mut fs::ReadDir,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: &mut impl FnMut(&Path, usize),
 	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
-	mut maybe_to_walk: Option<&mut VecDeque<(PathBuf, Option<bool>)>>,
+	mut maybe_to_walk: Option<&mut VecDeque<ToWalkEntry>>,
 ) -> Result<(), IndexerError> {
 	let root = root.as_ref();
 
@@ -118,11 +142,7 @@ async fn inner_walk_single_dir(
 			Ok(Some(entry)) => entry,
 			Ok(None) => break,
 			Err(e) => {
-				error!(
-					"Error reading entry in {}: {:#?}",
-					current_path.display(),
-					e
-				);
+				error!("Error reading entry in {}: {:#?}", path.display(), e);
 				continue;
 			}
 		};
@@ -347,11 +367,11 @@ async fn inner_walk_single_dir(
 async fn prepared_indexed_paths(
 	root: PathBuf,
 	indexed_paths: HashMap<PathBuf, WalkEntry>,
-	include_root: bool,
+	include_root_ir: Option<Uuid>,
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let mut indexed_paths = indexed_paths.into_values().collect::<Vec<_>>();
 
-	if include_root {
+	if include_root.is_some() {
 		// Also adding the root location path
 		let metadata = fs::metadata(&root).await?;
 		let (inode, device) = {
@@ -386,6 +406,7 @@ async fn prepared_indexed_paths(
 
 pub(super) async fn walk_single_dir(
 	root: impl AsRef<Path>,
+	root_id: Uuid,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
 ) -> Result<Vec<WalkEntry>, IndexerError> {

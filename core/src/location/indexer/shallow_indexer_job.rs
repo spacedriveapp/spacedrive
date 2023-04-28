@@ -4,7 +4,7 @@ use crate::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_just_id_materialized_path, filter_existing_file_path_params,
 		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
-		MaterializedPath,
+		IsolatedFilePathData,
 	},
 	prisma::location,
 };
@@ -102,7 +102,7 @@ impl StatefulJob for ShallowIndexerJob {
 				.map_err(IndexerError::from)?;
 
 			let materialized_path =
-				MaterializedPath::new(location_id, location_path, &full_path, true)
+				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
 					.map_err(IndexerError::from)?;
 
 			(
@@ -120,7 +120,7 @@ impl StatefulJob for ShallowIndexerJob {
 				location_path.to_path_buf(),
 				db.file_path()
 					.find_first(filter_existing_file_path_params(
-						&MaterializedPath::new(location_id, location_path, location_path, true)
+						&IsolatedFilePathData::new(location_id, location_path, location_path, true)
 							.map_err(IndexerError::from)?,
 					))
 					.select(file_path_just_id_materialized_path::select())
@@ -190,7 +190,7 @@ impl StatefulJob for ShallowIndexerJob {
 		let new_paths = found_paths
 			.into_iter()
 			.filter_map(|entry| {
-				MaterializedPath::new(location_id, location_path, &entry.path, entry.is_dir)
+				IsolatedFilePathData::new(location_id, location_path, &entry.path, entry.is_dir)
 					.map_or_else(
 						|e| {
 							error!("Failed to create materialized path: {e}");
