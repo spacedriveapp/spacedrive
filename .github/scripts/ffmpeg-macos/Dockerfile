@@ -1,8 +1,7 @@
-# Darwin version is based on macOS version
-# Check here when updating macOS version: https://github.com/tpoechtrager/osxcross/blob/master/build.sh#L31
 ARG MACOS_VERSION=12.3 \
-	DARWIN_VERSION=darwin21.4 \
 	MACOS_MIN_VERSION=10.15 \
+	# aarch64 requires a higher min macOS version to build ffmpeg
+	ARM64_MACOS_MIN_VERSION=11.0 \
 	FFMPEG_VERSION=6.0 \
 	FFMEG_OUT_DIR=/ffmpeg
 
@@ -40,8 +39,10 @@ ENV PATH="$PATH:/opt/osxcross/bin" \
 
 WORKDIR /srv/osxcross
 
-# Some important unmerged PRs
-COPY 180.diff 314.diff 379.diff ./
+# Some important patches from unmerged PRs
+# PR 180 code needed to be updated to work with the latest osxcross
+# 181 is not related to the 181 PR. It's just custom code that needed to be patched after 180 and before 379
+COPY 180.diff 181.diff 314.diff 379.diff ./
 RUN set -eux; for patch in *.diff; do patch -p1 < "$patch"; done
 
 # Build osxcross
@@ -80,10 +81,11 @@ ARG MACPORT_DEPS
 
 # Install macOS dependencies required to build ffmpeg
 # hadolint ignore=SC2086
-RUN osxcross-macports install $MACPORT_DEPS
+RUN --mount=type=cache,id=macports-x86_64,target=/opt/osxcross/macports/cache \
+	osxcross-macports install $MACPORT_DEPS
 
-ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR
-RUN ./ffmpeg-build-macos.sh x86_64 "$DARWIN_VERSION" "$MACOS_VERSION" "$FFMEG_OUT_DIR"
+ARG MACOS_VERSION FFMEG_OUT_DIR
+RUN ./ffmpeg-build-macos.sh x86_64 "$MACOS_VERSION" "$FFMEG_OUT_DIR"
 
 # ---
 FROM ffmpeg as aarch64
@@ -92,17 +94,17 @@ FROM ffmpeg as aarch64
 ADD https://raw.githubusercontent.com/yuvi/gas-preprocessor/master/gas-preprocessor.pl /usr/local/bin/
 RUN chmod +x /usr/local/bin/gas-preprocessor.pl
 
-# aarch64 requires a higher min macOS version to build ffmpeg
-ARG MACPORT_DEPS MACOS_MIN_VERSION=11.0
-ENV OSX_VERSION_MIN="$MACOS_MIN_VERSION" \
-	MACOSX_DEPLOYMENT_TARGET="$MACOS_MIN_VERSION"
+ARG MACPORT_DEPS ARM64_MACOS_MIN_VERSION
+ENV OSX_VERSION_MIN="$ARM64_MACOS_MIN_VERSION" \
+	MACOSX_DEPLOYMENT_TARGET="$ARM64_MACOS_MIN_VERSION"
 
 # Install macOS dependencies required to build ffmpeg
 # hadolint ignore=SC2086
-RUN osxcross-macports install --arm64 $MACPORT_DEPS
+RUN --mount=type=cache,id=macports-arm64,target=/opt/osxcross/macports/cache \
+	osxcross-macports install --arm64 $MACPORT_DEPS
 
-ARG DARWIN_VERSION MACOS_VERSION FFMEG_OUT_DIR
-RUN ./ffmpeg-build-macos.sh aarch64 "$DARWIN_VERSION" "$MACOS_VERSION" "$FFMEG_OUT_DIR"
+ARG MACOS_VERSION FFMEG_OUT_DIR
+RUN ./ffmpeg-build-macos.sh aarch64 "$MACOS_VERSION" "$FFMEG_OUT_DIR"
 
 # ---
 FROM scratch as ffmpeg-${FFMPEG_VERSION}

@@ -2,35 +2,36 @@
 
 set -euox pipefail
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <target-arch> <darwin-version> <macos-version> <out-dir>" >&2
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <target-arch> <macos-version> <out-dir>" >&2
   exit 1
 fi
 
 ARCH="$1"
-DARWIN_VERSION="$2"
-MACOS_VERSION="$3"
-OUT_DIR="$4"
-TRIPLE="${ARCH}-apple-${DARWIN_VERSION}"
+MACOS_VERSION="$2"
+OUT_DIR="$3"
 
 # Clear command line arguments
 set --
 if [ "$ARCH" = "x86_64" ]; then
   set -- --enable-x86asm
-elif [ "$ARCH" = "aarch64" ]; then
-  set -- --disable-fft
-else
+elif ! [ "$ARCH" = "aarch64" ]; then
   echo "Unsupported architecture: $ARCH" >&2
   exit 1
 fi
 
-# Check macOS gcc exists
+# Get darwin version and build compiler triple
+DARWIN_VERSION="$(basename "$(realpath "$(command -v "oa64-clang")")" | awk -F- '{print $3}')"
+TRIPLE="${ARCH}-apple-${DARWIN_VERSION}"
+
+# Check macOS clang exists
 if ! CC="$(command -v "${TRIPLE}-clang" 2>/dev/null)"; then
   echo "${TRIPLE}-clang not found" >&2
   exit 1
 fi
 export CC
 
+# Get osxcross root directory
 _osxcross_root="$(dirname "$(dirname "$CC")")"
 
 # Check macports root exists
@@ -53,11 +54,11 @@ if [ -e "$OUT_DIR" ] && ! [ -d "$OUT_DIR" ]; then
   exit 1
 fi
 
-# Change cwd to the script directory (which should be ffmpeg source directory)
+# Change cwd to the script directory (which should be ffmpeg source root)
 cd "$(dirname "$0")"
 
 # Create OUT_DIR if it doesn't exists
-mkdir -p "$OUT_DIR"
+mkdir -p "$OUT_DIR/lib" "$OUT_DIR/include"
 
 # Create a tmp TARGET_DIR
 TARGET_DIR="$(mktemp -d -t ffmpeg-macos-XXXXXXXXXX)"
@@ -79,10 +80,8 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --prefix="${TARGET_DIR}" \
   --target-os='darwin' \
   --pkg-config="${TRIPLE}-pkg-config" \
-  --extra-cflags="-I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
-  --extra-ldflags="-L${_sdk}/usr/lib -L${_osxcross_root}/lib -L${_macports_root}/lib -lSystem" \
-  --extra-cxxflags="-xc++-header -I${_sdk}/usr/include -I${_osxcross_root}/include -I${_macports_root}/include" \
-  --disable-avdevice \
+  --extra-ldflags="-headerpad_max_install_names" \
+  --extra-cxxflags="-xc++-header" \
   --disable-debug \
   --disable-doc \
   --disable-htmlpages \
@@ -102,9 +101,9 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --disable-nvenc \
   --disable-outdevs \
   --disable-podpages \
+  --disable-programs \
   --disable-protocols \
   --disable-sdl2 \
-  --disable-swresample \
   --disable-txtpages \
   --disable-vulkan \
   --disable-xlib \
@@ -161,30 +160,44 @@ for _lib in *.dylib; do
 done
 
 while [ $# -gt 0 ]; do
-  # loop through each library dependency
-  for _library in $("${TRIPLE}-otool" -L "$1" | awk '{print $1}'); do
-    case "$_library" in
-      /opt/local/*) # check if the dependency is in /opt/local (which mean it was installed by macports)
-        _filename=$(basename "$_library")
-
-        # copy the dependency to the current directory if this is the first time we see it,
-        # then add it to the queue to have it's dependencies processed
-        if [ ! -f "$_filename" ]; then
-          cp "${_macports_root}/${_filename}" ./
-          set -- "$@" "$_filename"
-        fi
-
-        # change the linked dependency path to use @executable_path/../Frameworks (make it compatible with an .app bundle)
-        "${TRIPLE}-install_name_tool" -change "$_library" "@executable_path/../Frameworks/$_filename" "$1"
+  # Loop through each of the library's dependency
+  for _dep in $("${TRIPLE}-otool" -L "$1" | tail -n+2 | awk '{print $1}'); do
+    _dep_name="$(basename "$_dep")"
+    case "$_dep" in
+      # dependencies in the same directory
+      "${TARGET_DIR}/lib/${_dep_name}")
+        _dep_path="${TARGET_DIR}/lib/${_dep_name}"
         ;;
-      *) # System library are ignored
+        # /opt/local/lib means macports installed it
+      "/opt/local/lib/${_dep_name}")
+        if [ ! -f "$_dep_name" ]; then
+          # Copy dependency to the current directory if this is the first time we see it
+          cp -L "${_macports_root}/lib/${_dep_name}" ./
+          # Add it to the queue to have it's own dependencies processed
+          set -- "$@" "$_dep_name"
+        fi
+        _dep_path="/opt/local/lib/${_dep_name}"
+        ;;
+      *)
+        continue
         ;;
     esac
+
+    # Change the linked dependency path to use @executable_path/../Frameworks to make it compatible with an .app bundle
+    "${TRIPLE}-install_name_tool" -change "$_dep_path" "@executable_path/../Frameworks/$_dep_name" "$1"
   done
+
+  # Update the library's own id to use @executable_path/../Frameworks
+  aarch64-apple-darwin21.4-install_name_tool -id "@executable_path/../Frameworks/${1}" "$1"
 
   # Copy the library to the output directory
   cp "$1" "$OUT_DIR"
+  ln -s "../$1" "$OUT_DIR/lib/$1"
 
   # Remove library from queue
   shift
 done
+
+# Copy all headers to the output directory
+cp -r "${_macports_root}/include/"* "$OUT_DIR/include"
+cp -r "${TARGET_DIR}/include/"* "$OUT_DIR/include"
