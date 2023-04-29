@@ -30,7 +30,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -46,19 +46,18 @@ jobs:
           set -euxo pipefail
           cd .github/scripts/ffmpeg-macos
           docker build --build-arg FFMPEG_VERSION=$FFMPEG_VERSION -o . .
-          export XZ_OPT='-T0 -9'
-          tar -cJf "ffmpeg-${FFMPEG_VERSION}-x86_64.tar.xz" -C ffmpeg/x86_64 .
-          tar -cJf "ffmpeg-${FFMPEG_VERSION}-aarch64.tar.xz" -C ffmpeg/aarch64 .
+          tar -cf "ffmpeg-${FFMPEG_VERSION}-x86_64.tar" -C ffmpeg/x86_64 .
+          tar -cf "ffmpeg-${FFMPEG_VERSION}-arm64.tar" -C ffmpeg/aarch64 .
           rm -rf ffmpeg
 
       - name: Publish ffmpeg x86_64
         uses: actions/upload-artifact@v3
         with:
           name: ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64
-          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64.tar.xz
+          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64.tar
 
-      - name: Publish ffmpeg aarch64
+      - name: Publish ffmpeg arm64
         uses: actions/upload-artifact@v3
         with:
-          name: ffmpeg-${{ env.FFMPEG_VERSION }}-aarch64
-          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-aarch64.tar.xz
+          name: ffmpeg-${{ env.FFMPEG_VERSION }}-arm64
+          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-arm64.tar

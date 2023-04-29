@@ -152,47 +152,69 @@ cd "$TARGET_DIR/lib"
 # Move all symlinks to ffmpeg libraries to the output directory
 find . -type l -exec mv -t "$OUT_DIR" '{}' +
 
+no_ext() {
+  set -- "$1" "$(basename "$1")"
+  while [ "${2%.*}" != "$2" ]; do
+    set -- "$1" "${2%.*}"
+  done
+
+  printf '%s/%s' "$(dirname "$1")" "$2"
+}
+
 # Clear command line arguments
 set --
 # Populate queue with ffmpeg libraries
-for _lib in *.dylib; do
+while IFS= read -r -d '' _lib; do
   set -- "$@" "$_lib"
-done
+  # Copy library to the output directory
+  cp -p "$_lib" "${OUT_DIR}/${_lib}"
+done < <(find . -name '*.dylib' -print0)
+
+# Copy static library to the output directory
+while IFS= read -r -d '' _lib; do
+  cp -p "$_lib" "${OUT_DIR}/lib/${_lib}"
+done < <(find . -name '*.a' -print0)
 
 while [ $# -gt 0 ]; do
   # Loop through each of the library's dependency
   for _dep in $("${TRIPLE}-otool" -L "$1" | tail -n+2 | awk '{print $1}'); do
-    _dep_name="$(basename "$_dep")"
     case "$_dep" in
-      # dependencies in the same directory
-      "${TARGET_DIR}/lib/${_dep_name}")
-        _dep_path="${TARGET_DIR}/lib/${_dep_name}"
+      # dependencies in the ffmpeg directory
+      "${TARGET_DIR}/lib/"*)
+        _dep_rel="${_dep#"${TARGET_DIR}/lib/"}"
         ;;
-        # /opt/local/lib means macports installed it
-      "/opt/local/lib/${_dep_name}")
-        if [ ! -f "$_dep_name" ]; then
+      # /opt/local/lib means macports installed it
+      /opt/local/lib/*)
+        _dep_rel="${_dep#/opt/local/lib/}"
+        if [ ! -f "$_dep_rel" ]; then
           # Copy dependency to the current directory if this is the first time we see it
-          cp -L "${_macports_root}/lib/${_dep_name}" ./
+          cp -p -L "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
           # Add it to the queue to have it's own dependencies processed
-          set -- "$@" "$_dep_name"
+          set -- "$@" "$_dep_rel"
+          # Copy static verion of dependency to the output directory
+          while IFS= read -r -d '' _static_dep; do
+            cp -p "${_macports_root}/lib/$_static_dep" "$OUT_DIR/lib/${_static_dep}"
+          done < <(
+            cd "${_macports_root}/lib/"
+            find . -wholename "$(no_ext "$_dep_rel")*.a" -print0
+          )
         fi
-        _dep_path="/opt/local/lib/${_dep_name}"
         ;;
-      *)
+      *) # Ignore system libraries
         continue
         ;;
     esac
 
     # Change the linked dependency path to use @executable_path/../Frameworks to make it compatible with an .app bundle
-    "${TRIPLE}-install_name_tool" -change "$_dep_path" "@executable_path/../Frameworks/$_dep_name" "$1"
+    "${TRIPLE}-install_name_tool" -change "$_dep" "@executable_path/../Frameworks/${_dep_rel}" "$1"
   done
 
   # Update the library's own id to use @executable_path/../Frameworks
   aarch64-apple-darwin21.4-install_name_tool -id "@executable_path/../Frameworks/${1}" "$1"
 
   # Copy the library to the output directory
-  cp "$1" "$OUT_DIR"
-  ln -s "../$1" "$OUT_DIR/lib/$1"
+  cp -p "$1" "${OUT_DIR}/${1}"
+  ln -s "../${1}" "${OUT_DIR}/lib/${1}"
 
   # Remove library from queue
   shift
