@@ -27,12 +27,10 @@ export default ({
 	...props
 }: PropsWithChildren<NavLinkProps & { disabled?: boolean }>) => {
 	const os = useOperatingSystem();
-	const inSettings = !!useMatch('/:libraryId/settings/*');
 
 	return (
 		<NavLink
 			onClick={(e) => (disabled ? e.preventDefault() : onClick?.(e))}
-			replace={inSettings}
 			className={({ isActive }) =>
 				clsx(
 					styles({ active: isActive, transparent: os === 'macOS' }),

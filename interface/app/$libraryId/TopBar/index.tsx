@@ -1,52 +1,5 @@
-import { CaretLeft, CaretRight } from 'phosphor-react';
-import { forwardRef, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Tooltip } from '@sd/ui';
-import { useNavigationHistory } from '~/hooks/useNavigationHistory';
-import { useSearchStore } from '~/hooks/useSearchStore';
+import { forwardRef } from 'react';
 import SearchBar from './SearchBar';
-import TopBarButton from './TopBarButton';
-
-const Navigation = () => {
-	const location = useLocation();
-	const navigate = useNavigate();
-	const { isFocused } = useSearchStore();
-	const history = useNavigationHistory();
-
-	const canNavigateBack = useMemo(() => {
-		if (history.has(location.key)) {
-			const keys = [...history];
-			const index = keys.indexOf(location.key);
-			return !!keys[index - 1];
-		}
-	}, [location, history]);
-
-	const canNavigateForward = useMemo(() => {
-		if (history.has(location.key)) {
-			const keys = [...history];
-			const index = keys.indexOf(location.key);
-			return !!keys[index + 1];
-		}
-	}, [location, history]);
-
-	return (
-		<div data-tauri-drag-region className="flex flex-1">
-			<Tooltip label="Navigate back">
-				<TopBarButton onClick={() => navigate(-1)} disabled={isFocused || !canNavigateBack}>
-					<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
-				</TopBarButton>
-			</Tooltip>
-			<Tooltip label="Navigate forward">
-				<TopBarButton
-					onClick={() => navigate(1)}
-					disabled={isFocused || !canNavigateForward}
-				>
-					<CaretRight weight="bold" className={TOP_BAR_ICON_STYLE} />
-				</TopBarButton>
-			</Tooltip>
-		</div>
-	);
-};
 
 export interface ToolOption {
 	icon: JSX.Element;
@@ -74,7 +27,7 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 				transition-[background-color,border-color] ease-out
 			"
 		>
-			<Navigation />
+			<div className="flex-1" />
 			<SearchBar />
 			<div className="flex-1" ref={ref} />
 		</div>

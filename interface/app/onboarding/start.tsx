@@ -14,7 +14,7 @@ export default function OnboardingStart() {
 				Welcome to Spacedrive, an open source cross-platform file manager.
 			</OnboardingDescription>
 			<div className="mt-6 space-x-3">
-				<ButtonLink to="/onboarding/new-library" variant="accent" size="md">
+				<ButtonLink to="/onboarding/new-library" replace variant="accent" size="md">
 					Get started
 				</ButtonLink>
 			</div>
