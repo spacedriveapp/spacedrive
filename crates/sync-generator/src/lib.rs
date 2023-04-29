@@ -148,13 +148,11 @@ impl PrismaGenerator for SDSyncGenerator {
             let set_param_impl = {
                 let field_matches = model.fields().filter_map(|field| {
                     let field_name_snake = snake_ident(field.name());
-                    let field_name_snake_str = field_name_snake.to_string();
-
 
                     match field.refine() {
                         RefinedFieldWalker::Scalar(_) => {
                             Some(quote! {
-                                #field_name_snake_str => #model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
+                                #model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
                             })
                         },
                         RefinedFieldWalker::Relation(relation_field) => {
@@ -163,22 +161,20 @@ impl PrismaGenerator for SDSyncGenerator {
                             match relation_field.referenced_fields() {
                                 Some(i)  => {
                                     if i.count() == 1 {
-                                        Some(quote! {
-                                            #field_name_snake_str => {
-                                                let val: std::collections::HashMap<String, ::serde_json::Value> = ::serde_json::from_value(val).unwrap();
-                                                let val = val.into_iter().next().unwrap();
+                                        Some(quote! {{
+                                            let val: std::collections::HashMap<String, ::serde_json::Value> = ::serde_json::from_value(val).unwrap();
+                                            let val = val.into_iter().next().unwrap();
 
-                                                #model_name_snake::#field_name_snake::connect(
-                                                    #relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
-                                                )
-                                            },
-                                        })
+                                            #model_name_snake::#field_name_snake::connect(
+                                                #relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
+                                            )
+                                        }})
                                     } else { None }
                                 },
                                 _ => None
                             }
                         },
-                    }
+                    }.map(|body| quote!(#model_name_snake::#field_name_snake::NAME => #body))
                 });
 
                 match field_matches.clone().count() {
@@ -201,11 +197,10 @@ impl PrismaGenerator for SDSyncGenerator {
                     .unique_criterias()
                     .flat_map(|criteria| match &criteria.fields().next() {
                         Some(field) if criteria.fields().len() == 1 => {
-                            let unique_field_name_str = field.name();
-                            let unique_field_name_snake = snake_ident(unique_field_name_str);
+                            let field_name_snake = snake_ident(field.name());
 
-                            Some(quote!(#unique_field_name_str =>
-                                #model_name_snake::#unique_field_name_snake::equals(
+                            Some(quote!(#model_name_snake::#field_name_snake::NAME =>
+                                #model_name_snake::#field_name_snake::equals(
                                     ::serde_json::from_value(val).unwrap()
                                 ),
                             ))
@@ -248,7 +243,6 @@ impl PrismaGenerator for SDSyncGenerator {
 				.filter_map(|(model, sync_type)| {
 					let model_name_snake = snake_ident(model.name());
 					let model_name_pascal = pascal_ident(model.name());
-					let model_name_str = model.name();
 
 					sync_type.and_then(|a| {
 						let data_type = match a {
@@ -266,16 +260,18 @@ impl PrismaGenerator for SDSyncGenerator {
 
 						let op_type_enum = quote!(sd_sync::CRDTOperationType);
 
+						let cond = quote!(if op.model == prisma::#model_name_snake::NAME);
+
 						let match_case = match a {
 							ModelSyncType::Owned { .. } => {
 								quote! {
-									#op_type_enum::Owned(op) if op.model == #model_name_str =>
+									#op_type_enum::Owned(op) #cond =>
 										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
 								}
 							}
 							ModelSyncType::Shared { .. } => {
 								quote! {
-									#op_type_enum::Shared(op) if op.model == #model_name_str =>
+									#op_type_enum::Shared(op) #cond =>
 										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
 								}
 							}

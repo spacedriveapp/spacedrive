@@ -277,34 +277,41 @@ pub async fn create_file_path(
 		.await?
 		.unwrap();
 
-	let params = util::db::chain_optional_iter(
-		[
-			(
-				"location",
-				json!(sync::location::SyncId {
-					pub_id: location.pub_id
-				}),
-			),
-			("cas_id", json!(cas_id)),
-			("materialized_path", json!(materialized_path)),
-			("name", json!(name)),
-			("extension", json!(extension)),
-			("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
-			("inode", json!(metadata.inode.to_le_bytes())),
-			("device", json!(metadata.device.to_le_bytes())),
-			("is_dir", json!(is_dir)),
-			("date_created", json!(metadata.created_at)),
-			("date_modified", json!(metadata.modified_at)),
-		],
-		[parent_id.map(|parent_id| {
-			(
-				"parent_id",
-				json!(sync::file_path::SyncId {
-					pub_id: uuid_to_bytes(parent_id)
-				}),
-			)
-		})],
-	);
+	let params = {
+		use file_path::*;
+
+		util::db::chain_optional_iter(
+			[
+				(
+					location::NAME,
+					json!(sync::location::SyncId {
+						pub_id: location.pub_id
+					}),
+				),
+				(cas_id::NAME, json!(cas_id)),
+				(materialized_path::NAME, json!(materialized_path)),
+				(name::NAME, json!(name)),
+				(extension::NAME, json!(extension)),
+				(
+					size_in_bytes::NAME,
+					json!(metadata.size_in_bytes.to_string()),
+				),
+				(inode::NAME, json!(metadata.inode.to_le_bytes())),
+				(device::NAME, json!(metadata.device.to_le_bytes())),
+				(is_dir::NAME, json!(is_dir)),
+				(date_created::NAME, json!(metadata.created_at)),
+				(date_modified::NAME, json!(metadata.modified_at)),
+			],
+			[parent_id.map(|parent_id| {
+				(
+					parent_id::NAME,
+					json!(sync::file_path::SyncId {
+						pub_id: uuid_to_bytes(parent_id)
+					}),
+				)
+			})],
+		)
+	};
 
 	let pub_id = uuid_to_bytes(Uuid::new_v4());
 
@@ -325,14 +332,17 @@ pub async fn create_file_path(
 				extension.into_owned(),
 				metadata.inode.to_le_bytes().into(),
 				metadata.device.to_le_bytes().into(),
-				vec![
-					file_path::cas_id::set(cas_id),
-					file_path::parent_id::set(parent_id.map(uuid_to_bytes)),
-					file_path::is_dir::set(is_dir),
-					file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
-					file_path::date_created::set(metadata.created_at.into()),
-					file_path::date_modified::set(metadata.modified_at.into()),
-				],
+				{
+					use file_path::*;
+					vec![
+						cas_id::set(cas_id),
+						parent_id::set(parent_id.map(uuid_to_bytes)),
+						is_dir::set(is_dir),
+						size_in_bytes::set(metadata.size_in_bytes.to_string()),
+						date_created::set(metadata.created_at.into()),
+						date_modified::set(metadata.modified_at.into()),
+					]
+				},
 			),
 		)
 		.await?;

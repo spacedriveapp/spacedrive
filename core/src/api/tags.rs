@@ -143,7 +143,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync::tag::SyncId {
 									pub_id: pub_id.clone(),
 								},
-								[("name", json!(args.name)), ("color", json!(args.color))],
+								[
+									(tag::name::NAME, json!(args.name)),
+									(tag::color::NAME, json!(args.color)),
+								],
 							),
 							db.tag().create(
 								pub_id,
@@ -219,8 +222,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						db,
 						(
 							[
-								args.name.as_ref().map(|v| ("name", json!(v))),
-								args.color.as_ref().map(|v| ("color", json!(v))),
+								args.name.as_ref().map(|v| (tag::name::NAME, json!(v))),
+								args.color.as_ref().map(|v| (tag::color::NAME, json!(v))),
 							]
 							.into_iter()
 							.flatten()
