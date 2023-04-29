@@ -13,6 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -234,21 +235,21 @@ impl LocationUpdateArgs {
 			self.name
 				.clone()
 				.filter(|name| &location.name != name)
-				.map(|v| (("name", json!(v)), location::name::set(v))),
+				.map(|v| ((location::name::NAME, json!(v)), location::name::set(v))),
 			self.generate_preview_media.map(|v| {
 				(
-					("generate_preview_media", json!(v)),
+					(location::generate_preview_media::NAME, json!(v)),
 					location::generate_preview_media::set(v),
 				)
 			}),
 			self.sync_preview_media.map(|v| {
 				(
-					("sync_preview_media", json!(v)),
+					(location::sync_preview_media::NAME, json!(v)),
 					location::sync_preview_media::set(v),
 				)
 			}),
 			self.hidden
-				.map(|v| (("hidden", json!(v)), location::hidden::set(v))),
+				.map(|v| ((location::hidden::NAME, json!(v)), location::hidden::set(v))),
 		]
 		.into_iter()
 		.flatten()
@@ -476,7 +477,7 @@ pub async fn relink_location(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			"path",
+			location::path::NAME,
 			json!(path),
 		),
 		db.location().update(
@@ -573,9 +574,14 @@ async fn create_location(
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[
-					("node", json!({ "pub_id": library.id.as_bytes() })),
-					("name", json!(&name)),
-					("path", json!(&location_path)),
+					(
+						location::node::NAME,
+						json!(sync::node::SyncId {
+							pub_id: uuid_to_bytes(library.id)
+						}),
+					),
+					(location::name::NAME, json!(&name)),
+					(location::path::NAME, json!(&location_path)),
 				],
 			),
 			db.location()
