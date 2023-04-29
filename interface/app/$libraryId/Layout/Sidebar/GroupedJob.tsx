@@ -4,21 +4,19 @@ import { Folder, X } from 'phosphor-react';
 import { MutableRefObject, memo, useEffect, useRef, useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import { IGroupedJobs } from './GroupedJobs';
 import Job from './Job';
 
 interface GroupJobProps {
-	jobs?: JobReport[];
+	data: IGroupedJobs;
 	clearAJob?: (arg: string) => void;
-	runningJobs?: JobReport[];
-	parentJob?: JobReport;
 }
 
-function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: GroupJobProps) {
+function GroupedJob({ data, clearAJob }: GroupJobProps) {
 	const [toggleJobs, setToggleJobs] = useState<MutableRefObject<boolean> | boolean>(false);
 	const toggleRef = useRef(toggleJobs);
-	const checkForJobsRunning = jobs?.some((job) => job.status === 'Running');
-	const allJobsCompleted = jobs?.every((job) => job.status === 'Completed');
-	const filterJobsFromParent = jobs?.filter((job) => job.id !== parentJob?.id); //jobs array contains all jobs - we don't want to show the parent job in the list
+	const checkForJobsRunning = data.childJobs?.some((job) => job.status === 'Running');
+	const allJobsCompleted = data.childJobs?.every((job) => job.status === 'Completed');
 
 	useEffect(() => {
 		setToggleJobs(toggleRef.current); //this is to keep the toggled group open on re-renders
@@ -26,8 +24,8 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 
 	//If one job, including the parent is remaining, we delete the group
 	const clearJobHandler = (arg: string) => {
-		if (jobs.length === 2) {
-			clearAJob?.(parentJob?.id as string);
+		if (data.childJobs.length === 1) {
+			clearAJob?.(data.id as string);
 		} else {
 			clearAJob?.(arg);
 		}
@@ -35,12 +33,12 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 
 	return (
 		<>
-			{jobs.length === 0 ? null : (
+			{data.childJobs.length === 0 ? null : (
 				<ul className={clsx(`relative overflow-hidden`, toggleJobs && 'groupjobul')}>
 					{allJobsCompleted && !checkForJobsRunning && (
 						<Button
 							className="absolute right-[10px] top-[30px] cursor-pointer"
-							onClick={() => clearAJob?.(parentJob?.id as string)}
+							onClick={() => clearAJob?.(data.id as string)}
 							size="icon"
 						>
 							<Tooltip label="Remove">
@@ -63,15 +61,15 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 										<span className="truncate font-semibold">
 											{allJobsCompleted
 												? `Added location ${
-														parentJob?.metadata.init.location.name || ''
+														data.metadata.init.location.name || ''
 												  }`
 												: 'Processing added location...'}
 										</span>
 										<p className="mt-[2px] mb-[5px] text-[12px] italic text-ink-faint">
-											{getTotalTasks(jobs).total} tasks
+											{getTotalTasks(data.childJobs).total} tasks
 										</p>
 										<div className="flex gap-1 truncate text-ink-faint">
-											<GetTotalGroupJobTime jobs={jobs} />
+											<GetTotalGroupJobTime jobs={data.childJobs} />
 											{/* {allJobsCompleted && (
 												<span className="text-xs">
 													- Took{' '}
@@ -85,8 +83,8 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 								{!allJobsCompleted && !toggleJobs && (
 									<div className="mt-[6px] w-full">
 										<ProgressBar
-											value={getTotalTasks(jobs).completed}
-											total={getTotalTasks(jobs).total}
+											value={getTotalTasks(data.childJobs).completed}
+											total={getTotalTasks(data.childJobs).total}
 										/>
 									</div>
 								)}
@@ -95,7 +93,7 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 					</div>
 					{toggleJobs && (
 						<>
-							{runningJobs?.map((job) => (
+							{data.runningJobs.map((job) => (
 								<Job
 									className={clsx(
 										`border-none pl-10`,
@@ -106,7 +104,7 @@ function GroupedJob({ jobs = [], clearAJob, runningJobs = [], parentJob }: Group
 									job={job}
 								/>
 							))}
-							{filterJobsFromParent?.map((job) => (
+							{data.childJobs.map((job) => (
 								<Job
 									isGroup={true}
 									className={clsx(
