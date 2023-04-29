@@ -19,8 +19,8 @@ has() {
   command -v "$1" >/dev/null 2>&1
 }
 
+_gh_url="https://api.github.com/repos"
 _sd_gh_path='spacedriveapp/spacedrive'
-_sd_gh_url="https://api.github.com/repos/${_sd_gh_path}"
 gh_curl() {
   if [ "$#" -ne 1 ]; then
     err "Usage: gh_curl <api_route>"
@@ -54,7 +54,8 @@ echo "Setting up this system for Spacedrive development."
 echo
 
 # Change CWD to the directory of this script
-cd "$(dirname "$0")"
+CDPATH='' cd -- "$(dirname -- "$0")"
+_script_path="$(pwd -P)"
 
 if ! has cargo; then
   err "Rust was not found. Ensure the 'rustc' and 'cargo' binaries are in your \$PATH."
@@ -241,29 +242,34 @@ elif [[ $OSTYPE == "darwin"* ]]; then
   fi
 
   # Create frameworks directory to put Spacedrive dependencies
-  _frameworks_dir="../../target/Frameworks"
+  _frameworks_dir="${_script_path}/../../target/Frameworks"
   mkdir -p "$_frameworks_dir"
+  _frameworks_dir="$(CDPATH='' cd -- "$_frameworks_dir" && pwd -P)"
 
-  # Download ffmpeg build
+  exec 3>&1  # Copy stdout in fd 3.
+  echo "Download ffmpeg build..."
   _page=1
   while [ $_page -gt 0 ]; do
     # TODO: Filter only actions triggered by the main branch
     _success="$(
-      gh_curl "${_sd_gh_url}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
+      gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
         | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
         | while IFS= read -r _artifacts_url; do
           if _artificat_path="$(
-            curl "$_artifacts_url" \
+            curl -LSs "$_artifacts_url" \
               | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
                 '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
           )"; then
             # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
             # https://github.com/actions/upload-artifact/issues/51
             # TODO: Use Github's private API when running on CI
-            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | zcat - | tar -xf - -C "$_frameworks_dir"; then
+            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | zcat - | XZ_OPT='-T0' tar -xJf - -C "$_frameworks_dir"; then
               printf 'yes'
               exit
             fi
+
+            echo "Failed to ffmpeg artifiact release, trying again in 1sec..." >&3
+            sleep 1
           fi
         done
     )"
@@ -273,22 +279,43 @@ elif [[ $OSTYPE == "darwin"* ]]; then
     fi
 
     _page=$((_page + 1))
+
+    echo "ffmpeg artifact not found, trying again in 1sec..."
+    sleep 1
   done
 
-  # Download protobuf build
+  echo "Download protobuf build"
   _page=1
   while [ $_page -gt 0 ]; do
-    # TODO: Filter only actions triggered by the main branch
-    gh_curl "protocolbuffers/protobuf/releases?page=${_page}&per_page=100" \
-      | jq --arg arch "$(if [ "$_arch" = 'arm64' ]; then echo 'aarch_64' else echo 'x86_64'; fi)" -r \
-        '. | if length == 0 then error("Error: No releases found") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
-      | while IFS= read -r _asset_url; do
-        if curl -LSs "${_asset_url}" | unzip -q -d "$_frameworks_dir" -; then
-          _page=-1
-          break
-        fi
-      done
+    _success="$(
+      gh_curl "${_gh_url}/protocolbuffers/protobuf/releases?page=${_page}&per_page=100" \
+        | jq --arg arch "$(
+          if [ "$_arch" = 'arm64' ]; then
+            echo 'aarch_64'
+          else
+            echo 'x86_64'
+          fi
+        )" -r \
+          '. | if length == 0 then error("Error: No releases found") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
+        | while IFS= read -r _asset_url; do
+          if curl -LSs "${_asset_url}" | tar -xf - -C "$_frameworks_dir"; then
+            printf 'yes'
+            exit
+          fi
+
+          echo "Failed to download protobuf release, trying again in 1sec..." >&3
+          sleep 1
+        done
+    )"
+
+    if [ "${_success:-}" = 'yes' ]; then
+      break
+    fi
+
     _page=$((_page + 1))
+
+    echo "protobuf release not found, trying again in 1sec..."
+    sleep 1
   done
 else
   err "Your OS ($OSTYPE) is not supported by this script." \

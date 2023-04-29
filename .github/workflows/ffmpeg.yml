@@ -46,18 +46,19 @@ jobs:
           set -euxo pipefail
           cd .github/scripts/ffmpeg-macos
           docker build --build-arg FFMPEG_VERSION=$FFMPEG_VERSION -o . .
-          tar -cf "ffmpeg-${FFMPEG_VERSION}-x86_64.tar" -C ffmpeg/x86_64 .
-          tar -cf "ffmpeg-${FFMPEG_VERSION}-arm64.tar" -C ffmpeg/aarch64 .
+          export XZ_OPT='-T0 -9'
+          tar -cJf "ffmpeg-${FFMPEG_VERSION}-x86_64.tar.xz" -C ffmpeg/x86_64 .
+          tar -cJf "ffmpeg-${FFMPEG_VERSION}-arm64.tar.xz" -C ffmpeg/aarch64 .
           rm -rf ffmpeg
 
       - name: Publish ffmpeg x86_64
         uses: actions/upload-artifact@v3
         with:
           name: ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64
-          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64.tar
+          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64.tar.xz
 
       - name: Publish ffmpeg arm64
         uses: actions/upload-artifact@v3
         with:
           name: ffmpeg-${{ env.FFMPEG_VERSION }}-arm64
-          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-arm64.tar
+          path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-arm64.tar.xz
