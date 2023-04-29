@@ -69,7 +69,7 @@ export type Procedures = {
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: IndexerRule } | 
+        { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
@@ -88,8 +88,6 @@ export type Procedures = {
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
-
-export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
 
@@ -120,6 +118,10 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
+export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
 /**
  * These parameters define the password-hashing level.
  * 
@@ -127,9 +129,15 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[] }
+/**
+ * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
+ * It contains the id of the location to be updated, possible a name to change the current location's name
+ * and a vector of indexer rules ids to add or remove from the location.
+ * 
+ * It is important to note that only the indexer rule ids in this vector will be used from now on.
+ * Old rules that aren't in this vector will be purged.
+ */
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
 export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
@@ -152,7 +160,17 @@ export type StoredKey = { uuid: string; version: StoredKeyVersion; key_type: Sto
 
 export type OnboardingConfig = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
-export type LocationExplorerArgs = { location_id: number; path: string | null; limit: number; cursor: string | null; kind: number[] | null }
+/**
+ * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
+ * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
+ * 
+ * In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
+ * single string containing a glob pattern.
+ * 
+ * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
+ * `parameters` field must be a vector of strings containing the names of the directories.
+ */
+export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
@@ -167,15 +185,11 @@ export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
 
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
-
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
-
-export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; file_paths: FilePath[] }
 
 /**
  * This should be used for passing a salt around.
@@ -184,21 +198,15 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; 
  */
 export type Salt = number[]
 
-export type GetArgs = { id: number }
+export type LightScanArgs = { location_id: number; sub_path: string }
 
-/**
- * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
- * It contains the id of the location to be updated, possible a name to change the current location's name
- * and a vector of indexer rules ids to add or remove from the location.
- * 
- * It is important to note that only the indexer rule ids in this vector will be used from now on.
- * Old rules that aren't in this vector will be purged.
- */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+export type GetArgs = { id: number }
 
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
+
+export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
@@ -219,7 +227,7 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
+export type LocationExplorerArgs = { location_id: number; path: string | null; limit: number; cursor: string | null; kind: number[] | null }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
@@ -238,11 +246,11 @@ export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: Peer
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
-
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type TagCreateArgs = { name: string; color: string }
+
+export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 
@@ -254,17 +262,21 @@ export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
-/**
- * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
- */
-export type LibraryArgs<T> = { library_id: string; arg: T }
+export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
  * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
  * between the location and indexer rules.
  */
-export type LocationCreateArgs = { path: string; indexer_rules_ids: number[] }
+export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
+
+/**
+ * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
+ */
+export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -273,8 +285,6 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string }
-
-export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -285,9 +295,11 @@ export type ChangeNodeNameArgs = { name: string }
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
 
-export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
+export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[] }
 
 export type SetNoteArgs = { id: number; note: string | null }
+
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
@@ -304,19 +316,7 @@ export type Location = { id: number; pub_id: number[]; node_id: number; name: st
 
 export type Protected<T> = T
 
-/**
- * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
- * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
- * 
- * In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
- * single string containing a glob pattern.
- * 
- * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
- * `parameters` field must be a vector of strings containing the names of the directories.
- */
-export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; parameters: string[] }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
+export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; file_paths: FilePath[] }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
