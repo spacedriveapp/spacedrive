@@ -74,5 +74,5 @@ indent_style = space
 
 # Shell
 # https://google.github.io/styleguide/shell.xml#Indentation
-[*.{bash,sh,zsh,dockerfile}]
+[*.{bash,sh,zsh}]
 indent_style = space

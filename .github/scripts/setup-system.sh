@@ -248,23 +248,30 @@ elif [[ $OSTYPE == "darwin"* ]]; then
   _page=1
   while [ $_page -gt 0 ]; do
     # TODO: Filter only actions triggered by the main branch
-    gh_curl "${_sd_gh_url}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
-      | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
-      | while IFS= read -r _artifacts_url; do
-        if _artificat_path="$(
-          curl "$_artifacts_url" \
-            | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
-              '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\$(.id)" end'
-        )"; then
-          # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
-          # https://github.com/actions/upload-artifact/issues/51
-          # TODO: Use Github's private API when running on CI
-          if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | zcat - | tar -xf - -C "$_frameworks_dir"; then
-            _page=-1
-            break
+    _success="$(
+      gh_curl "${_sd_gh_url}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
+        | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
+        | while IFS= read -r _artifacts_url; do
+          if _artificat_path="$(
+            curl "$_artifacts_url" \
+              | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
+                '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
+          )"; then
+            # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+            # https://github.com/actions/upload-artifact/issues/51
+            # TODO: Use Github's private API when running on CI
+            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | zcat - | tar -xf - -C "$_frameworks_dir"; then
+              printf 'yes'
+              exit
+            fi
           fi
-        fi
-      done
+        done
+    )"
+
+    if [ "${_success:-}" = 'yes' ]; then
+      break
+    fi
+
     _page=$((_page + 1))
   done
 

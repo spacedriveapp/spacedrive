@@ -170,10 +170,10 @@ while IFS= read -r -d '' _lib; do
   cp -p "$_lib" "${OUT_DIR}/${_lib}"
 done < <(find . -name '*.dylib' -print0)
 
-# Copy static library to the output directory
-while IFS= read -r -d '' _lib; do
-  cp -p "$_lib" "${OUT_DIR}/lib/${_lib}"
-done < <(find . -name '*.a' -print0)
+# # Copy static library to the output directory
+# while IFS= read -r -d '' _lib; do
+#   cp -p "$_lib" "${OUT_DIR}/lib/${_lib}"
+# done < <(find . -name '*.a' -print0)
 
 while [ $# -gt 0 ]; do
   # Loop through each of the library's dependency
@@ -191,13 +191,13 @@ while [ $# -gt 0 ]; do
           cp -p -L "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
           # Add it to the queue to have it's own dependencies processed
           set -- "$@" "$_dep_rel"
-          # Copy static verion of dependency to the output directory
-          while IFS= read -r -d '' _static_dep; do
-            cp -p "${_macports_root}/lib/$_static_dep" "$OUT_DIR/lib/${_static_dep}"
-          done < <(
-            cd "${_macports_root}/lib/"
-            find . -wholename "$(no_ext "$_dep_rel")*.a" -print0
-          )
+          # # Copy static verion of dependency to the output directory
+          # while IFS= read -r -d '' _static_dep; do
+          #   cp -p "${_macports_root}/lib/$_static_dep" "$OUT_DIR/lib/${_static_dep}"
+          # done < <(
+          #   cd "${_macports_root}/lib/"
+          #   find . -wholename "$(no_ext "$_dep_rel")*.a" -print0
+          # )
         fi
         ;;
       *) # Ignore system libraries
