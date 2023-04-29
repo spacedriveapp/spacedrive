@@ -22,7 +22,7 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 		setToggleJobs(toggleRef.current); //this is to keep the toggled group open on re-renders
 	}, []);
 
-	//If one job, including the parent is remaining, we delete the group
+	//If one job is remaining, we just delete the parent
 	const clearJobHandler = (arg: string) => {
 		if (data.childJobs.length === 1) {
 			clearAJob?.(data.id as string);
