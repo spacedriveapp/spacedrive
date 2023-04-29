@@ -1,17 +1,40 @@
 use crate::{
 	library::Library,
-	location::indexer::IndexerError,
+	// location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
-	util::error::FileIOError,
+	util::error::{FileIOError, NonUtf8PathError},
 };
 
 use chrono::{DateTime, Utc};
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use rmp_serde;
-use serde::{Deserialize, Serialize};
+use rmp_serde::{self, decode, encode};
+use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{collections::HashSet, path::Path};
+use std::{collections::HashSet, marker::PhantomData, path::Path};
+use thiserror::Error;
 use tokio::fs;
+
+#[derive(Error, Debug)]
+pub enum IndexerRuleError {
+	#[error("invalid indexer rule kind integer: {0}")]
+	InvalidRuleKindInt(i32),
+	#[error("glob builder error")]
+	Glob(#[from] globset::Error),
+	#[error("indexer rule parameters json serialization error")]
+	RuleParametersSerdeJson(#[from] serde_json::Error),
+	#[error("indexer rule parameters encode error")]
+	RuleParametersRMPEncode(#[from] encode::Error),
+	#[error("indexer rule parameters decode error")]
+	RuleParametersRMPDecode(#[from] decode::Error),
+	#[error("accept by its children file I/O error")]
+	AcceptByItsChildrenFileIO(FileIOError),
+	#[error("reject by its children file I/O error")]
+	RejectByItsChildrenFileIO(FileIOError),
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
+	#[error(transparent)]
+	NonUtf8Path(#[from] NonUtf8PathError),
+}
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
 /// Note that `parameters` field **MUST** be a JSON object serialized to bytes.
@@ -29,7 +52,7 @@ pub struct IndexerRuleCreateArgs {
 }
 
 impl IndexerRuleCreateArgs {
-	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerError> {
+	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerRuleError> {
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
 				&self
@@ -71,7 +94,7 @@ impl RuleKind {
 }
 
 impl TryFrom<i32> for RuleKind {
-	type Error = IndexerError;
+	type Error = IndexerRuleError;
 
 	fn try_from(value: i32) -> Result<Self, Self::Error> {
 		let s = match value {
@@ -79,7 +102,7 @@ impl TryFrom<i32> for RuleKind {
 			1 => Self::RejectFilesByGlob,
 			2 => Self::AcceptIfChildrenDirectoriesArePresent,
 			3 => Self::RejectIfChildrenDirectoriesArePresent,
-			_ => return Err(IndexerError::InvalidRuleKindInt(value)),
+			_ => return Err(Self::Error::InvalidRuleKindInt(value)),
 		};
 
 		Ok(s)
@@ -93,19 +116,250 @@ impl TryFrom<i32> for RuleKind {
 ///
 /// In case of `ParametersPerKind::AcceptIfChildrenDirectoriesArePresent` or `ParametersPerKind::RejectIfChildrenDirectoriesArePresent`
 /// first we change the data structure to a vector, then we serialize it.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum ParametersPerKind {
 	// TODO: Add an indexer rule that filter files based on their extended attributes
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 	// https://en.wikipedia.org/wiki/Extended_file_attributes
-	AcceptFilesByGlob(Vec<Glob>),
-	RejectFilesByGlob(Vec<Glob>),
+	AcceptFilesByGlob(Vec<Glob>, GlobSet),
+	RejectFilesByGlob(Vec<Glob>, GlobSet),
 	AcceptIfChildrenDirectoriesArePresent(HashSet<String>),
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
 }
 
+/// We're implementing `Serialize` by hand as `GlobSet`s aren't serializable, so we ignore them on
+/// serialization
+impl Serialize for ParametersPerKind {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: ser::Serializer,
+	{
+		use ser::SerializeTupleVariant;
+
+		match *self {
+			ParametersPerKind::AcceptFilesByGlob(ref globs, ref _glob_set) => {
+				let mut tv = serializer.serialize_tuple_variant(
+					"ParametersPerKind",
+					0,
+					"AcceptFilesByGlob",
+					1,
+				)?;
+				tv.serialize_field(globs)?;
+				tv.end()
+			}
+			ParametersPerKind::RejectFilesByGlob(ref globs, ref _glob_set) => {
+				let mut tv = serializer.serialize_tuple_variant(
+					"ParametersPerKind",
+					1,
+					"RejectFilesByGlob",
+					1,
+				)?;
+				tv.serialize_field(globs)?;
+				tv.end()
+			}
+			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(ref children) => {
+				let mut tv = serializer.serialize_tuple_variant(
+					"ParametersPerKind",
+					2,
+					"AcceptIfChildrenDirectoriesArePresent",
+					1,
+				)?;
+				tv.serialize_field(children)?;
+				tv.end()
+			}
+			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(ref children) => {
+				let mut tv = serializer.serialize_tuple_variant(
+					"ParametersPerKind",
+					3,
+					"RejectIfChildrenDirectoriesArePresent",
+					1,
+				)?;
+				tv.serialize_field(children)?;
+				tv.end()
+			}
+		}
+	}
+}
+
+impl<'de> Deserialize<'de> for ParametersPerKind {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: de::Deserializer<'de>,
+	{
+		const VARIANTS: &[&str] = &[
+			"AcceptFilesByGlob",
+			"RejectFilesByGlob",
+			"AcceptIfChildrenDirectoriesArePresent",
+			"RejectIfChildrenDirectoriesArePresent",
+		];
+
+		enum Fields {
+			AcceptFilesByGlob,
+			RejectFilesByGlob,
+			AcceptIfChildrenDirectoriesArePresent,
+			RejectIfChildrenDirectoriesArePresent,
+		}
+
+		struct FieldsVisitor;
+
+		impl<'de> de::Visitor<'de> for FieldsVisitor {
+			type Value = Fields;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str(
+					"`AcceptFilesByGlob` \
+				or `RejectFilesByGlob` \
+				or `AcceptIfChildrenDirectoriesArePresent` \
+				or `RejectIfChildrenDirectoriesArePresent`",
+				)
+			}
+
+			fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+			where
+				E: de::Error,
+			{
+				match value {
+					0 => Ok(Fields::AcceptFilesByGlob),
+					1 => Ok(Fields::RejectFilesByGlob),
+					2 => Ok(Fields::AcceptIfChildrenDirectoriesArePresent),
+					3 => Ok(Fields::RejectIfChildrenDirectoriesArePresent),
+					_ => Err(de::Error::invalid_value(
+						de::Unexpected::Unsigned(value),
+						&"variant index 0 <= i < 3",
+					)),
+				}
+			}
+			fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+			where
+				E: de::Error,
+			{
+				match value {
+					"AcceptFilesByGlob" => Ok(Fields::AcceptFilesByGlob),
+					"RejectFilesByGlob" => Ok(Fields::RejectFilesByGlob),
+					"AcceptIfChildrenDirectoriesArePresent" => {
+						Ok(Fields::AcceptIfChildrenDirectoriesArePresent)
+					}
+					"RejectIfChildrenDirectoriesArePresent" => {
+						Ok(Fields::RejectIfChildrenDirectoriesArePresent)
+					}
+					_ => Err(de::Error::unknown_variant(value, VARIANTS)),
+				}
+			}
+			fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Self::Value, E>
+			where
+				E: de::Error,
+			{
+				match bytes {
+					b"AcceptFilesByGlob" => Ok(Fields::AcceptFilesByGlob),
+					b"RejectFilesByGlob" => Ok(Fields::RejectFilesByGlob),
+					b"AcceptIfChildrenDirectoriesArePresent" => {
+						Ok(Fields::AcceptIfChildrenDirectoriesArePresent)
+					}
+					b"RejectIfChildrenDirectoriesArePresent" => {
+						Ok(Fields::RejectIfChildrenDirectoriesArePresent)
+					}
+					_ => Err(de::Error::unknown_variant(
+						&String::from_utf8_lossy(bytes),
+						VARIANTS,
+					)),
+				}
+			}
+		}
+
+		impl<'de> Deserialize<'de> for Fields {
+			#[inline]
+			fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+			where
+				D: de::Deserializer<'de>,
+			{
+				deserializer.deserialize_identifier(FieldsVisitor)
+			}
+		}
+
+		struct ParametersPerKindVisitor<'de> {
+			marker: PhantomData<ParametersPerKind>,
+			lifetime: PhantomData<&'de ()>,
+		}
+
+		impl<'de> de::Visitor<'de> for ParametersPerKindVisitor<'de> {
+			type Value = ParametersPerKind;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("enum ParametersPerKind")
+			}
+
+			fn visit_enum<PPK>(self, data: PPK) -> Result<Self::Value, PPK::Error>
+			where
+				PPK: de::EnumAccess<'de>,
+			{
+				use de::Error;
+
+				de::EnumAccess::variant(data).and_then(|value| match value {
+					(Fields::AcceptFilesByGlob, accept_files_by_glob) => {
+						de::VariantAccess::newtype_variant::<Vec<Glob>>(accept_files_by_glob)
+							.and_then(|globs| {
+								globs
+									.iter()
+									.fold(&mut GlobSetBuilder::new(), |builder, glob| {
+										builder.add(glob.to_owned())
+									})
+									.build()
+									.map_or_else(
+										|e| Err(PPK::Error::custom(e)),
+										|glob_set| {
+											Ok(Self::Value::AcceptFilesByGlob(globs, glob_set))
+										},
+									)
+							})
+					}
+					(Fields::RejectFilesByGlob, reject_files_by_glob) => {
+						de::VariantAccess::newtype_variant::<Vec<Glob>>(reject_files_by_glob)
+							.and_then(|globs| {
+								globs
+									.iter()
+									.fold(&mut GlobSetBuilder::new(), |builder, glob| {
+										builder.add(glob.to_owned())
+									})
+									.build()
+									.map_or_else(
+										|e| Err(PPK::Error::custom(e)),
+										|glob_set| {
+											Ok(Self::Value::RejectFilesByGlob(globs, glob_set))
+										},
+									)
+							})
+					}
+					(
+						Fields::AcceptIfChildrenDirectoriesArePresent,
+						accept_if_children_directories_are_present,
+					) => de::VariantAccess::newtype_variant::<HashSet<String>>(
+						accept_if_children_directories_are_present,
+					)
+					.map(Self::Value::AcceptIfChildrenDirectoriesArePresent),
+					(
+						Fields::RejectIfChildrenDirectoriesArePresent,
+						reject_if_children_directories_are_present,
+					) => de::VariantAccess::newtype_variant::<HashSet<String>>(
+						reject_if_children_directories_are_present,
+					)
+					.map(Self::Value::RejectIfChildrenDirectoriesArePresent),
+				})
+			}
+		}
+
+		deserializer.deserialize_enum(
+			"ParametersPerKind",
+			VARIANTS,
+			ParametersPerKindVisitor {
+				marker: PhantomData::<ParametersPerKind>,
+				lifetime: PhantomData,
+			},
+		)
+	}
+}
+
 impl ParametersPerKind {
-	async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerError> {
+	async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerRuleError> {
 		match self {
 			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(children) => {
 				accept_dir_for_its_children(source, children).await
@@ -114,8 +368,12 @@ impl ParametersPerKind {
 				reject_dir_for_its_children(source, children).await
 			}
 
-			ParametersPerKind::AcceptFilesByGlob(glob) => accept_by_glob(source, glob),
-			ParametersPerKind::RejectFilesByGlob(glob) => reject_by_glob(source, glob),
+			ParametersPerKind::AcceptFilesByGlob(_globs, accept_glob_set) => {
+				Ok(accept_by_glob(source, accept_glob_set))
+			}
+			ParametersPerKind::RejectFilesByGlob(_globs, reject_glob_set) => {
+				Ok(reject_by_glob(source, reject_glob_set))
+			}
 		}
 	}
 }
@@ -144,11 +402,11 @@ impl IndexerRule {
 		}
 	}
 
-	pub async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerError> {
+	pub async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerRuleError> {
 		self.parameters.apply(source).await
 	}
 
-	pub async fn save(self, client: &PrismaClient) -> Result<(), IndexerError> {
+	pub async fn save(self, client: &PrismaClient) -> Result<(), IndexerRuleError> {
 		if let Some(id) = self.id {
 			client
 				.indexer_rule()
@@ -182,7 +440,7 @@ impl IndexerRule {
 }
 
 impl TryFrom<&indexer_rule::Data> for IndexerRule {
-	type Error = IndexerError;
+	type Error = IndexerRuleError;
 
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
 		let kind = RuleKind::try_from(data.kind)?;
@@ -194,11 +452,18 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 			default: data.default,
 			parameters: match kind {
 				RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => {
-					let glob_str = rmp_serde::from_slice(&data.parameters)?;
+					let globs = rmp_serde::from_slice::<Vec<Glob>>(&data.parameters)?;
+					let glob_set = globs
+						.iter()
+						.fold(&mut GlobSetBuilder::new(), |mut builder, glob| {
+							builder.add(glob.to_owned())
+						})
+						.build()?;
+
 					if matches!(kind, RuleKind::AcceptFilesByGlob) {
-						ParametersPerKind::AcceptFilesByGlob(glob_str)
+						ParametersPerKind::AcceptFilesByGlob(globs, glob_set)
 					} else {
-						ParametersPerKind::RejectFilesByGlob(glob_str)
+						ParametersPerKind::RejectFilesByGlob(globs, glob_set)
 					}
 				}
 				RuleKind::AcceptIfChildrenDirectoriesArePresent
@@ -220,52 +485,46 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 }
 
 impl TryFrom<indexer_rule::Data> for IndexerRule {
-	type Error = IndexerError;
+	type Error = IndexerRuleError;
 
 	fn try_from(data: indexer_rule::Data) -> Result<Self, Self::Error> {
 		Self::try_from(&data)
 	}
 }
 
-// TODO: memoize this
-fn globset_from_globs(globs: &[Glob]) -> Result<GlobSet, globset::Error> {
-	globs
-		.iter()
-		.fold(&mut GlobSetBuilder::new(), |builder, glob| {
-			builder.add(glob.to_owned())
-		})
-		.build()
+fn accept_by_glob(source: impl AsRef<Path>, accept_glob_set: &GlobSet) -> bool {
+	accept_glob_set.is_match(source.as_ref())
 }
 
-fn accept_by_glob(source: impl AsRef<Path>, globs: &[Glob]) -> Result<bool, IndexerError> {
-	globset_from_globs(globs)
-		.map(|glob_set| glob_set.is_match(source.as_ref()))
-		.map_err(IndexerError::GlobBuilder)
-}
-
-fn reject_by_glob(source: impl AsRef<Path>, reject_globs: &[Glob]) -> Result<bool, IndexerError> {
-	accept_by_glob(source.as_ref(), reject_globs).map(|accept| !accept)
+fn reject_by_glob(source: impl AsRef<Path>, reject_glob_set: &GlobSet) -> bool {
+	!accept_by_glob(source.as_ref(), reject_glob_set)
 }
 
 async fn accept_dir_for_its_children(
 	source: impl AsRef<Path>,
 	children: &HashSet<String>,
-) -> Result<bool, IndexerError> {
+) -> Result<bool, IndexerRuleError> {
 	let source = source.as_ref();
 	let mut read_dir = fs::read_dir(source)
 		.await
-		.map_err(|e| FileIOError::from((source, e)))?;
+		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?;
 	while let Some(entry) = read_dir
 		.next_entry()
 		.await
-		.map_err(|e| FileIOError::from((source, e)))?
+		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
 	{
 		if entry
 			.metadata()
 			.await
-			.map_err(|e| FileIOError::from((source, e)))?
-			.is_dir() && children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
-		{
+			.map_err(|e| {
+				IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e)))
+			})?
+			.is_dir() && children.contains(
+			entry
+				.file_name()
+				.to_str()
+				.ok_or_else(|| NonUtf8PathError(entry.path().into()))?,
+		) {
 			return Ok(true);
 		}
 	}
@@ -276,22 +535,28 @@ async fn accept_dir_for_its_children(
 async fn reject_dir_for_its_children(
 	source: impl AsRef<Path>,
 	children: &HashSet<String>,
-) -> Result<bool, IndexerError> {
+) -> Result<bool, IndexerRuleError> {
 	let source = source.as_ref();
 	let mut read_dir = fs::read_dir(source)
 		.await
-		.map_err(|e| FileIOError::from((source, e)))?;
+		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?;
 	while let Some(entry) = read_dir
 		.next_entry()
 		.await
-		.map_err(|e| FileIOError::from((source, e)))?
+		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?
 	{
 		if entry
 			.metadata()
 			.await
-			.map_err(|e| FileIOError::from((source, e)))?
-			.is_dir() && children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
-		{
+			.map_err(|e| {
+				IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e)))
+			})?
+			.is_dir() && children.contains(
+			entry
+				.file_name()
+				.to_str()
+				.ok_or_else(|| NonUtf8PathError(entry.path().into()))?,
+		) {
 			return Ok(false);
 		}
 	}
@@ -317,7 +582,13 @@ mod tests {
 			RuleKind::RejectFilesByGlob,
 			"ignore hidden files".to_string(),
 			false,
-			ParametersPerKind::RejectFilesByGlob(vec![Glob::new("**/.*").unwrap()]),
+			ParametersPerKind::RejectFilesByGlob(
+				vec![],
+				GlobSetBuilder::new()
+					.add(Glob::new("**/.*").unwrap())
+					.build()
+					.unwrap(),
+			),
 		);
 		assert!(!rule.apply(hidden).await.unwrap());
 		assert!(rule.apply(normal).await.unwrap());
@@ -337,9 +608,13 @@ mod tests {
 			RuleKind::RejectFilesByGlob,
 			"ignore build directory".to_string(),
 			false,
-			ParametersPerKind::RejectFilesByGlob(vec![
-				Glob::new("{**/target/*,**/target}").unwrap()
-			]),
+			ParametersPerKind::RejectFilesByGlob(
+				vec![],
+				GlobSetBuilder::new()
+					.add(Glob::new("{**/target/*,**/target}").unwrap())
+					.build()
+					.unwrap(),
+			),
 		);
 
 		assert!(rule.apply(project_file).await.unwrap());
@@ -363,7 +638,13 @@ mod tests {
 			RuleKind::AcceptFilesByGlob,
 			"only photos".to_string(),
 			false,
-			ParametersPerKind::AcceptFilesByGlob(vec![Glob::new("*.{jpg,png,jpeg}").unwrap()]),
+			ParametersPerKind::AcceptFilesByGlob(
+				vec![],
+				GlobSetBuilder::new()
+					.add(Glob::new("*.{jpg,png,jpeg}").unwrap())
+					.build()
+					.unwrap(),
+			),
 		);
 		assert!(!rule.apply(text).await.unwrap());
 		assert!(rule.apply(png).await.unwrap());
