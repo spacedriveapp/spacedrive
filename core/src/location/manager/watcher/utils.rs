@@ -360,40 +360,41 @@ async fn inner_update_file(
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
-			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-				(
-					("cas_id", json!(old_cas_id)),
-					file_path::cas_id::set(Some(old_cas_id.clone())),
-				),
-				(
-					("size_in_bytes", json!(fs_metadata.len().to_string())),
-					file_path::size_in_bytes::set(fs_metadata.len().to_string()),
-				),
-				{
-					let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = {
+				use file_path::*;
 
+				[
 					(
-						("date_modified", json!(date)),
-						file_path::date_modified::set(date),
-					)
-				},
-				{
-					// TODO: Should this be a skip rather than a null-set?
-					let checksum = if file_path.integrity_checksum.is_some() {
-						// If a checksum was already computed, we need to recompute it
-						Some(file_checksum(full_path).await?)
-					} else {
-						None
-					};
+						(cas_id::NAME, json!(old_cas_id)),
+						cas_id::set(Some(old_cas_id.clone())),
+					),
+					(
+						(size_in_bytes::NAME, json!(fs_metadata.len().to_string())),
+						size_in_bytes::set(fs_metadata.len().to_string()),
+					),
+					{
+						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
 
-					(
-						("integrity_checksum", json!(checksum)),
-						file_path::integrity_checksum::set(checksum),
-					)
-				},
-			]
-			.into_iter()
-			.unzip();
+						((date_modified::NAME, json!(date)), date_modified::set(date))
+					},
+					{
+						// TODO: Should this be a skip rather than a null-set?
+						let checksum = if file_path.integrity_checksum.is_some() {
+							// If a checksum was already computed, we need to recompute it
+							Some(file_checksum(full_path).await?)
+						} else {
+							None
+						};
+
+						(
+							(integrity_checksum::NAME, json!(checksum)),
+							integrity_checksum::set(checksum),
+						)
+					},
+				]
+				.into_iter()
+				.unzip()
+			};
 
 			// file content changed
 			sync.write_ops(
@@ -434,7 +435,7 @@ async fn inner_update_file(
 							sync::object::SyncId {
 								pub_id: object.pub_id.clone(),
 							},
-							"kind",
+							object::kind::NAME,
 							json!(int_kind),
 						),
 						db.object().update(
@@ -613,6 +614,8 @@ pub(super) async fn remove_by_file_path(
 			todo!("file has changed in some way, re-identify it")
 		}
 		Err(e) if e.kind() == ErrorKind::NotFound => {
+			let db = &library.db;
+
 			// if is doesn't, we can remove it safely from our db
 			if file_path.is_dir {
 				delete_directory(
@@ -622,17 +625,13 @@ pub(super) async fn remove_by_file_path(
 				)
 				.await?;
 			} else {
-				library
-					.db
-					.file_path()
+				db.file_path()
 					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
 					.exec()
 					.await?;
 
 				if let Some(object_id) = file_path.object_id {
-					library
-						.db
-						.object()
+					db.object()
 						.delete_many(vec![
 							object::id::equals(object_id),
 							// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
