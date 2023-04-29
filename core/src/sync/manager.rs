@@ -206,21 +206,27 @@ impl SyncManager {
 							id.pub_id,
 							{
 								let val: std::collections::HashMap<String, Value> =
-									from_value(data.remove("location").unwrap()).unwrap();
+									from_value(data.remove(file_path::location::NAME).unwrap())
+										.unwrap();
 								let val = val.into_iter().next().unwrap();
 
 								location::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
 							},
-							serde_json::from_value(data.remove("materialized_path").unwrap())
-								.unwrap(),
-							serde_json::from_value(data.remove("name").unwrap()).unwrap(),
 							serde_json::from_value(
-								data.remove("extension")
+								data.remove(file_path::materialized_path::NAME).unwrap(),
+							)
+							.unwrap(),
+							serde_json::from_value(data.remove(file_path::name::NAME).unwrap())
+								.unwrap(),
+							serde_json::from_value(
+								data.remove(file_path::extension::NAME)
 									.unwrap_or_else(|| serde_json::Value::String("".to_string())),
 							)
 							.unwrap(),
-							serde_json::from_value(data.remove("inode").unwrap()).unwrap(),
-							serde_json::from_value(data.remove("device").unwrap()).unwrap(),
+							serde_json::from_value(data.remove(file_path::inode::NAME).unwrap())
+								.unwrap(),
+							serde_json::from_value(data.remove(file_path::device::NAME).unwrap())
+								.unwrap(),
 							data.into_iter()
 								.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
 								.collect(),
@@ -245,11 +251,13 @@ impl SyncManager {
 					db.location()
 						.create(
 							id.pub_id,
-							serde_json::from_value(data.remove("name").unwrap()).unwrap(),
-							serde_json::from_value(data.remove("path").unwrap()).unwrap(),
+							serde_json::from_value(data.remove(location::name::NAME).unwrap())
+								.unwrap(),
+							serde_json::from_value(data.remove(location::path::NAME).unwrap())
+								.unwrap(),
 							{
 								let val: std::collections::HashMap<String, Value> =
-									from_value(data.remove("node").unwrap()).unwrap();
+									from_value(data.remove(location::node::NAME).unwrap()).unwrap();
 								let val = val.into_iter().next().unwrap();
 
 								node::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
