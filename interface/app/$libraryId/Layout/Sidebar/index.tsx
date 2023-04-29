@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import NavigationButtons from '~/components/NavigationButtons';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
@@ -17,9 +18,11 @@ export default () => {
 			)}
 		>
 			{/* <WindowControls /> */}
-			<div className="flex justify-end">
-				<NavigationButtons />
-			</div>
+			{os !== 'browser' && (
+				<div className="flex justify-end">
+					<NavigationButtons />
+				</div>
+			)}
 			<LibrariesDropdown />
 			<Contents />
 			<Footer />
