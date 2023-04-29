@@ -134,10 +134,12 @@ impl InitConfig {
 
 				let location = LocationCreateArgs {
 					path: loc.path.into(),
+					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
 				.create(&library)
 				.await
+				.unwrap()
 				.unwrap();
 
 				scan_location(&library, location).await.unwrap();
