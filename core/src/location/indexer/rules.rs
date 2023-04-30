@@ -134,49 +134,25 @@ impl Serialize for ParametersPerKind {
 	where
 		S: ser::Serializer,
 	{
-		use ser::SerializeTupleVariant;
-
 		match *self {
-			ParametersPerKind::AcceptFilesByGlob(ref globs, ref _glob_set) => {
-				let mut tv = serializer.serialize_tuple_variant(
-					"ParametersPerKind",
-					0,
-					"AcceptFilesByGlob",
-					1,
-				)?;
-				tv.serialize_field(globs)?;
-				tv.end()
-			}
-			ParametersPerKind::RejectFilesByGlob(ref globs, ref _glob_set) => {
-				let mut tv = serializer.serialize_tuple_variant(
-					"ParametersPerKind",
-					1,
-					"RejectFilesByGlob",
-					1,
-				)?;
-				tv.serialize_field(globs)?;
-				tv.end()
-			}
-			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(ref children) => {
-				let mut tv = serializer.serialize_tuple_variant(
+			ParametersPerKind::AcceptFilesByGlob(ref globs, ref _glob_set) => serializer
+				.serialize_newtype_variant("ParametersPerKind", 0, "AcceptFilesByGlob", globs),
+			ParametersPerKind::RejectFilesByGlob(ref globs, ref _glob_set) => serializer
+				.serialize_newtype_variant("ParametersPerKind", 1, "RejectFilesByGlob", globs),
+			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(ref children) => serializer
+				.serialize_newtype_variant(
 					"ParametersPerKind",
 					2,
 					"AcceptIfChildrenDirectoriesArePresent",
-					1,
-				)?;
-				tv.serialize_field(children)?;
-				tv.end()
-			}
-			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(ref children) => {
-				let mut tv = serializer.serialize_tuple_variant(
+					children,
+				),
+			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(ref children) => serializer
+				.serialize_newtype_variant(
 					"ParametersPerKind",
 					3,
 					"RejectIfChildrenDirectoriesArePresent",
-					1,
-				)?;
-				tv.serialize_field(children)?;
-				tv.end()
-			}
+					children,
+				),
 		}
 	}
 }
