@@ -1,6 +1,7 @@
 use crate::{
-	location::file_path_helper::{FilePathMetadata, MetadataExt},
+	location::file_path_helper::{FilePathMetadata, IsolatedFilePathData, MetadataExt},
 	prisma::file_path,
+	util::error::FileIOError,
 };
 
 #[cfg(target_family = "unix")]
@@ -10,68 +11,64 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	cmp::Ordering,
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 };
 
 use tokio::fs;
-use tracing::{error, trace};
-use uuid::Uuid;
+use tracing::trace;
 
 use super::{
 	rules::{IndexerRule, RuleKind},
 	IndexerError,
 };
 
+const TO_WALK_QUEUE_INITIAL_CAPACITY: usize = 32;
+const WALKER_PATHS_BUFFER_INITIAL_CAPACITY: usize = 256;
+const WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY: usize = 32;
+
 /// `WalkEntry` represents a single path in the filesystem, for any comparison purposes, we only
 /// consider the path itself, not the metadata.
-#[derive(Clone, Debug)]
-pub(super) struct WalkEntry {
-	pub(super) id: Uuid,
-	pub(super) parent_id: Option<Uuid>,
-	pub(super) path: PathBuf,
-	pub(super) is_dir: bool,
+#[derive(Debug)]
+pub(super) struct WalkedEntry {
+	pub(super) iso_file_path: IsolatedFilePathData<'static>,
 	pub(super) metadata: FilePathMetadata,
 }
 
-impl PartialEq for WalkEntry {
-	fn eq(&self, other: &Self) -> bool {
-		self.path == other.path
-	}
-}
-
-impl Eq for WalkEntry {}
-
-impl Hash for WalkEntry {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.path.hash(state);
-	}
-}
-
-impl PartialOrd for WalkEntry {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.path.partial_cmp(&other.path)
-	}
-}
-
-impl Ord for WalkEntry {
-	fn cmp(&self, other: &Self) -> Ordering {
-		self.path.cmp(&other.path)
-	}
-}
-
-pub(super) struct PubIdAndPath {
-	pub(super) id: Uuid,
-	pub(super) path: PathBuf,
-}
-
-struct ToWalkEntry {
-	id: Uuid,
+pub struct ToWalkEntry {
 	path: PathBuf,
 	parent_dir_accepted_by_its_children: Option<bool>,
+}
+
+struct WalkingEntry {
+	iso_file_path: IsolatedFilePathData<'static>,
+	maybe_metadata: Option<FilePathMetadata>,
+}
+
+impl PartialEq for WalkingEntry {
+	fn eq(&self, other: &Self) -> bool {
+		self.iso_file_path == other.iso_file_path
+	}
+}
+
+impl Eq for WalkingEntry {}
+
+impl Hash for WalkingEntry {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.iso_file_path.hash(state);
+	}
+}
+
+pub struct WalkResult<Walked, ToWalk>
+where
+	Walked: Iterator<Item = WalkedEntry>,
+	ToWalk: Iterator<Item = ToWalkEntry>,
+{
+	pub walked: Walked,
+	pub to_walk: ToWalk,
+	pub errors: Vec<IndexerError>,
 }
 
 /// This function walks through the filesystem, applying the rules to each entry and then returning
@@ -79,62 +76,154 @@ struct ToWalkEntry {
 /// in case of doubts.
 pub(super) async fn walk<F>(
 	root: impl AsRef<Path>,
-	root_id: Uuid,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
-	db_paths_fetcher: impl Fn(Uuid) -> F,
-) -> Result<Vec<WalkEntry>, IndexerError>
+	db_file_paths_fetcher: impl FnOnce(Vec<file_path::UniqueWhereParam>) -> F,
+	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
+	limit: u64,
+) -> Result<
+	WalkResult<impl Iterator<Item = WalkedEntry>, impl Iterator<Item = ToWalkEntry>>,
+	IndexerError,
+>
 where
-	F: Future<Output = Result<Vec<file_path::Data>, ()>>,
+	F: Future<Output = Result<Vec<file_path::Data>, IndexerError>>,
 {
 	let root = root.as_ref().to_path_buf();
 
-	let mut to_walk = VecDeque::with_capacity(1);
+	let mut to_walk = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	to_walk.push_back(ToWalkEntry {
-		id: root_id,
 		path: root.clone(),
 		parent_dir_accepted_by_its_children: None,
 	});
-	let mut indexed_paths = HashMap::new();
+	let mut indexed_paths = HashSet::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut errors = vec![];
+	let mut paths_buffer = Vec::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
 
 	while let Some(entry) = to_walk.pop_front() {
-		let mut read_dir = match fs::read_dir(&entry.path).await {
-			Ok(read_dir) => read_dir,
-			Err(e) => {
-				error!("Error reading directory {}: {e:#?}", entry.path.display());
-				continue;
-			}
+		let Ok(mut read_dir) = fs::read_dir(&entry.path).await
+			.map_err(|e| errors.push(FileIOError::from((entry.path.clone(), e)).into()))
+			else {
+			continue;
 		};
 
-		inner_walk_single_dir(
+		let walk_errors = inner_walk_single_dir(
 			&root,
 			entry,
 			&mut read_dir,
 			rules_per_kind,
 			&mut update_notifier,
-			&mut indexed_paths,
-			Some(&mut to_walk),
+			&iso_file_path_factory,
+			(&mut indexed_paths, &mut paths_buffer, Some(&mut to_walk)),
 		)
-		.await?;
+		.await;
+		errors.extend(walk_errors);
+
+		if indexed_paths.len() >= limit as usize {
+			break;
+		}
 	}
 
-	prepared_indexed_paths(root, indexed_paths).await
+	Ok(WalkResult {
+		walked: filter_existing_paths(indexed_paths, db_file_paths_fetcher).await?,
+		to_walk: to_walk.into_iter(),
+		errors,
+	})
+}
+
+pub(super) async fn walk_single_dir<F>(
+	root: impl AsRef<Path>,
+	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	mut update_notifier: impl FnMut(&Path, usize) + '_,
+	db_file_paths_fetcher: impl FnOnce(Vec<file_path::UniqueWhereParam>) -> F,
+	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
+) -> Result<(impl Iterator<Item = WalkedEntry>, Vec<IndexerError>), IndexerError>
+where
+	F: Future<Output = Result<Vec<file_path::Data>, IndexerError>>,
+{
+	let root = root.as_ref();
+
+	let mut read_dir = fs::read_dir(&root)
+		.await
+		.map_err(|e| FileIOError::from((&root, e)))?;
+
+	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+
+	let errors = inner_walk_single_dir(
+		&root,
+		ToWalkEntry {
+			path: root.to_path_buf(),
+			parent_dir_accepted_by_its_children: None,
+		},
+		&mut read_dir,
+		rules_per_kind,
+		&mut update_notifier,
+		&iso_file_path_factory,
+		(&mut indexed_paths, &mut paths_buffer, None),
+	)
+	.await;
+
+	Ok((
+		filter_existing_paths(indexed_paths, db_file_paths_fetcher).await?,
+		errors,
+	))
+}
+
+async fn filter_existing_paths<F>(
+	indexed_paths: HashSet<WalkingEntry>,
+	db_file_paths_fetcher: impl FnOnce(Vec<file_path::UniqueWhereParam>) -> F,
+) -> Result<impl Iterator<Item = WalkedEntry>, IndexerError>
+where
+	F: Future<Output = Result<Vec<file_path::Data>, IndexerError>>,
+{
+	db_file_paths_fetcher(
+		indexed_paths
+			.iter()
+			.map(|entry| &entry.iso_file_path)
+			.map(Into::into)
+			.collect(),
+	)
+	.await
+	.map(move |file_paths| {
+		let already_in_db_isolated_paths = file_paths
+			.into_iter()
+			.map(IsolatedFilePathData::from)
+			.collect::<HashSet<_>>();
+
+		indexed_paths.into_iter().filter_map(move |entry| {
+			(!already_in_db_isolated_paths.contains(&entry.iso_file_path)).then(|| WalkedEntry {
+				iso_file_path: entry.iso_file_path,
+				metadata: entry
+					.maybe_metadata
+					.expect("we always use Some in `the inner_walk_single_dir` function"),
+			})
+		})
+	})
 }
 
 async fn inner_walk_single_dir(
 	root: impl AsRef<Path>,
 	ToWalkEntry {
-		id,
 		path,
 		parent_dir_accepted_by_its_children,
 	}: ToWalkEntry,
 	read_dir: &mut fs::ReadDir,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: &mut impl FnMut(&Path, usize),
-	indexed_paths: &mut HashMap<PathBuf, WalkEntry>,
-	mut maybe_to_walk: Option<&mut VecDeque<ToWalkEntry>>,
-) -> Result<(), IndexerError> {
+	iso_file_path_factory: &impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
+	(already_indexed_paths, paths_buffer, mut maybe_to_walk): (
+		&mut HashSet<WalkingEntry>,
+		&mut Vec<WalkingEntry>,
+		Option<&mut VecDeque<ToWalkEntry>>,
+	),
+) -> Vec<IndexerError> {
 	let root = root.as_ref();
+	let mut errors = vec![];
+
+	// Just to make sure...
+	paths_buffer.clear();
+
+	let mut found_paths_counts = 0;
 
 	// Marking with a loop label here in case of rejection or erros, to continue with next entry
 	'entries: loop {
@@ -142,7 +231,7 @@ async fn inner_walk_single_dir(
 			Ok(Some(entry)) => entry,
 			Ok(None) => break,
 			Err(e) => {
-				error!("Error reading entry in {}: {:#?}", path.display(), e);
+				errors.push(FileIOError::from((root, e)).into());
 				continue;
 			}
 		};
@@ -156,7 +245,15 @@ async fn inner_walk_single_dir(
 
 		let current_path = entry.path();
 
-		update_notifier(&current_path, indexed_paths.len());
+		// Just sending updates if we found more paths since the last loop
+		let current_found_paths_count = paths_buffer.len();
+		if found_paths_counts != current_found_paths_count {
+			update_notifier(
+				&current_path,
+				already_indexed_paths.len() + current_found_paths_count,
+			);
+			found_paths_counts = current_found_paths_count;
+		}
 
 		trace!(
 			"Current filesystem path: {}, accept_by_children_dir: {:#?}",
@@ -165,8 +262,11 @@ async fn inner_walk_single_dir(
 		);
 		if let Some(reject_rules) = rules_per_kind.get(&RuleKind::RejectFilesByGlob) {
 			for reject_rule in reject_rules {
-				// SAFETY: It's ok to unwrap here, reject rules of this kind are infallible
-				if !reject_rule.apply(&current_path).await.unwrap() {
+				if !reject_rule
+					.apply(&current_path)
+					.await
+					.expect("reject rules of this kind must be infallible")
+				{
 					trace!(
 						"Path {} rejected by rule {}",
 						current_path.display(),
@@ -177,7 +277,13 @@ async fn inner_walk_single_dir(
 			}
 		}
 
-		let metadata = entry.metadata().await?;
+		let Ok(metadata) = entry
+			.metadata()
+			.await
+			.map_err(|e| errors.push(FileIOError::from((entry.path(), e)).into()))
+			else {
+				continue 'entries;
+		};
 
 		// TODO: Hard ignoring symlinks for now, but this should be configurable
 		if metadata.is_symlink() {
@@ -186,7 +292,7 @@ async fn inner_walk_single_dir(
 
 		let is_dir = metadata.is_dir();
 
-		let (inode, device) = match {
+		let Ok((inode, device)) = {
 			#[cfg(target_family = "unix")]
 			{
 				get_inode_and_device(&metadata)
@@ -196,15 +302,9 @@ async fn inner_walk_single_dir(
 			{
 				get_inode_and_device_from_path(&current_path).await
 			}
-		} {
-			Ok(inode_and_device) => inode_and_device,
-			Err(e) => {
-				error!(
-					"Error getting inode and device for {}: {e}",
-					current_path.display(),
-				);
-				continue 'entries;
-			}
+		}.map_err(|e| errors.push(e.into()))
+		else {
+			continue 'entries;
 		};
 
 		if is_dir {
@@ -224,12 +324,7 @@ async fn inner_walk_single_dir(
 						}
 						Ok(true) => {}
 						Err(e) => {
-							trace!(
-								"Error applying rule {} to path {}: {:#?}",
-								reject_by_children_rule.name,
-								current_path.display(),
-								e
-							);
+							errors.push(e.into());
 							continue 'entries;
 						}
 					}
@@ -248,13 +343,7 @@ async fn inner_walk_single_dir(
 						}
 						Ok(false) => {}
 						Err(e) => {
-							error!(
-								"Error applying rule {} to path {}: {:#?}",
-								accept_by_children_rule.name,
-								current_path.display(),
-								e
-							);
-							continue 'entries;
+							errors.push(e.into());
 						}
 					}
 				}
@@ -271,15 +360,21 @@ async fn inner_walk_single_dir(
 
 			// Then we mark this directory the be walked in too
 			if let Some(ref mut to_walk) = maybe_to_walk {
-				to_walk.push_back((entry.path(), accept_by_children_dir));
+				to_walk.push_back(ToWalkEntry {
+					path: entry.path(),
+					parent_dir_accepted_by_its_children: accept_by_children_dir,
+				});
 			}
 		}
 
 		let mut accept_by_glob = false;
 		if let Some(accept_rules) = rules_per_kind.get(&RuleKind::AcceptFilesByGlob) {
 			for accept_rule in accept_rules {
-				// It's ok to unwrap here, accept rules are infallible
-				if accept_rule.apply(&current_path).await.unwrap() {
+				if accept_rule
+					.apply(&current_path)
+					.await
+					.expect("accept rules by glob must be infallible")
+				{
 					trace!(
 						"Path {} accepted by rule {}",
 						current_path.display(),
@@ -301,21 +396,24 @@ async fn inner_walk_single_dir(
 			accept_by_glob = true;
 		}
 
-		if accept_by_glob && (accept_by_children_dir.is_none() || accept_by_children_dir.unwrap()) {
-			indexed_paths.insert(
-				current_path.clone(),
-				WalkEntry {
-					path: current_path.clone(),
-					is_dir,
-					metadata: FilePathMetadata {
-						inode,
-						device,
-						size_in_bytes: metadata.len(),
-						created_at: metadata.created_or_now().into(),
-						modified_at: metadata.modified_or_now().into(),
-					},
-				},
-			);
+		if accept_by_glob
+			&& (accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked"))
+		{
+			let Ok(iso_file_path) = iso_file_path_factory(&current_path, is_dir)
+				.map_err(|e| errors.push(e.into()))
+				else {
+					continue 'entries;
+			};
+			paths_buffer.push(WalkingEntry {
+				iso_file_path,
+				maybe_metadata: Some(FilePathMetadata {
+					inode,
+					device,
+					size_in_bytes: metadata.len(),
+					created_at: metadata.created_or_now().into(),
+					modified_at: metadata.modified_or_now().into(),
+				}),
+			});
 
 			// If the ancestors directories wasn't indexed before, now we do
 			for ancestor in current_path
@@ -323,35 +421,50 @@ async fn inner_walk_single_dir(
 				.skip(1) // Skip the current directory as it was already indexed
 				.take_while(|&ancestor| ancestor != root)
 			{
+				let Ok(iso_file_path) = iso_file_path_factory(ancestor, true)
+					.map_err(|e| errors.push(e.into()))
+					else {
+						// Checking the next ancestor, as this one we got an error
+						continue;
+				};
+
+				let mut ancestor_iso_walking_entry = WalkingEntry {
+					iso_file_path,
+					maybe_metadata: None,
+				};
 				trace!("Indexing ancestor {}", ancestor.display());
-				if !indexed_paths.contains_key(ancestor) {
-					let metadata = fs::metadata(ancestor).await?;
-					let (inode, device) = {
+				if !already_indexed_paths.contains(&ancestor_iso_walking_entry) {
+					let Ok(metadata) = fs::metadata(ancestor)
+						.await
+						.map_err(|e| errors.push(FileIOError::from((&root, e)).into()))
+						else {
+							// Checking the next ancestor, as this one we got an error
+							continue;
+					};
+					let Ok((inode, device)) = {
 						#[cfg(target_family = "unix")]
 						{
-							get_inode_and_device(&metadata)?
+							get_inode_and_device(&metadata)
 						}
 
 						#[cfg(target_family = "windows")]
 						{
-							get_inode_and_device_from_path(ancestor).await?
+							get_inode_and_device_from_path(ancestor).await
 						}
+					}.map_err(|e| errors.push(e.into())) else {
+						// Checking the next ancestor, as this one we got an error
+						continue;
 					};
 
-					indexed_paths.insert(
-						ancestor.to_path_buf(),
-						WalkEntry {
-							path: ancestor.to_path_buf(),
-							is_dir: true,
-							metadata: FilePathMetadata {
-								inode,
-								device,
-								size_in_bytes: metadata.len(),
-								created_at: metadata.created_or_now().into(),
-								modified_at: metadata.modified_or_now().into(),
-							},
-						},
-					);
+					ancestor_iso_walking_entry.maybe_metadata = Some(FilePathMetadata {
+						inode,
+						device,
+						size_in_bytes: metadata.len(),
+						created_at: metadata.created_or_now().into(),
+						modified_at: metadata.modified_or_now().into(),
+					});
+
+					paths_buffer.push(ancestor_iso_walking_entry);
 				} else {
 					// If indexed_paths contains the current ancestors, then it will contain
 					// also all if its ancestors too, so we can stop here
@@ -361,72 +474,11 @@ async fn inner_walk_single_dir(
 		}
 	}
 
-	Ok(())
-}
+	// Just merging the `found_paths` with `already_indexed_paths` here in the end to avoid possibly
+	// multiple rehashes during function execution
+	already_indexed_paths.extend(paths_buffer.drain(..));
 
-async fn prepared_indexed_paths(
-	root: PathBuf,
-	indexed_paths: HashMap<PathBuf, WalkEntry>,
-	include_root_ir: Option<Uuid>,
-) -> Result<Vec<WalkEntry>, IndexerError> {
-	let mut indexed_paths = indexed_paths.into_values().collect::<Vec<_>>();
-
-	if include_root.is_some() {
-		// Also adding the root location path
-		let metadata = fs::metadata(&root).await?;
-		let (inode, device) = {
-			#[cfg(target_family = "unix")]
-			{
-				get_inode_and_device(&metadata)?
-			}
-
-			#[cfg(target_family = "windows")]
-			{
-				get_inode_and_device_from_path(&root).await?
-			}
-		};
-		indexed_paths.push(WalkEntry {
-			path: root,
-			is_dir: true,
-			metadata: FilePathMetadata {
-				inode,
-				device,
-				size_in_bytes: metadata.len(),
-				created_at: metadata.created_or_now().into(),
-				modified_at: metadata.modified_or_now().into(),
-			},
-		});
-	}
-
-	// Sorting so we can give each path a crescent id given the filesystem hierarchy
-	indexed_paths.sort();
-
-	Ok(indexed_paths)
-}
-
-pub(super) async fn walk_single_dir(
-	root: impl AsRef<Path>,
-	root_id: Uuid,
-	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	mut update_notifier: impl FnMut(&Path, usize) + '_,
-) -> Result<Vec<WalkEntry>, IndexerError> {
-	let root = root.as_ref().to_path_buf();
-
-	let mut read_dir = fs::read_dir(&root).await?;
-	let mut indexed_paths = HashMap::new();
-
-	inner_walk_single_dir(
-		&root,
-		(root.clone(), None),
-		&mut read_dir,
-		rules_per_kind,
-		&mut update_notifier,
-		&mut indexed_paths,
-		None,
-	)
-	.await?;
-
-	prepared_indexed_paths(root, indexed_paths, false).await
+	errors
 }
 
 #[cfg(test)]
@@ -434,11 +486,24 @@ mod tests {
 	use super::super::rules::ParametersPerKind;
 	use super::*;
 	use chrono::Utc;
-	use globset::Glob;
-	use std::collections::BTreeSet;
+	use globset::{Glob, GlobSetBuilder};
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
 	use tracing_test::traced_test;
+
+	impl PartialEq for WalkedEntry {
+		fn eq(&self, other: &Self) -> bool {
+			self.iso_file_path == other.iso_file_path
+		}
+	}
+
+	impl Eq for WalkedEntry {}
+
+	impl Hash for WalkedEntry {
+		fn hash<H: Hasher>(&self, state: &mut H) {
+			self.iso_file_path.hash(state);
+		}
+	}
 
 	async fn prepare_location() -> TempDir {
 		let root = tempdir().unwrap();
@@ -510,40 +575,50 @@ mod tests {
 			modified_at: Utc::now(),
 		};
 
+		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
+
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos/text.txt"), is_dir: false, metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules/react"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules/react/package.json"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo1.png"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo2.jpg"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo3.jpeg"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/text.txt"), false), metadata },
 		]
 		.into_iter()
-		.collect::<BTreeSet<_>>();
+		.collect::<HashSet<_>>();
 
-		let actual = walk(root_path.to_path_buf(), &HashMap::new(), |_, _| {}, true)
-			.await
-			.unwrap()
-			.into_iter()
-			.collect::<BTreeSet<_>>();
+		let actual = walk(
+			root_path.to_path_buf(),
+			&HashMap::new(),
+			|_, _| {},
+			|_| async move { Ok(vec![]) },
+			|path, is_dir| {
+				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
+			},
+			420,
+		)
+		.await
+		.unwrap()
+		.walked
+		.collect::<HashSet<_>>();
 
 		assert_eq!(actual, expected);
 	}
@@ -562,16 +637,17 @@ mod tests {
 			modified_at: Utc::now(),
 		};
 
+		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
+
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("photos"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("photos/photo1.png"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos/photo2.jpg"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("photos/photo3.jpeg"), is_dir: false, metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo1.png"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo2.jpg"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("photos/photo3.jpeg"), false), metadata },
 		]
 		.into_iter()
-		.collect::<BTreeSet<_>>();
+		.collect::<HashSet<_>>();
 
 		let only_photos_rule = [(
 			RuleKind::AcceptFilesByGlob,
@@ -579,19 +655,32 @@ mod tests {
 				RuleKind::AcceptFilesByGlob,
 				"only photos".to_string(),
 				false,
-				ParametersPerKind::AcceptFilesByGlob(vec![
-					Glob::new("{*.png,*.jpg,*.jpeg}").unwrap()
-				]),
+				ParametersPerKind::AcceptFilesByGlob(
+					vec![],
+					GlobSetBuilder::new()
+						.add(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap())
+						.build()
+						.unwrap(),
+				),
 			)],
 		)]
 		.into_iter()
 		.collect::<HashMap<_, _>>();
 
-		let actual = walk(root_path.to_path_buf(), &only_photos_rule, |_, _| {}, true)
-			.await
-			.unwrap()
-			.into_iter()
-			.collect::<BTreeSet<_>>();
+		let actual = walk(
+			root_path.to_path_buf(),
+			&only_photos_rule,
+			|_, _| {},
+			|_| async move { Ok(vec![]) },
+			|path, is_dir| {
+				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
+			},
+			420,
+		)
+		.await
+		.unwrap()
+		.walked
+		.collect::<HashSet<_>>();
 
 		assert_eq!(actual, expected);
 	}
@@ -610,29 +699,30 @@ mod tests {
 			modified_at: Utc::now(),
 		};
 
+		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
+
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("rust_project/target"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/target/debug"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/target/debug/main"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/node_modules/react/package.json"), is_dir: false, metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules/react"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/node_modules/react/package.json"), false), metadata },
 		]
 		.into_iter()
-		.collect::<BTreeSet<_>>();
+		.collect::<HashSet<_>>();
 
 		let git_repos = [(
 			RuleKind::AcceptIfChildrenDirectoriesArePresent,
@@ -648,11 +738,20 @@ mod tests {
 		.into_iter()
 		.collect::<HashMap<_, _>>();
 
-		let actual = walk(root_path.to_path_buf(), &git_repos, |_, _| {}, true)
-			.await
-			.unwrap()
-			.into_iter()
-			.collect::<BTreeSet<_>>();
+		let actual = walk(
+			root_path.to_path_buf(),
+			&git_repos,
+			|_, _| {},
+			|_| async move { Ok(vec![]) },
+			|path, is_dir| {
+				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
+			},
+			420,
+		)
+		.await
+		.unwrap()
+		.walked
+		.collect::<HashSet<_>>();
 
 		assert_eq!(actual, expected);
 	}
@@ -671,23 +770,24 @@ mod tests {
 			modified_at: Utc::now(),
 		};
 
+		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
+
 		#[rustfmt::skip]
 		let expected = [
-			WalkEntry { path: root_path.to_path_buf(), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/Cargo.toml"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("rust_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("rust_project/src/main.rs"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/.git"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/package.json"), is_dir: false, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src"), is_dir: true, metadata },
-			WalkEntry { path: root_path.join("inner/node_project/src/App.tsx"), is_dir: false, metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/.git"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/package.json"), false), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src"), true), metadata },
+			WalkedEntry { iso_file_path: f(root_path.join("inner/node_project/src/App.tsx"), false), metadata },
 		]
 		.into_iter()
-		.collect::<BTreeSet<_>>();
+		.collect::<HashSet<_>>();
 
 		let git_repos_no_deps_no_build_dirs = [
 			(
@@ -708,19 +808,25 @@ mod tests {
 						RuleKind::RejectFilesByGlob,
 						"reject node_modules".to_string(),
 						false,
-						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
-							"{**/node_modules/*,**/node_modules}",
-						)
-						.unwrap()]),
+						ParametersPerKind::RejectFilesByGlob(
+							vec![],
+							GlobSetBuilder::new()
+								.add(Glob::new("{**/node_modules/*,**/node_modules}").unwrap())
+								.build()
+								.unwrap(),
+						),
 					),
 					IndexerRule::new(
 						RuleKind::RejectFilesByGlob,
 						"reject rust build dir".to_string(),
 						false,
-						ParametersPerKind::RejectFilesByGlob(vec![Glob::new(
-							"{**/target/*,**/target}",
-						)
-						.unwrap()]),
+						ParametersPerKind::RejectFilesByGlob(
+							vec![],
+							GlobSetBuilder::new()
+								.add(Glob::new("{**/target/*,**/target}").unwrap())
+								.build()
+								.unwrap(),
+						),
 					),
 				],
 			),
@@ -732,12 +838,16 @@ mod tests {
 			root_path.to_path_buf(),
 			&git_repos_no_deps_no_build_dirs,
 			|_, _| {},
-			true,
+			|_| async move { Ok(vec![]) },
+			|path, is_dir| {
+				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
+			},
+			420,
 		)
 		.await
 		.unwrap()
-		.into_iter()
-		.collect::<BTreeSet<_>>();
+		.walked
+		.collect::<HashSet<_>>();
 
 		assert_eq!(actual, expected);
 	}
