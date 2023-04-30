@@ -176,7 +176,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.key()
 							.update(
 								key::uuid::equals(args.uuid.to_string()),
-								vec![key::SetParam::SetAutomount(args.status)],
+								vec![key::automount::set(args.status)],
 							)
 							.exec()
 							.await?;
@@ -255,7 +255,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.key()
 						.update_many(
 							vec![key::default::equals(true)],
-							vec![key::SetParam::SetDefault(false)],
+							vec![key::default::set(false)],
 						)
 						.exec()
 						.await?;
@@ -265,7 +265,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.key()
 						.update(
 							key::uuid::equals(key_uuid.to_string()),
-							vec![key::SetParam::SetDefault(true)],
+							vec![key::default::set(true)],
 						)
 						.exec()
 						.await?;
@@ -322,7 +322,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.key()
 								.update(
 									key::uuid::equals(uuid.to_string()),
-									vec![key::SetParam::SetAutomount(true)],
+									vec![key::automount::set(true)],
 								)
 								.exec()
 								.await?;

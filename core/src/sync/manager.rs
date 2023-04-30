@@ -190,7 +190,7 @@ impl SyncManager {
 		db.node()
 			.upsert(
 				node::pub_id::equals(op.node.as_bytes().to_vec()),
-				node::create_unchecked(op.node.as_bytes().to_vec(), "TEMP".to_string(), vec![]),
+				node::create(op.node.as_bytes().to_vec(), "TEMP".to_string(), vec![]),
 				vec![],
 			)
 			.exec()
@@ -276,7 +276,7 @@ impl SyncManager {
 					db.object()
 						.upsert(
 							object::pub_id::equals(id.pub_id.clone()),
-							(id.pub_id, vec![]),
+							object::create(id.pub_id, vec![]),
 							vec![],
 						)
 						.exec()

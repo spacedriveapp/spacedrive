@@ -179,7 +179,7 @@ impl IndexerRule {
 				.indexer_rule()
 				.upsert(
 					indexer_rule::id::equals(id),
-					(
+					indexer_rule::create(
 						self.kind as i32,
 						self.name,
 						self.parameters.serialize()?,

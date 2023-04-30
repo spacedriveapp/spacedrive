@@ -28,6 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.query(|(_, library), args: GetArgs| async move {
 					Ok(library
 						.db
+						
 						.object()
 						.find_unique(object::id::equals(args.id))
 						.include(object::include!({ file_paths media_data }))

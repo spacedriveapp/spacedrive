@@ -325,7 +325,7 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: i32) -> location::FindUnique {
+pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
