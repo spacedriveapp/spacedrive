@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
+import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
 import { useExplorerParams } from '../location/$id';
 import ExplorerContextMenu from './ContextMenu';
+import DeleteDialog from './File/DeleteDialog';
 import View from './View';
 
 interface Props {
@@ -36,6 +38,17 @@ export default function Explorer(props: Props) {
 		if (selectedRowIndex !== -1) {
 			const item = props.items?.[selectedRowIndex];
 			if (item) getExplorerStore().quickViewObject = item;
+		}
+	});
+
+	useKey('Delete', (e) => {
+		e.preventDefault();
+		if (selectedRowIndex !== -1) {
+			const file = props.items?.[selectedRowIndex];
+			if (file && location_id)
+				dialogManager.create((dp) => (
+					<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
+				));
 		}
 	});
 
