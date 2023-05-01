@@ -1,6 +1,5 @@
 const path = require('node:path');
 module.exports = {
-	root: true,
 	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		ecmaFeatures: {

@@ -34,6 +34,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			createLocation({
 				path: decodeURIComponent(response.uri.replace('file://', '')),
+				dry_run: false,
 				indexer_rules_ids: []
 			});
 		} catch (err) {

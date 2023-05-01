@@ -1,6 +1,5 @@
 use crate::{
 	invalidate_query,
-	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
@@ -33,9 +32,9 @@ pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	pub libraries: RwLock<Vec<Library>>,
+	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	pub node_context: NodeContext,
+	node_context: NodeContext,
 }
 
 #[derive(Error, Debug)]
@@ -305,7 +304,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<Library> {
+	pub async fn get_library(&self, library_id: Uuid) -> Option<Library> {
 		self.libraries
 			.read()
 			.await
@@ -347,7 +346,7 @@ impl LibraryManager {
 			.node()
 			.upsert(
 				node::pub_id::equals(uuid_vec.clone()),
-				(
+				node::create(
 					uuid_vec,
 					node_config.name.clone(),
 					vec![node::platform::set(platform as i32)],
@@ -381,7 +380,6 @@ impl LibraryManager {
 			key_manager,
 			sync: Arc::new(sync_manager),
 			db,
-			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
 			node_local_id: node_data.id,
 			node_context,
 		};

@@ -81,7 +81,7 @@ impl InitConfig {
 				}
 			});
 
-			let library = match library_manager.get_ctx(lib.id).await {
+			let library = match library_manager.get_library(lib.id).await {
 				Some(lib) => lib,
 				None => {
 					let library = library_manager
@@ -95,7 +95,7 @@ impl InitConfig {
 						.await
 						.unwrap();
 
-					library_manager.get_ctx(library.uuid).await.unwrap()
+					library_manager.get_library(library.uuid).await.unwrap()
 				}
 			};
 
@@ -134,10 +134,12 @@ impl InitConfig {
 
 				let location = LocationCreateArgs {
 					path: loc.path.into(),
+					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
 				.create(&library)
 				.await
+				.unwrap()
 				.unwrap();
 
 				scan_location(&library, location).await.unwrap();

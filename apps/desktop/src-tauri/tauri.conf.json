@@ -12,6 +12,9 @@
 	"tauri": {
 		"macOSPrivateApi": true,
 		"bundle": {
+			"appimage": {
+				"bundleMediaFramework": true
+			},
 			"active": true,
 			"targets": "all",
 			"identifier": "com.spacedrive.desktop",
@@ -79,7 +82,7 @@
 				"alwaysOnTop": false,
 				"focus": false,
 				"visible": false,
-				"fileDropEnabled": false,
+				"fileDropEnabled": true,
 				"decorations": true,
 				"transparent": true,
 				"center": true

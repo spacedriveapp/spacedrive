@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::HashSet, path::Path};
 use tokio::fs;
+use tracing::debug;
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
 /// Note that `parameters` field **MUST** be a JSON object serialized to bytes.
@@ -24,11 +25,26 @@ use tokio::fs;
 pub struct IndexerRuleCreateArgs {
 	pub kind: RuleKind,
 	pub name: String,
+	pub dry_run: bool,
 	pub parameters: Vec<String>,
 }
 
 impl IndexerRuleCreateArgs {
-	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerError> {
+	pub async fn create(
+		self,
+		library: &Library,
+	) -> Result<Option<indexer_rule::Data>, IndexerError> {
+		debug!(
+			"{} a new indexer rule (name = {}, params = {:?})",
+			if self.dry_run {
+				"Dry run: Would create"
+			} else {
+				"Trying to create"
+			},
+			self.name,
+			self.parameters
+		);
+
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
 				&self
@@ -42,13 +58,18 @@ impl IndexerRuleCreateArgs {
 			| RuleKind::RejectIfChildrenDirectoriesArePresent => rmp_serde::to_vec(&self.parameters)?,
 		};
 
-		library
-			.db
-			.indexer_rule()
-			.create(self.kind as i32, self.name, parameters, vec![])
-			.exec()
-			.await
-			.map_err(Into::into)
+		if self.dry_run {
+			return Ok(None);
+		}
+
+		Ok(Some(
+			library
+				.db
+				.indexer_rule()
+				.create(self.kind as i32, self.name, parameters, vec![])
+				.exec()
+				.await?,
+		))
 	}
 }
 
@@ -158,7 +179,7 @@ impl IndexerRule {
 				.indexer_rule()
 				.upsert(
 					indexer_rule::id::equals(id),
-					(
+					indexer_rule::create(
 						self.kind as i32,
 						self.name,
 						self.parameters.serialize()?,

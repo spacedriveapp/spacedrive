@@ -1,7 +1,13 @@
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{
+	collections::HashMap,
+	path::PathBuf,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 use sd_p2p::{
-	spaceblock::{BlockSize, TransferRequest},
+	spaceblock::{BlockSize, SpacedropRequest},
+	spacetime::SpaceTimeStream,
 	Event, Manager, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
@@ -9,8 +15,9 @@ use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt, BufReader},
-	sync::broadcast,
+	io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
+	sync::{broadcast, oneshot, Mutex},
+	time::sleep,
 };
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -22,6 +29,9 @@ use crate::{
 
 use super::{Header, PeerMetadata};
 
+/// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
+const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// TODO: P2P event for the frontend
 #[derive(Debug, Clone, Type, Serialize)]
 #[serde(tag = "type")]
@@ -30,23 +40,25 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		metadata: PeerMetadata,
 	},
-	// TODO: Expire peer + connection/disconnect
-	SyncOperation {
-		library_id: Uuid,
-		operations: Vec<CRDTOperation>,
+	SpacedropRequest {
+		id: Uuid,
+		peer_id: PeerId,
+		name: String,
 	},
+	// TODO: Expire peer + connection/disconnect
 }
 
 pub struct P2PManager {
 	pub events: broadcast::Sender<P2PEvent>,
 	pub manager: Arc<Manager<PeerMetadata>>,
+	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 }
 
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-	) -> (Arc<Self>, broadcast::Receiver<P2PEvent>) {
+	) -> (Arc<Self>, broadcast::Receiver<(Uuid, Vec<CRDTOperation>)>) {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(Self::config_to_metadata(&config), config.keypair)
@@ -65,10 +77,14 @@ impl P2PManager {
 			manager.listen_addrs().await
 		);
 
-		let (tx, rx) = broadcast::channel(100);
+		let (tx, _) = broadcast::channel(100);
+		let (tx2, rx2) = broadcast::channel(100);
 
+		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		tokio::spawn({
 			let events = tx.clone();
+			// let sync_events = tx2.clone();
+			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -93,6 +109,8 @@ impl P2PManager {
 						}
 						Event::PeerMessage(mut event) => {
 							let events = events.clone();
+							let sync_events = tx2.clone();
+							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 
 							tokio::spawn(async move {
 								let header = Header::from_stream(&mut event.stream).await.unwrap();
@@ -102,20 +120,60 @@ impl P2PManager {
 										debug!("Received ping from peer '{}'", event.peer_id);
 									}
 									Header::Spacedrop(req) => {
-										info!("Received Spacedrop from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
+										let mut stream = match event.stream {
+											SpaceTimeStream::Unicast(stream) => stream,
+											_ => {
+												// TODO: Return an error to the remote client
+												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
+												return;
+											}
+										};
+										let id = Uuid::new_v4();
+										let (tx, rx) = oneshot::channel();
 
-										// TODO: Ask the user if they wanna reject/accept it
+										info!("spacedrop({id}): received from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
 
-										// TODO: Deal with binary data. Deal with blocking based on `req.block_size`, etc
-										let mut s = String::new();
-										event.stream.read_to_string(&mut s).await.unwrap();
+										spacedrop_pairing_reqs.lock().await.insert(id, tx);
+										events
+											.send(P2PEvent::SpacedropRequest {
+												id,
+												peer_id: event.peer_id,
+												name: req.name,
+											})
+											.unwrap();
 
-										println!(
-										"Recieved file '{}' with content '{}' through Spacedrop!",
-										req.name, s
-									);
+										let file_path = tokio::select! {
+											_ = sleep(SPACEDROP_TIMEOUT) => {
+												info!("spacedrop({id}): timeout, rejecting!");
 
-										// TODO: Save to the filesystem
+												return;
+											}
+											file_path = rx => {
+												match file_path {
+													Ok(Some(file_path)) => {
+														info!("spacedrop({id}): accepted saving to '{:?}'", file_path);
+														file_path
+													}
+													Ok(None) => {
+														info!("spacedrop({id}): rejected");
+														return;
+													}
+													Err(_) => {
+														info!("spacedrop({id}): error with Spacedrop pairing request receiver!");
+														return;
+													}
+												}
+											}
+										};
+
+										stream.write_all(&[1]).await.unwrap();
+
+										let mut f = File::create(file_path).await.unwrap();
+
+										// TODO: Use binary block protocol instead of this
+										io::copy(&mut stream, &mut f).await.unwrap();
+
+										info!("spacedrop({id}): complete");
 									}
 									Header::Sync(library_id, len) => {
 										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
@@ -126,12 +184,7 @@ impl P2PManager {
 
 										println!("Received sync events for library '{library_id}': {operations:?}");
 
-										events
-											.send(P2PEvent::SyncOperation {
-												library_id,
-												operations,
-											})
-											.ok();
+										sync_events.send((library_id, operations)).unwrap();
 									}
 								}
 							});
@@ -159,6 +212,7 @@ impl P2PManager {
 		let this = Arc::new(Self {
 			events: tx,
 			manager,
+			spacedrop_pairing_reqs,
 			metadata_manager,
 		});
 
@@ -227,7 +281,7 @@ impl P2PManager {
 			// });
 		}
 
-		(this, rx)
+		(this, rx2)
 	}
 
 	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
@@ -243,6 +297,18 @@ impl P2PManager {
 	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
 		self.metadata_manager
 			.update(Self::config_to_metadata(&node_config_manager.get().await));
+	}
+
+	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
+		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+			chan.send(Some(path)).unwrap();
+		}
+	}
+
+	pub async fn reject_spacedrop(&self, id: Uuid) {
+		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
+			chan.send(None).unwrap();
+		}
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
@@ -273,7 +339,7 @@ impl P2PManager {
 
 		stream
 			.write_all(
-				&Header::Spacedrop(TransferRequest {
+				&Header::Spacedrop(SpacedropRequest {
 					name: path.file_name().unwrap().to_str().unwrap().to_string(), // TODO: Encode this as bytes instead
 					size: metadata.len(),
 					block_size: BlockSize::from_size(metadata.len()),
@@ -282,6 +348,15 @@ impl P2PManager {
 			)
 			.await
 			.unwrap();
+
+		debug!("Waiting for Spacedrop to be accepted from peer '{peer_id}'");
+		let mut buf = [0; 1];
+		// TODO: Add timeout so the connection is dropped if they never response
+		stream.read_exact(&mut buf).await.unwrap();
+		if buf[0] != 1 {
+			debug!("Spacedrop was rejected from peer '{peer_id}'");
+			return;
+		}
 
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();

@@ -29,7 +29,7 @@ use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
-type MetadataCacheKey = (Uuid, i32, i32);
+type MetadataCacheKey = (Uuid, i32);
 type NameAndExtension = (PathBuf, String);
 static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
@@ -159,7 +159,7 @@ async fn handle_file(
 			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing file_path_id!")
 		})?;
 
-	let lru_cache_key = (library_id, location_id, file_path_id);
+	let lru_cache_key = (library_id, file_path_id);
 
 	let (file_path_materialized_path, extension) =
 		if let Some(entry) = FILE_METADATA_CACHE.get(&lru_cache_key) {
@@ -167,13 +167,14 @@ async fn handle_file(
 		} else {
 			let library = node
 				.library_manager
-				.get_ctx(library_id)
+				.get_library(library_id)
 				.await
 				.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
+
 			let file_path = library
 				.db
 				.file_path()
-				.find_unique(file_path::location_id_id(location_id, file_path_id))
+				.find_unique(file_path::id::equals(file_path_id))
 				.include(file_path::include!({ location }))
 				.exec()
 				.await?

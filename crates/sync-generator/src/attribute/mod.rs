@@ -1,4 +1,4 @@
-use prisma_client_rust_sdk::prelude::*;
+use prisma_client_rust_sdk::prisma::prisma_models::{ast::WithDocumentation, walkers::ModelWalker};
 
 mod parser;
 
@@ -41,9 +41,10 @@ impl<'a> Attribute<'a> {
 	}
 }
 
-pub fn model_attributes(model: &dml::Model) -> Vec<Attribute> {
+pub fn model_attributes(model: ModelWalker) -> Vec<Attribute> {
 	model
-		.documentation
+		.ast_model()
+		.documentation()
 		.as_ref()
 		.map(|docs| docs.lines().flat_map(Attribute::parse).collect())
 		.unwrap_or_default()

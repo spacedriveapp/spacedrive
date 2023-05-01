@@ -4,6 +4,7 @@ use crate::{
 	library::Library,
 	prisma::file_path,
 	sync,
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -20,6 +21,7 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::io;
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	file_path_helper::{FilePathError, FilePathMetadata, MaterializedPath},
@@ -71,8 +73,8 @@ pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 pub struct IndexerJobStepEntry {
 	full_path: PathBuf,
 	materialized_path: MaterializedPath<'static>,
-	file_id: i32,
-	parent_id: Option<i32>,
+	file_id: Uuid,
+	parent_id: Option<Uuid>,
 	metadata: FilePathMetadata,
 }
 
@@ -165,29 +167,26 @@ async fn execute_indexer_step(
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						id: entry.file_id,
-						location: sync::location::SyncId {
-							pub_id: location.pub_id.clone(),
-						},
+						pub_id: uuid_to_bytes(entry.file_id),
 					},
 					[
-						("materialized_path", json!(materialized_path.clone())),
-						("name", json!(name.clone())),
-						("is_dir", json!(is_dir)),
-						("extension", json!(extension.clone())),
+						(materialized_path::NAME, json!(materialized_path.clone())),
+						(name::NAME, json!(name.clone())),
+						(is_dir::NAME, json!(is_dir)),
+						(extension::NAME, json!(extension.clone())),
 						(
-							"size_in_bytes",
+							size_in_bytes::NAME,
 							json!(entry.metadata.size_in_bytes.to_string()),
 						),
-						("inode", json!(entry.metadata.inode.to_le_bytes())),
-						("device", json!(entry.metadata.device.to_le_bytes())),
-						("parent_id", json!(entry.parent_id)),
-						("date_created", json!(entry.metadata.created_at)),
-						("date_modified", json!(entry.metadata.modified_at)),
+						(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
+						(device::NAME, json!(entry.metadata.device.to_le_bytes())),
+						(parent_id::NAME, json!(entry.parent_id)),
+						(date_created::NAME, json!(entry.metadata.created_at)),
+						(date_modified::NAME, json!(entry.metadata.modified_at)),
 					],
 				),
 				file_path::create_unchecked(
-					entry.file_id,
+					uuid_to_bytes(entry.file_id),
 					location.id,
 					materialized_path.into_owned(),
 					name.into_owned(),
@@ -197,7 +196,7 @@ async fn execute_indexer_step(
 					vec![
 						is_dir::set(is_dir),
 						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
-						parent_id::set(entry.parent_id),
+						parent_id::set(entry.parent_id.map(uuid_to_bytes)),
 						date_created::set(entry.metadata.created_at.into()),
 						date_modified::set(entry.metadata.modified_at.into()),
 					],

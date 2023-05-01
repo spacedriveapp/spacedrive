@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { CaretRight, Info, Plus, Trash, X } from 'phosphor-react';
-import { ComponentProps, createRef, forwardRef, useEffect, useId, useState } from 'react';
+import { ComponentProps, createRef, forwardRef, useCallback, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, ControllerRenderProps, FormProvider } from 'react-hook-form';
 import {
@@ -14,8 +14,8 @@ import {
 import { Button, Card, Divider, Input, Switch, Tabs, Tooltip, inputSizes } from '@sd/ui';
 import { ErrorMessage, Form, Input as FormInput, useZodForm, z } from '@sd/ui/src/forms';
 import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
-import { showAlertDialog } from '~/components/AlertDialog';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { showAlertDialog } from '~/components';
+import { useCallbackToWatchForm, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { openDirectoryPickerDialog } from './AddLocationDialog';
 
@@ -193,13 +193,15 @@ export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
 
 const ruleKindEnum = z.enum(ruleKinds);
 
-const newRuleSchema = z.object({
+const schema = z.object({
 	kind: ruleKindEnum,
 	name: z.string().min(3),
 	parameters: z
 		.array(z.tuple([z.enum(Object.keys(RuleTabsInput) as UnionToTuple<RuleType>), z.string()]))
 		.nonempty()
 });
+
+type SchemaType = z.infer<typeof schema>;
 
 const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 
@@ -211,7 +213,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	editable
 }: IndexerRuleEditorProps<T>) {
 	const form = useZodForm({
-		schema: newRuleSchema,
+		schema: schema,
 		defaultValues: { name: '', kind: 'RejectFilesByGlob', parameters: [] }
 	});
 	const formId = useId();
@@ -222,19 +224,12 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	const [isDeleting, setIsDeleting] = useState<boolean>(false);
 	const [showCreateNewRule, setShowCreateNewRule] = useState(false);
 
-	useEffect(() => {
-		// TODO: Instead of clearing the error on every change, the backend should suport a way to validate without committing
-		const subscription = form.watch(() => {
-			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
-		});
-		return () => subscription.unsubscribe();
-	}, [form]);
-
-	const onSubmit = form.handleSubmit(({ kind, name, parameters }) =>
-		createIndexerRules
-			.mutateAsync({
+	const addIndexerRules = useCallback(
+		({ kind, name, parameters }: SchemaType, dryRun = false) =>
+			createIndexerRules.mutateAsync({
 				kind,
 				name,
+				dry_run: dryRun,
 				parameters: parameters.flatMap(([kind, rule]) => {
 					switch (kind) {
 						case 'Name':
@@ -246,28 +241,38 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 							return rule;
 					}
 				})
-			})
-			.then(async () => {
-				await listIndexerRules.refetch();
-				form.reset();
-			}, onSubmitError)
+			}),
+		[createIndexerRules]
 	);
 
-	const onSubmitError = (error: Error) => {
-		const rspcErrorInfo = extractInfoRSPCError(error);
-		if (rspcErrorInfo && rspcErrorInfo.code !== 500) {
-			form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
-			form.setError(REMOTE_ERROR_FORM_FIELD, {
-				type: 'remote',
-				message: rspcErrorInfo.message
-			});
-		} else {
-			showAlertDialog({
-				title: 'Error',
-				value: String(error) || 'Failed to add location'
-			});
-		}
-	};
+	const handleAddError = useCallback(
+		(error: unknown) => {
+			const rspcErrorInfo = extractInfoRSPCError(error);
+			if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
+
+			const { message } = rspcErrorInfo;
+
+			if (message)
+				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+
+			return true;
+		},
+		[form]
+	);
+
+	useCallbackToWatchForm(
+		async (values) => {
+			form.clearErrors(REMOTE_ERROR_FORM_FIELD);
+			// Only validate with backend if the form is locally valid
+			if (!form.formState.isValid) return;
+			try {
+				await addIndexerRules(values, true);
+			} catch (error) {
+				handleAddError(error);
+			}
+		},
+		[form, addIndexerRules, handleAddError]
+	);
 
 	const indexRules = listIndexerRules.data;
 	const {
@@ -352,7 +357,27 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 						id={formId}
 						form={form}
 						disabled={isFormSubmitting}
-						onSubmit={onSubmit}
+						onSubmit={form.handleSubmit(async (values) => {
+							try {
+								await addIndexerRules(values);
+							} catch (error) {
+								if (handleAddError(error)) {
+									// Reset form to remove isSubmitting state
+									form.reset(
+										{},
+										{ keepValues: true, keepErrors: true, keepIsValid: true }
+									);
+								} else {
+									showAlertDialog({
+										title: 'Error',
+										value: String(error) || 'Failed to create new indexer rule'
+									});
+									return;
+								}
+							}
+							form.reset();
+							await listIndexerRules.refetch();
+						})}
 						className="hidden h-0 w-0"
 					/>,
 					document.body
@@ -505,7 +530,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												render={({ field }) => (
 													<Switch
 														onCheckedChange={(checked) => {
-															// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for it
+															// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for them
 															// kind.AcceptIfChildrenDirectoriesArePresent
 															// kind.RejectIfChildrenDirectoriesArePresent
 															const kind = ruleKindEnum.enum;

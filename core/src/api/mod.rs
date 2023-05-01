@@ -4,6 +4,7 @@ use rspc::{alpha::Rspc, Config};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{
 	api::{
@@ -109,7 +110,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				#[specta(optional)]
 				location_id: Option<i32>,
 				#[specta(optional)]
-				after_file_id: Option<(i32, i32)>,
+				after_file_id: Option<Uuid>,
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
@@ -169,8 +170,8 @@ pub(crate) fn mount() -> Arc<Router> {
 						.flatten()
 						.collect();
 					let mut query = library.db.file_path().find_many(params);
-					if let Some((loc_id, file_id)) = args.after_file_id {
-						query = query.cursor(file_path::location_id_id(loc_id, file_id))
+					if let Some(file_id) = args.after_file_id {
+						query = query.cursor(file_path::pub_id::equals(file_id.as_bytes().to_vec()))
 					}
 					if let Some(order) = args.order {
 						query = query.order_by(order.to_param());
@@ -208,19 +209,23 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("invalidation.", utils::mount_invalidate())
-		.build({
-			let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+		.build(
+			#[allow(clippy::let_and_return)]
+			{
+				let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
 
-			#[cfg(all(debug_assertions, not(feature = "mobile")))]
-			let config = config.export_ts_bindings(
-				std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-					.join("../packages/client/src/core.ts"),
-			);
+				#[cfg(all(debug_assertions, not(feature = "mobile")))]
+				let config = config.export_ts_bindings(
+					std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+						.join("../packages/client/src/core.ts"),
+				);
 
-			config
-		})
+				config
+			},
+		)
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
