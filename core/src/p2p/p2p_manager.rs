@@ -6,7 +6,7 @@ use std::{
 };
 
 use sd_p2p::{
-	spaceblock::{BlockSize, SpacedropRequest},
+	spaceblock::{spaceblock_receive, spaceblock_send, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
 	Event, Manager, MetadataManager, PeerId,
 };
@@ -15,7 +15,7 @@ use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
-	io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
+	io::{AsyncReadExt, AsyncWriteExt},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
@@ -138,7 +138,7 @@ impl P2PManager {
 											.send(P2PEvent::SpacedropRequest {
 												id,
 												peer_id: event.peer_id,
-												name: req.name,
+												name: req.name.clone(),
 											})
 											.unwrap();
 
@@ -168,10 +168,9 @@ impl P2PManager {
 
 										stream.write_all(&[1]).await.unwrap();
 
-										let mut f = File::create(file_path).await.unwrap();
+										let f = File::create(file_path).await.unwrap();
 
-										// TODO: Use binary block protocol instead of this
-										io::copy(&mut stream, &mut f).await.unwrap();
+										spaceblock_receive(&mut stream, f, &req).await;
 
 										info!("spacedrop({id}): complete");
 									}
@@ -229,26 +228,6 @@ impl P2PManager {
 
 		// TODO(@Oscar): Remove this in the future once i'm done using it for testing
 		if std::env::var("SPACEDROP_DEMO").is_ok() {
-			tokio::spawn({
-				let this = this.clone();
-				async move {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					let mut connected = this
-						.manager
-						.get_connected_peers()
-						.await
-						.unwrap()
-						.into_iter();
-					if let Some(peer_id) = connected.next() {
-						info!("Starting Spacedrop to peer '{}'", peer_id);
-						this.big_bad_spacedrop(peer_id, PathBuf::from("./demo.txt"))
-							.await;
-					} else {
-						info!("No clients found so skipping Spacedrop demo!");
-					}
-				}
-			});
-
 			// tokio::spawn({
 			// 	let this = this.clone();
 			// 	async move {
@@ -335,19 +314,13 @@ impl P2PManager {
 
 		let file = File::open(&path).await.unwrap();
 		let metadata = file.metadata().await.unwrap();
-		let mut reader = BufReader::new(file);
 
-		stream
-			.write_all(
-				&Header::Spacedrop(SpacedropRequest {
-					name: path.file_name().unwrap().to_str().unwrap().to_string(), // TODO: Encode this as bytes instead
-					size: metadata.len(),
-					block_size: BlockSize::from_size(metadata.len()),
-				})
-				.to_bytes(),
-			)
-			.await
-			.unwrap();
+		let header = Header::Spacedrop(SpacedropRequest {
+			name: path.file_name().unwrap().to_str().unwrap().to_string(), // TODO: Encode this as bytes instead
+			size: metadata.len(),
+			block_size: BlockSize::from_size(metadata.len()), // TODO: This should be dynamic
+		});
+		stream.write_all(&header.to_bytes()).await.unwrap();
 
 		debug!("Waiting for Spacedrop to be accepted from peer '{peer_id}'");
 		let mut buf = [0; 1];
@@ -361,11 +334,15 @@ impl P2PManager {
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
-		// TODO: Replace this with the Spaceblock `Block` system
-		let mut buffer = Vec::new();
-		reader.read_to_end(&mut buffer).await.unwrap();
-		println!("READ {:?}", buffer);
-		stream.write_all(&buffer).await.unwrap();
+		spaceblock_send(
+			&mut stream,
+			file,
+			&match header {
+				Header::Spacedrop(req) => req,
+				_ => unreachable!(),
+			},
+		)
+		.await;
 
 		debug!(
 			"Finished Spacedrop to peer '{peer_id}' after '{:?}",
