@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
+import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
@@ -71,6 +72,8 @@ export const ViewItem = ({
 
 interface Props {
 	data: ExplorerItem[];
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
 }
 
 interface ExplorerView {
@@ -101,6 +104,9 @@ export default memo((props: Props) => {
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
 				{layoutMode === 'media' && <MediaView />}
+				{props.hasNextPage && (
+					<Button onClick={() => props.onLoadMore?.()}>Load More</Button>
+				)}
 			</context.Provider>
 		</div>
 	);
