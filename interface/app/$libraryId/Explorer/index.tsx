@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router';
 import { useKey } from 'rooks';
 import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -13,6 +12,8 @@ interface Props {
 	// and it's not exactly compatible with search
 	// data?: ExplorerData;
 	items?: ExplorerData['items'];
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
 }
 
 export default function Explorer(props: Props) {
@@ -43,7 +44,7 @@ export default function Explorer(props: Props) {
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
-						{props.items && <View data={props.items} />}
+						{props.items && <View data={props.items} onLoadMore={props.onLoadMore} />}
 					</div>
 				</ExplorerContextMenu>
 
