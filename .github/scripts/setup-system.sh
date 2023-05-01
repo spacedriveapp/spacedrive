@@ -219,8 +219,9 @@ if [ "$SYSNAME" = "Linux" ]; then
   fi
 elif [ "$SYSNAME" = "Darwin" ]; then
   # Location for installing script dependencies
-  mkdir -p deps
-  PATH="$PATH:$(pwd)/deps"
+  _deps_dir="${_script_path}/deps"
+  mkdir -p "$_deps_dir"
+  PATH="$PATH:${_deps_dir}"
   export PATH
 
   _arch="$(uname -m)"
@@ -230,18 +231,26 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     case "$_arch" in
       x86_64)
         _jq_url='https://packages.macports.org/jq/jq-1.6_4.darwin_19.x86_64.tbz2'
+        _oniguruma6_url='https://packages.macports.org/oniguruma6/oniguruma6-6.9.8_0.darwin_19.x86_64.tbz2'
         ;;
       arm64)
         _jq_url='https://packages.macports.org/jq/jq-1.6_4.darwin_20.arm64.tbz2'
+        _oniguruma6_url='https://packages.macports.org/oniguruma6/oniguruma6-6.9.8_0.darwin_20.arm64.tbz2'
         ;;
       *)
         err "Unsupported architecture: $_arch"
         ;;
     esac
 
-    # Download the latest jq binary from macports
-    curl -sL "$_jq_url" | tar -xjOf - ./opt/local/bin/jq >"jq"
-    chmod +x jq
+    # Download the latest jq binary and deps from macports
+    curl -sL "$_jq_url" | tar -xjOf - ./opt/local/bin/jq >"${_deps_dir}/jq"
+    curl -sL "$_oniguruma6_url" | tar -xjOf - ./opt/local/lib/libonig.5.dylib >"${_deps_dir}/libonig.5.dylib"
+
+    # Make the binaries executable
+    chmod +x "$_deps_dir"/*
+
+    # Make jq look for deps in the same directory
+    install_name_tool -change '/opt/local/lib/libonig.5.dylib' -change '@executable_path/libonig.5.dylib' "${_deps_dir}/jq"
   fi
 
   # Create frameworks directory to put Spacedrive dependencies
@@ -254,28 +263,26 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   _page=1
   while [ $_page -gt 0 ]; do
     # TODO: Filter only actions triggered by the main branch
-    _success="$(
-      gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
-        | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
-        | while IFS= read -r _artifacts_url; do
-          if _artificat_path="$(
-            curl -LSs "$_artifacts_url" \
-              | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
-                '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
-          )"; then
-            # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
-            # https://github.com/actions/upload-artifact/issues/51
-            # TODO: Use Github's private API when running on CI
-            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | zcat - | XZ_OPT='-T0' tar -xJf - -C "$_frameworks_dir"; then
-              printf 'yes'
-              exit
-            fi
-
-            echo "Failed to ffmpeg artifiact release, trying again in 1sec..." >&3
-            sleep 1
+    _success=$(gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
+      | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
+      | while IFS= read -r _artifacts_url; do
+        if _artificat_path="$(
+          curl -LSs "$_artifacts_url" \
+            | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
+              '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
+        )"; then
+          # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+          # https://github.com/actions/upload-artifact/issues/51
+          # TODO: Use Github's private API when running on CI
+          if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artificat_path}" | tar -xOf- | XZ_OPT='-T0' tar -xJf- -C "$_frameworks_dir"; then
+            printf 'yes'
+            exit
           fi
-        done
-    )"
+
+          echo "Failed to ffmpeg artifiact release, trying again in 1sec..." >&3
+          sleep 1
+        fi
+      done)
 
     if [ "${_success:-}" = 'yes' ]; then
       break
@@ -290,26 +297,24 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   echo "Download protobuf build"
   _page=1
   while [ $_page -gt 0 ]; do
-    _success="$(
-      gh_curl "${_gh_url}/protocolbuffers/protobuf/releases?page=${_page}&per_page=100" \
-        | jq --arg arch "$(
-          if [ "$_arch" = 'arm64' ]; then
-            echo 'aarch_64'
-          else
-            echo 'x86_64'
-          fi
-        )" -r \
-          '. | if length == 0 then error("Error: No releases found") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
-        | while IFS= read -r _asset_url; do
-          if curl -LSs "${_asset_url}" | tar -xf - -C "$_frameworks_dir"; then
-            printf 'yes'
-            exit
-          fi
+    _success=$(gh_curl "${_gh_url}/protocolbuffers/protobuf/releases?page=${_page}&per_page=100" \
+      | jq --arg arch "$(
+        if [ "$_arch" = 'arm64' ]; then
+          echo 'aarch_64'
+        else
+          echo 'x86_64'
+        fi
+      )" -r \
+        '. | if length == 0 then error("Error: No releases found") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
+      | while IFS= read -r _asset_url; do
+        if curl -LSs "${_asset_url}" | tar -xf - -C "$_frameworks_dir"; then
+          printf 'yes'
+          exit
+        fi
 
-          echo "Failed to download protobuf release, trying again in 1sec..." >&3
-          sleep 1
-        done
-    )"
+        echo "Failed to download protobuf release, trying again in 1sec..." >&3
+        sleep 1
+      done)
 
     if [ "${_success:-}" = 'yes' ]; then
       break
