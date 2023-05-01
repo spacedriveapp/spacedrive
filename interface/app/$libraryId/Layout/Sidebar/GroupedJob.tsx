@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Folder, X } from 'phosphor-react';
-import { MutableRefObject, memo, useEffect, useRef, useState } from 'react';
+import { MutableRefObject, memo, useEffect, useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import { IGroupedJobs } from './GroupedJobs';
