@@ -346,7 +346,7 @@ impl LibraryManager {
 			.node()
 			.upsert(
 				node::pub_id::equals(uuid_vec.clone()),
-				(
+				node::create(
 					uuid_vec,
 					node_config.name.clone(),
 					vec![node::platform::set(platform as i32)],

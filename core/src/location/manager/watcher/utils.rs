@@ -227,7 +227,7 @@ pub(super) async fn create_file(
 	db.file_path()
 		.update(
 			file_path::pub_id::equals(created_file.pub_id),
-			vec![file_path::object_id::set(Some(object.id))],
+			vec![file_path::object::connect(object::id::equals(object.id))],
 		)
 		.exec()
 		.await?;
