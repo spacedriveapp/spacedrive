@@ -51,7 +51,7 @@ impl Hash for FileIdentifierJobInit {
 pub struct FileIdentifierJobState {
 	cursor: i32,
 	report: FileIdentifierReport,
-	maybe_sub_materialized_path: Option<IsolatedFilePathData<'static>>,
+	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
 }
 
 impl JobInitData for FileIdentifierJobInit {
@@ -78,7 +78,7 @@ impl StatefulJob for FileIdentifierJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
-		let maybe_sub_materialized_path = if let Some(ref sub_path) = state.init.sub_path {
+		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 				.await
 				.map_err(FileIdentifierJobError::from)?;
@@ -86,16 +86,35 @@ impl StatefulJob for FileIdentifierJob {
 				.await
 				.map_err(FileIdentifierJobError::from)?;
 
-			Some(
+			let sub_iso_file_path =
 				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
-					.map_err(FileIdentifierJobError::from)?,
-			)
+					.map_err(FileIdentifierJobError::from)?;
+
+			if db
+				.file_path()
+				.count(vec![
+					file_path::location_id::equals(location_id),
+					file_path::materialized_path::equals(
+						sub_iso_file_path
+							.materialized_path_for_children()
+							.expect("sub path for file identifier must be a directory"),
+					),
+				])
+				.exec()
+				.await? == 0
+			{
+				return Err(
+					FileIdentifierJobError::SubPathNotFound(sub_path.clone().into()).into(),
+				);
+			}
+
+			Some(sub_iso_file_path)
 		} else {
 			None
 		};
 
 		let orphan_count =
-			count_orphan_file_paths(db, location_id, &maybe_sub_materialized_path).await?;
+			count_orphan_file_paths(db, location_id, &maybe_sub_iso_file_path).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
 		state.data = Some(FileIdentifierJobState {
@@ -105,7 +124,7 @@ impl StatefulJob for FileIdentifierJob {
 				..Default::default()
 			},
 			cursor: 0,
-			maybe_sub_materialized_path,
+			maybe_sub_iso_file_path,
 		});
 
 		let data = state.data.as_mut().unwrap(); // SAFETY: We just initialized it
@@ -133,7 +152,7 @@ impl StatefulJob for FileIdentifierJob {
 			.find_first(orphan_path_filters(
 				location_id,
 				None,
-				&data.maybe_sub_materialized_path,
+				&data.maybe_sub_iso_file_path,
 			))
 			.select(file_path::select!({ id }))
 			.exec()
@@ -155,7 +174,7 @@ impl StatefulJob for FileIdentifierJob {
 		let FileIdentifierJobState {
 			ref mut cursor,
 			ref mut report,
-			ref maybe_sub_materialized_path,
+			ref maybe_sub_iso_file_path,
 		} = state
 			.data
 			.as_mut()
@@ -168,7 +187,7 @@ impl StatefulJob for FileIdentifierJob {
 			&ctx.library.db,
 			state.init.location.id,
 			*cursor,
-			maybe_sub_materialized_path,
+			maybe_sub_iso_file_path,
 		)
 		.await?;
 

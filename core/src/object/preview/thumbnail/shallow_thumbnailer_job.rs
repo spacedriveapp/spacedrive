@@ -6,12 +6,11 @@ use crate::{
 	location::{
 		file_path_helper::{
 			check_existing_file_path, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_for_thumbnailer, get_existing_file_path_id, IsolatedFilePathData,
+			file_path_for_thumbnailer, IsolatedFilePathData,
 		},
 		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient},
-	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -25,7 +24,6 @@ use sd_file_ext::extensions::Extension;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::info;
-use uuid::Uuid;
 
 use super::{
 	finalize_thumbnailer, process_step, ThumbnailerError, ThumbnailerJobReport,

@@ -9,7 +9,6 @@ use std::{
 use futures::executor::block_on;
 use thiserror::Error;
 use tokio::{
-	io,
 	sync::{
 		broadcast::{self, Receiver},
 		oneshot, RwLock,

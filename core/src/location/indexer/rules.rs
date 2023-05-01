@@ -2,26 +2,34 @@ use crate::{
 	library::Library,
 	// location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
-	util::error::{FileIOError, NonUtf8PathError},
+	util::error::{FileIOError, NonUtf8PathError}, location::location_with_indexer_rules,
 };
 
 use chrono::{DateTime, Utc};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{self, decode, encode};
+use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{collections::HashSet, marker::PhantomData, path::Path};
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	path::Path,
+};
 use thiserror::Error;
 use tokio::fs;
 
 #[derive(Error, Debug)]
 pub enum IndexerRuleError {
+	// User errors
 	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
 	#[error("glob builder error")]
 	Glob(#[from] globset::Error),
-	#[error("indexer rule parameters json serialization error")]
-	RuleParametersSerdeJson(#[from] serde_json::Error),
+	#[error(transparent)]
+	NonUtf8Path(#[from] NonUtf8PathError),
+
+	// Internal Errors
 	#[error("indexer rule parameters encode error")]
 	RuleParametersRMPEncode(#[from] encode::Error),
 	#[error("indexer rule parameters decode error")]
@@ -32,8 +40,20 @@ pub enum IndexerRuleError {
 	RejectByItsChildrenFileIO(FileIOError),
 	#[error("database error")]
 	Database(#[from] prisma_client_rust::QueryError),
-	#[error(transparent)]
-	NonUtf8Path(#[from] NonUtf8PathError),
+}
+
+impl From<IndexerRuleError> for rspc::Error {
+	fn from(err: IndexerRuleError) -> Self {
+		match err {
+			IndexerRuleError::InvalidRuleKindInt(_)
+			| IndexerRuleError::Glob(_)
+			| IndexerRuleError::NonUtf8Path(_) => {
+				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+			}
+
+			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+		}
+	}
 }
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
@@ -538,6 +558,20 @@ async fn reject_dir_for_its_children(
 	}
 
 	Ok(true)
+}
+
+pub fn aggregate_rules_by_kind<'r>(
+	mut rules: impl Iterator<Item = &'r location_with_indexer_rules::indexer_rules::Data>,
+) -> Result<HashMap<RuleKind, Vec<IndexerRule>>, IndexerRuleError> {
+	rules.try_fold(
+		HashMap::<_, Vec<_>>::with_capacity(RuleKind::variant_count()),
+		|mut rules_by_kind, location_rule| {
+			IndexerRule::try_from(&location_rule.indexer_rule).map(|rule| {
+				rules_by_kind.entry(rule.kind).or_default().push(rule);
+				rules_by_kind
+			})
+		},
+	)
 }
 
 #[cfg(test)]

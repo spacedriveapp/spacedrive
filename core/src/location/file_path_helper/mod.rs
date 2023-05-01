@@ -1,7 +1,7 @@
 use crate::{
 	prisma::{file_path, location, PrismaClient},
 	util::{
-		db::{chain_optional_iter, uuid_to_bytes},
+		db::uuid_to_bytes,
 		error::{FileIOError, NonUtf8PathError},
 	},
 };
@@ -13,7 +13,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use futures::future::try_join_all;
 use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -44,6 +43,9 @@ file_path::select!(file_path_for_file_identifier {
 file_path::select!(file_path_for_object_validator {
 	pub_id
 	materialized_path
+	is_dir
+	name
+	extension
 	integrity_checksum
 	location: select {
 		id
@@ -56,6 +58,14 @@ file_path::select!(file_path_for_thumbnailer {
 	name
 	extension
 	cas_id
+});
+file_path::select!(file_path_to_isolate {
+	pub_id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
 });
 
 // File Path includes!
@@ -182,29 +192,6 @@ pub async fn create_file_path(
 	Ok(created_path)
 }
 
-pub async fn filter_file_paths_by_many_full_path_params(
-	location: &location::Data,
-	full_paths: &[impl AsRef<Path>],
-) -> Result<Vec<file_path::WhereParam>, FilePathError> {
-	let is_dirs = try_join_all(full_paths.iter().map(|path| async move {
-		fs::metadata(path)
-			.await
-			.map(|metadata| metadata.is_dir())
-			.map_err(|e| FileIOError::from((path, e)))
-	}))
-	.await?;
-
-	full_paths
-		.iter()
-		.zip(is_dirs.into_iter())
-		.map(|(path, is_dir)| {
-			IsolatedFilePathData::new(location.id, &location.path, path, is_dir)
-				.map(file_path::UniqueWhereParam::from)
-				.map(Into::into)
-		})
-		.collect::<Result<Vec<_>, _>>()
-}
-
 pub async fn check_existing_file_path(
 	materialized_path: &IsolatedFilePathData<'_>,
 	db: &PrismaClient,
@@ -225,20 +212,13 @@ pub fn filter_existing_file_path_params(
 		extension,
 	}: &IsolatedFilePathData,
 ) -> Vec<file_path::WhereParam> {
-	let mut params = vec![
+	vec![
 		file_path::location_id::equals(*location_id),
 		file_path::materialized_path::equals(materialized_path.to_string()),
 		file_path::is_dir::equals(*is_dir),
+		file_path::name::equals(name.to_string()),
 		file_path::extension::equals(extension.to_string()),
-	];
-
-	// This is due to a limitation of MaterializedPath, where we don't know the location name to use
-	// as the file_path name at the root of the location "/"
-	if materialized_path != "/" {
-		params.push(file_path::name::equals(name.to_string()));
-	}
-
-	params
+	]
 }
 
 /// With this function we try to do a loose filtering of file paths, to avoid having to do check
@@ -254,18 +234,12 @@ pub fn loose_find_existing_file_path_params(
 		..
 	}: &IsolatedFilePathData,
 ) -> Vec<file_path::WhereParam> {
-	chain_optional_iter(
-		[
-			file_path::location_id::equals(*location_id),
-			file_path::materialized_path::equals(materialized_path.to_string()),
-			file_path::extension::equals(extension.to_string()),
-		],
-		[
-			// This is due to a limitation of MaterializedPath, where we don't know the
-			// location name to use as the file_path name at the root of the location "/"
-			(materialized_path != "/").then(|| file_path::name::equals(name.to_string())),
-		],
-	)
+	vec![
+		file_path::location_id::equals(*location_id),
+		file_path::materialized_path::equals(materialized_path.to_string()),
+		file_path::name::equals(name.to_string()),
+		file_path::extension::equals(extension.to_string()),
+	]
 }
 
 pub async fn get_existing_file_path_id(
@@ -376,36 +350,6 @@ pub async fn ensure_sub_path_is_directory(
 		}
 		Err(e) => Err(FileIOError::from((sub_path, e)).into()),
 	}
-}
-
-pub async fn retain_file_paths_in_location(
-	location_id: LocationId,
-	to_retain: Vec<Uuid>,
-	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
-	db: &PrismaClient,
-) -> Result<i64, FilePathError> {
-	let mut to_delete_params = vec![
-		file_path::location_id::equals(location_id),
-		file_path::pub_id::not_in_vec(to_retain.into_iter().map(uuid_to_bytes).collect()),
-	];
-
-	if let Some(parent_file_path) = maybe_parent_file_path {
-		// If the parent_materialized_path is not the root path, we only delete file paths that start with the parent path
-		let param = if parent_file_path.materialized_path != "/" {
-			file_path::materialized_path::starts_with(parent_file_path.materialized_path)
-		} else {
-			// If the parent_materialized_path is the root path, we fetch children using the parent id
-			file_path::parent_id::equals(Some(parent_file_path.pub_id))
-		};
-
-		to_delete_params.push(param);
-	}
-
-	db.file_path()
-		.delete_many(to_delete_params)
-		.exec()
-		.await
-		.map_err(Into::into)
 }
 
 #[allow(unused)] // TODO remove this annotation when we can use it on windows

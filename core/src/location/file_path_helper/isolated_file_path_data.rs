@@ -1,16 +1,12 @@
 use crate::{location::LocationId, prisma::file_path, util::error::NonUtf8PathError};
 
-use std::{
-	borrow::Cow,
-	fmt::{self, Display, Formatter},
-	path::Path,
-};
+use std::{borrow::Cow, path::Path};
 
 use serde::{Deserialize, Serialize};
 
-use super::FilePathError;
+use super::{FilePathError, file_path_to_isolate};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 pub struct IsolatedFilePathData<'a> {
 	pub location_id: LocationId,
 	pub materialized_path: Cow<'a, str>,
@@ -111,46 +107,18 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	pub fn from_relative_str(
-		location_id: LocationId,
-		relative_file_path_str: impl AsRef<str> + 'a,
-	) -> Self {
-		let materialized_path = relative_file_path_str.as_ref();
-		let is_dir = materialized_path.ends_with('/');
-		let length = materialized_path.len();
+	pub fn from_relative_str(location_id: LocationId, relative_file_path_str: &'a str) -> Self {
+		let is_dir = relative_file_path_str.ends_with('/');
 
-		let (name, extension, end_idx) = if length == 1 {
-			// The case for the root path
-			(materialized_path, "", 1)
-		} else if is_dir {
-			let first_name_char_idx = materialized_path[..(length - 1)].rfind('/').unwrap_or(0) + 1;
-			(
-				&materialized_path[first_name_char_idx..(length - 1)],
-				"",
-				first_name_char_idx - 1,
-			)
-		} else {
-			let first_name_char_idx = materialized_path.rfind('/').unwrap_or(0) + 1;
-			let end_idx = first_name_char_idx - 1;
-			if let Some(last_dot_relative_idx) = materialized_path[first_name_char_idx..].rfind('.')
-			{
-				let last_dot_idx = first_name_char_idx + last_dot_relative_idx;
-				(
-					&materialized_path[first_name_char_idx..last_dot_idx],
-					&materialized_path[last_dot_idx + 1..],
-					end_idx,
-				)
-			} else {
-				(&materialized_path[first_name_char_idx..], "", end_idx)
-			}
-		};
+		let (materialized_path, maybe_name, maybe_extension) =
+			Self::separate_path_name_and_extension_from_str(relative_file_path_str);
 
 		Self {
 			location_id,
-			materialized_path: Cow::Borrowed(&materialized_path[..end_idx]),
+			materialized_path: Cow::Borrowed(materialized_path),
 			is_dir,
-			name: Cow::Borrowed(name),
-			extension: Cow::Borrowed(extension),
+			name: maybe_name.map(Cow::Borrowed).unwrap_or_default(),
+			extension: maybe_extension.map(Cow::Borrowed).unwrap_or_default(),
 		}
 	}
 
@@ -169,16 +137,86 @@ impl<'a> IsolatedFilePathData<'a> {
 			format!("{}/{}/", self.materialized_path, self.name)
 		}
 	}
+
+	pub fn separate_path_name_and_extension_from_str(
+		source: &'a str,
+	) -> (
+		&'a str,         // Materialized path
+		Option<&'a str>, // Maybe a name
+		Option<&'a str>, // Maybe an extension
+	) {
+		let is_dir = source.ends_with('/');
+		let length = source.len();
+
+		if length == 1 {
+			// The case for the root path
+			(source, None, None)
+		} else if is_dir {
+			let first_name_char_idx = source[..(length - 1)].rfind('/').unwrap_or(0) + 1;
+			(
+				&source[..(first_name_char_idx - 1)],
+				Some(&source[first_name_char_idx..(length - 1)]),
+				None,
+			)
+		} else {
+			let first_name_char_idx = source.rfind('/').unwrap_or(0) + 1;
+			let end_idx = first_name_char_idx - 1;
+			if let Some(last_dot_relative_idx) = source[first_name_char_idx..].rfind('.') {
+				let last_dot_idx = first_name_char_idx + last_dot_relative_idx;
+				(
+					&source[..end_idx],
+					Some(&source[first_name_char_idx..last_dot_idx]),
+					Some(&source[last_dot_idx + 1..]),
+				)
+			} else {
+				(
+					&source[..end_idx],
+					Some(&source[first_name_char_idx..]),
+					None,
+				)
+			}
+		}
+	}
 }
 
-impl From<IsolatedFilePathData<'_>> for file_path::UniqueWhereParam {
-	fn from(path: IsolatedFilePathData) -> Self {
+impl From<&IsolatedFilePathData<'_>> for file_path::UniqueWhereParam {
+	fn from(path: &IsolatedFilePathData<'_>) -> Self {
 		Self::LocationIdMaterializedPathNameExtensionEquals(
 			path.location_id,
 			path.materialized_path.to_string(),
 			path.name.to_string(),
 			path.extension.to_string(),
 		)
+	}
+}
+
+impl From<&IsolatedFilePathData<'_>> for file_path::WhereParam {
+	fn from(path: &IsolatedFilePathData<'_>) -> Self {
+		file_path::UniqueWhereParam::from(path).into()
+	}
+}
+
+impl From<file_path::Data> for IsolatedFilePathData<'static> {
+	fn from(path: file_path::Data) -> Self {
+		Self {
+			location_id: path.location_id,
+			materialized_path: Cow::Owned(path.materialized_path),
+			is_dir: path.is_dir,
+			name: Cow::Owned(path.name),
+			extension: Cow::Owned(path.extension),
+		}
+	}
+}
+
+impl From<file_path_to_isolate::Data> for IsolatedFilePathData<'static> {
+	fn from(path: file_path_to_isolate::Data) -> Self {
+		Self {
+			location_id: path.location_id,
+			materialized_path: Cow::Owned(path.materialized_path),
+			is_dir: path.is_dir,
+			name: Cow::Owned(path.name),
+			extension: Cow::Owned(path.extension),
+		}
 	}
 }
 
@@ -213,11 +251,11 @@ impl AsRef<Path> for &IsolatedFilePathData<'_> {
 	}
 }
 
-impl Display for IsolatedFilePathData<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.materialized_path)
-	}
-}
+// impl Display for IsolatedFilePathData<'_> {
+// 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+// 		write!(f, "{}", self.materialized_path)
+// 	}
+// }
 
 /// This function separates a file path from a location path, and normalizes replacing '\' with '/'
 /// to be consistent between Windows and Unix like systems

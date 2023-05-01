@@ -5,7 +5,7 @@ use crate::{
 		delete_directory,
 		file_path_helper::{
 			check_existing_file_path, create_file_path, file_path_with_object,
-			filter_existing_file_path_params, get_parent_dir, get_parent_dir_id,
+			filter_existing_file_path_params, get_parent_dir,
 			isolated_file_path_data::extract_normalized_materialized_path_str,
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
@@ -24,7 +24,7 @@ use crate::{
 	},
 	prisma::{file_path, location, object},
 	sync,
-	util::{db::uuid_to_bytes, error::FileIOError},
+	util::error::FileIOError,
 };
 
 #[cfg(target_family = "unix")]
@@ -36,7 +36,7 @@ use crate::location::file_path_helper::get_inode_and_device_from_path;
 use std::{
 	collections::HashSet,
 	fs::Metadata,
-	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+	path::{Path, PathBuf},
 	str::FromStr,
 };
 

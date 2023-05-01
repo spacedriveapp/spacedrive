@@ -1,9 +1,9 @@
 use crate::{
 	library::Library,
 	location::{
-		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		delete_location, file_path_helper::IsolatedFilePathData, find_location,
+		indexer::rules::IndexerRuleCreateArgs, light_scan_location, location_with_indexer_rules,
+		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 	util::db::chain_optional_iter,
@@ -93,25 +93,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
 					let directory_materialized_path_str = if let Some(path) = args.path {
-						let (materialized_path, name) = path
-							.rsplit_once('/')
-							.map(|(path, name)| {
-								(
-									path.to_string(),
-									(!name.is_empty()).then(|| name.to_string()),
-								)
-							})
-							.unwrap_or(("/".to_string(), None));
-
+						let (materialized_path, maybe_name, _maybe_extension) =
+							IsolatedFilePathData::separate_path_name_and_extension_from_str(&path);
 						let parent_dir = db
 							.file_path()
 							.find_first(chain_optional_iter(
 								[
 									file_path::location_id::equals(location.id),
-									file_path::materialized_path::equals(materialized_path),
+									file_path::materialized_path::equals(
+										materialized_path.to_string(),
+									),
 									file_path::is_dir::equals(true),
 								],
-								[name.map(file_path::name::equals)],
+								[maybe_name.map(str::to_string).map(file_path::name::equals)],
 							))
 							.select(file_path::select!({ materialized_path name }))
 							.exec()

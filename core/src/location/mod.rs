@@ -734,24 +734,3 @@ async fn check_nested_location(
 
 	Ok(parents_count > 0 || children_count > 0)
 }
-
-// check if a path exists in our database at that location
-// pub async fn check_virtual_path_exists(
-// 	library: &Library,
-// 	location_id: i32,
-// 	subpath: impl AsRef<Path>,
-// ) -> Result<bool, LocationError> {
-// 	let path = subpath.as_ref().to_str().unwrap().to_string();
-
-// 	let file_path = library
-// 		.db
-// 		.file_path()
-// 		.find_first(vec![
-// 			file_path::location_id::equals(location_id),
-// 			file_path::materialized_path::equals(path),
-// 		])
-// 		.exec()
-// 		.await?;
-
-// 	Ok(file_path.is_some())
-// }

@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	prisma::file_path,
 	sync,
@@ -14,18 +14,15 @@ use std::{
 	time::Duration,
 };
 
-use chrono::{DateTime, Utc};
-use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tokio::io;
+use tokio::time::Instant;
 use tracing::info;
-use uuid::Uuid;
 
 use super::{
-	file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData},
+	file_path_helper::{FilePathError, IsolatedFilePathData},
 	location_with_indexer_rules,
 };
 
@@ -33,6 +30,9 @@ pub mod indexer_job;
 pub mod rules;
 pub mod shallow_indexer_job;
 mod walk;
+
+use rules::IndexerRuleError;
+use walk::{ToWalkEntry, WalkedEntry};
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
@@ -58,26 +58,34 @@ impl Hash for IndexerJobInit {
 pub struct IndexerJobData {
 	indexed_path: PathBuf,
 	rules_by_kind: HashMap<rules::RuleKind, Vec<rules::IndexerRule>>,
-	db_write_start: DateTime<Utc>,
+	db_write_time: Duration,
 	scan_read_time: Duration,
-	total_paths: usize,
-	indexed_paths: i64,
-	removed_paths: i64,
+	total_paths: u64,
+	indexed_count: u64,
+	removed_count: u64,
 }
 
-/// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
-/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
-pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
+/// `IndexerJobStepInput` defines the action that should be executed in the current step
+#[derive(Serialize, Deserialize, Debug)]
+pub enum IndexerJobStepInput {
+	/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
+	Save(Vec<WalkedEntry>),
+	Walk(ToWalkEntry),
+}
 
-/// `IndexerJobStepEntry` represents a single directory to be walked and have its children indexed
-#[derive(Serialize, Deserialize)]
-pub struct IndexerJobStepEntry {
-	full_path: PathBuf,
-	pub_id: Uuid,
-	// materialized_path: MaterializedPath<'static>,
-	// file_id: Uuid,
-	// parent_id: Option<Uuid>,
-	// metadata: FilePathMetadata,
+#[derive(Debug)]
+pub enum IndexerJobStepOutput<Walked, ToWalk>
+where
+	Walked: Iterator<Item = WalkedEntry>,
+	ToWalk: Iterator<Item = ToWalkEntry>,
+{
+	Save(u64, Duration),
+	Walk {
+		walked: Walked,
+		to_walk: ToWalk,
+		removed_count: u64,
+		elapsed_time: Duration,
+	},
 }
 
 impl IndexerJobData {
@@ -108,39 +116,30 @@ pub enum IndexerError {
 	// Not Found errors
 	#[error("indexer rule not found: <id={0}>")]
 	IndexerRuleNotFound(i32),
-
-	// User errors
-	#[error("invalid indexer rule kind integer: {0}")]
-	InvalidRuleKindInt(i32),
-	#[error("glob builder error")]
-	GlobBuilder(#[from] globset::Error),
+	#[error("received sub path not in database: <path='{}'", .0.display())]
+	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
 	#[error("database error")]
 	Database(#[from] prisma_client_rust::QueryError),
-	#[error("indexer rule parameters json serialization error: {0}")]
-	RuleParametersSerdeJson(#[from] serde_json::Error),
-	#[error("indexer rule parameters encode error: {0}")]
-	RuleParametersRMPEncode(#[from] encode::Error),
-	#[error("indexer rule parameters decode error: {0}")]
-	RuleParametersRMPDecode(#[from] decode::Error),
-
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	FilePath(#[from] FilePathError),
+
+	// Mixed errors
+	#[error(transparent)]
+	IndexerRules(#[from] IndexerRuleError),
 }
 
 impl From<IndexerError> for rspc::Error {
 	fn from(err: IndexerError) -> Self {
 		match err {
-			IndexerError::IndexerRuleNotFound(_) => {
+			IndexerError::IndexerRuleNotFound(_) | IndexerError::SubPathNotFound(_) => {
 				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
-			IndexerError::InvalidRuleKindInt(_) | IndexerError::GlobBuilder(_) => {
-				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
-			}
+			IndexerError::IndexerRules(rule_err) => rule_err.into(),
 
 			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
@@ -149,12 +148,40 @@ impl From<IndexerError> for rspc::Error {
 
 async fn execute_indexer_step(
 	location: &location_with_indexer_rules::Data,
-	step: &[IndexerJobStepEntry],
+	step: &IndexerJobStepInput,
 	ctx: WorkerContext,
-) -> Result<i64, JobError> {
+) -> Result<
+	IndexerJobStepOutput<impl Iterator<Item = WalkedEntry>, impl Iterator<Item = ToWalkEntry>>,
+	IndexerError,
+> {
+	match step {
+		IndexerJobStepInput::Save(step) => execute_indexer_save_step(location, step, ctx)
+			.await
+			.map(|(indexed_count, elapsed_time)| {
+				IndexerJobStepOutput::Save(indexed_count, elapsed_time)
+			}),
+		IndexerJobStepInput::Walk(path) => {
+			execute_indexer_walk_step(location, path, ctx).await.map(
+				|(walked, to_walk, removed_count, elapsed_time)| IndexerJobStepOutput::Walk {
+					walked,
+					to_walk,
+					removed_count,
+					elapsed_time,
+				},
+			)
+		}
+	}
+}
+
+async fn execute_indexer_save_step(
+	location: &location_with_indexer_rules::Data,
+	save_step: &[WalkedEntry],
+	ctx: WorkerContext,
+) -> Result<(u64, Duration), IndexerError> {
+	let start_time = Instant::now();
 	let Library { sync, db, .. } = &ctx.library;
 
-	let (sync_stuff, paths): (Vec<_>, Vec<_>) = step
+	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
 		.iter()
 		.map(|entry| {
 			let IsolatedFilePathData {
@@ -163,43 +190,41 @@ async fn execute_indexer_step(
 				name,
 				extension,
 				..
-			} = entry.materialized_path.clone();
+			} = &entry.iso_file_path;
 
 			use file_path::*;
 
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
-						pub_id: uuid_to_bytes(entry.file_id),
+						pub_id: uuid_to_bytes(entry.pub_id),
 					},
 					[
-						("materialized_path", json!(materialized_path.clone())),
-						("name", json!(name.clone())),
-						("is_dir", json!(is_dir)),
-						("extension", json!(extension.clone())),
+						("materialized_path", json!(materialized_path)),
+						("name", json!(name)),
+						("is_dir", json!(*is_dir)),
+						("extension", json!(extension)),
 						(
 							"size_in_bytes",
 							json!(entry.metadata.size_in_bytes.to_string()),
 						),
 						("inode", json!(entry.metadata.inode.to_le_bytes())),
 						("device", json!(entry.metadata.device.to_le_bytes())),
-						("parent_id", json!(entry.parent_id)),
 						("date_created", json!(entry.metadata.created_at)),
 						("date_modified", json!(entry.metadata.modified_at)),
 					],
 				),
 				file_path::create_unchecked(
-					uuid_to_bytes(entry.file_id),
+					uuid_to_bytes(entry.pub_id),
 					location.id,
-					materialized_path.into_owned(),
-					name.into_owned(),
-					extension.into_owned(),
+					materialized_path.to_string(),
+					name.to_string(),
+					extension.to_string(),
 					entry.metadata.inode.to_le_bytes().into(),
 					entry.metadata.device.to_le_bytes().into(),
 					vec![
-						is_dir::set(is_dir),
+						is_dir::set(*is_dir),
 						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
-						parent_id::set(entry.parent_id.map(uuid_to_bytes)),
 						date_created::set(entry.metadata.created_at.into()),
 						date_modified::set(entry.metadata.modified_at.into()),
 					],
@@ -220,7 +245,23 @@ async fn execute_indexer_step(
 
 	info!("Inserted {count} records");
 
-	Ok(count)
+	Ok((count as u64, start_time.elapsed()))
+}
+
+async fn execute_indexer_walk_step(
+	location: &location_with_indexer_rules::Data,
+	walk_step: &ToWalkEntry,
+	ctx: WorkerContext,
+) -> Result<
+	(
+		impl Iterator<Item = WalkedEntry>,
+		impl Iterator<Item = ToWalkEntry>,
+		u64,
+		Duration
+	),
+	IndexerError,
+> {
+	todo!()
 }
 
 fn finalize_indexer<SJob, Init>(
@@ -229,7 +270,7 @@ fn finalize_indexer<SJob, Init>(
 	ctx: WorkerContext,
 ) -> JobResult
 where
-	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = IndexerJobStep>,
+	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = IndexerJobStepInput>,
 	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
 {
 	let data = state
@@ -243,13 +284,11 @@ where
 		location_path.as_ref().display(),
 		data.scan_read_time,
 		data.total_paths,
-		data.indexed_paths,
-		(Utc::now() - data.db_write_start)
-			.to_std()
-			.expect("critical error: non-negative duration"),
+		data.indexed_count,
+		data.db_write_time,
 	);
 
-	if data.indexed_paths > 0 || data.removed_paths > 0 {
+	if data.indexed_count > 0 || data.removed_count > 0 {
 		invalidate_query!(ctx.library, "locations.getExplorerData");
 	}
 

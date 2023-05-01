@@ -92,7 +92,7 @@ impl StatefulJob for ObjectValidatorJob {
 	) -> Result<(), JobError> {
 		let Library { db, sync, .. } = &ctx.library;
 
-		let file_path = &state.steps[0];
+		let file_path: &file_path_for_object_validator::Data = &state.steps[0];
 		let data = state.data.as_ref().expect("fatal: missing job state");
 
 		// this is to skip files that already have checksums
@@ -100,10 +100,13 @@ impl StatefulJob for ObjectValidatorJob {
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&IsolatedFilePathData::from((
+			let checksum = file_checksum(data.root_path.join(&IsolatedFilePathData::from_db_data(
 				file_path.location.id,
 				&file_path.materialized_path,
-			))))
+				file_path.is_dir,
+				&file_path.name,
+				&file_path.extension,
+			)))
 			.await?;
 
 			sync.write_op(

@@ -35,7 +35,10 @@ const CHUNK_SIZE: usize = 100;
 
 #[derive(Error, Debug)]
 pub enum FileIdentifierJobError {
-	#[error("File path related error (error: {0})")]
+	#[error("received sub path not in database: <path='{}'", .0.display())]
+	SubPathNotFound(Box<Path>),
+
+	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
 }
 

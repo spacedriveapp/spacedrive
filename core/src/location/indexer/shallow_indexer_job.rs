@@ -1,12 +1,15 @@
 use crate::{
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_just_id_materialized_path, filter_existing_file_path_params,
-		filter_file_paths_by_many_full_path_params, retain_file_paths_in_location,
-		IsolatedFilePathData,
+	location::{
+		file_path_helper::{
+			ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			file_path_just_id_materialized_path, filter_existing_file_path_params,
+			filter_file_paths_by_many_full_path_params, IsolatedFilePathData,
+		},
+		LocationId,
 	},
-	prisma::location,
+	prisma::{file_path, location, PrismaClient},
+	util::db::{chain_optional_iter, uuid_to_bytes},
 };
 
 use std::{
@@ -26,7 +29,7 @@ use super::{
 	execute_indexer_step, finalize_indexer, location_with_indexer_rules,
 	rules::{IndexerRule, RuleKind},
 	walk::walk_single_dir,
-	IndexerError, IndexerJobData, IndexerJobStep, IndexerJobStepEntry, ScanProgress,
+	IndexerError, IndexerJobData, IndexerJobStepEntry, IndexerJobStepInput, ScanProgress,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
@@ -61,7 +64,7 @@ impl JobInitData for ShallowIndexerJobInit {
 impl StatefulJob for ShallowIndexerJob {
 	type Init = ShallowIndexerJobInit;
 	type Data = IndexerJobData;
-	type Step = IndexerJobStep;
+	type Step = IndexerJobStepInput;
 
 	const NAME: &'static str = "shallow_indexer";
 	const IS_BACKGROUND: bool = true;
@@ -85,7 +88,7 @@ impl StatefulJob for ShallowIndexerJob {
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
 
 		for location_rule in &state.init.location.indexer_rules {
-			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
+			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule).ma?;
 
 			indexer_rules_by_kind
 				.entry(indexer_rule.kind)
@@ -217,11 +220,11 @@ impl StatefulJob for ShallowIndexerJob {
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
-			db_write_start: Utc::now(),
+			db_write_time: Utc::now(),
 			scan_read_time: scan_start.elapsed(),
 			total_paths,
-			indexed_paths: 0,
-			removed_paths,
+			indexed_count: 0,
+			removed_count,
 		});
 
 		state.steps = new_paths
@@ -262,7 +265,7 @@ impl StatefulJob for ShallowIndexerJob {
 					.data
 					.as_mut()
 					.expect("critical error: missing data on job state")
-					.indexed_paths = indexed_paths;
+					.indexed_count = indexed_paths;
 			})
 	}
 
@@ -270,4 +273,25 @@ impl StatefulJob for ShallowIndexerJob {
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		finalize_indexer(&state.init.location.path, state, ctx)
 	}
+}
+
+pub async fn retain_file_paths_in_location(
+	location_id: LocationId,
+	to_retain: Vec<Uuid>,
+	maybe_parent_file_path: Option<file_path_just_id_materialized_path::Data>,
+	db: &PrismaClient,
+) -> Result<i64, IndexerError> {
+	db.file_path()
+		.delete_many(chain_optional_iter(
+			[
+				file_path::location_id::equals(location_id),
+				file_path::pub_id::not_in_vec(to_retain.into_iter().map(uuid_to_bytes).collect()),
+			],
+			[maybe_parent_file_path.map(|parent_file_path| {
+				file_path::materialized_path::equals(parent_file_path.materialized_path)
+			})],
+		))
+		.exec()
+		.await
+		.map_err(Into::into)
 }
