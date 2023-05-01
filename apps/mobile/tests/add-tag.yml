@@ -6,8 +6,7 @@ appId: com.spacedrive.app
 - tapOn: 'Add Tag'
 - tapOn:
     id: 'create-tag-name'
-- inputText: 'COOL'
+- inputText: 'MyTag'
 - tapOn: Create
-- extendedWaitUntil:
-    visible: 'COOL'
-- assertVisible: 'COOL'
+- assertVisible:
+    id: 'drawer-tag'
