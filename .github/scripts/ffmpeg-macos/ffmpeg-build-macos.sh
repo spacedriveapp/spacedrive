@@ -165,6 +165,9 @@ no_ext() {
 set --
 # Populate queue with ffmpeg libraries
 while IFS= read -r -d '' _lib; do
+  # Remove leading ./
+  _lib="${_lib#./}"
+  # Add it to the queue to have it's dependencies copied
   set -- "$@" "$_lib"
   # Copy library to the output directory
   cp -p "$_lib" "${OUT_DIR}/${_lib}"

@@ -3,14 +3,14 @@ name: Build ffmpeg
 on:
   push:
     paths:
-      - .github/workflows/ffmpeg.yml
-      - .github/scripts/ffmpeg-macos/**
+      - '.github/workflows/ffmpeg.yml'
+      - '.github/scripts/ffmpeg-macos/**'
     branches:
       - main
   pull_request:
     paths:
-      - .github/workflows/ffmpeg.yml
-      - .github/scripts/ffmpeg-macos/**
+      - '.github/workflows/ffmpeg.yml'
+      - '.github/scripts/ffmpeg-macos/**'
   workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.

@@ -243,14 +243,14 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     esac
 
     # Download the latest jq binary and deps from macports
-    curl -sL "$_jq_url" | tar -xjOf - ./opt/local/bin/jq >"${_deps_dir}/jq"
-    curl -sL "$_oniguruma6_url" | tar -xjOf - ./opt/local/lib/libonig.5.dylib >"${_deps_dir}/libonig.5.dylib"
+    curl -LSs "$_jq_url" | tar -xjOf - ./opt/local/bin/jq >"${_deps_dir}/jq"
+    curl -LSs "$_oniguruma6_url" | tar -xjOf - ./opt/local/lib/libonig.5.dylib >"${_deps_dir}/libonig.5.dylib"
 
     # Make the binaries executable
     chmod +x "$_deps_dir"/*
 
     # Make jq look for deps in the same directory
-    install_name_tool -change '/opt/local/lib/libonig.5.dylib' -change '@executable_path/libonig.5.dylib' "${_deps_dir}/jq"
+    install_name_tool -change '/opt/local/lib/libonig.5.dylib' '@executable_path/libonig.5.dylib' "${_deps_dir}/jq"
   fi
 
   # Create frameworks directory to put Spacedrive dependencies
