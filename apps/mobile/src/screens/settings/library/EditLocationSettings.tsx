@@ -1,13 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Trash } from 'phosphor-react-native';
-import React from 'react';
+import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
-import { AnimatedButton, Button, FakeButton } from '~/components/primitive/Button';
+import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import {
 	SettingsContainer,
@@ -16,7 +16,7 @@ import {
 } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useZodForm, z } from '~/hooks/useZodForm';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({
@@ -58,28 +58,37 @@ const EditLocationSettingsScreen = ({
 		})
 	);
 
-	navigation.setOptions({
-		headerRight: () => (
-			<View style={tw`mr-1 flex flex-row gap-x-1`}>
-				{form.formState.isDirty && (
+	useEffect(() => {
+		navigation.setOptions({
+			headerRight: () => (
+				<View style={tw`mr-1 flex flex-row gap-x-1`}>
+					{form.formState.isDirty && (
+						<AnimatedButton
+							variant="outline"
+							onPress={() => form.reset()}
+							disabled={!form.formState.isDirty}
+						>
+							<Text style={tw`text-white`}>Reset</Text>
+						</AnimatedButton>
+					)}
 					<AnimatedButton
-						variant="outline"
-						onPress={() => form.reset()}
-						disabled={!form.formState.isDirty}
+						onPress={onSubmit}
+						disabled={!form.formState.isDirty || form.formState.isSubmitting}
+						variant={form.formState.isDirty ? 'accent' : 'outline'}
 					>
-						<Text style={tw`text-white`}>Reset</Text>
+						<Text
+							style={twStyle(
+								'font-medium',
+								form.formState.isDirty ? 'text-white' : ' text-ink-faint'
+							)}
+						>
+							Save
+						</Text>
 					</AnimatedButton>
-				)}
-				<AnimatedButton
-					onPress={onSubmit}
-					disabled={!form.formState.isDirty || form.formState.isSubmitting}
-					variant={form.formState.isDirty ? 'accent' : 'outline'}
-				>
-					<Text style={tw`font-bold text-white`}>Save</Text>
-				</AnimatedButton>
-			</View>
-		)
-	});
+				</View>
+			)
+		});
+	}, [form, navigation, onSubmit]);
 
 	useLibraryQuery(['locations.getById', id], {
 		onSuccess: (data) => {
