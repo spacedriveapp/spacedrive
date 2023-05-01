@@ -79,7 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.statistics()
 					.upsert(
 						statistics::id::equals(1), // Each library is a database so only one of these ever exists
-						params.clone(),
+						statistics::create(params.clone()),
 						params,
 					)
 					.exec()
