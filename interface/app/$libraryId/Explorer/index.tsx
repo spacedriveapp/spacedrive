@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router';
 import { useKey } from 'rooks';
-import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
+import { ExplorerData, useBridgeSubscription, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
 import { useExplorerParams } from '../location/$id';
@@ -20,7 +20,7 @@ export default function Explorer(props: Props) {
 	const { library } = useLibraryContext();
 	const { location_id, path } = useExplorerParams();
 
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
+	useBridgeSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}

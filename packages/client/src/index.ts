@@ -1,9 +1,17 @@
+import { Transport } from '@rspc/client';
+
 declare global {
 	// eslint-disable-next-line
 	var isDev: boolean;
+	// eslint-disable-next-line
+	var rspcTransport: Transport;
 }
 
-if (globalThis.localStorage === undefined || globalThis.isDev === undefined)
+if (
+	globalThis.localStorage === undefined ||
+	globalThis.isDev === undefined ||
+	globalThis.rspcTransport === undefined
+)
 	throw new Error('Please ensure you have patched `globalThis` before importing `@sd/client`!');
 
 export * from './hooks';
