@@ -1,7 +1,8 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { ArrowClockwise, Key, Tag } from 'phosphor-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ExplorerData, rspc, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
@@ -21,9 +22,66 @@ export function useExplorerParams() {
 }
 
 export const Component = () => {
+	const { location_id, path } = useExplorerParams();
+	// we destructure this since `mutate` is a stable reference but the object it's in is not
+	const quickRescan = useLibraryMutation('locations.quickRescan');
+
+	const explorerStore = useExplorerStore();
+	const explorerState = getExplorerStore();
+
+	useEffect(() => {
+		explorerState.locationId = location_id;
+		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path });
+	}, [explorerState, location_id, path, quickRescan.mutate]);
+
+	if (location_id === null) throw new Error(`location_id is null!`);
+
+	const ctx = rspc.useContext();
+	const { library } = useLibraryContext();
+
+	const query = useInfiniteQuery({
+		queryKey: [
+			'locations.getExplorerData',
+			{
+				library_id: library.uuid,
+				arg: {
+					location_id,
+					path: explorerStore.layoutMode === 'media' ? null : path,
+					limit: 100,
+					kind: explorerStore.layoutMode === 'media' ? [5, 7] : null
+				}
+			}
+		] as const,
+		queryFn: async ({ pageParam: cursor, queryKey }): Promise<ExplorerData> => {
+			const arg = queryKey[1];
+			(arg.arg as any).cursor = cursor;
+
+			return await ctx.client.query(['locations.getExplorerData', arg]);
+		},
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+	});
+
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items), [query.data]);
+
+	return (
+		<>
+			<TopBarChildren toolOptions={useToolBarOptions()} />
+			<div className="relative flex w-full flex-col">
+				<Explorer
+					items={items}
+					onLoadMore={query.fetchNextPage}
+					hasNextPage={query.hasNextPage}
+				/>
+			</div>
+		</>
+	);
+};
+
+const useToolBarOptions = () => {
 	const store = useExplorerStore();
 	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
-	const toolBarOptions: ToolOption[][] = [
+
+	return [
 		explorerViewOptions,
 		[
 			{
@@ -54,41 +112,5 @@ export const Component = () => {
 			}
 		],
 		explorerControlOptions
-	];
-
-	const { location_id, path, limit } = useExplorerParams();
-	// we destructure this since `mutate` is a stable reference but the object it's in is not
-	const { mutate: mutateQuickRescan, ...quickRescan } =
-		useLibraryMutation('locations.quickRescan');
-
-	const explorerStore = useExplorerStore();
-
-	const explorerState = getExplorerStore();
-
-	useEffect(() => {
-		explorerState.locationId = location_id;
-		if (location_id !== null) mutateQuickRescan({ location_id, sub_path: path });
-	}, [explorerState, location_id, path, mutateQuickRescan]);
-
-	if (location_id === null) throw new Error(`location_id is null!`);
-
-	const explorerData = useLibraryQuery([
-		'locations.getExplorerData',
-		{
-			location_id,
-			path: explorerStore.layoutMode === 'media' ? null : path,
-			limit,
-			cursor: null,
-			kind: explorerStore.layoutMode === 'media' ? [5, 7] : null
-		}
-	]);
-
-	return (
-		<>
-			<TopBarChildren toolOptions={toolBarOptions} />
-			<div className="relative flex w-full flex-col">
-				<Explorer items={explorerData.data?.items} />
-			</div>
-		</>
-	);
+	] satisfies ToolOption[][];
 };

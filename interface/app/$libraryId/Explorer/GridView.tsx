@@ -1,8 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
+import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
@@ -70,7 +71,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	);
 });
 
-export default () => {
+export default (props) => {
 	const explorerStore = useExplorerStore();
 	const { data, scrollRef } = useExplorerView();
 
