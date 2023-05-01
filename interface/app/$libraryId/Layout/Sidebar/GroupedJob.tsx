@@ -14,21 +14,16 @@ interface GroupJobProps {
 
 function GroupedJob({ data, clearJob }: GroupJobProps) {
 	const [toggleJobs, setToggleJobs] = useState<MutableRefObject<boolean> | boolean>(false);
-	const toggleRef = useRef(toggleJobs);
 	const checkForJobsRunning = data.childJobs?.some((job) => job.status === 'Running');
 	const allJobsCompleted = data.childJobs?.every((job) => job.status === 'Completed');
 	const getTasks = getTotalTasks(data.childJobs);
 
-	useEffect(() => {
-		setToggleJobs(toggleRef.current); //this is to keep the toggled group open on re-renders
-	}, []);
-
 	//If one job is remaining, we just delete the parent
 	const clearJobHandler = (arg: string) => {
 		if (data.childJobs.length === 1) {
-			clearJob?.(data.id as string);
+			clearJob(data.id as string);
 		} else {
-			clearJob?.(arg);
+			clearJob(arg);
 		}
 	};
 
@@ -51,7 +46,7 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 						onClick={() => setToggleJobs((v) => !v)}
 						className={clsx(
 							'h-auto cursor-pointer p-3 pl-4',
-							toggleJobs ? 'darker-app-bg pb-0' : ' border-b border-app-line/50'
+							toggleJobs ? 'bg-app-darkBox pb-0' : ' border-b border-app-line/50'
 						)}
 					>
 						<div className="flex">
@@ -98,7 +93,7 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 								<Job
 									className={clsx(
 										`border-none pl-10`,
-										toggleJobs && 'darker-app-bg'
+										toggleJobs && 'bg-app-darkBox'
 									)}
 									isGroup
 									key={job.id}
@@ -110,9 +105,9 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 									isGroup
 									className={clsx(
 										`border-none pl-10`,
-										toggleJobs && 'darker-app-bg'
+										toggleJobs && 'bg-app-darkBox'
 									)}
-									clearAJob={clearJobHandler}
+									clearJob={clearJobHandler}
 									key={job.id}
 									job={job}
 								/>

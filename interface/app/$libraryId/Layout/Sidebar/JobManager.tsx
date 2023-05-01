@@ -28,7 +28,7 @@ export function JobsManager() {
 			queryClient.invalidateQueries(['jobs.getHistory']);
 		}
 	});
-	const clearAJob = useLibraryMutation(['jobs.clear'], {
+	const clearJob = useLibraryMutation(['jobs.clear'], {
 		onError: () => {
 			showAlertDialog({
 				title: 'Error',
@@ -50,9 +50,9 @@ export function JobsManager() {
 	};
 	const clearJobHandler = useCallback(
 		(id: string) => {
-			clearAJob.mutate(id);
+			clearJob.mutate(id);
 		},
-		[clearAJob]
+		[clearJob]
 	);
 
 	return (
@@ -84,7 +84,7 @@ export function JobsManager() {
 					<Job key={job.id} job={job} />
 				))}
 				{allIndividualJobs?.map((job) => (
-					<Job clearAJob={clearJobHandler} key={job.id} job={job} />
+					<Job clearJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
 					<div className="flex h-32 items-center justify-center text-ink-dull">

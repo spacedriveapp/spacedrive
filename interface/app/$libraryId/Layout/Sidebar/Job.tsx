@@ -19,6 +19,7 @@ import {
 import { memo, useEffect, useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import './Job.scss';
 
 interface JobNiceData {
 	name: string;
@@ -97,12 +98,12 @@ const StatusColors: Record<JobReport['status'], string> = {
 
 interface JobProps {
 	job: JobReport;
-	clearAJob?: (arg: string) => void;
+	clearJob?: (arg: string) => void;
 	className?: string;
 	isGroup?: boolean;
 }
 
-function Job({ job, clearAJob, className, isGroup }: JobProps) {
+function Job({ job, clearJob, className, isGroup }: JobProps) {
 	const niceData = getNiceData(job, isGroup)[job.name] || {
 		name: job.name,
 		icon: Question,
@@ -115,7 +116,7 @@ function Job({ job, clearAJob, className, isGroup }: JobProps) {
 			className={clsx(
 				`removelistdot border-b border-app-line/50 pl-4`,
 				className,
-				isGroup ? 'joblistitem pt-0 pr-3' : 'p-3'
+				isGroup ? `joblistitem pt-0 pr-3` : 'p-3'
 			)}
 		>
 			<div className="flex">
@@ -151,7 +152,7 @@ function Job({ job, clearAJob, className, isGroup }: JobProps) {
 							{job.status !== 'Running' && (
 								<Button
 									className="relative left-1 cursor-pointer"
-									onClick={() => clearAJob?.(job.id)}
+									onClick={() => clearJob?.(job.id)}
 									size="icon"
 								>
 									<Tooltip label="Remove">
