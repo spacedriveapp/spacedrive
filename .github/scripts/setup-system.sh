@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+SYSNAME="$(uname)"
 FFMPEG_VERSION='6.0'
 
 err() {
@@ -81,11 +82,11 @@ fi
 
 echo
 
-if [ "${1:-}" == "mobile" ]; then
+if [ "${1:-}" = "mobile" ]; then
   echo "Setting up for mobile development."
 
   # iOS targets
-  if [[ $OSTYPE == "darwin"* ]]; then
+  if [ "$SYSNAME" = "Darwin" ]; then
     echo "Checking for Xcode..."
     if ! /usr/bin/xcodebuild -version >/dev/null; then
       err "Xcode was not detected." \
@@ -122,7 +123,7 @@ if [ "${1:-}" == "mobile" ]; then
   echo
 fi
 
-if [[ $OSTYPE == "linux-gnu"* ]]; then
+if [ "$SYSNAME" = "Linux" ]; then
   if has apt-get; then
     echo "Detected apt!"
     echo "Installing dependencies with apt..."
@@ -198,13 +199,15 @@ if [[ $OSTYPE == "linux-gnu"* ]]; then
     sudo dnf update
 
     if ! sudo dnf install $FEDORA_37_TAURI_WEBKIT && ! sudo dnf install $FEDORA_36_TAURI_WEBKIT; then
-      err "We were unable to install the webkit2gtk4.0-devel/webkit2gtk3-devel package. Please open an issue if you feel that this is incorrect. https://github.com/spacedriveapp/spacedrive/issues"
-      exit 1
+      err 'We were unable to install the webkit2gtk4.0-devel/webkit2gtk3-devel package.' \
+        'Please open an issue if you feel that this is incorrect.' \
+        'https://github.com/spacedriveapp/spacedrive/issues'
     fi
 
     if ! sudo dnf install $FEDORA_FFMPEG_DEPS; then
-      err "We were unable to install the FFmpeg and FFmpeg-devel packages. This is likely because the RPM Fusion free repository is not enabled. https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion/"
-      exit 1
+      err 'We were unable to install the FFmpeg and FFmpeg-devel packages.' \
+        'This is likely because the RPM Fusion free repository is not enabled.' \
+        'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
     fi
 
     sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
@@ -214,7 +217,7 @@ if [[ $OSTYPE == "linux-gnu"* ]]; then
       'We would welcome a PR or some help adding your OS to this script:' \
       'https://github.com/spacedriveapp/spacedrive/issues'
   fi
-elif [[ $OSTYPE == "darwin"* ]]; then
+elif [ "$SYSNAME" = "Darwin" ]; then
   # Location for installing script dependencies
   mkdir -p deps
   PATH="$PATH:$(pwd)/deps"
@@ -246,7 +249,7 @@ elif [[ $OSTYPE == "darwin"* ]]; then
   mkdir -p "$_frameworks_dir"
   _frameworks_dir="$(CDPATH='' cd -- "$_frameworks_dir" && pwd -P)"
 
-  exec 3>&1  # Copy stdout in fd 3.
+  exec 3>&1 # Copy stdout in fd 3.
   echo "Download ffmpeg build..."
   _page=1
   while [ $_page -gt 0 ]; do
@@ -318,7 +321,7 @@ elif [[ $OSTYPE == "darwin"* ]]; then
     sleep 1
   done
 else
-  err "Your OS ($OSTYPE) is not supported by this script." \
+  err "Your OS ($SYSNAME) is not supported by this script." \
     'We would welcome a PR or some help adding your OS to this script.' \
     'https://github.com/spacedriveapp/spacedrive/issues'
 fi
