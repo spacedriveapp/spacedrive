@@ -71,7 +71,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	);
 });
 
-export default (props) => {
+export default () => {
 	const explorerStore = useExplorerStore();
 	const { data, scrollRef } = useExplorerView();
 
