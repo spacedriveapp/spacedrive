@@ -9,14 +9,15 @@ import Job from './Job';
 
 interface GroupJobProps {
 	data: IGroupedJobs;
-	clearAJob?: (arg: string) => void;
+	clearJob: (arg: string) => void;
 }
 
-function GroupedJob({ data, clearAJob }: GroupJobProps) {
+function GroupedJob({ data, clearJob }: GroupJobProps) {
 	const [toggleJobs, setToggleJobs] = useState<MutableRefObject<boolean> | boolean>(false);
 	const toggleRef = useRef(toggleJobs);
 	const checkForJobsRunning = data.childJobs?.some((job) => job.status === 'Running');
 	const allJobsCompleted = data.childJobs?.every((job) => job.status === 'Completed');
+	const getTasks = getTotalTasks(data.childJobs);
 
 	useEffect(() => {
 		setToggleJobs(toggleRef.current); //this is to keep the toggled group open on re-renders
@@ -25,9 +26,9 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 	//If one job is remaining, we just delete the parent
 	const clearJobHandler = (arg: string) => {
 		if (data.childJobs.length === 1) {
-			clearAJob?.(data.id as string);
+			clearJob?.(data.id as string);
 		} else {
-			clearAJob?.(arg);
+			clearJob?.(arg);
 		}
 	};
 
@@ -38,7 +39,7 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 					{allJobsCompleted && !checkForJobsRunning && (
 						<Button
 							className="absolute right-[10px] top-[30px] cursor-pointer"
-							onClick={() => clearAJob?.(data.id as string)}
+							onClick={() => clearJob?.(data.id as string)}
 							size="icon"
 						>
 							<Tooltip label="Remove">
@@ -47,7 +48,7 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 						</Button>
 					)}
 					<div
-						onClick={() => setToggleJobs(!toggleJobs)}
+						onClick={() => setToggleJobs((v) => !v)}
 						className={clsx(
 							'h-auto cursor-pointer p-3 pl-4',
 							toggleJobs ? 'darker-app-bg pb-0' : ' border-b border-app-line/50'
@@ -83,8 +84,8 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 								{!allJobsCompleted && !toggleJobs && (
 									<div className="mt-[6px] w-full">
 										<ProgressBar
-											value={getTotalTasks(data.childJobs).completed}
-											total={getTotalTasks(data.childJobs).total}
+											value={getTasks.completed}
+											total={getTasks.total}
 										/>
 									</div>
 								)}
@@ -99,19 +100,19 @@ function GroupedJob({ data, clearAJob }: GroupJobProps) {
 										`border-none pl-10`,
 										toggleJobs && 'darker-app-bg'
 									)}
-									isGroup={true}
+									isGroup
 									key={job.id}
 									job={job}
 								/>
 							))}
 							{data.childJobs.map((job) => (
 								<Job
-									isGroup={true}
+									isGroup
 									className={clsx(
 										`border-none pl-10`,
 										toggleJobs && 'darker-app-bg'
 									)}
-									clearAJob={(arg) => clearJobHandler(arg)}
+									clearAJob={clearJobHandler}
 									key={job.id}
 									job={job}
 								/>

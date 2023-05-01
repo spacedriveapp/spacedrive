@@ -3,7 +3,7 @@ import { JobReport } from '@sd/client';
 import GroupedJob from './GroupedJob';
 
 interface Props {
-	clearAJob: (arg: string) => void;
+	clearJob: (arg: string) => void;
 	runningJobs?: JobReport[];
 	jobs?: JobReport[];
 }
@@ -13,7 +13,7 @@ export interface IGroupedJobs extends JobReport {
 	runningJobs: JobReport[];
 }
 
-function GroupedJobs({ clearAJob, jobs, runningJobs }: Props) {
+function GroupedJobs({ clearJob, jobs, runningJobs }: Props) {
 	const groupJobsByParentId = () => {
 		const arr = [];
 		if (jobs) {
@@ -37,7 +37,7 @@ function GroupedJobs({ clearAJob, jobs, runningJobs }: Props) {
 			{groupJobsByParentId().map((data) => {
 				return (
 					<div key={data.id}>
-						<GroupedJob data={data} clearAJob={clearAJob} />
+						<GroupedJob data={data} clearJob={clearJob} />
 					</div>
 				);
 			})}

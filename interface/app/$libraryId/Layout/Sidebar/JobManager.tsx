@@ -48,7 +48,7 @@ export function JobsManager() {
 			onSubmit: () => clearAllJobs.mutate(null)
 		});
 	};
-	const clearAJobHandler = useCallback(
+	const clearJobHandler = useCallback(
 		(id: string) => {
 			clearAJob.mutate(id);
 		},
@@ -75,7 +75,7 @@ export function JobsManager() {
 			</div>
 			<div className="no-scrollbar h-full overflow-x-hidden">
 				<GroupedJobs
-					clearAJob={clearAJobHandler}
+					clearJob={clearJobHandler}
 					jobs={allJobsWithActions}
 					runningJobs={allRunningJobsWithActions}
 				/>
@@ -84,7 +84,7 @@ export function JobsManager() {
 					<Job key={job.id} job={job} />
 				))}
 				{allIndividualJobs?.map((job) => (
-					<Job clearAJob={(arg) => clearAJobHandler(arg)} key={job.id} job={job} />
+					<Job clearAJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
 					<div className="flex h-32 items-center justify-center text-ink-dull">
