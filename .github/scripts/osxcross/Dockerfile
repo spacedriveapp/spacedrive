@@ -59,9 +59,9 @@ WORKDIR /srv
 RUN osxcross-macports --help
 
 LABEL org.opencontainers.image.title="alpine-osxcross" \
-			# Version is macOS SDK version + osxcross commit hash
-      org.opencontainers.image.version="12.3-50e86eb" \
-      org.opencontainers.image.authors="Vítor Vasconcellos <vasconcellos.dev@gmail.com>, Spacedrive <support@spacedrive.com>" \
-      org.opencontainers.image.revision="1" \
-      org.opencontainers.image.licenses="GPL-2.0" \
-      org.opencontainers.image.description="macOS cross toolchain configured inside Alpine Linux"
+	# Version is macOS SDK version + osxcross commit hash
+	org.opencontainers.image.version="12.3-50e86eb" \
+	org.opencontainers.image.authors="Vítor Vasconcellos <vasconcellos.dev@gmail.com>, Spacedrive <support@spacedrive.com>" \
+	org.opencontainers.image.revision="1" \
+	org.opencontainers.image.licenses="GPL-2.0" \
+	org.opencontainers.image.description="macOS cross toolchain configured inside Alpine Linux"

@@ -14,8 +14,14 @@ OUT_DIR="$3"
 # Clear command line arguments
 set --
 if [ "$ARCH" = "x86_64" ]; then
+  TARGET_CPU="x86_64"
+  TARGET_ARCH="x86_64"
   set -- --enable-x86asm
-elif ! [ "$ARCH" = "aarch64" ]; then
+elif [ "$ARCH" = "aarch64" ]; then
+  TARGET_CPU="armv8"
+  TARGET_ARCH="aarch64"
+  set -- --enable-neon --enable-asm
+else
   echo "Unsupported architecture: $ARCH" >&2
   exit 1
 fi
@@ -78,10 +84,17 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --dep-cc="$CC" \
   --ranlib="${TRIPLE}-ranlib" \
   --prefix="${TARGET_DIR}" \
-  --target-os='darwin' \
+  --arch="${TARGET_ARCH}" \
+  --cpu="${TARGET_CPU}" \
+  --target-os=darwin \
   --pkg-config="${TRIPLE}-pkg-config" \
+  --pkg-config-flags="--static" \
+  --extra-ldexeflags="-Bstatic" \
   --extra-ldflags="-headerpad_max_install_names" \
   --extra-cxxflags="-xc++-header" \
+  --disable-alsa \
+  --disable-cuda \
+  --disable-cuvid \
   --disable-debug \
   --disable-doc \
   --disable-htmlpages \
@@ -96,23 +109,40 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --disable-libxcb-xfixes \
   --disable-manpages \
   --disable-metal \
+  --disable-neon-clobber-test \
   --disable-network \
   --disable-nvdec \
   --disable-nvenc \
+  --disable-openssl \
   --disable-outdevs \
   --disable-podpages \
   --disable-programs \
   --disable-protocols \
+  --disable-schannel \
   --disable-sdl2 \
+  --disable-securetransport \
+  --disable-sndio \
+  --disable-static \
   --disable-txtpages \
+  --disable-v4l2-m2m \
+  --disable-vaapi \
+  --disable-vdpau \
   --disable-vulkan \
   --disable-xlib \
+  --disable-xmm-clobber-test \
+  --enable-appkit \
   --enable-audiotoolbox \
   --enable-avcodec \
   --enable-avfilter \
   --enable-avformat \
+  --enable-avfoundation \
+  --enable-bzlib \
+  --enable-coreimage \
+  --enable-cross-compile \
   --enable-fontconfig \
   --enable-gpl \
+  --enable-iconv \
+  --enable-inline-asm \
   --enable-libaom \
   --enable-libfreetype \
   --enable-libfribidi \
@@ -124,6 +154,7 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-libsoxr \
   --enable-libsvtav1 \
   --enable-libtheora \
+  --enable-libtwolame \
   --enable-libvorbis \
   --enable-libvpx \
   --enable-libwebp \
@@ -134,6 +165,8 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-lto \
   --enable-lzma \
   --enable-opencl \
+  --enable-opengl \
+  --enable-optimizations \
   --enable-pic \
   --enable-postproc \
   --enable-pthreads \
@@ -142,15 +175,21 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-version3 \
   --enable-videotoolbox \
   --enable-zlib \
-  --enable-cross-compile \
   "$@"
 
 make -j"$(nproc)" install
 
 cd "$TARGET_DIR/lib"
 
-# Move all symlinks to ffmpeg libraries to the output directory
-find . -type l -exec mv -t "$OUT_DIR" '{}' +
+# Move all symlinks for ffmpeg libraries to the output directory
+while IFS= read -r -d '' _lib; do
+  # Remove leading ./
+  _lib="${_lib#./}"
+  # Copy symlinks to the output directory
+  cp -Ppv "$_lib" "${OUT_DIR}/${_lib}"
+  cp -Ppv "$_lib" "${OUT_DIR}/lib/${_lib}"
+  rm "$_lib"
+done < <(find . -type l -print0)
 
 no_ext() {
   set -- "$1" "$(basename "$1")"
@@ -165,12 +204,8 @@ no_ext() {
 set --
 # Populate queue with ffmpeg libraries
 while IFS= read -r -d '' _lib; do
-  # Remove leading ./
-  _lib="${_lib#./}"
   # Add it to the queue to have it's dependencies copied
-  set -- "$@" "$_lib"
-  # Copy library to the output directory
-  cp -p "$_lib" "${OUT_DIR}/${_lib}"
+  set -- "$@" "${_lib#./}"
 done < <(find . -name '*.dylib' -print0)
 
 # # Copy static library to the output directory
@@ -191,7 +226,7 @@ while [ $# -gt 0 ]; do
         _dep_rel="${_dep#/opt/local/lib/}"
         if [ ! -f "$_dep_rel" ]; then
           # Copy dependency to the current directory if this is the first time we see it
-          cp -p -L "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
+          cp -Lpv "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
           # Add it to the queue to have it's own dependencies processed
           set -- "$@" "$_dep_rel"
           # # Copy static verion of dependency to the output directory
@@ -216,7 +251,7 @@ while [ $# -gt 0 ]; do
   aarch64-apple-darwin21.4-install_name_tool -id "@executable_path/../Frameworks/${1}" "$1"
 
   # Copy the library to the output directory
-  cp -p "$1" "${OUT_DIR}/${1}"
+  cp -Lpv "$1" "${OUT_DIR}/${1}"
   ln -s "../${1}" "${OUT_DIR}/lib/${1}"
 
   # Remove library from queue

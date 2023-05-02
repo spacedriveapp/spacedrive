@@ -1,5 +1,6 @@
-ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libopus libtheora libvidstab \
-	libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 webp x264 x265 XviD xz zimg zlib" \
+ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libogg libopus libpng libtheora \
+	libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 x265 XviD \
+	xz zimg zlib" \
 	FFMEG_OUT_DIR=/ffmpeg \
 	FFMPEG_VERSION=6.0
 
@@ -34,8 +35,9 @@ ADD https://raw.githubusercontent.com/yuvi/gas-preprocessor/master/gas-preproces
 RUN chmod +x /usr/local/bin/gas-preprocessor.pl
 
 # Update min macOS version for arm64
-ENV OSX_VERSION_MIN="$MACOSX_ARM64_DEPLOYMENT_TARGET" \
-	MACOSX_DEPLOYMENT_TARGET="$MACOSX_ARM64_DEPLOYMENT_TARGET"
+# libbrotli macports precompiled binaries are only available for macOS 11.2+
+ENV OSX_VERSION_MIN="11.2" \
+	MACOSX_DEPLOYMENT_TARGET="11.2"
 
 # Install macOS dependencies required to build ffmpeg
 ARG FFMPEG_DEPS
