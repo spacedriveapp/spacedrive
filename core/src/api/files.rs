@@ -10,6 +10,7 @@ use crate::{
 };
 
 use chrono::{FixedOffset, Utc};
+use prisma_client_rust::not;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
@@ -120,24 +121,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getRecent", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				let mut files = library
-					.db
-					.object()
-					.find_many(vec![])
-					.order_by(object::date_accessed::order(
-						prisma_client_rust::Direction::Desc,
-					))
-					.exec()
-					.await?
-					.into_iter()
-					.filter(|x| x.date_accessed.is_some())
-					.collect::<Vec<_>>();
-
-				files.truncate(12);
-
-				Ok(files)
-			})
+			R.with2(library())
+				.query(|(_, library), amount: i32| async move {
+					Ok(library
+						.db
+						.object()
+						.find_many(vec![not![object::date_accessed::equals(None)]])
+						.order_by(object::date_accessed::order(
+							prisma_client_rust::Direction::Desc,
+						))
+						.exec()
+						.await?
+						.into_iter()
+						.filter(|x| x.date_accessed.is_some())
+						.take(amount as usize)
+						.collect::<Vec<_>>())
+				})
 		})
 		.procedure("encryptFiles", {
 			R.with2(library())
