@@ -121,7 +121,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("getRecent", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				Ok(library
+				let mut files = library
 					.db
 					.object()
 					.find_many(vec![])
@@ -129,7 +129,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						prisma_client_rust::Direction::Desc,
 					))
 					.exec()
-					.await?)
+					.await?
+					.into_iter()
+					.filter(|x| x.date_accessed.is_some())
+					.collect::<Vec<_>>();
+
+				files.truncate(12);
+
+				Ok(files)
 			})
 		})
 		.procedure("encryptFiles", {

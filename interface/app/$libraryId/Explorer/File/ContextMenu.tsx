@@ -255,6 +255,7 @@ export default ({ data, className, ...props }: Props) => {
 const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
 	const platform = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
 	const filePath = getItemFilePath(props.data);
 	const openFilePath = platform.openFilePath;
@@ -269,7 +270,12 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 					<ContextMenu.Item
 						label="Open"
 						keybind="⌘O"
-						onClick={() => openFilePath(library.uuid, filePath.id)}
+						onClick={() => {
+							props.data.type === 'Path' &&
+								props.data.item.object_id &&
+								updateAccessTime.mutate(props.data.item.object_id);
+							openFilePath(library.uuid, filePath.id);
+						}}
 					/>
 				)}
 				<ContextMenu.Item
