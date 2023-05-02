@@ -14,13 +14,12 @@ pub struct Keyslot {
 }
 
 impl Keyslot {
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		hash_salt: Salt,
-		hashed_password: Key,
-		master_key: Key,
+		hashed_password: &Key,
+		master_key: &Key,
 		aad: Aad,
 		context: DerivationContext,
 	) -> Result<Self> {
@@ -28,8 +27,8 @@ impl Keyslot {
 		let salt = Salt::generate();
 
 		let encrypted_key = Encryptor::encrypt_key(
-			Hasher::derive_key(hashed_password, salt, context),
-			nonce,
+			&Hasher::derive_key(hashed_password, salt, context),
+			&nonce,
 			algorithm,
 			master_key,
 			aad,
@@ -46,14 +45,14 @@ impl Keyslot {
 	pub(super) fn decrypt(
 		&self,
 		algorithm: Algorithm,
-		key: Key,
+		key: &Key,
 		aad: Aad,
 		context: DerivationContext,
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
-			Hasher::derive_key(key, self.salt, context),
+			&Hasher::derive_key(key, self.salt, context),
 			algorithm,
-			self.encrypted_key.clone(),
+			&self.encrypted_key.clone(),
 			aad,
 		)
 	}

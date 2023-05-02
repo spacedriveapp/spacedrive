@@ -64,8 +64,8 @@ where
 			.clone();
 
 		let value = Decryptor::decrypt_tiny(
-			Hasher::derive_key(self.key.clone(), item.0, KEYSTORE_CONTEXT),
-			item.1,
+			&Hasher::derive_key(&self.key.clone(), item.0, KEYSTORE_CONTEXT),
+			&item.1,
 			self.algorithm,
 			&item.2,
 			Aad::Null,
@@ -74,7 +74,6 @@ where
 		Ok(value.into_inner())
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn insert(&self, id: K, value: Vec<u8>) -> Result<()> {
 		// so `value` is dropped once it goes out of scope, but doesn't need to be mutable
 		let value = Zeroizing::new(value);
@@ -87,8 +86,8 @@ where
 		let nonce = Nonce::generate(self.algorithm);
 
 		let bytes = Encryptor::encrypt_tiny(
-			Hasher::derive_key(self.key.clone(), salt, KEYSTORE_CONTEXT),
-			nonce,
+			&Hasher::derive_key(&self.key.clone(), salt, KEYSTORE_CONTEXT),
+			&nonce,
 			self.algorithm,
 			&value,
 			Aad::Null,

@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::seq::index;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaCha20Rng,
@@ -58,9 +58,10 @@ pub fn generate_passphrase(len: usize, delimiter: char) -> Protected<String> {
 	let mut output = String::new();
 
 	let mut rng = ChaCha20Rng::from_entropy();
+	let indexes = index::sample(&mut rng, words.len(), len);
 
-	(0..len).for_each(|i| {
-		output.push_str(words.choose(&mut rng).expect("terrible issue"));
+	indexes.iter().for_each(|i| {
+		output.push_str(words[i]);
 		if i < len - 1 && len != 1 {
 			output.push(delimiter);
 		}
@@ -70,7 +71,6 @@ pub fn generate_passphrase(len: usize, delimiter: char) -> Protected<String> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{primitives::SALT_LEN, utils::ToArray};
 

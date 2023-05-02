@@ -3,10 +3,9 @@
 use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
 use std::fmt::{Debug, Display};
-use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ct::ConstantTimeEqNull;
+use crate::ct::{Choice, ConstantTimeEq, ConstantTimeEqNull};
 use crate::utils::{generate_fixed, ToArray};
 use crate::{Error, Protected};
 
@@ -174,14 +173,14 @@ impl ConstantTimeEq for Nonce {
 	}
 }
 
-impl<I> From<Nonce> for GenericArray<u8, I>
+impl<I> From<&Nonce> for GenericArray<u8, I>
 where
 	I: ArrayLength<u8>,
 {
-	fn from(value: Nonce) -> Self {
+	fn from(value: &Nonce) -> Self {
 		match value {
-			Nonce::Aes256Gcm(x) | Nonce::Aes256GcmSiv(x) => Self::clone_from_slice(&x),
-			Nonce::XChaCha20Poly1305(x) => Self::clone_from_slice(&x),
+			Nonce::Aes256Gcm(x) | Nonce::Aes256GcmSiv(x) => Self::clone_from_slice(x),
+			Nonce::XChaCha20Poly1305(x) => Self::clone_from_slice(x),
 		}
 	}
 }
@@ -198,6 +197,7 @@ pub enum Algorithm {
 
 impl ConstantTimeEq for Algorithm {
 	fn ct_eq(&self, rhs: &Self) -> Choice {
+		#[allow(clippy::as_conversions)]
 		(*self as u8).ct_eq(&(*rhs as u8))
 	}
 }
@@ -268,11 +268,11 @@ impl PartialEq for Key {
 	}
 }
 
-impl<I> From<Key> for GenericArray<u8, I>
+impl<I> From<&Key> for GenericArray<u8, I>
 where
 	I: ArrayLength<u8>,
 {
-	fn from(value: Key) -> Self {
+	fn from(value: &Key) -> Self {
 		Self::clone_from_slice(value.expose())
 	}
 }
@@ -494,7 +494,6 @@ impl Debug for EncryptedKey {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{
 		primitives::{

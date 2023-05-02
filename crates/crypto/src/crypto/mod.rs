@@ -59,7 +59,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use std::io::Cursor;
 
@@ -133,8 +132,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_encrypt_bytes() {
 		let output = Encryptor::encrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&PLAINTEXT,
 			Aad::Null,
@@ -147,8 +146,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_encrypt_bytes_with_aad() {
 		let output = Encryptor::encrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&PLAINTEXT,
 			AAD,
@@ -161,8 +160,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_decrypt_bytes() {
 		let output = Decryptor::decrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&AES_256_GCM_BYTES_EXPECTED[0],
 			Aad::Null,
@@ -175,8 +174,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_decrypt_bytes_with_aad() {
 		let output = Decryptor::decrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&AES_256_GCM_BYTES_EXPECTED[1],
 			AAD,
@@ -189,10 +188,10 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_encrypt_key() {
 		let output = Encryptor::encrypt_key(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
-			PLAINTEXT_KEY,
+			&PLAINTEXT_KEY,
 			Aad::Null,
 		)
 		.unwrap();
@@ -203,9 +202,9 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_decrypt_key() {
 		let output = Decryptor::decrypt_key(
-			KEY,
+			&KEY,
 			Algorithm::Aes256Gcm,
-			AES_256_GCM_ENCRYPTED_KEY,
+			&AES_256_GCM_ENCRYPTED_KEY,
 			Aad::Null,
 		)
 		.unwrap();
@@ -216,8 +215,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_encrypt_tiny() {
 		let output = Encryptor::encrypt_tiny(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&PLAINTEXT,
 			Aad::Null,
@@ -230,8 +229,8 @@ mod tests {
 	#[test]
 	fn aes_256_gcm_decrypt_tiny() {
 		let output = Decryptor::decrypt_tiny(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&AES_256_GCM_BYTES_EXPECTED[0],
 			Aad::Null,
@@ -245,8 +244,8 @@ mod tests {
 	#[should_panic(expected = "LengthMismatch")]
 	fn aes_256_gcm_encrypt_tiny_too_large() {
 		Encryptor::encrypt_tiny(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&vec![0u8; BLOCK_LEN],
 			Aad::Null,
@@ -258,8 +257,8 @@ mod tests {
 	#[should_panic(expected = "LengthMismatch")]
 	fn aes_256_gcm_decrypt_tiny_too_large() {
 		Decryptor::decrypt_tiny(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
 			Aad::Null,
@@ -271,8 +270,8 @@ mod tests {
 	#[should_panic(expected = "Decrypt")]
 	fn aes_256_gcm_decrypt_bytes_missing_aad() {
 		Decryptor::decrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::Aes256Gcm,
 			&AES_256_GCM_BYTES_EXPECTED[1],
 			Aad::Null,
@@ -288,7 +287,7 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -297,7 +296,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -316,7 +315,7 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -325,7 +324,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -344,7 +343,7 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, AAD)
@@ -353,7 +352,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, AAD)
@@ -373,7 +372,7 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams_async(&mut reader, &mut writer, Aad::Null)
@@ -383,7 +382,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams_async(&mut reader, &mut writer, Aad::Null)
@@ -404,7 +403,7 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor = Encryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let encryptor = Encryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		encryptor
 			.encrypt_streams_async(&mut reader, &mut writer, AAD)
@@ -414,7 +413,7 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor = Decryptor::new(KEY, AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
+		let decryptor = Decryptor::new(&KEY, &AES_256_GCM_NONCE, Algorithm::Aes256Gcm).unwrap();
 
 		decryptor
 			.decrypt_streams_async(&mut reader, &mut writer, AAD)
@@ -429,8 +428,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_encrypt_bytes() {
 		let output = Encryptor::encrypt_bytes(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			Aad::Null,
@@ -443,10 +442,10 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_encrypt_key() {
 		let output = Encryptor::encrypt_key(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
-			PLAINTEXT_KEY,
+			&PLAINTEXT_KEY,
 			Aad::Null,
 		)
 		.unwrap();
@@ -457,9 +456,9 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_decrypt_key() {
 		let output = Decryptor::decrypt_key(
-			KEY,
+			&KEY,
 			Algorithm::XChaCha20Poly1305,
-			XCHACHA20_POLY1305_ENCRYPTED_KEY,
+			&XCHACHA20_POLY1305_ENCRYPTED_KEY,
 			Aad::Null,
 		)
 		.unwrap();
@@ -470,8 +469,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_encrypt_tiny() {
 		let output = Encryptor::encrypt_tiny(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			Aad::Null,
@@ -484,8 +483,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_decrypt_tiny() {
 		let output = Decryptor::decrypt_tiny(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[0],
 			Aad::Null,
@@ -499,8 +498,8 @@ mod tests {
 	#[should_panic(expected = "LengthMismatch")]
 	fn xchacha20_poly1305_encrypt_tiny_too_large() {
 		Encryptor::encrypt_tiny(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&vec![0u8; BLOCK_LEN],
 			Aad::Null,
@@ -512,8 +511,8 @@ mod tests {
 	#[should_panic(expected = "LengthMismatch")]
 	fn xchacha20_poly1305_decrypt_tiny_too_large() {
 		Decryptor::decrypt_tiny(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&vec![0u8; BLOCK_LEN + AEAD_TAG_LEN],
 			Aad::Null,
@@ -524,8 +523,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_encrypt_bytes_with_aad() {
 		let output = Encryptor::encrypt_bytes(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			AAD,
@@ -538,8 +537,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_decrypt_bytes() {
 		let output = Decryptor::decrypt_bytes(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[0],
 			Aad::Null,
@@ -552,8 +551,8 @@ mod tests {
 	#[test]
 	fn xchacha20_poly1305_decrypt_bytes_with_aad() {
 		let output = Decryptor::decrypt_bytes(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[1],
 			AAD,
@@ -567,8 +566,8 @@ mod tests {
 	#[should_panic(expected = "Decrypt")]
 	fn xchacha20_poly1305_decrypt_bytes_missing_aad() {
 		Decryptor::decrypt_bytes(
-			KEY,
-			XCHACHA20_POLY1305_NONCE,
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[1],
 			Aad::Null,
@@ -584,8 +583,12 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -594,8 +597,12 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -614,8 +621,12 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -624,8 +635,12 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, Aad::Null)
@@ -644,8 +659,12 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		encryptor
 			.encrypt_streams(&mut reader, &mut writer, AAD)
@@ -654,8 +673,12 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		decryptor
 			.decrypt_streams(&mut reader, &mut writer, AAD)
@@ -675,8 +698,12 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		encryptor
 			.encrypt_streams_async(&mut reader, &mut writer, Aad::Null)
@@ -686,8 +713,12 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		decryptor
 			.decrypt_streams_async(&mut reader, &mut writer, Aad::Null)
@@ -708,8 +739,12 @@ mod tests {
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
 
-		let encryptor =
-			Encryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let encryptor = Encryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		encryptor
 			.encrypt_streams_async(&mut reader, &mut writer, AAD)
@@ -719,8 +754,12 @@ mod tests {
 		let mut reader = Cursor::new(writer.into_inner());
 		let mut writer = Cursor::new(Vec::new());
 
-		let decryptor =
-			Decryptor::new(KEY, XCHACHA20_POLY1305_NONCE, Algorithm::XChaCha20Poly1305).unwrap();
+		let decryptor = Decryptor::new(
+			&KEY,
+			&XCHACHA20_POLY1305_NONCE,
+			Algorithm::XChaCha20Poly1305,
+		)
+		.unwrap();
 
 		decryptor
 			.decrypt_streams_async(&mut reader, &mut writer, AAD)
@@ -736,8 +775,8 @@ mod tests {
 	#[should_panic(expected = "Validity")]
 	fn encrypt_with_invalid_nonce() {
 		Encryptor::encrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			Aad::Null,
@@ -749,8 +788,8 @@ mod tests {
 	#[should_panic(expected = "Validity")]
 	fn encrypt_with_null_nonce() {
 		Encryptor::encrypt_bytes(
-			KEY,
-			Nonce::XChaCha20Poly1305([0u8; 20]),
+			&KEY,
+			&Nonce::XChaCha20Poly1305([0u8; 20]),
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			Aad::Null,
@@ -762,8 +801,8 @@ mod tests {
 	#[should_panic(expected = "Validity")]
 	fn encrypt_with_null_key() {
 		Encryptor::encrypt_bytes(
-			Key::new([0u8; KEY_LEN]),
-			XCHACHA20_POLY1305_NONCE,
+			&Key::new([0u8; KEY_LEN]),
+			&XCHACHA20_POLY1305_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&PLAINTEXT,
 			Aad::Null,
@@ -775,8 +814,8 @@ mod tests {
 	#[should_panic(expected = "Validity")]
 	fn decrypt_with_invalid_nonce() {
 		Decryptor::decrypt_bytes(
-			KEY,
-			AES_256_GCM_NONCE,
+			&KEY,
+			&AES_256_GCM_NONCE,
 			Algorithm::XChaCha20Poly1305,
 			&XCHACHA20_POLY1305_BYTES_EXPECTED[0],
 			Aad::Null,

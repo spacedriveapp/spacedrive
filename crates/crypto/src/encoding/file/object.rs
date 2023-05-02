@@ -21,16 +21,15 @@ impl HeaderObject {
 	pub fn new(
 		name: &'static str,
 		algorithm: Algorithm,
-		master_key: Key,
+		master_key: &Key,
 		context: DerivationContext,
 		aad: Aad,
 		data: &[u8],
 	) -> Result<Self> {
-		let identifier =
-			HeaderObjectIdentifier::new(name, master_key.clone(), algorithm, context, aad)?;
+		let identifier = HeaderObjectIdentifier::new(name, master_key, algorithm, context, aad)?;
 
 		let nonce = Nonce::generate(algorithm);
-		let encrypted_data = Encryptor::encrypt_bytes(master_key, nonce, algorithm, data, aad)?;
+		let encrypted_data = Encryptor::encrypt_bytes(master_key, &nonce, algorithm, data, aad)?;
 
 		let object = Self {
 			identifier,
@@ -45,16 +44,16 @@ impl HeaderObject {
 		&self,
 		algorithm: Algorithm,
 		aad: Aad,
-		master_key: Key,
+		master_key: &Key,
 	) -> Result<Protected<Vec<u8>>> {
-		Decryptor::decrypt_bytes(master_key, self.nonce, algorithm, &self.data, aad)
+		Decryptor::decrypt_bytes(master_key, &self.nonce, algorithm, &self.data, aad)
 	}
 }
 
 impl HeaderObjectIdentifier {
 	pub fn new(
 		name: &'static str,
-		master_key: Key,
+		master_key: &Key,
 		algorithm: Algorithm,
 		context: DerivationContext,
 		aad: Aad,
@@ -63,10 +62,10 @@ impl HeaderObjectIdentifier {
 		let nonce = Nonce::generate(algorithm);
 
 		let encrypted_key = Encryptor::encrypt_key(
-			Hasher::derive_key(master_key, salt, context),
-			nonce,
+			&Hasher::derive_key(master_key, salt, context),
+			&nonce,
 			algorithm,
-			Hasher::blake3(name.as_bytes()),
+			&Hasher::blake3(name.as_bytes()),
 			aad,
 		)?;
 
@@ -78,15 +77,15 @@ impl HeaderObjectIdentifier {
 
 	pub(super) fn decrypt_id(
 		&self,
-		master_key: Key,
+		master_key: &Key,
 		algorithm: Algorithm,
 		context: DerivationContext,
 		aad: Aad,
 	) -> Result<Key> {
 		Decryptor::decrypt_key(
-			Hasher::derive_key(master_key, self.salt, context),
+			&Hasher::derive_key(master_key, self.salt, context),
 			algorithm,
-			self.key.clone(),
+			&self.key,
 			aad,
 		)
 	}

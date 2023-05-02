@@ -270,7 +270,11 @@ impl HeaderEncode for HeaderObject {
 		o.extend_from_slice(&[0xF1, 51u8]);
 		o.extend_from_slice(&self.identifier.as_bytes());
 		o.extend_from_slice(&self.nonce.as_bytes());
-		o.extend_from_slice(&(self.data.len() as u64).to_le_bytes());
+
+		// SAFETY: this unwrap is safe as the length of the objects is capped
+		// will be removed in a trait overhaul which focuses on versioning too
+		#[allow(clippy::unwrap_used)]
+		o.extend_from_slice(&(TryInto::<u64>::try_into(self.data.len()).unwrap()).to_le_bytes());
 		o.extend_from_slice(&self.data);
 
 		o
@@ -288,8 +292,8 @@ impl HeaderEncode for HeaderObject {
 		let nonce =
 			Nonce::from_bytes(b[offset.0..(offset.increment(Nonce::OUTPUT_LEN))].to_array()?)?;
 		let data_len = u64::from_le_bytes(b[offset.0..offset.increment(8)].to_array()?);
-		#[allow(clippy::cast_possible_truncation)]
-		let data = b[offset.0..offset.increment(data_len as usize)].to_vec();
+		let data = b[offset.0..offset.increment(data_len.try_into().map_err(|_| Error::Validity)?)]
+			.to_vec();
 
 		Ok(Self {
 			identifier,
@@ -351,8 +355,13 @@ impl HeaderEncode for HeaderVersion {
 }
 
 impl Header {
-	#[must_use]
-	pub fn as_bytes(&self) -> Vec<u8> {
+	pub fn as_bytes(&self) -> Result<Vec<u8>> {
+		match self.version {
+			HeaderVersion::V1 => self.as_bytes_v1(),
+		}
+	}
+
+	fn as_bytes_v1(&self) -> Result<Vec<u8>> {
 		let mut o = vec![];
 		o.extend_from_slice(&[0xFA, 0xDA]);
 
@@ -367,16 +376,22 @@ impl Header {
 		(0..KEYSLOT_LIMIT - self.keyslots.len())
 			.for_each(|_| o.extend_from_slice(&Keyslot::random().as_bytes()));
 
-		#[allow(clippy::cast_possible_truncation)]
-		o.extend_from_slice(&(self.objects.len() as u16).to_le_bytes());
+		o.extend_from_slice(
+			&(TryInto::<u16>::try_into(self.objects.len()).map_err(|_| Error::Validity)?)
+				.to_le_bytes(),
+		);
 
-		self.objects.iter().for_each(|k| {
+		self.objects.iter().try_for_each(|k| {
 			let b = k.as_bytes();
-			o.extend_from_slice(&(b.len() as u64).to_le_bytes());
+			o.extend_from_slice(
+				&(TryInto::<u64>::try_into(b.len()).map_err(|_| Error::Validity)?).to_le_bytes(),
+			);
 			o.extend_from_slice(&b);
-		});
 
-		o
+			Ok::<_, Error>(())
+		})?;
+
+		Ok(o)
 	}
 
 	pub(super) fn from_reader_raw<R>(reader: &mut R) -> Result<Self>
@@ -415,14 +430,13 @@ impl Header {
 		reader.read_exact(&mut buffer)?;
 		let objects_len = u16::from_le_bytes(buffer);
 
-		let objects = (0..objects_len as usize)
+		let objects = (0..objects_len)
 			.map(|_| {
 				let mut buffer = [0u8; 8];
 				reader.read_exact(&mut buffer)?;
 				let size = u64::from_le_bytes(buffer);
 
-				#[allow(clippy::cast_possible_truncation)]
-				let mut buffer = vec![0u8; size as usize];
+				let mut buffer = vec![0u8; size.try_into().map_err(|_| Error::Validity)?];
 				reader.read_exact(&mut buffer)?;
 
 				HeaderObject::from_bytes(buffer)

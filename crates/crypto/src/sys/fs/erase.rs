@@ -96,7 +96,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{ct::ConstantTimeEqNull, primitives::BLOCK_LEN};
 	use std::io::Cursor;

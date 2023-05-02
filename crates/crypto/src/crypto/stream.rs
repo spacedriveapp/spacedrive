@@ -49,8 +49,7 @@ macro_rules! impl_stream {
 			///
 			/// This function ensures that both the nonce and key are *valid*.
 			/// For more information, view `Key::validate()` and `Nonce::validate()`
-			#[allow(clippy::needless_pass_by_value)]
-			pub fn new(key: Key, nonce: Nonce, algorithm: Algorithm) -> Result<Self> {
+			pub fn new(key: &Key, nonce: &Nonce, algorithm: Algorithm) -> Result<Self> {
 				nonce.validate(algorithm)?;
 				key.validate()?;
 
@@ -181,10 +180,9 @@ macro_rules! impl_stream {
 			/// This should ideally only be used for small amounts of data.
 			///
 			/// It is just a thin wrapper around the associated `encrypt/decrypt_streams` function.
-			#[allow(unused_mut)]
 			pub fn $bytes_fn(
-				key: Key,
-				nonce: Nonce,
+				key: &Key,
+				nonce: &Nonce,
 				algorithm: Algorithm,
 				bytes: &[u8],
 				aad: Aad,
@@ -201,16 +199,15 @@ macro_rules! impl_stream {
 }
 
 impl Encryptor {
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn encrypt_key(
-		key: Key,
-		nonce: Nonce,
+		key: &Key,
+		nonce: &Nonce,
 		algorithm: Algorithm,
-		key_to_encrypt: Key,
+		key_to_encrypt: &Key,
 		aad: Aad,
 	) -> Result<EncryptedKey> {
 		Self::encrypt_tiny(key, nonce, algorithm, key_to_encrypt.expose(), aad)
-			.map(|b| Ok(EncryptedKey::new(b.to_array()?, nonce)))
+			.map(|b| Ok(EncryptedKey::new(b.to_array()?, *nonce)))
 			.map_err(|_| Error::Encrypt)?
 	}
 
@@ -222,8 +219,8 @@ impl Encryptor {
 	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
 	/// full buffer - we only allocate what is required.
 	pub fn encrypt_tiny(
-		key: Key,
-		nonce: Nonce,
+		key: &Key,
+		nonce: &Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: Aad,
@@ -242,16 +239,15 @@ impl Encryptor {
 }
 
 impl Decryptor {
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_key(
-		key: Key,
+		key: &Key,
 		algorithm: Algorithm,
-		encrypted_key: EncryptedKey,
+		encrypted_key: &EncryptedKey,
 		aad: Aad,
 	) -> Result<Key> {
 		Self::decrypt_tiny(
 			key,
-			*encrypted_key.nonce(),
+			encrypted_key.nonce(),
 			algorithm,
 			encrypted_key.inner(),
 			aad,
@@ -268,8 +264,8 @@ impl Decryptor {
 	/// It's faster than the alternatives (for small sizes) as we don't need to allocate the
 	/// full buffer - we only allocate what is required.
 	pub fn decrypt_tiny(
-		key: Key,
-		nonce: Nonce,
+		key: &Key,
+		nonce: &Nonce,
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: Aad,

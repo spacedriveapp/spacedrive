@@ -36,17 +36,16 @@ impl Hasher {
 	}
 
 	#[must_use]
-	#[allow(clippy::needless_pass_by_value)]
-	pub fn derive_key(key: Key, salt: Salt, context: DerivationContext) -> Key {
+	pub fn derive_key(key: &Key, salt: Salt, context: DerivationContext) -> Key {
 		let k = blake3::derive_key(context.inner(), &[key.expose(), salt.inner()].concat());
 		Key::new(k)
 	}
 
 	pub fn hash_password(
 		algorithm: HashingAlgorithm,
-		password: Protected<Vec<u8>>,
+		password: &Protected<Vec<u8>>,
 		salt: Salt,
-		secret: SecretKey,
+		secret: &SecretKey,
 	) -> Result<Key> {
 		let d = algorithm.get_parameters();
 
@@ -56,11 +55,10 @@ impl Hasher {
 		}
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
 	fn argon2id(
-		password: Protected<Vec<u8>>,
+		password: &Protected<Vec<u8>>,
 		salt: Salt,
-		secret: SecretKey,
+		secret: &SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
 		let p =
@@ -80,11 +78,10 @@ impl Hasher {
 			.map_or(Err(Error::Hashing), |_| Ok(Key::new(key)))
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
 	fn blake3_balloon(
-		password: Protected<Vec<u8>>,
+		password: &Protected<Vec<u8>>,
 		salt: Salt,
-		secret: SecretKey,
+		secret: &SecretKey,
 		params: (u32, u32, u32),
 	) -> Result<Key> {
 		let p =
@@ -105,7 +102,6 @@ impl Hasher {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
 	use crate::{
 		hashing::Hasher,
@@ -210,9 +206,9 @@ mod tests {
 	fn argon2id_standard() {
 		let output = Hasher::hash_password(
 			ARGON2ID_STANDARD,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -224,9 +220,9 @@ mod tests {
 	fn argon2id_standard_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_STANDARD,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -238,9 +234,9 @@ mod tests {
 	fn argon2id_hardened() {
 		let output = Hasher::hash_password(
 			ARGON2ID_HARDENED,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -252,9 +248,9 @@ mod tests {
 	fn argon2id_hardened_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_HARDENED,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -266,9 +262,9 @@ mod tests {
 	fn argon2id_paranoid() {
 		let output = Hasher::hash_password(
 			ARGON2ID_PARANOID,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -280,9 +276,9 @@ mod tests {
 	fn argon2id_paranoid_with_secret() {
 		let output = Hasher::hash_password(
 			ARGON2ID_PARANOID,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -294,9 +290,9 @@ mod tests {
 	fn blake3_balloon_standard() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_STANDARD,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -308,9 +304,9 @@ mod tests {
 	fn blake3_balloon_standard_with_secret() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_STANDARD,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -322,9 +318,9 @@ mod tests {
 	fn blake3_balloon_hardened() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_HARDENED,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -336,9 +332,9 @@ mod tests {
 	fn blake3_balloon_hardened_with_secret() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_HARDENED,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -350,9 +346,9 @@ mod tests {
 	fn blake3_balloon_paranoid() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_PARANOID,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SecretKey::Null,
+			&SecretKey::Null,
 		)
 		.unwrap();
 
@@ -364,9 +360,9 @@ mod tests {
 	fn blake3_balloon_paranoid_with_secret() {
 		let output = Hasher::hash_password(
 			BLAKE3_BALLOON_PARANOID,
-			PASSWORD.to_vec().into(),
+			&PASSWORD.to_vec().into(),
 			SALT,
-			SECRET_KEY,
+			&SECRET_KEY,
 		)
 		.unwrap();
 
@@ -375,7 +371,7 @@ mod tests {
 
 	#[test]
 	fn blake3_kdf() {
-		let output = Hasher::derive_key(KEY, SALT, CONTEXT);
+		let output = Hasher::derive_key(&KEY, SALT, CONTEXT);
 
 		assert_eq!(output, BLAKE3_KDF_EXPECTED);
 	}

@@ -51,13 +51,14 @@ impl Header {
 	where
 		W: std::io::Write,
 	{
-		let b = self.as_bytes();
+		let b = self.as_bytes()?;
 
 		writer.write_all(magic_bytes.inner())?;
 
 		// we're good here for up to 4096mib~ (headers should never be this large)
-		#[allow(clippy::cast_possible_truncation)]
-		writer.write_all(&(b.len() as u32).to_le_bytes())?;
+		writer.write_all(
+			&(TryInto::<u32>::try_into(b.len()).map_err(|_| Error::Validity)?).to_le_bytes(),
+		)?;
 		writer.write_all(&b)?;
 
 		Ok(())
@@ -72,13 +73,16 @@ impl Header {
 	where
 		W: tokio::io::AsyncWriteExt + tokio::io::AsyncSeekExt + Unpin + Send,
 	{
-		let b = self.as_bytes();
+		let b = self.as_bytes()?;
 
 		writer.write_all(magic_bytes.inner()).await?;
 
 		// we're good here for up to 4096mib~ (headers should never be this large)
-		#[allow(clippy::cast_possible_truncation)]
-		writer.write_all(&(b.len() as u32).to_le_bytes()).await?;
+		writer
+			.write_all(
+				&(TryInto::<u32>::try_into(b.len()).map_err(|_| Error::Validity)?).to_le_bytes(),
+			)
+			.await?;
 		writer.write_all(&b).await?;
 
 		Ok(())
@@ -102,8 +106,7 @@ impl Header {
 		reader.read_exact(&mut len)?;
 		let len = u32::from_le_bytes(len);
 
-		#[allow(clippy::cast_possible_truncation)]
-		let mut header_bytes = vec![0u8; len as usize];
+		let mut header_bytes = vec![0u8; len.try_into().map_err(|_| Error::Validity)?];
 		reader.read_exact(&mut header_bytes)?;
 		let h = Self::from_reader_raw(&mut std::io::Cursor::new(&header_bytes))?;
 
@@ -129,8 +132,7 @@ impl Header {
 		reader.read_exact(&mut len).await?;
 		let len = u32::from_le_bytes(len);
 
-		#[allow(clippy::cast_possible_truncation)]
-		let mut header_bytes = vec![0u8; len as usize];
+		let mut header_bytes = vec![0u8; len.try_into().map_err(|_| Error::Validity)?];
 		reader.read_exact(&mut header_bytes).await?;
 		let h = Self::from_reader_raw(&mut std::io::Cursor::new(&header_bytes))?;
 
@@ -160,7 +162,7 @@ impl Header {
 		&self,
 		name: &'static str,
 		context: DerivationContext,
-		master_key: Key,
+		master_key: &Key,
 	) -> Result<Protected<Vec<u8>>> {
 		let rhs = Hasher::blake3(name.as_bytes());
 
@@ -168,12 +170,7 @@ impl Header {
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.decrypt_id(
-						master_key.clone(),
-						self.algorithm,
-						context,
-						self.generate_aad(),
-					)
+					.decrypt_id(master_key, self.algorithm, context, self.generate_aad())
 					.ok()
 					.and_then(|i| (i == rhs).then_some(o))
 			})
@@ -188,8 +185,8 @@ impl Header {
 		&mut self,
 		hashing_algorithm: HashingAlgorithm,
 		hash_salt: Salt,
-		hashed_password: Key,
-		master_key: Key,
+		hashed_password: &Key,
+		master_key: &Key,
 		context: DerivationContext,
 	) -> Result<()> {
 		if self.keyslots.len() + 1 > KEYSLOT_LIMIT {
@@ -213,7 +210,7 @@ impl Header {
 		&mut self,
 		name: &'static str,
 		context: DerivationContext,
-		master_key: Key,
+		master_key: &Key,
 		data: &[u8],
 	) -> Result<()> {
 		if self.objects.len() + 1 > OBJECT_LIMIT {
@@ -227,12 +224,7 @@ impl Header {
 			.iter()
 			.filter_map(|o| {
 				o.identifier
-					.decrypt_id(
-						master_key.clone(),
-						self.algorithm,
-						context,
-						self.generate_aad(),
-					)
+					.decrypt_id(master_key, self.algorithm, context, self.generate_aad())
 					.ok()
 					.map(|i| i == rhs)
 			})
@@ -252,10 +244,9 @@ impl Header {
 		Ok(())
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(
 		&self,
-		keys: Vec<Key>,
+		keys: &[Key],
 		context: DerivationContext,
 	) -> Result<(Key, usize)> {
 		if self.keyslots.is_empty() {
@@ -266,7 +257,7 @@ impl Header {
 			.enumerate()
 			.find_map(|(i, k)| {
 				self.keyslots.iter().find_map(|z| {
-					z.decrypt(self.algorithm, k.clone(), self.generate_aad(), context)
+					z.decrypt(self.algorithm, k, self.generate_aad(), context)
 						.ok()
 						.map(|x| (x, i))
 				})
@@ -274,10 +265,9 @@ impl Header {
 			.ok_or(Error::Decrypt)
 	}
 
-	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key_with_password(
 		&self,
-		password: Protected<Vec<u8>>,
+		password: &Protected<Vec<u8>>,
 		context: DerivationContext,
 	) -> Result<(Key, usize)> {
 		if self.keyslots.is_empty() {
@@ -290,12 +280,12 @@ impl Header {
 			.find_map(|(i, z)| {
 				let k = Hasher::hash_password(
 					z.hashing_algorithm,
-					password.clone(),
+					password,
 					z.hash_salt,
-					SecretKey::Null,
+					&SecretKey::Null,
 				)
 				.ok()?;
-				z.decrypt(self.algorithm, k, self.generate_aad(), context)
+				z.decrypt(self.algorithm, &k, self.generate_aad(), context)
 					.ok()
 					.map(|x| (x, i))
 			})
@@ -304,11 +294,8 @@ impl Header {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
-	use subtle::ConstantTimeEq;
-
-	use crate::{encoding::Header, types::MagicBytes};
+	use crate::{ct::ConstantTimeEq, encoding::Header, types::MagicBytes};
 	use std::io::{Cursor, Seek};
 
 	const MAGIC_BYTES: MagicBytes<6> = MagicBytes::new(*b"crypto");
