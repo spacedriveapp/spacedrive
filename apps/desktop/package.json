@@ -6,7 +6,7 @@
 	"private": true,
 	"scripts": {
 		"vite": "vite",
-		"dev": "tauri dev",
+		"dev": "node ./src-tauri/dev.js",
 		"dev-vite": "vite --clearScreen=false --mode development",
 		"tauri": "tauri",
 		"build": "node ./src-tauri/build.js",

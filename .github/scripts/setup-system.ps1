@@ -371,13 +371,6 @@ if (($null -ne $env:FFMPEG_DIR) -and (
 }
 
 Write-Host
-Write-Host 'Copying Required .dll files...' -ForegroundColor Yellow
-# Create target\debug folder, continue if already exists
-New-Item -Path $projectRoot\target\debug -ItemType Directory -ErrorAction SilentlyContinue
-# Copies all .dll required for rust-ffmpeg to target\debug folder
-Get-ChildItem "$env:FFMPEG_DIR\bin" -Recurse -Filter *.dll | Copy-Item -Destination "$projectRoot\target\debug"
-
-Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
 Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
 if (-not $env:CI) { Read-Host 'Press Enter to continue' }
