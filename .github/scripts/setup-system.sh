@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+if [ "${CI:-}" = "true" ]; then
+  set -x
+fi
+
 SYSNAME="$(uname)"
 FFMPEG_VERSION='6.0'
 
@@ -271,12 +275,12 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   while [ $_page -gt 0 ]; do
     # TODO: Filter only actions triggered by the main branch
     _success=$(gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
-      | jq -r '.workflow_runs | if length == 0 then error("Error: No workflow run found") else .[] | .artifacts_url end' \
+      | jq -r '. as $raw | .workflow_runs | if length == 0 then error("Error: \($raw)") else .[] | .artifacts_url end' \
       | while IFS= read -r _artifacts_url; do
         if _artificat_path="$(
           curl -LSs "$_artifacts_url" \
             | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
-              '.artifacts | if length == 0 then error("Error: No artifacts found") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
+              '. as $raw | .artifacts | if length == 0 then error("Error: \($raw)") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
         )"; then
           # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
           # https://github.com/actions/upload-artifact/issues/51
@@ -312,7 +316,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
           echo 'x86_64'
         fi
       )" -r \
-        '. | if length == 0 then error("Error: No releases found") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
+        '. as $raw | if length == 0 then error("Error: \($raw)") else .[] | select(.prerelease | not)  | .assets[] | select(.name | endswith("osx-\($arch).zip")) | .browser_download_url end' \
       | while IFS= read -r _asset_url; do
         if curl -LSs "${_asset_url}" | tar -xf - -C "$_frameworks_dir"; then
           printf 'yes'
