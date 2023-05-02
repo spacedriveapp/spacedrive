@@ -1,18 +1,26 @@
 #![doc = include_str!("../README.md")]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::correctness)]
-#![warn(clippy::perf)]
-#![warn(clippy::style)]
-#![warn(clippy::suspicious)]
-#![warn(clippy::complexity)]
-#![warn(clippy::nursery)]
-#![warn(clippy::unwrap_used)]
+#![warn(
+	clippy::all,
+	clippy::pedantic,
+	clippy::correctness,
+	clippy::perf,
+	clippy::style,
+	clippy::suspicious,
+	clippy::complexity,
+	clippy::nursery,
+	clippy::unwrap_used,
+	unused_qualifications,
+	rust_2018_idioms,
+	clippy::expect_used,
+	trivial_casts,
+	trivial_numeric_casts,
+	unused_allocation,
+	clippy::as_conversions,
+	clippy::dbg_macro,
+	unsafe_code
+)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
-#![warn(unused_qualifications)]
-#![warn(rust_2018_idioms)]
-#![forbid(unsafe_code)]
 
 pub mod crypto;
 pub mod ct;
