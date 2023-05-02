@@ -38,52 +38,67 @@ const getNiceData = (
 			? `Indexed paths at ${job.metadata?.location_path} `
 			: `Processing added location...`,
 		icon: Folder,
-		filesDiscovered: `${numberWithCommas(job.metadata?.total_paths || 0)} paths`
+		filesDiscovered: `${numberWithCommas(
+			job.metadata?.total_paths || 0
+		)} ${JobCountTextCondition(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `Generated thumbnails`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Generating thumbnails'
+				: 'Generated thumbnails'
+		}`,
 		icon: Camera,
-		filesDiscovered: `${numberWithCommas(job.task_count)} thumbnails`
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'path')}`
 	},
 	file_identifier: {
-		name: `Extracted metadata`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Extracting metadata'
+				: 'Extracted metadata'
+		}`,
 		icon: Eye,
-		filesDiscovered: `${numberWithCommas(job.metadata?.total_orphan_paths || 0)} files`
+		filesDiscovered:
+			job.message ||
+			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'task')}`
 	},
 	object_validator: {
 		name: `Generated full object hashes`,
 		icon: Fingerprint,
-		filesDiscovered: `${numberWithCommas(job.task_count)} objects`
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(
+			job,
+			'object'
+		)}`
 	},
 	file_encryptor: {
-		name: `Encrypted ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
+		name: `Encrypted`,
 		icon: LockSimple,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
 	},
 	file_decryptor: {
-		name: `Decrypted ${numberWithCommas(job.task_count)}${filesTextCondition(job)}`,
+		name: `Decrypted`,
 		icon: LockSimpleOpen,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)}${JobCountTextCondition(job, 'file')}`
 	},
 	file_eraser: {
-		name: `Securely erased ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
+		name: `Securely erased`,
 		icon: TrashSimple,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
 	},
 	file_deleter: {
-		name: `Deleted ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
+		name: `Deleted`,
 		icon: Trash,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
 	},
 	file_copier: {
-		name: `Copied ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
+		name: `Copied`,
 		icon: Copy,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
 	},
 	file_cutter: {
-		name: `Moved ${numberWithCommas(job.task_count)} ${filesTextCondition(job)}`,
+		name: `Moved`,
 		icon: Scissors,
-		filesDiscovered: ''
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
 	}
 });
 
@@ -125,7 +140,8 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mb-[5px] mt-[2px] text-[12px] italic text-ink-faint">
+							<p className="mt-[2px] mb-[5px] flex gap-1 text-[12px] italic text-ink-faint">
+								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.filesDiscovered}
 							</p>
 							<div className="flex gap-1 truncate text-ink-faint">
@@ -149,7 +165,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							</Tooltip>
 						</Button>
 					)} */}
-							{job.status !== 'Running' && (
+							{job.status !== 'Running' && job.status !== 'Queued' && (
 								<Button
 									className="relative left-1 cursor-pointer"
 									onClick={() => clearJob?.(job.id)}
@@ -163,7 +179,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						</div>
 					</div>
 					{isRunning && (
-						<div className="mb-1 mt-3 w-full">
+						<div className="mt-3 mb-1 w-full">
 							<ProgressBar value={job.completed_task_count} total={job.task_count} />
 						</div>
 					)}
@@ -201,8 +217,9 @@ function JobTimeText({ job }: { job: JobReport }) {
 	}
 }
 
-function filesTextCondition(job: JobReport) {
-	return job?.task_count > 1 || job?.task_count === 0 ? 'files' : 'file';
+function JobCountTextCondition(job: JobReport, word: string) {
+	const addStoEnd = job?.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
+	return addStoEnd;
 }
 
 function numberWithCommas(x: number) {
@@ -216,15 +233,25 @@ export function AllRunningJobsWithoutChildren({
 	jobs?: JobReport[];
 	runningJobs?: JobReport[];
 }) {
-	const filterRunning = runningJobs?.filter(
-		(job) => job.action !== null && job.parent_id === null
-	);
-	const mapJobsForIds = jobs?.map((job) => job.id);
-	const checkIfJobHasChildren = filterRunning?.filter((job) => !mapJobsForIds?.includes(job.id));
+	const runningJobsNoChildren = () => {
+		const singleRunningJobs = [];
+		for (const job of jobs) {
+			for (const runningJob of runningJobs) {
+				if (
+					job.parent_id !== runningJob.id &&
+					job.id !== runningJob.id &&
+					job.id !== job.id
+				) {
+					singleRunningJobs.push(runningJob);
+				}
+			}
+		}
+		return singleRunningJobs;
+	};
 	return (
 		<>
-			{checkIfJobHasChildren.map((job) => (
-				<Job key={job.id} job={job} />
+			{runningJobsNoChildren().map((job) => (
+				<Job key={job?.id} job={job} />
 			))}
 		</>
 	);

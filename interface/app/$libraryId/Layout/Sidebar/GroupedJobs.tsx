@@ -24,7 +24,7 @@ function GroupedJobs({ clearJob, jobs, runningJobs }: Props) {
 					arr.push({
 						...job,
 						childJobs,
-						runningJobs: runningJobs?.filter((j) => j.id === job.id)
+						runningJobs: runningJobs?.filter((j) => j.parent_id === job.id)
 					});
 				}
 			}

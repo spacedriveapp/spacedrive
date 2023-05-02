@@ -17,7 +17,6 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 	const checkForJobsRunning = data.childJobs?.some((job) => job.status === 'Running');
 	const allJobsCompleted = data.childJobs?.every((job) => job.status === 'Completed');
 	const getTasks = getTotalTasks(data.childJobs);
-
 	//If one job is remaining, we just delete the parent
 	const clearJobHandler = (arg: string) => {
 		if (data.childJobs.length === 1) {
@@ -61,8 +60,9 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 												  }`
 												: 'Processing added location...'}
 										</span>
-										<p className="mb-[5px] mt-[2px] text-[12px] italic text-ink-faint">
-											{getTotalTasks(data.childJobs).total} tasks
+										<p className="mt-[2px] mb-[5px] text-[12px] italic text-ink-faint">
+											{getTasks.total}{' '}
+											{getTasks.total >= 1 ? 'task' : 'tasks'}
 										</p>
 										<div className="flex gap-1 truncate text-ink-faint">
 											<GetTotalGroupJobTime jobs={data.childJobs} />
