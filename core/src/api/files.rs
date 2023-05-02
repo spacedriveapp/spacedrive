@@ -9,6 +9,7 @@ use crate::{
 	prisma::{location, object},
 };
 
+use chrono::{FixedOffset, Utc};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
@@ -98,6 +99,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "locations.getExplorerData");
 					Ok(())
 				})
+		})
+		.procedure("updateAccessTime", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(id),
+							vec![object::date_accessed::set(Some(
+								Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
+							))],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "files.getRecent");
+					Ok(())
+				})
+		})
+		.procedure("getRecent", {
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library
+					.db
+					.object()
+					.find_many(vec![])
+					.order_by(object::date_accessed::order(
+						prisma_client_rust::Direction::Desc,
+					))
+					.exec()
+					.await?)
+			})
 		})
 		.procedure("encryptFiles", {
 			R.with2(library())
