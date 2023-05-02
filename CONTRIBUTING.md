@@ -54,9 +54,13 @@ To quickly run only the desktop app after `prep` you can use:
   If necessary, react-devtools can be launched using `pnpm react-devtools`.
   However, it must be executed before the desktop app for it to connect.
 
+To run the web app:
+
+- `cargo run -p server` - runs the server
+- `pnpm web dev` - runs the web embed server
+
 To run the landing page:
 
-- `pnpm web dev` - runs the web app for the embed
 - `pnpm landing dev`
 
 If you are having issues ensure you are using the following versions of Rust and Node:
@@ -78,6 +82,7 @@ To run mobile app
 - You must also ensure [you must have NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 - `pnpm android` - runs on Android Emulator
 - `pnpm ios` - runs on iOS Emulator
+- `pnpm start` - runs the metro bundler
 
 ### Pull Request
 
