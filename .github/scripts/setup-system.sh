@@ -59,15 +59,19 @@ CDPATH='' cd -- "$(dirname -- "$0")"
 _script_path="$(pwd -P)"
 
 if ! has cargo; then
-  err "Rust was not found. Ensure the 'rustc' and 'cargo' binaries are in your \$PATH."
+  err 'Rust was not found.' \
+    "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
+    'https://rustup.rs'
 fi
 
 if [ "${spacedrive_skip_pnpm_check:-'false'}" != "true" ]; then
   echo "checking for pnpm..."
 
   if ! has pnpm; then
-    err "pnpm was not found. ensure the 'pnpm' command is in your \$path." \
-      'you must use pnpm for this project; yarn and npm are not allowed.'
+    err 'pnpm was not found.' \
+      "Ensure the 'pnpm' command is in your \$PATH." \
+      'You must use pnpm for this project; yarn and npm are not allowed.' \
+      'https://pnpm.io/installation'
   else
     echo "found pnpm!"
   fi
@@ -102,8 +106,9 @@ if [ "${1:-}" = "mobile" ]; then
 
   # Android requires python
   if ! command -v python3 >/dev/null; then
-    err 'python3 command could not be found. This is required for Android mobile development.' \
-      'Ensure python3 is available in your $PATH and try again.'
+    err 'python3 was not found.' \
+      'This is required for Android mobile development.' \
+      "Ensure 'python3' is available in your \$PATH and try again."
   fi
 
   # Android targets
@@ -227,6 +232,8 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   _arch="$(uname -m)"
 
   if ! has jq; then
+    echo "Download jq build..."
+
     # Determine the machine's architecture
     case "$_arch" in
       x86_64)
@@ -325,6 +332,9 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     echo "protobuf release not found, trying again in 1sec..."
     sleep 1
   done
+
+  # Ensure all binaries are executable
+  chmod +x "$_frameworks_dir"/bin/*
 else
   err "Your OS ($SYSNAME) is not supported by this script." \
     'We would welcome a PR or some help adding your OS to this script.' \
