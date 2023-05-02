@@ -278,7 +278,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
       | jq -r '. as $raw | .workflow_runs | if length == 0 then error("Error: \($raw)") else .[] | .artifacts_url end' \
       | while IFS= read -r _artifacts_url; do
         if _artificat_path="$(
-          curl -LSs "$_artifacts_url" \
+          gh_curl "$_artifacts_url" \
             | jq --arg version "$FFMPEG_VERSION" --arg arch "$_arch" -r \
               '. as $raw | .artifacts | if length == 0 then error("Error: \($raw)") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
         )"; then
