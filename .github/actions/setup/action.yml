@@ -49,6 +49,8 @@ runs:
       shell: bash
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: ./.github/scripts/setup-system.sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Run 'setup-system.ps1' script
       shell: powershell
