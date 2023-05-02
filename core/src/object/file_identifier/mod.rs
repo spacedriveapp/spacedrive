@@ -304,7 +304,7 @@ fn file_path_object_connect_ops<'db>(
 	object_id: Uuid,
 	sync: &SyncManager,
 	db: &'db PrismaClient,
-) -> (CRDTOperation, file_path::Update<'db>) {
+) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	let vec_id = object_id.as_bytes().to_vec();

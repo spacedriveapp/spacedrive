@@ -150,8 +150,8 @@ impl PrismaGenerator for SDSyncGenerator {
                     let field_name_snake = snake_ident(field.name());
 
                     match field.refine() {
-                        RefinedFieldWalker::Scalar(_) => {
-                            Some(quote! {
+                        RefinedFieldWalker::Scalar(scalar_field) => {
+                       		(!scalar_field.is_in_required_relation()).then(|| quote! {
                                 #model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
                             })
                         },

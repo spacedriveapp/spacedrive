@@ -83,6 +83,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(ExplorerData {
 						context: ExplorerContext::Tag(tag),
 						items,
+						cursor: None,
 					})
 				})
 		})

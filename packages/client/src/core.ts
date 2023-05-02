@@ -105,8 +105,6 @@ export type Ordering = { name: boolean }
  */
 export type StoredKeyVersion = "V1"
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
-
 /**
  * This should be used for passing an encrypted key around.
  * 
@@ -116,13 +114,13 @@ export type EncryptedKey = number[]
 
 export type PeerId = string
 
+export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
+
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
-export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+export type LocationExplorerArgs = { location_id: number; path?: string | null; limit: number; cursor?: number[] | null; kind?: number[] | null }
 
 /**
  * These parameters define the password-hashing level.
@@ -141,6 +139,8 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
+export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string }
+
 export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 /**
@@ -158,6 +158,10 @@ export type StoredKey = { uuid: string; version: StoredKeyVersion; key_type: Sto
 
 export type OnboardingConfig = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
+export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
+
+export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
+
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
  * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
@@ -172,6 +176,10 @@ export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boo
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
+export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; file_paths: FilePath[] }
+
+export type LightScanArgs = { location_id: number; sub_path: string }
+
 export type BuildInfo = { version: string; commit: string }
 
 /**
@@ -182,6 +190,12 @@ export type BuildInfo = { version: string; commit: string }
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
+
+export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
+
+export type TagCreateArgs = { name: string; color: string }
+
+export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
@@ -196,13 +210,13 @@ export type CRDTOperation = { node: string; timestamp: number; id: string; typ: 
  */
 export type Salt = number[]
 
-export type LightScanArgs = { location_id: number; sub_path: string }
+export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
 export type GetArgs = { id: number }
 
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
-
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
@@ -210,9 +224,11 @@ export type ObjectValidatorArgs = { id: number; path: string }
 
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
 
-export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
+export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
+export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type FileDeleterJobInit = { location_id: number; path_id: number }
 
@@ -220,8 +236,6 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
  * These are all possible algorithms that can be used for encryption and decryption
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
-
-export type LocationExplorerArgs = { location_id: number; path: string | null; limit: number; cursor: string | null; kind: number[] | null }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
 
@@ -240,13 +254,9 @@ export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: Peer
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
-export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string }
+export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
-
-export type TagCreateArgs = { name: string; color: string }
-
-export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 
@@ -260,10 +270,6 @@ export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgor
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
-
-export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
-
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
  * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -276,13 +282,15 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
-
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
+
+export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -293,11 +301,7 @@ export type ChangeNodeNameArgs = { name: string }
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
 
-export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[] }
-
 export type SetNoteArgs = { id: number; note: string | null }
-
-export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 
@@ -313,10 +317,6 @@ export type FileDecryptorJobInit = { location_id: number; path_id: number; mount
 export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type Protected<T> = T
-
-export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; file_paths: FilePath[] }
-
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
