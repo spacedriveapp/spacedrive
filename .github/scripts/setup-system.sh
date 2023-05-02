@@ -339,6 +339,15 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Ensure all binaries are executable
   chmod +x "$_frameworks_dir"/bin/*
+
+  _cargo_config="${_script_path}/../../.cargo"
+  cat <<EOF >"${_cargo_config}/config"
+[env]
+PROTOC = "${_frameworks_dir}/bin/protoc"
+FFMPEG_DIR = "${_frameworks_dir}"
+
+$(cat "${_cargo_config}/config.toml")
+EOF
 else
   err "Your OS ($SYSNAME) is not supported by this script." \
     'We would welcome a PR or some help adding your OS to this script.' \
