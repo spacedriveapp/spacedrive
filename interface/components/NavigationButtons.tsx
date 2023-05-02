@@ -1,4 +1,4 @@
-import { CaretLeft, CaretRight } from 'phosphor-react';
+import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { useNavigate } from 'react-router';
 import { Button, Tooltip } from '@sd/ui';
 import { useSearchStore } from '~/hooks/useSearchStore';
@@ -17,7 +17,7 @@ export default () => {
 					onClick={() => navigate(-1)}
 					disabled={isFocused || idx === 0}
 				>
-					<CaretLeft weight="bold" />
+					<ArrowLeft weight="bold" />
 				</Button>
 			</Tooltip>
 			<Tooltip label="Navigate forward">
@@ -27,7 +27,7 @@ export default () => {
 					onClick={() => navigate(1)}
 					disabled={isFocused || idx === history.length - 1}
 				>
-					<CaretRight weight="bold" />
+					<ArrowRight weight="bold" />
 				</Button>
 			</Tooltip>
 		</div>
