@@ -1,9 +1,10 @@
 import clsx from 'clsx';
 import { CaretRight, Info, Plus, Trash, X } from 'phosphor-react';
-import { ComponentProps, createRef, forwardRef, useCallback, useId, useState } from 'react';
+import { ComponentProps, createRef, forwardRef, useCallback, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, ControllerRenderProps, FormProvider } from 'react-hook-form';
 import {
+	IndexerRule,
 	RuleKind,
 	UnionToTuple,
 	extractInfoRSPCError,
@@ -26,6 +27,105 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 	'AcceptIfChildrenDirectoriesArePresent',
 	'RejectIfChildrenDirectoriesArePresent'
 ];
+
+interface RulesInputProps {
+	form: string;
+	onChange: ComponentProps<'input'>['onChange'];
+	className: string;
+	onInvalid: ComponentProps<'input'>['onInvalid'];
+}
+
+type IndexerRuleIdFieldType = ControllerRenderProps<
+	{ indexerRulesIds: number[] },
+	'indexerRulesIds'
+>;
+
+interface RuleButtonProps<T extends IndexerRuleIdFieldType> {
+	rule: IndexerRule;
+	field?: T;
+	editable?: boolean;
+	disabled?: boolean;
+}
+
+function RuleButton<T extends IndexerRuleIdFieldType>({
+	rule,
+	field,
+	editable,
+	disabled
+}: RuleButtonProps<T>) {
+	const timeoutId = useRef<number>(0);
+	const [willDelete, setWillDelete] = useState<boolean>(false);
+	const [isDeleting, setIsDeleting] = useState<boolean>(false);
+	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
+	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
+
+	const value = field?.value ?? [];
+	const ruleEnabled = value.includes(rule.id);
+
+	return (
+		<Button
+			size="sm"
+			onClick={
+				field &&
+				(() =>
+					field.onChange(
+						ruleEnabled
+							? value.filter((v) => v !== rule.id)
+							: Array.from(new Set([...value, rule.id]))
+					))
+			}
+			variant={disabled ? 'outline' : ruleEnabled ? 'accent' : 'colored'}
+			disabled={disabled || isDeleting || !field}
+			className={clsx('relative m-1 flex-auto overflow-hidden')}
+		>
+			{rule.name}
+			{editable && !rule.default && (
+				<div
+					onClick={(e) => {
+						e.stopPropagation();
+						e.preventDefault();
+						if (willDelete) {
+							setIsDeleting(true);
+							deleteIndexerRule
+								.mutateAsync(rule.id)
+								.then(
+									() => listIndexerRules.refetch(),
+									(error) =>
+										showAlertDialog({
+											title: 'Error',
+											value: String(error) || 'Failed to add location'
+										})
+								)
+								.finally(() => {
+									setWillDelete(false);
+									setIsDeleting(false);
+								});
+						} else {
+							setWillDelete(true);
+						}
+					}}
+					onMouseEnter={() => {
+						const id = timeoutId.current;
+						timeoutId.current = 0;
+						if (id) clearTimeout(id);
+					}}
+					onMouseLeave={() => {
+						timeoutId.current = setTimeout(() => {
+							timeoutId.current = 0;
+							if (!isDeleting) setWillDelete(false);
+						}, 500);
+					}}
+					className={clsx(
+						'absolute right-0 top-0 flex h-full cursor-pointer content-center items-center justify-center justify-items-center overflow-hidden bg-red-500 transition-[width]',
+						willDelete ? 'w-full' : 'w-4'
+					)}
+				>
+					{willDelete ? 'Delete?' : <X className="!pointer-events-none" />}
+				</div>
+			)}
+		</Button>
+	);
+}
 
 interface RulesInputProps {
 	form: string;
@@ -181,11 +281,6 @@ function RuleTabsContent<T extends ParametersFieldType>({
 	);
 }
 
-type IndexerRuleIdFieldType = ControllerRenderProps<
-	{ indexerRulesIds: number[] },
-	'indexerRulesIds'
->;
-
 export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
 	field?: T;
 	editable?: boolean;
@@ -218,10 +313,8 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	});
 	const formId = useId();
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const [currentTab, setCurrentTab] = useState<RuleType>('Name');
-	const [isDeleting, setIsDeleting] = useState<boolean>(false);
 	const [showCreateNewRule, setShowCreateNewRule] = useState(false);
 
 	const addIndexerRules = useCallback(
@@ -282,65 +375,15 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 		<>
 			<Card className="mb-2 flex flex-wrap justify-evenly">
 				{indexRules ? (
-					indexRules.map((rule) => {
-						const value = field?.value ?? [];
-						const enabled = value.includes(rule.id);
-						return (
-							<Button
-								key={rule.id}
-								size="sm"
-								onClick={
-									field &&
-									(() =>
-										field.onChange(
-											enabled
-												? value.filter((v) => v !== rule.id)
-												: Array.from(new Set([...value, rule.id]))
-										))
-								}
-								variant={enabled ? 'colored' : 'outline'}
-								disabled={isFormSubmitting || isDeleting || !field}
-								className={clsx(
-									'relative m-1 flex-auto overflow-hidden',
-									enabled && 'border-accent bg-accent'
-								)}
-							>
-								{rule.name}
-								{editable && !rule.default && (
-									<X
-										size={12}
-										onClick={(e) => {
-											e.stopPropagation();
-											const elem = e.target as SVGElement;
-											if (elem.classList.contains('w-full')) {
-												deleteIndexerRule
-													.mutateAsync(rule.id)
-													.then(
-														() => listIndexerRules.refetch(),
-														(error) =>
-															showAlertDialog({
-																title: 'Error',
-																value:
-																	String(error) ||
-																	'Failed to add location'
-															})
-													)
-													.finally(() => setIsDeleting(false));
-												setIsDeleting(true);
-											} else {
-												elem.classList.add('w-full');
-											}
-										}}
-										onMouseLeave={(e) => {
-											const elem = e.target as SVGElement;
-											elem.classList.remove('w-full');
-										}}
-										className="absolute right-0 top-0 h-full cursor-pointer bg-red-500 transition-all"
-									/>
-								)}
-							</Button>
-						);
-					})
+					indexRules.map((rule) => (
+						<RuleButton
+							key={rule.id}
+							rule={rule}
+							field={field}
+							editable={editable}
+							disabled={!field}
+						/>
+					))
 				) : (
 					<p className={clsx(listIndexerRules.isError && 'text-red-500')}>
 						{listIndexerRules.isError
@@ -486,7 +529,7 @@ export function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 													))}
 												</Tabs.List>
 
-												{...(Object.keys(RuleTabsInput) as RuleType[]).map(
+												{(Object.keys(RuleTabsInput) as RuleType[]).map(
 													(name) => (
 														<RuleTabsContent
 															key={name}
