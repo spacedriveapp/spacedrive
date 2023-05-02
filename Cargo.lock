@@ -5174,9 +5174,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
+checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
 
 [[package]]
 name = "pathdiff"
@@ -6767,13 +6767,13 @@ dependencies = [
  "cmov",
  "criterion",
  "linux-keyutils",
+ "paste",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "security-framework",
  "serde",
  "serde-big-array 0.5.1",
  "serde_json",
- "subtle",
  "thiserror",
  "tokio",
  "zeroize",
