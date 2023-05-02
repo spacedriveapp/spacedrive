@@ -34,7 +34,8 @@ where
 	// These should ideally be done by a key management system
 	let content_salt = Salt::generate();
 	let hashed_password =
-		Hasher::hash_password(HASHING_ALGORITHM, password, content_salt, SecretKey::Null).unwrap();
+		Hasher::hash_password(HASHING_ALGORITHM, &password, content_salt, &SecretKey::Null)
+			.unwrap();
 
 	// Create the header for the encrypted file
 	let mut header = Header::new(ALGORITHM);
@@ -44,8 +45,8 @@ where
 		.add_keyslot(
 			HASHING_ALGORITHM,
 			content_salt,
-			hashed_password,
-			master_key.clone(),
+			&hashed_password,
+			&master_key,
 			HEADER_KEY_CONTEXT,
 		)
 		.unwrap();
@@ -54,7 +55,7 @@ where
 		.add_object(
 			"FileMetadata",
 			HEADER_OBJECT_CONTEXT,
-			master_key.clone(),
+			&master_key,
 			&OBJECT_DATA,
 		)
 		.unwrap();
@@ -63,7 +64,7 @@ where
 	header.to_writer(writer, MAGIC_BYTES).unwrap();
 
 	// Use the nonce created by the header to initialize an encryptor
-	let encryptor = Encryptor::new(master_key, header.nonce, header.algorithm).unwrap();
+	let encryptor = Encryptor::new(&master_key, &header.nonce, header.algorithm).unwrap();
 
 	// Encrypt the data from the reader, and write it to the writer
 	// Use AAD so the header can be authenticated against every block of data
@@ -83,19 +84,19 @@ where
 	let (header, aad) = Header::from_reader(reader, MAGIC_BYTES).unwrap();
 
 	let (master_key, index) = header
-		.decrypt_master_key_with_password(password, HEADER_KEY_CONTEXT)
+		.decrypt_master_key_with_password(&password, HEADER_KEY_CONTEXT)
 		.unwrap();
 
 	println!("key is in slot: {index}");
 
-	let decryptor = Decryptor::new(master_key.clone(), header.nonce, header.algorithm).unwrap();
+	let decryptor = Decryptor::new(&master_key, &header.nonce, header.algorithm).unwrap();
 
 	// Decrypt data the from the reader, and write it to the writer
 	decryptor.decrypt_streams(reader, writer, aad).unwrap();
 
 	// Decrypt the object
 	let object = header
-		.decrypt_object("FileMetadata", HEADER_OBJECT_CONTEXT, master_key)
+		.decrypt_object("FileMetadata", HEADER_OBJECT_CONTEXT, &master_key)
 		.unwrap();
 
 	object.into_inner()
