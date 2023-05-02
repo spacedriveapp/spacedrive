@@ -149,7 +149,7 @@ mod tests {
 	}
 
 	macro_rules! create_tests {
-		($sample1:expr, $sample2:expr, $($item_type:ty),*) => {
+		(($sample1:expr, $sample2:expr), $($item_type:ty),*) => {
 			$(
 				paste::paste! {
 					#[test]
@@ -183,8 +183,8 @@ mod tests {
 		};
 	}
 
-	create_tests!(0, 1, usize, u8, u16, u32, u64, u128);
-	create_tests!(0, 1, isize, i8, i16, i32, i64, i128);
+	create_tests!((0, 1), usize, u8, u16, u32, u64, u128);
+	create_tests!((0, 1), isize, i8, i16, i32, i64, i128);
 
-	create_tests!(String::from("test"), String::from("Test"), String);
+	create_tests!((String::from("test"), String::from("Test")), String);
 }
