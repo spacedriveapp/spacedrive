@@ -14,7 +14,7 @@ impl KeyringInterface for PortableKeyring {
 	}
 
 	fn contains_key(&self, id: &Identifier) -> bool {
-		self.inner.contains_key(&id.hash())
+		self.inner.contains_key(&id.hash()).map_or(false, |x| x)
 	}
 
 	fn get(&self, id: &Identifier) -> Result<Protected<String>> {

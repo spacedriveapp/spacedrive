@@ -48,11 +48,10 @@ where
 		}
 	}
 
-	pub fn contains_key(&self, id: &K) -> bool {
+	pub fn contains_key(&self, id: &K) -> Result<bool> {
 		self.inner
 			.lock()
-			.map_err(|_| Error::Keystore)
-			.map_or(false, |x| x.contains_key(id))
+			.map_or(Err(Error::Keystore), |x| Ok(x.contains_key(id)))
 	}
 
 	pub fn get(&self, id: &K) -> Result<Vec<u8>> {
