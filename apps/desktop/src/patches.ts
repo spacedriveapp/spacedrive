@@ -1,4 +1,10 @@
-import { TauriTransport } from '@rspc/tauri';
+import { tauriLink } from '@rspc/tauri/v2';
 
 globalThis.isDev = import.meta.env.DEV;
-globalThis.rspcTransport = new TauriTransport();
+globalThis.rspcLinks = [
+	// TODO
+	// loggerLink({
+	// 	enabled: () => getDebugState().rspcLogger
+	// }),
+	tauriLink()
+];

@@ -11,7 +11,7 @@
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
-		"@rspc/client": "^0.0.0-main-f9ac6b78",
+		"@rspc/client": "=0.0.0-main-a2d5effc",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",

@@ -1,12 +1,10 @@
-import { ProcedureDef, RSPCError } from '@rspc/client';
-import { initRspc } from '@rspc/client/v2';
-import { createReactQueryHooks } from '@rspc/react/v2';
+import { ProcedureDef, inferProcedureResult, inferSubscriptionResult } from '@rspc/client';
+import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
+import { Context, createReactQueryHooks } from '@rspc/react/v2';
 import { QueryClient } from '@tanstack/react-query';
-import { PropsWithChildren, createContext } from 'react';
+import { PropsWithChildren, createContext, useContext } from 'react';
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
-
-export { WebsocketTransport } from '@rspc/client';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
 	| Exclude<Procedures[T], { input: LibraryArgs<any> }>
@@ -27,25 +25,36 @@ type StripLibraryArgsFromInput<T extends ProcedureDef> = T extends any
 		: never
 	: never;
 
-// const context = createContext<any>(undefined!);
-
-export const rspc = initRspc<Procedures>(globalThis.rspcTransport);
-export const rspc2 = initRspc<Procedures>(globalThis.rspcTransport); // TODO: Removing this?
-
-const nonLibraryClient = rspc.dangerouslyHookIntoInternals<{
+type NonLibraryProceduresDef = {
 	queries: NonLibraryProcedure<'queries'>;
 	mutations: NonLibraryProcedure<'mutations'>;
-	subscriptions: Procedures['subscriptions']; // TODO: Fix this?
-}>();
-const nonLibraryHooks = createReactQueryHooks(nonLibraryClient, {
-	// context
-});
+	subscriptions: NonLibraryProcedure<'subscriptions'>;
+};
 
-const libraryClient = rspc2.dangerouslyHookIntoInternals<{
+type LibraryProceduresDef = {
 	queries: StripLibraryArgsFromInput<LibraryProcedures<'queries'>>;
 	mutations: StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>;
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>>;
-}>({
+};
+
+const context = createContext<Context<LibraryProceduresDef>>(undefined!);
+
+export const useRspcLibraryContext = () => useContext(context);
+
+export const rspc = initRspc<Procedures>({
+	links: globalThis.rspcLinks
+});
+export const rspc2 = initRspc<Procedures>({
+	links: globalThis.rspcLinks
+}); // TODO: Removing this?
+
+const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
+// @ts-expect-error // TODO: idk
+const nonLibraryHooks = createReactQueryHooks(nonLibraryClient, {
+	// context // TODO: Shared context
+});
+
+const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 	mapQueryKey: (keyAndInput) => {
 		const libraryId = currentLibraryCache.id;
 		if (libraryId === null)
@@ -53,8 +62,9 @@ const libraryClient = rspc2.dangerouslyHookIntoInternals<{
 		return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 	}
 });
+// @ts-expect-error // TODO: idk
 const libraryHooks = createReactQueryHooks(libraryClient, {
-	// context
+	context
 });
 
 // TODO: Allow both hooks to use a unified context -> Right now they override each others local state
@@ -63,9 +73,9 @@ export function RspcProvider({
 	children
 }: PropsWithChildren<{ queryClient: QueryClient }>) {
 	return (
-		<libraryHooks.Provider client={libraryClient} queryClient={queryClient}>
-			<nonLibraryHooks.Provider client={nonLibraryClient} queryClient={queryClient}>
-				{children}
+		<libraryHooks.Provider client={libraryClient as any} queryClient={queryClient}>
+			<nonLibraryHooks.Provider client={nonLibraryClient as any} queryClient={queryClient}>
+				{children as any}
 			</nonLibraryHooks.Provider>
 		</libraryHooks.Provider>
 	);
@@ -100,6 +110,6 @@ export function useInvalidateQuery() {
 
 // TODO: Remove/fix this when rspc typesafe errors are working
 export function extractInfoRSPCError(error: unknown) {
-	if (!(error instanceof RSPCError)) return null;
+	if (!(error instanceof AlphaRSPCError)) return null;
 	return error;
 }
