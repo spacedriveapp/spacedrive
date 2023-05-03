@@ -110,8 +110,8 @@ $llvm_major = '15'
 
 # Change CWD to project root
 Set-Location $projectRoot
-Remove-Item -Path "$projectRoot\.cargo\config" -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$projectRoot\target\Frameworks" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Force -ErrorAction SilentlyContinue -Path "$projectRoot\.cargo\config"
+Remove-Item -Force -ErrorAction SilentlyContinue -Path "$projectRoot\target\Frameworks" -Recurse
 
 Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @"
@@ -248,11 +248,11 @@ if ($env:CI) {
 
     Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
-    Remove-Item "$temp\llvm.exe"
+    Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\llvm.exe"
 }
 
 # Create target folder, continue if already exists
-New-Item -ItemType Directory -Path "$projectRoot\target\Frameworks" -Force -ErrorAction SilentlyContinue
+New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projectRoot\target\Frameworks"
 
 $filename = $null
 $downloadUri = $null
@@ -282,7 +282,7 @@ Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$te
 
 Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
 Expand-Archive "$temp\protobuf.zip" "$projectRoot\target\Frameworks" -Force
-Remove-Item "$temp\protobuf.zip"
+Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 Write-Host
 Write-Host 'Update cargo packages...' -ForegroundColor Yellow
@@ -332,12 +332,12 @@ Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$te
 
 Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
 # FFmpeg zip contains a subdirectory with the same name as the zip file
-Expand-Archive "$temp\ffmpeg.zip" "$temp" -Force
-Remove-Item "$temp\ffmpeg.zip"
+Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
+Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
 $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
 robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
-Remove-Item -Path "$ffmpegDir" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
     '[env]',
@@ -345,7 +345,7 @@ Remove-Item -Path "$ffmpegDir" -Recurse -Force -ErrorAction SilentlyContinue
     "FFMPEG_DIR = `"$projectRoot\target\Frameworks`"",
     '',
     (Get-Content "$projectRoot\.cargo\config.toml" -Raw)
-) | Out-File "$projectRoot\.cargo\config" -Encoding utf8
+) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
 if (-not $env:CI) {
     Write-Host

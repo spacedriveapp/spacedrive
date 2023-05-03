@@ -28,7 +28,7 @@
 		"vite-plugin-html": "^3.2.0"
 	},
 	"devDependencies": {
-		"@ltd/j-toml": "^1.38.0",
+		"@iarna/toml": "^2.2.5",
 		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.2.3",
 		"@types/babel-core": "^6.25.7",

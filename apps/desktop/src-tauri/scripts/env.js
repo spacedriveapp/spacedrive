@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const toml = require('@ltd/j-toml');
+const toml = require('@iarna/toml');
 
 const { workspace, platform } = require('./const.js');
 
@@ -41,12 +41,11 @@ module.exports.setupPlatformEnv = function setupEnv() {
 		// Update cargo config with the new env variables
 		const cargoConf = toml.parse(fs.readFileSync(cargoConfigTempl, { encoding: 'binary' }));
 		cargoConf.env = {
-			...(data.env ?? {}),
+			...(cargoConf.env ?? {}),
 			PROTOC: process.env.PROTOC,
 			FFMPEG_DIR: process.env.FFMPEG_DIR
 		};
 		fs.writeFileSync(cargoConfig, toml.stringify(cargoConf));
-	}
 
 	if (platform === 'win32') {
 		// Ensure the target/debug directory exists
@@ -57,6 +56,7 @@ module.exports.setupPlatformEnv = function setupEnv() {
 		for (const dll of fs
 			.readdirSync(path.join(process.env.FFMPEG_DIR, 'bin'))
 			.filter((file) => file.endsWith('.dll'))) {
+	}
 			fs.copyFileSync(path.join(ffmpegBinDir, dll), path.join(debugTargetDir, dll));
 		}
 	}
