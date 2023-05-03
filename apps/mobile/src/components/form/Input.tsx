@@ -34,7 +34,7 @@ export const Input = ({ variant, size, ...props }: InputProps) => {
 	);
 };
 
-// You need to use this in the modals for keyboard handling to work properly.
+// To use in modals (for keyboard handling)
 export const ModalInput = ({ variant, size, ...props }: InputProps) => {
 	const { style, ...otherProps } = props;
 	return (
@@ -46,7 +46,7 @@ export const ModalInput = ({ variant, size, ...props }: InputProps) => {
 	);
 };
 
-// Same as above but configured with password props & show/hide password button
+// Same as Input but configured with password props & show/hide password button
 
 type PasswordInputProps = InputProps & {
 	isNewPassword?: boolean;

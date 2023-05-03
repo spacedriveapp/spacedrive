@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';

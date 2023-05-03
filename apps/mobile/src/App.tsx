@@ -21,7 +21,6 @@ import {
 	ClientContextProvider,
 	LibraryContextProvider,
 	getDebugState,
-	getThemeStore,
 	initPlausible,
 	rspc,
 	useClientContext,
@@ -42,6 +41,7 @@ dayjs.extend(duration);
 
 initPlausible({ platformType: 'mobile' });
 // changeTwTheme(getThemeStore().theme);
+// TODO: Use above when light theme is ready
 changeTwTheme('dark');
 
 function AppNavigation() {
@@ -81,7 +81,6 @@ function AppNavigation() {
 					if (navRef.getRootState().routeNames.includes('GetStarted')) {
 						return;
 					}
-					// console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
 					currentRouteName && setCurrentPath(currentRouteName);
 				}
 			}}

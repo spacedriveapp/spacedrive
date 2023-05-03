@@ -134,7 +134,6 @@ const AppearanceSettingsScreen = ({
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={tw`gap-x-3`}
 				>
-					{/* TODO: WIP */}
 					{themes.map((theme) => (
 						<Pressable
 							key={theme.themeValue}
