@@ -250,13 +250,7 @@ where
 	Ok(Some(serde_json::to_value(state)?))
 }
 
-fn update_notifier_fn<'a, 'b>(
-	batch_size: usize,
-	ctx: &'a mut WorkerContext,
-) -> impl FnMut(&Path, usize) + 'b
-where
-	'a: 'b,
-{
+fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 	move |path, total_entries| {
 		IndexerJobData::on_scan_progress(
 			ctx,
@@ -296,11 +290,11 @@ async fn remove_non_existing_file_paths(
 // Maybe when TAITs arrive
 #[macro_export]
 macro_rules! file_paths_db_fetcher_fn {
-	($db:ident) => {{
-		let db: &$crate::prisma::PrismaClient = &$db;
+	($db:expr) => {{
+		// let db: &$crate::prisma::PrismaClient = &$db;
 
-		move |found_paths| async move {
-			db.file_path()
+		|found_paths| async {
+			$db.file_path()
 				.find_many(found_paths)
 				.select($crate::location::file_path_helper::file_path_to_isolate::select())
 				.exec()
@@ -315,8 +309,8 @@ macro_rules! file_paths_db_fetcher_fn {
 // Maybe when TAITs arrive
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
-	($location_id:ident, $location_path:ident, $db:ident) => {{
-		move |path, unique_location_id_materialized_path_name_extension_params| async move {
+	($location_id:expr, $location_path:expr, $db:expr) => {{
+		|path, unique_location_id_materialized_path_name_extension_params| async {
 			$db.file_path()
 				.find_many(vec![
 					$crate::prisma::file_path::location_id::equals($location_id),

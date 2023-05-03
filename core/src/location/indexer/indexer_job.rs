@@ -3,7 +3,7 @@ use crate::{
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_just_pub_id, IsolatedFilePathData,
+		IsolatedFilePathData,
 	},
 	to_remove_db_fetcher_fn,
 };
@@ -11,7 +11,6 @@ use crate::{
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
-	time::Duration,
 };
 
 use itertools::Itertools;
@@ -23,7 +22,7 @@ use super::{
 	remove_non_existing_file_paths,
 	rules::aggregate_rules_by_kind,
 	update_notifier_fn,
-	walk::{keep_walking, walk, ToWalkEntry, WalkResult, WalkedEntry},
+	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobSaveStep, ScanProgress,
 };
 
@@ -45,22 +44,6 @@ pub enum IndexerJobStepInput {
 	/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
 	Save(IndexerJobSaveStep),
 	Walk(ToWalkEntry),
-}
-
-#[derive(Debug)]
-pub enum IndexerJobStepOutput<Walked, ToWalk, ToRemove>
-where
-	Walked: Iterator<Item = WalkedEntry>,
-	ToWalk: Iterator<Item = ToWalkEntry>,
-	ToRemove: Iterator<Item = file_path_just_pub_id::Data>,
-{
-	Save(u64, Duration),
-	Walk {
-		walked: Walked,
-		to_walk: ToWalk,
-		to_remove: ToRemove,
-		elapsed_time: Duration,
-	},
 }
 
 #[async_trait::async_trait]
@@ -101,7 +84,7 @@ impl StatefulJob for IndexerJob {
 				sub_path,
 				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
 					.map_err(IndexerError::from)?,
-				&db,
+				db,
 				IndexerError::SubPathNotFound,
 			)
 			.await?;
@@ -116,21 +99,12 @@ impl StatefulJob for IndexerJob {
 			walked,
 			to_walk,
 			to_remove,
-			errors,
+			errors: _errors,
 		} = {
-			let ctx = &mut ctx;
 			walk(
 				&to_walk_path,
 				&rules_by_kind,
-				|path, total_entries| {
-					IndexerJobData::on_scan_progress(
-						ctx,
-						vec![
-							ScanProgress::Message(format!("Scanning {}", path.display())),
-							ScanProgress::ChunkCount(total_entries / BATCH_SIZE),
-						],
-					);
-				},
+				update_notifier_fn(BATCH_SIZE, &mut ctx),
 				file_paths_db_fetcher_fn!(db),
 				to_remove_db_fetcher_fn!(location_id, location_path, db),
 				iso_file_path_factory(location_id, location_path),
@@ -142,7 +116,7 @@ impl StatefulJob for IndexerJob {
 
 		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system
-		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+		let removed_count = remove_non_existing_file_paths(to_remove, db).await?;
 		let db_delete_time = db_delete_start.elapsed();
 
 		let total_paths = &mut 0;
@@ -195,7 +169,7 @@ impl StatefulJob for IndexerJob {
 		mut ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let mut data = state
+		let data = state
 			.data
 			.as_mut()
 			.expect("critical error: missing data on job state");
@@ -212,36 +186,22 @@ impl StatefulJob for IndexerJob {
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;
 				let location_path = Path::new(&state.init.location.path);
-				let db = &Arc::clone(&ctx.library.db);
+				let db = Arc::clone(&ctx.library.db);
 
 				let scan_start = Instant::now();
-				let mut data = state
-					.data
-					.as_mut()
-					.expect("critical error: missing data on job state");
 
 				let WalkResult {
 					walked,
 					to_walk,
 					to_remove,
-					errors,
+					errors: _errors,
 				} = {
-					let ctx = &mut ctx;
-
 					keep_walking(
 						to_walk_entry,
 						&data.rules_by_kind,
-						|path, total_entries| {
-							IndexerJobData::on_scan_progress(
-								ctx,
-								vec![
-									ScanProgress::Message(format!("Scanning {}", path.display())),
-									ScanProgress::ChunkCount(total_entries / BATCH_SIZE),
-								],
-							);
-						},
-						file_paths_db_fetcher_fn!(db),
-						to_remove_db_fetcher_fn!(location_id, location_path, db),
+						update_notifier_fn(BATCH_SIZE, &mut ctx),
+						file_paths_db_fetcher_fn!(&db),
+						to_remove_db_fetcher_fn!(location_id, location_path, &db),
 						iso_file_path_factory(location_id, location_path),
 					)
 					.await?

@@ -139,7 +139,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.map(|search| {
 							search
 								.split(' ')
-								.map(|name_and_maybe_extension| {
+								.flat_map(|name_and_maybe_extension| {
 									name_and_maybe_extension
 										.rsplit_once('.')
 										.map(|(name, extension)| {
@@ -161,7 +161,6 @@ pub(crate) fn mount() -> Arc<Router> {
 											]
 										})
 								})
-								.flatten()
 								.collect::<Vec<_>>()
 						})
 						.unwrap_or_default()

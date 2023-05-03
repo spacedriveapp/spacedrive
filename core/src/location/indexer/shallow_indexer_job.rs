@@ -1,16 +1,11 @@
 use crate::{
 	file_paths_db_fetcher_fn,
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
-	location::{
-		file_path_helper::{
-			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_just_pub_id_materialized_path, IsolatedFilePathData,
-		},
-		LocationId,
+	location::file_path_helper::{
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		IsolatedFilePathData,
 	},
-	prisma::{file_path, PrismaClient},
 	to_remove_db_fetcher_fn,
-	util::db::{chain_optional_iter, uuid_to_bytes},
 };
 
 use std::{
@@ -23,7 +18,6 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use uuid::Uuid;
 
 use super::{
 	execute_indexer_save_step, finalize_indexer, iso_file_path_factory,
@@ -82,7 +76,7 @@ impl StatefulJob for ShallowIndexerJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
-		let db = &Arc::clone(&ctx.library.db);
+		let db = Arc::clone(&ctx.library.db);
 
 		let rules_by_kind = aggregate_rules_by_kind(state.init.location.indexer_rules.iter())
 			.map_err(IndexerError::from)?;
@@ -109,14 +103,14 @@ impl StatefulJob for ShallowIndexerJob {
 		};
 
 		let scan_start = Instant::now();
-		let (walked, to_remove, errors) = {
+		let (walked, to_remove, _errors) = {
 			let ctx = &mut ctx;
 			walk_single_dir(
 				&to_walk_path,
 				&rules_by_kind,
 				update_notifier_fn(BATCH_SIZE, ctx),
-				file_paths_db_fetcher_fn!(db),
-				to_remove_db_fetcher_fn!(location_id, location_path, db),
+				file_paths_db_fetcher_fn!(&db),
+				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
 			)
 			.await?
@@ -191,25 +185,4 @@ impl StatefulJob for ShallowIndexerJob {
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		finalize_indexer(&state.init.location.path, state, ctx)
 	}
-}
-
-pub async fn retain_file_paths_in_location(
-	location_id: LocationId,
-	to_retain: Vec<Uuid>,
-	maybe_parent_file_path: Option<file_path_just_pub_id_materialized_path::Data>,
-	db: &PrismaClient,
-) -> Result<i64, IndexerError> {
-	db.file_path()
-		.delete_many(chain_optional_iter(
-			[
-				file_path::location_id::equals(location_id),
-				file_path::pub_id::not_in_vec(to_retain.into_iter().map(uuid_to_bytes).collect()),
-			],
-			[maybe_parent_file_path.map(|parent_file_path| {
-				file_path::materialized_path::equals(parent_file_path.materialized_path)
-			})],
-		))
-		.exec()
-		.await
-		.map_err(Into::into)
 }

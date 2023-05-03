@@ -72,7 +72,7 @@ impl StatefulJob for FileEraserJob {
 
 		state.steps.push_back(fs_info.into());
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
 		Ok(())
 	}

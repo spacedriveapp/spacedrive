@@ -243,22 +243,6 @@ pub fn loose_find_existing_file_path_params(
 	]
 }
 
-pub async fn get_existing_file_path_id(
-	materialized_path: &IsolatedFilePathData<'_>,
-	db: &PrismaClient,
-) -> Result<Option<Uuid>, FilePathError> {
-	Ok(db
-		.file_path()
-		.find_first(filter_existing_file_path_params(materialized_path))
-		.select(file_path::select!({ pub_id }))
-		.exec()
-		.await?
-		.map(|file_path| {
-			Uuid::from_slice(&file_path.pub_id)
-				.expect("invalid uuid in the database at `get_existing_file_path_id`")
-		}))
-}
-
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
 	materialized_path: &IsolatedFilePathData<'_>,
@@ -271,14 +255,6 @@ pub async fn get_parent_dir(
 		.exec()
 		.await
 		.map_err(Into::into)
-}
-
-#[cfg(feature = "location-watcher")]
-pub async fn get_parent_dir_id(
-	materialized_path: &IsolatedFilePathData<'_>,
-	db: &PrismaClient,
-) -> Result<Option<Uuid>, FilePathError> {
-	get_existing_file_path_id(&materialized_path.parent(), db).await
 }
 
 pub async fn ensure_sub_path_is_in_location(
@@ -321,7 +297,7 @@ where
 {
 	if db
 		.file_path()
-		.count(filter_existing_file_path_params(&iso_file_path))
+		.count(filter_existing_file_path_params(iso_file_path))
 		.exec()
 		.await
 		.map_err(Into::into)?

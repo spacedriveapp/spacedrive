@@ -122,12 +122,12 @@ where
 			&mut update_notifier,
 			&to_remove_db_fetcher,
 			&iso_file_path_factory,
-			(
-				&mut indexed_paths,
-				&mut paths_buffer,
-				Some(&mut to_walk),
-				&mut errors,
-			),
+			WorkingTable {
+				indexed_paths: &mut indexed_paths,
+				paths_buffer: &mut paths_buffer,
+				maybe_to_walk: Some(&mut to_walk),
+				errors: &mut errors,
+			},
 		)
 		.await;
 		to_remove.push(current_to_remove);
@@ -175,12 +175,12 @@ where
 		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
-		(
-			&mut indexed_paths,
-			&mut paths_buffer,
-			Some(&mut to_keep_walking),
-			&mut errors,
-		),
+		WorkingTable {
+			indexed_paths: &mut indexed_paths,
+			paths_buffer: &mut paths_buffer,
+			maybe_to_walk: Some(&mut to_keep_walking),
+			errors: &mut errors,
+		},
 	)
 	.await;
 
@@ -227,7 +227,12 @@ where
 		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
-		(&mut indexed_paths, &mut paths_buffer, None, &mut errors),
+		WorkingTable {
+			indexed_paths: &mut indexed_paths,
+			paths_buffer: &mut paths_buffer,
+			maybe_to_walk: None,
+			errors: &mut errors,
+		},
 	)
 	.await;
 
@@ -275,6 +280,13 @@ where
 	})
 }
 
+struct WorkingTable<'a> {
+	indexed_paths: &'a mut HashSet<WalkingEntry>,
+	paths_buffer: &'a mut Vec<WalkingEntry>,
+	maybe_to_walk: Option<&'a mut VecDeque<ToWalkEntry>>,
+	errors: &'a mut Vec<IndexerError>,
+}
+
 async fn inner_walk_single_dir<F>(
 	root: impl AsRef<Path>,
 	ToWalkEntry {
@@ -285,12 +297,12 @@ async fn inner_walk_single_dir<F>(
 	update_notifier: &mut impl FnMut(&Path, usize),
 	to_remove_db_fetcher: &impl Fn(PathBuf, Vec<file_path::WhereParam>) -> F,
 	iso_file_path_factory: &impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
-	(already_indexed_paths, paths_buffer, mut maybe_to_walk, errors): (
-		&mut HashSet<WalkingEntry>,
-		&mut Vec<WalkingEntry>,
-		Option<&mut VecDeque<ToWalkEntry>>,
-		&mut Vec<IndexerError>,
-	),
+	WorkingTable {
+		indexed_paths,
+		paths_buffer,
+		mut maybe_to_walk,
+		errors,
+	}: WorkingTable<'_>,
 ) -> Vec<file_path_just_pub_id::Data>
 where
 	F: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
@@ -333,7 +345,7 @@ where
 		if found_paths_counts != current_found_paths_count {
 			update_notifier(
 				&current_path,
-				already_indexed_paths.len() + current_found_paths_count,
+				indexed_paths.len() + current_found_paths_count,
 			);
 			found_paths_counts = current_found_paths_count;
 		}
@@ -483,7 +495,7 @@ where
 			&& (accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked"))
 		{
 			let Ok(iso_file_path) = iso_file_path_factory(&current_path, is_dir)
-				.map_err(|e| errors.push(e.into()))
+				.map_err(|e| errors.push(e))
 				else {
 					continue 'entries;
 			};
@@ -505,7 +517,7 @@ where
 				.take_while(|&ancestor| ancestor != root)
 			{
 				let Ok(iso_file_path) = iso_file_path_factory(ancestor, true)
-					.map_err(|e| errors.push(e.into()))
+					.map_err(|e| errors.push(e))
 					else {
 						// Checking the next ancestor, as this one we got an error
 						continue;
@@ -516,7 +528,7 @@ where
 					maybe_metadata: None,
 				};
 				trace!("Indexing ancestor {}", ancestor.display());
-				if !already_indexed_paths.contains(&ancestor_iso_walking_entry) {
+				if !indexed_paths.contains(&ancestor_iso_walking_entry) {
 					let Ok(metadata) = fs::metadata(ancestor)
 						.await
 						.map_err(|e| errors.push(FileIOError::from((&ancestor, e)).into()))
@@ -571,9 +583,9 @@ where
 		vec![]
 	});
 
-	// Just merging the `found_paths` with `already_indexed_paths` here in the end to avoid possibly
+	// Just merging the `found_paths` with `indexed_paths` here in the end to avoid possibly
 	// multiple rehashes during function execution
-	already_indexed_paths.extend(paths_buffer.drain(..));
+	indexed_paths.extend(paths_buffer.drain(..));
 
 	to_remove
 }

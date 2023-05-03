@@ -112,7 +112,7 @@ impl StatefulJob for FileCopierJob {
 
 		state.steps.push_back(source_fs_info.into());
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
 		Ok(())
 	}
@@ -192,7 +192,7 @@ impl StatefulJob for FileCopierJob {
 							.push_back(FileCopierJobStep::File { path: entry.path() });
 					};
 
-					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
+					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
 			}
 		};

@@ -103,9 +103,9 @@ pub(super) async fn create_dir(
 
 	trace!("parent_directory: {:?}", parent_directory);
 
-	let Some(parent_directory) = parent_directory else {
+	if parent_directory.is_none() {
 		warn!("Watcher found a directory without parent");
-        return Ok(())
+		return Ok(());
 	};
 
 	let created_path = create_file_path(
@@ -165,12 +165,10 @@ pub(super) async fn create_file(
 		}
 	};
 
-	let Some(parent_directory) =
-		get_parent_dir(&iso_file_path, db).await?
-    else {
+	if get_parent_dir(&iso_file_path, db).await?.is_none() {
 		warn!("Watcher found a file without parent");
-        return Ok(())
-    };
+		return Ok(());
+	};
 
 	// generate provisional object
 	let FileMetadata {

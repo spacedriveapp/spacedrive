@@ -93,7 +93,7 @@ impl StatefulJob for FileIdentifierJob {
 			ensure_file_path_exists(
 				sub_path,
 				&sub_iso_file_path,
-				&db,
+				db,
 				FileIdentifierJobError::SubPathNotFound,
 			)
 			.await?;
