@@ -1,46 +1,50 @@
 import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
-import { Themes as THEMES, useThemeStore } from '@sd/client';
+import { Themes, useThemeStore } from '@sd/client';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
-type Themes = {
+type Theme = {
 	insideColor: ColorValue;
 	outsideColor: ColorValue;
 	textColor: ColorValue;
 	highlightColor: ColorValue;
-	name: string;
+	themeName: string;
+	themeValue: Themes | 'system';
 };
 
 // TODO: Once theming is fixed, use theme values for Light theme too.
-const themes: Themes[] = [
+const themes: Theme[] = [
 	{
 		insideColor: Colors.vanilla.app.DEFAULT,
 		outsideColor: '#F0F0F0',
 		textColor: Colors.vanilla.ink.DEFAULT,
 		highlightColor: '#E6E6E6',
-		name: 'Light'
+		themeName: 'Light',
+		themeValue: 'vanilla'
 	},
 	{
 		insideColor: Colors.dark.app.DEFAULT,
 		outsideColor: Colors.dark.app.darkBox,
 		textColor: Colors.dark.ink.DEFAULT,
 		highlightColor: Colors.dark.app.line,
-		name: 'Dark'
+		themeName: 'Dark',
+		themeValue: 'dark'
 	},
 	{
 		insideColor: '#000000',
 		outsideColor: '#000000',
 		textColor: '#000000',
 		highlightColor: '#000000',
-		name: 'System'
+		themeName: 'System',
+		themeValue: 'system'
 	}
 ];
 
-type ThemeProps = Themes & { isSelected?: boolean; containerStyle?: ViewStyle };
+type ThemeProps = Theme & { isSelected?: boolean; containerStyle?: ViewStyle };
 
 function Theme(props: ThemeProps) {
 	return (
@@ -113,9 +117,13 @@ const AppearanceSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'AppearanceSettings'>) => {
 	const themeStore = useThemeStore();
-	const [selectedTheme, setSelectedTheme] = useState<THEMES | 'system'>(
+
+	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
+
+	// TODO: Hook this up to the theme store once light theme is fixed.
+
 	return (
 		<View style={tw`flex-1 pt-4`}>
 			<View style={tw`px-4`}>
@@ -124,18 +132,21 @@ const AppearanceSettingsScreen = ({
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={tw`gap-x-2`}
+					contentContainerStyle={tw`gap-x-3`}
 				>
 					{/* TODO: WIP */}
 					{themes.map((theme) => (
-						<Pressable key={theme.name} onPress={() => setSelectedTheme(theme.name)}>
-							{theme.name === 'System' ? (
-								<SystemTheme isSelected={selectedTheme === 'System'} />
+						<Pressable
+							key={theme.themeValue}
+							onPress={() => setSelectedTheme(theme.themeValue)}
+						>
+							{theme.themeValue === 'system' ? (
+								<SystemTheme isSelected={selectedTheme === 'system'} />
 							) : (
-								<Theme {...theme} isSelected={selectedTheme === theme.name} />
+								<Theme {...theme} isSelected={selectedTheme === theme.themeValue} />
 							)}
 							<Text style={tw`mt-1.5 text-center font-medium text-white`}>
-								{theme.name}
+								{theme.themeName}
 							</Text>
 						</Pressable>
 					))}
