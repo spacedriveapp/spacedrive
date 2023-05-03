@@ -32,10 +32,10 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
     -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ) {
     # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
-    Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
+    $proc = Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
     # NOTICE: Any modified environment variables should be reloaded here, so the user doesn't have to restart the shell after running the script
     Reset-Path
-    Exit
+    Exit $proc.ExitCode
 }
 
 function Exit-WithError($err, $help = $null) {
@@ -244,7 +244,10 @@ if ($env:CI) {
 
     Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
     Write-Host 'This may take a while and will have no visual feedback, please wait...' -ForegroundColor Cyan
-    Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
+    $proc = Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
+    if ($proc.ExitCode -ne 0) {
+        Throw 'LLVM installation failed'
+    }
 
     Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
@@ -286,8 +289,11 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 Write-Host
 Write-Host 'Update cargo packages...' -ForegroundColor Yellow
-# Run first time to ensure packages are up to date
-cargo metadata --format-version 1 > $null
+try {
+    # Run first time to ensure packages are up to date
+    cargo metadata --format-version 1 > $null
+} catch {}
+
 
 Write-Host
 Write-Host 'Retrieving ffmpeg version...' -ForegroundColor Yellow
