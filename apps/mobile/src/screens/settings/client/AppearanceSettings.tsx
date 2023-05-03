@@ -1,6 +1,7 @@
 import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
+import { Themes as THEMES, useThemeStore } from '@sd/client';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -43,18 +44,17 @@ type ThemeProps = Themes & { isSelected?: boolean; containerStyle?: ViewStyle };
 
 function Theme(props: ThemeProps) {
 	return (
-		<View style={props.containerStyle}>
+		<View style={twStyle(props.containerStyle)}>
 			<View
 				style={twStyle(
-					{ backgroundColor: props.outsideColor, borderColor: props.highlightColor },
-					'relative h-[80px] w-[100px] overflow-hidden rounded-xl border-2 border-app-line',
-					props.isSelected && 'border-white'
+					{ backgroundColor: props.outsideColor },
+					'relative h-[80px] w-[100px] overflow-hidden rounded-xl'
 				)}
 			>
 				<View
 					style={twStyle(
 						{ backgroundColor: props.insideColor, borderColor: props.highlightColor },
-						'absolute bottom-[-2px] right-[-2px] h-[60px] w-[75px] rounded-tl-xl border'
+						'absolute bottom-[-1px] right-[-1px] h-[60px] w-[75px] rounded-tl-xl border'
 					)}
 				>
 					<Text
@@ -80,8 +80,31 @@ function Theme(props: ThemeProps) {
 function SystemTheme(props: { isSelected: boolean }) {
 	return (
 		<View style={tw`h-[90px] w-[110px] flex-1 flex-row overflow-hidden rounded-xl`}>
-			<View style={twStyle('flex-1', { backgroundColor: themes[1]?.outsideColor })}></View>
-			<View style={twStyle('flex-1', { backgroundColor: themes[0]?.outsideColor })}></View>
+			<View
+				style={twStyle('flex-1 overflow-hidden', {
+					backgroundColor: themes[1]!.outsideColor
+				})}
+			>
+				<View style={tw`absolute`}>
+					<Theme {...themes[1]!} containerStyle={tw`right-3`} />
+				</View>
+			</View>
+			<View
+				style={twStyle(' flex-1 overflow-hidden', {
+					backgroundColor: themes[0]!.outsideColor
+				})}
+			>
+				<Theme {...themes[0]!} containerStyle={tw`right-3`} />
+			</View>
+			{/* Checkmark */}
+			{props.isSelected && (
+				<CheckCircle
+					color={'black'}
+					weight="fill"
+					size={24}
+					style={tw`absolute right-1.5 bottom-1.5`}
+				/>
+			)}
 		</View>
 	);
 }
@@ -89,7 +112,10 @@ function SystemTheme(props: { isSelected: boolean }) {
 const AppearanceSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'AppearanceSettings'>) => {
-	const [selectedTheme, setSelectedTheme] = useState(themes[2]?.name);
+	const themeStore = useThemeStore();
+	const [selectedTheme, setSelectedTheme] = useState<THEMES | 'system'>(
+		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
+	);
 	return (
 		<View style={tw`flex-1 pt-4`}>
 			<View style={tw`px-4`}>
@@ -100,6 +126,7 @@ const AppearanceSettingsScreen = ({
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={tw`gap-x-2`}
 				>
+					{/* TODO: WIP */}
 					{themes.map((theme) => (
 						<Pressable key={theme.name} onPress={() => setSelectedTheme(theme.name)}>
 							{theme.name === 'System' ? (
