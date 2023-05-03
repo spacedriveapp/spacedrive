@@ -1,11 +1,15 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import { useMemo } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card } from '@sd/ui';
+import { Card, ScreenHeading } from '@sd/ui';
+import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
+import Explorer from './Explorer';
+import TopBarChildren from './TopBar/TopBarChildren';
 
 interface StatItemProps {
 	title: string;
@@ -81,33 +85,45 @@ const StatItem = (props: StatItemProps) => {
 export const Component = () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
-
 	const stats = useLibraryQuery(['library.getStatistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
+	const { explorerViewOptions } = useExplorerTopBarOptions();
+	const { data: items } = useLibraryQuery(['files.getRecent', 50]);
 
 	overviewMounted = true;
 
+	const toolsViewOptions = explorerViewOptions.filter(
+		(o) =>
+			o.toolTipLabel === 'Grid view' ||
+			o.toolTipLabel === 'List view' ||
+			o.toolTipLabel === 'Media view'
+	);
+
+	const makeCopiesOfItems = Array.from({ length: 30 }, () => items).flat();
+
 	return (
-		<div className="flex h-screen w-full flex-col">
-			{/* STAT HEADER */}
-			<div className="flex w-full">
-				{/* STAT CONTAINER */}
-				<div className="-mb-1 flex h-20 overflow-hidden">
-					{Object.entries(stats?.data || []).map(([key, value]) => {
-						if (!displayableStatItems.includes(key)) return null;
-						return (
-							<StatItem
-								key={`${library.uuid} ${key}`}
-								title={StatItemNames[key as keyof Statistics]!}
-								bytes={BigInt(value)}
-								isLoading={platform.demoMode ? false : stats.isLoading}
-							/>
-						);
-					})}
+		<div className="flex">
+			<TopBarChildren toolOptions={[toolsViewOptions]} />
+			<div className="flex h-screen w-full flex-col">
+				{/* STAT HEADER */}
+				<div className="flex w-full">
+					{/* STAT CONTAINER */}
+					<div className="-mb-1 flex h-20 overflow-hidden">
+						{Object.entries(stats?.data || []).map(([key, value]) => {
+							if (!displayableStatItems.includes(key)) return null;
+							return (
+								<StatItem
+									key={`${library.uuid} ${key}`}
+									title={StatItemNames[key as keyof Statistics]!}
+									bytes={BigInt(value)}
+									isLoading={platform.demoMode ? false : stats.isLoading}
+								/>
+							);
+						})}
+					</div>
 				</div>
-			</div>
-			{/* <div className="mt-4 grid grid-cols-5 gap-3 pb-4">
+				{/* <div className="grid grid-cols-5 gap-3 pb-4 mt-4">
 				<CategoryButton icon={Heart} category="Favorites" />
 				<CategoryButton icon={FileText} category="Documents" />
 				<CategoryButton icon={Camera} category="Movies" />
@@ -119,13 +135,13 @@ export const Component = () => {
 				<CategoryButton icon={Image} category="Albums" />
 				<CategoryButton icon={Heart} category="Favorites" />
 			</div> */}
-			{/* <Card className="text-ink-dull">
+				{/* <Card className="text-ink-dull">
 				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
 				to be functional.
 			</Card> */}
-			{/* <ScreenHeading className="mt-4">Recents</ScreenHeading> */}
-
-			<div className="flex h-4 w-full shrink-0" />
+				<ScreenHeading className="mt-3">Recents</ScreenHeading>
+				<Explorer viewClassName="!pl-0 !pt-2" items={items} />
+			</div>
 		</div>
 	);
 };

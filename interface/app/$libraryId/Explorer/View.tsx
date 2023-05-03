@@ -74,6 +74,7 @@ interface Props {
 	data: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	viewClassName?: string;
 }
 
 interface ExplorerView {
@@ -94,7 +95,8 @@ export default memo((props: Props) => {
 			ref={scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
-				layoutMode === 'grid' && 'overflow-x-hidden pl-4'
+				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
+				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}

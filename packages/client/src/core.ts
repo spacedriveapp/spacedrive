@@ -5,7 +5,7 @@ export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
-        { key: "files.getRecent", input: LibraryArgs<number>, result: FilePath[] } | 
+        { key: "files.getRecent", input: LibraryArgs<number>, result: ExplorerItem[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
@@ -141,6 +141,8 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
+export type SetFavoriteArgs = { id: number; favorite: boolean }
+
 /**
  * Represents the operating system which the remote peer is running.
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
@@ -197,6 +199,8 @@ export type FileEncryptorJobInit = { location_id: number; path_id: number; key_u
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
+export type GetArgs = { id: number }
+
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
 
 /**
@@ -226,6 +230,8 @@ export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+
 export type FileDeleterJobInit = { location_id: number; path_id: number }
 
 /**
@@ -248,10 +254,6 @@ export type Statistics = { id: number; date_captured: string; total_object_count
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
-export type GetArgs = { id: number }
-
-export type SetNoteArgs = { id: number; note: string | null }
-
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
@@ -268,7 +270,7 @@ export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
-export type SetFavoriteArgs = { id: number; favorite: boolean }
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
@@ -293,8 +295,6 @@ export type SharedOperationData = SharedOperationCreateData | { field: string; v
 export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type ChangeNodeNameArgs = { name: string }
 
