@@ -6,7 +6,7 @@ import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { getDebugState, hooks } from '@sd/client';
 import {
 	ErrorPage,
@@ -79,7 +79,7 @@ const platform: Platform = {
 
 const queryClient = new QueryClient();
 
-const router = createMemoryRouter(routes);
+const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
