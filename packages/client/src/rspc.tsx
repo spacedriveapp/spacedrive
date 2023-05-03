@@ -49,8 +49,8 @@ export const rspc2 = initRspc<Procedures>({
 }); // TODO: Removing this?
 
 const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
-// @ts-expect-error // TODO: idk
-const nonLibraryHooks = createReactQueryHooks(nonLibraryClient, {
+// @ts-expect-error // TODO: Fix
+const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
 	// context // TODO: Shared context
 });
 
@@ -63,7 +63,7 @@ const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 	}
 });
 // @ts-expect-error // TODO: idk
-const libraryHooks = createReactQueryHooks(libraryClient, {
+const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
 	context
 });
 

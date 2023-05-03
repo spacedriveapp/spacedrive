@@ -44,10 +44,10 @@ importers:
   apps/desktop:
     dependencies:
       '@rspc/client':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc
       '@rspc/tauri':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc(@tauri-apps/api@1.2.0)
       '@sd/client':
         specifier: workspace:*
@@ -280,10 +280,10 @@ importers:
         specifier: ^6.3.16
         version: 6.3.16(@react-navigation/native@6.1.6)(react-native-gesture-handler@2.9.0)(react-native-safe-area-context@4.5.0)(react-native-screens@3.20.0)(react-native@0.71.3)(react@18.2.0)
       '@rspc/client':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc
       '@rspc/react':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc(@rspc/client@0.0.0-main-a2d5effc)(@tanstack/react-query@4.26.1)(react@18.2.0)
       '@sd/assets':
         specifier: workspace:*
@@ -512,7 +512,7 @@ importers:
         specifier: ^4.5.13
         version: 4.5.13
       '@rspc/client':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc
       '@sd/client':
         specifier: workspace:*
@@ -786,10 +786,10 @@ importers:
   packages/client:
     dependencies:
       '@rspc/client':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc
       '@rspc/react':
-        specifier: '=0.0.0-main-a2d5effc'
+        specifier: '=0.0.0-main-a312a505'
         version: 0.0.0-main-a2d5effc(@rspc/client@0.0.0-main-a2d5effc)(@tanstack/react-query@4.26.1)(react@18.2.0)
       '@sd/config':
         specifier: workspace:*
