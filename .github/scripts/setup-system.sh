@@ -307,11 +307,13 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Symlink the FFMpeg.framework libs to the lib directory
   for _lib in "${_frameworks_dir}/FFMpeg.framework/Libraries/"*; do
+    _lib="${_lib#"${_frameworks_dir}/FFMpeg.framework/Libraries/"}"
     ln -s "../FFMpeg.framework/Libraries/${_lib}" "${_frameworks_dir}/lib/${_lib}"
   done
 
   # Symlink the FFMpeg.framework headers to the include directory
   for _header in "${_frameworks_dir}/FFMpeg.framework/Headers/"*; do
+    _header="${_header#"${_frameworks_dir}/FFMpeg.framework/Headers/"}"
     ln -s "../FFMpeg.framework/Headers/${_header}" "${_frameworks_dir}/include/${_header}"
   done
 
