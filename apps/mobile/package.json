@@ -67,7 +67,6 @@
 		"@types/react": "~18.0.27",
 		"babel-plugin-module-resolver": "^5.0.0",
 		"eslint-plugin-react-native": "^4.0.0",
-		"metro-minify-terser": "0.76.0",
 		"react-native-svg-transformer": "^1.0.0"
 	}
 }

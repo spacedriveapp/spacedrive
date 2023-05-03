@@ -31,22 +31,9 @@ const metroConfig = makeMetroConfig({
 	},
 	transformer: {
 		...expoDefaultConfig.transformer,
-		// Metro default is "uglify-es" but terser should be faster and has better defaults.
-		minifierPath: 'metro-minify-terser',
-		minifierConfig: {
-			compress: {
-				drop_console: true,
-				// Sometimes improves performance?
-				reduce_funcs: false
-			},
-			format: {
-				ascii_only: true,
-				wrap_iife: true,
-				quote_style: 3
-			}
-		},
 		getTransformOptions: async () => ({
 			transform: {
+				// What does this do?
 				experimentalImportSupport: false,
 				inlineRequires: true
 			}

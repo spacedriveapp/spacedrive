@@ -209,7 +209,6 @@ importers:
       expo-status-bar: ~1.4.4
       intl: ^1.2.5
       lottie-react-native: 5.1.4
-      metro-minify-terser: 0.76.0
       moti: ^0.24.2
       phosphor-react-native: ^1.1.2
       react: 18.2.0
@@ -281,7 +280,6 @@ importers:
       '@types/react': 18.0.27
       babel-plugin-module-resolver: 5.0.0
       eslint-plugin-react-native: 4.0.0_eslint@8.38.0
-      metro-minify-terser: 0.76.0
       react-native-svg-transformer: 1.0.0_csdbj5z546ts5ngzc62z27kx4u
 
   apps/releases:
@@ -2553,7 +2551,7 @@ packages:
       '@babel/helper-module-imports': 7.18.6
       '@babel/helper-plugin-utils': 7.20.2
       '@babel/plugin-syntax-jsx': 7.18.6_@babel+core@7.21.4
-      '@babel/types': 7.21.4
+      '@babel/types': 7.21.2
 
   /@babel/plugin-transform-react-jsx/7.21.0_@babel+core@7.20.12:
     resolution: {integrity: sha512-6OAWljMvQrZjR2DaNhVfRz6dkCAVV+ymcLUmaf8bccGOHn2v5rHJK3tTpij0BuhdYWP4LLaqj5lwcdlpAAPuvg==}
@@ -8539,7 +8537,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - supports-color
 
@@ -14515,13 +14513,6 @@ packages:
     dependencies:
       terser: 5.16.9
 
-  /metro-minify-terser/0.76.0:
-    resolution: {integrity: sha512-dxaE/pvFDFEvXoNHuiXbA2Tw/jT1MD3B4a9AM+aYPWJBh3PdT9XM1HdzumyJldtZpCn5yka4maYSrtuebKgOyw==}
-    engines: {node: '>=16'}
-    dependencies:
-      terser: 5.16.6
-    dev: true
-
   /metro-minify-terser/0.76.1:
     resolution: {integrity: sha512-M0Dvu4IdePW63Hlbj0D2/HmV90195aWYGb/B9ZBelLrI2vhlD1t606EidhQb1HFq6EaD56LimgGHtvzy83MqKQ==}
     engines: {node: '>=16'}
@@ -20180,7 +20171,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.1.4_sass@1.57.1
+      vite: 4.1.4_ovmyjmuuyckt3r3gpaexj2onji
     transitivePeerDependencies:
       - rollup
       - supports-color
