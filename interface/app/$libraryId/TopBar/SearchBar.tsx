@@ -39,7 +39,7 @@ export default () => {
 	}, 300);
 
 	useEffect(() => {
-		updateParams(value);
+		if (searchPath.pathname === location.pathname) updateParams(value);
 	}, [value]);
 
 	useKeys([os === 'macOS' ? 'Meta' : 'Ctrl', 'f'], () => searchRef.current?.focus());
