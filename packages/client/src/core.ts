@@ -5,7 +5,7 @@ export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
-        { key: "files.getRecent", input: LibraryArgs<number>, result: Object[] } | 
+        { key: "files.getRecent", input: LibraryArgs<number>, result: FilePath[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
@@ -235,8 +235,6 @@ export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
@@ -295,6 +293,8 @@ export type SharedOperationData = SharedOperationCreateData | { field: string; v
 export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type ChangeNodeNameArgs = { name: string }
 
