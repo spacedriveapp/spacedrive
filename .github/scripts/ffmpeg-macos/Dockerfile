@@ -1,7 +1,6 @@
 ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libogg libopus libpng libtheora \
 	libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 x265 XviD \
 	xz zimg zlib" \
-	FFMEG_OUT_DIR=/ffmpeg \
 	FFMPEG_VERSION=6.0
 
 FROM vvasconcellos/osxcross:12.3-50e86eb-1 as base
@@ -24,8 +23,8 @@ ARG FFMPEG_DEPS
 RUN --mount=type=cache,id=macports-x86_64,target=/opt/osxcross/macports/cache \
 	osxcross-macports install $FFMPEG_DEPS
 
-ARG FFMEG_OUT_DIR
-RUN ./ffmpeg-build-macos.sh x86_64 "$MACOSX_SDK" "$FFMEG_OUT_DIR"
+# Build ffmpeg
+RUN ./ffmpeg-build-macos.sh x86_64 "$MACOSX_SDK"
 
 # ---
 FROM base as aarch64
@@ -45,13 +44,11 @@ ARG FFMPEG_DEPS
 RUN --mount=type=cache,id=macports-arm64,target=/opt/osxcross/macports/cache \
 	osxcross-macports install --arm64 $FFMPEG_DEPS
 
-ARG FFMEG_OUT_DIR
-RUN ./ffmpeg-build-macos.sh aarch64 "$MACOSX_SDK" "$FFMEG_OUT_DIR"
+# Build ffmpeg
+RUN ./ffmpeg-build-macos.sh aarch64 "$MACOSX_SDK"
 
 # ---
 FROM scratch
 
-ARG FFMEG_OUT_DIR
-
-COPY --from=x86_64 $FFMEG_OUT_DIR /ffmpeg/x86_64
-COPY --from=aarch64 $FFMEG_OUT_DIR /ffmpeg/aarch64
+COPY --from=x86_64 /FFMpeg.framework /ffmpeg/x86_64/FFMpeg.framework
+COPY --from=aarch64 /FFMpeg.framework /ffmpeg/aarch64/FFMpeg.framework

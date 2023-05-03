@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
 
+# This script builds ffmpeg for macOS using osxcross.
+# This script is heavly influenced by:
+#   https://github.com/FFmpeg/FFmpeg/blob/ea3d24bbe3c58b171e55fe2151fc7ffaca3ab3d2/configure
+#   https://github.com/GerardSoleCa/macports-ports/blob/6f646dfaeb58ccb4a8b877df1ae4eecc4650fac7/multimedia/ffmpeg-upstream/Portfile
+#   https://github.com/arthenica/ffmpeg-kit/blob/47f85fa9ea3f8c34f3c817b87d8667b61b87d0bc/scripts/apple/ffmpeg.sh
+#   https://github.com/zimbatm/ffmpeg-static/blob/3206c0d74cd129c2ddfc3e928dcd3ea317d54857/build.sh
+
 set -euox pipefail
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <target-arch> <macos-version> <out-dir>" >&2
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <target-arch> <macos-version>" >&2
+  exit 1
+fi
+
+if [ -z "$MACOSX_DEPLOYMENT_TARGET" ]; then
+  echo "You must set MACOSX_DEPLOYMENT_TARGET first." >&2
   exit 1
 fi
 
 ARCH="$1"
 MACOS_VERSION="$2"
-OUT_DIR="$3"
 
-# Clear command line arguments
-set --
+set -- # Clear command line arguments
 if [ "$ARCH" = "x86_64" ]; then
   TARGET_CPU="x86_64"
   TARGET_ARCH="x86_64"
@@ -54,23 +64,30 @@ if ! [ -d "$_sdk" ]; then
   exit 1
 fi
 
-# Check that OUT_DIR is a directory or doesn't exists
-if [ -e "$OUT_DIR" ] && ! [ -d "$OUT_DIR" ]; then
-  echo "Invalid output directory: $OUT_DIR" >&2
-  exit 1
-fi
+# Gather all SDK libs
+_skd_libs="$(
+  while IFS= read -r -d '' _lib; do
+    _lib="${_lib#"${_sdk}/usr/lib/"}"
+    _lib="${_lib%.*}"
+    printf '%s.dylib\n' "$_lib"
+  done < <(find "${_sdk}/usr/lib" \( -name '*.tbd' -o -name '*.dylib' \) -print0) \
+    | sort -u
+)"
 
 # Change cwd to the script directory (which should be ffmpeg source root)
-cd "$(dirname "$0")"
+CDPATH='' cd -- "$(dirname -- "$0")"
 
-# Create OUT_DIR if it doesn't exists
-mkdir -p "$OUT_DIR/lib" "$OUT_DIR/include"
+# Save FFmpeg version
+FFMPEG_VERSION="$(xargs printf '%s' <VERSION)"
 
 # Create a tmp TARGET_DIR
 TARGET_DIR="$(mktemp -d -t ffmpeg-macos-XXXXXXXXXX)"
 trap 'rm -rf "$TARGET_DIR"' EXIT
 
-# This isn't autotools
+# Configure FFMpeg.
+# NOTICE: This isn't autotools
+# TODO: Metal suport is disabled because no open source toolchain is available for it
+# TODO: Maybe try macOS own metal compiler under darling? https://github.com/darlinghq/darling/issues/326
 ./configure \
   --nm="${TRIPLE}-nm" \
   --ar="${TRIPLE}-ar" \
@@ -116,8 +133,8 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --disable-openssl \
   --disable-outdevs \
   --disable-podpages \
+  --disable-postproc \
   --disable-programs \
-  --disable-protocols \
   --disable-schannel \
   --disable-sdl2 \
   --disable-securetransport \
@@ -179,63 +196,104 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
 
 make -j"$(nproc)" install
 
+# Create FFMpeg.framework
+# https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html
+# Create the framework basic directory structure
+_framework="FFMpeg.framework"
+mkdir -p "/${_framework}/Versions/A/"{Headers,Resources,Libraries}
+
+# Copy licenses to Framework
+_framework_docs="/${_framework}/Versions/A/Resources/English.lproj/Documentation"
+mkdir -p "$_framework_docs"
+
+# FFMpeg license
+cp -avt "$_framework_docs" COPYING* LICENSE*
+
+# Dependency licenses which are not covered by FFMpeg licenses
+(cd "${_macports_root}/share/doc" \
+  && cp -avt "$_framework_docs" --parents \
+    zimg/COPYING \
+    webp/COPYING \
+    libpng/LICENSE \
+    libvorbis/COPYING \
+    freetype/LICENSE.TXT \
+    fontconfig/COPYING)
+
+# libvorbis, libogg and libtheora share the same license
+ln -s libvorbis "${_framework_docs}/libogg"
+ln -s libvorbis "${_framework_docs}/libtheora"
+
+# Create required framework symlinks
+ln -s A "/${_framework}/Versions/Current"
+ln -s Versions/Current/Headers "/${_framework}/Headers"
+ln -s Versions/Current/Resources "/${_framework}/Resources"
+ln -s Versions/Current/Libraries "/${_framework}/Libraries"
+
+# Framework Info.plist (based on macOS internal OpenGL.framework Info.plist)
+cat <<EOF >"/${_framework}/Versions/Current/Resources/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleExecutable</key>
+    <string>FFMpeg</string>
+    <key>CFBundleGetInfoString</key>
+    <string>FFMpeg ${FFMPEG_VERSION}</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.spacedrive.ffmpeg</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>FFMpeg</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${FFMPEG_VERSION}</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>${FFMPEG_VERSION}</string>
+</dict>
+</plist>
+EOF
+
+# Process FFMpeg libraries to be compatible with the Framework structure
 cd "$TARGET_DIR/lib"
 
-# Move all symlinks for ffmpeg libraries to the output directory
-while IFS= read -r -d '' _lib; do
-  # Remove leading ./
-  _lib="${_lib#./}"
-  # Copy symlinks to the output directory
-  cp -Ppv "$_lib" "${OUT_DIR}/${_lib}"
-  cp -Ppv "$_lib" "${OUT_DIR}/lib/${_lib}"
-  rm "$_lib"
-done < <(find . -type l -print0)
+# Remove all symlinks for ffmpeg libraries
+find . -type l -delete
 
-no_ext() {
-  set -- "$1" "$(basename "$1")"
-  while [ "${2%.*}" != "$2" ]; do
-    set -- "$1" "${2%.*}"
-  done
-
-  printf '%s/%s' "$(dirname "$1")" "$2"
-}
-
-# Clear command line arguments
-set --
 # Populate queue with ffmpeg libraries
+set -- # Clear command line arguments
 while IFS= read -r -d '' _lib; do
-  # Add it to the queue to have it's dependencies copied
   set -- "$@" "${_lib#./}"
 done < <(find . -name '*.dylib' -print0)
 
-# # Copy static library to the output directory
-# while IFS= read -r -d '' _lib; do
-#   cp -p "$_lib" "${OUT_DIR}/lib/${_lib}"
-# done < <(find . -name '*.a' -print0)
-
 while [ $# -gt 0 ]; do
-  # Loop through each of the library's dependency
+  # Loop through each of the library's dependencies
   for _dep in $("${TRIPLE}-otool" -L "$1" | tail -n+2 | awk '{print $1}'); do
     case "$_dep" in
-      # dependencies in the ffmpeg directory
+      # FFMpeg inter dependency
       "${TARGET_DIR}/lib/"*)
-        _dep_rel="${_dep#"${TARGET_DIR}/lib/"}"
+        _linker_path="@loader_path/${_dep#"${TARGET_DIR}/lib/"}"
         ;;
-      # /opt/local/lib means macports installed it
+      # Macports dependency (/opt/local/lib means it was installed by Macports)
       /opt/local/lib/*)
         _dep_rel="${_dep#/opt/local/lib/}"
-        if [ ! -f "$_dep_rel" ]; then
-          # Copy dependency to the current directory if this is the first time we see it
-          cp -Lpv "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
-          # Add it to the queue to have it's own dependencies processed
-          set -- "$@" "$_dep_rel"
-          # # Copy static verion of dependency to the output directory
-          # while IFS= read -r -d '' _static_dep; do
-          #   cp -p "${_macports_root}/lib/$_static_dep" "$OUT_DIR/lib/${_static_dep}"
-          # done < <(
-          #   cd "${_macports_root}/lib/"
-          #   find . -wholename "$(no_ext "$_dep_rel")*.a" -print0
-          # )
+        # Check if the macports dependency is already included in the macOS SDK
+        if [ -n "$(comm -12 <(printf "%s" "$_dep_rel") <(printf "%s" "$_skd_libs"))" ]; then
+          # Relink libs already included in macOS SDK
+          _linker_path="/usr/lib/${_dep_rel}"
+        else
+          _linker_path="@loader_path/${_dep_rel}"
+          if [ ! -f "$_dep_rel" ]; then
+            # Copy dependency to the current directory if this is the first time we see it
+            cp -Lpv "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
+            # Add it to the queue to have it's own dependencies processed
+            set -- "$@" "$_dep_rel"
+          fi
         fi
         ;;
       *) # Ignore system libraries
@@ -243,21 +301,19 @@ while [ $# -gt 0 ]; do
         ;;
     esac
 
-    # Change the linked dependency path to use @executable_path/../Frameworks to make it compatible with an .app bundle
-    "${TRIPLE}-install_name_tool" -change "$_dep" "@executable_path/../Frameworks/${_dep_rel}" "$1"
+    # Change the dependency linker path to make it compatible with an .app bundle
+    "${TRIPLE}-install_name_tool" -change "$_dep" "$_linker_path" "$1"
   done
 
-  # Update the library's own id to use @executable_path/../Frameworks
-  aarch64-apple-darwin21.4-install_name_tool -id "@executable_path/../Frameworks/${1}" "$1"
+  # Update the library's own id
+  aarch64-apple-darwin21.4-install_name_tool -id "@rpath/${_framework}/Libraries/${1}" "$1"
 
-  # Copy the library to the output directory
-  cp -Lpv "$1" "${OUT_DIR}/${1}"
-  ln -s "../${1}" "${OUT_DIR}/lib/${1}"
+  # Copy the library to framework
+  cp -Lpv "$1" "/${_framework}/Libraries/${1}"
 
   # Remove library from queue
   shift
 done
 
-# Copy all headers to the output directory
-cp -r "${_macports_root}/include/"* "$OUT_DIR/include"
-cp -r "${TARGET_DIR}/include/"* "$OUT_DIR/include"
+# Copy all FFMPEG headers to framework
+cp -av "${TARGET_DIR}/include/"* "/${_framework}/Headers/"

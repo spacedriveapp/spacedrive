@@ -266,10 +266,10 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Create frameworks directory to put Spacedrive dependencies
   _frameworks_dir="${_script_path}/../../target/Frameworks"
-  mkdir -p "$_frameworks_dir"
+  mkdir -p "${_frameworks_dir}/lib"
   _frameworks_dir="$(CDPATH='' cd -- "$_frameworks_dir" && pwd -P)"
 
-  exec 3>&1 # Copy stdout in fd 3.
+  exec 3>&1 # Copy stdout to fd 3.
   echo "Download ffmpeg build..."
   _page=1
   while [ $_page -gt 0 ]; do
@@ -304,6 +304,10 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     echo "ffmpeg artifact not found, trying again in 1sec..."
     sleep 1
   done
+
+  # Symlink for the FFMpeg libs to the lib directory
+  find "${_frameworks_dir}/FFMpeg.framework/Libraries" -name '*.dylib' -exec \
+    ln -s "../FFMpeg.framework/Libraries/{}" "${_frameworks_dir}/lib/{}" \;
 
   echo "Download protobuf build"
   _page=1
