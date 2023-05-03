@@ -16,7 +16,7 @@ const tauriConf = fs.readFileSync(tauriConfPath, { encoding: 'utf-8' });
 const tauri = JSON.parse(tauriConf);
 
 if (platform === 'darwin') {
-	tauri.macOSPrivateApi = false;
+	tauri.tauri.macOSPrivateApi = false;
 	tauri.tauri.bundle.macOS.frameworks = [
 		...(tauri.tauri.bundle.macOS.frameworks ?? []),
 		path.join(workspace, 'target/Frameworks/FFMpeg.framework')

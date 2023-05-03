@@ -1,6 +1,6 @@
 const { spawn } = require('node:child_process');
 
-module.exports.spawn = async (command, args) => {
+module.exports.spawn = (command, args) => {
 	if (typeof command !== 'string' || command.length === 0)
 		throw new Error('Command must be a string and not empty');
 
@@ -8,7 +8,7 @@ module.exports.spawn = async (command, args) => {
 	else if (!Array.isArray(args) || args.some((arg) => typeof arg !== 'string'))
 		throw new Error('Args must be an array of strings');
 
-	const promise = new Promise((resolve, reject) => {
+	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { stdio: 'inherit' });
 		process.on('SIGTERM', () => child.kill('SIGTERM'));
 		process.on('SIGINT', () => child.kill('SIGINT'));
