@@ -36,7 +36,7 @@ export default function OnboardingCreatingLibrary() {
 			}
 
 			resetOnboardingStore();
-			navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
 		onError: () => {
 			resetOnboardingStore();

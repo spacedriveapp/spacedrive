@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
-import { RspcProvider, rspc } from '@sd/client';
+import { createBrowserRouter } from 'react-router-dom';
+import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
 import demoData from './demoData.json';
 
@@ -53,7 +53,7 @@ const queryClient = new QueryClient({
 	}
 });
 
-const router = createMemoryRouter(routes);
+const router = createBrowserRouter(routes);
 
 function App() {
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);

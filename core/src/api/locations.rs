@@ -7,6 +7,7 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	util::db::chain_optional_iter,
 };
 
 use std::{
@@ -46,6 +47,7 @@ pub enum ExplorerItem {
 pub struct ExplorerData {
 	pub context: ExplorerContext,
 	pub items: Vec<ExplorerItem>,
+	pub cursor: Option<Vec<u8>>,
 }
 
 file_path::include!(file_path_with_object { object });
@@ -80,15 +82,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LocationExplorerArgs {
 				pub location_id: i32,
+				#[specta(optional)]
 				pub path: Option<String>,
 				pub limit: i32,
-				pub cursor: Option<String>,
+				#[specta(optional)]
+				pub cursor: Option<Vec<u8>>,
+				#[specta(optional)]
 				pub kind: Option<Vec<i32>>,
 			}
 
 			R.with2(library())
 				.query(|(_, library), args: LocationExplorerArgs| async move {
 					let Library { db, .. } = &library;
+
+					dbg!(&args);
 
 					let location = find_location(&library, args.location_id)
 						.exec()
@@ -127,19 +134,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map(|kinds| kinds.into_iter().collect::<BTreeSet<_>>())
 						.unwrap_or_default();
 
-					let mut file_paths = db
-						.file_path()
-						.find_many(if directory_id.is_some() {
-							vec![
-								file_path::location_id::equals(location.id),
-								file_path::parent_id::equals(directory_id),
-							]
-						} else {
-							vec![file_path::location_id::equals(location.id)]
-						})
-						.include(file_path_with_object::include())
-						.exec()
-						.await?;
+					let (mut file_paths, cursor) = {
+						let mut query = db
+							.file_path()
+							.find_many(chain_optional_iter(
+								[file_path::location_id::equals(location.id)],
+								[directory_id.map(Some).map(file_path::parent_id::equals)],
+							))
+							.take((args.limit + 1) as i64);
+
+						if let Some(cursor) = args.cursor {
+							query = query.cursor(file_path::pub_id::equals(cursor));
+						}
+
+						let mut results = query
+							.include(file_path_with_object::include())
+							.exec()
+							.await?;
+
+						let cursor = results.pop().map(|r| r.pub_id);
+
+						(results, cursor)
+					};
 
 					if !expected_kinds.is_empty() {
 						file_paths = file_paths
@@ -174,6 +190,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(ExplorerData {
 						context: ExplorerContext::Location(location),
 						items,
+						cursor,
 					})
 				})
 		})
