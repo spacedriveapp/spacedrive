@@ -6,7 +6,7 @@ use crate::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
-	prisma::{location, object},
+	prisma::{file_path, location, object},
 };
 
 use chrono::{FixedOffset, Utc};
@@ -123,7 +123,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("getRecent", {
 			R.with2(library())
 				.query(|(_, library), amount: i32| async move {
-					Ok(library
+					let objects = library
 						.db
 						.object()
 						.find_many(vec![not![object::date_accessed::equals(None)]])
@@ -135,7 +135,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.into_iter()
 						.filter(|x| x.date_accessed.is_some())
 						.take(amount as usize)
-						.collect::<Vec<_>>())
+						.map(|x| x.id)
+						.collect::<Vec<_>>();
+
+					Ok(library
+						.db
+						.file_path()
+						.find_many(vec![file_path::object_id::in_vec(objects)])
+						.exec()
+						.await?)
 				})
 		})
 		.procedure("encryptFiles", {
