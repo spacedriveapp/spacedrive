@@ -1,3 +1,5 @@
+Set-PSDebug -Trace 1
+
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
 $ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
 Set-StrictMode -Version Latest
@@ -108,6 +110,8 @@ $llvm_major = '15'
 
 # Change CWD to project root
 Set-Location $projectRoot
+Remove-Item -Path "$projectRoot\.cargo\config" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$projectRoot\target\Frameworks" -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @"
@@ -248,9 +252,6 @@ if ($env:CI) {
 }
 
 # Create target folder, continue if already exists
-$cargoConfigPath = "$projectRoot\.cargo\config"
-Remove-Item -Path "$cargoConfigPath" -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$projectRoot\target\Frameworks" -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path "$projectRoot\target\Frameworks" -Force -ErrorAction SilentlyContinue
 
 $filename = $null
@@ -335,7 +336,7 @@ Expand-Archive "$temp\ffmpeg.zip" "$temp" -Force
 Remove-Item "$temp\ffmpeg.zip"
 
 $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NFL /NDL /NP
+robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
 Remove-Item -Path "$ffmpegDir" -Recurse -Force -ErrorAction SilentlyContinue
 
 @(
@@ -343,10 +344,12 @@ Remove-Item -Path "$ffmpegDir" -Recurse -Force -ErrorAction SilentlyContinue
     "PROTOC = `"$projectRoot\target\Frameworks\bin\protoc`"",
     "FFMPEG_DIR = `"$projectRoot\target\Frameworks`"",
     '',
-    (Get-Content "${cargoConfigPath}.toml" -Raw)
-) | Out-File "$cargoConfigPath" -Encoding utf8
+    (Get-Content "$projectRoot\.cargo\config.toml" -Raw)
+) | Out-File "$projectRoot\.cargo\config" -Encoding utf8
 
-Write-Host
-Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
-if (-not $env:CI) { Read-Host 'Press Enter to continue' }
+if (-not $env:CI) {
+    Write-Host
+    Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
+    Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
+    Read-Host 'Press Enter to continue'
+}
