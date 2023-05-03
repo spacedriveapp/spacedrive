@@ -17,7 +17,10 @@ use specta::Type;
 use std::path::Path;
 use tokio::fs;
 
-use super::{Ctx, R};
+use super::{
+	locations::{file_path_with_object, ExplorerItem},
+	Ctx, R,
+};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -123,27 +126,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("getRecent", {
 			R.with2(library())
 				.query(|(_, library), amount: i32| async move {
-					let objects = library
+					let object_ids = library
 						.db
 						.object()
 						.find_many(vec![not![object::date_accessed::equals(None)]])
 						.order_by(object::date_accessed::order(
 							prisma_client_rust::Direction::Desc,
 						))
+						.take(amount as i64)
 						.exec()
 						.await?
 						.into_iter()
-						.filter(|x| x.date_accessed.is_some())
-						.take(amount as usize)
-						.map(|x| x.id)
+						.map(|o| o.id)
 						.collect::<Vec<_>>();
 
-					Ok(library
+					let file_paths = library
 						.db
 						.file_path()
-						.find_many(vec![file_path::object_id::in_vec(objects)])
+						.find_many(vec![file_path::object_id::in_vec(object_ids)])
+						.include(file_path_with_object::include())
 						.exec()
-						.await?)
+						.await?;
+
+					Ok(file_paths
+						.into_iter()
+						.map(|x| ExplorerItem::Path {
+							has_thumbnail: x.object.clone().map_or(false, |x| x.has_thumbnail),
+							item: x,
+						})
+						.collect::<Vec<ExplorerItem>>())
 				})
 		})
 		.procedure("encryptFiles", {
