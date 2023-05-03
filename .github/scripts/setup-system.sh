@@ -266,7 +266,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Create frameworks directory to put Spacedrive dependencies
   _frameworks_dir="${_script_path}/../../target/Frameworks"
-  mkdir -p "${_frameworks_dir}/lib"
+  mkdir -p "${_frameworks_dir}/"{lib,include}
   _frameworks_dir="$(CDPATH='' cd -- "$_frameworks_dir" && pwd -P)"
 
   exec 3>&1 # Copy stdout to fd 3.
@@ -305,9 +305,15 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     sleep 1
   done
 
-  # Symlink for the FFMpeg libs to the lib directory
-  find "${_frameworks_dir}/FFMpeg.framework/Libraries" -name '*.dylib' -exec \
-    ln -s "../FFMpeg.framework/Libraries/{}" "${_frameworks_dir}/lib/{}" \;
+  # Symlink the FFMpeg.framework libs to the lib directory
+  for _lib in "${_frameworks_dir}/FFMpeg.framework/Libraries/"*; do
+    ln -s "../FFMpeg.framework/Libraries/${_lib}" "${_frameworks_dir}/lib/${_lib}"
+  done
+
+  # Symlink the FFMpeg.framework headers to the include directory
+  for _header in "${_frameworks_dir}/FFMpeg.framework/Headers/"*; do
+    ln -s "../FFMpeg.framework/Headers/${_header}" "${_frameworks_dir}/include/${_header}"
+  done
 
   echo "Download protobuf build"
   _page=1
