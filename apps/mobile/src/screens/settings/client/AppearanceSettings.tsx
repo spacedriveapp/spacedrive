@@ -2,6 +2,7 @@ import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
+import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -9,26 +10,31 @@ type Themes = {
 	insideColor: ColorValue;
 	outsideColor: ColorValue;
 	textColor: ColorValue;
+	highlightColor: ColorValue;
 	name: string;
 };
 
+// TODO: Once theming is fixed, use theme values for Light theme too.
 const themes: Themes[] = [
 	{
-		insideColor: '#FFFFFF',
-		outsideColor: '#000000',
-		textColor: '#000000',
+		insideColor: Colors.vanilla.app.DEFAULT,
+		outsideColor: '#F0F0F0',
+		textColor: Colors.vanilla.ink.DEFAULT,
+		highlightColor: '#E6E6E6',
 		name: 'Light'
 	},
 	{
-		insideColor: '#000000',
-		outsideColor: '#FFFFFF',
-		textColor: '#FFFFFF',
+		insideColor: Colors.dark.app.DEFAULT,
+		outsideColor: Colors.dark.app.darkBox,
+		textColor: Colors.dark.ink.DEFAULT,
+		highlightColor: Colors.dark.app.line,
 		name: 'Dark'
 	},
 	{
 		insideColor: '#000000',
 		outsideColor: '#000000',
 		textColor: '#000000',
+		highlightColor: '#000000',
 		name: 'System'
 	}
 ];
@@ -40,15 +46,15 @@ function Theme(props: ThemeProps) {
 		<View style={props.containerStyle}>
 			<View
 				style={twStyle(
-					{ backgroundColor: props.outsideColor },
-					'relative h-[90px] w-[110px] overflow-hidden rounded-xl border border-transparent',
-					props.isSelected && { borderColor: props.insideColor }
+					{ backgroundColor: props.outsideColor, borderColor: props.highlightColor },
+					'relative h-[80px] w-[100px] overflow-hidden rounded-xl border-2 border-app-line',
+					props.isSelected && 'border-white'
 				)}
 			>
 				<View
 					style={twStyle(
-						{ backgroundColor: props.insideColor },
-						'absolute bottom-[-1px] right-[-1px] h-[65px] w-[80px] rounded-tl-xl'
+						{ backgroundColor: props.insideColor, borderColor: props.highlightColor },
+						'absolute bottom-[-2px] right-[-2px] h-[60px] w-[75px] rounded-tl-xl border'
 					)}
 				>
 					<Text
@@ -60,10 +66,10 @@ function Theme(props: ThemeProps) {
 				{/* Checkmark */}
 				{props.isSelected && (
 					<CheckCircle
-						color={props.outsideColor as string}
+						color={props.textColor as string}
 						weight="fill"
 						size={24}
-						style={tw`absolute right-2 bottom-2`}
+						style={tw`absolute right-1.5 bottom-1.5`}
 					/>
 				)}
 			</View>
@@ -71,16 +77,11 @@ function Theme(props: ThemeProps) {
 	);
 }
 
-// TODO: WIP
 function SystemTheme(props: { isSelected: boolean }) {
 	return (
 		<View style={tw`h-[90px] w-[110px] flex-1 flex-row overflow-hidden rounded-xl`}>
-			<View style={tw`z-10 flex-1`}>
-				<Theme {...themes[1]!} containerStyle={tw`absolute top-0 left-10 z-10`} />
-			</View>
-			<View style={tw`flex-1 bg-red-200`}>
-				<Theme {...themes[0]!} containerStyle={tw`bottom-0 right-6`} />
-			</View>
+			<View style={twStyle('flex-1', { backgroundColor: themes[1]?.outsideColor })}></View>
+			<View style={twStyle('flex-1', { backgroundColor: themes[0]?.outsideColor })}></View>
 		</View>
 	);
 }
@@ -93,6 +94,7 @@ const AppearanceSettingsScreen = ({
 		<View style={tw`flex-1 pt-4`}>
 			<View style={tw`px-4`}>
 				<SettingsTitle>Theme</SettingsTitle>
+				<View style={tw`mb-4 border-b border-b-app-line`} />
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}

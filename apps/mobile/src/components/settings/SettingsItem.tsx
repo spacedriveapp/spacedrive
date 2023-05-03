@@ -1,6 +1,6 @@
 import { CaretRight, Icon } from 'phosphor-react-native';
-import { Pressable, Text, View } from 'react-native';
-import { tw } from '~/lib/tailwind';
+import { Pressable, Text, View, ViewStyle } from 'react-native';
+import { tw, twStyle } from '~/lib/tailwind';
 
 type SettingsItemProps = {
 	title: string;
@@ -28,9 +28,9 @@ export function SettingsItem(props: SettingsItemProps) {
 	);
 }
 
-export function SettingsItemDivider() {
+export function SettingsItemDivider(props: { style?: ViewStyle }) {
 	return (
-		<View style={tw`bg-app-overlay`}>
+		<View style={twStyle('bg-app-overlay', props.style)}>
 			<View style={tw`mx-3 border-b border-b-app-line`} />
 		</View>
 	);
