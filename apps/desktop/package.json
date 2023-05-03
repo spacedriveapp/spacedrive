@@ -6,10 +6,10 @@
 	"private": true,
 	"scripts": {
 		"vite": "vite",
-		"dev": "node ./src-tauri/dev.js",
+		"dev": "node ./src-tauri/scripts/dev.js",
 		"dev-vite": "vite --clearScreen=false --mode development",
 		"tauri": "tauri",
-		"build": "node ./src-tauri/build.js",
+		"build": "node ./src-tauri/scripts/build.js",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
@@ -28,6 +28,7 @@
 		"vite-plugin-html": "^3.2.0"
 	},
 	"devDependencies": {
+		"@ltd/j-toml": "^1.38.0",
 		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.2.3",
 		"@types/babel-core": "^6.25.7",

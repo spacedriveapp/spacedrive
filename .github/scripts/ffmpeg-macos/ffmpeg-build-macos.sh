@@ -99,6 +99,8 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --objcc="$CC" \
   --strip="${TRIPLE}-strip" \
   --dep-cc="$CC" \
+  --sysroot="$_sdk" \
+  --cross-prefix="${TRIPLE}-" \
   --ranlib="${TRIPLE}-ranlib" \
   --prefix="${TARGET_DIR}" \
   --arch="${TARGET_ARCH}" \
@@ -106,8 +108,8 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --target-os=darwin \
   --pkg-config="${TRIPLE}-pkg-config" \
   --pkg-config-flags="--static" \
+  --extra-ldflags="-Bstatic -headerpad_max_install_names" \
   --extra-ldexeflags="-Bstatic" \
-  --extra-ldflags="-headerpad_max_install_names" \
   --extra-cxxflags="-xc++-header" \
   --disable-alsa \
   --disable-cuda \
@@ -263,8 +265,14 @@ EOF
 # Process FFMpeg libraries to be compatible with the Framework structure
 cd "$TARGET_DIR/lib"
 
-# Remove all symlinks for ffmpeg libraries
-find . -type l -delete
+# Move all symlinks for ffmpeg libraries to Framework
+while IFS= read -r -d '' _lib; do
+  # Remove leading ./
+  _lib="${_lib#./}"
+  # Copy symlinks to the output directory
+  cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib}"
+  rm "$_lib"
+done < <(find . -type l -print0)
 
 # Populate queue with ffmpeg libraries
 set -- # Clear command line arguments

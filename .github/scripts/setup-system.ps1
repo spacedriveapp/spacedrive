@@ -49,8 +49,6 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
    Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
    # NOTICE: Any modified environment variables should be reloaded here, so the user doesn't have to restart the shell after running the script
    Reset-Path
-   Set-EnvVar('PROTOC')
-   Set-EnvVar('FFMPEG_DIR')
    Exit
 }
 
@@ -127,8 +125,8 @@ To set up your machine for Spacedrive development, this script will do the follo
 4) Install Rust tools
 5) Install Node.js, npm and pnpm $pnpm_major
 6) Install LLVM $llvm_major (compiler for ffmpeg-rust)
-7) Download protbuf compiler and set the PROTOC environment variable
-8) Download ffmpeg and set the FFMPEG_DIR environment variable
+7) Download the protbuf compiler
+8) Download a compatible ffmpeg build
 "@
 
 # Check connectivity to GitHub
@@ -151,7 +149,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
    Write-Host
    Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
    Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
-   # Force install because BuildTools is itself an installer for multiple packages, so let itself decide if it need to install anythin or not
+   # Force install because BuildTools is itself a package manager, so let itself decide if it need to install anything or not
    winget install --exact --no-upgrade --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 
    Write-Host
@@ -248,60 +246,48 @@ if ($env:CI) {
 
    Write-Host "Installing LLVM $llvm_major" -ForegroundColor Yellow
    Write-Host 'This may take a while and will have no visual feedback, please wait...' -ForegroundColor Cyan
-   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait -ErrorAction Stop
+   Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
 
    Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
 
    Remove-Item "$temp\llvm.exe"
 }
 
-Write-Host
-Write-Host 'Checking for protobuf compiler...' -ForegroundColor Yellow
-$protocVersion = $null
-if (($null -ne $env:PROTOC) -and (Test-Path $env:PROTOC -PathType Leaf)) {
-   $protocVersion = &"$env:PROTOC" --version 2>&1 | Out-String
+# Create target folder, continue if already exists
+$cargoConfigPath = "$projectRoot\.cargo\config"
+Remove-Item -Path "$cargoConfigPath" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$projectRoot\target\Frameworks" -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path "$projectRoot\target\Frameworks" -Force -ErrorAction SilentlyContinue
+
+$filename = $null
+$downloadUri = $null
+$releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
+$filenamePattern = '*-win64.zip'
+
+Write-Host 'Downloading protobuf compiler...' -ForegroundColor Yellow
+$releases = Invoke-RestMethodGithub -Uri $releasesUri
+for ($i = 0; $i -lt $releases.Count; $i++) {
+	$release = $releases[$i]
+	foreach ($asset in $release.assets) {
+			if ($asset.name -like $filenamePattern) {
+				$filename = $asset.name
+				$downloadUri = $asset.browser_download_url
+				$i = $releases.Count
+				break
+			}
+	}
 }
 
-if ($protocVersion) {
-   Write-Host 'protobuf compiler is installed.' -ForegroundColor Green
-} else {
-   $filename = $null
-   $downloadUri = $null
-   $releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
-   $filenamePattern = '*-win64.zip'
-
-   Write-Host 'Downloading protobuf compiler...' -ForegroundColor Yellow
-   $releases = Invoke-RestMethodGithub -Uri $releasesUri
-   for ($i = 0; $i -lt $releases.Count; $i++) {
-      $release = $releases[$i]
-      foreach ($asset in $release.assets) {
-         if ($asset.name -like $filenamePattern) {
-            $filename = $asset.name
-            $downloadUri = $asset.browser_download_url
-            $i = $releases.Count
-            break
-         }
-      }
-   }
-
-   if (-not ($filename -and $downloadUri)) {
-      Exit-WithError "Couldn't find a protobuf compiler installer"
-   }
-
-   $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-   New-Item -Path $foldername -ItemType Directory -ErrorAction SilentlyContinue
-
-   Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
-   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
-
-   Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
-   Expand-Archive "$temp\protobuf.zip" $foldername -ErrorAction SilentlyContinue
-   Remove-Item "$temp\protobuf.zip"
-
-   Write-Host 'Setting PROTOC environment variable...' -ForegroundColor Yellow
-   Set-EnvVar 'PROTOC' "$foldername\bin\protoc.exe"
-   Add-DirectoryToPath "$foldername\bin"
+if (-not ($filename -and $downloadUri)) {
+	Exit-WithError "Couldn't find a protobuf compiler installer"
 }
+
+Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
+Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
+
+Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
+Expand-Archive "$temp\protobuf.zip" "$projectRoot\target\Frameworks" -Force
+Remove-Item "$temp\protobuf.zip"
 
 Write-Host
 Write-Host 'Update cargo packages...' -ForegroundColor Yellow
@@ -309,7 +295,7 @@ Write-Host 'Update cargo packages...' -ForegroundColor Yellow
 cargo metadata --format-version 1 > $null
 
 Write-Host
-Write-Host 'Checking for ffmpeg build...' -ForegroundColor Yellow
+Write-Host 'Retrieving ffmpeg version...' -ForegroundColor Yellow
 # Get ffmpeg-sys-next version
 $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
    $_.name -like 'ffmpeg-sys-next'
@@ -317,58 +303,54 @@ $ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages
    $_ -replace '[~^<>=!*]+', ''
 } | Sort-Object -Unique | Select-Object -Last 1
 
-if (($null -ne $env:FFMPEG_DIR) -and (
-      $ffmpegVersion.StartsWith(
-         (($env:FFMPEG_DIR.split('\') | Where-Object { $_ -like 'ffmpeg-*' }) -replace 'ffmpeg-(\d+(\.\d+)*).*', '$1'),
-         [System.StringComparison]::InvariantCulture
-      )
-   )
-) {
-   Write-Host 'ffmpeg is installed.' -ForegroundColor Green
-} else {
-   $filename = $null
-   $downloadUri = $null
-   $releasesUri = 'https://api.github.com/repos/GyanD/codexffmpeg/releases'
-   $filenamePattern = '*-full_build-shared.zip'
+$filename = $null
+$downloadUri = $null
+$releasesUri = 'https://api.github.com/repos/GyanD/codexffmpeg/releases'
+$filenamePattern = '*-full_build-shared.zip'
 
-   # Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
-   $releases = Invoke-RestMethodGithub -Uri $releasesUri
-   $version = $ffmpegVersion
-   while (-not ($filename -and $downloadUri) -and $version) {
-      for ($i = 0; $i -lt $releases.Count; $i++) {
-         $release = $releases[$i]
-         if ($release.tag_name -eq $version) {
-            foreach ($asset in $release.assets) {
-               if ($asset.name -like $filenamePattern) {
-                  $filename = $asset.name
-                  $downloadUri = $asset.browser_download_url
-                  $i = $releases.Count
-                  break
-               }
-            }
-         }
-      }
-      $version = $version -replace '\.?\d+$'
-   }
-
-   if (-not ($filename -and $downloadUri)) {
-      Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
-   }
-
-   $foldername = "$env:LOCALAPPDATA\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-
-   Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
-   Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
-
-   Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
-   # FFmpeg zip contains a subdirectory with the same name as the zip file
-   Expand-Archive "$temp\ffmpeg.zip" $env:LOCALAPPDATA -ErrorAction SilentlyContinue
-   Remove-Item "$temp\ffmpeg.zip"
-
-   Write-Host 'Setting FFMPEG_DIR environment variable...' -ForegroundColor Yellow
-   Set-EnvVar 'FFMPEG_DIR' "$foldername"
-   Add-DirectoryToPath "$foldername\bin"
+# Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
+$releases = Invoke-RestMethodGithub -Uri $releasesUri
+$version = $ffmpegVersion
+while (-not ($filename -and $downloadUri) -and $version) {
+	for ($i = 0; $i -lt $releases.Count; $i++) {
+			$release = $releases[$i]
+			if ($release.tag_name -eq $version) {
+				foreach ($asset in $release.assets) {
+						if ($asset.name -like $filenamePattern) {
+							$filename = $asset.name
+							$downloadUri = $asset.browser_download_url
+							$i = $releases.Count
+							break
+						}
+				}
+			}
+	}
+	$version = $version -replace '\.?\d+$'
 }
+
+if (-not ($filename -and $downloadUri)) {
+	Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
+}
+
+Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
+Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
+
+Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
+# FFmpeg zip contains a subdirectory with the same name as the zip file
+Expand-Archive "$temp\ffmpeg.zip" "$temp" -Force
+Remove-Item "$temp\ffmpeg.zip"
+
+$ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
+robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NFL /NDL /NP
+Remove-Item -Path "$ffmpegDir" -Recurse -Force -ErrorAction SilentlyContinue
+
+@(
+    '[env]',
+    "PROTOC = `"$projectRoot\target\Frameworks\bin\protoc`"",
+    "FFMPEG_DIR = `"$projectRoot\target\Frameworks`"",
+		'',
+    (Get-Content "${cargoConfigPath}.toml" -Raw)
+) | Out-File "$cargoConfigPath" -Encoding utf8
 
 Write-Host
 Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
