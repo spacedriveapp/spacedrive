@@ -15,11 +15,14 @@ type LibraryProcedures<T extends keyof Procedures> = Exclude<
 	{ input: never }
 >;
 
-type StripLibraryArgsFromInput<T extends ProcedureDef> = T extends any
+type StripLibraryArgsFromInput<
+	T extends ProcedureDef,
+	NeverOverNull extends boolean
+> = T extends any
 	? T['input'] extends LibraryArgs<infer E>
 		? {
 				key: T['key'];
-				input: E;
+				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
 				result: T['result'];
 		  }
 		: never
@@ -32,9 +35,9 @@ type NonLibraryProceduresDef = {
 };
 
 type LibraryProceduresDef = {
-	queries: StripLibraryArgsFromInput<LibraryProcedures<'queries'>>;
-	mutations: StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>;
-	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>>;
+	queries: StripLibraryArgsFromInput<LibraryProcedures<'queries'>, true>;
+	mutations: StripLibraryArgsFromInput<LibraryProcedures<'mutations'>, false>;
+	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
 const context = createContext<Context<LibraryProceduresDef>>(undefined!);

@@ -57,8 +57,9 @@ export const Component = () => {
 	// fallback to 0 (which should always be an invalid location) when parsing fails
 	const locationId = (params.id ? Number(params.id) : 1) || 0;
 	useLibraryQuery(['locations.getById', locationId], {
-		onSettled: (data, error: Error | null) => {
+		onSettled: (data, error) => {
 			if (isFirstLoad) {
+				// @ts-expect-error // TODO: Fix the types
 				if (!data && error == null) error = new Error('Failed to load location settings');
 
 				// Return to previous page when no data is available at first load

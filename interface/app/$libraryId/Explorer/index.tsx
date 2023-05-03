@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, useBridgeSubscription, useLibraryContext } from '@sd/client';
+import {
+	ExplorerData,
+	useBridgeSubscription,
+	useLibraryContext,
+	useLibrarySubscription
+} from '@sd/client';
 import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
@@ -20,10 +25,9 @@ interface Props {
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { library } = useLibraryContext();
 	const { location_id, path } = useExplorerParams();
 
-	useBridgeSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
+	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}

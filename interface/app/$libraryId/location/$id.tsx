@@ -61,7 +61,7 @@ export const Component = () => {
 			const arg = queryKey[1];
 			(arg.arg as any).cursor = cursor;
 
-			return await ctx.client.query(['locations.getExplorerData', arg]);
+			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
 		},
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
