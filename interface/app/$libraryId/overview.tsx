@@ -1,11 +1,10 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
-import { useMemo } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Card, ScreenHeading } from '@sd/ui';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
+import { useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 import Explorer from './Explorer';
@@ -99,8 +98,6 @@ export const Component = () => {
 			o.toolTipLabel === 'List view' ||
 			o.toolTipLabel === 'Media view'
 	);
-
-	const makeCopiesOfItems = Array.from({ length: 30 }, () => items).flat();
 
 	return (
 		<div className="flex">
