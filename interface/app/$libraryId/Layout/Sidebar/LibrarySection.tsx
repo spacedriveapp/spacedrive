@@ -1,8 +1,9 @@
+import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { ArrowsClockwise } from 'phosphor-react';
 import { Link, NavLink } from 'react-router-dom';
-import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
-import { Folder } from '@sd/ui';
+import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
+import { Button, Folder } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
 import Icon from './Icon';
@@ -10,12 +11,32 @@ import SidebarLink from './Link';
 import Section from './Section';
 
 export const LibrarySection = () => {
+	const node = useBridgeQuery(['nodeState']);
+
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 
 	return (
 		<>
+			<Section
+				name="Nodes"
+				actionArea={
+					<Link to="settings/library/nodes">
+						<SubtleButton />
+					</Link>
+				}
+			>
+				<SidebarLink className="group relative w-full" to={`location/jeff`} key={'jeff'}>
+					<img src={Laptop} className="mr-1 h-5 w-5" />
+					<span className="truncate">{node.data?.name}</span>
+				</SidebarLink>
+				{/* {(locations.data?.length || 0) < 4 && (
+					<Button variant="dotted" className="mt-1 w-full">
+						Connect Node
+					</Button>
+				)} */}
+			</Section>
 			<Section
 				name="Locations"
 				actionArea={

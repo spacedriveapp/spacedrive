@@ -23,6 +23,7 @@ import Document_xls_Light from './Document_xls_Light.png';
 import Drive from './Drive.png';
 import Drive_Light from './Drive_Light.png';
 import Encrypted from './Encrypted.png';
+import EncryptedLock from './EncryptedLock.png';
 import Encrypted_Light from './Encrypted_Light.png';
 import Entity from './Entity.png';
 import Entity_Light from './Entity_Light.png';
@@ -80,6 +81,7 @@ export {
 	Drive,
 	Drive_Light,
 	Encrypted,
+	EncryptedLock,
 	Encrypted_Light,
 	Entity,
 	Entity_Light,

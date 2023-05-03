@@ -1,9 +1,10 @@
+import * as icons from '@sd/assets/icons';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card } from '@sd/ui';
+import { Card, ScreenHeading, Select, SelectOption } from '@sd/ui';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 
@@ -107,9 +108,15 @@ export const Component = () => {
 					})}
 				</div>
 			</div>
-			{/* <div className="mt-4 grid grid-cols-5 gap-3 pb-4">
-				<CategoryButton icon={Heart} category="Favorites" />
-				<CategoryButton icon={FileText} category="Documents" />
+			<div className="mt-4 flex flex-wrap">
+				<CategoryButton icon={icons.Node} category="Nodes" items={1} />
+				<CategoryButton icon={icons.Folder} category="Locations" items={2} />
+				<CategoryButton icon={icons.Video} category="Movies" items={345} />
+				<CategoryButton icon={icons.Audio} category="Music" items={54} />
+				<CategoryButton icon={icons.Image} category="Pictures" items={908} />
+				<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
+				<CategoryButton icon={icons.Package} category="Downloads" items={89} />
+				{/* <CategoryButton icon={FileText} category="Documents" />
 				<CategoryButton icon={Camera} category="Movies" />
 				<CategoryButton icon={FrameCorners} category="Screenshots" />
 				<CategoryButton icon={AppWindow} category="Applications" />
@@ -117,14 +124,8 @@ export const Component = () => {
 				<CategoryButton icon={CloudArrowDown} category="Downloads" />
 				<CategoryButton icon={MusicNote} category="Music" />
 				<CategoryButton icon={Image} category="Albums" />
-				<CategoryButton icon={Heart} category="Favorites" />
-			</div> */}
-			{/* <Card className="text-ink-dull">
-				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
-				to be functional.
-			</Card> */}
-			{/* <ScreenHeading className="mt-4">Recents</ScreenHeading> */}
-
+				<CategoryButton icon={Heart} category="Favorites" /> */}
+			</div>
 			<div className="flex h-4 w-full shrink-0" />
 		</div>
 	);
@@ -132,17 +133,22 @@ export const Component = () => {
 
 interface CategoryButtonProps {
 	category: string;
-	icon: any;
+	items: number;
+	icon: string;
 }
 
-function CategoryButton({ category, icon: Icon }: CategoryButtonProps) {
+function CategoryButton({ category, icon, items }: CategoryButtonProps) {
 	return (
-		<Card className="items-center !px-3">
-			<Icon weight="fill" className="mr-3 h-6 w-6 text-ink-dull opacity-20" />
-			<div>
+		<div className="flex shrink-0 items-center hover:bg-app-box/50 rounded-md px-1.5 py-1 text-sm">
+			<img src={icon} className="mr-3 h-12 w-12" />
+			<div className="pr-5">
 				<h2 className="text-sm font-medium">{category}</h2>
-				<p className="text-xs text-ink-faint">0 items</p>
+				{items !== undefined && (
+					<p className="text-xs text-ink-faint">
+						{items} Item{items > 1 && 's'}
+					</p>
+				)}
 			</div>
-		</Card>
+		</div>
 	);
 }

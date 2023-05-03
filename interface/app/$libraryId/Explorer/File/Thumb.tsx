@@ -181,4 +181,4 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	);
 }
 
-export default memo(Thumb);
+export default Thumb;
