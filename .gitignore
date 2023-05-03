@@ -75,3 +75,4 @@ dev.db-journal
 sd_init.json
 
 .cargo/config
+.github/scripts/deps

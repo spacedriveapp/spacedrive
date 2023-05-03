@@ -307,7 +307,7 @@ while [ $# -gt 0 ]; do
   done
 
   # Update the library's own id
-  aarch64-apple-darwin21.4-install_name_tool -id "@rpath/${_framework}/Libraries/${1}" "$1"
+  aarch64-apple-darwin21.4-install_name_tool -id "@executable_path/../Frameworks/${_framework}/Libraries/${1}" "$1"
 
   # Copy the library to framework
   cp -Lpv "$1" "/${_framework}/Libraries/${1}"

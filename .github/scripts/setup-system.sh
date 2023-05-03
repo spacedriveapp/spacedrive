@@ -310,6 +310,15 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   for _lib in "${_frameworks_dir}/FFMpeg.framework/Libraries/"*; do
     _lib="${_lib#"${_frameworks_dir}/FFMpeg.framework/Libraries/"}"
     ln -s "../FFMpeg.framework/Libraries/${_lib}" "${_frameworks_dir}/lib/${_lib}"
+
+    # Create less versioned symlinks for the lib
+    if [ "${_lib##*.}" = 'dylib' ]; then
+      _lib="${_lib%.dylib}"
+      while _lib_v="${_lib%.*}" && [ "$_lib_v" != "$_lib" ]; do
+        ln -s "./${_lib}.dylib" "${_frameworks_dir}/lib/${_lib_v}.dylib"
+        _lib="$_lib_v"
+      done
+    fi
   done
 
   # Symlink the FFMpeg.framework headers to the include directory
