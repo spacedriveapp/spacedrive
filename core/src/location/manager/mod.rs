@@ -8,11 +8,9 @@ use std::{
 
 use futures::executor::block_on;
 use thiserror::Error;
-use tokio::{
-	sync::{
-		broadcast::{self, Receiver},
-		oneshot, RwLock,
-	},
+use tokio::sync::{
+	broadcast::{self, Receiver},
+	oneshot, RwLock,
 };
 use tracing::{debug, error};
 

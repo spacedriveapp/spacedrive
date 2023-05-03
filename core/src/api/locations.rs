@@ -144,7 +144,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.filter(|file_path| {
 								file_path
 									.object
-									.map(|ref object| expected_kinds.contains(&object.kind))
+									.as_ref()
+									.map(|object| expected_kinds.contains(&object.kind))
 									.unwrap_or(false)
 							})
 							.collect::<Vec<_>>();

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
-use tracing::{trace, warn};
+use tracing::trace;
 
 use super::{context_menu_fs_info, FsInfo};
 
@@ -70,9 +70,9 @@ impl StatefulJob for FileEraserJob {
 
 		state.data = Some(fs_info.clone());
 
-		state.steps = [fs_info.into()].into_iter().collect();
+		state.steps.push_back(fs_info.into());
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
 
 		Ok(())
 	}
@@ -82,12 +82,10 @@ impl StatefulJob for FileEraserJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be erased (and where?)
 
-		match step {
+		match &state.steps[0] {
 			FileEraserJobStep::File { path } => {
 				let mut file = OpenOptions::new()
 					.read(true)
@@ -98,6 +96,7 @@ impl StatefulJob for FileEraserJob {
 
 				sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes)
 					.await?;
+
 				file.set_len(0).await?;
 				file.flush().await?;
 				drop(file);
@@ -128,12 +127,12 @@ impl StatefulJob for FileEraserJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		if let Some(ref info) = state.data {
-			if info.path_data.is_dir {
-				tokio::fs::remove_dir_all(&info.fs_path).await?;
-			}
-		} else {
-			warn!("missing job state, unable to fully finalise erase job");
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
+		if data.path_data.is_dir {
+			tokio::fs::remove_dir_all(&data.fs_path).await?;
 		}
 
 		invalidate_query!(ctx.library, "locations.getExplorerData");

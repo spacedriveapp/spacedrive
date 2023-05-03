@@ -104,7 +104,10 @@ impl StatefulJob for ShallowFileIdentifierJob {
 			.exec()
 			.await? == 0
 		{
-			return Err(FileIdentifierJobError::SubPathNotFound(state.init.sub_path.into()).into());
+			return Err(FileIdentifierJobError::SubPathNotFound(
+				state.init.sub_path.clone().into(),
+			)
+			.into());
 		}
 
 		let orphan_count = count_orphan_file_paths(db, location_id, &sub_iso_file_path).await?;
@@ -141,7 +144,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		let mut data = state
 			.data
 			.as_mut()
-			.expect("we just initialized `state.data` above");
+			.expect("critical error: missing data on job state");
 
 		let first_path = db
 			.file_path()
@@ -158,7 +161,7 @@ impl StatefulJob for ShallowFileIdentifierJob {
 
 		data.cursor = first_path.id;
 
-		state.steps = (0..task_count).map(|_| ()).collect();
+		state.steps.extend((0..task_count).map(|_| ()));
 
 		Ok(())
 	}
@@ -175,18 +178,13 @@ impl StatefulJob for ShallowFileIdentifierJob {
 		} = state
 			.data
 			.as_mut()
-			.expect("Critical error: missing data on job state");
+			.expect("critical error: missing data on job state");
 
 		let location = &state.init.location;
 
 		// get chunk of orphans to process
-		let file_paths = get_orphan_file_paths(
-			&ctx.library.db,
-			state.init.location.id,
-			*cursor,
-			sub_iso_file_path,
-		)
-		.await?;
+		let file_paths =
+			get_orphan_file_paths(&ctx.library.db, location.id, *cursor, sub_iso_file_path).await?;
 
 		process_identifier_file_paths(
 			<Self as StatefulJob>::NAME,

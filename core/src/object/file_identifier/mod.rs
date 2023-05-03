@@ -35,11 +35,14 @@ const CHUNK_SIZE: usize = 100;
 
 #[derive(Error, Debug)]
 pub enum FileIdentifierJobError {
-	#[error("received sub path not in database: <path='{}'", .0.display())]
+	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
 
+	// Internal Errors
 	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +58,7 @@ impl FileMetadata {
 		location_path: impl AsRef<Path>,
 		iso_file_path: &IsolatedFilePathData<'_>, // TODO: use dedicated CreateUnchecked type
 	) -> Result<FileMetadata, io::Error> {
-		let path = location_path.as_ref().join(iso_file_path);
+		let path = location_path.as_ref().join(iso_file_path.to_path());
 
 		let fs_metadata = fs::metadata(&path).await?;
 

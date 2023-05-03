@@ -76,13 +76,16 @@ pub async fn context_menu_fs_info(
 	Ok(FsInfo {
 		fs_path: get_location_path_from_location_id(db, location_id)
 			.await?
-			.join(&IsolatedFilePathData::from_db_data(
-				location_id,
-				&path_data.materialized_path,
-				path_data.is_dir,
-				&path_data.name,
-				&path_data.extension,
-			)),
+			.join(
+				IsolatedFilePathData::from_db_data(
+					location_id,
+					&path_data.materialized_path,
+					path_data.is_dir,
+					&path_data.name,
+					&path_data.extension,
+				)
+				.to_path(),
+			),
 		path_data,
 	})
 }

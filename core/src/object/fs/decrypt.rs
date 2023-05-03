@@ -1,7 +1,7 @@
 use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, path::PathBuf};
+use std::path::PathBuf;
 use tokio::fs::File;
 
 use crate::{
@@ -55,7 +55,6 @@ impl StatefulJob for FileDecryptorJob {
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
 
-		state.steps = VecDeque::new();
 		state.steps.push_back(FileDecryptorJobStep { fs_info });
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
@@ -68,8 +67,7 @@ impl StatefulJob for FileDecryptorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-		let info = &step.fs_info;
+		let info = &&state.steps[0].fs_info;
 		let key_manager = &ctx.library.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space

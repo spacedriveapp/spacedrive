@@ -8,7 +8,7 @@ use crate::{
 	sync,
 };
 
-use std::{collections::VecDeque, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -55,18 +55,17 @@ impl StatefulJob for ObjectValidatorJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
-		state.steps = db
-			.file_path()
-			.find_many(vec![
-				file_path::location_id::equals(state.init.location_id),
-				file_path::is_dir::equals(false),
-				file_path::integrity_checksum::equals(None),
-			])
-			.select(file_path_for_object_validator::select())
-			.exec()
-			.await?
-			.into_iter()
-			.collect::<VecDeque<_>>();
+		state.steps.extend(
+			db.file_path()
+				.find_many(vec![
+					file_path::location_id::equals(state.init.location_id),
+					file_path::is_dir::equals(false),
+					file_path::integrity_checksum::equals(None),
+				])
+				.select(file_path_for_object_validator::select())
+				.exec()
+				.await?,
+		);
 
 		let location = db
 			.location()
@@ -92,21 +91,29 @@ impl StatefulJob for ObjectValidatorJob {
 	) -> Result<(), JobError> {
 		let Library { db, sync, .. } = &ctx.library;
 
-		let file_path: &file_path_for_object_validator::Data = &state.steps[0];
-		let data = state.data.as_ref().expect("fatal: missing job state");
+		let file_path = &state.steps[0];
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
 
 		// this is to skip files that already have checksums
 		// i'm unsure what the desired behaviour is in this case
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&IsolatedFilePathData::from_db_data(
-				file_path.location.id,
-				&file_path.materialized_path,
-				file_path.is_dir,
-				&file_path.name,
-				&file_path.extension,
-			)))
+			let checksum = file_checksum(
+				data.root_path.join(
+					IsolatedFilePathData::from_db_data(
+						file_path.location.id,
+						&file_path.materialized_path,
+						file_path.is_dir,
+						&file_path.name,
+						&file_path.extension,
+					)
+					.to_path(),
+				),
+			)
 			.await?;
 
 			sync.write_op(

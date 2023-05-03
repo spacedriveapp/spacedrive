@@ -1,10 +1,11 @@
 use crate::{location::LocationId, prisma::file_path, util::error::NonUtf8PathError};
 
+use std::path::PathBuf;
 use std::{borrow::Cow, path::Path};
 
 use serde::{Deserialize, Serialize};
 
-use super::{FilePathError, file_path_to_isolate};
+use super::{file_path_to_isolate, FilePathError};
 
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 pub struct IsolatedFilePathData<'a> {
@@ -23,7 +24,7 @@ impl IsolatedFilePathData<'static> {
 		is_dir: bool,
 	) -> Result<Self, FilePathError> {
 		let full_path = full_path.as_ref();
-		let mut materialized_path =
+		let materialized_path =
 			extract_normalized_materialized_path_str(location_id, location_path, full_path)?;
 
 		let extension = if !is_dir {
@@ -73,14 +74,14 @@ impl<'a> IsolatedFilePathData<'a> {
 			.unwrap_or_else(|| Path::new("/"));
 
 		// putting a trailing '/' as `parent()` doesn't keep it
-		let mut parent_path_str = format!(
+		let parent_path_str = format!(
 			"{}/",
 			parent_path
 				.to_str()
 				.expect("this expect is ok because this path was a valid UTF-8 String before")
 		);
 
-		Self {
+		IsolatedFilePathData {
 			materialized_path: Cow::Owned(parent_path_str),
 			is_dir: true,
 			location_id: self.location_id,
@@ -128,14 +129,24 @@ impl<'a> IsolatedFilePathData<'a> {
 	}
 
 	pub fn to_relative_path_str(&self) -> String {
-		if !self.is_dir {
-			format!(
+		match (self.is_dir, self.extension.as_ref()) {
+			(true, _) => format!("{}/{}/", self.materialized_path, self.name),
+			(false, "") => format!("{}/{}", self.materialized_path, self.name),
+			(false, _) => format!(
 				"{}/{}.{}",
 				self.materialized_path, self.name, self.extension
-			)
-		} else {
-			format!("{}/{}/", self.materialized_path, self.name)
+			),
 		}
+	}
+
+	pub fn to_path(&self) -> Box<Path> {
+		PathBuf::from(match (self.is_dir, self.extension.as_ref()) {
+			(false, extension) if extension != "" => {
+				format!("{}/{}.{}", &self.materialized_path[1..], self.name, extension)
+			}
+			(_, _) => format!("{}/{}", &self.materialized_path[1..], self.name),
+		})
+		.into()
 	}
 
 	pub fn separate_path_name_and_extension_from_str(
@@ -219,43 +230,6 @@ impl From<file_path_to_isolate::Data> for IsolatedFilePathData<'static> {
 		}
 	}
 }
-
-// impl<'a, S: AsRef<str> + 'a> From<(LocationId, &'a S)> for MaterializedPath<'a> {
-// 	fn from((location_id, materialized_path): (LocationId, &'a S)) -> Self {
-// 		let materialized_path = materialized_path.as_ref();
-// 	}
-// }
-
-// impl From<IsolatedFilePathData<'_>> for String {
-// 	fn from(path: IsolatedFilePathData) -> Self {
-// 		From::from(&path)
-// 	}
-// }
-
-// impl From<&IsolatedFilePathData<'_>> for String {
-// 	fn from(path: &IsolatedFilePathData) -> Self {
-// 		path.materialized_path.to_string()
-// 	}
-// }
-
-// impl AsRef<str> for IsolatedFilePathData<'_> {
-// 	fn as_ref(&self) -> &str {
-// 		self.materialized_path.as_ref()
-// 	}
-// }
-
-impl AsRef<Path> for &IsolatedFilePathData<'_> {
-	fn as_ref(&self) -> &Path {
-		// Skipping / because it's not a valid path to be joined
-		Path::new(&self.to_relative_path_str()[1..])
-	}
-}
-
-// impl Display for IsolatedFilePathData<'_> {
-// 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-// 		write!(f, "{}", self.materialized_path)
-// 	}
-// }
 
 /// This function separates a file path from a location path, and normalizes replacing '\' with '/'
 /// to be consistent between Windows and Unix like systems

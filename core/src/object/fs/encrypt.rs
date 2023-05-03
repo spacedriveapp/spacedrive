@@ -19,9 +19,6 @@ use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 
 pub struct FileEncryptorJob;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileEncryptorJobState {}
-
 #[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
@@ -51,7 +48,7 @@ impl JobInitData for FileEncryptorJobInit {
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
 	type Init = FileEncryptorJobInit;
-	type Data = FileEncryptorJobState;
+	type Data = ();
 	type Step = FsInfo;
 
 	const NAME: &'static str = "file_encryptor";
@@ -61,14 +58,13 @@ impl StatefulJob for FileEncryptorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let step =
+		state.steps.push_back(
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await
 				.map_err(|_| JobError::MissingData {
 					value: String::from("file_path that matches both location id and path id"),
-				})?;
-
-		state.steps = [step].into_iter().collect();
+				})?,
+		);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 

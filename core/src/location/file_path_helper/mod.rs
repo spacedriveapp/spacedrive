@@ -27,7 +27,8 @@ use uuid::Uuid;
 use super::LocationId;
 
 // File Path selectables!
-file_path::select!(file_path_just_id_materialized_path {
+file_path::select!(file_path_just_pub_id { pub_id });
+file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
 	materialized_path
 });
@@ -306,6 +307,29 @@ pub async fn ensure_sub_path_is_in_location(
 		}
 	} else {
 		Ok(sub_path.to_path_buf())
+	}
+}
+
+pub async fn ensure_file_path_exists<E>(
+	sub_path: impl AsRef<Path>,
+	iso_file_path: &IsolatedFilePathData<'_>,
+	db: &PrismaClient,
+	error_fn: impl FnOnce(Box<Path>) -> E,
+) -> Result<(), E>
+where
+	E: From<QueryError>,
+{
+	if db
+		.file_path()
+		.count(filter_existing_file_path_params(&iso_file_path))
+		.exec()
+		.await
+		.map_err(Into::into)?
+		== 0
+	{
+		Err(error_fn(sub_path.as_ref().into()))
+	} else {
+		Ok(())
 	}
 }
 

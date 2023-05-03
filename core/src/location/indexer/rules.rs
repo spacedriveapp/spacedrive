@@ -1,8 +1,9 @@
 use crate::{
 	library::Library,
+	location::location_with_indexer_rules,
 	// location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
-	util::error::{FileIOError, NonUtf8PathError}, location::location_with_indexer_rules,
+	util::error::{FileIOError, NonUtf8PathError},
 };
 
 use chrono::{DateTime, Utc};
@@ -451,7 +452,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 					let globs = rmp_serde::from_slice::<Vec<Glob>>(&data.parameters)?;
 					let glob_set = globs
 						.iter()
-						.fold(&mut GlobSetBuilder::new(), |mut builder, glob| {
+						.fold(&mut GlobSetBuilder::new(), |builder, glob| {
 							builder.add(glob.to_owned())
 						})
 						.build()?;

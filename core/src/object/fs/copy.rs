@@ -110,9 +110,9 @@ impl StatefulJob for FileCopierJob {
 			source_fs_info: source_fs_info.clone(),
 		});
 
-		state.steps = [source_fs_info.into()].into_iter().collect();
+		state.steps.push_back(source_fs_info.into());
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
 
 		Ok(())
 	}
@@ -122,20 +122,19 @@ impl StatefulJob for FileCopierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
 
-		let job_state = state.data.as_ref().ok_or(JobError::MissingData {
-			value: String::from("job state"),
-		})?;
-
-		match step {
+		match &state.steps[0] {
 			FileCopierJobStep::File { path } => {
-				let mut target_path = job_state.target_path.clone();
+				let mut target_path = data.target_path.clone();
 
-				if job_state.source_fs_info.path_data.is_dir {
+				if data.source_fs_info.path_data.is_dir {
 					// if root type is a dir, we need to preserve structure by making paths relative
 					target_path.push(
-						path.strip_prefix(&job_state.source_fs_info.fs_path)
+						path.strip_prefix(&data.source_fs_info.fs_path)
 							.map_err(|_| JobError::Path)?,
 					);
 				}
@@ -166,10 +165,8 @@ impl StatefulJob for FileCopierJob {
 			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir
 				// fixes copying dirs with no child directories
-				if job_state.source_fs_info.path_data.is_dir
-					&& &job_state.source_fs_info.fs_path == path
-				{
-					fs::create_dir_all(&job_state.target_path).await?;
+				if data.source_fs_info.path_data.is_dir && &data.source_fs_info.fs_path == path {
+					fs::create_dir_all(&data.target_path).await?;
 				}
 
 				let mut dir = fs::read_dir(&path).await?;
@@ -181,10 +178,10 @@ impl StatefulJob for FileCopierJob {
 							.push_back(FileCopierJobStep::Directory { path: entry.path() });
 
 						fs::create_dir_all(
-							job_state.target_path.join(
+							data.target_path.join(
 								entry
 									.path()
-									.strip_prefix(&job_state.source_fs_info.fs_path)
+									.strip_prefix(&data.source_fs_info.fs_path)
 									.map_err(|_| JobError::Path)?,
 							),
 						)
@@ -195,7 +192,7 @@ impl StatefulJob for FileCopierJob {
 							.push_back(FileCopierJobStep::File { path: entry.path() });
 					};
 
-					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len() as usize)]);
 				}
 			}
 		};

@@ -5,7 +5,7 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			check_existing_file_path, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 			file_path_for_thumbnailer, IsolatedFilePathData,
 		},
 		LocationId,
@@ -16,7 +16,7 @@ use crate::{
 use std::{
 	collections::VecDeque,
 	hash::Hash,
-	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
+	path::{Path, PathBuf},
 };
 
 use sd_file_ext::extensions::Extension;
@@ -78,7 +78,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let location_id = state.init.location.id;
 		let location_path = PathBuf::from(&state.init.location.path);
 
-		let sub_isolated_file_path = if state.init.sub_path != Path::new("") {
+		let (path, iso_file_path) = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(&location_path, &state.init.sub_path)
 				.await
 				.map_err(ThumbnailerError::from)?;
@@ -86,23 +86,30 @@ impl StatefulJob for ShallowThumbnailerJob {
 				.await
 				.map_err(ThumbnailerError::from)?;
 
-			IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
-				.map_err(ThumbnailerError::from)?
-		} else {
-			IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
-				.map_err(ThumbnailerError::from)?
-		};
+			let sub_iso_file_path =
+				IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+					.map_err(ThumbnailerError::from)?;
 
-		if !check_existing_file_path(&sub_isolated_file_path, db)
-			.await
-			.map_err(ThumbnailerError::from)?
-		{
-			return Err(ThumbnailerError::SubPathNotFound(state.init.sub_path.into()).into());
-		}
+			ensure_file_path_exists(
+				&state.init.sub_path,
+				&sub_iso_file_path,
+				db,
+				ThumbnailerError::SubPathNotFound,
+			)
+			.await?;
+
+			(full_path, sub_iso_file_path)
+		} else {
+			(
+				location_path.to_path_buf(),
+				IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
+					.map_err(ThumbnailerError::from)?,
+			)
+		};
 
 		info!(
 			"Searching for images in location {location_id} at path {}",
-			sub_isolated_file_path.to_relative_path_str()
+			path.display()
 		);
 
 		// create all necessary directories if they don't exist
@@ -112,7 +119,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let image_files = get_files_by_extensions(
 			db,
 			location_id,
-			&sub_isolated_file_path,
+			&iso_file_path,
 			&FILTERED_IMAGE_EXTENSIONS,
 			ThumbnailerJobStepKind::Image,
 		)
@@ -125,7 +132,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 			let video_files = get_files_by_extensions(
 				db,
 				location_id,
-				&sub_isolated_file_path,
+				&iso_file_path,
 				&FILTERED_VIDEO_EXTENSIONS,
 				ThumbnailerJobStepKind::Video,
 			)
@@ -150,16 +157,11 @@ impl StatefulJob for ShallowThumbnailerJob {
 			location_path,
 			report: ThumbnailerJobReport {
 				location_id,
-				sub_path_str: if state.init.sub_path != Path::new("") {
-					// SAFETY: We know that the sub_path is a valid UTF-8 string because we validated it before
-					state.init.sub_path.to_str().unwrap().to_string()
-				} else {
-					MAIN_SEPARATOR_STR.to_string()
-				},
+				path,
 				thumbnails_created: 0,
 			},
 		});
-		state.steps = all_files;
+		state.steps.extend(all_files);
 
 		Ok(())
 	}
@@ -171,13 +173,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 	) -> Result<(), JobError> {
 		process_step(
 			false, // On shallow thumbnailer, we want to show thumbnails ASAP
-			state.step_number,
-			&state.steps[0],
-			state
-				.data
-				.as_mut()
-				.expect("critical error: missing data on job state"),
-			ctx,
+			state, ctx,
 		)
 		.await
 	}

@@ -44,7 +44,7 @@ impl StatefulJob for FileDeleterJob {
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
 
-		state.steps = [fs_info].into_iter().collect();
+		state.steps.push_back(fs_info);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 

@@ -181,13 +181,16 @@ async fn handle_file(
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 			let lru_entry = (
-				Path::new(&file_path.location.path).join(&IsolatedFilePathData::from_db_data(
-					location_id,
-					&file_path.materialized_path,
-					file_path.is_dir,
-					&file_path.name,
-					&file_path.extension,
-				)),
+				Path::new(&file_path.location.path).join(
+					IsolatedFilePathData::from_db_data(
+						location_id,
+						&file_path.materialized_path,
+						file_path.is_dir,
+						&file_path.name,
+						&file_path.extension,
+					)
+					.to_path(),
+				),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());

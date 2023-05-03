@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
-	prisma::file_path,
+	prisma::{file_path, PrismaClient},
 	sync,
 	util::{db::uuid_to_bytes, error::FileIOError},
 };
@@ -22,8 +22,8 @@ use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	file_path_helper::{FilePathError, IsolatedFilePathData},
-	location_with_indexer_rules,
+	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
+	location_with_indexer_rules, LocationId,
 };
 
 pub mod indexer_job;
@@ -32,7 +32,7 @@ pub mod shallow_indexer_job;
 mod walk;
 
 use rules::IndexerRuleError;
-use walk::{ToWalkEntry, WalkedEntry};
+use walk::WalkedEntry;
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
@@ -61,31 +61,9 @@ pub struct IndexerJobData {
 	db_write_time: Duration,
 	scan_read_time: Duration,
 	total_paths: u64,
+	total_save_steps: u64,
 	indexed_count: u64,
 	removed_count: u64,
-}
-
-/// `IndexerJobStepInput` defines the action that should be executed in the current step
-#[derive(Serialize, Deserialize, Debug)]
-pub enum IndexerJobStepInput {
-	/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
-	Save(Vec<WalkedEntry>),
-	Walk(ToWalkEntry),
-}
-
-#[derive(Debug)]
-pub enum IndexerJobStepOutput<Walked, ToWalk>
-where
-	Walked: Iterator<Item = WalkedEntry>,
-	ToWalk: Iterator<Item = ToWalkEntry>,
-{
-	Save(u64, Duration),
-	Walk {
-		walked: Walked,
-		to_walk: ToWalk,
-		removed_count: u64,
-		elapsed_time: Duration,
-	},
 }
 
 impl IndexerJobData {
@@ -103,6 +81,12 @@ impl IndexerJobData {
 	}
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IndexerJobSaveStep {
+	chunk_idx: usize,
+	walked: Vec<WalkedEntry>,
+}
+
 #[derive(Clone)]
 pub enum ScanProgress {
 	ChunkCount(usize),
@@ -114,9 +98,9 @@ pub enum ScanProgress {
 #[derive(Error, Debug)]
 pub enum IndexerError {
 	// Not Found errors
-	#[error("indexer rule not found: <id={0}>")]
+	#[error("indexer rule not found: <id='{0}'>")]
 	IndexerRuleNotFound(i32),
-	#[error("received sub path not in database: <path='{}'", .0.display())]
+	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
@@ -146,42 +130,28 @@ impl From<IndexerError> for rspc::Error {
 	}
 }
 
-async fn execute_indexer_step(
-	location: &location_with_indexer_rules::Data,
-	step: &IndexerJobStepInput,
-	ctx: WorkerContext,
-) -> Result<
-	IndexerJobStepOutput<impl Iterator<Item = WalkedEntry>, impl Iterator<Item = ToWalkEntry>>,
-	IndexerError,
-> {
-	match step {
-		IndexerJobStepInput::Save(step) => execute_indexer_save_step(location, step, ctx)
-			.await
-			.map(|(indexed_count, elapsed_time)| {
-				IndexerJobStepOutput::Save(indexed_count, elapsed_time)
-			}),
-		IndexerJobStepInput::Walk(path) => {
-			execute_indexer_walk_step(location, path, ctx).await.map(
-				|(walked, to_walk, removed_count, elapsed_time)| IndexerJobStepOutput::Walk {
-					walked,
-					to_walk,
-					removed_count,
-					elapsed_time,
-				},
-			)
-		}
-	}
-}
-
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
-	save_step: &[WalkedEntry],
-	ctx: WorkerContext,
+	save_step: &IndexerJobSaveStep,
+	data: &IndexerJobData,
+	ctx: &mut WorkerContext,
 ) -> Result<(u64, Duration), IndexerError> {
 	let start_time = Instant::now();
+
+	IndexerJobData::on_scan_progress(
+		ctx,
+		vec![
+			ScanProgress::SavedChunks(save_step.chunk_idx),
+			ScanProgress::Message(format!(
+				"Writing {}/{} to db",
+				save_step.chunk_idx, data.total_save_steps
+			)),
+		],
+	);
 	let Library { sync, db, .. } = &ctx.library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
+		.walked
 		.iter()
 		.map(|entry| {
 			let IsolatedFilePathData {
@@ -248,30 +218,15 @@ async fn execute_indexer_save_step(
 	Ok((count as u64, start_time.elapsed()))
 }
 
-async fn execute_indexer_walk_step(
-	location: &location_with_indexer_rules::Data,
-	walk_step: &ToWalkEntry,
-	ctx: WorkerContext,
-) -> Result<
-	(
-		impl Iterator<Item = WalkedEntry>,
-		impl Iterator<Item = ToWalkEntry>,
-		u64,
-		Duration
-	),
-	IndexerError,
-> {
-	todo!()
-}
-
-fn finalize_indexer<SJob, Init>(
+fn finalize_indexer<SJob, Init, Step>(
 	location_path: impl AsRef<Path>,
 	state: &JobState<SJob>,
 	ctx: WorkerContext,
 ) -> JobResult
 where
-	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = IndexerJobStepInput>,
+	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = Step>,
 	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
+	Step: Serialize + DeserializeOwned + Send + Sync,
 {
 	let data = state
 		.data
@@ -293,4 +248,92 @@ where
 	}
 
 	Ok(Some(serde_json::to_value(state)?))
+}
+
+fn update_notifier_fn<'a, 'b>(
+	batch_size: usize,
+	ctx: &'a mut WorkerContext,
+) -> impl FnMut(&Path, usize) + 'b
+where
+	'a: 'b,
+{
+	move |path, total_entries| {
+		IndexerJobData::on_scan_progress(
+			ctx,
+			vec![
+				ScanProgress::Message(format!("Scanning {}", path.display())),
+				ScanProgress::ChunkCount(total_entries / batch_size),
+			],
+		);
+	}
+}
+
+fn iso_file_path_factory(
+	location_id: LocationId,
+	location_path: &Path,
+) -> impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError> + '_ {
+	move |path, is_dir| {
+		IsolatedFilePathData::new(location_id, location_path, path, is_dir).map_err(Into::into)
+	}
+}
+
+async fn remove_non_existing_file_paths(
+	to_remove: impl IntoIterator<Item = file_path_just_pub_id::Data>,
+	db: &PrismaClient,
+) -> Result<u64, IndexerError> {
+	db.file_path()
+		.delete_many(vec![file_path::pub_id::in_vec(
+			to_remove.into_iter().map(|data| data.pub_id).collect(),
+		)])
+		.exec()
+		.await
+		.map(|count| count as u64)
+		.map_err(Into::into)
+}
+
+// TODO: Change this macro to a fn when we're able to return
+// `impl Fn(Vec<file_path::WhereParam>) -> impl Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>`
+// Maybe when TAITs arrive
+#[macro_export]
+macro_rules! file_paths_db_fetcher_fn {
+	($db:ident) => {{
+		let db: &$crate::prisma::PrismaClient = &$db;
+
+		move |found_paths| async move {
+			db.file_path()
+				.find_many(found_paths)
+				.select($crate::location::file_path_helper::file_path_to_isolate::select())
+				.exec()
+				.await
+				.map_err(Into::into)
+		}
+	}};
+}
+
+// TODO: Change this macro to a fn when we're able to return
+// `impl Fn(&Path, Vec<file_path::WhereParam>) -> impl Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>`
+// Maybe when TAITs arrive
+#[macro_export]
+macro_rules! to_remove_db_fetcher_fn {
+	($location_id:ident, $location_path:ident, $db:ident) => {{
+		move |path, unique_location_id_materialized_path_name_extension_params| async move {
+			$db.file_path()
+				.find_many(vec![
+					$crate::prisma::file_path::location_id::equals($location_id),
+					$crate::prisma::file_path::materialized_path::equals(
+						$crate::location::
+						file_path_helper::
+						isolated_file_path_data::
+						extract_normalized_materialized_path_str($location_id, $location_path, path)?,
+					),
+					::prisma_client_rust::operator::not(
+						unique_location_id_materialized_path_name_extension_params,
+					),
+				])
+				.select($crate::location::file_path_helper::file_path_just_pub_id::select())
+				.exec()
+				.await
+				.map_err(Into::into)
+		}
+	}};
 }

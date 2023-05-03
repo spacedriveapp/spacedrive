@@ -16,9 +16,6 @@ use super::{context_menu_fs_info, get_location_path_from_location_id, FsInfo};
 
 pub struct FileCutterJob {}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileCutterJobState {}
-
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileCutterJobInit {
 	pub source_location_id: i32,
@@ -40,7 +37,7 @@ impl JobInitData for FileCutterJobInit {
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJob {
 	type Init = FileCutterJobInit;
-	type Data = FileCutterJobState;
+	type Data = ();
 	type Step = FileCutterJobStep;
 
 	const NAME: &'static str = "file_cutter";
@@ -62,12 +59,10 @@ impl StatefulJob for FileCutterJob {
 				.await?;
 		full_target_path.push(&state.init.target_path);
 
-		state.steps = [FileCutterJobStep {
+		state.steps.push_back(FileCutterJobStep {
 			source_fs_info,
 			target_directory: full_target_path,
-		}]
-		.into_iter()
-		.collect();
+		});
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 

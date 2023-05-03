@@ -179,7 +179,7 @@ pub(super) async fn create_file(
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &iso_file_path)
 		.await
-		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
+		.map_err(|e| FileIOError::from((location_path.join(iso_file_path.to_path()), e)))?;
 
 	let created_file = create_file_path(
 		library,
@@ -363,7 +363,7 @@ async fn inner_update_file(
 		kind,
 	} = FileMetadata::new(&location_path, &iso_file_path)
 		.await
-		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
+		.map_err(|e| FileIOError::from((location_path.join(iso_file_path.to_path()), e)))?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {

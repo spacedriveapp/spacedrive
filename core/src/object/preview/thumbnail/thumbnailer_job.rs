@@ -4,8 +4,8 @@ use crate::{
 	},
 	library::Library,
 	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location, file_path_for_thumbnailer,
-		IsolatedFilePathData,
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient},
 };
@@ -73,7 +73,7 @@ impl StatefulJob for ThumbnailerJob {
 		let location_id = state.init.location.id;
 		let location_path = PathBuf::from(&state.init.location.path);
 
-		let iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
+		let (path, iso_file_path) = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
 				.await
 				.map_err(ThumbnailerError::from)?;
@@ -81,11 +81,25 @@ impl StatefulJob for ThumbnailerJob {
 				.await
 				.map_err(ThumbnailerError::from)?;
 
-			IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
-				.map_err(ThumbnailerError::from)?
+			let sub_iso_file_path =
+				IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+					.map_err(ThumbnailerError::from)?;
+
+			ensure_file_path_exists(
+				sub_path,
+				&sub_iso_file_path,
+				db,
+				ThumbnailerError::SubPathNotFound,
+			)
+			.await?;
+
+			(full_path, sub_iso_file_path)
 		} else {
-			IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
-				.map_err(ThumbnailerError::from)?
+			(
+				location_path.to_path_buf(),
+				IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
+					.map_err(ThumbnailerError::from)?,
+			)
 		};
 
 		info!(
@@ -136,11 +150,11 @@ impl StatefulJob for ThumbnailerJob {
 			location_path,
 			report: ThumbnailerJobReport {
 				location_id,
-				sub_path_str: iso_file_path.to_relative_path_str(),
+				path,
 				thumbnails_created: 0,
 			},
 		});
-		state.steps = all_files;
+		state.steps.extend(all_files);
 
 		Ok(())
 	}
@@ -150,17 +164,7 @@ impl StatefulJob for ThumbnailerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		process_step(
-			state.init.background,
-			state.step_number,
-			&state.steps[0],
-			state
-				.data
-				.as_mut()
-				.expect("critical error: missing data on job state"),
-			ctx,
-		)
-		.await
+		process_step(state.init.background, state, ctx).await
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
