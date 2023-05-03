@@ -266,6 +266,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Create frameworks directory to put Spacedrive dependencies
   _frameworks_dir="${_script_path}/../../target/Frameworks"
+  rm -rf "$_frameworks_dir"
   mkdir -p "${_frameworks_dir}/"{lib,include}
   _frameworks_dir="$(CDPATH='' cd -- "$_frameworks_dir" && pwd -P)"
 

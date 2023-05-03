@@ -187,6 +187,7 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-pic \
   --enable-postproc \
   --enable-pthreads \
+  --enable-small \
   --enable-shared \
   --enable-swscale \
   --enable-version3 \
