@@ -76,3 +76,9 @@ indent_style = space
 # https://google.github.io/styleguide/shell.xml#Indentation
 [*.{bash,sh,zsh}]
 indent_style = space
+
+# PowerShell
+# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
+[*.{ps1,psd1,psm1}]
+indent_size = 4
+indent_style = space
