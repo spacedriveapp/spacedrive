@@ -16,9 +16,18 @@ const metroConfig = makeMetroConfig({
 	projectRoot,
 	watchFolders: [workspaceRoot],
 	resolver: {
+		unstable_enablePackageExports: true,
 		...expoDefaultConfig.resolver,
 		extraNodeModules: {
-			'react-native-svg': reactSVGPath
+			'react-native-svg': reactSVGPath,
+			'@rspc/client/v2': path.resolve(
+				workspaceRoot,
+				'node_modules',
+				'@rspc',
+				'client',
+				'dist',
+				'v2.js'
+			)
 		},
 		blockList: exclusionList([reactSVGExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
