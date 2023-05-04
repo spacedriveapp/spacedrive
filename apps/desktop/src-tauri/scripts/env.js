@@ -7,7 +7,13 @@ const { workspace, platform } = require('./const.js');
 const cargoConfigTempl = path.resolve(workspace, '.cargo/config.toml');
 const cargoConfig = path.resolve(workspace, '.cargo/config');
 
-module.exports.setupPlatformEnv = function setupEnv() {
+module.exports.setupPlatformEnv = function setupEnv(env, dev = false) {
+	if (env !== null && typeof env === 'object') {
+		process.env = Object.assign(process.env, env);
+	} else {
+		env = null;
+	}
+
 	if (platform === 'darwin' || platform === 'win32') {
 		process.env.PROTOC = path.join(workspace, 'target/Frameworks/bin/protoc');
 		process.env.FFMPEG_DIR = path.join(workspace, 'target/Frameworks');
@@ -42,12 +48,14 @@ module.exports.setupPlatformEnv = function setupEnv() {
 		const cargoConf = toml.parse(fs.readFileSync(cargoConfigTempl, { encoding: 'binary' }));
 		cargoConf.env = {
 			...(cargoConf.env ?? {}),
+			...(env ?? {}),
 			PROTOC: process.env.PROTOC,
 			FFMPEG_DIR: process.env.FFMPEG_DIR
 		};
 		fs.writeFileSync(cargoConfig, toml.stringify(cargoConf));
+	}
 
-	if (platform === 'win32') {
+	if (dev && platform === 'win32') {
 		// Ensure the target/debug directory exists
 		const debugTargetDir = path.join(workspace, 'target/debug');
 		fs.mkdirSync(debugTargetDir, { recursive: true });
@@ -56,7 +64,6 @@ module.exports.setupPlatformEnv = function setupEnv() {
 		for (const dll of fs
 			.readdirSync(path.join(process.env.FFMPEG_DIR, 'bin'))
 			.filter((file) => file.endsWith('.dll'))) {
-	}
 			fs.copyFileSync(path.join(ffmpegBinDir, dll), path.join(debugTargetDir, dll));
 		}
 	}

@@ -340,7 +340,11 @@ Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
 $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
+try {
+    robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
+} catch {
+    Exit-WithError 'Failed to copy ffmpeg files'
+}
 Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
@@ -348,7 +352,7 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
     "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
     "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
     '',
-    (Get-Content "$projectRoot\.cargo\config.toml" -Raw)
+    (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
 ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
 if (-not $env:CI) {

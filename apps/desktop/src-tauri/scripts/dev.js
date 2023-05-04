@@ -1,6 +1,6 @@
 const { spawn } = require('./spawn.js');
 const { setupPlatformEnv } = require('./env.js');
 
-setupPlatformEnv();
+setupPlatformEnv(null, true);
 
 spawn('pnpm', ['tauri', 'dev']).catch((code) => process.exit(code));
