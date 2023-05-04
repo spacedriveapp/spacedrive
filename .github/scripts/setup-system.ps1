@@ -30,7 +30,7 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
     -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ) {
     # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
-    $proc = Start-Process -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
+    $proc = Start-Process -PassThru -Wait -FilePath 'PowerShell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -WorkingDirectory "$PSScriptRoot"
     # NOTICE: Any modified environment variables should be reloaded here, so the user doesn't have to restart the shell after running the script
     Reset-Path
     Exit $proc.ExitCode
@@ -340,7 +340,7 @@ Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
 $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-$proc = Start-Process -FilePath Robocopy.exe -Verb RunAs -ArgumentList "`"$ffmpegDir`" `"$projectRoot\target\Frameworks`" /E /NS /NC /NFL /NDL /NP /NJH /NJS" -Wait
+$proc = Start-Process -PassThru -Wait -FilePath 'Robocopy.exe' -Verb RunAs -ArgumentList "`"$ffmpegDir`" `"$projectRoot\target\Frameworks`" /E /NS /NC /NFL /NDL /NP /NJH /NJS"
 # https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy#exit-return-codes
 if ($proc.ExitCode -ge 8) {
     Exit-WithError 'Failed to copy ffmpeg files'
