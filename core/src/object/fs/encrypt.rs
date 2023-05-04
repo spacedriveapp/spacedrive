@@ -1,4 +1,4 @@
-use crate::{invalidate_query, job::*, library::Library};
+use crate::{invalidate_query, job::*, library::Library, util::error::FileIOError};
 
 use std::path::PathBuf;
 
@@ -135,8 +135,12 @@ impl StatefulJob for FileEncryptorJob {
 					Some,
 				);
 
-			let mut reader = File::open(&info.fs_path).await?;
-			let mut writer = File::create(output_path).await?;
+			let mut reader = File::open(&info.fs_path)
+				.await
+				.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+			let mut writer = File::create(&output_path)
+				.await
+				.map_err(|e| FileIOError::from((output_path, e)))?;
 
 			let master_key = Key::generate();
 
@@ -195,8 +199,13 @@ impl StatefulJob for FileEncryptorJob {
 
 					if tokio::fs::metadata(&pvm_path).await.is_ok() {
 						let mut pvm_bytes = Vec::new();
-						let mut pvm_file = File::open(pvm_path).await?;
-						pvm_file.read_to_end(&mut pvm_bytes).await?;
+						let mut pvm_file = File::open(&pvm_path)
+							.await
+							.map_err(|e| FileIOError::from((&pvm_path, e)))?;
+						pvm_file
+							.read_to_end(&mut pvm_bytes)
+							.await
+							.map_err(|e| FileIOError::from((pvm_path, e)))?;
 
 						header
 							.add_preview_media(

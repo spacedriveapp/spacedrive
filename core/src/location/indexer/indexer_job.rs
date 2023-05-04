@@ -96,7 +96,7 @@ impl StatefulJob for IndexerJob {
 			walked,
 			to_walk,
 			to_remove,
-			errors: _errors,
+			errors,
 		} = {
 			walk(
 				&to_walk_path,
@@ -157,7 +157,13 @@ impl StatefulJob for IndexerJob {
 			total_save_steps: state.steps.len() as u64 - to_walk_count as u64,
 		});
 
-		Ok(())
+		if !errors.is_empty() {
+			Err(JobError::StepCompletedWithErrors(
+				errors.into_iter().map(|e| format!("{e}")).collect(),
+			))
+		} else {
+			Ok(())
+		}
 	}
 
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
@@ -191,7 +197,7 @@ impl StatefulJob for IndexerJob {
 					walked,
 					to_walk,
 					to_remove,
-					errors: _errors,
+					errors,
 				} = {
 					keep_walking(
 						to_walk_entry,
@@ -207,6 +213,7 @@ impl StatefulJob for IndexerJob {
 				data.scan_read_time += scan_start.elapsed();
 
 				let db_delete_time = Instant::now();
+				// TODO pass these uuids to sync system
 				data.removed_count += remove_non_existing_file_paths(to_remove, &db).await?;
 				data.db_write_time += db_delete_time.elapsed();
 
@@ -239,7 +246,11 @@ impl StatefulJob for IndexerJob {
 					))],
 				);
 
-				// TODO: Handle errors
+				if !errors.is_empty() {
+					return Err(JobError::StepCompletedWithErrors(
+						errors.into_iter().map(|e| format!("{e}")).collect(),
+					));
+				}
 			}
 		}
 

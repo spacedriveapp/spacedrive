@@ -2,6 +2,7 @@ use crate::{
 	library::Library,
 	location::indexer::IndexerError,
 	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -31,8 +32,6 @@ pub enum JobError {
 	// General errors
 	#[error("database error")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("I/O error: {0}")]
-	IOError(#[from] std::io::Error),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
 	JoinTaskError(#[from] tokio::task::JoinError),
 	#[error("Job state encode error: {0}")]
@@ -57,6 +56,8 @@ pub enum JobError {
 	Path,
 	#[error("invalid job status integer")]
 	InvalidJobStatusInt(i32),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]
@@ -320,21 +321,23 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
 
+		let mut errors = vec![];
+
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
 			if let Err(e) = self.stateful_job.init(ctx.clone(), &mut self.state).await {
-				if matches!(e, JobError::EarlyFinish { .. }) {
-					info!("{e}");
-					job_should_run = false;
-				} else {
-					return Err(e);
+				match e {
+					JobError::EarlyFinish { .. } => {
+						info!("{e}");
+						job_should_run = false;
+					}
+					JobError::StepCompletedWithErrors(errors_text) => errors.extend(errors_text),
+					other => return Err(other),
 				}
 			}
 		}
 
 		let mut shutdown_rx = ctx.shutdown_rx();
-
-		let mut errors = vec![];
 
 		while job_should_run && !self.state.steps.is_empty() {
 			tokio::select! {

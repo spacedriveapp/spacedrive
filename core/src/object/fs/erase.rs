@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -90,30 +91,57 @@ impl StatefulJob for FileEraserJob {
 				let mut file = OpenOptions::new()
 					.read(true)
 					.write(true)
-					.open(&path)
-					.await?;
-				let file_len = file.metadata().await?.len();
+					.open(path)
+					.await
+					.map_err(|e| FileIOError::from((path, e)))?;
+				let file_len = file
+					.metadata()
+					.await
+					.map_err(|e| FileIOError::from((path, e)))?
+					.len();
 
 				sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes)
 					.await?;
 
-				file.set_len(0).await?;
-				file.flush().await?;
+				file.set_len(0)
+					.await
+					.map_err(|e| FileIOError::from((path, e)))?;
+				file.flush()
+					.await
+					.map_err(|e| FileIOError::from((path, e)))?;
 				drop(file);
 
 				trace!("Erasing file: {:?}", path);
 
-				tokio::fs::remove_file(&path).await?;
+				tokio::fs::remove_file(path)
+					.await
+					.map_err(|e| FileIOError::from((path, e)))?;
 			}
 			FileEraserJobStep::Directory { path } => {
-				let mut dir = tokio::fs::read_dir(&path).await?;
+				let path = path.clone(); // To appease the borrowck
 
-				while let Some(entry) = dir.next_entry().await? {
-					state.steps.push_back(if entry.metadata().await?.is_dir() {
-						FileEraserJobStep::Directory { path: entry.path() }
-					} else {
-						FileEraserJobStep::File { path: entry.path() }
-					});
+				let mut dir = tokio::fs::read_dir(&path)
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?;
+
+				while let Some(entry) = dir
+					.next_entry()
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?
+				{
+					let entry_path = entry.path();
+					state.steps.push_back(
+						if entry
+							.metadata()
+							.await
+							.map_err(|e| FileIOError::from((&entry_path, e)))?
+							.is_dir()
+						{
+							FileEraserJobStep::Directory { path: entry_path }
+						} else {
+							FileEraserJobStep::File { path: entry_path }
+						},
+					);
 
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
@@ -132,7 +160,9 @@ impl StatefulJob for FileEraserJob {
 			.as_ref()
 			.expect("critical error: missing data on job state");
 		if data.path_data.is_dir {
-			tokio::fs::remove_dir_all(&data.fs_path).await?;
+			tokio::fs::remove_dir_all(&data.fs_path)
+				.await
+				.map_err(|e| FileIOError::from((&data.fs_path, e)))?;
 		}
 
 		invalidate_query!(ctx.library, "locations.getExplorerData");

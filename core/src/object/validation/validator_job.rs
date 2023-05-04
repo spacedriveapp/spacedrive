@@ -6,6 +6,7 @@ use crate::{
 	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
 	prisma::{file_path, location},
 	sync,
+	util::error::FileIOError,
 };
 
 use std::path::PathBuf;
@@ -102,19 +103,19 @@ impl StatefulJob for ObjectValidatorJob {
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(
-				data.root_path.join(
-					IsolatedFilePathData::from_db_data(
-						file_path.location.id,
-						&file_path.materialized_path,
-						file_path.is_dir,
-						&file_path.name,
-						&file_path.extension,
-					)
-					.to_path(),
-				),
-			)
-			.await?;
+			let path = data.root_path.join(
+				IsolatedFilePathData::from_db_data(
+					file_path.location.id,
+					&file_path.materialized_path,
+					file_path.is_dir,
+					&file_path.name,
+					&file_path.extension,
+				)
+				.to_path(),
+			);
+			let checksum = file_checksum(&path)
+				.await
+				.map_err(|e| FileIOError::from((path, e)))?;
 
 			sync.write_op(
 				db,

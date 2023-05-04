@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -139,8 +140,15 @@ impl StatefulJob for FileCopierJob {
 					);
 				}
 
-				if fs::canonicalize(path.parent().ok_or(JobError::Path)?).await?
-					== fs::canonicalize(target_path.parent().ok_or(JobError::Path)?).await?
+				let parent_path = path.parent().ok_or(JobError::Path)?;
+				let parent_target_path = target_path.parent().ok_or(JobError::Path)?;
+
+				if fs::canonicalize(parent_path)
+					.await
+					.map_err(|e| FileIOError::from((parent_path, e)))?
+					== fs::canonicalize(parent_target_path)
+						.await
+						.map_err(|e| FileIOError::from((parent_target_path, e)))?
 				{
 					return Err(JobError::MatchingSrcDest(path.clone()));
 				}
@@ -159,33 +167,51 @@ impl StatefulJob for FileCopierJob {
 						target_path.display()
 					);
 
-					fs::copy(&path, &target_path).await?;
+					fs::copy(&path, &target_path)
+						.await
+						.map_err(|e| FileIOError::from((&target_path, e)))?;
 				}
 			}
 			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir
 				// fixes copying dirs with no child directories
 				if data.source_fs_info.path_data.is_dir && &data.source_fs_info.fs_path == path {
-					fs::create_dir_all(&data.target_path).await?;
+					fs::create_dir_all(&data.target_path)
+						.await
+						.map_err(|e| FileIOError::from((&data.target_path, e)))?;
 				}
 
-				let mut dir = fs::read_dir(&path).await?;
+				let path = path.clone(); // To appease the borrowck
 
-				while let Some(entry) = dir.next_entry().await? {
-					if entry.metadata().await?.is_dir() {
+				let mut dir = fs::read_dir(&path)
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?;
+
+				while let Some(entry) = dir
+					.next_entry()
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?
+				{
+					let entry_path = entry.path();
+					if entry
+						.metadata()
+						.await
+						.map_err(|e| FileIOError::from((&entry_path, e)))?
+						.is_dir()
+					{
 						state
 							.steps
 							.push_back(FileCopierJobStep::Directory { path: entry.path() });
 
-						fs::create_dir_all(
-							data.target_path.join(
-								entry
-									.path()
-									.strip_prefix(&data.source_fs_info.fs_path)
-									.map_err(|_| JobError::Path)?,
-							),
-						)
-						.await?;
+						let full_path = data.target_path.join(
+							entry_path
+								.strip_prefix(&data.source_fs_info.fs_path)
+								.map_err(|_| JobError::Path)?,
+						);
+
+						fs::create_dir_all(&full_path)
+							.await
+							.map_err(|e| FileIOError::from((full_path, e)))?;
 					} else {
 						state
 							.steps

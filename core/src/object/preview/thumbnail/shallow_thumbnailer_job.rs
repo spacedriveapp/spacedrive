@@ -11,6 +11,7 @@ use crate::{
 		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -113,7 +114,9 @@ impl StatefulJob for ShallowThumbnailerJob {
 		);
 
 		// create all necessary directories if they don't exist
-		fs::create_dir_all(&thumbnail_dir).await?;
+		fs::create_dir_all(&thumbnail_dir)
+			.await
+			.map_err(|e| FileIOError::from((&thumbnail_dir, e)))?;
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(

@@ -12,7 +12,6 @@ use std::{
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	sync::Arc,
-	time::Duration,
 };
 
 use itertools::Itertools;
@@ -103,7 +102,7 @@ impl StatefulJob for ShallowIndexerJob {
 		};
 
 		let scan_start = Instant::now();
-		let (walked, to_remove, _errors) = {
+		let (walked, to_remove, errors) = {
 			let ctx = &mut ctx;
 			walk_single_dir(
 				&to_walk_path,
@@ -116,8 +115,10 @@ impl StatefulJob for ShallowIndexerJob {
 			.await?
 		};
 
+		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system
 		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+		let db_delete_time = db_delete_start.elapsed();
 
 		let total_paths = &mut 0;
 
@@ -150,7 +151,7 @@ impl StatefulJob for ShallowIndexerJob {
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
 			rules_by_kind,
-			db_write_time: Duration::ZERO,
+			db_write_time: db_delete_time,
 			scan_read_time: scan_start.elapsed(),
 			total_paths: *total_paths,
 			indexed_count: 0,
@@ -158,7 +159,13 @@ impl StatefulJob for ShallowIndexerJob {
 			total_save_steps: state.steps.len() as u64,
 		});
 
-		Ok(())
+		if !errors.is_empty() {
+			Err(JobError::StepCompletedWithErrors(
+				errors.into_iter().map(|e| format!("{e}")).collect(),
+			))
+		} else {
+			Ok(())
+		}
 	}
 
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table

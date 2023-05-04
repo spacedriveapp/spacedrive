@@ -7,7 +7,7 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location, PrismaClient}, util::error::FileIOError,
 };
 
 use std::{collections::VecDeque, hash::Hash, path::PathBuf};
@@ -108,7 +108,7 @@ impl StatefulJob for ThumbnailerJob {
 		);
 
 		// create all necessary directories if they don't exist
-		fs::create_dir_all(&thumbnail_dir).await?;
+		fs::create_dir_all(&thumbnail_dir).await.map_err(|e| FileIOError::from((&thumbnail_dir, e)))?;
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(

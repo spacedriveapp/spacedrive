@@ -9,6 +9,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
@@ -87,8 +88,12 @@ impl StatefulJob for FileDecryptorJob {
 			|p| p,
 		);
 
-		let mut reader = File::open(info.fs_path.clone()).await?;
-		let mut writer = File::create(output_path).await?;
+		let mut reader = File::open(info.fs_path.clone())
+			.await
+			.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+		let mut writer = File::create(&output_path)
+			.await
+			.map_err(|e| FileIOError::from((output_path, e)))?;
 
 		let (header, aad) = FileHeader::from_reader(&mut reader).await?;
 

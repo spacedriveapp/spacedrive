@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -81,14 +82,16 @@ impl StatefulJob for FileCutterJob {
 			.target_directory
 			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
 
-		if fs::canonicalize(
-			source_info
-				.fs_path
-				.parent()
-				.map_or(Err(JobError::Path), Ok)?,
-		)
-		.await? == fs::canonicalize(full_output.parent().map_or(Err(JobError::Path), Ok)?)
-			.await?
+		let parent_source = source_info.fs_path.parent().ok_or(JobError::Path)?;
+
+		let parent_output = full_output.parent().ok_or(JobError::Path)?;
+
+		if fs::canonicalize(parent_source)
+			.await
+			.map_err(|e| FileIOError::from((parent_source, e)))?
+			== fs::canonicalize(parent_output)
+				.await
+				.map_err(|e| FileIOError::from((parent_output, e)))?
 		{
 			return Err(JobError::MatchingSrcDest(source_info.fs_path.clone()));
 		}
@@ -108,7 +111,9 @@ impl StatefulJob for FileCutterJob {
 			full_output.display()
 		);
 
-		fs::rename(&source_info.fs_path, &full_output).await?;
+		fs::rename(&source_info.fs_path, &full_output)
+			.await
+			.map_err(|e| FileIOError::from((&source_info.fs_path, e)))?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
