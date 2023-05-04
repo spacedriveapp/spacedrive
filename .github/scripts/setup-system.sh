@@ -61,6 +61,9 @@ echo
 # Change CWD to the directory of this script
 CDPATH='' cd -- "$(dirname -- "$0")"
 _script_path="$(pwd -P)"
+_cargo_config="${_script_path}/../../.cargo"
+
+rm -rf "$_cargo_config/config"
 
 if ! has cargo; then
   err 'Rust was not found.' \
@@ -353,7 +356,6 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   # Ensure all binaries are executable
   chmod +x "$_frameworks_dir"/bin/*
 
-  _cargo_config="${_script_path}/../../.cargo"
   cat <<EOF >"${_cargo_config}/config"
 [env]
 PROTOC = "${_frameworks_dir}/bin/protoc"
