@@ -1,5 +1,3 @@
-Set-PSDebug -Trace 1
-
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
 $ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
 Set-StrictMode -Version Latest
@@ -246,7 +244,7 @@ if ($env:CI) {
     Write-Host 'This may take a while and will have no visual feedback, please wait...' -ForegroundColor Cyan
     $proc = Start-Process -FilePath "$temp\llvm.exe" -Verb RunAs -ArgumentList '/S' -Wait
     if ($proc.ExitCode -ne 0) {
-        Throw 'LLVM installation failed'
+        Exit-WithError 'LLVM installer failed'
     }
 
     Add-DirectoryToPath "$env:SystemDrive\Program Files\LLVM\bin"
@@ -255,7 +253,7 @@ if ($env:CI) {
 }
 
 # Create target folder, continue if already exists
-New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projectRoot\target\Frameworks"
+New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projectRoot\target\Frameworks" >$null
 
 $filename = $null
 $downloadUri = $null
@@ -347,8 +345,8 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
     '[env]',
-    "PROTOC = `"$projectRoot\target\Frameworks\bin\protoc`"",
-    "FFMPEG_DIR = `"$projectRoot\target\Frameworks`"",
+    "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
+    "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
     '',
     (Get-Content "$projectRoot\.cargo\config.toml" -Raw)
 ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
