@@ -134,7 +134,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 				isGroup ? `joblistitem pr-3 pt-0` : 'p-3'
 			)}
 		>
-			<div className="flex">
+			<div className="ml-7 flex">
 				<niceData.icon className={clsx('relative top-2 mr-3 h-5 w-5')} />
 				<div className="flex w-full flex-col">
 					<div className="flex items-center">
