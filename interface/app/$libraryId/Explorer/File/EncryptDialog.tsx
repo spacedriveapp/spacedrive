@@ -86,7 +86,7 @@ export default (props: Props) => {
 			loading={encryptFile.isLoading}
 			ctaLabel="Encrypt"
 		>
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -130,7 +130,7 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -166,13 +166,13 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Metadata</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Metadata</span>
 					<CheckBox {...form.register('metadata')} />
 				</div>
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Preview Media</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Preview Media</span>
 					<CheckBox {...form.register('previewMedia')} />
 				</div>
 			</div>

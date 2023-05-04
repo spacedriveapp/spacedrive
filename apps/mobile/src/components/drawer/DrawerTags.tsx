@@ -18,7 +18,7 @@ const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>
-			<View style={twStyle('mb-[4px] flex flex-row items-center rounded py-2 px-1')}>
+			<View style={twStyle('mb-[4px] flex flex-row items-center rounded px-1 py-2')}>
 				<View style={twStyle('h-3.5 w-3.5 rounded-full', { backgroundColor: tagColor })} />
 				<Text style={twStyle('ml-2 text-sm font-medium text-gray-300')} numberOfLines={1}>
 					{tagName}
@@ -43,7 +43,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 		<CollapsibleView
 			title="Tags"
 			titleStyle={tw`text-sm font-semibold text-gray-300`}
-			containerStyle={tw`mt-6 mb-3 ml-1`}
+			containerStyle={tw`mb-3 ml-1 mt-6`}
 		>
 			<View style={tw`mt-2`}>
 				{tags?.map((tag) => (

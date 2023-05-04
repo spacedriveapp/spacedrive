@@ -95,6 +95,8 @@ export type PeerMetadata = { name: string; operating_system: OperatingSystem | n
 
 export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
+export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
+
 /**
  * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
  */
@@ -121,8 +123,6 @@ export type Location = { id: number; pub_id: number[]; node_id: number; name: st
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
-
-export type LocationExplorerArgs = { location_id: number; path?: string | null; limit: number; cursor?: number[] | null; kind?: number[] | null }
 
 /**
  * These parameters define the password-hashing level.
@@ -158,8 +158,6 @@ export type StoredKey = { uuid: string; version: StoredKeyVersion; key_type: Sto
 
 export type OnboardingConfig = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
-export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
-
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
 
 /**
@@ -175,10 +173,6 @@ export type Volume = { name: string; mount_point: string; total_capacity: string
 export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
-
-export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[] }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type BuildInfo = { version: string; commit: string }
 
@@ -216,6 +210,8 @@ export type Node = { id: number; pub_id: number[]; name: string; platform: numbe
 
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
+export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
@@ -224,9 +220,7 @@ export type ObjectValidatorArgs = { id: number; path: string }
 
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
-
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+export type LocationExplorerArgs = { location_id: number; path?: string | null; limit: number; cursor?: number[] | null; kind?: number[] | null }
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
@@ -288,11 +282,11 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
+export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
+
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
-
-export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -312,6 +306,8 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: 
  */
 export type LibraryConfig = { name: string; description: string }
 
+export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
+
 export type CreateLibraryArgs = { name: string }
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
@@ -322,7 +318,11 @@ export type Protected<T> = T
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
+export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[] }
+
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
+
+export type LightScanArgs = { location_id: number; sub_path: string }
 
 /**
  * This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.

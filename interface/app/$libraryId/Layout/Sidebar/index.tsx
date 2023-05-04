@@ -18,7 +18,7 @@ export default () => {
 				macOnly(os, 'bg-opacity-[0.65]')
 			)}
 		>
-			{showControls && <MacTrafficLights className="absolute top-[13px] left-[13px] z-50" />}
+			{showControls && <MacTrafficLights className="absolute left-[13px] top-[13px] z-50" />}
 			{(os !== 'browser' || showControls) && (
 				<div className="flex justify-end">
 					<NavigationButtons />
