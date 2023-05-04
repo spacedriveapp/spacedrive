@@ -31,14 +31,7 @@ fs.writeFileSync(tauriConfPath, JSON.stringify(tauri, null, 2));
 if (process.env.CI === 'true') {
 	fs.writeFileSync(`${tauriConfPath}.bak`, tauriConf);
 } else {
-	const args = ['tauri', 'build'];
-
-	if (platform === 'darwin') {
-		// Disable updater bundle due to: https://github.com/tauri-apps/tauri/issues/3933
-		args.concat(['--bundle', 'dmg,app']);
-	}
-
-	spawn('pnpm', args).then(
+	spawn('pnpm', ['tauri', 'build']).then(
 		() => {
 			fs.writeFileSync(tauriConfPath, tauriConf);
 		},
