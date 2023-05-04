@@ -5,11 +5,13 @@ const { spawn } = require('./spawn.js');
 const { setupPlatformEnv } = require('./env.js');
 const { workspace, platform } = require('./const.js');
 
+const BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png');
+const BACKGROUND_FILE_NAME = path.basename(BACKGROUND_FILE);
+
 setupPlatformEnv({
-	BACKGROUND_FILE: (BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png')),
-	BACKGROUND_FILE_NAME: (BACKGROUND_FILE_NAME = path.basename(process.env.BACKGROUND_FILE)),
-	BACKGROUND_CLAUSE:
-		(BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${process.env.BACKGROUND_FILE_NAME}"`)
+	BACKGROUND_FILE,
+	BACKGROUND_FILE_NAME,
+	BACKGROUND_CLAUSE: `set background picture of opts to file ".background:${BACKGROUND_FILE_NAME}"`
 });
 
 const tauriConfPath = path.resolve(__dirname, '..', 'tauri.conf.json');

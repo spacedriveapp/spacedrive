@@ -347,13 +347,13 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 # }
 # Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
-# @(
-#     '[env]',
-#     "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
-#     "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
-#     '',
-#     (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
-# ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
+@(
+    '[env]',
+    "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
+    "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
+    '',
+    (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
+) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
 # if (-not $env:CI) {
 #     Write-Host
