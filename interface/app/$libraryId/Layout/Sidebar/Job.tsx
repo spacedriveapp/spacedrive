@@ -1,3 +1,5 @@
+import { JobReport } from '@sd/client';
+import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
@@ -15,8 +17,6 @@ import {
 	X
 } from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
-import { JobReport } from '@sd/client';
-import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import './Job.scss';
 
 interface JobNiceData {
@@ -142,13 +142,14 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mb-[5px] mt-[2px] flex gap-1 text-[12px] italic text-ink-faint">
+							<p className="mb-[5px] mt-[2px] flex gap-1 text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.filesDiscovered}
+								{" • "}
+								<JobTimeText job={job} />
 							</p>
 							<div className="flex gap-1 truncate text-ink-faint">
-								<JobTimeText job={job} />
-								{/* <span className="text-xs">{dayjs(job.created_at).fromNow()}</span> */}
+
 							</div>
 						</div>
 						<div className="grow" />
@@ -215,7 +216,7 @@ function JobTimeText({ job }: { job: JobReport }) {
 	if (text === 'Took NaN years') {
 		return null;
 	} else {
-		return <span className="text-xs">{text}</span>;
+		return <>{text}</>;
 	}
 }
 

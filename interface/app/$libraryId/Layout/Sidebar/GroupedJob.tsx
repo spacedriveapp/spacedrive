@@ -1,9 +1,10 @@
-import clsx from 'clsx';
-import dayjs from 'dayjs';
-import { Folder, TextItalic, X } from 'phosphor-react';
-import { MutableRefObject, memo, useEffect, useState } from 'react';
+import { Folder } from '@sd/assets/icons';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import clsx from 'clsx';
+import dayjs from 'dayjs';
+import { X } from 'phosphor-react';
+import { MutableRefObject, memo, useEffect, useState } from 'react';
 import { IGroupedJobs } from './GroupedJobs';
 import Job from './Job';
 
@@ -32,7 +33,7 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 				<ul className={clsx(`relative overflow-hidden`, toggleJobs && 'groupjobul')}>
 					{allJobsCompleted && !checkForJobsRunning && (
 						<Button
-							className="absolute right-[10px] top-[30px] cursor-pointer"
+							className="absolute right-[10px] top-[19px] cursor-pointer"
 							onClick={() => clearJob?.(data.id as string)}
 							size="icon"
 						>
@@ -49,9 +50,10 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 						)}
 					>
 						<div className="flex">
-							<Folder
+							<img
+							src={Folder}
 								className={clsx(
-									'relative left-[-2px] top-2 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
+									'relative left-[-2px] top-2 mr-3 h-6 w-6 z-10'
 								)}
 							/>
 							<div className="flex w-full flex-col">
@@ -64,13 +66,13 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 												  }"`
 												: 'Processing added location...'}
 										</p>
-										<p className="mb-[5px] mt-[2px] text-[12px] italic text-ink-faint">
-											{getTasks.total}{' '}
+										<p className="mb-[2px] mt-[2px] text-ink-faint">
+											<b>{getTasks.total}{' '}</b>
 											{getTasks.total <= 1 ? 'task' : 'tasks'}
-										</p>
-										<div className="flex gap-1 truncate text-ink-faint">
+											{" • "}
 											<GetTotalGroupJobTime jobs={data.childJobs} />
-										</div>
+										</p>
+
 									</div>
 									<div className="grow" />
 								</div>
@@ -179,7 +181,7 @@ function GetTotalGroupJobTime({ jobs }: { jobs?: JobReport[] }) {
 			return () => clearInterval(interval);
 		}
 	}, [allJobsCompleted, checkForJobsQueued]);
-	return <span className="text-xs">{text}</span>;
+	return <>{text}</>;
 }
 
 export default memo(GroupedJob);
