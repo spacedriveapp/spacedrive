@@ -64,7 +64,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			ref={modalRef}
 			enableContentPanningGesture={false}
 			enablePanDownToClose={false}
-			snapPoints={['70%']}
+			snapPoints={['70']}
 		>
 			{data && (
 				<ModalScrollView style={tw`flex-1 p-4`}>
@@ -84,7 +84,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
-					<Divider style={tw`mt-6 mb-4`} />
+					<Divider style={tw`mb-4 mt-6`} />
 					<>
 						{/* Size */}
 						<MetaItem

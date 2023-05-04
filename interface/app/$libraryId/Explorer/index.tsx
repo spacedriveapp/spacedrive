@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
+import { ExplorerData, useLibrarySubscription } from '@sd/client';
 import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
@@ -16,14 +16,14 @@ interface Props {
 	items?: ExplorerData['items'];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	viewClassName?: string;
 }
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { library } = useLibraryContext();
 	const { location_id, path } = useExplorerParams();
 
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
+	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
@@ -57,7 +57,13 @@ export default function Explorer(props: Props) {
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
-						{props.items && <View data={props.items} onLoadMore={props.onLoadMore} />}
+						{props.items && (
+							<View
+								viewClassName={props.viewClassName}
+								data={props.items}
+								onLoadMore={props.onLoadMore}
+							/>
+						)}
 					</div>
 				</ExplorerContextMenu>
 

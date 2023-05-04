@@ -5,6 +5,9 @@ const path = require('path');
 // Needed for transforming svgs from @sd/assets
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
+const [rspcClientPath, rspcClientExclude] = resolveUniqueModule('@rspc/client');
+const [rspcReactPath, rspcReactExclude] = resolveUniqueModule('@rspc/react');
+
 const { getDefaultConfig } = require('expo/metro-config');
 const expoDefaultConfig = getDefaultConfig(__dirname);
 
@@ -20,33 +23,37 @@ const metroConfig = makeMetroConfig({
 		extraNodeModules: {
 			'react-native-svg': reactSVGPath
 		},
-		blockList: exclusionList([reactSVGExclude]),
+		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
 		disableHierarchicalLookup: true,
 		nodeModulesPaths: [
 			path.resolve(projectRoot, 'node_modules'),
 			path.resolve(workspaceRoot, 'node_modules')
-		]
+		],
+		resolveRequest: (context, moduleName, platform) => {
+			if (moduleName.startsWith('@rspc/client/v2')) {
+				return {
+					filePath: path.resolve(rspcClientPath, 'dist', 'v2.js'),
+					type: 'sourceFile'
+				};
+			}
+			if (moduleName.startsWith('@rspc/react/v2')) {
+				return {
+					filePath: path.resolve(rspcReactPath, 'dist', 'v2.js'),
+					type: 'sourceFile'
+				};
+			}
+			// Optionally, chain to the standard Metro resolver.
+			return context.resolveRequest(context, moduleName, platform);
+		},
+		platforms: ['ios', 'android']
 	},
 	transformer: {
 		...expoDefaultConfig.transformer,
-		// Metro default is "uglify-es" but terser should be faster and has better defaults.
-		minifierPath: 'metro-minify-terser',
-		minifierConfig: {
-			compress: {
-				drop_console: true,
-				// Sometimes improves performance?
-				reduce_funcs: false
-			},
-			format: {
-				ascii_only: true,
-				wrap_iife: true,
-				quote_style: 3
-			}
-		},
 		getTransformOptions: async () => ({
 			transform: {
+				// What does this do?
 				experimentalImportSupport: false,
 				inlineRequires: true
 			}

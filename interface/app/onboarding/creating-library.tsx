@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
@@ -36,7 +35,7 @@ export default function OnboardingCreatingLibrary() {
 			}
 
 			resetOnboardingStore();
-			navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
 		onError: () => {
 			resetOnboardingStore();

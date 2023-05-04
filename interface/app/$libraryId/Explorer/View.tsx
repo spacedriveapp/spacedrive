@@ -8,7 +8,7 @@ import {
 	useContext,
 	useRef
 } from 'react';
-import { createSearchParams, useNavigate } from 'react-router-dom';
+import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -74,6 +74,7 @@ interface Props {
 	data: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	viewClassName?: string;
 }
 
 interface ExplorerView {
@@ -89,17 +90,21 @@ export default memo((props: Props) => {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// Hide notice on overview page
+	const isOverview = useMatch('/:libraryId/overview');
+
 	return (
 		<div
 			ref={scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
-				layoutMode === 'grid' && 'overflow-x-hidden pl-4'
+				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
+				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
-			<DismissibleNotice />
+			{!isOverview && <DismissibleNotice />}
 			<context.Provider value={{ data: props.data, scrollRef }}>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}

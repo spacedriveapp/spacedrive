@@ -44,7 +44,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 	return (
 		<Modal
 			ref={modalRef}
-			snapPoints={['35%', '65%']}
+			snapPoints={['35', '65']}
 			onDismiss={() => {
 				// Resets form onDismiss
 				setShowPicker(false);

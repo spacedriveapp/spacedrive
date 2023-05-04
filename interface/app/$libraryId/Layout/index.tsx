@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense, useRef } from 'react';
+import { Suspense } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -16,7 +16,6 @@ import Toasts from './Toasts';
 
 const Layout = () => {
 	const { libraries, library } = useClientContext();
-
 	const os = useOperatingSystem();
 
 	initPlausible({
@@ -28,8 +27,8 @@ const Layout = () => {
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
-		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} />;
-		else return <Navigate to="/" />;
+		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} replace />;
+		else return <Navigate to="/" replace />;
 	}
 
 	return (

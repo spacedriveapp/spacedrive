@@ -97,7 +97,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<Github className="mt-[-4px] -ml-1 mr-2 inline h-5 w-5" fill="white" />
+							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>

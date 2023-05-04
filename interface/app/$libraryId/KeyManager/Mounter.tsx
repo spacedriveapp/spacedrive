@@ -9,9 +9,9 @@ import {
 	SelectOption,
 	Slider,
 	Switch,
+	Tooltip,
 	tw
 } from '@sd/ui';
-import { Tooltip } from '@sd/ui';
 import { generatePassword } from '~/util';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
@@ -68,7 +68,7 @@ export default () => {
 				<span className="mt-2.5 text-sm font-medium">{sliderValue}</span>
 			</div>
 
-			<div className="mt-3 mb-1 flex flex-row items-center">
+			<div className="mb-1 mt-3 flex flex-row items-center">
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
@@ -102,7 +102,7 @@ export default () => {
 				</Tooltip> */}
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select

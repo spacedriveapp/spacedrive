@@ -1,31 +1,29 @@
-import { createWSClient, loggerLink, wsLink } from '@rspc/client';
 import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
-import { getDebugState, hooks } from '@sd/client';
+import { createBrowserRouter } from 'react-router-dom';
+import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
 import demoData from './demoData.json';
 
-globalThis.isDev = import.meta.env.DEV;
-
 const serverOrigin = import.meta.env.VITE_SDSERVER_ORIGIN || 'localhost:8080';
 
-const wsClient = createWSClient({
-	url: `ws://${serverOrigin}/rspc/ws`
-});
+// TODO: Restore this once TS is back up to functionality in rspc.
+// const wsClient = createWSClient({
+// 	url: `ws://${serverOrigin}/rspc/ws`
+// });
 
-const client = hooks.createClient({
-	links: [
-		loggerLink({
-			enabled: () => getDebugState().rspcLogger
-		}),
-		wsLink({
-			client: wsClient
-		})
-	]
-});
+// const client = hooks.createClient({
+// 	links: [
+// 		loggerLink({
+// 			enabled: () => getDebugState().rspcLogger
+// 		}),
+// 		wsLink({
+// 			client: wsClient
+// 		})
+// 	]
+// });
 
-const http = isDev ? 'http' : 'https';
+const http = import.meta.env.DEV ? 'http' : 'https';
 const spacedriveProtocol = `${http}://${serverOrigin}/spacedrive`;
 
 const platform: Platform = {
@@ -55,7 +53,7 @@ const queryClient = new QueryClient({
 	}
 });
 
-const router = createMemoryRouter(routes);
+const router = createBrowserRouter(routes);
 
 function App() {
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
@@ -66,13 +64,13 @@ function App() {
 
 	return (
 		<div className="App">
-			<hooks.Provider client={client} queryClient={queryClient}>
+			<RspcProvider queryClient={queryClient}>
 				<PlatformProvider platform={platform}>
 					<QueryClientProvider client={queryClient}>
 						<SpacedriveInterface router={router} />
 					</QueryClientProvider>
 				</PlatformProvider>
-			</hooks.Provider>
+			</RspcProvider>
 		</div>
 	);
 }

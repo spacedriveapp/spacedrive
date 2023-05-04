@@ -36,7 +36,7 @@ export default function DocsLayout(props: Props) {
 				</div>
 			</Menu>
 
-			<aside className="sticky top-32 mt-32 mb-20 ml-2 mr-0 hidden px-5 sm:inline lg:mr-4">
+			<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden px-5 sm:inline lg:mr-4">
 				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 			</aside>
 			<div className="flex w-full flex-col sm:flex-row" id="page-container">
@@ -54,7 +54,7 @@ export default function DocsLayout(props: Props) {
 						return (
 							<div key={index} className="ml-2 flex flex-row items-center">
 								<a className="px-1 text-sm">{toTitleCase(item)}</a>
-								{index < 1 && <CaretRight className="ml-1 -mr-2 h-4 w-4" />}
+								{index < 1 && <CaretRight className="-mr-2 ml-1 h-4 w-4" />}
 							</div>
 						);
 					})}

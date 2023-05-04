@@ -1,6 +1,5 @@
 import { DotsThreeCircle } from 'phosphor-react';
-import { HTMLAttributes, forwardRef } from 'react';
-import React from 'react';
+import React, { HTMLAttributes, forwardRef } from 'react';
 import { Popover } from '@sd/ui';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '.';
 import TopBarButton, { TopBarButtonProps } from './TopBarButton';

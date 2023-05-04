@@ -18,11 +18,6 @@
 			"supportsTablet": false
 		},
 		"android": {},
-		"privacy": "hidden",
-		"extra": {
-			"eas": {
-				"projectId": "0cbf4456-87fb-499c-8dfa-554bfa5129f3"
-			}
-		}
+		"privacy": "hidden"
 	}
 }

@@ -2,8 +2,7 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Location, Node } from '@sd/client';
+import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
 import DeleteDialog from './DeleteDialog';
 
@@ -33,7 +32,7 @@ export default ({ location }: Props) => {
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
-					<span className="mr-1 rounded bg-app-selected  py-[1px] px-1">
+					<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
 						{location.node.name}
 					</span>
 					{location.path}
@@ -48,7 +47,7 @@ export default ({ location }: Props) => {
 						e.stopPropagation();
 					}}
 					variant="gray"
-					className="pointer-events-none flex !py-1.5 !px-2"
+					className="pointer-events-none flex !px-2 !py-1.5"
 				>
 					<div
 						className={clsx(
