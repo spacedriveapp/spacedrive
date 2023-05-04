@@ -142,7 +142,12 @@ impl<'a> IsolatedFilePathData<'a> {
 	pub fn to_path(&self) -> Box<Path> {
 		PathBuf::from(match (self.is_dir, self.extension.as_ref()) {
 			(false, extension) if !extension.is_empty() => {
-				format!("{}/{}.{}", &self.materialized_path[1..], self.name, extension)
+				format!(
+					"{}/{}.{}",
+					&self.materialized_path[1..],
+					self.name,
+					extension
+				)
 			}
 			(_, _) => format!("{}/{}", &self.materialized_path[1..], self.name),
 		})

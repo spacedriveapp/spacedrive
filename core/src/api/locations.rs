@@ -140,7 +140,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.find_many(chain_optional_iter(
 								[file_path::location_id::equals(location.id)],
 								[directory_materialized_path_str
-								.map(file_path::materialized_path::equals)],
+									.map(file_path::materialized_path::equals)],
 							))
 							.take((args.limit + 1) as i64);
 

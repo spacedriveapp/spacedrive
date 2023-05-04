@@ -2,7 +2,8 @@ use crate::{
 	invalidate_query,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
-	}, util::error::FileIOError,
+	},
+	util::error::FileIOError,
 };
 
 use std::hash::Hash;
@@ -65,7 +66,8 @@ impl StatefulJob for FileDeleterJob {
 			tokio::fs::remove_dir_all(&info.fs_path).await
 		} else {
 			tokio::fs::remove_file(&info.fs_path).await
-		}.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+		}
+		.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

@@ -311,26 +311,26 @@ macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $location_path:expr, $db:expr) => {{
 		|path, unique_location_id_materialized_path_name_extension_params| {
 			$crate::location::
-				file_path_helper::
-				isolated_file_path_data::
-				extract_normalized_materialized_path_str($location_id, $location_path, &path)
-					.map_err(Into::into)
-					.map(|materialized_path| {
-						async {
-							$db.file_path()
-								.find_many(vec![
-									$crate::prisma::file_path::location_id::equals($location_id),
-									$crate::prisma::file_path::materialized_path::equals(materialized_path),
-									::prisma_client_rust::operator::not(
-										unique_location_id_materialized_path_name_extension_params,
-									),
-								])
-								.select($crate::location::file_path_helper::file_path_just_pub_id::select())
-								.exec()
-								.await
-								.map_err(Into::into)
-						}
-					})
+					file_path_helper::
+					isolated_file_path_data::
+					extract_normalized_materialized_path_str($location_id, $location_path, &path)
+						.map_err(Into::into)
+						.map(|materialized_path| {
+							async {
+								$db.file_path()
+									.find_many(vec![
+										$crate::prisma::file_path::location_id::equals($location_id),
+										$crate::prisma::file_path::materialized_path::equals(materialized_path),
+										::prisma_client_rust::operator::not(
+											unique_location_id_materialized_path_name_extension_params,
+										),
+									])
+									.select($crate::location::file_path_helper::file_path_just_pub_id::select())
+									.exec()
+									.await
+									.map_err(Into::into)
+							}
+						})
 		}
 	}};
 }

@@ -12,7 +12,8 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError, LocationId,
-	}, util::error::FileIOError,
+	},
+	util::error::FileIOError,
 };
 
 use std::{
