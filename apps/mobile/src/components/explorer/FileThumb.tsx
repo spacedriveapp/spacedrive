@@ -80,7 +80,7 @@ export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 		icon = icons[kind];
 	}
 
-	// TODO: Handle video thumbnails
+	// TODO: Handle video thumbnails (do we have ffmpeg on mobile?)
 
 	// // 10 percent of the size
 	// const videoBarsHeight = Math.floor(size / 10);
