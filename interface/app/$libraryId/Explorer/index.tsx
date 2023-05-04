@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
+import { ExplorerData, useLibrarySubscription } from '@sd/client';
 import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';
@@ -17,14 +17,14 @@ interface Props {
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
+	viewClassName?: string;
 }
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { library } = useLibraryContext();
 	const { location_id, path } = useExplorerParams();
 
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library.uuid, arg: null }], {
+	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
@@ -64,6 +64,7 @@ export default function Explorer(props: Props) {
 								onLoadMore={props.onLoadMore}
 								hasNextPage={props.hasNextPage}
 								isFetchingNextPage={props.isFetchingNextPage}
+								viewClassName={props.viewClassName}
 							/>
 						)}
 					</div>

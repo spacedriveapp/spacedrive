@@ -7,7 +7,7 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
-	util::db::{chain_optional_iter, uuid_to_bytes},
+	util::db::chain_optional_iter,
 };
 
 use std::{
@@ -18,7 +18,6 @@ use std::{
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 use super::{utils::library, Ctx, R};
 

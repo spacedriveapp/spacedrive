@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useRef, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import {
 	ExplorerContext,
 	ExplorerItem,
@@ -71,7 +71,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pl-1.5 pr-1 pb-4"
+			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1"
 			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
 		>
 			{data && (
@@ -86,12 +86,12 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="truncate px-3 pt-2 pb-1 text-base font-bold">
+						<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
 							{filePathData?.name}
 							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
 						{objectData && (
-							<div className="mx-3 mt-1 mb-0.5 flex flex-row space-x-0.5">
+							<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
 								<Tooltip label="Favorite">
 									<FavoriteButton data={objectData} />
 								</Tooltip>

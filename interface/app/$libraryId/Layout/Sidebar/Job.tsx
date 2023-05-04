@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
-	ArrowsClockwise,
 	Camera,
 	Copy,
 	Eye,
@@ -9,7 +8,6 @@ import {
 	Folder,
 	LockSimple,
 	LockSimpleOpen,
-	Pause,
 	Question,
 	Scissors,
 	Trash,
@@ -116,7 +114,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 			className={clsx(
 				`removelistdot border-b border-app-line/50 pl-4`,
 				className,
-				isGroup ? `joblistitem pt-0 pr-3` : 'p-3'
+				isGroup ? `joblistitem pr-3 pt-0` : 'p-3'
 			)}
 		>
 			<div className="flex">
@@ -125,7 +123,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mt-[2px] mb-[5px] text-[12px] italic text-ink-faint">
+							<p className="mb-[5px] mt-[2px] text-[12px] italic text-ink-faint">
 								{niceData.filesDiscovered}
 							</p>
 							<div className="flex gap-1 truncate text-ink-faint">
@@ -163,7 +161,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						</div>
 					</div>
 					{isRunning && (
-						<div className="mt-3 mb-1 w-full">
+						<div className="mb-1 mt-3 w-full">
 							<ProgressBar value={job.completed_task_count} total={job.task_count} />
 						</div>
 					)}

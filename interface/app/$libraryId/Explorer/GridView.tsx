@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
-import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
@@ -187,7 +186,7 @@ export default () => {
 			{virtualRows.map((virtualRow) => (
 				<div
 					key={virtualRow.key}
-					className="absolute top-0 left-0 flex w-full"
+					className="absolute left-0 top-0 flex w-full"
 					style={{
 						height: virtualRow.size,
 						transform: `translateY(${virtualRow.start}px)`

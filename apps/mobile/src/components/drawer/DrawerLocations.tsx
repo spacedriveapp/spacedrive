@@ -19,7 +19,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 
 	return (
 		<Pressable onPress={onPress}>
-			<View style={twStyle('mb-[4px] flex flex-row items-center rounded py-2 px-1')}>
+			<View style={twStyle('mb-[4px] flex flex-row items-center rounded px-1 py-2')}>
 				<FolderIcon size={20} />
 				<Text style={twStyle('ml-1.5 font-medium text-gray-300')} numberOfLines={1}>
 					{folderName}
@@ -45,7 +45,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 			<CollapsibleView
 				title="Locations"
 				titleStyle={tw`text-sm font-semibold text-gray-300`}
-				containerStyle={tw`mt-6 mb-3 ml-1`}
+				containerStyle={tw`mb-3 ml-1 mt-6`}
 			>
 				<View style={tw`mt-2`}>
 					{locations?.map((location) => (

@@ -7,7 +7,7 @@ import Start from './start';
 export default [
 	{
 		index: true,
-		element: <Navigate to="start" />
+		element: <Navigate to="start" replace />
 	},
 	{
 		element: <Start />,

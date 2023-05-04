@@ -211,15 +211,6 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 	);
 };
 
-interface UsePlausibleEventProps {
-	/**
-	 *  The current platform type. This should be the output of `usePlatform().platform`
-	 *
-	 * @see {@link PlausiblePlatformType}
-	 */
-	platformType: PlausiblePlatformType;
-}
-
 interface EventSubmissionCallbackProps {
 	/**
 	 * The plausible event to submit.

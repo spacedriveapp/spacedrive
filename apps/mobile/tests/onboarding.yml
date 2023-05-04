@@ -7,12 +7,9 @@ appId: com.spacedrive.app
     id: 'library-name'
 - inputText: 'TestLib'
 - tapOn: 'New Library'
+- tapOn:
+    id: 'share-nothing'
 - tapOn: 'Continue'
-# Library creation can take a while...
-- extendedWaitUntil:
-    visible:
-      id: 'drawer-toggle'
-    timeout: 180000 # 3 minutes
 - tapOn:
     id: 'drawer-toggle'
 - assertVisible: 'TestLib'

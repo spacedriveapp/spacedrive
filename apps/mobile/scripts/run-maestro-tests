@@ -22,9 +22,36 @@ else
   testFiles=$(ls apps/mobile/tests/*.yml apps/mobile/tests/android-only/*.yml)
 fi
 
+
+# Run onboarding first
+onboardingFile="apps/mobile/tests/onboarding.yml"
+if ! maestro test "$onboardingFile"
+then
+  echo "Onboarding test failed. Retrying in 30 seconds..."
+  sleep 30
+  if ! maestro test "$onboardingFile"
+  then
+    echo "Onboarding test failed again. Retrying for the last time in 120 seconds..."
+    sleep 120
+    if ! maestro test "$onboardingFile"
+    then
+      echo "Onboarding test failed again. Exiting..."
+      exit 1
+    fi
+  fi
+fi
+
 failedTests=()
+
+# Run the rest of the files
 for file in $testFiles
 do
+  # Skip onboarding.yml since it has already been run
+  if [ "$file" == "$onboardingFile" ]
+  then
+    continue
+  fi
+
   if ! maestro test "$file"
   then
     echo "Test ${file} failed. Retrying in 30 seconds..."

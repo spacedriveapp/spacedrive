@@ -39,7 +39,7 @@ export default function OnboardingPrivacy() {
 	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().shareTelemetry = data.shareTelemetry === 'share-telemetry';
 
-		navigate('/onboarding/creating-library');
+		navigate('/onboarding/creating-library', { replace: true });
 	});
 
 	return (

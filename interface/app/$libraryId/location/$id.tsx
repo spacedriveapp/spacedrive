@@ -6,9 +6,9 @@ import {
 	ExplorerData,
 	LibraryArgs,
 	LocationExplorerArgs,
-	rspc,
 	useLibraryContext,
-	useLibraryMutation
+	useLibraryMutation,
+	useRspcLibraryContext
 } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
@@ -43,7 +43,7 @@ export const Component = () => {
 
 	if (location_id === null) throw new Error(`location_id is null!`);
 
-	const ctx = rspc.useContext();
+	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
 	const query = useInfiniteQuery({
@@ -62,7 +62,7 @@ export const Component = () => {
 			const arg = queryKey[1];
 			arg.arg.cursor = cursor as number[] | undefined;
 
-			return await ctx.client.query(['locations.getExplorerData', arg]);
+			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
 		},
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});

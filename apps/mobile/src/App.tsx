@@ -2,10 +2,8 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import {
 	DefaultTheme,
 	NavigationContainer,
-	Theme,
 	useNavigationContainerRef
 } from '@react-navigation/native';
-import { loggerLink } from '@rspc/client';
 import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -17,21 +15,19 @@ import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useDeviceContext } from 'twrnc';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
-	getDebugState,
+	RspcProvider,
 	initPlausible,
-	rspc,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
-import { reactNativeLink } from './lib/rspcReactNativeTransport';
-import { tw } from './lib/tailwind';
+import { useTheme } from './hooks/useTheme';
+import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { currentLibraryStore } from './utils/nav';
@@ -40,16 +36,10 @@ dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
-const NavigatorTheme: Theme = {
-	...DefaultTheme,
-	colors: {
-		...DefaultTheme.colors,
-		// Default screen background
-		background: tw.color('app')!
-	}
-};
-
 initPlausible({ platformType: 'mobile' });
+// changeTwTheme(getThemeStore().theme);
+// TODO: Use above when light theme is ready
+changeTwTheme('dark');
 
 function AppNavigation() {
 	const { library } = useClientContext();
@@ -70,7 +60,14 @@ function AppNavigation() {
 			onReady={() => {
 				routeNameRef.current = navRef.getCurrentRoute()?.name;
 			}}
-			theme={NavigatorTheme}
+			theme={{
+				...DefaultTheme,
+				colors: {
+					...DefaultTheme.colors,
+					// Default screen background
+					background: tw.color('app')!
+				}
+			}}
 			onStateChange={async () => {
 				const previousRouteName = routeNameRef.current;
 				const currentRouteName = navRef.getCurrentRoute()?.name;
@@ -81,7 +78,6 @@ function AppNavigation() {
 					if (navRef.getRootState().routeNames.includes('GetStarted')) {
 						return;
 					}
-					console.log(`Navigated from ${previousRouteName} to ${currentRouteName}`);
 					currentRouteName && setCurrentPath(currentRouteName);
 				}
 			}}
@@ -99,9 +95,7 @@ function AppNavigation() {
 }
 
 function AppContainer() {
-	// Enables dark mode, and screen size breakpoints, etc. for tailwind
-	useDeviceContext(tw, { withDeviceColorScheme: false });
-
+	useTheme();
 	useInvalidateQuery();
 
 	const { id } = useSnapshot(currentLibraryStore);
@@ -122,15 +116,6 @@ function AppContainer() {
 	);
 }
 
-const client = rspc.createClient({
-	links: [
-		loggerLink({
-			enabled: () => getDebugState().rspcLogger
-		}),
-		reactNativeLink()
-	]
-});
-
 const queryClient = new QueryClient();
 
 export default function App() {
@@ -139,9 +124,8 @@ export default function App() {
 	}, []);
 
 	return (
-		// @ts-expect-error: Version mismatch
-		<rspc.Provider client={client} queryClient={queryClient}>
+		<RspcProvider queryClient={queryClient}>
 			<AppContainer />
-		</rspc.Provider>
+		</RspcProvider>
 	);
 }
