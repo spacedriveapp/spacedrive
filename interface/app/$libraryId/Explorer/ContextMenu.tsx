@@ -2,10 +2,10 @@ import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosp
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
-import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+import { useExplorerSearchParams } from './util';
 
 export const OpenInNativeExplorer = () => {
 	const platform = usePlatform();
@@ -38,7 +38,7 @@ export const OpenInNativeExplorer = () => {
 
 export default (props: PropsWithChildren) => {
 	const store = useExplorerStore();
-	const params = useExplorerParams();
+	const params = useExplorerSearchParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
