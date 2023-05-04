@@ -1,11 +1,6 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
-import {
-	ExplorerData,
-	useBridgeSubscription,
-	useLibraryContext,
-	useLibrarySubscription
-} from '@sd/client';
+import { ExplorerData, useLibrarySubscription } from '@sd/client';
 import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../Explorer/Inspector';

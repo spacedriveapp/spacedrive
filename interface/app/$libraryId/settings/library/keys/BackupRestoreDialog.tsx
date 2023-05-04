@@ -1,8 +1,7 @@
 import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { forms } from '@sd/ui';
+import { Button, Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 

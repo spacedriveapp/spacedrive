@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
-	ArrowsClockwise,
 	Camera,
 	Copy,
 	Eye,
@@ -9,7 +8,6 @@ import {
 	Folder,
 	LockSimple,
 	LockSimpleOpen,
-	Pause,
 	Question,
 	Scissors,
 	Trash,

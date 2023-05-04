@@ -88,7 +88,7 @@ export const Component = () => {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 	const { explorerViewOptions } = useExplorerTopBarOptions();
-	const { data: items } = useLibraryQuery(['files.getRecent', 50]);
+	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
 	overviewMounted = true;
 
@@ -136,8 +136,13 @@ export const Component = () => {
 				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
 				to be functional.
 			</Card> */}
-				<ScreenHeading className="mt-5">Recents</ScreenHeading>
-				<Explorer viewClassName="!pl-0 !pt-0" items={items} />
+				{/* Recents */}
+				{(recentFiles.data?.length || 0) > 0 && (
+					<>
+						<ScreenHeading className="mt-5">Recents</ScreenHeading>
+						<Explorer viewClassName="!pl-0 !pt-0" items={recentFiles.data} />
+					</>
+				)}
 			</div>
 		</div>
 	);

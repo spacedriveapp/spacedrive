@@ -1,11 +1,9 @@
 import clsx from 'clsx';
-import { ArrowsClockwise } from 'phosphor-react';
 import { Link, NavLink } from 'react-router-dom';
 import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { Folder } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
-import Icon from './Icon';
 import SidebarLink from './Link';
 import Section from './Section';
 

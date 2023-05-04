@@ -1,4 +1,4 @@
-import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { CodeBlock } from '~/components/Codeblock';
 import { usePlatform } from '~/util/Platform';
 
@@ -14,7 +14,7 @@ export const Component = () => {
 	//     alert('Database purged');
 	//   }
 	// });
-	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
+	// const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
 		<div className="flex flex-col space-y-5 p-5 pb-7 pt-2">
 			<h1 className="text-lg font-bold ">Developer Debugger</h1>

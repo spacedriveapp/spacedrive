@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { ArrowsOutSimple } from 'phosphor-react';
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem } from '@sd/client';
