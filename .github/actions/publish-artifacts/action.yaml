@@ -59,10 +59,10 @@ runs:
         name: Spacedrive-macOS-${{ env.GITHUB_SHA_SHORT }}
         path: target/${{ inputs.profile }}/bundle/macos/*.app
 
-    - name: Publish updater binaries
-      uses: actions/upload-artifact@v3
-      with:
-        name: Spacedrive-Updaters-${{ env.GITHUB_SHA_SHORT }}
-        path: |
-          target/${{ inputs.profile }}/bundle/*/*.tar.gz*
-          target/${{ inputs.profile }}/bundle/*/*.zip*
+    # - name: Publish updater binaries
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: Spacedrive-Updaters-${{ env.GITHUB_SHA_SHORT }}
+    #     path: |
+    #       target/${{ inputs.profile }}/bundle/*/*.tar.gz*
+    #       target/${{ inputs.profile }}/bundle/*/*.zip*
