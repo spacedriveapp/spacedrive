@@ -373,7 +373,7 @@ export default () => {
 							<div
 								key={row.id}
 								className={clsx(
-									'absolute top-0 left-0 flex w-full pl-4 pr-3',
+									'absolute left-0 top-0 flex w-full pl-4 pr-3',
 									explorerStore.isRenaming && selected && 'z-10'
 								)}
 								style={{

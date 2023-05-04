@@ -28,7 +28,7 @@ export default (props: Props) => {
 				props.className
 			)}
 		>
-			<div className="flex items-center rounded bg-app py-4 px-3">
+			<div className="flex items-center rounded bg-app px-3 py-4">
 				{props.icon}
 
 				<div className="flex flex-1 flex-col justify-center">
@@ -36,7 +36,7 @@ export default (props: Props) => {
 					<p className="text-xs text-ink-dull">{props.description}</p>
 				</div>
 
-				<div className="mr-3 ml-6 space-x-2">
+				<div className="ml-6 mr-3 space-x-2">
 					{props.onLearnMore && (
 						<Button
 							variant="outline"

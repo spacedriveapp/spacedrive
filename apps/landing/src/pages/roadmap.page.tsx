@@ -166,7 +166,7 @@ function Page() {
 										{item?.when !== undefined ? (
 											<div
 												className={clsx(
-													'absolute z-20 mt-5 h-4 w-4 -translate-y-1/2 -translate-x-1/4 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
+													'absolute z-20 mt-5 h-4 w-4 -translate-x-1/4 -translate-y-1/2 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
 													items[i - 1]?.completed || i === 0
 														? 'z-10 bg-primary-500'
 														: 'bg-gray-550'

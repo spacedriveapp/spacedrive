@@ -134,7 +134,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				)}
 				renderSectionHeader={renderSectionHeader}
 				ListFooterComponent={
-					<View style={tw`mt-6 mb-4 items-center`}>
+					<View style={tw`mb-4 mt-6 items-center`}>
 						<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
 						{/* TODO: Get this automatically (expo-device have this?) */}
 						<Text style={tw`mt-0.5 text-xs font-medium text-ink-faint`}>v0.1.0</Text>

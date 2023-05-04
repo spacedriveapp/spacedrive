@@ -63,7 +63,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 					<div
 						className={clsx(
 							'flex h-full items-center',
-							iconPosition === 'left' ? 'pr-2 pl-[10px]' : 'pl-2 pr-[10px]'
+							iconPosition === 'left' ? 'pl-[10px] pr-2' : 'pl-2 pr-[10px]'
 						)}
 					>
 						{isValidElement(icon)

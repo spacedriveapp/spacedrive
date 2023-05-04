@@ -76,7 +76,7 @@ function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
 						onError={onError}
 						controls
 						autoPlay
-						className="absolute left-2/4 top-full w-full translate-y-[-150%] -translate-x-1/2"
+						className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
 						crossOrigin="anonymous"
 					>
 						<p>Audio preview is not supported.</p>
