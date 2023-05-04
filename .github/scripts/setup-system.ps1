@@ -339,12 +339,12 @@ Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
 Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
-# $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-# try {
-#     robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
-# } catch {
-#     Exit-WithError 'Failed to copy ffmpeg files'
-# }
+$ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
+try {
+    robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
+} catch {
+    Exit-WithError 'Failed to copy ffmpeg files'
+}
 # Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
