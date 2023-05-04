@@ -291,8 +291,6 @@ async fn remove_non_existing_file_paths(
 #[macro_export]
 macro_rules! file_paths_db_fetcher_fn {
 	($db:expr) => {{
-		// let db: &$crate::prisma::PrismaClient = &$db;
-
 		|found_paths| async {
 			$db.file_path()
 				.find_many(found_paths)
@@ -307,27 +305,32 @@ macro_rules! file_paths_db_fetcher_fn {
 // TODO: Change this macro to a fn when we're able to return
 // `impl Fn(&Path, Vec<file_path::WhereParam>) -> impl Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>`
 // Maybe when TAITs arrive
+// FIXME: (fogodev) I was receiving this error here https://github.com/rust-lang/rust/issues/74497
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $location_path:expr, $db:expr) => {{
-		|path, unique_location_id_materialized_path_name_extension_params| async {
-			$db.file_path()
-				.find_many(vec![
-					$crate::prisma::file_path::location_id::equals($location_id),
-					$crate::prisma::file_path::materialized_path::equals(
-						$crate::location::
-						file_path_helper::
-						isolated_file_path_data::
-						extract_normalized_materialized_path_str($location_id, $location_path, path)?,
-					),
-					::prisma_client_rust::operator::not(
-						unique_location_id_materialized_path_name_extension_params,
-					),
-				])
-				.select($crate::location::file_path_helper::file_path_just_pub_id::select())
-				.exec()
-				.await
-				.map_err(Into::into)
+		|path, unique_location_id_materialized_path_name_extension_params| {
+			$crate::location::
+				file_path_helper::
+				isolated_file_path_data::
+				extract_normalized_materialized_path_str($location_id, $location_path, &path)
+					.map_err(Into::into)
+					.map(|materialized_path| {
+						async {
+							$db.file_path()
+								.find_many(vec![
+									$crate::prisma::file_path::location_id::equals($location_id),
+									$crate::prisma::file_path::materialized_path::equals(materialized_path),
+									::prisma_client_rust::operator::not(
+										unique_location_id_materialized_path_name_extension_params,
+									),
+								])
+								.select($crate::location::file_path_helper::file_path_just_pub_id::select())
+								.exec()
+								.await
+								.map_err(Into::into)
+						}
+					})
 		}
 	}};
 }

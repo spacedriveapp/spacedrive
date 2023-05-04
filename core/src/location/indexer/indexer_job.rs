@@ -8,10 +8,7 @@ use crate::{
 	to_remove_db_fetcher_fn,
 };
 
-use std::{
-	path::{Path, PathBuf},
-	sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -65,9 +62,9 @@ impl StatefulJob for IndexerJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
-		let location_path = &PathBuf::from(&state.init.location.path);
+		let location_path = Path::new(&state.init.location.path);
 
-		let db = &Arc::clone(&ctx.library.db);
+		let db = Arc::clone(&ctx.library.db);
 
 		let rules_by_kind = aggregate_rules_by_kind(state.init.location.indexer_rules.iter())
 			.map_err(IndexerError::from)?;
@@ -84,14 +81,14 @@ impl StatefulJob for IndexerJob {
 				sub_path,
 				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
 					.map_err(IndexerError::from)?,
-				db,
+				&db,
 				IndexerError::SubPathNotFound,
 			)
 			.await?;
 
 			full_path
 		} else {
-			location_path.clone()
+			location_path.to_path_buf()
 		};
 
 		let scan_start = Instant::now();
@@ -105,8 +102,8 @@ impl StatefulJob for IndexerJob {
 				&to_walk_path,
 				&rules_by_kind,
 				update_notifier_fn(BATCH_SIZE, &mut ctx),
-				file_paths_db_fetcher_fn!(db),
-				to_remove_db_fetcher_fn!(location_id, location_path, db),
+				file_paths_db_fetcher_fn!(&db),
+				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
 				50_000,
 			)
@@ -116,7 +113,7 @@ impl StatefulJob for IndexerJob {
 
 		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system
-		let removed_count = remove_non_existing_file_paths(to_remove, db).await?;
+		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
 		let db_delete_time = db_delete_start.elapsed();
 
 		let total_paths = &mut 0;
