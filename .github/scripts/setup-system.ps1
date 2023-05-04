@@ -361,3 +361,7 @@ if (-not $env:CI) {
     Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
     Read-Host 'Press Enter to continue'
 }
+
+if ($LASTEXITCODE -ne 0) {
+    Exit-WithError 'Something went wrong'
+}
