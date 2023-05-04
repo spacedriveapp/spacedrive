@@ -1,43 +1,60 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const merge = require('lodash.merge');
+
 const { spawn } = require('./spawn.js');
-const { setupPlatformEnv } = require('./env.js');
-const { workspace, platform } = require('./const.js');
+const { platform, workspace } = require('./const.js');
+const { setupFFMpegDlls, setupPlatformEnv } = require('./env.js');
 
 const BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png');
 const BACKGROUND_FILE_NAME = path.basename(BACKGROUND_FILE);
 
-setupPlatformEnv({
+const env = setupPlatformEnv({
 	BACKGROUND_FILE,
-	BACKGROUND_FILE_NAME,
-	BACKGROUND_CLAUSE: `set background picture of opts to file ".background:${BACKGROUND_FILE_NAME}"`
+	BACKGROUND_CLAUSE: `set background picture of opts to file ".background:${BACKGROUND_FILE_NAME}"`,
+	BACKGROUND_FILE_NAME
 });
 
-const tauriConfPath = path.resolve(__dirname, '..', 'tauri.conf.json');
-const tauriConf = fs.readFileSync(tauriConfPath, { encoding: 'utf-8' });
-const tauri = JSON.parse(tauriConf);
+const tauriPatch = {
+	tauri: {
+		bundle: {
+			macOS: { frameworks: [path.join(workspace, 'target/Frameworks/FFMpeg.framework')] }
+		}
+	}
+};
 
-if (platform === 'darwin') {
-	tauri.tauri.macOSPrivateApi = false;
-	tauri.tauri.bundle.macOS.frameworks = [
-		...(tauri.tauri.bundle.macOS.frameworks ?? []),
-		path.join(workspace, 'target/Frameworks/FFMpeg.framework')
-	];
+if (platform === 'win32') {
+	// Point tauri to the ffmpeg DLLs
+	tauriPatch.tauri.bundle.resources = setupFFMpegDlls(env.FFMPEG_DIR);
 }
 
-fs.writeFileSync(tauriConfPath, JSON.stringify(tauri, null, 2));
-
 if (process.env.CI === 'true') {
-	fs.writeFileSync(`${tauriConfPath}.bak`, tauriConf);
-} else {
-	spawn('pnpm', ['tauri', 'build']).then(
-		() => {
-			fs.writeFileSync(tauriConfPath, tauriConf);
-		},
-		(code) => {
-			fs.writeFileSync(tauriConfPath, tauriConf);
-			process.exit(code);
-		}
+	// In CI, backup original tauri config and replace it with our patched version merged with the original
+	const tauriConf = path.resolve(__dirname, '..', 'tauri.conf.json');
+	fs.copyFileSync(tauriConf, `${tauriConf}.bak`);
+	fs.writeFileSync(
+		tauriConf,
+		JSON.stringify(
+			merge(JSON.parse(fs.readFileSync(tauriConf, { encoding: 'utf-8' })), tauriPatch),
+			null,
+			2
+		)
 	);
+} else {
+	const tauriConf = path.resolve(__dirname, '..', 'tauri.conf.patch.json');
+	fs.writeFileSync(tauriConf, JSON.stringify(tauriPatch, null, 2));
+
+	let code = 0;
+	spawn('pnpm', ['tauri', 'build', '-c', tauriConf])
+		.catch((exitCode) => {
+			code = exitCode;
+			console.error(`tauri build failed with exit code ${exitCode}`);
+		})
+		.finally(() => {
+			try {
+				fs.unlinkSync(tauriConf);
+			} catch (e) {}
+			process.exit(code);
+		});
 }
