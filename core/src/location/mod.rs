@@ -13,6 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
+	util::db::uuid_to_bytes,
 };
 
 use std::{
@@ -54,6 +55,7 @@ location::include!(location_with_indexer_rules {
 #[derive(Type, Deserialize)]
 pub struct LocationCreateArgs {
 	pub path: PathBuf,
+	pub dry_run: bool,
 	pub indexer_rules_ids: Vec<i32>,
 }
 
@@ -61,7 +63,7 @@ impl LocationCreateArgs {
 	pub async fn create(
 		self,
 		library: &Library,
-	) -> Result<location_with_indexer_rules::Data, LocationError> {
+	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -94,42 +96,59 @@ impl LocationCreateArgs {
 		}
 
 		debug!(
-			"Trying to create new location for '{}'",
+			"{} new location for '{}'",
+			if self.dry_run {
+				"Dry run: Would create"
+			} else {
+				"Trying to create"
+			},
 			self.path.display()
 		);
+
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
-
-		// Write location metadata to a .spacedrive file
-		if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
-			library.id,
+		let location = create_location(
+			library,
 			uuid,
 			&self.path,
-			location.name.clone(),
+			&self.indexer_rules_ids,
+			self.dry_run,
 		)
-		.err_into::<LocationError>()
-		.and_then(|()| async move {
-			Ok(library
-				.location_manager()
-				.add(location.id, library.clone())
-				.await?)
-		})
-		.await
-		{
-			delete_location(library, location.id).await?;
-			Err(err)?;
+		.await?;
+
+		if let Some(location) = location {
+			// Write location metadata to a .spacedrive file
+			if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
+				library.id,
+				uuid,
+				&self.path,
+				location.name.clone(),
+			)
+			.err_into::<LocationError>()
+			.and_then(|()| async move {
+				Ok(library
+					.location_manager()
+					.add(location.id, library.clone())
+					.await?)
+			})
+			.await
+			{
+				delete_location(library, location.id).await?;
+				Err(err)?;
+			}
+
+			info!("Created location: {location:?}");
+
+			Ok(Some(location))
+		} else {
+			Ok(None)
 		}
-
-		info!("Created location: {location:?}");
-
-		Ok(location)
 	}
 
 	pub async fn add_library(
 		self,
 		library: &Library,
-	) -> Result<location_with_indexer_rules::Data, LocationError> {
+	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
@@ -143,30 +162,46 @@ impl LocationCreateArgs {
 		}
 
 		debug!(
-			"Trying to add a new library (library_id = {}) to an already existing location '{}'",
+			"{} a new library (library_id = {}) to an already existing location '{}'",
+			if self.dry_run {
+				"Dry run: Would add"
+			} else {
+				"Trying to add"
+			},
 			library.id,
 			self.path.display()
 		);
 
 		let uuid = Uuid::new_v4();
 
-		let location = create_location(library, uuid, &self.path, &self.indexer_rules_ids).await?;
+		let location = create_location(
+			library,
+			uuid,
+			&self.path,
+			&self.indexer_rules_ids,
+			self.dry_run,
+		)
+		.await?;
 
-		metadata
-			.add_library(library.id, uuid, &self.path, location.name.clone())
-			.await?;
+		if let Some(location) = location {
+			metadata
+				.add_library(library.id, uuid, &self.path, location.name.clone())
+				.await?;
 
-		library
-			.location_manager()
-			.add(location.id, library.clone())
-			.await?;
+			library
+				.location_manager()
+				.add(location.id, library.clone())
+				.await?;
 
-		info!(
-			"Added library (library_id = {}) to location: {location:?}",
-			library.id
-		);
+			info!(
+				"Added library (library_id = {}) to location: {location:?}",
+				library.id
+			);
 
-		Ok(location)
+			Ok(Some(location))
+		} else {
+			Ok(None)
+		}
 	}
 }
 
@@ -200,21 +235,21 @@ impl LocationUpdateArgs {
 			self.name
 				.clone()
 				.filter(|name| &location.name != name)
-				.map(|v| (("name", json!(v)), location::name::set(v))),
+				.map(|v| ((location::name::NAME, json!(v)), location::name::set(v))),
 			self.generate_preview_media.map(|v| {
 				(
-					("generate_preview_media", json!(v)),
+					(location::generate_preview_media::NAME, json!(v)),
 					location::generate_preview_media::set(v),
 				)
 			}),
 			self.sync_preview_media.map(|v| {
 				(
-					("sync_preview_media", json!(v)),
+					(location::sync_preview_media::NAME, json!(v)),
 					location::sync_preview_media::set(v),
 				)
 			}),
 			self.hidden
-				.map(|v| (("hidden", json!(v)), location::hidden::set(v))),
+				.map(|v| ((location::hidden::NAME, json!(v)), location::hidden::set(v))),
 		]
 		.into_iter()
 		.flatten()
@@ -290,7 +325,7 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: i32) -> location::FindUnique {
+pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
@@ -442,7 +477,7 @@ pub async fn relink_location(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			"path",
+			location::path::NAME,
 			json!(path),
 		),
 		db.location().update(
@@ -460,7 +495,8 @@ async fn create_location(
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
-) -> Result<location_with_indexer_rules::Data, LocationError> {
+	dry_run: bool,
+) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 	let Library { db, sync, .. } = &library;
 
 	let mut path = location_path.as_ref().to_path_buf();
@@ -514,6 +550,10 @@ async fn create_location(
 		return Err(LocationError::NestedLocation(path));
 	}
 
+	if dry_run {
+		return Ok(None);
+	}
+
 	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
 	let mut name = path.localize_name().to_string_lossy().to_string();
 
@@ -534,9 +574,14 @@ async fn create_location(
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[
-					("node", json!({ "pub_id": library.id.as_bytes() })),
-					("name", json!(&name)),
-					("path", json!(&location_path)),
+					(
+						location::node::NAME,
+						json!(sync::node::SyncId {
+							pub_id: uuid_to_bytes(library.id)
+						}),
+					),
+					(location::name::NAME, json!(&name)),
+					(location::path::NAME, json!(&location_path)),
 				],
 			),
 			db.location()
@@ -566,7 +611,7 @@ async fn create_location(
 
 	invalidate_query!(library, "locations.list");
 
-	Ok(location)
+	Ok(Some(location))
 }
 
 pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {

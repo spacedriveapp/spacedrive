@@ -81,18 +81,21 @@ export const Button = forwardRef<
 });
 
 export const ButtonLink = forwardRef<
-	HTMLLinkElement,
+	HTMLAnchorElement,
 	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
->(({ className, to, ...props }, ref) => {
-	className = cx(
-		styles(props),
-		'no-underline disabled:opacity-50 disabled:cursor-not-allowed',
-		className
-	);
-
+>(({ className, size, variant, ...props }, ref) => {
 	return (
-		<Link to={to} ref={ref as any} className={className}>
-			{props.children}
-		</Link>
+		<Link
+			ref={ref}
+			className={styles({
+				size,
+				variant,
+				className: clsx(
+					'no-underline disabled:cursor-not-allowed disabled:opacity-50',
+					className
+				)
+			})}
+			{...props}
+		/>
 	);
 });

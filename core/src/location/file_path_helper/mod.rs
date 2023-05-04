@@ -1,9 +1,6 @@
 use crate::{
-	prisma::{file_path, location, PrismaClient},
-	util::{
-		db::uuid_to_bytes,
-		error::{FileIOError, NonUtf8PathError},
-	},
+	prisma::{file_path, PrismaClient},
+	util::error::{FileIOError, NonUtf8PathError},
 };
 
 use std::{
@@ -22,7 +19,6 @@ use tracing::error;
 pub mod isolated_file_path_data;
 
 pub use isolated_file_path_data::IsolatedFilePathData;
-use uuid::Uuid;
 
 use super::LocationId;
 
@@ -128,10 +124,10 @@ pub async fn create_file_path(
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
-	// Keeping a reference in that map for the entire duration of the function, so we keep it locked
+	use crate::{prisma::location, sync, util::db::uuid_to_bytes};
 
-	use crate::sync;
 	use serde_json::json;
+	use uuid::Uuid;
 
 	let location = db
 		.location()
@@ -141,24 +137,31 @@ pub async fn create_file_path(
 		.await?
 		.unwrap();
 
-	let params = vec![
-		(
-			"location",
-			json!(sync::location::SyncId {
-				pub_id: location.pub_id
-			}),
-		),
-		("cas_id", json!(cas_id)),
-		("materialized_path", json!(materialized_path)),
-		("name", json!(name)),
-		("extension", json!(extension)),
-		("size_in_bytes", json!(metadata.size_in_bytes.to_string())),
-		("inode", json!(metadata.inode.to_le_bytes())),
-		("device", json!(metadata.device.to_le_bytes())),
-		("is_dir", json!(is_dir)),
-		("date_created", json!(metadata.created_at)),
-		("date_modified", json!(metadata.modified_at)),
-	];
+	let params = {
+		use file_path::*;
+
+		vec![
+			(
+				location::NAME,
+				json!(sync::location::SyncId {
+					pub_id: location.pub_id
+				}),
+			),
+			(cas_id::NAME, json!(cas_id)),
+			(materialized_path::NAME, json!(materialized_path)),
+			(name::NAME, json!(name)),
+			(extension::NAME, json!(extension)),
+			(
+				size_in_bytes::NAME,
+				json!(metadata.size_in_bytes.to_string()),
+			),
+			(inode::NAME, json!(metadata.inode.to_le_bytes())),
+			(device::NAME, json!(metadata.device.to_le_bytes())),
+			(is_dir::NAME, json!(is_dir)),
+			(date_created::NAME, json!(metadata.created_at)),
+			(date_modified::NAME, json!(metadata.modified_at)),
+		]
+	};
 
 	let pub_id = uuid_to_bytes(Uuid::new_v4());
 
@@ -179,13 +182,16 @@ pub async fn create_file_path(
 				extension.into_owned(),
 				metadata.inode.to_le_bytes().into(),
 				metadata.device.to_le_bytes().into(),
-				vec![
-					file_path::cas_id::set(cas_id),
-					file_path::is_dir::set(is_dir),
-					file_path::size_in_bytes::set(metadata.size_in_bytes.to_string()),
-					file_path::date_created::set(metadata.created_at.into()),
-					file_path::date_modified::set(metadata.modified_at.into()),
-				],
+				{
+					use file_path::*;
+					vec![
+						cas_id::set(cas_id),
+						is_dir::set(is_dir),
+						size_in_bytes::set(metadata.size_in_bytes.to_string()),
+						date_created::set(metadata.created_at.into()),
+						date_modified::set(metadata.modified_at.into()),
+					]
+				},
 			),
 		)
 		.await?;
@@ -193,6 +199,7 @@ pub async fn create_file_path(
 	Ok(created_path)
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn check_existing_file_path(
 	materialized_path: &IsolatedFilePathData<'_>,
 	db: &PrismaClient,

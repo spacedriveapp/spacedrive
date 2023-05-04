@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { getDebugState, hooks } from '@sd/client';
 import {
 	ErrorPage,
@@ -16,7 +17,9 @@ import {
 	SpacedriveInterface,
 	routes
 } from '@sd/interface';
+import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
+import { appReady, openFilePath } from './commands';
 
 const client = hooks.createClient({
 	links: [
@@ -70,17 +73,18 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path)
+	openPath: (path) => shell.open(path),
+	openFilePath
 };
 
 const queryClient = new QueryClient();
 
-const router = createMemoryRouter(routes);
+const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		invoke('app_ready');
+		appReady();
 	}, []);
 
 	useEffect(() => {
@@ -88,8 +92,15 @@ export default function App() {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
+		const dropEventListener = appWindow.onFileDropEvent((event) => {
+			if (event.payload.type === 'drop') {
+				getSpacedropState().droppedFiles = event.payload.paths;
+			}
+		});
+
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
+			dropEventListener.then((unlisten) => unlisten());
 		};
 	}, []);
 

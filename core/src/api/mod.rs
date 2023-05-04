@@ -228,19 +228,23 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())
+		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("invalidation.", utils::mount_invalidate())
-		.build({
-			let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+		.build(
+			#[allow(clippy::let_and_return)]
+			{
+				let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
 
-			#[cfg(all(debug_assertions, not(feature = "mobile")))]
-			let config = config.export_ts_bindings(
-				std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-					.join("../packages/client/src/core.ts"),
-			);
+				#[cfg(all(debug_assertions, not(feature = "mobile")))]
+				let config = config.export_ts_bindings(
+					std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+						.join("../packages/client/src/core.ts"),
+				);
 
-			config
-		})
+				config
+			},
+		)
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 

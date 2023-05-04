@@ -79,7 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.statistics()
 					.upsert(
 						statistics::id::equals(1), // Each library is a database so only one of these ever exists
-						params.clone(),
+						statistics::create(params.clone()),
 						params,
 					)
 					.exec()
@@ -105,7 +105,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				invalidate_query!(
 					// SAFETY: This unwrap is alright as we just created the library
-					ctx.library_manager.get_ctx(new_library.uuid).await.unwrap(),
+					ctx.library_manager
+						.get_library(new_library.uuid)
+						.await
+						.unwrap(),
 					"library.getStatistics"
 				);
 

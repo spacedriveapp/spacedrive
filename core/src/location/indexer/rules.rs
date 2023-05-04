@@ -1,7 +1,6 @@
 use crate::{
 	library::Library,
 	location::location_with_indexer_rules,
-	// location::indexer::IndexerError,
 	prisma::{indexer_rule, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
@@ -19,6 +18,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::fs;
+use tracing::debug;
 
 #[derive(Error, Debug)]
 pub enum IndexerRuleError {
@@ -69,11 +69,26 @@ impl From<IndexerRuleError> for rspc::Error {
 pub struct IndexerRuleCreateArgs {
 	pub kind: RuleKind,
 	pub name: String,
+	pub dry_run: bool,
 	pub parameters: Vec<String>,
 }
 
 impl IndexerRuleCreateArgs {
-	pub async fn create(self, library: &Library) -> Result<indexer_rule::Data, IndexerRuleError> {
+	pub async fn create(
+		self,
+		library: &Library,
+	) -> Result<Option<indexer_rule::Data>, IndexerRuleError> {
+		debug!(
+			"{} a new indexer rule (name = {}, params = {:?})",
+			if self.dry_run {
+				"Dry run: Would create"
+			} else {
+				"Trying to create"
+			},
+			self.name,
+			self.parameters
+		);
+
 		let parameters = match self.kind {
 			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
 				&self
@@ -87,13 +102,18 @@ impl IndexerRuleCreateArgs {
 			| RuleKind::RejectIfChildrenDirectoriesArePresent => rmp_serde::to_vec(&self.parameters)?,
 		};
 
-		library
-			.db
-			.indexer_rule()
-			.create(self.kind as i32, self.name, parameters, vec![])
-			.exec()
-			.await
-			.map_err(Into::into)
+		if self.dry_run {
+			return Ok(None);
+		}
+
+		Ok(Some(
+			library
+				.db
+				.indexer_rule()
+				.create(self.kind as i32, self.name, parameters, vec![])
+				.exec()
+				.await?,
+		))
 	}
 }
 
@@ -409,7 +429,7 @@ impl IndexerRule {
 				.indexer_rule()
 				.upsert(
 					indexer_rule::id::equals(id),
-					(
+					indexer_rule::create(
 						self.kind as i32,
 						self.name,
 						rmp_serde::to_vec_named(&self.parameters)?,

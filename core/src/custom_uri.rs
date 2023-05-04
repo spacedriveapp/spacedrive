@@ -167,7 +167,7 @@ async fn handle_file(
 		} else {
 			let library = node
 				.library_manager
-				.get_ctx(library_id)
+				.get_library(library_id)
 				.await
 				.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
 

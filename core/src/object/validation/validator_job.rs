@@ -123,7 +123,7 @@ impl StatefulJob for ObjectValidatorJob {
 					sync::file_path::SyncId {
 						pub_id: file_path.pub_id.clone(),
 					},
-					"integrity_checksum",
+					file_path::integrity_checksum::NAME,
 					json!(&checksum),
 				),
 				db.file_path().update(

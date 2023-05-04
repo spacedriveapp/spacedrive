@@ -178,13 +178,13 @@ model Object {
 
     key_id            Int?
     // handy ways to mark an object
-    hidden            Boolean  @default(false)
-    favorite          Boolean  @default(false)
-    important         Boolean  @default(false)
+    hidden            Boolean   @default(false)
+    favorite          Boolean   @default(false)
+    important         Boolean   @default(false)
     // if we have generated preview media for this object on at least one Node
-    has_thumbnail     Boolean  @default(false)
-    has_thumbstrip    Boolean  @default(false)
-    has_video_preview Boolean  @default(false)
+    has_thumbnail     Boolean   @default(false)
+    has_thumbstrip    Boolean   @default(false)
+    has_video_preview Boolean   @default(false)
     // TODO: change above to:
     // has_generated_thumbnail     Boolean  @default(false)
     // has_generated_thumbstrip    Boolean  @default(false)
@@ -194,7 +194,8 @@ model Object {
     // plain text note
     note              String?
     // the original known creation date of this object
-    date_created      DateTime @default(now())
+    date_created      DateTime  @default(now())
+    date_accessed     DateTime?
 
     tags       TagOnObject[]
     labels     LabelOnObject[]

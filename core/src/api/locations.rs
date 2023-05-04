@@ -1,4 +1,5 @@
 use crate::{
+	invalidate_query,
 	library::Library,
 	location::{
 		delete_location, file_path_helper::IsolatedFilePathData, find_location,
@@ -43,6 +44,7 @@ pub enum ExplorerItem {
 pub struct ExplorerData {
 	pub context: ExplorerContext,
 	pub items: Vec<ExplorerItem>,
+	pub cursor: Option<Vec<u8>>,
 }
 
 file_path::include!(file_path_with_object { object });
@@ -77,15 +79,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LocationExplorerArgs {
 				pub location_id: i32,
+				#[specta(optional)]
 				pub path: Option<String>,
 				pub limit: i32,
-				pub cursor: Option<String>,
+				#[specta(optional)]
+				pub cursor: Option<Vec<u8>>,
+				#[specta(optional)]
 				pub kind: Option<Vec<i32>>,
 			}
 
 			R.with2(library())
 				.query(|(_, library), args: LocationExplorerArgs| async move {
 					let Library { db, .. } = &library;
+
+					dbg!(&args);
 
 					let location = find_location(&library, args.location_id)
 						.exec()
@@ -127,16 +134,29 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map(|kinds| kinds.into_iter().collect::<BTreeSet<_>>())
 						.unwrap_or_default();
 
-					let mut file_paths = db
-						.file_path()
-						.find_many(chain_optional_iter(
-							[file_path::location_id::equals(location.id)],
-							[directory_materialized_path_str
+					let (mut file_paths, cursor) = {
+						let mut query = db
+							.file_path()
+							.find_many(chain_optional_iter(
+								[file_path::location_id::equals(location.id)],
+								[directory_materialized_path_str
 								.map(file_path::materialized_path::equals)],
-						))
-						.include(file_path_with_object::include())
-						.exec()
-						.await?;
+							))
+							.take((args.limit + 1) as i64);
+
+						if let Some(cursor) = args.cursor {
+							query = query.cursor(file_path::pub_id::equals(cursor));
+						}
+
+						let mut results = query
+							.include(file_path_with_object::include())
+							.exec()
+							.await?;
+
+						let cursor = results.pop().map(|r| r.pub_id);
+
+						(results, cursor)
+					};
 
 					if !expected_kinds.is_empty() {
 						file_paths = file_paths
@@ -171,14 +191,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(ExplorerData {
 						context: ExplorerContext::Location(location),
 						items,
+						cursor,
 					})
 				})
 		})
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					let location = args.create(&library).await?;
-					scan_location(&library, location).await?;
+					if let Some(location) = args.create(&library).await? {
+						scan_location(&library, location).await?;
+						invalidate_query!(library, "locations.list");
+					}
+
 					Ok(())
 				})
 		})
@@ -191,9 +215,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("delete", {
 			R.with2(library())
 				.mutation(|(_, library), location_id: i32| async move {
-					delete_location(&library, location_id)
-						.await
-						.map_err(Into::into)
+					delete_location(&library, location_id).await?;
+					invalidate_query!(library, "locations.list");
+					Ok(())
 				})
 		})
 		.procedure("relink", {
@@ -207,8 +231,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("addLibrary", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					let location = args.add_library(&library).await?;
-					scan_location(&library, location).await?;
+					if let Some(location) = args.add_library(&library).await? {
+						scan_location(&library, location).await?;
+						invalidate_query!(library, "locations.list");
+					}
 					Ok(())
 				})
 		})
@@ -254,7 +280,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"online",
 			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.library_manager.node_context.location_manager.clone();
+				let location_manager = ctx.location_manager.clone();
 
 				let mut rx = location_manager.online_rx();
 
@@ -277,7 +303,11 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: IndexerRuleCreateArgs| async move {
-					args.create(&library).await.map_err(Into::into)
+					if args.create(&library).await?.is_some() {
+						invalidate_query!(library, "locations.indexer_rules.list");
+					}
+
+					Ok(())
 				})
 		})
 		.procedure("delete", {
@@ -317,6 +347,8 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.delete(indexer_rule::id::equals(indexer_rule_id))
 						.exec()
 						.await?;
+
+					invalidate_query!(library, "locations.indexer_rules.list");
 
 					Ok(())
 				})

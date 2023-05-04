@@ -148,7 +148,7 @@ async fn identifier_job_step(
 						sync::file_path::SyncId {
 							pub_id: uuid_to_bytes(*pub_id),
 						},
-						"cas_id",
+						file_path::cas_id::NAME,
 						json!(&meta.cas_id),
 					),
 					db.file_path().update(
@@ -241,7 +241,6 @@ async fn identifier_job_step(
 						pub_id: uuid_to_bytes(object_pub_id),
 					};
 
-					let size = meta.fs_metadata.len().to_string();
 					let kind = meta.kind as i32;
 
 					let object_creation_args = (
@@ -249,9 +248,8 @@ async fn identifier_job_step(
 							.into_iter()
 							.chain(
 								[
-									("date_created", json!(fp.date_created)),
-									("kind", json!(kind)),
-									("size_in_bytes", json!(size)),
+									(object::date_created::NAME, json!(fp.date_created)),
+									(object::kind::NAME, json!(kind)),
 								]
 								.into_iter()
 								.map(|(f, v)| sync.shared_update(sync_id(), f, v)),
@@ -320,22 +318,24 @@ fn file_path_object_connect_ops<'db>(
 	object_id: Uuid,
 	sync: &SyncManager,
 	db: &'db PrismaClient,
-) -> (CRDTOperation, file_path::Update<'db>) {
+) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
+
+	let vec_id = object_id.as_bytes().to_vec();
 
 	(
 		sync.shared_update(
 			sync::file_path::SyncId {
 				pub_id: uuid_to_bytes(file_path_id),
 			},
-			"object",
-			json!({ "pub_id": object_id }),
+			file_path::object::NAME,
+			json!(sync::object::SyncId {
+				pub_id: vec_id.clone()
+			}),
 		),
 		db.file_path().update(
 			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),
-			vec![file_path::object::connect(object::pub_id::equals(
-				object_id.as_bytes().to_vec(),
-			))],
+			vec![file_path::object::connect(object::pub_id::equals(vec_id))],
 		),
 	)
 }

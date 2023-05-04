@@ -14,13 +14,22 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	isObject,
+	useLibraryContext,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { getItemFilePath } from '../util';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -45,13 +54,7 @@ export default ({ data, className, ...props }: Props) => {
 	return (
 		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
-				<ContextMenu.Item label="Open" keybind="⌘O" />
-				<ContextMenu.Item
-					label="Quick view"
-					keybind="␣"
-					onClick={() => (getExplorerStore().quickViewObject = data)}
-				/>
-				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
+				<OpenOrDownloadOptions data={data} />
 
 				<ContextMenu.Separator />
 
@@ -247,4 +250,40 @@ export default ({ data, className, ...props }: Props) => {
 			</ContextMenu.Root>
 		</div>
 	);
+};
+
+const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
+	const os = useOperatingSystem();
+	const platform = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+	const filePath = getItemFilePath(props.data);
+	const openFilePath = platform.openFilePath;
+
+	const { library } = useLibraryContext();
+
+	if (os === 'browser') return <ContextMenu.Item label="Download" />;
+	else
+		return (
+			<>
+				{filePath && openFilePath && (
+					<ContextMenu.Item
+						label="Open"
+						keybind="⌘O"
+						onClick={() => {
+							props.data.type === 'Path' &&
+								props.data.item.object_id &&
+								updateAccessTime.mutate(props.data.item.object_id);
+							openFilePath(library.uuid, filePath.id);
+						}}
+					/>
+				)}
+				<ContextMenu.Item
+					label="Quick view"
+					keybind="␣"
+					onClick={() => (getExplorerStore().quickViewObject = props.data)}
+				/>
+				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
+			</>
+		);
 };
