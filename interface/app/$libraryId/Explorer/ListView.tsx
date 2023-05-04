@@ -69,7 +69,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
 	const [sized, setSized] = useState(false);
@@ -179,6 +179,13 @@ export default () => {
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (lastRow?.index === rows.length - 1 && hasNextPage && !isFetchingNextPage) {
+			onLoadMore?.();
+		}
+	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, rows.length]);
 
 	function handleResize() {
 		if (scrollRef.current) {

@@ -16,6 +16,7 @@ interface Props {
 	items?: ExplorerData['items'];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
 }
 
 export default function Explorer(props: Props) {
@@ -57,7 +58,14 @@ export default function Explorer(props: Props) {
 			<div className="flex flex-1">
 				<ExplorerContextMenu>
 					<div className="flex-1 overflow-hidden">
-						{props.items && <View data={props.items} onLoadMore={props.onLoadMore} />}
+						{props.items && (
+							<View
+								data={props.items}
+								onLoadMore={props.onLoadMore}
+								hasNextPage={props.hasNextPage}
+								isFetchingNextPage={props.isFetchingNextPage}
+							/>
+						)}
 					</div>
 				</ExplorerContextMenu>
 

@@ -74,11 +74,15 @@ interface Props {
 	data: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
 }
 
 interface ExplorerView {
 	data: ExplorerItem[];
 	scrollRef: RefObject<HTMLDivElement>;
+	isFetchingNextPage?: boolean;
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
 }
 const context = createContext<ExplorerView>(undefined!);
 export const useExplorerView = () => useContext(context);
@@ -100,13 +104,18 @@ export default memo((props: Props) => {
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
 			<DismissibleNotice />
-			<context.Provider value={{ data: props.data, scrollRef }}>
+			<context.Provider
+				value={{
+					data: props.data,
+					scrollRef,
+					onLoadMore: props.onLoadMore,
+					hasNextPage: props.hasNextPage,
+					isFetchingNextPage: props.isFetchingNextPage
+				}}
+			>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
 				{layoutMode === 'media' && <MediaView />}
-				{props.hasNextPage && (
-					<Button onClick={() => props.onLoadMore?.()}>Load More</Button>
-				)}
 			</context.Provider>
 		</div>
 	);

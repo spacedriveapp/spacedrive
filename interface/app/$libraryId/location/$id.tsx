@@ -2,7 +2,14 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ExplorerData, rspc, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerData,
+	LibraryArgs,
+	LocationExplorerArgs,
+	rspc,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
@@ -23,7 +30,7 @@ export function useExplorerParams() {
 
 export const Component = () => {
 	const { location_id, path } = useExplorerParams();
-	// we destructure this since `mutate` is a stable reference but the object it's in is not
+
 	const quickRescan = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = useExplorerStore();
@@ -47,14 +54,13 @@ export const Component = () => {
 				arg: {
 					location_id,
 					path: explorerStore.layoutMode === 'media' ? null : path,
-					limit: 100,
 					kind: explorerStore.layoutMode === 'media' ? [5, 7] : null
 				}
-			}
+			} as LibraryArgs<LocationExplorerArgs>
 		] as const,
 		queryFn: async ({ pageParam: cursor, queryKey }): Promise<ExplorerData> => {
 			const arg = queryKey[1];
-			(arg.arg as any).cursor = cursor;
+			arg.arg.cursor = cursor as number[] | undefined;
 
 			return await ctx.client.query(['locations.getExplorerData', arg]);
 		},
@@ -71,6 +77,7 @@ export const Component = () => {
 					items={items}
 					onLoadMore={query.fetchNextPage}
 					hasNextPage={query.hasNextPage}
+					isFetchingNextPage={query.isFetchingNextPage}
 				/>
 			</div>
 		</>
