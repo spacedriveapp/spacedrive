@@ -339,13 +339,13 @@ Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
 Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
-$ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-try {
-    robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
-} catch {
-    Exit-WithError 'Failed to copy ffmpeg files'
-}
-Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
+# $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
+# try {
+#     robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
+# } catch {
+#     Exit-WithError 'Failed to copy ffmpeg files'
+# }
+# Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 # @(
 #     '[env]',
@@ -355,12 +355,12 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 #     (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
 # ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
-if (-not $env:CI) {
-    Write-Host
-    Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-    Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
-    Read-Host 'Press Enter to continue'
-}
+# if (-not $env:CI) {
+#     Write-Host
+#     Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
+#     Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
+#     Read-Host 'Press Enter to continue'
+# }
 
 if ($LASTEXITCODE -ne 0) {
     Exit-WithError 'Something went wrong'
