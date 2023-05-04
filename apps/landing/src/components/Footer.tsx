@@ -25,7 +25,7 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 export function Footer() {
 	return (
 		<footer id="footer" className="z-50 w-screen border-t border-gray-550 bg-gray-850 pt-3">
-			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pt-10 pb-20 text-white sm:grid-cols-2 lg:grid-cols-6">
+			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<img src={AppLogo} className="mb-5 h-10 w-10" />
 
@@ -33,7 +33,7 @@ export function Footer() {
 					<p className="text-sm text-gray-350">
 						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
-					<div className="mt-6 mb-10 flex flex-row space-x-3">
+					<div className="mb-10 mt-6 flex flex-row space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
 							<Twitter />
 						</FooterLink>

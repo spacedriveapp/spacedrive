@@ -45,7 +45,7 @@ export default function Note(props: Props) {
 			<MetaContainer>
 				<MetaTitle>Note</MetaTitle>
 				<TextArea
-					className="mt-2 mb-1 !py-2 text-xs leading-snug"
+					className="mb-1 mt-2 !py-2 text-xs leading-snug"
 					value={note || ''}
 					onChange={handleNoteUpdate}
 				/>{' '}

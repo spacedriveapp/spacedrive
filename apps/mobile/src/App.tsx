@@ -4,7 +4,6 @@ import {
 	NavigationContainer,
 	useNavigationContainerRef
 } from '@react-navigation/native';
-import { loggerLink } from '@rspc/client';
 import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -20,16 +19,14 @@ import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
-	getDebugState,
+	RspcProvider,
 	initPlausible,
-	rspc,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
 import { useTheme } from './hooks/useTheme';
-import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
@@ -119,15 +116,6 @@ function AppContainer() {
 	);
 }
 
-const client = rspc.createClient({
-	links: [
-		loggerLink({
-			enabled: () => getDebugState().rspcLogger
-		}),
-		reactNativeLink()
-	]
-});
-
 const queryClient = new QueryClient();
 
 export default function App() {
@@ -136,9 +124,8 @@ export default function App() {
 	}, []);
 
 	return (
-		// @ts-expect-error: Version mismatch
-		<rspc.Provider client={client} queryClient={queryClient}>
+		<RspcProvider queryClient={queryClient}>
 			<AppContainer />
-		</rspc.Provider>
+		</RspcProvider>
 	);
 }

@@ -1,146 +1,102 @@
-import {
-	Operation,
-	ProcedureType,
-	ProceduresDef,
-	TRPCClientOutgoingMessage,
-	TRPCLink,
-	TRPCRequestMessage,
-	TRPCWebSocketClient,
-	UnsubscribeFn,
-	wsLink
-} from '@rspc/client';
+import { AlphaRSPCError, Link, RspcRequest } from '@rspc/client/v2';
 import { NativeEventEmitter, NativeModules } from 'react-native';
-
-type TCallbacks = any; // TODO
 
 const { SDCore } = NativeModules;
 const eventEmitter = new NativeEventEmitter(NativeModules.SDCore);
 
-export function reactNativeLink<TProcedures extends ProceduresDef>(): TRPCLink<TProcedures> {
-	return wsLink<TProcedures>({
-		client: createReactNativeClient()
-	});
-}
-
-export function createReactNativeClient(): TRPCWebSocketClient {
-	/**
-	 * outgoing messages buffer whilst not open
-	 */
-	let outgoing: TRPCClientOutgoingMessage[] = [];
-	/**
-	 * pending outgoing requests that are awaiting callback
-	 */
-	type TRequest = {
-		/**
-		 * Reference to the WebSocket instance this request was made to
-		 */
-		ws: WebSocket;
-		type: ProcedureType;
-		callbacks: TCallbacks;
-		op: Operation;
-	};
-	const pendingRequests: Record<number | string, TRequest> = Object.create(null);
-	let dispatchTimer: ReturnType<typeof setTimeout> | number | null = null;
-	let state: 'open' | 'closed' = 'open';
-
-	function handleIncoming(data: any) {
-		if ('method' in data) {
-			//
-		} else {
-			const req = data.id !== null && pendingRequests[data.id];
-			if (!req) {
-				// do something?
-				return;
-			}
-			req.callbacks.next?.(data);
-			if ('result' in data && data.result.type === 'stopped') {
-				req.callbacks.complete();
-			}
+/**
+ * Link for the custom React Native rspc backend
+ */
+export function reactNativeLink(): Link {
+	const activeMap = new Map<
+		string,
+		{
+			resolve: (result: any) => void;
+			reject: (error: Error | AlphaRSPCError) => void;
 		}
-	}
+	>();
 
-	function dispatch() {
-		if (state !== 'open' || dispatchTimer) {
-			return;
-		}
-		dispatchTimer = setTimeout(() => {
-			dispatchTimer = null;
-
-			if (outgoing.length === 0) {
-				return;
-			}
-
-			let body: any;
-			if (outgoing.length === 1) {
-				// single send
-				body = JSON.stringify(outgoing.pop());
+	const handleIncoming = (event: any) => {
+		const { id, result } = event;
+		if (activeMap.has(id)) {
+			if (result.type === 'event') {
+				activeMap.get(id)?.resolve(result.data);
+			} else if (result.type === 'response') {
+				activeMap.get(id)?.resolve(result.data);
+				activeMap.delete(id);
+			} else if (result.type === 'error') {
+				const { message, code } = result.data;
+				activeMap.get(id)?.reject(new AlphaRSPCError(code, message));
+				activeMap.delete(id);
 			} else {
-				// batch send
-				body = JSON.stringify(outgoing);
+				console.error(`rspc: received event of unknown type '${result.type}'`);
 			}
-
-			SDCore.sd_core_msg(body).then((rawData: string) => {
-				const data = JSON.parse(rawData);
-				if (Array.isArray(data)) {
-					for (const payload of data) {
-						handleIncoming(payload);
-					}
-				} else {
-					handleIncoming(data);
-				}
-			});
-
-			// clear
-			outgoing = [];
-		});
-	}
+		} else {
+			console.error(`rspc: received event for unknown id '${id}'`);
+		}
+	};
 
 	eventEmitter.addListener('SDCoreEvent', (event) => {
-		const data = JSON.parse(event);
-		handleIncoming(data);
+		handleIncoming(JSON.parse(event));
 	});
 
-	function request(op: Operation, callbacks: TCallbacks): UnsubscribeFn {
-		const { type, input, path, id } = op;
-		const envelope: TRPCRequestMessage = {
-			id,
-			method: type,
-			params: {
-				input,
-				path
-			}
-		};
-		pendingRequests[id] = {
-			ws: undefined as any, // TODO: Remove this field
-			type,
-			callbacks,
-			op
-		};
-		// enqueue message
-		outgoing.push(envelope);
-		dispatch();
-		return () => {
-			const callbacks = pendingRequests[id]?.callbacks;
-			delete pendingRequests[id];
-			outgoing = outgoing.filter((msg) => msg.id !== id);
-			callbacks?.complete?.();
-			if (op.type === 'subscription') {
-				outgoing.push({
-					id,
-					method: 'subscriptionStop'
-				});
-				dispatch();
-			}
-		};
-	}
+	const batch: RspcRequest[] = [];
+	let batchQueued = false;
+	const queueBatch = () => {
+		if (!batchQueued) {
+			batchQueued = true;
+			setTimeout(() => {
+				const currentBatch = [...batch];
+				(async () => {
+					const data = JSON.parse(await SDCore.sd_core_msg(JSON.stringify(currentBatch)));
+					if (Array.isArray(data)) {
+						for (const payload of data) {
+							handleIncoming(payload);
+						}
+					} else {
+						handleIncoming(data);
+					}
+				})();
 
-	return {
-		close: () => {
-			state = 'closed';
-			// TODO: Close all open subscriptions
-			//   closeIfNoPending(activeConnection);
-			// TODO
-		},
-		request
+				batch.splice(0, batch.length);
+				batchQueued = false;
+			});
+		}
+	};
+
+	return ({ op }) => {
+		let finished = false;
+		return {
+			exec: async (resolve, reject) => {
+				activeMap.set(op.id, {
+					resolve,
+					reject
+				});
+				// @ts-expect-error // TODO: Fix this
+				batch.push({
+					id: op.id,
+					method: op.type,
+					params: {
+						path: op.path,
+						input: op.input
+					}
+				});
+				queueBatch();
+			},
+			abort() {
+				if (finished) return;
+				finished = true;
+
+				activeMap.delete(op.id);
+
+				batch.push({
+					jsonrpc: '2.0',
+					id: op.id,
+					method: 'subscriptionStop',
+					params: null
+				});
+				queueBatch();
+			}
+		};
 	};
 }

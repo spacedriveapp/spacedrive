@@ -84,7 +84,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
-					<Divider style={tw`mt-6 mb-4`} />
+					<Divider style={tw`mb-4 mt-6`} />
 					<>
 						{/* Size */}
 						<MetaItem

@@ -13,7 +13,7 @@ import {
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
-	name: z.string()
+	name: z.string().min(1, 'Name is required')
 });
 
 export default function OnboardingNewLibrary() {
@@ -33,7 +33,7 @@ export default function OnboardingNewLibrary() {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
-		navigate('/onboarding/privacy');
+		navigate('/onboarding/privacy', { replace: true });
 	});
 
 	const handleImport = () => {

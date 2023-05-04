@@ -16,7 +16,7 @@ export const Component = () => {
 	// });
 	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
-		<div className="flex flex-col space-y-5 p-5 pt-2 pb-7">
+		<div className="flex flex-col space-y-5 p-5 pb-7 pt-2">
 			<h1 className="text-lg font-bold ">Developer Debugger</h1>
 			{/* <div className="flex flex-row pb-4 space-x-2">
 					<Button

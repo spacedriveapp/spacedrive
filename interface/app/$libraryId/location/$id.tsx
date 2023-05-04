@@ -2,7 +2,12 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ExplorerData, rspc, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerData,
+	useLibraryContext,
+	useLibraryMutation,
+	useRspcLibraryContext
+} from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
@@ -36,7 +41,7 @@ export const Component = () => {
 
 	if (location_id === null) throw new Error(`location_id is null!`);
 
-	const ctx = rspc.useContext();
+	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
 	const query = useInfiniteQuery({
@@ -56,7 +61,7 @@ export const Component = () => {
 			const arg = queryKey[1];
 			(arg.arg as any).cursor = cursor;
 
-			return await ctx.client.query(['locations.getExplorerData', arg]);
+			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
 		},
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});

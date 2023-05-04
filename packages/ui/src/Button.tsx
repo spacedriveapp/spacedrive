@@ -32,9 +32,9 @@ const styles = cva(
 		variants: {
 			size: {
 				icon: '!p-1',
-				lg: 'text-md py-1.5 px-3 font-medium',
-				md: 'py-1.5 px-2.5 text-sm font-medium',
-				sm: 'py-1 px-2 text-sm font-medium'
+				lg: 'text-md px-3 py-1.5 font-medium',
+				md: 'px-2.5 py-1.5 text-sm font-medium',
+				sm: 'px-2 py-1 text-sm font-medium'
 			},
 			variant: {
 				default: [
@@ -81,18 +81,21 @@ export const Button = forwardRef<
 });
 
 export const ButtonLink = forwardRef<
-	HTMLLinkElement,
+	HTMLAnchorElement,
 	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
->(({ className, to, ...props }, ref) => {
-	className = cx(
-		styles(props),
-		'no-underline disabled:opacity-50 disabled:cursor-not-allowed',
-		className
-	);
-
+>(({ className, size, variant, ...props }, ref) => {
 	return (
-		<Link to={to} ref={ref as any} className={className}>
-			{props.children}
-		</Link>
+		<Link
+			ref={ref}
+			className={styles({
+				size,
+				variant,
+				className: clsx(
+					'no-underline disabled:cursor-not-allowed disabled:opacity-50',
+					className
+				)
+			})}
+			{...props}
+		/>
 	);
 });
