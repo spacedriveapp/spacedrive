@@ -48,7 +48,7 @@ export function reactNativeLink(): Link {
 			setTimeout(() => {
 				const currentBatch = [...batch];
 				(async () => {
-					const data = JSON.parse(await SDCore.sd_core_msg(currentBatch));
+					const data = JSON.parse(await SDCore.sd_core_msg(JSON.stringify(currentBatch)));
 					if (Array.isArray(data)) {
 						for (const payload of data) {
 							handleIncoming(payload);
