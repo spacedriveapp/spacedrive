@@ -73,7 +73,7 @@ function Theme(props: ThemeProps) {
 						color={props.textColor as string}
 						weight="fill"
 						size={24}
-						style={tw`absolute right-1.5 bottom-1.5`}
+						style={tw`absolute bottom-1.5 right-1.5`}
 					/>
 				)}
 			</View>
@@ -106,7 +106,7 @@ function SystemTheme(props: { isSelected: boolean }) {
 					color={'black'}
 					weight="fill"
 					size={24}
-					style={tw`absolute right-1.5 bottom-1.5`}
+					style={tw`absolute bottom-1.5 right-1.5`}
 				/>
 			)}
 		</View>

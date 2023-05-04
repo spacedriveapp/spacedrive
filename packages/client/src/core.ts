@@ -189,8 +189,6 @@ export type MediaData = { id: number; pixel_width: number | null; pixel_height: 
 
 export type TagCreateArgs = { name: string; color: string }
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
-
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
