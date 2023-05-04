@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { ArrowsOutSimple } from 'phosphor-react';
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem } from '@sd/client';
@@ -58,7 +58,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
 
 	const gridPadding = 2;
 	const scrollBarWidth = 6;
@@ -92,6 +92,20 @@ export default () => {
 		paddingStart: gridPadding,
 		paddingEnd: gridPadding
 	});
+
+	const virtualRows = rowVirtualizer.getVirtualItems();
+	const virtualColumns = columnVirtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (
+			(!lastRow || lastRow.index === amountOfRows - 1) &&
+			hasNextPage &&
+			!isFetchingNextPage
+		) {
+			onLoadMore?.();
+		}
+	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, virtualColumns, data.length]);
 
 	function handleWindowResize() {
 		if (scrollRef.current) {
@@ -175,9 +189,9 @@ export default () => {
 				position: 'relative'
 			}}
 		>
-			{rowVirtualizer.getVirtualItems().map((virtualRow) => (
+			{virtualRows.map((virtualRow) => (
 				<React.Fragment key={virtualRow.index}>
-					{columnVirtualizer.getVirtualItems().map((virtualColumn, i) => {
+					{virtualColumns.map((virtualColumn, i) => {
 						const index = virtualRow.index * amountOfColumns + i;
 						const item = data[index];
 

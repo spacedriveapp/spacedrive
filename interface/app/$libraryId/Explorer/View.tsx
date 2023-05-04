@@ -8,7 +8,7 @@ import {
 	useContext,
 	useRef
 } from 'react';
-import { createSearchParams, useNavigate } from 'react-router-dom';
+import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -74,12 +74,16 @@ interface Props {
 	data: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
 	viewClassName?: string;
 }
 
 interface ExplorerView {
 	data: ExplorerItem[];
 	scrollRef: RefObject<HTMLDivElement>;
+	isFetchingNextPage?: boolean;
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
 }
 const context = createContext<ExplorerView>(undefined!);
 export const useExplorerView = () => useContext(context);
@@ -89,6 +93,9 @@ export default memo((props: Props) => {
 	const layoutMode = explorerStore.layoutMode;
 
 	const scrollRef = useRef<HTMLDivElement>(null);
+
+	// Hide notice on overview page
+	const isOverview = useMatch('/:libraryId/overview');
 
 	return (
 		<div
@@ -101,14 +108,19 @@ export default memo((props: Props) => {
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
-			<DismissibleNotice />
-			<context.Provider value={{ data: props.data, scrollRef }}>
+			{!isOverview && <DismissibleNotice />}
+			<context.Provider
+				value={{
+					data: props.data,
+					scrollRef,
+					onLoadMore: props.onLoadMore,
+					hasNextPage: props.hasNextPage,
+					isFetchingNextPage: props.isFetchingNextPage
+				}}
+			>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
 				{layoutMode === 'media' && <MediaView />}
-				{props.hasNextPage && (
-					<Button onClick={() => props.onLoadMore?.()}>Load More</Button>
-				)}
 			</context.Provider>
 		</div>
 	);

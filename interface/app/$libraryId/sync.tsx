@@ -1,9 +1,4 @@
-import {
-	CRDTOperation,
-	useBridgeSubscription,
-	useLibraryContext,
-	useLibraryQuery
-} from '@sd/client';
+import { CRDTOperation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
 import { tw } from '@sd/ui';
 
 const Label = tw.span`text-gray-300`;
@@ -45,22 +40,11 @@ const OperationItem = ({ op }: { op: CRDTOperation }) => {
 };
 
 export const Component = () => {
-	const { library } = useLibraryContext();
-
 	const messages = useLibraryQuery(['sync.messages']);
 
-	useBridgeSubscription(
-		[
-			'sync.newMessage',
-			{
-				arg: null,
-				library_id: library.uuid
-			}
-		],
-		{
-			onData: () => messages.refetch()
-		}
-	);
+	useLibrarySubscription(['sync.newMessage'], {
+		onData: () => messages.refetch()
+	});
 
 	return (
 		<ul className="space-y-2">

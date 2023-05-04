@@ -67,7 +67,7 @@ export default (props: UseDialogProps) => {
 				setContentSalt={setContentSalt}
 			/>
 
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -83,7 +83,7 @@ export default (props: UseDialogProps) => {
 					</Select>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -119,7 +119,7 @@ export default (props: UseDialogProps) => {
 					</Select>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Content Salt (hex)</span>
 					<Input
@@ -139,7 +139,7 @@ export default (props: UseDialogProps) => {
 					/>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Key Value</span>
 					<Input

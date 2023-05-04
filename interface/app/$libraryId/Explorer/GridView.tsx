@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
-import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
@@ -73,7 +72,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 export default () => {
 	const explorerStore = useExplorerStore();
-	const { data, scrollRef } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
 
 	const [width, setWidth] = useState(0);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState(explorerStore.selectedRowIndex);
@@ -95,6 +94,15 @@ export default () => {
 		paddingStart: 12,
 		paddingEnd: 12
 	});
+
+	const virtualRows = rowVirtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (lastRow?.index === amountOfRows - 1 && hasNextPage && !isFetchingNextPage) {
+			onLoadMore?.();
+		}
+	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, data.length]);
 
 	function handleWindowResize() {
 		if (scrollRef.current) {
@@ -175,10 +183,10 @@ export default () => {
 				height: `${rowVirtualizer.getTotalSize()}px`
 			}}
 		>
-			{rowVirtualizer.getVirtualItems().map((virtualRow) => (
+			{virtualRows.map((virtualRow) => (
 				<div
 					key={virtualRow.key}
-					className="absolute top-0 left-0 flex w-full"
+					className="absolute left-0 top-0 flex w-full"
 					style={{
 						height: virtualRow.size,
 						transform: `translateY(${virtualRow.start}px)`

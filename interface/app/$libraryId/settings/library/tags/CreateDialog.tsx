@@ -2,7 +2,6 @@ import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import ColorPicker from '~/components/ColorPicker';
-import { usePlatform } from '~/util/Platform';
 
 export default (props: UseDialogProps & { assignToObject?: number }) => {
 	const dialog = useDialog(props);

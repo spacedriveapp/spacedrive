@@ -15,7 +15,7 @@ module.exports = {
 		'plugin:@typescript-eslint/recommended',
 		'turbo',
 		'plugin:editorconfig/all',
-		'plugin:prettier/recommended'
+		'prettier'
 	],
 	plugins: ['react', 'editorconfig'],
 	rules: {

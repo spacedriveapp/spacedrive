@@ -158,13 +158,11 @@ export type OnboardingConfig = { password: Protected<string>; algorithm: Algorit
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
 
-export type LocationExplorerArgs = { location_id: number; path?: string | null; limit: number; cursor?: number[] | null; kind?: number[] | null }
+export type LocationExplorerArgs = { location_id: number; path?: string | null; limit?: number | null; cursor?: number[] | null; kind?: number[] | null }
 
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
@@ -220,8 +218,6 @@ export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boole
 
 export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
-export type FileDeleterJobInit = { location_id: number; path_id: number }
-
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
@@ -255,6 +251,8 @@ export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
+
+export type FileDeleterJobInit = { location_id: number; path_id: number }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
@@ -304,6 +302,8 @@ export type ChangeNodeNameArgs = { name: string }
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
+
+export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 
