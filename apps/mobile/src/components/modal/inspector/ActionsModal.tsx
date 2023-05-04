@@ -65,7 +65,7 @@ export const ActionsModal = () => {
 
 	return (
 		<>
-			<Modal ref={modalRef} snapPoints={['60%', '90%']}>
+			<Modal ref={modalRef} snapPoints={['60', '90']}>
 				{data && (
 					<View style={tw`flex-1 px-4`}>
 						<View style={tw`flex flex-row items-center`}>

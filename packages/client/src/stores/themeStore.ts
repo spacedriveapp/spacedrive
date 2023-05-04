@@ -1,17 +1,18 @@
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from './util';
 
-const appThemeStore = valtioPersist('appTheme', {
-	themeName: 'vanilla',
-	themeMode: 'light' as 'light' | 'dark',
+export type Themes = 'vanilla' | 'dark';
+
+const themeStore = valtioPersist('sd-theme', {
+	theme: 'vanilla' as Themes,
 	syncThemeWithSystem: false,
 	hueValue: null as number | null
 });
 
 export function useThemeStore() {
-	return useSnapshot(appThemeStore);
+	return useSnapshot(themeStore);
 }
 
 export function getThemeStore() {
-	return appThemeStore;
+	return themeStore;
 }

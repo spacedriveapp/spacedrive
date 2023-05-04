@@ -603,8 +603,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  boost: 57d2868c099736d80fcd648bf211b4431e51a558
-  DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
+  boost: 20b6b3a53cb43939b6ffc2fd27d15ec7497167d0
+  DoubleConversion: 2d248a4174d78beaaa49735340c9bcc564091245
   EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
   EXConstants: f348da07e21b23d2b085e270d7b74f282df1a7d9
   EXFileSystem: 844e86ca9b5375486ecc4ef06d3838d5597d895d
@@ -617,12 +617,12 @@ SPEC CHECKSUMS:
   FBLazyVector: 60195509584153283780abdac5569feffb8f08cc
   FBReactNativeSpec: c5a5c4f1b95ae42a17cd22c8c89c482a7b327fe3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 04b94705f318337d7ead9e6d17c019bd9b1f6b1b
-  hermes-engine: 38bfe887e456b33b697187570a08de33969f5db7
+  glog: 5b8834f2f3f7d36c1c73e5a9837f53f03cfe84eb
+  hermes-engine: 2670551c21c6838c04f837c7c3db0ce55f5da525
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
   lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
-  RCT-Folly: 424b8c9a7a0b9ab2886ffe9c3b041ef628fd4fb1
+  RCT-Folly: 30d165d2e977f66793419c3314296392cb793f38
   RCTRequired: bec48f07daf7bcdc2655a0cde84e07d24d2a9e2a
   RCTTypeSafety: 171394eebacf71e1cfad79dbfae7ee8fc16ca80a
   React: d7433ccb6a8c36e4cbed59a73c0700fc83c3e98a
