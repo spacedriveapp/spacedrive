@@ -1,10 +1,4 @@
-import {
-	CRDTOperation,
-	useBridgeSubscription,
-	useLibraryContext,
-	useLibraryQuery,
-	useLibrarySubscription
-} from '@sd/client';
+import { CRDTOperation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
 import { tw } from '@sd/ui';
 
 const Label = tw.span`text-gray-300`;
