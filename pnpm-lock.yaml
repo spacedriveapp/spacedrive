@@ -473,6 +473,7 @@ importers:
       react-responsive: ^9.0.2
       react-router: 6.9.0
       react-router-dom: 6.9.0
+      remix-params-helper: ^0.4.10
       rooks: ^5.14.0
       tailwindcss: ^3.1.8
       typescript: ^4.8.4
@@ -520,6 +521,7 @@ importers:
       react-responsive: 9.0.2_react@18.2.0
       react-router: 6.9.0_react@18.2.0
       react-router-dom: 6.9.0_biqbaboplfbrettd7655fr4n2y
+      remix-params-helper: 0.4.10_zod@3.21.4
       rooks: 5.14.1_biqbaboplfbrettd7655fr4n2y
       tailwindcss: 3.3.2
       use-count-up: 3.0.1_react@18.2.0
@@ -7188,7 +7190,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.21.8
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.3.4_sass@1.62.1
+      vite: 4.3.4_@types+node@18.16.3
     transitivePeerDependencies:
       - supports-color
 
@@ -15972,6 +15974,14 @@ packages:
       unist-util-visit: 2.0.3
     dev: true
 
+  /remix-params-helper/0.4.10_zod@3.21.4:
+    resolution: {integrity: sha512-1LZ1FjxCtPekg4a1R50aKA0uB2+668Wd2a0ld7LDrQ0bJ2TzijnCVr822cs8epziS6MG2bG8ZHMPDAR2t4PK+Q==}
+    peerDependencies:
+      zod: ^3.11.6
+    dependencies:
+      zod: 3.21.4
+    dev: false
+
   /remove-accents/0.4.2:
     resolution: {integrity: sha512-7pXIJqJOq5tFgG1A2Zxti3Ht8jJF337m4sowbuHsW30ZnkQFnDzy9qBNhgzX8ZLW4+UBcXiiR7SwR6pokHsxiA==}
     dev: false
@@ -18434,7 +18444,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.3.4_sass@1.62.1
+      vite: 4.3.4_@types+node@18.16.3
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -18567,7 +18577,6 @@ packages:
       rollup: 3.21.4
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.3.4_sass@1.62.1:
     resolution: {integrity: sha512-f90aqGBoxSFxWph2b39ae2uHAxm5jFBBdnfueNxZAT1FTpM13ccFQExCaKbR2xFW5atowjleRniQ7onjJ22QEg==}
