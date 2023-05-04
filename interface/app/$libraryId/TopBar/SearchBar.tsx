@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { useEffect, useState, useTransition } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useLocation, useNavigate, useResolvedPath } from 'react-router';
 import { createSearchParams, useSearchParams } from 'react-router-dom';
 import { useKey, useKeys } from 'rooks';
@@ -40,6 +39,7 @@ export default () => {
 
 	useEffect(() => {
 		if (searchPath.pathname === location.pathname) updateParams(value);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [value]);
 
 	useKeys([os === 'macOS' ? 'Meta' : 'Ctrl', 'f'], () => searchRef.current?.focus());

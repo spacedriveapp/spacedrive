@@ -1,8 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useBridgeMutation, usePlausibleEvent, useTelemetryState } from '@sd/client';
-import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { forms } from '@sd/ui';
-import { usePlatform } from '~/util/Platform';
+import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
+import { Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
 
 const { useZodForm, z } = forms;
 

@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
-import { Button, Input, Switch, dialogManager } from '@sd/ui';
+import { Button, Input, dialogManager } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
 import { Heading } from '../Layout';
 import Setting from '../Setting';

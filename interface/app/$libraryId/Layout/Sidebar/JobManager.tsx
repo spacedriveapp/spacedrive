@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/client';
 import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import GroupedJobs from './GroupedJobs';
