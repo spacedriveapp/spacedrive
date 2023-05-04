@@ -209,7 +209,7 @@ export const Component = () => {
 							>
 								<>
 									<QRCode size={128} value={keyringSk.data} />
-									<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+									<p className="ml-6 mt-14 text-xl font-bold">{keyringSk.data}</p>
 								</>
 							</div>
 						)}

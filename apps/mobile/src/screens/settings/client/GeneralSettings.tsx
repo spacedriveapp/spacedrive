@@ -30,7 +30,7 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 					</View>
 				</View>
 				{/* Divider */}
-				<Divider style={tw`mt-2 mb-4`} />
+				<Divider style={tw`mb-4 mt-2`} />
 				{/* Node Name and Port */}
 				<SettingsInputTitle>Node Name</SettingsInputTitle>
 				<Input value={node.name} />
