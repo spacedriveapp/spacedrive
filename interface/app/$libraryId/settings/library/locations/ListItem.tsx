@@ -2,8 +2,7 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Location, Node } from '@sd/client';
+import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
 import DeleteDialog from './DeleteDialog';
 

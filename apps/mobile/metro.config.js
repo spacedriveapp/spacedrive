@@ -34,21 +34,13 @@ const metroConfig = makeMetroConfig({
 		resolveRequest: (context, moduleName, platform) => {
 			if (moduleName.startsWith('@rspc/client/v2')) {
 				return {
-					filePath: path.resolve(
-						rspcClientPath,
-						'dist',
-						'v2.js'
-					),
+					filePath: path.resolve(rspcClientPath, 'dist', 'v2.js'),
 					type: 'sourceFile'
 				};
 			}
 			if (moduleName.startsWith('@rspc/react/v2')) {
 				return {
-					filePath: path.resolve(
-						rspcReactPath,
-						'dist',
-						'v2.js'
-					),
+					filePath: path.resolve(rspcReactPath, 'dist', 'v2.js'),
 					type: 'sourceFile'
 				};
 			}

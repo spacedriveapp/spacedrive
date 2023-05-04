@@ -9,9 +9,9 @@ import {
 	SelectOption,
 	Slider,
 	Switch,
+	Tooltip,
 	tw
 } from '@sd/ui';
-import { Tooltip } from '@sd/ui';
 import { generatePassword } from '~/util';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;

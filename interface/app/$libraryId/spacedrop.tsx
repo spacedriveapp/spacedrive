@@ -1,14 +1,12 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
-import { useState } from 'react';
-import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
-import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
+import { tw } from '@sd/ui';
 import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
 import { OperatingSystem } from '~/util/Platform';
 import classes from './spacedrop.module.scss';
 
-const { Form, Input, useZodForm, z } = forms;
+// const { Form, Input, useZodForm, z } = forms;
 
 // TODO: move this to UI, copied from Inspector
 const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded text-ink-dull`;

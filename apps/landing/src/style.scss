@@ -169,7 +169,7 @@ html {
 }
 
 .slot-block {
-	@apply mb-2 rounded border-l-4 border-app-line bg-app-box py-3 px-4;
+	@apply mb-2 rounded border-l-4 border-app-line bg-app-box px-4 py-3;
 }
 .slot-block.note {
 	@apply border-yellow-400 bg-yellow-300/20;
@@ -184,7 +184,7 @@ html {
 	@apply m-0 text-sm font-bold uppercase text-white;
 }
 .slot-block-content {
-	@apply my-1 mx-0 mb-0 text-white;
+	@apply mx-0 my-1 mb-0 text-white;
 }
 .slot-block-title-icon {
 	@apply my-0 h-5 w-5 text-white;

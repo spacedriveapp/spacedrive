@@ -52,9 +52,11 @@ const notices = {
 
 export default () => {
 	const { layoutMode } = useExplorerStore();
+
 	const notice = notices[layoutMode];
 
 	if (!notice) return null;
+
 	return (
 		<DismissibleNotice
 			title={
