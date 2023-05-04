@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const toml = require('@iarna/toml');
 
-const { workspace, platform } = require('./const.js');
+const { platform, workspace, setupScript } = require('./const.js');
 
 const cargoConfig = path.resolve(workspace, '.cargo/config');
 const cargoConfigTempl = path.resolve(workspace, '.cargo/config.toml');
@@ -30,13 +30,17 @@ module.exports.setupPlatformEnv = function setupEnv(env = {}, dev = false) {
 	}
 
 	if (platform === 'darwin' || platform === 'win32') {
-		env.PROTOC = path.join(workspace, 'target/Frameworks/bin/protoc');
+		env.PROTOC = path.join(
+			workspace,
+			'target/Frameworks/bin',
+			platform === 'win32' ? 'protoc.exe' : 'protoc'
+		);
 		env.FFMPEG_DIR = path.join(workspace, 'target/Frameworks');
 
 		// Check if env.PROTOC is not empty and that the value is a valid path pointing to an existing file
 		if (!(env.PROTOC && fs.existsSync(env.PROTOC) && fs.statSync(env.PROTOC).isFile())) {
 			console.error(`The path to protoc is invalid: ${env.PROTOC}`);
-			console.error(`Did you ran the setup script: ${script}?`);
+			console.error(`Did you ran the setup script: ${setupScript}?`);
 			process.exit(1);
 		}
 
@@ -49,7 +53,7 @@ module.exports.setupPlatformEnv = function setupEnv(env = {}, dev = false) {
 			)
 		) {
 			console.error(`The path to ffmpeg is invalid: ${env.FFMPEG_DIR}`);
-			console.error(`Did you ran the setup script: ${script}?`);
+			console.error(`Did you ran the setup script: ${setupScript}?`);
 			process.exit(1);
 		}
 
