@@ -90,6 +90,9 @@ export default memo((props: Props) => {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// Hide notice on overview page (TODO: change to useMatch when it's working)
+	const isOverview = location.pathname.endsWith('/overview');
+
 	return (
 		<div
 			ref={scrollRef}
@@ -101,7 +104,7 @@ export default memo((props: Props) => {
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
 		>
-			<DismissibleNotice />
+			{!isOverview && <DismissibleNotice />}
 			<context.Provider value={{ data: props.data, scrollRef }}>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}

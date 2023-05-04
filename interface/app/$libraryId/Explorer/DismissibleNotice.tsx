@@ -1,7 +1,6 @@
 import { Collection, Image, Video } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { ReactNode } from 'react';
-import { useLocation } from 'react-router';
 import DismissibleNotice from '~/components/DismissibleNotice';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -53,14 +52,10 @@ const notices = {
 
 export default () => {
 	const { layoutMode } = useExplorerStore();
-	const location = useLocation();
 
 	const notice = notices[layoutMode];
 
 	if (!notice) return null;
-
-	// Hide notice on overview page
-	if (location.pathname.endsWith('/overview')) return null;
 
 	return (
 		<DismissibleNotice
