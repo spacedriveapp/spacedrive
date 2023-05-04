@@ -220,7 +220,7 @@ function JobTimeText({ job }: { job: JobReport }) {
 }
 
 function JobCountTextCondition(job: JobReport, word: string) {
-	const addStoEnd = job?.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
+	const addStoEnd = job.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
 	return addStoEnd;
 }
 
