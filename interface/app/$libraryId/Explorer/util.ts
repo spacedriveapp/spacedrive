@@ -26,7 +26,7 @@ export function getItemFilePath(data: ExplorerItem) {
 }
 
 const SEARCH_PARAMS = z.object({
-	path: z.string().optional(),
+	path: z.string().default(''),
 	limit: z.coerce.number().default(100)
 });
 
