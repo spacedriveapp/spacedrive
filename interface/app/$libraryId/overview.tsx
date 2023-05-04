@@ -136,8 +136,8 @@ export const Component = () => {
 				<b>Note: </b>&nbsp; This is a pre-alpha build of Spacedrive, many features are yet
 				to be functional.
 			</Card> */}
-				<ScreenHeading className="mt-3">Recents</ScreenHeading>
-				<Explorer viewClassName="!pl-0 !pt-2" items={items} />
+				<ScreenHeading className="mt-5">Recents</ScreenHeading>
+				<Explorer viewClassName="!pl-0 !pt-0" items={items} />
 			</div>
 		</div>
 	);
