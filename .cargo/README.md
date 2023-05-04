@@ -1,3 +1,3 @@
 ## Attention
 
-If cargo.toml is modified on macOS, the `.github/scripts/setup-system.sh` script should be executed after.
+Make sure to execute the `setup-system` script after any modification to `cargo.toml`.
