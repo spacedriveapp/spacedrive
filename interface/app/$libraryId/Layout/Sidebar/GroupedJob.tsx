@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Folder, X } from 'phosphor-react';
+import { Folder, TextItalic, X } from 'phosphor-react';
 import { MutableRefObject, memo, useEffect, useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
@@ -49,29 +49,27 @@ function GroupedJob({ data, clearJob }: GroupJobProps) {
 						)}
 					>
 						<div className="flex">
-							<Folder className={clsx('relative top-2 mr-3 h-5 w-5')} />
+							<Folder
+								className={clsx(
+									'relative left-[-2px] top-2 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
+								)}
+							/>
 							<div className="flex w-full flex-col">
 								<div className="flex items-center">
 									<div className="truncate">
-										<span className="truncate font-semibold">
+										<p className="truncate font-semibold">
 											{allJobsCompleted
-												? `Added location ${
+												? `Added location "${
 														data.metadata.init.location.name || ''
-												  }`
+												  }"`
 												: 'Processing added location...'}
-										</span>
-										<p className="mt-[2px] mb-[5px] text-[12px] italic text-ink-faint">
+										</p>
+										<p className="mb-[5px] mt-[2px] text-[12px] italic text-ink-faint">
 											{getTasks.total}{' '}
 											{getTasks.total <= 1 ? 'task' : 'tasks'}
 										</p>
 										<div className="flex gap-1 truncate text-ink-faint">
 											<GetTotalGroupJobTime jobs={data.childJobs} />
-											{/* {allJobsCompleted && (
-												<span className="text-xs">
-													- Took{' '}
-													{dayjs(timeOfLastFinishedJob).fromNow(true)}
-												</span>
-											)} */}
 										</div>
 									</div>
 									<div className="grow" />

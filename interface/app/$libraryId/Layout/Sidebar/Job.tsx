@@ -133,12 +133,16 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 			)}
 		>
 			<div className="ml-7 flex">
-				<niceData.icon className={clsx('relative top-2 mr-3 h-5 w-5')} />
+				<niceData.icon
+					className={clsx(
+						'relative top-2 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
+					)}
+				/>
 				<div className="flex w-full flex-col">
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mt-[2px] mb-[5px] flex gap-1 text-[12px] italic text-ink-faint">
+							<p className="mb-[5px] mt-[2px] flex gap-1 text-[12px] italic text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.filesDiscovered}
 							</p>
@@ -177,7 +181,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						</div>
 					</div>
 					{isRunning && (
-						<div className="mt-3 mb-1 w-full">
+						<div className="mb-1 mt-3 w-full">
 							<ProgressBar value={job.completed_task_count} total={job.task_count} />
 						</div>
 					)}
