@@ -26,10 +26,10 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				<SidebarLink disabled to="spaces">
+				{/* <SidebarLink disabled to="spaces">
 					<Icon component={CirclesFour} />
 					Spaces
-				</SidebarLink>
+				</SidebarLink> */}
 				<SidebarLink disabled to="media">
 					<Icon component={MonitorPlay} />
 					Media

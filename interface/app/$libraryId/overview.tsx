@@ -121,11 +121,10 @@ export const Component = () => {
 						})}
 					</div>
 				</div>
-			</div>
-			<div>
-			<div className="mt-4 flex flex-wrap ">
-				<CategoryButton icon={icons.Node} category="Nodes" items={1} />
-				<CategoryButton icon={icons.Folder} category="Locations" items={2} />
+			<div className="mt-4 flex flex-wrap space-x-[1px]">
+				<CategoryButton selected icon={icons.Collection} category="Recents" items={1} />
+				{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
+				<CategoryButton icon={icons.Folder} category="Locations" items={2} /> */}
 				<CategoryButton icon={icons.Video} category="Movies" items={345} />
 				<CategoryButton icon={icons.Audio} category="Music" items={54} />
 				<CategoryButton icon={icons.Image} category="Pictures" items={908} />
@@ -137,12 +136,13 @@ export const Component = () => {
 				{/* Recents */}
 				{(recentFiles.data?.length || 0) > 0 && (
 					<>
-						<ScreenHeading className="mt-3">Recents</ScreenHeading>
+						{/* <ScreenHeading className="mt-3">Recents</ScreenHeading> */}
 						<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
 					</>
 				)}
 			</div>
-		</div>
+			</div>
+
 	);
 };
 
@@ -150,11 +150,12 @@ interface CategoryButtonProps {
 	category: string;
 	items: number;
 	icon: string;
+	selected?: boolean;
 }
 
-function CategoryButton({ category, icon, items }: CategoryButtonProps) {
+function CategoryButton({ category, icon, items, selected }: CategoryButtonProps) {
 	return (
-		<div className="flex shrink-0 items-center hover:bg-app-box/50 rounded-md px-1.5 py-1 text-sm">
+		<div className={clsx("flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm", selected && "bg-app-selected/20")}>
 			<img src={icon} className="mr-3 h-12 w-12" />
 			<div className="pr-5">
 				<h2 className="text-sm font-medium">{category}</h2>
