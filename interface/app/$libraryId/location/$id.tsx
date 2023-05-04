@@ -36,7 +36,7 @@ export const Component = () => {
 	useEffect(() => {
 		explorerStore.locationId = location_id;
 		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path ?? '' });
-	}, [explorerStore, location_id, path, quickRescan.mutate]);
+	}, [explorerStore, location_id, path, quickRescan]);
 
 	const { selectedRowIndex } = useExplorerStore();
 
@@ -61,6 +61,7 @@ export const Component = () => {
 					items={items}
 					onLoadMore={query.fetchNextPage}
 					hasNextPage={query.hasNextPage}
+					isFetchingNextPage={query.isFetchingNextPage}
 				/>
 			</div>
 		</>
