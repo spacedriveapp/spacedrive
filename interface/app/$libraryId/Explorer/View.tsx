@@ -8,7 +8,7 @@ import {
 	useContext,
 	useRef
 } from 'react';
-import { createSearchParams, useNavigate } from 'react-router-dom';
+import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -90,8 +90,8 @@ export default memo((props: Props) => {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	// Hide notice on overview page (TODO: change to useMatch when it's working)
-	const isOverview = location.pathname.endsWith('/overview');
+	// Hide notice on overview page
+	const isOverview = useMatch('/:libraryId/overview');
 
 	return (
 		<div
