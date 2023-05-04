@@ -2,6 +2,7 @@ import {
 	ColumnDef,
 	ColumnSizingState,
 	Row,
+	SortingState,
 	flexRender,
 	getCoreRowModel,
 	getSortedRowModel,
@@ -14,7 +15,7 @@ import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
-import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
+import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
 import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
@@ -73,6 +74,7 @@ export default () => {
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
 	const [sized, setSized] = useState(false);
+	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [locked, setLocked] = useState(true);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(
@@ -83,6 +85,7 @@ export default () => {
 	const scrollBarWidth = 8;
 
 	const getObjectData = (data: ExplorerItem) => (isObject(data) ? data.item : data.item.object);
+	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -92,11 +95,7 @@ export default () => {
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
 					const filePathData = getItemFilePath(file);
-					const fileName = `${filePathData?.name}${
-						filePathData?.extension && `.${filePathData?.extension}`
-					}`;
-
-					return fileName;
+					return filePathData && getFileName(filePathData);
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
@@ -144,7 +143,33 @@ export default () => {
 			},
 			{
 				header: 'Date Created',
-				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
+				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY'),
+				sortingFn: (a, b, name) => {
+					const aDate = a.original.item.date_created;
+					const bDate = b.original.item.date_created;
+
+					if (aDate === bDate) {
+						const desc = sorting.find((s) => s.id === name)?.desc;
+
+						const aPathData = getItemFilePath(a.original);
+						const bPathData = getItemFilePath(b.original);
+
+						const aName = aPathData ? getFileName(aPathData) : '';
+						const bName = bPathData ? getFileName(bPathData) : '';
+
+						return aName === bName
+							? 0
+							: aName > bName
+							? desc
+								? 1
+								: -1
+							: desc
+							? -1
+							: 1;
+					}
+
+					return aDate > bDate ? 1 : -1;
+				}
 			},
 			{
 				header: 'Content ID',
@@ -152,15 +177,16 @@ export default () => {
 				accessorFn: (file) => getExplorerItemData(file).cas_id
 			}
 		],
-		[explorerStore.selectedRowIndex, explorerStore.isRenaming]
+		[explorerStore.selectedRowIndex, explorerStore.isRenaming, sorting]
 	);
 
 	const table = useReactTable({
 		data,
 		columns,
 		defaultColumn: { minSize: 100 },
-		state: { columnSizing },
+		state: { columnSizing, sorting },
 		onColumnSizingChange: setColumnSizing,
+		onSortingChange: setSorting,
 		columnResizeMode: 'onChange',
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel()
