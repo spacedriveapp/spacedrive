@@ -376,6 +376,9 @@ model Job {
     // Enum: sd_core::job::job_manager:JobStatus
     status Int @default(0) // 0 = Queued
 
+    // List of errors, separated by "\n\n" in case of failed jobs or completed with errors
+    errors_text String?
+
     data     Bytes? // Serialized data to be used on pause/resume
     metadata Bytes? // Serialized metadata field with info about the job after completion
 
