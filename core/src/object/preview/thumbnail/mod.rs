@@ -233,8 +233,6 @@ async fn inner_process_step(
 			ctx.library.emit(CoreEvent::NewThumbnail {
 				cas_id: cas_id.clone(),
 			});
-			// With this invalidate query, we update the user interface to show each new thumbnail
-			// invalidate_query!(ctx.library, "locations.getExplorerData");
 
 			data.report.thumbnails_created += 1;
 		}

@@ -6,10 +6,10 @@ import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
-import Job, { OrphanJobs } from './Job';
+import Job from './Job';
 import JobGroup from './JobGroup';
 import { useFilteredJobs } from './useFilteredJobs';
-import { IJobGroup, useGroupedJobs } from './useGroupedJobs';
+import { useGroupedJobs } from './useGroupedJobs';
 import { useOrphanJobs } from './useOrphanJobs';
 
 export function JobsManager() {
