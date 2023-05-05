@@ -77,57 +77,29 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
-	fn prepare_name(path: &Path) -> &str {
-		// Not using `impl AsRef<Path>` here because it's an private method
-		path.file_stem()
-			.unwrap_or_default()
-			.to_str()
-			.unwrap_or_default()
-	}
+	pub fn parent(&'a self) -> Self {
+		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
+			("/", "", "")
+		} else {
+			let trailing_slash_idx = self.materialized_path.len() - 1;
+			let last_slash_idx = self.materialized_path[..trailing_slash_idx]
+				.rfind('/')
+				.expect("malformed materialized path at `parent` method");
 
-	pub fn parent(&self) -> IsolatedFilePathData<'static> {
-		let parent_path = Path::new(self.materialized_path.as_ref())
-			.parent()
-			.unwrap_or_else(|| Path::new("/"));
+			(
+				&self.materialized_path[..last_slash_idx + 1],
+				&self.materialized_path[last_slash_idx + 1..trailing_slash_idx],
+				&self.materialized_path[1..trailing_slash_idx],
+			)
+		};
 
-		// putting a trailing '/' as `parent()` doesn't keep it
-		let parent_path_str = format!(
-			"{}/",
-			parent_path
-				.to_str()
-				.expect("this expect is ok because this path was a valid UTF-8 String before")
-		);
-		let name = Self::prepare_name(parent_path).to_string();
-
-		IsolatedFilePathData {
+		Self {
 			is_dir: true,
 			location_id: self.location_id,
-			relative_path: Cow::Owned(format!("{parent_path_str}{name}")),
-			materialized_path: Cow::Owned(parent_path_str),
-			name: Cow::Owned(name),
-			extension: Cow::Owned(String::new()),
-		}
-	}
-
-	fn from_db_data(
-		location_id: LocationId,
-		db_materialized_path: &'a str,
-		db_is_dir: bool,
-		db_name: &'a str,
-		db_extension: &'a str,
-	) -> Self {
-		Self {
-			location_id,
-			materialized_path: Cow::Borrowed(db_materialized_path),
-			is_dir: db_is_dir,
-			name: Cow::Borrowed(db_name),
-			extension: Cow::Borrowed(db_extension),
-			relative_path: Cow::Owned(assemble_relative_path(
-				db_materialized_path,
-				db_name,
-				db_extension,
-				db_is_dir,
-			)),
+			relative_path: Cow::Borrowed(relative_path),
+			materialized_path: Cow::Borrowed(parent_path_str),
+			name: Cow::Borrowed(name),
+			extension: Cow::Borrowed(""),
 		}
 	}
 
@@ -189,6 +161,36 @@ impl<'a> IsolatedFilePathData<'a> {
 					None,
 				)
 			}
+		}
+	}
+
+	fn prepare_name(path: &Path) -> &str {
+		// Not using `impl AsRef<Path>` here because it's an private method
+		path.file_stem()
+			.unwrap_or_default()
+			.to_str()
+			.unwrap_or_default()
+	}
+
+	fn from_db_data(
+		location_id: LocationId,
+		db_materialized_path: &'a str,
+		db_is_dir: bool,
+		db_name: &'a str,
+		db_extension: &'a str,
+	) -> Self {
+		Self {
+			location_id,
+			materialized_path: Cow::Borrowed(db_materialized_path),
+			is_dir: db_is_dir,
+			name: Cow::Borrowed(db_name),
+			extension: Cow::Borrowed(db_extension),
+			relative_path: Cow::Owned(assemble_relative_path(
+				db_materialized_path,
+				db_name,
+				db_extension,
+				db_is_dir,
+			)),
 		}
 	}
 }
@@ -408,26 +410,29 @@ fn assemble_relative_path(
 mod tests {
 	use super::*;
 
+	fn expected(
+		materialized_path: &'static str,
+		is_dir: bool,
+		name: &'static str,
+		extension: &'static str,
+		relative_path: &'static str,
+	) -> IsolatedFilePathData<'static> {
+		IsolatedFilePathData {
+			location_id: 1,
+			materialized_path: materialized_path.into(),
+			is_dir,
+			name: name.into(),
+			extension: extension.into(),
+			relative_path: relative_path.into(),
+		}
+	}
+
 	#[test]
 	fn new_method() {
 		let tester = |full_path, is_dir, expected, msg| {
 			let actual =
 				IsolatedFilePathData::new(1, "/spacedrive/location", full_path, is_dir).unwrap();
 			assert_eq!(actual, expected, "{msg}");
-		};
-		let expected = |materialized_path: &'static str,
-		                is_dir,
-		                name: &'static str,
-		                extension: &'static str,
-		                relative_path: &'static str| {
-			IsolatedFilePathData {
-				location_id: 1,
-				materialized_path: materialized_path.into(),
-				is_dir,
-				name: name.into(),
-				extension: extension.into(),
-				relative_path: relative_path.into(),
-			}
 		};
 
 		tester(
@@ -482,6 +487,66 @@ mod tests {
 				"txt",
 				"dir/dir2/dir3/file.txt",
 			),
+			"a file inside a third level directory",
+		);
+	}
+
+	#[test]
+	fn parent_method() {
+		let tester = |full_path, is_dir, expected, msg| {
+			let child =
+				IsolatedFilePathData::new(1, "/spacedrive/location", full_path, is_dir).unwrap();
+
+			let actual = child.parent();
+			assert_eq!(actual, expected, "{msg}");
+		};
+
+		tester(
+			"/spacedrive/location",
+			true,
+			expected("/", true, "", "", ""),
+			"the location root directory",
+		);
+
+		tester(
+			"/spacedrive/location/file.txt",
+			false,
+			expected("/", true, "", "", ""),
+			"a file in the root directory",
+		);
+
+		tester(
+			"/spacedrive/location/dir",
+			true,
+			expected("/", true, "", "", ""),
+			"a directory in the root directory",
+		);
+
+		tester(
+			"/spacedrive/location/dir/file.txt",
+			false,
+			expected("/", true, "dir", "", "dir"),
+			"a directory with a file inside",
+		);
+
+		tester(
+			"/spacedrive/location/dir/dir2",
+			true,
+			expected("/", true, "dir", "", "dir"),
+			"a directory in a directory",
+		);
+
+		tester(
+			"/spacedrive/location/dir/dir2/dir3",
+			true,
+			expected("/dir/", true, "dir2", "", "dir/dir2"),
+			"3 level of directories",
+		);
+
+		tester(
+			"/spacedrive/location/dir/dir2/dir3/file.txt",
+			false,
+			expected("/dir/dir2/", true, "dir3", "", "dir/dir2/dir3"),
 			"a file inside a third level directory",
 		);
 	}
