@@ -225,6 +225,7 @@ importers:
       react-native-svg-transformer: ^1.0.0
       react-native-wheel-color-picker: ^1.2.0
       twrnc: ^3.6.0
+      typescript: ^5.0.4
       use-count-up: ^3.0.1
       use-debounce: ^9.0.4
       valtio: ^1.10.4
@@ -245,7 +246,7 @@ importers:
       '@shopify/flash-list': 1.4.2_aim4q6r6ykgo64vi4fl5665p4i
       '@tanstack/react-query': 4.29.5_bblof3d6od7kdqr2urb3dykbey
       byte-size: 8.1.1
-      class-variance-authority: 0.5.3
+      class-variance-authority: 0.5.3_typescript@5.0.4
       dayjs: 1.11.7
       expo: 48.0.16_@babel+core@7.21.8
       expo-linking: 4.0.1_expo@48.0.16
@@ -281,6 +282,7 @@ importers:
       babel-plugin-module-resolver: 5.0.0
       eslint-plugin-react-native: 4.0.0_eslint@8.39.0
       react-native-svg-transformer: 1.0.0_csdbj5z546ts5ngzc62z27kx4u
+      typescript: 5.0.4
 
   apps/releases:
     specifiers:
@@ -8460,13 +8462,15 @@ packages:
       typescript: 4.9.5
     dev: false
 
-  /class-variance-authority/0.5.3:
+  /class-variance-authority/0.5.3_typescript@5.0.4:
     resolution: {integrity: sha512-vcMxnya/xxQSvTuXO9FWAOnmLihbzX82fPkQpMUwPHZ4tdopmFlM4X818fMgCPt2L6CirOIbN91vybifdScUVw==}
     peerDependencies:
       typescript: '>= 4.5.5 < 6'
     peerDependenciesMeta:
       typescript:
         optional: true
+    dependencies:
+      typescript: 5.0.4
     dev: false
 
   /classnames/2.3.2:
