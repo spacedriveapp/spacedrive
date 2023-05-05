@@ -17,7 +17,7 @@ const state = {
 	layoutMode: 'grid' as ExplorerLayoutMode,
 	gridItemSize: 100,
 	listItemSize: 40,
-	selectedRowIndex: 1,
+	selectedRowIndex: 1 as number | null,
 	showBytesInGridView: true,
 	tagAssignMode: false,
 	showInspector: false,
