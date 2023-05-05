@@ -44,11 +44,11 @@ importers:
   apps/desktop:
     dependencies:
       '@rspc/client':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14
       '@rspc/tauri':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505(@tauri-apps/api@1.2.0)
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14(@tauri-apps/api@1.2.0)
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -280,11 +280,11 @@ importers:
         specifier: ^6.3.16
         version: 6.3.16(@react-navigation/native@6.1.6)(react-native-gesture-handler@2.9.0)(react-native-safe-area-context@4.5.1)(react-native-screens@3.20.0)(react-native@0.71.3)(react@18.2.0)
       '@rspc/client':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14
       '@rspc/react':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505(@rspc/client@0.0.0-main-a312a505)(@tanstack/react-query@4.29.5)(react@18.2.0)
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14(@rspc/client@0.0.0-main-4caedb14)(@tanstack/react-query@4.29.5)(react@18.2.0)
       '@sd/assets':
         specifier: workspace:*
         version: link:../../packages/assets
@@ -509,8 +509,8 @@ importers:
         specifier: ^4.5.13
         version: 4.5.15
       '@rspc/client':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -780,11 +780,11 @@ importers:
   packages/client:
     dependencies:
       '@rspc/client':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14
       '@rspc/react':
-        specifier: '=0.0.0-main-a312a505'
-        version: 0.0.0-main-a312a505(@rspc/client@0.0.0-main-a312a505)(@tanstack/react-query@4.29.5)(react@18.2.0)
+        specifier: '=0.0.0-main-4caedb14'
+        version: 0.0.0-main-4caedb14(@rspc/client@0.0.0-main-4caedb14)(@tanstack/react-query@4.29.5)(react@18.2.0)
       '@sd/config':
         specifier: workspace:*
         version: link:../config
@@ -5337,28 +5337,28 @@ packages:
       picomatch: 2.3.1
     dev: true
 
-  /@rspc/client@0.0.0-main-a312a505:
-    resolution: {integrity: sha512-UmnXvfcJRCjYqqrWofRk2h/OSd5OsVXBg2hAUdhvcJi+DtXfX2bBPg/4e+A3mKwjm50JCmvMv2XkWMNhCxfF6Q==}
+  /@rspc/client@0.0.0-main-4caedb14:
+    resolution: {integrity: sha512-kbTF/DCdr9+DOh5hnmxuqGfSOmZgFxEmUtkfAcBZ4WFw33g8ZUcu7L0NCtIUMRFPeAkqjyhFH7Y3QljYrqGdsQ==}
     dev: false
 
-  /@rspc/react@0.0.0-main-a312a505(@rspc/client@0.0.0-main-a312a505)(@tanstack/react-query@4.29.5)(react@18.2.0):
-    resolution: {integrity: sha512-uxzo3L7kkvrJNKc+F+fWBWh2gOdz2JRLeaY9mSGVgjMPwmtPW59eo51KcoFkqIfgLK+sTpIXdGW7IWD9dniMvg==}
+  /@rspc/react@0.0.0-main-4caedb14(@rspc/client@0.0.0-main-4caedb14)(@tanstack/react-query@4.29.5)(react@18.2.0):
+    resolution: {integrity: sha512-n+ZEqptbSIBajrcbuND3wzWjbkzG4sZkcQSLbaKQ34y84UICZkr6HIUXItr/C7zn4a4A35+leuMLnmuLq3NcaQ==}
     peerDependencies:
-      '@rspc/client': 0.0.0-main-a312a505
+      '@rspc/client': 0.0.0-main-4caedb14
       '@tanstack/react-query': ^4.26.0
       react: ^18.2.0
     dependencies:
-      '@rspc/client': 0.0.0-main-a312a505
+      '@rspc/client': 0.0.0-main-4caedb14
       '@tanstack/react-query': 4.29.5(react-dom@18.2.0)(react-native@0.71.3)(react@18.2.0)
       react: 18.2.0
     dev: false
 
-  /@rspc/tauri@0.0.0-main-a312a505(@tauri-apps/api@1.2.0):
-    resolution: {integrity: sha512-n1f/TW7UqI1MVgS/DK2PYGXJEyTIBRRAXElk4vJ22whv3IFZpqWkhNVlCPpUlcB8KjKZWbG6/fEof+e7vdc+1Q==}
+  /@rspc/tauri@0.0.0-main-4caedb14(@tauri-apps/api@1.2.0):
+    resolution: {integrity: sha512-rJDxC+Z3dpZDwvc2Dolb/lsMTfXE9iXVwnTi3v+v6i7vsG3Gp2TjftA39LqWs4HNLV83JiWQoQ10gcve0BM+KA==}
     peerDependencies:
       '@tauri-apps/api': ^1.2.0
     dependencies:
-      '@rspc/client': 0.0.0-main-a312a505
+      '@rspc/client': 0.0.0-main-4caedb14
       '@tauri-apps/api': 1.2.0
     dev: false
 
