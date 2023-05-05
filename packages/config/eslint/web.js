@@ -11,6 +11,10 @@ module.exports = {
 			{
 				selector: "CallExpression[callee.name='useParams']",
 				message: 'useParams is illegal, use useZodRouteParams!'
+			},
+			{
+				selector: "CallExpression[callee.name='useSearchParams']",
+				message: 'useSearchParams is illegal, use useZodSearchParams!'
 			}
 		]
 	}
