@@ -148,13 +148,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					Ok(file_paths
-						.into_iter()
-						.map(|x| ExplorerItem::Path {
-							has_thumbnail: x.object.clone().map_or(false, |x| x.has_thumbnail),
-							item: x,
-						})
-						.collect::<Vec<ExplorerItem>>())
+					let mut items = vec![];
+
+					for path in file_paths.into_iter() {
+						let has_thumbnail = if let Some(cas_id) = &path.cas_id {
+							library.thumbnail_exists(cas_id).await.map_err(|e| {
+								rspc::Error::new(ErrorCode::InternalServerError, e.to_string())
+							})?
+						} else {
+							false
+						};
+
+						items.push(ExplorerItem::Path {
+							has_thumbnail,
+							item: path,
+						});
+					}
+
+					Ok(items)
 				})
 		})
 		.procedure("encryptFiles", {

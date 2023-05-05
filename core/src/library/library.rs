@@ -6,7 +6,7 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	object::preview::get_thumbnail_path,
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
 	NodeContext,
@@ -88,12 +88,7 @@ impl Library {
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> tokio::io::Result<bool> {
-		let thumb_path = self
-			.config()
-			.data_directory()
-			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(cas_id)
-			.with_extension("webp");
+		let thumb_path = get_thumbnail_path(self, cas_id);
 
 		match tokio::fs::metadata(thumb_path).await {
 			Ok(_) => Ok(true),

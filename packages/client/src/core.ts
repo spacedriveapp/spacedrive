@@ -216,8 +216,6 @@ export type Tag = { id: number; pub_id: number[]; name: string | null; color: st
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
@@ -291,6 +289,8 @@ export type FileCutterJobInit = { source_location_id: number; source_path_id: nu
 export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
