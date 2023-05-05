@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerData, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -20,7 +20,7 @@ interface Props {
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { path } = useExplorerSearchParams();
+	const [{ path }] = useExplorerSearchParams();
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
@@ -29,15 +29,19 @@ export default function Explorer(props: Props) {
 	});
 
 	useEffect(() => {
-		getExplorerStore().selectedRowIndex = -1;
+		getExplorerStore().selectedRowIndex = null;
 	}, [path]);
+
+	const selectedItem = useMemo(() => {
+		if (selectedRowIndex === null) return null;
+
+		return props.items?.[selectedRowIndex] ?? null;
+	}, [selectedRowIndex, props.items]);
 
 	useKey('Space', (e) => {
 		e.preventDefault();
-		if (selectedRowIndex !== -1) {
-			const item = props.items?.[selectedRowIndex];
-			if (item) getExplorerStore().quickViewObject = item;
-		}
+
+		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
 	});
 
 	return (
@@ -57,9 +61,9 @@ export default function Explorer(props: Props) {
 					</div>
 				</ExplorerContextMenu>
 
-				{expStore.showInspector && props.items?.[selectedRowIndex] && (
+				{expStore.showInspector && selectedItem !== null && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={props.items?.[selectedRowIndex]} />
+						<Inspector data={selectedItem} />
 					</div>
 				)}
 			</div>

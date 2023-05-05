@@ -25,32 +25,35 @@ const PARAMS = z.object({
 });
 
 export const Component = () => {
-	const { path } = useExplorerSearchParams();
+	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
 
-	// // we destructure this since `mutate` is a stable reference but the object it's in is not
-	const quickRescan = useLibraryMutation('locations.quickRescan');
+	// we destructure this since `mutate` is a stable reference but the object it's in is not
+	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = getExplorerStore();
 
 	useEffect(() => {
 		explorerStore.locationId = location_id;
-		if (location_id !== null) quickRescan.mutate({ location_id, sub_path: path ?? '' });
+		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
 	}, [explorerStore, location_id, path, quickRescan]);
-
-	const { selectedRowIndex } = useExplorerStore();
 
 	const { query, items } = useItems();
 
 	useKey('Delete', (e) => {
 		e.preventDefault();
-		if (selectedRowIndex !== -1) {
-			const file = items?.[selectedRowIndex];
-			if (file)
-				dialogManager.create((dp) => (
-					<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
-				));
-		}
+
+		const explorerStore = getExplorerStore();
+
+		if (explorerStore.selectedRowIndex === null) return;
+
+		const file = items?.[explorerStore.selectedRowIndex];
+
+		if (!file) return;
+
+		dialogManager.create((dp) => (
+			<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
+		));
 	});
 
 	return (
@@ -108,7 +111,7 @@ const useToolBarOptions = () => {
 
 const useItems = () => {
 	const { id: location_id } = useZodRouteParams(PARAMS);
-	const { path, limit } = useExplorerSearchParams();
+	const [{ path, limit }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();

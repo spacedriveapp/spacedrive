@@ -51,7 +51,7 @@ const Root = ({
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
 				<RadixDM.Content
-					className={clsx(contextMenuClassNames, width && 'min-w-0', className)}
+					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
 					align="start"
 					style={{ width }}
 					{...props}

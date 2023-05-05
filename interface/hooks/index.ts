@@ -13,3 +13,4 @@ export * from './useScrolled';
 export * from './useSearchStore';
 export * from './useToasts';
 export * from './useZodRouteParams';
+export * from './useZodSearchParams';

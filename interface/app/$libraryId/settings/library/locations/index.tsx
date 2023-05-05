@@ -17,7 +17,7 @@ export const Component = () => {
 			locations.data?.filter((location) =>
 				location.name.toLowerCase().includes(search.toLowerCase())
 			),
-		[search]
+		[search, locations.data]
 	);
 
 	return (
