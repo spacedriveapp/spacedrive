@@ -2,6 +2,7 @@ use crate::{
 	api::CoreEvent,
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
+	library::Library,
 	location::{
 		file_path_helper::{
 			file_path_just_materialized_path_cas_id, FilePathError, MaterializedPath,
@@ -32,9 +33,19 @@ use webp::Encoder;
 pub mod shallow_thumbnailer_job;
 pub mod thumbnailer_job;
 
-static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
-static THUMBNAIL_QUALITY: f32 = 30.0;
-pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
+const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
+const THUMBNAIL_QUALITY: f32 = 30.0;
+pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
+
+/// This does not check if a thumbnail exists, it just returns the path that it would exist at
+pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
+	library
+		.config()
+		.data_directory()
+		.join(THUMBNAIL_CACHE_DIR_NAME)
+		.join(cas_id)
+		.with_extension("webp")
+}
 
 #[cfg(feature = "ffmpeg")]
 static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {

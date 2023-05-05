@@ -224,8 +224,6 @@ export type LocationExplorerArgs = { location_id: number; path?: string | null; 
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type FileDeleterJobInit = { location_id: number; path_id: number }
 
 /**
@@ -281,6 +279,8 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
 
