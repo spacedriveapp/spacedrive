@@ -18,7 +18,7 @@ const topBarButtonStyle = cva(
 	{
 		variants: {
 			active: {
-				true: 'bg-app-selected',
+				true: '!bg-app-selected',
 				false: 'bg-transparent'
 			},
 			rounding: {
