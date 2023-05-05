@@ -302,7 +302,7 @@ importers:
         version: 8.1.1
       class-variance-authority:
         specifier: ^0.5.2
-        version: 0.5.3(typescript@4.9.5)
+        version: 0.5.3(typescript@5.0.4)
       dayjs:
         specifier: ^1.11.5
         version: 1.11.7
@@ -406,6 +406,9 @@ importers:
       react-native-svg-transformer:
         specifier: ^1.0.0
         version: 1.0.0(react-native-svg@13.4.0)(react-native@0.71.3)
+      typescript:
+        specifier: ^5.0.4
+        version: 5.0.4
 
   apps/releases:
     dependencies:
@@ -8718,7 +8721,7 @@ packages:
       typescript: 4.9.5
     dev: false
 
-  /class-variance-authority@0.5.3(typescript@4.9.5):
+  /class-variance-authority@0.5.3(typescript@5.0.4):
     resolution: {integrity: sha512-vcMxnya/xxQSvTuXO9FWAOnmLihbzX82fPkQpMUwPHZ4tdopmFlM4X818fMgCPt2L6CirOIbN91vybifdScUVw==}
     peerDependencies:
       typescript: '>= 4.5.5 < 6'
@@ -8726,7 +8729,7 @@ packages:
       typescript:
         optional: true
     dependencies:
-      typescript: 4.9.5
+      typescript: 5.0.4
     dev: false
 
   /classnames@2.3.2:
@@ -18124,7 +18127,6 @@ packages:
     resolution: {integrity: sha512-cW9T5W9xY37cc+jfEnaUvX91foxtHkza3Nw3wkoF4sSlKn0MONdkdEndig/qPBWXNkmplh3NzayQzCiHM4/hqw==}
     engines: {node: '>=12.20'}
     hasBin: true
-    dev: false
 
   /ua-parser-js@0.7.35:
     resolution: {integrity: sha512-veRf7dawaj9xaWEu9HoTVn5Pggtc/qj+kqTOFvNiN1l0YdxwC1kvel57UCjThjGa3BHBihE8/UJAHI+uQHmd/g==}
