@@ -1,19 +1,25 @@
 import clsx from 'clsx';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useRef, useState, useTransition } from 'react';
 import { useLocation, useNavigate, useResolvedPath } from 'react-router';
-import { createSearchParams, useSearchParams } from 'react-router-dom';
+import { createSearchParams } from 'react-router-dom';
 import { useKey, useKeys } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
+import { z } from 'zod';
 import { Input, Shortcut } from '@sd/ui';
+import { useZodSearchParams } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { getSearchStore } from '~/hooks/useSearchStore';
 
 export const SEARCH_PARAM_KEY = 'search';
 
+export const SEARCH_PARAMS = z.object({
+	search: z.string().default('')
+});
+
 export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const [searchParams, setSearchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useZodSearchParams(SEARCH_PARAMS);
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -27,20 +33,23 @@ export default () => {
 
 	const searchPath = useResolvedPath('search');
 
-	const [value, setValue] = useState(searchParams.get(SEARCH_PARAM_KEY) || '');
+	const [value, setValue] = useState(searchParams.search);
 
 	const updateParams = useDebouncedCallback((value: string) => {
 		startTransition(() =>
-			setSearchParams((p) => (p.set(SEARCH_PARAM_KEY, value), p), {
+			setSearchParams((p) => ({ ...p, search: value }), {
 				replace: true
 			})
 		);
 	}, 300);
 
-	useEffect(() => {
-		if (searchPath.pathname === location.pathname) updateParams(value);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [value]);
+	const updateValue = useCallback(
+		(value: string) => {
+			setValue(value);
+			if (searchPath.pathname === location.pathname) updateParams(value);
+		},
+		[searchPath.pathname, location.pathname, updateParams]
+	);
 
 	useKeys([os === 'macOS' ? 'Meta' : 'Ctrl', 'f'], () => searchRef.current?.focus());
 	useKey('Escape', () => searchRef.current?.blur());
@@ -51,11 +60,11 @@ export default () => {
 			placeholder="Search"
 			className="w-52 transition-all duration-200 focus-within:w-60"
 			size="sm"
-			onChange={(e) => setValue(e.target.value)}
+			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
 				getSearchStore().isFocused = false;
 				if (value === '') {
-					setSearchParams((p) => (p.delete(SEARCH_PARAM_KEY), p), { replace: true });
+					setSearchParams({}, { replace: true });
 					navigate(-1);
 				}
 			}}
