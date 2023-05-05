@@ -22,7 +22,8 @@ import { useScrolled } from '~/hooks/useScrolled';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
-import { ViewItem, useExplorerView } from './View';
+import { ViewItem } from './View';
+import { useExplorerViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
 
 interface ListViewItemProps {
@@ -70,7 +71,8 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
+		useExplorerViewContext();
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
 	const [sized, setSized] = useState(false);

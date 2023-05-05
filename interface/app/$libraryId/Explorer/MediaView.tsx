@@ -9,7 +9,8 @@ import { Button } from '@sd/ui';
 import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import Thumb from './File/Thumb';
-import { ViewItem, useExplorerView } from './View';
+import { ViewItem } from './View';
+import { useExplorerViewContext } from './ViewContext';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
@@ -58,7 +59,8 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
+		useExplorerViewContext();
 
 	const gridPadding = 2;
 	const scrollBarWidth = 6;
