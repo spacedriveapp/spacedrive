@@ -1,9 +1,9 @@
 /* eslint-disable tailwindcss/classnames-order */
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
 import Job from './Job';
@@ -17,17 +17,12 @@ export function JobsManager() {
 	const { data: jobs } = useLibraryQuery(['jobs.getHistory']);
 	const queryClient = useQueryClient();
 
-	const {
-		individualJobs,
-		runningIndividualJobs,
-		jobsWithActions,
-		runningJobsWithActions,
-	} = useFilteredJobs(jobs, runningJobs);
+	const { individualJobs, runningIndividualJobs, jobsWithActions, runningJobsWithActions } =
+		useFilteredJobs(jobs, runningJobs);
 
 	const groupedJobs = useGroupedJobs(jobsWithActions, runningJobsWithActions);
 
 	const orphanJobs = useOrphanJobs(jobsWithActions, runningJobsWithActions);
-
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -68,24 +63,24 @@ export function JobsManager() {
 	);
 
 	return (
-		<div className="h-full pb-10 overflow-hidden">
-			<div className="z-20 flex items-center w-full h-10 px-2 border-b rounded-t-md border-app-line/50 bg-app-button/70">
+		<div className="h-full overflow-hidden pb-10">
+			<div className="z-20 flex h-10 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/70 px-2">
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="grow" />
 				<Button onClick={() => clearAllJobsHandler()} size="icon">
 					<Tooltip label="Clear out finished jobs">
-						<Trash className="w-5 h-5" />
+						<Trash className="h-5 w-5" />
 					</Tooltip>
 				</Button>
 				<PopoverClose asChild>
 					<Button size="icon">
 						<Tooltip label="Close">
-							<X className="w-5 h-5" />
+							<X className="h-5 w-5" />
 						</Tooltip>
 					</Button>
 				</PopoverClose>
 			</div>
-			<div className="h-full overflow-x-hidden no-scrollbar">
+			<div className="no-scrollbar h-full overflow-x-hidden">
 				{groupedJobs.map((data) => (
 					<JobGroup key={data.id} data={data} clearJob={clearJobHandler} />
 				))}
@@ -99,7 +94,7 @@ export function JobsManager() {
 					<Job clearJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
-					<div className="flex items-center justify-center h-32 text-ink-dull">
+					<div className="flex h-32 items-center justify-center text-ink-dull">
 						No jobs.
 					</div>
 				)}
@@ -107,6 +102,5 @@ export function JobsManager() {
 		</div>
 	);
 }
-
 
 export { IsRunningJob };

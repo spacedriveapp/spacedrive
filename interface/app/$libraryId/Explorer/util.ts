@@ -6,7 +6,6 @@ export function getExplorerItemData(data: ExplorerItem, newThumbnails?: Record<s
 	const objectData = getItemObject(data);
 	const filePath = getItemFilePath(data);
 
-
 	return {
 		cas_id: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,

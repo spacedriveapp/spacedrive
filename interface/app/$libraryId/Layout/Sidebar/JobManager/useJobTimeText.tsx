@@ -1,6 +1,6 @@
-import { JobReport } from '@sd/client';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';
+import { JobReport } from '@sd/client';
 import { useForceUpdate } from '~/util';
 
 export function useJobTimeText(job: JobReport): string | null {

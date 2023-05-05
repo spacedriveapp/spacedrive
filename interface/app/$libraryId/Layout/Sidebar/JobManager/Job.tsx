@@ -1,7 +1,4 @@
-import { JobReport } from '@sd/client';
-import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
-import dayjs from 'dayjs';
 import {
 	Camera,
 	Copy,
@@ -13,10 +10,11 @@ import {
 	Question,
 	Scissors,
 	Trash,
-	TrashSimple,
-	X
+	TrashSimple
 } from 'phosphor-react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo } from 'react';
+import { JobReport } from '@sd/client';
+import { ProgressBar } from '@sd/ui';
 import './Job.scss';
 import { useJobTimeText } from './useJobTimeText';
 
@@ -34,26 +32,28 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-				? `Indexed paths at ${job.metadata?.location_path} `
-				: `Processing added location...`,
+			? `Indexed paths at ${job.metadata?.location_path} `
+			: `Processing added location...`,
 		icon: Folder,
 		filesDiscovered: `${numberWithCommas(
 			job.metadata?.total_paths || 0
 		)} ${JobCountTextCondition(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Generating thumbnails'
-			: 'Generated thumbnails'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Generating thumbnails'
+				: 'Generated thumbnails'
+		}`,
 		icon: Camera,
 		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'path')}`
 	},
 	file_identifier: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Extracting metadata'
-			: 'Extracted metadata'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Extracting metadata'
+				: 'Extracted metadata'
+		}`,
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
@@ -146,12 +146,10 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<p className="mb-[5px] mt-[2px] flex gap-1 text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.filesDiscovered}
-								{" • "}
+								{' • '}
 								{time}
 							</p>
-							<div className="flex gap-1 truncate text-ink-faint">
-
-							</div>
+							<div className="flex gap-1 truncate text-ink-faint"></div>
 						</div>
 						<div className="grow" />
 						<div className="ml-7 flex flex-row space-x-2">
@@ -182,7 +180,6 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	);
 }
 
-
 function JobCountTextCondition(job: JobReport, word: string) {
 	const addStoEnd = job.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
 	return addStoEnd;
@@ -191,6 +188,5 @@ function JobCountTextCondition(job: JobReport, word: string) {
 function numberWithCommas(x: number) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
-
 
 export default memo(Job);

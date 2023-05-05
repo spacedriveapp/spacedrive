@@ -1,5 +1,5 @@
-import { JobReport } from "@sd/client";
-import { useMemo } from "react";
+import { useMemo } from 'react';
+import { JobReport } from '@sd/client';
 
 // This could be done better, as the memo is kinda redundant. Large lists of jobs will be slow.
 export function useFilteredJobs(jobs: JobReport[] = [], runningJobs: JobReport[] = []) {
@@ -13,7 +13,7 @@ export function useFilteredJobs(jobs: JobReport[] = [], runningJobs: JobReport[]
 			individualJobs,
 			runningIndividualJobs,
 			jobsWithActions,
-			runningJobsWithActions,
+			runningJobsWithActions
 		};
 	}, [jobs, runningJobs]);
 }

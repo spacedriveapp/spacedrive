@@ -7,7 +7,11 @@ export function useOrphanJobs(jobs: JobReport[], runningJobs: JobReport[]) {
 
 		for (const job of jobs) {
 			for (const runningJob of runningJobs) {
-				if (job.parent_id !== runningJob.id && job.id !== runningJob.id && job.id !== job.id) {
+				if (
+					job.parent_id !== runningJob.id &&
+					job.id !== runningJob.id &&
+					job.id !== job.id
+				) {
 					singleRunningJobs.push(runningJob);
 				}
 			}
