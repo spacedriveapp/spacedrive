@@ -207,16 +207,10 @@ where
 		.expect("critical error: missing data on job state");
 
 	// assemble the file path
-	let path = data.location_path.join(
-		IsolatedFilePathData::from_db_data(
-			data.report.location_id,
-			&file_path.materialized_path,
-			file_path.is_dir,
-			&file_path.name,
-			&file_path.extension,
-		)
-		.to_path(),
-	);
+	let path = data.location_path.join(IsolatedFilePathData::from((
+		data.report.location_id,
+		file_path,
+	)));
 	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip

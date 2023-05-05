@@ -57,12 +57,30 @@ file_path::select!(file_path_for_thumbnailer {
 	cas_id
 });
 file_path::select!(file_path_to_isolate {
-	pub_id
 	location_id
 	materialized_path
 	is_dir
 	name
 	extension
+});
+file_path::select!(file_path_to_handle_custom_uri {
+	materialized_path
+	is_dir
+	name
+	extension
+	location: select {
+		path
+	}
+});
+file_path::select!(file_path_to_full_path {
+	materialized_path
+	is_dir
+	name
+	extension
+	location: select {
+		id
+		path
+	}
 });
 
 // File Path includes!
@@ -120,6 +138,7 @@ pub async fn create_file_path(
 		location_id,
 		name,
 		extension,
+		..
 	}: IsolatedFilePathData<'_>,
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
@@ -218,6 +237,7 @@ pub fn filter_existing_file_path_params(
 		location_id,
 		name,
 		extension,
+		..
 	}: &IsolatedFilePathData,
 ) -> Vec<file_path::WhereParam> {
 	vec![

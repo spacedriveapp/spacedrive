@@ -222,14 +222,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let location_path = Path::new(&location.path);
 					fs::rename(
-						location_path.join(
-							IsolatedFilePathData::from_relative_str(location_id, &file_name)
-								.to_path(),
-						),
-						location_path.join(
-							IsolatedFilePathData::from_relative_str(location_id, &new_file_name)
-								.to_path(),
-						),
+						location_path.join(IsolatedFilePathData::from_relative_str(
+							location_id,
+							&file_name,
+						)),
+						location_path.join(IsolatedFilePathData::from_relative_str(
+							location_id,
+							&new_file_name,
+						)),
 					)
 					.await
 					.map_err(|e| {

@@ -103,10 +103,7 @@ impl StatefulJob for ThumbnailerJob {
 			)
 		};
 
-		info!(
-			"Searching for images in location {location_id} at directory {}",
-			iso_file_path.to_relative_path_str()
-		);
+		info!("Searching for images in location {location_id} at directory {iso_file_path}");
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir)

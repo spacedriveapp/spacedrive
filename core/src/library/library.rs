@@ -1,7 +1,10 @@
 use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
-	location::{file_path_helper::IsolatedFilePathData, LocationManager},
+	location::{
+		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+		LocationManager,
+	},
 	node::NodeConfigManager,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, location, PrismaClient},
@@ -108,29 +111,12 @@ impl Library {
 				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
 				file_path::id::equals(id),
 			])
-			.select(file_path::select!({
-				materialized_path
-				is_dir
-				name
-				extension
-				location: select {
-					id
-					path
-				}
-			}))
+			.select(file_path_to_full_path::select())
 			.exec()
 			.await?
 			.map(|record| {
-				Path::new(&record.location.path).join(
-					IsolatedFilePathData::from_db_data(
-						record.location.id,
-						&record.materialized_path,
-						record.is_dir,
-						&record.name,
-						&record.extension,
-					)
-					.to_path(),
-				)
+				Path::new(&record.location.path)
+					.join(IsolatedFilePathData::from((record.location.id, &record)))
 			}))
 	}
 }

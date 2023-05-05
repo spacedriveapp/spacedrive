@@ -177,7 +177,7 @@ pub(super) async fn create_file(
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &iso_file_path)
 		.await
-		.map_err(|e| FileIOError::from((location_path.join(iso_file_path.to_path()), e)))?;
+		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
 
 	let created_file = create_file_path(
 		library,
@@ -347,13 +347,7 @@ async fn inner_update_file(
 		full_path.display()
 	);
 
-	let iso_file_path = IsolatedFilePathData::from_db_data(
-		location_id,
-		&file_path.materialized_path,
-		file_path.is_dir,
-		&file_path.name,
-		&file_path.extension,
-	);
+	let iso_file_path = IsolatedFilePathData::from(file_path);
 
 	let FileMetadata {
 		cas_id,
@@ -361,7 +355,7 @@ async fn inner_update_file(
 		kind,
 	} = FileMetadata::new(&location_path, &iso_file_path)
 		.await
-		.map_err(|e| FileIOError::from((location_path.join(iso_file_path.to_path()), e)))?;
+		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {

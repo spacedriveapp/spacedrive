@@ -58,7 +58,7 @@ impl FileMetadata {
 		location_path: impl AsRef<Path>,
 		iso_file_path: &IsolatedFilePathData<'_>, // TODO: use dedicated CreateUnchecked type
 	) -> Result<FileMetadata, io::Error> {
-		let path = location_path.as_ref().join(iso_file_path.to_path());
+		let path = location_path.as_ref().join(iso_file_path);
 
 		let fs_metadata = fs::metadata(&path).await?;
 
@@ -103,13 +103,7 @@ async fn identifier_job_step(
 		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
 		FileMetadata::new(
 			&location.path,
-			&IsolatedFilePathData::from_db_data(
-				location.id,
-				&file_path.materialized_path,
-				file_path.is_dir,
-				&file_path.name,
-				&file_path.extension,
-			),
+			&IsolatedFilePathData::from((location.id, file_path)),
 		)
 		.await
 		.map(|params| {

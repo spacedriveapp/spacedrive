@@ -1,4 +1,8 @@
-use crate::{location::file_path_helper::IsolatedFilePathData, prisma::file_path, Node};
+use crate::{
+	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
+	prisma::file_path,
+	Node,
+};
 
 use std::{
 	io,
@@ -175,22 +179,14 @@ async fn handle_file(
 				.db
 				.file_path()
 				.find_unique(file_path::id::equals(file_path_id))
-				.include(file_path::include!({ location }))
+				.select(file_path_to_handle_custom_uri::select())
 				.exec()
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 			let lru_entry = (
-				Path::new(&file_path.location.path).join(
-					IsolatedFilePathData::from_db_data(
-						location_id,
-						&file_path.materialized_path,
-						file_path.is_dir,
-						&file_path.name,
-						&file_path.extension,
-					)
-					.to_path(),
-				),
+				Path::new(&file_path.location.path)
+					.join(IsolatedFilePathData::from((location_id, &file_path))),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
