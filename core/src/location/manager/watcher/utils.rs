@@ -16,9 +16,7 @@ use crate::{
 	object::{
 		file_identifier::FileMetadata,
 		object_just_id_has_thumbnail,
-		preview::{
-			can_generate_thumbnail_for_image, generate_image_thumbnail, THUMBNAIL_CACHE_DIR_NAME,
-		},
+		preview::{can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path},
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
@@ -422,17 +420,11 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if library
-					.thumbnail_exists(
-						file_path
-							.cas_id
-							.clone()
-							.map_or(String::new(), |x| x)
-							.as_ref(),
-					)
-					.await? && !file_path.extension.is_empty()
-				{
+				if library.thumbnail_exists(old_cas_id).await? && !file_path.extension.is_empty() {
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
+
+					// remove the old thumbnail as we're generating a new one
+					fs::remove_file(get_thumbnail_path(library, old_cas_id)).await?;
 				}
 
 				let int_kind = kind as i32;
@@ -666,12 +658,7 @@ async fn generate_thumbnail(
 	library: &Library,
 ) {
 	let path = path.as_ref();
-	let output_path = library
-		.config()
-		.data_directory()
-		.join(THUMBNAIL_CACHE_DIR_NAME)
-		.join(cas_id)
-		.with_extension("webp");
+	let output_path = get_thumbnail_path(library, cas_id);
 
 	if let Err(e) = fs::metadata(&output_path).await {
 		if e.kind() != ErrorKind::NotFound {
