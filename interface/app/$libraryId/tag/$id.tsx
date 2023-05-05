@@ -1,11 +1,16 @@
-import { useParams } from 'react-router-dom';
+import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
+import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 
-export const Component = () => {
-	const { id } = useParams<{ id: string }>();
+const PARAMS = z.object({
+	id: z.coerce.number()
+});
 
-	const explorerData = useLibraryQuery(['tags.getExplorerData', Number(id)]);
+export const Component = () => {
+	const { id } = useZodRouteParams(PARAMS);
+
+	const explorerData = useLibraryQuery(['tags.getExplorerData', id]);
 
 	return (
 		<div className="w-full">

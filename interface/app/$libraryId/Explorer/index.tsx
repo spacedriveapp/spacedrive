@@ -1,13 +1,11 @@
 import { useEffect } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerData, useLibrarySubscription } from '@sd/client';
-import { dialogManager } from '~/../packages/ui/src';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { Inspector } from '../Explorer/Inspector';
-import { useExplorerParams } from '../location/$id';
 import ExplorerContextMenu from './ContextMenu';
-import DeleteDialog from './File/DeleteDialog';
+import { Inspector } from './Inspector';
 import View from './View';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
 	// TODO: not using data since context isn't actually used
@@ -16,12 +14,13 @@ interface Props {
 	items?: ExplorerData['items'];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
 	viewClassName?: string;
 }
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { location_id, path } = useExplorerParams();
+	const [{ path }] = useExplorerSearchParams();
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
@@ -32,24 +31,13 @@ export default function Explorer(props: Props) {
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = -1;
-	}, [location_id, path]);
+	}, [path]);
 
 	useKey('Space', (e) => {
 		e.preventDefault();
 		if (selectedRowIndex !== -1) {
 			const item = props.items?.[selectedRowIndex];
 			if (item) getExplorerStore().quickViewObject = item;
-		}
-	});
-
-	useKey('Delete', (e) => {
-		e.preventDefault();
-		if (selectedRowIndex !== -1) {
-			const file = props.items?.[selectedRowIndex];
-			if (file && location_id)
-				dialogManager.create((dp) => (
-					<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
-				));
 		}
 	});
 
@@ -60,9 +48,11 @@ export default function Explorer(props: Props) {
 					<div className="flex-1 overflow-hidden">
 						{props.items && (
 							<View
-								viewClassName={props.viewClassName}
 								data={props.items}
 								onLoadMore={props.onLoadMore}
+								hasNextPage={props.hasNextPage}
+								isFetchingNextPage={props.isFetchingNextPage}
+								viewClassName={props.viewClassName}
 							/>
 						)}
 					</div>

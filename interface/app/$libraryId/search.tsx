@@ -1,21 +1,21 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
+import { useZodSearchParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from './Explorer';
 import { getExplorerItemData } from './Explorer/util';
 import TopBarChildren from './TopBar/TopBarChildren';
 
-const schema = z.object({
+const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),
-	take: z.number().optional(),
+	take: z.coerce.number().optional(),
 	order: z.union([z.object({ name: z.boolean() }), z.object({ name: z.boolean() })]).optional()
 });
 
-export type SearchArgs = z.infer<typeof schema>;
+export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
@@ -65,14 +65,9 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 });
 
 export const Component = () => {
-	const [searchParams] = useSearchParams();
+	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
 
-	const searchObj = useMemo(
-		() => schema.parse(Object.fromEntries([...searchParams])),
-		[searchParams]
-	);
-
-	const search = useDeferredValue(searchObj);
+	const search = useDeferredValue(searchParams);
 
 	return (
 		<Suspense fallback="LOADING FIRST RENDER">

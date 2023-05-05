@@ -22,14 +22,13 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
-import { getItemFilePath } from '../util';
+import { getItemFilePath, useExplorerSearchParams } from '../util';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -42,7 +41,7 @@ interface Props extends PropsWithChildren {
 
 export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
-	const params = useExplorerParams();
+	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;

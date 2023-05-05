@@ -2,10 +2,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, Tooltip, forms, tw } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
+import { useZodRouteParams } from '~/hooks';
 import ModalLayout from '../../ModalLayout';
 import { IndexerRuleEditor } from './IndexerRuleEditor';
 
@@ -25,6 +26,10 @@ const schema = z.object({
 	generatePreviewMedia: z.boolean()
 });
 
+const PARAMS = z.object({
+	id: z.coerce.number().default(0)
+});
+
 export const Component = () => {
 	const form = useZodForm({
 		schema,
@@ -32,7 +37,9 @@ export const Component = () => {
 			indexerRulesIds: []
 		}
 	});
-	const params = useParams<{ id: string }>();
+
+	const { id: locationId } = useZodRouteParams(PARAMS);
+
 	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
@@ -51,9 +58,7 @@ export const Component = () => {
 	});
 
 	const { isDirty } = form.formState;
-	// Default to first location if no id is provided
-	// fallback to 0 (which should always be an invalid location) when parsing fails
-	const locationId = (params.id ? Number(params.id) : 1) || 0;
+
 	useLibraryQuery(['locations.getById', locationId], {
 		onSettled: (data, error) => {
 			if (isFirstLoad) {
