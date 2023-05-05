@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
-import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
@@ -42,10 +41,12 @@ export const ViewItem = ({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({ path: data.item.materialized_path }).toString()
 			});
-			getExplorerStore().selectedRowIndex = -1;
+
+			getExplorerStore().selectedRowIndex = null;
 		} else {
 			const { kind } = getExplorerItemData(data);
-			if (kind === 'Video' || kind === 'Image' || kind === 'Audio') {
+
+			if (['Video', 'Image', 'Audio'].includes(kind)) {
 				getExplorerStore().quickViewObject = data;
 			}
 		}
@@ -106,7 +107,7 @@ export default memo((props: Props) => {
 				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
-			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
+			onClick={() => (getExplorerStore().selectedRowIndex = null)}
 		>
 			{!isOverview && <DismissibleNotice />}
 			<context.Provider

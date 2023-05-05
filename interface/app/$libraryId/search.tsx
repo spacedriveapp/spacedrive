@@ -27,18 +27,16 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	});
 
 	const items = useMemo(() => {
-		const queryData = query.data;
-		if (explorerStore.layoutMode !== 'media') return queryData;
+		if (explorerStore.layoutMode !== 'media') return query.data;
 
-		const mediaItems = queryData?.filter((item) => {
+		return query.data?.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
-		return mediaItems;
 	}, [query.data, explorerStore.layoutMode]);
 
 	useEffect(() => {
-		getExplorerStore().selectedRowIndex = -1;
+		getExplorerStore().selectedRowIndex = null;
 	}, [props.args.search]);
 
 	return (
