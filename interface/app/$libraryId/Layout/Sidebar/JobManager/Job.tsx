@@ -16,8 +16,9 @@ import {
 	TrashSimple,
 	X
 } from 'phosphor-react';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import './Job.scss';
+import { useJobTimeText } from './useJobTimeText';
 
 interface JobNiceData {
 	name: string;
@@ -33,28 +34,26 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-			? `Indexed paths at ${job.metadata?.location_path} `
-			: `Processing added location...`,
+				? `Indexed paths at ${job.metadata?.location_path} `
+				: `Processing added location...`,
 		icon: Folder,
 		filesDiscovered: `${numberWithCommas(
 			job.metadata?.total_paths || 0
 		)} ${JobCountTextCondition(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Generating thumbnails'
+			: 'Generated thumbnails'
+			}`,
 		icon: Camera,
 		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'path')}`
 	},
 	file_identifier: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Extracting metadata'
-				: 'Extracted metadata'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Extracting metadata'
+			: 'Extracted metadata'
+			}`,
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
@@ -124,6 +123,8 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	};
 	const isRunning = job.status === 'Running';
 
+	const time = useJobTimeText(job);
+
 	return (
 		<li
 			className={clsx(
@@ -146,7 +147,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.filesDiscovered}
 								{" • "}
-								<JobTimeText job={job} />
+								{time}
 							</p>
 							<div className="flex gap-1 truncate text-ink-faint">
 
@@ -168,17 +169,6 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							</Tooltip>
 						</Button>
 					)} */}
-							{job.status !== 'Running' && job.status !== 'Queued' && (
-								<Button
-									className="relative left-1 cursor-pointer"
-									onClick={() => clearJob?.(job.id)}
-									size="icon"
-								>
-									<Tooltip label="Remove">
-										<X className="h-4 w-4 cursor-pointer" />
-									</Tooltip>
-								</Button>
-							)}
 						</div>
 					</div>
 					{isRunning && (
@@ -192,33 +182,6 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	);
 }
 
-function JobTimeText({ job }: { job: JobReport }) {
-	const [_, setRerenderPlz] = useState(0);
-
-	let text: string;
-	if (job.status === 'Running') {
-		text = `Elapsed in ${dayjs(job.started_at).fromNow(true)}`;
-	} else if (job.completed_at) {
-		text = `Took ${dayjs(job.started_at).from(job.completed_at, true)}`;
-	} else {
-		text = `Took ${dayjs(job.started_at).fromNow(true)}`;
-	}
-
-	useEffect(() => {
-		if (job.status === 'Running') {
-			const interval = setInterval(() => {
-				setRerenderPlz((x) => x + 1); // Trigger React to rerender and dayjs to update
-			}, 1000);
-			return () => clearInterval(interval);
-		}
-	}, [job.status]);
-
-	if (text === 'Took NaN years') {
-		return null;
-	} else {
-		return <>{text}</>;
-	}
-}
 
 function JobCountTextCondition(job: JobReport, word: string) {
 	const addStoEnd = job.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
@@ -229,35 +192,5 @@ function numberWithCommas(x: number) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-export function AllRunningJobsWithoutChildren({
-	jobs = [],
-	runningJobs = []
-}: {
-	jobs?: JobReport[];
-	runningJobs?: JobReport[];
-}) {
-	const runningJobsNoChildren = () => {
-		const singleRunningJobs = [];
-		for (const job of jobs) {
-			for (const runningJob of runningJobs) {
-				if (
-					job.parent_id !== runningJob.id &&
-					job.id !== runningJob.id &&
-					job.id !== job.id
-				) {
-					singleRunningJobs.push(runningJob);
-				}
-			}
-		}
-		return singleRunningJobs;
-	};
-	return (
-		<>
-			{runningJobsNoChildren().map((job) => (
-				<Job key={job?.id} job={job} />
-			))}
-		</>
-	);
-}
 
 export default memo(Job);

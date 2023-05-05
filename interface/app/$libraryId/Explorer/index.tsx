@@ -25,6 +25,7 @@ export default function Explorer(props: Props) {
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {
+			console.log({ cas_id })
 			expStore.addNewThumbnail(cas_id);
 		}
 	});

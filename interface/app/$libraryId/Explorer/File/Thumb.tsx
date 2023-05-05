@@ -48,8 +48,9 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	const [thumbSize, setThumbSize] = useState<null | VideoThumbSize>(null);
 	const { library } = useLibraryContext();
 	const [thumbLoaded, setThumbLoaded] = useState<boolean>(false);
-	const { locationId } = useExplorerStore();
-	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
+	const { locationId, newThumbnails } = useExplorerStore();
+
+	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data, newThumbnails);
 
 	// Allows disabling thumbnails when they fail to load
 	const [useThumb, setUseThumb] = useState<boolean>(hasThumbnail);
@@ -139,9 +140,9 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 								kind === 'Video' ? 'rounded' : 'rounded-sm',
 								classes.checkers,
 								size &&
-									(kind === 'Video'
-										? 'border-x-0 border-black'
-										: size > 60 && 'border-2 border-app-line'),
+								(kind === 'Video'
+									? 'border-x-0 border-black'
+									: size > 60 && 'border-2 border-app-line'),
 								props.className
 							)}
 						/>
@@ -151,11 +152,11 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 									cover
 										? {}
 										: thumbSize
-										? {
+											? {
 												marginTop: Math.floor(thumbSize.height / 2) - 2,
 												marginLeft: Math.floor(thumbSize.width / 2) - 2
-										  }
-										: { display: 'none' }
+											}
+											: { display: 'none' }
 								}
 								className={clsx(
 									cover

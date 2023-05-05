@@ -1,20 +1,33 @@
+/* eslint-disable tailwindcss/classnames-order */
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
-import GroupedJobs from './GroupedJobs';
-import Job, { AllRunningJobsWithoutChildren } from './Job';
+import IsRunningJob from './IsRunningJob';
+import Job, { OrphanJobs } from './Job';
+import JobGroup from './JobGroup';
+import { useFilteredJobs } from './useFilteredJobs';
+import { IJobGroup, useGroupedJobs } from './useGroupedJobs';
+import { useOrphanJobs } from './useOrphanJobs';
 
 export function JobsManager() {
 	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
 	const { data: jobs } = useLibraryQuery(['jobs.getHistory']);
 	const queryClient = useQueryClient();
-	const allIndividualJobs = jobs?.filter((job) => job.action === null); //jobs without actions are individual
-	const allIndividualRunningJobs = runningJobs?.filter((job) => job.action === null);
-	const allJobsWithActions = jobs?.filter((job) => job.action !== null); //jobs with actions means they are grouped
-	const allRunningJobsWithActions = runningJobs?.filter((job) => job.action !== null);
+
+	const {
+		individualJobs,
+		runningIndividualJobs,
+		jobsWithActions,
+		runningJobsWithActions,
+	} = useFilteredJobs(jobs, runningJobs);
+
+	const groupedJobs = useGroupedJobs(jobsWithActions, runningJobsWithActions);
+
+	const orphanJobs = useOrphanJobs(jobsWithActions, runningJobsWithActions);
+
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -73,19 +86,16 @@ export function JobsManager() {
 				</PopoverClose>
 			</div>
 			<div className="h-full overflow-x-hidden no-scrollbar">
-				<GroupedJobs
-					clearJob={clearJobHandler}
-					jobs={allJobsWithActions}
-					runningJobs={allRunningJobsWithActions}
-				/>
-				<AllRunningJobsWithoutChildren
-					jobs={allJobsWithActions}
-					runningJobs={allRunningJobsWithActions}
-				/>
-				{allIndividualRunningJobs?.map((job) => (
+				{groupedJobs.map((data) => (
+					<JobGroup key={data.id} data={data} clearJob={clearJobHandler} />
+				))}
+				{orphanJobs?.map((job) => (
+					<Job key={job?.id} job={job} />
+				))}
+				{runningIndividualJobs?.map((job) => (
 					<Job key={job.id} job={job} />
 				))}
-				{allIndividualJobs?.map((job) => (
+				{individualJobs?.map((job) => (
 					<Job clearJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
@@ -97,3 +107,6 @@ export function JobsManager() {
 		</div>
 	);
 }
+
+
+export { IsRunningJob };
