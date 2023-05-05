@@ -266,23 +266,29 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 		return (
 			<>
 				{filePath && openFilePath && (
-					<ContextMenu.Item
-						label="Open"
-						keybind="⌘O"
-						onClick={() => {
-							props.data.type === 'Path' &&
-								props.data.item.object_id &&
-								updateAccessTime.mutate(props.data.item.object_id);
-							openFilePath(library.uuid, filePath.id);
-						}}
-					/>
+					<>
+						<ContextMenu.Item
+							label="Open"
+							keybind="⌘O"
+							onClick={() => {
+								props.data.type === 'Path' &&
+									props.data.item.object_id &&
+									updateAccessTime.mutate(props.data.item.object_id);
+								openFilePath(library.uuid, filePath.id);
+							}}
+						/>
+						<ContextMenu.Item
+							label="Open with..."
+							keybind="⌘^O"
+							onClick={() => platform.bruh?.(library.uuid, filePath.id)}
+						/>
+					</>
 				)}
 				<ContextMenu.Item
 					label="Quick view"
 					keybind="␣"
 					onClick={() => (getExplorerStore().quickViewObject = props.data)}
 				/>
-				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
 			</>
 		);
 };

@@ -1,4 +1,4 @@
-use crate::prisma::*;
+use crate::prisma::{self, *};
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -160,9 +160,7 @@ impl SyncManager {
 			.db
 			.shared_operation()
 			.find_many(vec![])
-			.order_by(shared_operation::timestamp::order(
-				prisma_client_rust::Direction::Asc,
-			))
+			.order_by(shared_operation::timestamp::order(SortOrder::Asc))
 			.include(shared_operation::include!({ node: select {
                 pub_id
             } }))

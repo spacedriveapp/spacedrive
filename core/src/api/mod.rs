@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use prisma_client_rust::{operator::or, Direction};
+use prisma_client_rust::operator::or;
 use rspc::{alpha::Rspc, Config};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -88,14 +88,14 @@ pub(crate) fn mount() -> Arc<Router> {
 				Name(bool),
 			}
 			impl Ordering {
-				fn get_direction(&self) -> Direction {
+				fn get_direction(&self) -> SortOrder {
 					match self {
 						Self::Name(v) => v,
 					}
-					.then_some(Direction::Asc)
-					.unwrap_or(Direction::Desc)
+					.then_some(SortOrder::Asc)
+					.unwrap_or(SortOrder::Desc)
 				}
-				fn to_param(self) -> file_path::OrderByParam {
+				fn to_param(self) -> file_path::OrderByWithRelationParam {
 					let dir = self.get_direction();
 					use file_path::*;
 					match self {

@@ -15,3 +15,20 @@ swift!(pub fn blur_window_background(window: &NSObject));
 swift!(pub fn set_titlebar_style(window: &NSObject, transparent: Bool, large: Bool));
 
 swift!(pub fn reload_webview(webview: &NSObject));
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct OpenWithApplicationRaw {
+	pub name: SRString,
+	pub id: SRString,
+	pub url: SRString,
+}
+
+#[derive(serde::Serialize, specta::Type)]
+pub struct OpenWithApplication {
+	pub name: String,
+	// pub id: String,
+	// pub url: String,
+}
+
+swift!(pub fn get_open_with_applications(url: &SRString) -> SRObjectArray<OpenWithApplicationRaw>);

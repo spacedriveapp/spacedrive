@@ -7,7 +7,7 @@ use crate::{
 		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, get_existing_file_path_id, MaterializedPath,
 	},
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location, PrismaClient, SortOrder},
 	util::db::{chain_optional_iter, uuid_to_bytes},
 };
 
@@ -16,7 +16,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
@@ -241,7 +240,7 @@ async fn get_orphan_file_paths(
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(location_id, Some(cursor), sub_path_id))
-		.order_by(file_path::id::order(Direction::Asc))
+		.order_by(file_path::id::order(SortOrder::Asc))
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)

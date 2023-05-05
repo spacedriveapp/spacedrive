@@ -19,6 +19,7 @@ export type Platform = {
 	openPath?(path: string): void;
 	// Opens a file path with a given ID
 	openFilePath?(library: string, id: number): any;
+	bruh?(library: string, id: number): any;
 };
 
 // Keep this private and use through helpers below
