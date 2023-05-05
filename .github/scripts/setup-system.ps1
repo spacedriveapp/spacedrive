@@ -107,8 +107,8 @@ $temp = [System.IO.Path]::GetTempPath()
 # Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\.github\scripts)
 $projectRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 
-# Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
-$pnpm_major = '7'
+# Pnpm
+$pnpm_major = '8'
 
 # Currently LLVM >= 16 is not supported due to incompatibilities with ffmpeg-sys-next
 # See https://github.com/spacedriveapp/spacedrive/issues/677
@@ -203,8 +203,7 @@ https://pnpm.io/uninstall
    }
 
    Write-Host 'Installing pnpm...'
-   # Currently pnpm >= 8 is not supported due to incompatibilities with some dependencies
-   npm install -g 'pnpm@latest-7'
+   npm install -g "pnpm@latest-$pnpm_major"
    # Add NPM global modules to the PATH
    if (Test-Path "$env:APPDATA\npm" -PathType Container) {
       Add-DirectoryToPath "$env:APPDATA\npm"
