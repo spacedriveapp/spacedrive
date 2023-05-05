@@ -90,14 +90,18 @@ export const Component = () => {
 	const { explorerViewOptions } = useExplorerTopBarOptions();
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
+	const haveRecentFiles = (recentFiles.data?.length || 0) > 0;
+
 	overviewMounted = true;
 
-	const toolsViewOptions = explorerViewOptions.filter(
-		(o) =>
-			o.toolTipLabel === 'Grid view' ||
-			o.toolTipLabel === 'List view' ||
-			o.toolTipLabel === 'Media view'
-	);
+	const toolsViewOptions = haveRecentFiles
+		? explorerViewOptions.filter(
+				(o) =>
+					o.toolTipLabel === 'Grid view' ||
+					o.toolTipLabel === 'List view' ||
+					o.toolTipLabel === 'Media view'
+		  )
+		: [];
 
 	return (
 		<div className="flex">
@@ -137,7 +141,7 @@ export const Component = () => {
 				to be functional.
 			</Card> */}
 				{/* Recents */}
-				{(recentFiles.data?.length || 0) > 0 && (
+				{haveRecentFiles && (
 					<>
 						<ScreenHeading className="mt-3">Recents</ScreenHeading>
 						<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
