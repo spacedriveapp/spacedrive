@@ -6,7 +6,8 @@ import { ExplorerItem, formatBytes } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
-import { ViewItem, useExplorerView } from './View';
+import { ViewItem } from './View';
+import { useExplorerViewContext } from './ViewContext';
 import { getItemFilePath } from './util';
 
 interface GridViewItemProps {
@@ -72,7 +73,8 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 export default () => {
 	const explorerStore = useExplorerStore();
-	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
+		useExplorerViewContext();
 
 	const [width, setWidth] = useState(0);
 
