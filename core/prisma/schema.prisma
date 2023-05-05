@@ -183,7 +183,6 @@ model Object {
     favorite          Boolean   @default(false)
     important         Boolean   @default(false)
     // if we have generated preview media for this object on at least one Node
-    has_thumbnail     Boolean   @default(false)
     has_thumbstrip    Boolean   @default(false)
     has_video_preview Boolean   @default(false)
     // TODO: change above to:

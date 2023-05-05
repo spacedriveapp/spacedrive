@@ -15,7 +15,7 @@ use crate::{
 	},
 	object::{
 		file_identifier::FileMetadata,
-		object_just_id_has_thumbnail,
+		object_just_id,
 		preview::{
 			can_generate_thumbnail_for_image, generate_image_thumbnail, THUMBNAIL_CACHE_DIR_NAME,
 		},
@@ -202,7 +202,7 @@ pub(super) async fn create_file(
 			file_path::cas_id::equals(Some(cas_id.clone())),
 			file_path::pub_id::not(created_file.pub_id.clone()),
 		])])
-		.select(object_just_id_has_thumbnail::select())
+		.select(object_just_id::select())
 		.exec()
 		.await?;
 
@@ -219,7 +219,7 @@ pub(super) async fn create_file(
 					object::kind::set(kind as i32),
 				],
 			)
-			.select(object_just_id_has_thumbnail::select())
+			.select(object_just_id::select())
 			.exec()
 			.await?
 	};
@@ -232,7 +232,7 @@ pub(super) async fn create_file(
 		.exec()
 		.await?;
 
-	if !object.has_thumbnail && !created_file.extension.is_empty() {
+	if !library.thumbnail_exists(&cas_id).await? && !created_file.extension.is_empty() {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 		let path = path.to_path_buf();
 		let library = library.clone();
@@ -422,7 +422,16 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if object.has_thumbnail && !file_path.extension.is_empty() {
+				if library
+					.thumbnail_exists(
+						file_path
+							.cas_id
+							.clone()
+							.map_or(String::new(), |x| x)
+							.as_ref(),
+					)
+					.await? && !file_path.extension.is_empty()
+				{
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 				}
 
