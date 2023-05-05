@@ -41,7 +41,7 @@ interface Props extends PropsWithChildren {
 
 export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
-	const params = useExplorerSearchParams();
+	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;

@@ -38,7 +38,7 @@ export const OpenInNativeExplorer = () => {
 
 export default (props: PropsWithChildren) => {
 	const store = useExplorerStore();
-	const params = useExplorerSearchParams();
+	const [params] = useExplorerSearchParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');

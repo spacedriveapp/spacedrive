@@ -1,8 +1,6 @@
-import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { getParams } from 'remix-params-helper';
 import { z } from 'zod';
 import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
+import { useZodSearchParams } from '~/hooks';
 
 export function getExplorerItemData(data: ExplorerItem) {
 	const objectData = getItemObject(data);
@@ -25,17 +23,11 @@ export function getItemFilePath(data: ExplorerItem) {
 	return isObject(data) ? data.item.file_paths[0] : data.item;
 }
 
-const SEARCH_PARAMS = z.object({
+export const SEARCH_PARAMS = z.object({
 	path: z.string().default(''),
 	limit: z.coerce.number().default(100)
 });
 
 export function useExplorerSearchParams() {
-	const [searchParams] = useSearchParams();
-
-	const result = useMemo(() => getParams(searchParams, SEARCH_PARAMS), [searchParams]);
-
-	if (!result.success) throw result.errors;
-
-	return result.data;
+	return useZodSearchParams(SEARCH_PARAMS);
 }

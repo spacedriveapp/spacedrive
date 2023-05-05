@@ -20,7 +20,7 @@ interface Props {
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
-	const { path } = useExplorerSearchParams();
+	const [{ path }] = useExplorerSearchParams();
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onData: (cas_id) => {

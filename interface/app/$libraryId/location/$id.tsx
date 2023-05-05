@@ -25,7 +25,7 @@ const PARAMS = z.object({
 });
 
 export const Component = () => {
-	const { path } = useExplorerSearchParams();
+	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
 
 	// // we destructure this since `mutate` is a stable reference but the object it's in is not
@@ -108,7 +108,7 @@ const useToolBarOptions = () => {
 
 const useItems = () => {
 	const { id: location_id } = useZodRouteParams(PARAMS);
-	const { path, limit } = useExplorerSearchParams();
+	const [{ path, limit }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
