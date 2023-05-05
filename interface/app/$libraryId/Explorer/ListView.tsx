@@ -13,7 +13,7 @@ import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
 import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
@@ -22,7 +22,8 @@ import { useScrolled } from '~/hooks/useScrolled';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
 import { InfoPill } from './Inspector';
-import { ViewItem, useExplorerView } from './View';
+import { ViewItem } from './View';
+import { useExplorerViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
 
 interface ListViewItemProps {
@@ -70,16 +71,14 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
+		useExplorerViewContext();
 	const { isScrolled } = useScrolled(scrollRef, 5);
 
 	const [sized, setSized] = useState(false);
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [locked, setLocked] = useState(true);
-	const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(
-		explorerStore.selectedRowIndex
-	);
 
 	const paddingX = 16;
 	const scrollBarWidth = 8;
@@ -263,22 +262,24 @@ export default () => {
 	// Resize view on window resize
 	useOnWindowResize(handleResize);
 
+	const lastSelectedIndex = useRef(explorerStore.selectedRowIndex);
+
 	// Resize view on item selection/deselection
 	useEffect(() => {
-		const index = explorerStore.selectedRowIndex;
+		const { selectedRowIndex } = explorerStore;
+
 		if (
 			explorerStore.showInspector &&
-			((lastSelectedIndex === -1 && index !== -1) ||
-				(lastSelectedIndex !== -1 && index === -1))
-		) {
+			typeof lastSelectedIndex.current !== typeof selectedRowIndex
+		)
 			handleResize();
-		}
-		setLastSelectedIndex(index);
+
+		lastSelectedIndex.current = selectedRowIndex;
 	}, [explorerStore.selectedRowIndex]);
 
 	// Resize view on inspector toggle
 	useEffect(() => {
-		if (explorerStore.selectedRowIndex !== -1) handleResize();
+		if (explorerStore.selectedRowIndex !== null) handleResize();
 	}, [explorerStore.showInspector]);
 
 	// Force recalculate range
@@ -293,11 +294,15 @@ export default () => {
 		'ArrowUp',
 		(e) => {
 			e.preventDefault();
-			if (explorerStore.selectedRowIndex > 0) {
-				const currentIndex = rows.findIndex(
-					(row) => row.index === explorerStore.selectedRowIndex
-				);
+
+			const { selectedRowIndex } = explorerStore;
+
+			if (selectedRowIndex === null) return;
+
+			if (selectedRowIndex > 0) {
+				const currentIndex = rows.findIndex((row) => row.index === selectedRowIndex);
 				const newIndex = rows[currentIndex - 1]?.index;
+
 				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
 			}
 		},
@@ -309,14 +314,15 @@ export default () => {
 		'ArrowDown',
 		(e) => {
 			e.preventDefault();
-			if (
-				explorerStore.selectedRowIndex !== -1 &&
-				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-			) {
-				const currentIndex = rows.findIndex(
-					(row) => row.index === explorerStore.selectedRowIndex
-				);
+
+			const { selectedRowIndex } = explorerStore;
+
+			if (selectedRowIndex === null) return;
+
+			if (selectedRowIndex !== data.length - 1) {
+				const currentIndex = rows.findIndex((row) => row.index === selectedRowIndex);
 				const newIndex = rows[currentIndex + 1]?.index;
+
 				if (newIndex !== undefined) getExplorerStore().selectedRowIndex = newIndex;
 			}
 		},
