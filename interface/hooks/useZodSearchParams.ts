@@ -4,6 +4,7 @@ import { getParams } from 'remix-params-helper';
 import { z } from 'zod';
 
 export function useZodSearchParams<Z extends z.ZodType<Record<string, any>>>(schema: Z) {
+	// eslint-disable-next-line no-restricted-syntax
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const typedSearchParams = useMemo(

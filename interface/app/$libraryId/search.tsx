@@ -1,6 +1,5 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import { useZodSearchParams } from '~/hooks';
@@ -16,7 +15,7 @@ const SEARCH_PARAMS = z.object({
 	order: z.union([z.object({ name: z.boolean() }), z.object({ name: z.boolean() })]).optional()
 });
 
-export type SearchArgs = z.infer<typeof schema>;
+export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
