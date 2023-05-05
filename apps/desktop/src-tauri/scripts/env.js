@@ -9,17 +9,19 @@ const cargoConfig = path.resolve(workspace, '.cargo/config');
 const cargoConfigTempl = path.resolve(workspace, '.cargo/config.toml');
 
 module.exports.setupFFMpegDlls = function setupDlls(FFMPEG_DIR, dev = false) {
-	const ffmpegDlls = fs
-		.readdirSync(path.join(env.FFMPEG_DIR, 'bin'))
-		.filter((file) => file.endsWith('.dll'));
+	const ffmpegBinDir = path.join(FFMPEG_DIR, 'bin');
+	const ffmpegDlls = fs.readdirSync(ffmpegBinDir).filter((file) => file.endsWith('.dll'));
 
+	let targetDir = path.join(workspace, 'apps/desktop/src-tauri');
 	if (dev) {
+		targetDir = path.join(workspace, 'target/debug');
 		// Ensure the target/debug directory exists
-		const debugTargetDir = path.join(workspace, 'target/debug');
-		fs.mkdirSync(debugTargetDir, { recursive: true });
-		// Copy all DLLs from the $FFMPEG_DIR/bin to target/debug
-		for (const dll of ffmpegDlls) fs.copyFileSync(dll, path.join(debugTargetDir, dll));
+		fs.mkdirSync(targetDir, { recursive: true });
 	}
+
+	// Copy all DLLs from the $FFMPEG_DIR/bin to targetDir
+	for (const dll of ffmpegDlls)
+		fs.copyFileSync(path.join(ffmpegBinDir, dll), path.join(targetDir, dll));
 
 	return ffmpegDlls;
 };

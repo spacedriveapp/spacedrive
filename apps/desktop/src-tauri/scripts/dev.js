@@ -1,7 +1,8 @@
 const { spawn } = require('./spawn.js');
+const { platform } = require('./const.js');
 const { setupFFMpegDlls, setupPlatformEnv } = require('./env.js');
 
-setupPlatformEnv(null, true);
+const env = setupPlatformEnv(null, true);
 if (platform === 'win32') setupFFMpegDlls(env.FFMPEG_DIR, true);
 
 let code = 0;

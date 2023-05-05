@@ -16,17 +16,24 @@ const env = setupPlatformEnv({
 	BACKGROUND_FILE_NAME
 });
 
-const tauriPatch = {
-	tauri: {
-		bundle: {
-			macOS: { frameworks: [path.join(workspace, 'target/Frameworks/FFMpeg.framework')] }
-		}
-	}
-};
-
-if (platform === 'win32') {
-	// Point tauri to the ffmpeg DLLs
-	tauriPatch.tauri.bundle.resources = setupFFMpegDlls(env.FFMPEG_DIR);
+const toRemove = [];
+const tauriPatch = { tauri: { bundle: { macOS: {} } } };
+switch (platform) {
+	case 'darwin':
+		// Point tauri to the ffmpeg framework
+		tauriPatch.tauri.bundle.macOS.frameworks = [
+			path.join(workspace, 'target/Frameworks/FFMpeg.framework')
+		];
+		break;
+	case 'win32':
+		// Point tauri to the ffmpeg DLLs
+		tauriPatch.tauri.bundle.resources = setupFFMpegDlls(env.FFMPEG_DIR);
+		toRemove.push(
+			...tauriPatch.tauri.bundle.resources.map((file) =>
+				path.join(workspace, 'apps/desktop/src-tauri', file)
+			)
+		);
+		break;
 }
 
 if (process.env.CI === 'true') {
@@ -44,6 +51,7 @@ if (process.env.CI === 'true') {
 } else {
 	const tauriConf = path.resolve(__dirname, '..', 'tauri.conf.patch.json');
 	fs.writeFileSync(tauriConf, JSON.stringify(tauriPatch, null, 2));
+	toRemove.push(tauriConf);
 
 	let code = 0;
 	spawn('pnpm', ['tauri', 'build', '-c', tauriConf])
@@ -52,9 +60,11 @@ if (process.env.CI === 'true') {
 			console.error(`tauri build failed with exit code ${exitCode}`);
 		})
 		.finally(() => {
-			try {
-				fs.unlinkSync(tauriConf);
-			} catch (e) {}
+			for (const file of toRemove)
+				try {
+					fs.unlinkSync(file);
+				} catch (e) {}
+
 			process.exit(code);
 		});
 }
