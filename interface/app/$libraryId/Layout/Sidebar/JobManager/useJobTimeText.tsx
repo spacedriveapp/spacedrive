@@ -6,10 +6,10 @@ import { useForceUpdate } from '~/util';
 export function useJobTimeText(job: JobReport): string | null {
 	const forceUpdate = useForceUpdate();
 
-	const text = useMemo(() => {
+	const elapsedTimeText = useMemo(() => {
 		let newText: string;
 		if (job.status === 'Running') {
-			newText = `Elapsed in ${dayjs(job.started_at).fromNow(true)}`;
+			newText = `Elapsed ${dayjs(job.started_at).fromNow(true)}`;
 		} else if (job.completed_at) {
 			newText = `Took ${dayjs(job.started_at).from(job.completed_at, true)}`;
 		} else {
@@ -25,5 +25,5 @@ export function useJobTimeText(job: JobReport): string | null {
 		}
 	}, [job.status, forceUpdate]);
 
-	return text === 'Took NaN years' ? null : text;
+	return elapsedTimeText === 'Took NaN years' ? null : elapsedTimeText;
 }

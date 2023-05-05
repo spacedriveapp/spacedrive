@@ -73,13 +73,13 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 								<p className="my-[2px] text-ink-faint">
 									<b>{tasks.total} </b>
 									{tasks.total <= 1 ? 'task' : 'tasks'}
-									{' • '}
+									{totalGroupTime && ' • '}
 									{totalGroupTime}
 								</p>
 							</div>
 							<div className="grow" />
 						</div>
-						{!allJobsCompleted && !showChildJobs && (
+						{!showChildJobs && (
 							<div className="mt-[6px] w-full">
 								<ProgressBar value={tasks.completed} total={tasks.total} />
 							</div>

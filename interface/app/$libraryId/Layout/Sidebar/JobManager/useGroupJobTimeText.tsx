@@ -24,7 +24,6 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 
 		Object.values(groupedJobs).forEach((group: JobReport[]) => {
 			let groupTotal = 0;
-
 			group.forEach((job) => {
 				const start = dayjs(job.started_at);
 				const end = job.completed_at ? dayjs(job.completed_at) : dayjs();
@@ -49,14 +48,13 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 
 	useEffect(() => {
 		const allJobsCompleted = jobs.every((job) => job.completed_at);
-		const checkForJobsQueued = jobs.some((job) => job.status === 'Queued');
+		const isJobsQueued = jobs.some((job) => job.status === 'Queued');
 
-		if (!allJobsCompleted || checkForJobsQueued) {
+		if (!allJobsCompleted || isJobsQueued) {
 			const interval = setInterval(forceUpdate, 1000);
-
 			return () => clearInterval(interval);
 		}
 	}, [jobs, forceUpdate]);
 
-	return elapsedTimeText;
+	return elapsedTimeText === 'Took NaN years' ? null : elapsedTimeText;
 }
