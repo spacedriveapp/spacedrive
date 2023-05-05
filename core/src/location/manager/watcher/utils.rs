@@ -422,7 +422,16 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if object.has_thumbnail && !file_path.extension.is_empty() {
+				if library
+					.thumbnail_exists(
+						file_path
+							.cas_id
+							.clone()
+							.map_or(String::new(), |x| x)
+							.as_ref(),
+					)
+					.await? && !file_path.extension.is_empty()
+				{
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 				}
 
