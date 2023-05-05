@@ -218,7 +218,7 @@ export type ObjectValidatorArgs = { id: number; path: string }
 
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
-export type LocationExplorerArgs = { location_id: number; path?: string | null; limit: number; cursor?: number[] | null; kind?: number[] | null }
+export type LocationExplorerArgs = { location_id: number; path?: string | null; limit?: number | null; cursor?: number[] | null; kind?: number[] | null }
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
@@ -316,13 +316,13 @@ export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type Protected<T> = T
 
+export type LightScanArgs = { location_id: number; sub_path: string }
+
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[] }
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
 
 /**
  * This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.

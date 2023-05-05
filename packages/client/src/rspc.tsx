@@ -96,9 +96,9 @@ export function useInvalidateQuery() {
 	useBridgeSubscription(['invalidation.listen'], {
 		onData: (ops) => {
 			for (const op of ops) {
-				const key = [op.key];
+				let key = [op.key];
 				if (op.arg !== null) {
-					key.concat(op.arg);
+					key = key.concat(op.arg);
 				}
 
 				if (op.result !== null) {

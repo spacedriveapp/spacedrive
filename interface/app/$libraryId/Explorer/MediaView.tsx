@@ -58,7 +58,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
-	const { data, scrollRef } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } = useExplorerView();
 
 	const gridPadding = 2;
 	const scrollBarWidth = 6;
@@ -93,6 +93,20 @@ export default () => {
 		paddingEnd: gridPadding
 	});
 
+	const virtualRows = rowVirtualizer.getVirtualItems();
+	const virtualColumns = columnVirtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (
+			(!lastRow || lastRow.index === amountOfRows - 1) &&
+			hasNextPage &&
+			!isFetchingNextPage
+		) {
+			onLoadMore?.();
+		}
+	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, virtualColumns, data.length]);
+
 	function handleWindowResize() {
 		if (scrollRef.current) {
 			setWidth(scrollRef.current.offsetWidth);
@@ -102,9 +116,10 @@ export default () => {
 	// Resize view on initial render and reset selected item
 	useEffect(() => {
 		handleWindowResize();
-		getExplorerStore().selectedRowIndex = -1;
+		getExplorerStore().selectedRowIndex = null;
+
 		return () => {
-			getExplorerStore().selectedRowIndex = -1;
+			getExplorerStore().selectedRowIndex = null;
 		};
 	}, []);
 
@@ -113,20 +128,18 @@ export default () => {
 
 	// Resize view on item selection/deselection
 	useEffect(() => {
-		const index = explorerStore.selectedRowIndex;
-		if (
-			explorerStore.showInspector &&
-			((lastSelectedIndex === -1 && index !== -1) ||
-				(lastSelectedIndex !== -1 && index === -1))
-		) {
+		const { selectedRowIndex } = explorerStore;
+
+		setLastSelectedIndex(selectedRowIndex);
+
+		if (explorerStore.showInspector && typeof lastSelectedIndex !== typeof selectedRowIndex) {
 			handleWindowResize();
 		}
-		setLastSelectedIndex(index);
 	}, [explorerStore.selectedRowIndex]);
 
 	// Resize view on inspector toggle
 	useEffect(() => {
-		if (explorerStore.selectedRowIndex !== -1) {
+		if (explorerStore.selectedRowIndex !== null) {
 			handleWindowResize();
 		}
 	}, [explorerStore.showInspector]);
@@ -149,23 +162,27 @@ export default () => {
 	// Select item with arrow up key
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
-		if (explorerStore.selectedRowIndex > 0) {
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
-		}
+
+		const { selectedRowIndex } = explorerStore;
+
+		if (selectedRowIndex === null) return;
+
+		getExplorerStore().selectedRowIndex = Math.max(selectedRowIndex - 1, 0);
 	});
 
 	// Select item with arrow down key
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
-		if (
-			explorerStore.selectedRowIndex !== -1 &&
-			explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-		) {
-			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
-		}
+
+		const { selectedRowIndex } = explorerStore;
+
+		if (selectedRowIndex === null) return;
+
+		getExplorerStore().selectedRowIndex = Math.min(selectedRowIndex + 1, data.length - 1);
 	});
 
 	if (!width) return null;
+
 	return (
 		<div
 			className="relative"
@@ -175,9 +192,9 @@ export default () => {
 				position: 'relative'
 			}}
 		>
-			{rowVirtualizer.getVirtualItems().map((virtualRow) => (
+			{virtualRows.map((virtualRow) => (
 				<React.Fragment key={virtualRow.index}>
-					{columnVirtualizer.getVirtualItems().map((virtualColumn, i) => {
+					{virtualColumns.map((virtualColumn, i) => {
 						const index = virtualRow.index * amountOfColumns + i;
 						const item = data[index];
 

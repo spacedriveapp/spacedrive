@@ -17,7 +17,7 @@ const state = {
 	layoutMode: 'grid' as ExplorerLayoutMode,
 	gridItemSize: 100,
 	listItemSize: 40,
-	selectedRowIndex: 1,
+	selectedRowIndex: 1 as number | null,
 	showBytesInGridView: true,
 	tagAssignMode: false,
 	showInspector: false,
@@ -44,16 +44,16 @@ const explorerStore = proxy({
 	reset: () => resetStore(explorerStore, state),
 	addNewThumbnail: (cas_id: string) => {
 		explorerStore.newThumbnails[cas_id] = true;
-	},
-	selectMore: (indexes: number[]) => {
-		if (!explorerStore.multiSelectIndexes.length && indexes.length) {
-			explorerStore.multiSelectIndexes = [explorerStore.selectedRowIndex, ...indexes];
-		} else {
-			explorerStore.multiSelectIndexes = [
-				...new Set([...explorerStore.multiSelectIndexes, ...indexes])
-			];
-		}
 	}
+	// selectMore: (indexes: number[]) => {
+	// 	if (!explorerStore.multiSelectIndexes.length && indexes.length) {
+	// 		explorerStore.multiSelectIndexes = [explorerStore.selectedRowIndex, ...indexes];
+	// 	} else {
+	// 		explorerStore.multiSelectIndexes = [
+	// 			...new Set([...explorerStore.multiSelectIndexes, ...indexes])
+	// 		];
+	// 	}
+	// }
 });
 
 export function useExplorerStore() {

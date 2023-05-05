@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
+import { useZodSearchParams } from '~/hooks';
 
 export function getExplorerItemData(data: ExplorerItem) {
 	const objectData = getItemObject(data);
@@ -19,4 +21,13 @@ export function getItemObject(data: ExplorerItem) {
 
 export function getItemFilePath(data: ExplorerItem) {
 	return isObject(data) ? data.item.file_paths[0] : data.item;
+}
+
+export const SEARCH_PARAMS = z.object({
+	path: z.string().default(''),
+	limit: z.coerce.number().default(100)
+});
+
+export function useExplorerSearchParams() {
+	return useZodSearchParams(SEARCH_PARAMS);
 }
