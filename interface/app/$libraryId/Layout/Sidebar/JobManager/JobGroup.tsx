@@ -65,9 +65,8 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 							<div className="truncate">
 								<p className="truncate font-semibold">
 									{allJobsCompleted
-										? `Added location "${
-												data.metadata.init.location.name || ''
-										  }"`
+										? `Added location "${data.metadata.init.location.name || ''
+										}"`
 										: 'Processing added location...'}
 								</p>
 								<p className="my-[2px] text-ink-faint">
@@ -79,7 +78,7 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 							</div>
 							<div className="grow" />
 						</div>
-						{!showChildJobs && (
+						{!showChildJobs && !allJobsCompleted && (
 							<div className="mt-[6px] w-full">
 								<ProgressBar value={tasks.completed} total={tasks.total} />
 							</div>

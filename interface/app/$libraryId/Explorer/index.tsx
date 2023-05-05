@@ -23,7 +23,14 @@ export default function Explorer(props: Props) {
 	const [{ path }] = useExplorerSearchParams();
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
+		onStarted: () => {
+			console.log("Started RSPC subscription new thumbnail");
+		},
+		onError: (err) => {
+			console.error("Error in RSPC subscription new thumbnail", err);
+		},
 		onData: (cas_id) => {
+			console.log({ cas_id })
 			expStore.addNewThumbnail(cas_id);
 		}
 	});

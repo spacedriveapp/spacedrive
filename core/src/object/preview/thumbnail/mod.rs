@@ -230,6 +230,7 @@ async fn inner_process_step(
 				}
 			}
 
+			println!("emitting new thumbnail event");
 			ctx.library.emit(CoreEvent::NewThumbnail {
 				cas_id: cas_id.clone(),
 			});
