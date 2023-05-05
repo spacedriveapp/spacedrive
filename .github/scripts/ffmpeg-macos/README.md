@@ -6,10 +6,13 @@ To build `FFMpeg.framework` a `docker` or `podman` installation is required.
 It is recomended to enable [`BuildKit`](https://docs.docker.com/build/buildkit/#getting-started) in docker.
 
 Just run the following inside this directory:
+
 ```sh
 $> docker build -o . .
 ```
+
 or
+
 ```sh
 $> podman build -o . .
 ```
