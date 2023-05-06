@@ -56,9 +56,11 @@ jobs:
         with:
           name: ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64
           path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64.tar.xz
+          if-no-files-found: error
 
       - name: Publish ffmpeg arm64
         uses: actions/upload-artifact@v3
         with:
           name: ffmpeg-${{ env.FFMPEG_VERSION }}-arm64
           path: .github/scripts/ffmpeg-macos/ffmpeg-${{ env.FFMPEG_VERSION }}-arm64.tar.xz
+          if-no-files-found: error
