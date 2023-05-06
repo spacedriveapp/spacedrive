@@ -14,8 +14,8 @@
 		"build": "tsc"
 	},
 	"dependencies": {
-		"@rspc/client": "=0.0.0-main-4caedb14",
-		"@rspc/react": "=0.0.0-main-4caedb14",
+		"@rspc/client": "=0.0.0-main-799eec5d",
+		"@rspc/react": "=0.0.0-main-799eec5d",
 		"@sd/config": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",
 		"@zxcvbn-ts/core": "^2.1.0",
