@@ -71,7 +71,12 @@ export default function OnboardingNewLibrary() {
 						/>
 						<div className="flex grow" />
 						<div className="mt-7 space-x-2">
-							<Button type="submit" variant="accent" size="sm">
+							<Button
+								type="submit"
+								variant="accent"
+								disabled={!form.formState.isValid}
+								size="sm"
+							>
 								New library
 							</Button>
 							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>
