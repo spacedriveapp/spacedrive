@@ -12,6 +12,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 8.x.x
+
     - name: Install Node.js
       uses: actions/setup-node@v3
       with:
@@ -19,11 +24,6 @@ runs:
         token: ${{ inputs.token }}
         node-version: 18
         cache-dependency-path: 'pnpm-lock.yaml'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2.2.2
-      with:
-        version: 8.x.x
 
     - name: Restore cached pnpm deps
       id: pnpm-cache-restore
