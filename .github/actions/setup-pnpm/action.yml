@@ -1,0 +1,47 @@
+name: Setup Node.js, pnpm and dependencies
+description: Setup Node.js, pnpm and dependencies
+inputs:
+  token:
+    description: Github token
+    required: false
+    default: ''
+  save-cache:
+    description: Whether to save the Rust cache
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        cache: 'pnpm'
+        token: ${{ inputs.token }}
+        node-version: 18
+        cache-dependency-path: 'pnpm-lock.yaml'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 8.x.x
+
+    - name: Restore cached pnpm deps
+      id: pnpm-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install pnpm deps
+      shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
+      run: pnpm i --frozen-lockfile
+
+    - name: Save pnpm deps
+      id: pnpm-cache-save
+      if: inputs.save-cache
+      uses: actions/cache/save@v3
+      with:
+        key: ${{ steps.pnpm-cache-restore.outputs.cache-primary-key }}
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}

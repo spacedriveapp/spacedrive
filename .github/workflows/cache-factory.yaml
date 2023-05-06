@@ -21,10 +21,19 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: ./.github/actions/setup
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          save-cache: 'true'
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           save-cache: 'true'
 
       - name: Compile (debug)

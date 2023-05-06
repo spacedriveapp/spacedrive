@@ -19,11 +19,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup
-        uses: ./.github/actions/setup
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          save-cache: ${{ inputs.save-cache }}
 
       - name: Apply build patches
         run: pnpm desktop build

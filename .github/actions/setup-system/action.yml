@@ -1,5 +1,5 @@
-name: Setup
-description: Sets up runner, Rust and pnpm
+name: Setup System and Rust
+description: Setup System and Rust
 inputs:
   token:
     description: Github token
@@ -12,36 +12,31 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install Rust
-      id: toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: stable
-        components: clippy, rustfmt
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 8.x.x
-        run_install: false
-
-    - name: Cache LLVM and Clang
+    - name: Restore cached LLVM and Clang
       if: runner.os == 'Windows'
-      id: cache-llvm
-      uses: actions/cache@v3
+      id: cache-llvm-restore
+      uses: actions/cache/restore@v3
       with:
-        path: C:/Program Files/LLVM
         key: llvm-15
+        path: C:/Program Files/LLVM
 
     - name: Install LLVM and Clang
       if: runner.os == 'Windows'
       uses: KyleMayes/install-llvm-action@v1
       with:
-        version: '15'
         cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+        version: '15'
 
-    - name: Cache Rust deps
-      uses: ./.github/actions/cache-rust-deps
+    - name: Save LLVM and Clang
+      if: runner.os == 'Windows' && inputs.save-cache
+      id: cache-llvm-save
+      uses: actions/cache/save@v3
+      with:
+        key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
+        path: C:/Program Files/LLVM
+
+    - name: Setup Rust and Dependencies
+      uses: ./.github/actions/setup-rust
       with:
         save-cache: ${{ inputs.save-cache }}
 
@@ -58,6 +53,3 @@ runs:
       run: ./.github/scripts/setup-system.ps1
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-
-    - name: Generate Prisma client
-      uses: ./.github/actions/generate-prisma-client

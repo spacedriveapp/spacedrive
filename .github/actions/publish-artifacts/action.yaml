@@ -46,12 +46,6 @@ runs:
         name: Spacedrive-Windows-${{ env.GITHUB_SHA_SHORT }}
         path: target\${{ inputs.profile }}\bundle\msi\*.msi
 
-    - name: Set app file permissions
-      if: matrix.platform == 'macos-latest'
-      shell: bash
-      run: |
-        chmod +x target/${{ inputs.profile }}/bundle/macos/*.app/Contents/MacOS/Spacedrive
-
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
