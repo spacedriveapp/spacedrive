@@ -6427,7 +6427,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c57d4ec21f72d96fb5fea4bdb015afa02137990#7c57d4ec21f72d96fb5fea4bdb015afa02137990"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=799eec5df7533edf331f41d3f1be03de07e038d7#799eec5df7533edf331f41d3f1be03de07e038d7"
 dependencies = [
  "futures",
  "futures-channel",
