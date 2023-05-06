@@ -71,7 +71,7 @@ if ! has cargo; then
     'https://rustup.rs'
 fi
 
-if [ "${CI:-}" != "true" ] || [ "${spacedrive_skip_pnpm_check:-'false'}" != "true" ]; then
+if [ "${CI:-}" != "true" ] && [ "${spacedrive_skip_pnpm_check:-'false'}" != "true" ]; then
   echo "checking for pnpm..."
 
   if ! has pnpm; then

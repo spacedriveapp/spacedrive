@@ -17,6 +17,12 @@ runs:
       with:
         version: 8.x.x
 
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
     - name: Install Node.js
       uses: actions/setup-node@v3
       with:
