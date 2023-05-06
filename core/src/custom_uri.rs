@@ -278,7 +278,7 @@ async fn handle_file(
 		.await
 		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		.len();
-	
+
 	// GET is the only method for which range handling is defined, according to the spec
 	// https://httpwg.org/specs/rfc9110.html#field.range
 	let range = if method == Method::GET {
