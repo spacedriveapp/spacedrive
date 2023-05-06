@@ -9,10 +9,7 @@ env:
   MACOSX_DEPLOYMENT_TARGET: '10.13'
 on:
   workflow_dispatch:
-    inputs:
-      releaseId:
-        description: 'ID of the cli.js release'
-        required: true
+  pull_request:
 
 defaults:
   run:
