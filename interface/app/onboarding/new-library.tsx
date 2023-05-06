@@ -13,7 +13,8 @@ import {
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
-	name: z.string().min(1, 'Name is required').regex(/[\S]/g)
+	// the regex here validates that the entire string isn't purely whitespace
+	name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 });
 
 export default function OnboardingNewLibrary() {
