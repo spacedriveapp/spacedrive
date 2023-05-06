@@ -427,7 +427,10 @@ async fn inner_update_file(
 					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
 
 					// remove the old thumbnail as we're generating a new one
-					fs::remove_file(get_thumbnail_path(library, old_cas_id)).await?;
+					let thumb_path = get_thumbnail_path(library, old_cas_id);
+					fs::remove_file(&thumb_path)
+						.await
+						.map_err(|e| FileIOError::from((thumb_path, e)))?;
 				}
 
 				let int_kind = kind as i32;

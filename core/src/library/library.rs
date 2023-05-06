@@ -9,6 +9,7 @@ use crate::{
 	object::preview::get_thumbnail_path,
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
+	util::error::FileIOError,
 	NodeContext,
 };
 
@@ -19,6 +20,7 @@ use std::{
 };
 
 use sd_crypto::keys::keymanager::KeyManager;
+use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -87,13 +89,13 @@ impl Library {
 		&self.node_context.location_manager
 	}
 
-	pub async fn thumbnail_exists(&self, cas_id: &str) -> tokio::io::Result<bool> {
+	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
 		let thumb_path = get_thumbnail_path(self, cas_id);
 
-		match tokio::fs::metadata(thumb_path).await {
+		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
-			Err(e) if e.kind() == tokio::io::ErrorKind::NotFound => Ok(false),
-			Err(e) => Err(e),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+			Err(e) => Err(FileIOError::from((thumb_path, e))),
 		}
 	}
 

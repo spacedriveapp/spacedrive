@@ -184,7 +184,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							library
 								.thumbnail_exists(cas_id)
 								.await
-								.map_err(LocationError::IOError)?
+								.map_err(LocationError::from)?
 						} else {
 							false
 						};

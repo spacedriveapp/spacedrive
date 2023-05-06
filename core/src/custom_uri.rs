@@ -1,6 +1,7 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	prisma::file_path,
+	util::error::FileIOError,
 	Node,
 };
 
@@ -110,15 +111,19 @@ async fn handle_thumbnail(
 		.join(file_cas_id)
 		.with_extension("webp");
 
-	let file = File::open(filename).await.map_err(|err| {
+	let file = File::open(&filename).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
 			HandleCustomUriError::NotFound("file")
 		} else {
-			err.into()
+			FileIOError::from((&filename, err)).into()
 		}
 	})?;
 
-	let content_lenght = file.metadata().await?.len();
+	let content_lenght = file
+		.metadata()
+		.await
+		.map_err(|e| FileIOError::from((&filename, e)))?
+		.len();
 
 	Ok(builder
 		.header("Content-Type", "image/webp")
@@ -127,7 +132,9 @@ async fn handle_thumbnail(
 		.body(if method == Method::HEAD {
 			vec![]
 		} else {
-			read_file(file, content_lenght, None).await?
+			read_file(file, content_lenght, None)
+				.await
+				.map_err(|e| FileIOError::from((&filename, e)))?
 		})?)
 }
 
@@ -165,7 +172,7 @@ async fn handle_file(
 
 	let lru_cache_key = (library_id, file_path_id);
 
-	let (file_path_materialized_path, extension) =
+	let (file_path_full_path, extension) =
 		if let Some(entry) = FILE_METADATA_CACHE.get(&lru_cache_key) {
 			entry
 		} else {
@@ -194,15 +201,13 @@ async fn handle_file(
 			lru_entry
 		};
 
-	let file = File::open(file_path_materialized_path)
-		.await
-		.map_err(|err| {
-			if err.kind() == io::ErrorKind::NotFound {
-				HandleCustomUriError::NotFound("file")
-			} else {
-				err.into()
-			}
-		})?;
+	let file = File::open(&file_path_full_path).await.map_err(|err| {
+		if err.kind() == io::ErrorKind::NotFound {
+			HandleCustomUriError::NotFound("file")
+		} else {
+			FileIOError::from((&file_path_full_path, err)).into()
+		}
+	})?;
 
 	// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
@@ -268,7 +273,12 @@ async fn handle_file(
 		}
 	};
 
-	let mut content_lenght = file.metadata().await?.len();
+	let mut content_lenght = file
+		.metadata()
+		.await
+		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
+		.len();
+	
 	// GET is the only method for which range handling is defined, according to the spec
 	// https://httpwg.org/specs/rfc9110.html#field.range
 	let range = if method == Method::GET {
@@ -332,10 +342,14 @@ async fn handle_file(
 
 			// FIXME: Add ETag support (caching on the webview)
 
-			read_file(file, content_lenght, Some(range.start)).await?
+			read_file(file, content_lenght, Some(range.start))
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		}
 		_ if method == Method::HEAD => vec![],
-		_ => read_file(file, content_lenght, None).await?,
+		_ => read_file(file, content_lenght, None)
+			.await
+			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?,
 	};
 
 	Ok(builder
@@ -362,7 +376,7 @@ pub enum HandleCustomUriError {
 	#[error("error creating http request/response: {0}")]
 	Http(#[from] httpz::http::Error),
 	#[error("io error: {0}")]
-	Io(#[from] io::Error),
+	FileIO(#[from] FileIOError),
 	#[error("query error: {0}")]
 	QueryError(#[from] QueryError),
 	#[error("{0}")]
@@ -379,19 +393,19 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 
 		(match value {
 			HandleCustomUriError::Http(err) => {
-				error!("Error creating http request/response: {}", err);
+				error!("Error creating http request/response: {:#?}", err);
 				builder
 					.status(StatusCode::INTERNAL_SERVER_ERROR)
 					.body(b"Internal Server Error".to_vec())
 			}
-			HandleCustomUriError::Io(err) => {
-				error!("IO error: {}", err);
+			HandleCustomUriError::FileIO(err) => {
+				error!("IO error: {:#?}", err);
 				builder
 					.status(StatusCode::INTERNAL_SERVER_ERROR)
 					.body(b"Internal Server Error".to_vec())
 			}
 			HandleCustomUriError::QueryError(err) => {
-				error!("Query error: {}", err);
+				error!("Query error: {:#?}", err);
 				builder
 					.status(StatusCode::INTERNAL_SERVER_ERROR)
 					.body(b"Internal Server Error".to_vec())

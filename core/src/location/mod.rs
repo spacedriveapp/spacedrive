@@ -13,7 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::db::uuid_to_bytes,
+	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
 use std::{
@@ -71,7 +71,7 @@ impl LocationCreateArgs {
 			}
 			Err(e) => {
 				return Err(LocationError::LocationPathFilesystemMetadataAccess(
-					e, self.path,
+					FileIOError::from((self.path, e)),
 				));
 			}
 		};
