@@ -351,12 +351,11 @@ Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
 
 $ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-robocopy "$ffmpegDir" "$projectRoot\target\Frameworks" /E /NS /NC /NFL /NDL /NP /NJH /NJS
+$proc = Start-Process -PassThru -Wait -FilePath 'Robocopy.exe' -Verb RunAs -ArgumentList `
+    "`"$ffmpegDir`" `"$projectRoot\target\Frameworks`" /E /NS /NC /NFL /NDL /NP /NJH /NJS"
 # https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy#exit-return-codes
-if ($LASTEXITCODE -ge 8) {
+if ($proc.ExitCode -ge 8) {
     Exit-WithError 'Failed to copy ffmpeg files'
-} else {
-    $LASTEXITCODE = 0
 }
 Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
