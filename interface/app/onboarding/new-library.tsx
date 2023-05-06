@@ -13,7 +13,8 @@ import {
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
-	name: z.string().min(1, 'Name is required')
+	// the regex here validates that the entire string isn't purely whitespace
+	name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 });
 
 export default function OnboardingNewLibrary() {
@@ -71,7 +72,12 @@ export default function OnboardingNewLibrary() {
 						/>
 						<div className="flex grow" />
 						<div className="mt-7 space-x-2">
-							<Button type="submit" variant="accent" size="sm">
+							<Button
+								type="submit"
+								variant="accent"
+								disabled={!form.formState.isValid}
+								size="sm"
+							>
 								New library
 							</Button>
 							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>

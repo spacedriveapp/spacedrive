@@ -59,6 +59,8 @@ pub enum LibraryManagerError {
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] crate::util::migrator::MigratorError),
+	#[error("invalid library configuration: {0}")]
+	InvalidConfig(String),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -191,6 +193,12 @@ impl LibraryManager {
 		id: Uuid,
 		config: LibraryConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
+		if config.name.is_empty() || config.name.chars().all(|x| x.is_whitespace()) {
+			return Err(LibraryManagerError::InvalidConfig(
+				"name cannot be empty".to_string(),
+			));
+		}
+
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&config,
