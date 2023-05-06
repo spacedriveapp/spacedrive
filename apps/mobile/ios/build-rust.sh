@@ -1,23 +1,24 @@
-#! /bin/zsh
+#!/usr/bin/env zsh
 
 set -e
 
-TARGET_DIRECTORY=../../../target
+__dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+TARGET_DIRECTORY="$(CDPATH='' cd -- "${__dirname}../../../target" && pwd)"
 
 CARGO_FLAGS=
 if [[ $CONFIGURATION != "Debug" ]]; then
   CARGO_FLAGS=--release
 fi
 
+export PROTOC="${TARGET_DIRECTORY}/Frameworks/bin/protoc"
+
 # TODO: Also do this for non-Apple Silicon Macs
 if [[ $SPACEDRIVE_CI == "1" ]]; then
-   
   # Required for CI
   export PATH="$HOME/.cargo/bin:$PATH"
-  export PROTOC=/usr/local/bin/protoc
 
   cargo build -p sd-mobile-ios --target x86_64-apple-ios
-  
+
   if [[ $PLATFORM_NAME = "iphonesimulator" ]]
   then
     lipo -create -output $TARGET_DIRECTORY/libsd_mobile_ios-iossim.a $TARGET_DIRECTORY/x86_64-apple-ios/debug/libsd_mobile_ios.a
@@ -26,9 +27,6 @@ if [[ $SPACEDRIVE_CI == "1" ]]; then
   fi
   exit 0
 fi
-
-# Required for M1 Mac builds (?)
-export PROTOC=/opt/homebrew/bin/protoc
 
 if [[ $PLATFORM_NAME = "iphonesimulator" ]]
 then
