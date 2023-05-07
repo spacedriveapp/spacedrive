@@ -45,5 +45,5 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d
 
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c57d4ec21f72d96fb5fea4bdb015afa02137990" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "799eec5df7533edf331f41d3f1be03de07e038d7" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
