@@ -62,8 +62,10 @@ macro_rules! extension_enum {
 			#[allow(clippy::should_implement_trait)]
 			pub fn from_str(s: &str) -> Option<ExtensionPossibility> {
 				use std::str::FromStr;
+				let s = s.to_lowercase();
+
 				let mut exts = [$(
-						$type::from_str(s).ok().map(Self::$variant)
+						$type::from_str(&s).ok().map(Self::$variant)
 					),*]
 					.into_iter()
 					.filter_map(|s| s)
