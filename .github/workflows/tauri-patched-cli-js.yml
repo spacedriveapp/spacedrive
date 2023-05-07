@@ -97,7 +97,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         if: ${{ !matrix.settings.docker }}
         with:
-          toolchain: stable          
+          toolchain: stable
           targets: ${{ matrix.settings.target }}
       - name: Setup toolchain
         run: ${{ matrix.settings.setup }}
@@ -334,12 +334,15 @@ jobs:
         run: |
           set -euxo pipefail
 
-          echo "$(pwd)"
-
           while IFS= read -r -d '' _file; do
-            _pkg="$(jq -r '.repository.url = "https://github.com/spacedriveapp/spacedrive.git"' "$_file")"
-            printf '%s' "$_pkg" > "$_file"
-          done < <(find . -type f -name 'package.json' -print0)
+            if _pkg="$(
+              jq -r \
+                'if .repository == null then error("Error: No repository set") else .repository.url = "https://github.com/spacedriveapp/spacedrive.git" end' \
+                "$_file"
+            )"; then
+              printf '%s' "$_pkg" >| "$_file"
+            fi
+          done < <(find . -type f -name 'package.json' -not \( -wholename '*/node_modules/*' \) -print0)
 
           npm publish
         env:
