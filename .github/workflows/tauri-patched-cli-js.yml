@@ -411,12 +411,15 @@ jobs:
       - name: Publish
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+
+          echo "$(pwd)"
+
           while IFS= read -r -d '' _file; do
-            _pkg="$(cat "$_file")"
-            _pkg="$(printf '%s' "$_pkg" | jq -r '.repository.url = "https://github.com/spacedriveapp/spacedrive.git"')"
+            _pkg="$(jq -r '.repository.url = "https://github.com/spacedriveapp/spacedrive.git"' "$_file")"
             printf '%s' "$_pkg" > "$_file"
           done < <(find . -type f -name 'package.json' -print0)
+
           npm publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
