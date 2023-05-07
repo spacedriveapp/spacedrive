@@ -79,10 +79,6 @@ jobs:
               rustup target add aarch64-unknown-linux-musl
               yarn build:release --features rustls --target aarch64-unknown-linux-musl
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
-          #- host: windows-latest
-          #  architecture: x64
-          #  target: aarch64-pc-windows-msvc
-          #  build: yarn build:release --features rustls --target aarch64-pc-windows-msvc
     name: stable - ${{ matrix.settings.target }} - node@16
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -96,22 +92,13 @@ jobs:
         with:
           node-version: 16
           check-latest: true
-          # cache: yarn
-          # cache-dependency-path: 'tooling/cli/node/yarn.lock'
           architecture: ${{ matrix.settings.architecture }}
       - name: Install
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         if: ${{ !matrix.settings.docker }}
         with:
-          profile: minimal
-          override: true
-          toolchain: stable
-          target: ${{ matrix.settings.target }}
-      # - uses: Swatinem/rust-cache@v1
-      #   with:
-      #     key: ${{ matrix.settings.target }}
-      #     working-directory: 'tooling/cli/'
-      #   if: ${{ matrix.settings.docker }}
+          toolchain: stable          
+          targets: ${{ matrix.settings.target }}
       - name: Setup toolchain
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
@@ -138,55 +125,6 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           path: tooling/cli/node/${{ env.APP_NAME }}.*.node
           if-no-files-found: error
-  #  build-freebsd:
-  #    runs-on: macos-10.15
-  #    name: Build FreeBSD
-  #    steps:
-  #      - uses: actions/checkout@v3
-  #      - name: Build
-  #        id: build
-  #        uses: vmactions/freebsd-vm@v0.1.6
-  #        env:
-  #          DEBUG: napi:*
-  #          RUSTUP_HOME: /usr/local/rustup
-  #          CARGO_HOME: /usr/local/cargo
-  #          RUSTUP_IO_THREADS: 1
-  #        with:
-  #          envs: DEBUG RUSTUP_HOME CARGO_HOME RUSTUP_IO_THREADS
-  #          usesh: true
-  #          mem: 3000
-  #          prepare: |
-  #            pkg install -y curl node14 python2
-  #            curl -qL https://www.npmjs.com/install.sh | sh
-  #            npm install -g yarn
-  #            curl https://sh.rustup.rs -sSf --output rustup.sh
-  #            sh rustup.sh -y --profile minimal --default-toolchain stable
-  #            export PATH="/usr/local/cargo/bin:$PATH"
-  #            echo "~~~~ rustc --version ~~~~"
-  #            rustc --version
-  #            echo "~~~~ node -v ~~~~"
-  #            node -v
-  #            echo "~~~~ yarn --version ~~~~"
-  #            yarn --version
-  #          run: |
-  #            export PATH="/usr/local/cargo/bin:$PATH"
-  #            pwd
-  #            ls -lah
-  #            whoami
-  #            env
-  #            freebsd-version
-  #            cd ./tooling/cli/node/
-  #            yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
-  #            yarn build:release --features rustls
-  #            strip -x *.node
-  #            rm -rf node_modules
-  #            rm -rf ../target
-  #      - name: Upload artifact
-  #        uses: actions/upload-artifact@v3
-  #        with:
-  #          name: bindings-freebsd
-  #          path: tooling/cli/node/${{ env.APP_NAME }}.*.node
-  #          if-no-files-found: error
   test-macOS-windows-binding:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
@@ -214,8 +152,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-          # cache: yarn
-          # cache-dependency-path: 'tooling/cli/node/yarn.lock'
       - name: Install dependencies
         run: yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
       - name: Download artifacts
@@ -250,8 +186,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-          # cache: yarn
-          # cache-dependency-path: 'tooling/cli/node/yarn.lock'
       - name: Install dependencies
         run: yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
       - name: Download artifacts
@@ -292,8 +226,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-          # cache: yarn
-          # cache-dependency-path: 'tooling/cli/node/yarn.lock'
       - name: Install dependencies
         run: yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
       - name: Download artifacts
@@ -311,13 +243,6 @@ jobs:
         run: |
           yarn tauri --help
           ls -la
-      # TODO: fix this test: https://github.com/tauri-apps/tauri/runs/5145729140?check_suite_focus=true#step:9:704
-      #- name: Setup and run tests
-      #  run: |
-      #    rustup install stable
-      #    rustup default stable
-      #    yarn test
-      #    ls -la
   test-linux-arm-bindings:
     name: Test bindings on ${{ matrix.image }} - node@${{ matrix.node }}
     needs:
@@ -379,11 +304,9 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     needs:
-      #- build-freebsd
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
       - test-linux-x64-musl-binding
-      #- test-linux-arm-bindings
     steps:
       - uses: actions/checkout@v3
         with:
@@ -395,8 +318,6 @@ jobs:
           node-version: 16
           check-latest: true
           registry-url: 'https://npm.pkg.github.com'
-          # cache: yarn
-          # cache-dependency-path: 'tooling/cli/node/yarn.lock'
       - name: Install dependencies
         run: yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
       - name: Download all artifacts
