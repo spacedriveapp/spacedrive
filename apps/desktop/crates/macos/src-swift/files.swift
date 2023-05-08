@@ -24,23 +24,46 @@ func getOpenWithApplications(urlString: SRString) -> SRObjectArray {
         url = URL(fileURLWithPath: urlString.toString())
     }
     
+                                       
     if #available(macOS 12.0, *) {
-        let arr =  SRObjectArray(NSWorkspace.shared.urlsForApplications(toOpen: url)
+        return SRObjectArray(NSWorkspace.shared.urlsForApplications(toOpen: url)
             .compactMap { url in
                 Bundle(url: url)?.infoDictionary.map { ($0, url) }
             }
-            .map { (dict, url) in
+            .compactMap { (dict, url) in
                 let name = SRString((dict["CFBundleDisplayName"] ?? dict["CFBundleName"]) as! String);
+                
+                if !url.path.contains("/Applications/") {
+                    return nil
+                }
+                
                 return OpenWithApplication(
                     name: name,
                     id: SRString(dict["CFBundleIdentifier"] as! String),
                     url: SRString(url.path)
                 )
             })
-        print(arr)
-        return arr
     } else {
         // Fallback on earlier versions
         return SRObjectArray([])
     }
+}
+
+@_cdecl("open_file_path_with")
+func openFilePathWith(fileUrl: SRString, withUrl: SRString) {
+    let config = NSWorkspace.OpenConfiguration();
+
+    let at = URL(fileURLWithPath: withUrl.toString());
+    print(at);
+    
+    NSWorkspace.shared.open(
+        [URL(fileURLWithPath: fileUrl.toString())],
+        withApplicationAt: at,
+        configuration: config
+    )
+    
+//    NSWorkspace.shared.openApplication(at: at, configuration: config) { (app, err) in
+//        print(app)
+//        print(err)
+//    }
 }

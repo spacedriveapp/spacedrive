@@ -6,8 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-swift-rs = { workspace = true, features = ["specta", "serde"] }
-specta.workspace = true
+swift-rs = { workspace = true, features = ["serde"] }
 serde = { version = "1.0" }
 
 [build-dependencies]

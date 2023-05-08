@@ -17,7 +17,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import { appReady, bruh, openFilePath } from './commands';
+import { appReady, getFilePathOpenWithApps, openFilePath, openFilePathWith } from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -74,7 +74,8 @@ const platform: Platform = {
 	showDevtools: () => invoke('show_devtools'),
 	openPath: (path) => shell.open(path),
 	openFilePath,
-	bruh
+	getFilePathOpenWithApps,
+	openFilePathWith
 };
 
 const queryClient = new QueryClient();

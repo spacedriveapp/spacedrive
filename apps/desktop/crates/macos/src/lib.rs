@@ -17,18 +17,11 @@ swift!(pub fn set_titlebar_style(window: &NSObject, transparent: Bool, large: Bo
 swift!(pub fn reload_webview(webview: &NSObject));
 
 #[repr(C)]
-#[derive(Debug)]
-pub struct OpenWithApplicationRaw {
+pub struct OpenWithApplication {
 	pub name: SRString,
 	pub id: SRString,
 	pub url: SRString,
 }
 
-#[derive(serde::Serialize, specta::Type)]
-pub struct OpenWithApplication {
-	pub name: String,
-	// pub id: String,
-	// pub url: String,
-}
-
-swift!(pub fn get_open_with_applications(url: &SRString) -> SRObjectArray<OpenWithApplicationRaw>);
+swift!(pub fn get_open_with_applications(url: &SRString) -> SRObjectArray<OpenWithApplication>);
+swift!(pub fn open_file_path_with(file_url: &SRString, with_url: &SRString));

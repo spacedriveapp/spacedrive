@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use sd_core::Node;
-use sd_desktop_macos::OpenWithApplication;
 use serde::Serialize;
 use specta::Type;
 
@@ -39,31 +38,73 @@ pub async fn open_file_path(
 	Ok(res)
 }
 
+#[derive(Type, serde::Serialize)]
+pub struct OpenWithApplication {
+    name: String,
+    url: String,
+}
+
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn bruh(
+pub async fn get_file_path_open_with_apps(
 	library: uuid::Uuid,
 	id: i32,
 	node: tauri::State<'_, Arc<Node>>,
+) -> Result<Vec<OpenWithApplication>, ()> {
+	let Some(library) = node.library_manager.get_library(library).await else { 
+        return Err(())
+    };
+
+    let Ok(Some(path)) = library
+        .get_file_path(id)
+        .await
+        else {
+            return Err(())
+        };
+
+    #[cfg(target_os = "macos")]
+    let apps = {
+        unsafe {
+            sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into())
+        }.as_slice().into_iter().map(|app| {
+            OpenWithApplication {
+                name: app.name.to_string(),
+                url: app.url.to_string()
+            }
+        }).collect()
+    };
+
+    #[cfg(not(target_os = "macos"))]
+    return Err(());
+
+    Ok(apps)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn open_file_path_with(
+	library: uuid::Uuid,
+	id: i32,
+	with_url: String,
+	node: tauri::State<'_, Arc<Node>>,
 ) -> Result<(), ()> {
-	if let Some(library) = node.library_manager.get_library(library).await {
-		let Ok(Some(path)) = library
+	let Some(library) = node.library_manager.get_library(library).await else {
+        return Err(())
+    };
+
+	let Ok(Some(path)) = library
 			.get_file_path(id)
 			.await
             else {
                 return Err(())
             };
 
-		unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
-			.as_slice()
-			.iter()
-			.map(|a| OpenWithApplication {
-				name: a.name.to_string(),
-			})
-			.collect::<Vec<_>>();
-
-		return Ok(());
+	unsafe {
+		sd_desktop_macos::open_file_path_with(
+			&path.to_str().unwrap().into(),
+			&with_url.as_str().into(),
+		)
 	};
 
-	Err(())
+	Ok(())
 }

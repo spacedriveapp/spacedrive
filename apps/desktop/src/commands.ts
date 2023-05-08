@@ -16,4 +16,13 @@ export function openFilePath(library: string, id: number) {
     return invoke<OpenFilePathResult>("open_file_path", { library,id })
 }
 
+export function getFilePathOpenWithApps(library: string, id: number) {
+    return invoke<OpenWithApplication[]>("get_file_path_open_with_apps", { library,id })
+}
+
+export function openFilePathWith(library: string, id: number, withUrl: string) {
+    return invoke<null>("open_file_path_with", { library,id,withUrl })
+}
+
+export type OpenWithApplication = { name: string; url: string }
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile" } | { t: "OpenError"; c: string } | { t: "AllGood" }

@@ -5568,6 +5568,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=5d8029e0a0b590e1b8f674339ba880114a1becc8#5d8029e0a0b590e1b8f674339ba880114a1becc8"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5600,6 +5601,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=5d8029e0a0b590e1b8f674339ba880114a1becc8#5d8029e0a0b590e1b8f674339ba880114a1becc8"
 dependencies = [
  "directories",
  "flate2",
@@ -5619,6 +5621,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=5d8029e0a0b590e1b8f674339ba880114a1becc8#5d8029e0a0b590e1b8f674339ba880114a1becc8"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5630,10 +5633,10 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=5d8029e0a0b590e1b8f674339ba880114a1becc8#5d8029e0a0b590e1b8f674339ba880114a1becc8"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
- "nom",
  "prisma-models",
  "proc-macro2",
  "psl",
@@ -6813,7 +6816,6 @@ name = "sd-desktop-macos"
 version = "0.1.0"
 dependencies = [
  "serde",
- "specta",
  "swift-rs",
 ]
 
@@ -7760,11 +7762,12 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 [[package]]
 name = "swift-rs"
 version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05e51d6f2b5fff4808614f429f8a7655ac8bcfe218185413f3a60c508482c2d6"
 dependencies = [
  "base64 0.21.0",
  "serde",
  "serde_json",
- "specta",
 ]
 
 [[package]]

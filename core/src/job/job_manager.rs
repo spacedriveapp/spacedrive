@@ -17,7 +17,7 @@ use crate::{
 		},
 		validation::validator_job::ObjectValidatorJob,
 	},
-	prisma::{job, node, SortOrder},
+	prisma::{job, node},
 	util,
 };
 
@@ -30,6 +30,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -179,7 +180,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running as i32)])
-			.order_by(job::date_created::order(SortOrder::Desc))
+			.order_by(job::date_created::order(Direction::Desc))
 			.take(100)
 			.exec()
 			.await?
@@ -248,7 +249,7 @@ impl JobManager {
 				.find_many(vec![job::parent_id::equals(Some(
 					root_paused_job_report.id.as_bytes().to_vec(),
 				))])
-				.order_by(job::action::order(SortOrder::Asc))
+				.order_by(job::action::order(Direction::Asc))
 				.exec()
 				.await?
 				.into_iter()
