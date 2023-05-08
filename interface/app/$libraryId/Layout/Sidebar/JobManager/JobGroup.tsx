@@ -16,13 +16,17 @@ interface JobGroupProps {
 function JobGroup({ data, clearJob }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const isJobsRunning = data.childJobs?.some((job) => job.status === 'Running');
+	const allJobs = [...data.childJobs, ...data.runningJobs];
 
-	const allJobsCompleted = data.childJobs?.every((job) => job.status === 'Completed');
+	console.log({ allJobs })
 
-	const tasks = useMemo(() => totalTasks(data.childJobs), [data.childJobs]);
+	const isJobsRunning = allJobs.some((job) => job.status === 'Running');
 
-	const totalGroupTime = useTotalElapsedTimeText(data.childJobs);
+	const allJobsCompleted = allJobs?.every((job) => job.status === 'Completed');
+
+	const tasks = totalTasks(allJobs);
+
+	const totalGroupTime = useTotalElapsedTimeText(allJobs);
 
 	// If one job is remaining, we just delete the parent
 	const clearJobHandler = (arg: string) => {
@@ -114,9 +118,9 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 function totalTasks(jobs: JobReport[]) {
 	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
 
-	jobs?.forEach(({ task_count, status, completed_at }) => {
+	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
 		tasks.total += task_count;
-		tasks.completed += status === 'Completed' ? task_count : 0;
+		tasks.completed += status === 'Completed' ? task_count : completed_task_count;
 		if (status === 'Completed') {
 			tasks.timeOfLastFinishedJob = completed_at || '';
 		}
