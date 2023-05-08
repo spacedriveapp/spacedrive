@@ -93,6 +93,30 @@ jobs:
           node-version: 16
           check-latest: true
           architecture: ${{ matrix.settings.architecture }}
+          registry-url: 'https://npm.pkg.github.com'
+      - name: Patch package names
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' _file; do
+            _triple="$(printf '%s' "$_file" | awk -F/ '{ print $(NF-1) }')"
+            _pkg="$(jq -r --arg triple "$_triple" '
+              .name = "@spacedriveapp/tauri-cli-\($triple)"
+              | .repository = "https://github.com/spacedriveapp/spacedrive"
+              | .publishConfig["@spacedriveapp:registry"] = "https://npm.pkg.github.com"
+            ' package.json)"
+          done < <(find ./npm -type f -name 'package.json' -not \( -wholename '*/node_modules/*' \) -print0)
+
+          _pkg="$(jq -r '
+            .name = "@spacedriveapp/tauri-cli"
+            | .version = "1.3.1"
+            | .repository = "https://github.com/spacedriveapp/spacedrive"
+            | .scripts.prepublishOnly = "napi prepublish --skip-gh-release"
+            | .publishConfig["@spacedriveapp:registry"] = "https://npm.pkg.github.com"
+          ' package.json)"
+
+          printf '%s' "$_pkg" >| package.json
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         if: ${{ !matrix.settings.docker }}
