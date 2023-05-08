@@ -99,6 +99,7 @@ pub async fn open_file_path_with(
             return Err(())
         };
 
+	#[cfg(target_os = "macos")]
 	unsafe {
 		sd_desktop_macos::open_file_path_with(
 			&path.to_str().unwrap().into(),
