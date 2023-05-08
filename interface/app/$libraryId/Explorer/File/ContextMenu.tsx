@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
@@ -13,9 +14,10 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, Suspense } from 'react';
 import {
 	ExplorerItem,
+	FilePath,
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
@@ -25,10 +27,11 @@ import { ContextMenu, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { usePlatform } from '~/util/Platform';
+import { Platform, usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
+import OpenWith from './ContextMenu/OpenWith';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -253,11 +256,10 @@ export default ({ data, className, ...props }: Props) => {
 
 const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
-	const platform = usePlatform();
+	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
 	const filePath = getItemFilePath(props.data);
-	const openFilePath = platform.openFilePath;
 
 	const { library } = useLibraryContext();
 
@@ -265,24 +267,28 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	else
 		return (
 			<>
-				{filePath && openFilePath && (
-					<ContextMenu.Item
-						label="Open"
-						keybind="⌘O"
-						onClick={() => {
-							props.data.type === 'Path' &&
-								props.data.item.object_id &&
-								updateAccessTime.mutate(props.data.item.object_id);
-							openFilePath(library.uuid, filePath.id);
-						}}
-					/>
+				{filePath && (
+					<>
+						{openFilePath && (
+							<ContextMenu.Item
+								label="Open"
+								keybind="⌘O"
+								onClick={() => {
+									props.data.type === 'Path' &&
+										props.data.item.object_id &&
+										updateAccessTime.mutate(props.data.item.object_id);
+									openFilePath(library.uuid, filePath.id);
+								}}
+							/>
+						)}
+						<OpenWith filePath={filePath} />
+					</>
 				)}
 				<ContextMenu.Item
 					label="Quick view"
 					keybind="␣"
 					onClick={() => (getExplorerStore().quickViewObject = props.data)}
 				/>
-				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
 			</>
 		);
 };
