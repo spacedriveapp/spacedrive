@@ -1,16 +1,7 @@
 import clsx from 'clsx';
-import {
-	HTMLAttributes,
-	PropsWithChildren,
-	RefObject,
-	createContext,
-	memo,
-	useContext,
-	useRef
-} from 'react';
+import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
-import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
@@ -18,6 +9,7 @@ import ContextMenu from './File/ContextMenu';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
+import { ViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
@@ -42,10 +34,12 @@ export const ViewItem = ({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({ path: data.item.materialized_path }).toString()
 			});
-			getExplorerStore().selectedRowIndex = -1;
+
+			getExplorerStore().selectedRowIndex = null;
 		} else {
 			const { kind } = getExplorerItemData(data);
-			if (kind === 'Video' || kind === 'Image' || kind === 'Audio') {
+
+			if (['Video', 'Image', 'Audio'].includes(kind)) {
 				getExplorerStore().quickViewObject = data;
 			}
 		}
@@ -74,15 +68,9 @@ interface Props {
 	data: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
 	viewClassName?: string;
 }
-
-interface ExplorerView {
-	data: ExplorerItem[];
-	scrollRef: RefObject<HTMLDivElement>;
-}
-const context = createContext<ExplorerView>(undefined!);
-export const useExplorerView = () => useContext(context);
 
 export default memo((props: Props) => {
 	const explorerStore = useExplorerStore();
@@ -102,17 +90,22 @@ export default memo((props: Props) => {
 				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
-			onClick={() => (getExplorerStore().selectedRowIndex = -1)}
+			onClick={() => (getExplorerStore().selectedRowIndex = null)}
 		>
 			{!isOverview && <DismissibleNotice />}
-			<context.Provider value={{ data: props.data, scrollRef }}>
+			<ViewContext.Provider
+				value={{
+					data: props.data,
+					scrollRef,
+					onLoadMore: props.onLoadMore,
+					hasNextPage: props.hasNextPage,
+					isFetchingNextPage: props.isFetchingNextPage
+				}}
+			>
 				{layoutMode === 'grid' && <GridView />}
 				{layoutMode === 'rows' && <ListView />}
 				{layoutMode === 'media' && <MediaView />}
-				{props.hasNextPage && (
-					<Button onClick={() => props.onLoadMore?.()}>Load More</Button>
-				)}
-			</context.Provider>
+			</ViewContext.Provider>
 		</div>
 	);
 });

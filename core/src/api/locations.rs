@@ -84,7 +84,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub location_id: i32,
 				#[specta(optional)]
 				pub path: Option<String>,
-				pub limit: i32,
+				#[specta(optional)]
+				pub limit: Option<i32>,
 				#[specta(optional)]
 				pub cursor: Option<Vec<u8>>,
 				#[specta(optional)]
@@ -135,13 +136,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.unwrap_or_default();
 
 					let (mut file_paths, cursor) = {
+						let limit = args.limit.unwrap_or(100);
+
 						let mut query = db
 							.file_path()
 							.find_many(chain_optional_iter(
 								[file_path::location_id::equals(location.id)],
 								[directory_id.map(Some).map(file_path::parent_id::equals)],
 							))
-							.take((args.limit + 1) as i64);
+							.take((limit + 1) as i64);
 
 						if let Some(cursor) = args.cursor {
 							query = query.cursor(file_path::pub_id::equals(cursor));
@@ -152,7 +155,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?;
 
-						let cursor = results.pop().map(|r| r.pub_id);
+						let cursor = if results.len() as i32 > limit {
+							results.pop().map(|r| r.pub_id)
+						} else {
+							None
+						};
 
 						(results, cursor)
 					};

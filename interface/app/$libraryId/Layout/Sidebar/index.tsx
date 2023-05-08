@@ -20,7 +20,7 @@ export default () => {
 		>
 			{showControls && <MacTrafficLights className="absolute left-[13px] top-[13px] z-50" />}
 			{(os !== 'browser' || showControls) && (
-				<div className="flex justify-end">
+				<div className="-mt-[4px] flex justify-end">
 					<NavigationButtons />
 				</div>
 			)}

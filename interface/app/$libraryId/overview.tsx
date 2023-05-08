@@ -91,14 +91,18 @@ export const Component = () => {
 	const { explorerViewOptions } = useExplorerTopBarOptions();
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
+	const haveRecentFiles = (recentFiles.data?.length || 0) > 0;
+
 	overviewMounted = true;
 
-	const toolsViewOptions = explorerViewOptions.filter(
-		(o) =>
-			o.toolTipLabel === 'Grid view' ||
-			o.toolTipLabel === 'List view' ||
-			o.toolTipLabel === 'Media view'
-	);
+	const toolsViewOptions = haveRecentFiles
+		? explorerViewOptions.filter(
+			(o) =>
+				o.toolTipLabel === 'Grid view' ||
+				o.toolTipLabel === 'List view' ||
+				o.toolTipLabel === 'Media view'
+		)
+		: [];
 
 	return (
 		<div className="flex">
@@ -121,27 +125,24 @@ export const Component = () => {
 						})}
 					</div>
 				</div>
-			<div className="mt-4 flex flex-wrap space-x-[1px]">
-				<CategoryButton selected icon={icons.Collection} category="Recents" items={1} />
-				{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
+				<div className="mt-4 flex flex-wrap space-x-[1px]">
+					<CategoryButton selected icon={icons.Collection} category="Recents" items={1} />
+					{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
 				<CategoryButton icon={icons.Folder} category="Locations" items={2} /> */}
-				<CategoryButton icon={icons.Video} category="Movies" items={345} />
-				<CategoryButton icon={icons.Audio} category="Music" items={54} />
-				<CategoryButton icon={icons.Image} category="Pictures" items={908} />
-				<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
-				<CategoryButton icon={icons.Package} category="Downloads" items={89} />
-			</div>
+					<CategoryButton icon={icons.Video} category="Movies" items={345} />
+					<CategoryButton icon={icons.Audio} category="Music" items={54} />
+					<CategoryButton icon={icons.Image} category="Pictures" items={908} />
+					<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
+					<CategoryButton icon={icons.Package} category="Downloads" items={89} />
+				</div>
 
 
 				{/* Recents */}
-				{(recentFiles.data?.length || 0) > 0 && (
-					<>
-						{/* <ScreenHeading className="mt-3">Recents</ScreenHeading> */}
-						<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
-					</>
+				{haveRecentFiles && (
+					<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
 				)}
 			</div>
-			</div>
+		</div>
 
 	);
 };
