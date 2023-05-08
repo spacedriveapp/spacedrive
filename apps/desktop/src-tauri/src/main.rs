@@ -52,6 +52,8 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
+	let _guard = Node::init_logger(&data_dir);
+
 	let result = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default();

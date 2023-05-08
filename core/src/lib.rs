@@ -1,3 +1,5 @@
+#![warn(clippy::unwrap_used, clippy::panic)]
+
 use crate::{
 	api::{CoreEvent, Router},
 	job::JobManager,
@@ -11,7 +13,11 @@ use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
 use tracing::{debug, error, info, warn};
-use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_appender::{
+	non_blocking::{NonBlocking, WorkerGuard},
+	rolling::{RollingFileAppender, Rotation},
+};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 pub mod api;
 pub mod custom_uri;
@@ -26,8 +32,9 @@ pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
 
-#[allow(warnings, unused)]
+#[allow(warnings, unused, clippy::unwrap_used, clippy::panic)]
 mod prisma;
+#[allow(clippy::unwrap_used, clippy::panic)]
 pub(crate) mod prisma_sync;
 
 #[derive(Clone)]
@@ -49,16 +56,6 @@ pub struct Node {
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
 
-#[cfg(not(target_os = "android"))]
-const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
-	use tracing_subscriber::filter::LevelFilter;
-
-	match cfg!(debug_assertions) {
-		true => LevelFilter::DEBUG,
-		false => LevelFilter::INFO,
-	}
-};
-
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
@@ -68,66 +65,6 @@ impl Node {
 
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
-
-		// dbg!(get_object_kind_from_extension("png"));
-
-		// let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
-		// 	Path::new(&data_dir).join("logs"),
-		// 	"log",
-		// ));
-		// TODO: Make logs automatically delete after x time https://github.com/tokio-rs/tracing/pull/2169
-
-		let subscriber = tracing_subscriber::registry().with(
-			EnvFilter::from_default_env()
-				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
-				.add_directive(
-					"sd_core=debug"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				)
-				.add_directive(
-					"sd_core::location::manager=info"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				)
-				.add_directive(
-					"sd_core_mobile=debug"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				)
-				// .add_directive(
-				// 	"sd_p2p=debug"
-				// 		.parse()
-				// 		.expect("Error invalid tracing directive!"),
-				// )
-				.add_directive(
-					"server=debug"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				)
-				.add_directive(
-					"desktop=debug"
-						.parse()
-						.expect("Error invalid tracing directive!"),
-				),
-			// .add_directive(
-			// 	"rspc=debug"
-			// 		.parse()
-			// 		.expect("Error invalid tracing directive!"),
-			// ),
-		);
-		#[cfg(not(target_os = "android"))]
-		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
-		// #[cfg(target_os = "android")]
-		// let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
-		subscriber
-			// .with(
-			// 	Layer::default()
-			// 		.with_writer(non_blocking)
-			// 		.with_ansi(false)
-			// 		.with_filter(LevelFilter::DEBUG),
-			// )
-			.init();
 
 		let event_bus = broadcast::channel(1024);
 		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
@@ -152,8 +89,6 @@ impl Node {
 		if let Some(init_data) = init_data {
 			init_data.apply(&library_manager).await;
 		}
-
-		debug!("Watching locations");
 
 		tokio::spawn({
 			let library_manager = library_manager.clone();
@@ -188,6 +123,73 @@ impl Node {
 
 		info!("Spacedrive online.");
 		Ok((Arc::new(node), router))
+	}
+
+	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
+		let log_filter = match cfg!(debug_assertions) {
+			true => tracing::Level::DEBUG,
+			false => tracing::Level::INFO,
+		};
+
+		let (logfile, guard) = NonBlocking::new(
+			RollingFileAppender::builder()
+				.filename_prefix("sd.log")
+				.rotation(Rotation::DAILY)
+				.max_log_files(4)
+				.build(data_dir.as_ref().join("logs"))
+				.expect("Error setting up log file!"),
+		);
+
+		let collector = tracing_subscriber::registry()
+			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
+			.with(
+				fmt::Subscriber::new()
+					.with_writer(std::io::stdout.with_max_level(log_filter))
+					.with_filter(
+						EnvFilter::from_default_env()
+							.add_directive(
+								"warn".parse().expect("Error invalid tracing directive!"),
+							)
+							.add_directive(
+								"sd_core=debug"
+									.parse()
+									.expect("Error invalid tracing directive!"),
+							)
+							.add_directive(
+								"sd_core::location::manager=info"
+									.parse()
+									.expect("Error invalid tracing directive!"),
+							)
+							.add_directive(
+								"sd_core_mobile=debug"
+									.parse()
+									.expect("Error invalid tracing directive!"),
+							)
+							// .add_directive(
+							// 	"sd_p2p=debug"
+							// 		.parse()
+							// 		.expect("Error invalid tracing directive!"),
+							// )
+							.add_directive(
+								"server=debug"
+									.parse()
+									.expect("Error invalid tracing directive!"),
+							)
+							.add_directive(
+								"desktop=debug"
+									.parse()
+									.expect("Error invalid tracing directive!"),
+							),
+					),
+			);
+
+		tracing::collect::set_global_default(collector)
+			.map_err(|err| {
+				println!("Error initializing global logger: {:?}", err);
+			})
+			.ok();
+
+		guard
 	}
 
 	pub async fn shutdown(&self) {

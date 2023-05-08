@@ -2848,7 +2848,7 @@ dependencies = [
  "slab",
  "tokio",
  "tokio-util",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -3127,7 +3127,7 @@ dependencies = [
  "socket2",
  "tokio",
  "tower-service",
- "tracing",
+ "tracing 0.1.37",
  "want",
 ]
 
@@ -3995,8 +3995,8 @@ dependencies = [
  "scoped-tls",
  "serde",
  "serde_json",
- "tracing",
- "tracing-subscriber",
+ "tracing 0.1.37",
+ "tracing-subscriber 0.3.16",
 ]
 
 [[package]]
@@ -4195,7 +4195,7 @@ dependencies = [
  "quanta",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -4325,8 +4325,8 @@ dependencies = [
  "metrics 0.18.1",
  "thiserror",
  "tokio",
- "tracing",
- "tracing-subscriber",
+ "tracing 0.1.37",
+ "tracing-subscriber 0.3.16",
 ]
 
 [[package]]
@@ -5593,7 +5593,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "user-facing-errors",
  "uuid",
 ]
@@ -5894,8 +5894,8 @@ dependencies = [
  "sqlformat",
  "thiserror",
  "tokio",
- "tracing",
- "tracing-core",
+ "tracing 0.1.37",
+ "tracing-core 0.1.30",
  "url",
  "uuid",
 ]
@@ -5964,10 +5964,10 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "tracing-futures",
  "tracing-opentelemetry",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.16",
  "user-facing-errors",
  "uuid",
 ]
@@ -5984,9 +5984,9 @@ dependencies = [
  "parking_lot 0.12.1",
  "serde",
  "serde_json",
- "tracing",
+ "tracing 0.1.37",
  "tracing-futures",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.16",
 ]
 
 [[package]]
@@ -6018,7 +6018,7 @@ dependencies = [
  "slab",
  "thiserror",
  "tinyvec",
- "tracing",
+ "tracing 0.1.37",
  "webpki 0.22.0",
 ]
 
@@ -6300,7 +6300,7 @@ dependencies = [
  "serde_json",
  "sql-query-connector",
  "thiserror",
- "tracing",
+ "tracing 0.1.37",
  "url",
  "user-facing-errors",
 ]
@@ -6441,7 +6441,7 @@ dependencies = [
  "tauri",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -6659,7 +6659,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.9.9",
- "tracing",
+ "tracing 0.1.37",
  "tracing-error",
  "user-facing-errors",
 ]
@@ -6680,9 +6680,9 @@ dependencies = [
  "serde_json",
  "sql-schema-connector",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "tracing-futures",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.16",
  "url",
  "user-facing-errors",
 ]
@@ -6775,8 +6775,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tracing",
- "tracing-subscriber",
+ "tracing 0.2.0",
+ "tracing-appender",
+ "tracing-subscriber 0.3.0",
  "tracing-test",
  "uhlc",
  "uuid",
@@ -6854,7 +6855,7 @@ version = "0.1.0"
 dependencies = [
  "jni 0.19.0",
  "sd-mobile-core",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -6871,7 +6872,7 @@ dependencies = [
  "sd-core",
  "serde_json",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -6898,8 +6899,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "tracing",
- "tracing-subscriber",
+ "tracing 0.1.37",
+ "tracing-subscriber 0.3.16",
 ]
 
 [[package]]
@@ -7217,7 +7218,7 @@ dependencies = [
  "rspc",
  "sd-core",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -7453,7 +7454,7 @@ dependencies = [
  "tauri-build",
  "tauri-specta",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "uuid",
  "window-shadows",
 ]
@@ -7548,7 +7549,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "tracing-futures",
  "tracing-opentelemetry",
  "user-facing-errors",
@@ -7579,7 +7580,7 @@ dependencies = [
  "sqlformat",
  "sqlparser",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "tracing-futures",
  "url",
  "user-facing-errors",
@@ -7603,7 +7604,7 @@ dependencies = [
  "quaint",
  "regex",
  "serde",
- "tracing",
+ "tracing 0.1.37",
  "tracing-error",
  "tracing-futures",
 ]
@@ -8382,7 +8383,7 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -8441,7 +8442,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -8484,8 +8485,29 @@ dependencies = [
  "cfg-if",
  "log",
  "pin-project-lite",
- "tracing-attributes",
- "tracing-core",
+ "tracing-attributes 0.1.23",
+ "tracing-core 0.1.30",
+]
+
+[[package]]
+name = "tracing"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "pin-project-lite",
+ "tracing-attributes 0.2.0",
+ "tracing-core 0.2.0",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror",
+ "time 0.3.15",
+ "tracing-subscriber 0.3.0",
 ]
 
 [[package]]
@@ -8500,6 +8522,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-attributes"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.15",
+]
+
+[[package]]
 name = "tracing-core"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8510,13 +8542,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-core"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "tracing-error"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
 dependencies = [
- "tracing",
- "tracing-subscriber",
+ "tracing 0.1.37",
+ "tracing-subscriber 0.3.16",
 ]
 
 [[package]]
@@ -8526,7 +8566,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
  "pin-project",
- "tracing",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -8537,7 +8577,17 @@ checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
 dependencies = [
  "lazy_static",
  "log",
- "tracing-core",
+ "tracing-core 0.1.30",
+]
+
+[[package]]
+name = "tracing-log"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "log",
+ "once_cell",
+ "tracing-core 0.2.0",
 ]
 
 [[package]]
@@ -8548,10 +8598,27 @@ checksum = "fbbe89715c1dbbb790059e2565353978564924ee85017b5fff365c872ff6721f"
 dependencies = [
  "once_cell",
  "opentelemetry",
- "tracing",
- "tracing-core",
- "tracing-log",
- "tracing-subscriber",
+ "tracing 0.1.37",
+ "tracing-core 0.1.30",
+ "tracing-log 0.1.3",
+ "tracing-subscriber 0.3.16",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.0"
+source = "git+https://github.com/tokio-rs/tracing?rev=998774eb7a9e8f5fe7020fa660fbcca9aaec2169#998774eb7a9e8f5fe7020fa660fbcca9aaec2169"
+dependencies = [
+ "matchers",
+ "nu-ansi-term",
+ "once_cell",
+ "regex",
+ "sharded-slab",
+ "smallvec",
+ "thread_local",
+ "tracing 0.2.0",
+ "tracing-core 0.2.0",
+ "tracing-log 0.2.0",
 ]
 
 [[package]]
@@ -8567,9 +8634,9 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
- "tracing",
- "tracing-core",
- "tracing-log",
+ "tracing 0.1.37",
+ "tracing-core 0.1.30",
+ "tracing-log 0.1.3",
 ]
 
 [[package]]
@@ -8579,8 +8646,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e3d272c44878d2bbc9f4a20ad463724f03e19dbc667c6e84ac433ab7ffcc70b"
 dependencies = [
  "lazy_static",
- "tracing-core",
- "tracing-subscriber",
+ "tracing-core 0.1.30",
+ "tracing-subscriber 0.3.16",
  "tracing-test-macro",
 ]
 
@@ -8632,7 +8699,7 @@ dependencies = [
  "thiserror",
  "tinyvec",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "url",
 ]
 
@@ -8652,7 +8719,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tokio",
- "tracing",
+ "tracing 0.1.37",
  "trust-dns-proto",
 ]
 
@@ -8880,7 +8947,7 @@ dependencies = [
  "quaint",
  "serde",
  "serde_json",
- "tracing",
+ "tracing 0.1.37",
  "user-facing-error-macros",
 ]
 
@@ -10123,7 +10190,7 @@ dependencies = [
  "serde_repr",
  "sha1 0.6.1",
  "static_assertions",
- "tracing",
+ "tracing 0.1.37",
  "uds_windows",
  "winapi",
  "zbus_macros 2.3.2",

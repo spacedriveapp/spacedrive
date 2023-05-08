@@ -28,6 +28,8 @@ async fn main() {
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
+	let _guard = Node::init_logger(&data_dir);
+
 	let (node, router) = Node::new(data_dir).await.expect("Unable to create node");
 	let signal = utils::axum_shutdown_signal(node.clone());
 
