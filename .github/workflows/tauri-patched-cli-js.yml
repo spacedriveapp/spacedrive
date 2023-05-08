@@ -332,7 +332,7 @@ jobs:
       - name: Publish
         shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           while IFS= read -r -d '' _file; do
             if _pkg="$(
@@ -343,6 +343,9 @@ jobs:
               printf '%s' "$_pkg" >| "$_file"
             fi
           done < <(find . -type f -name 'package.json' -not \( -wholename '*/node_modules/*' \) -print0)
+
+          _pkg="$(jq -r '.scripts.prepublishOnly = "napi prepublish -t npm"' package.json)"
+          printf '%s' "$_pkg" >| package.json
 
           npm publish
         env:
