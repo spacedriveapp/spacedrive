@@ -7,6 +7,7 @@ import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 import { IJobGroup } from './useGroupedJobs';
+import dayjs from 'dayjs';
 
 interface JobGroupProps {
 	data: IJobGroup;
@@ -16,9 +17,8 @@ interface JobGroupProps {
 function JobGroup({ data, clearJob }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
+	// running jobs should be last in the array
 	const allJobs = [...data.childJobs, ...data.runningJobs];
-
-	console.log({ allJobs })
 
 	const isJobsRunning = allJobs.some((job) => job.status === 'Running');
 
@@ -38,6 +38,9 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 	};
 
 	if (data.childJobs.length === 0) return <></>;
+
+	let date_started = dayjs(data.created_at).fromNow();
+	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
 
 	return (
 		<ul className={clsx(`relative overflow-hidden`)}>
@@ -76,6 +79,8 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 								<p className="my-[2px] text-ink-faint">
 									<b>{tasks.total} </b>
 									{tasks.total <= 1 ? 'task' : 'tasks'}
+									{" • "}
+									{date_started}
 									{totalGroupTime && ' • '}
 									{totalGroupTime}
 								</p>

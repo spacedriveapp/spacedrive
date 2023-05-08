@@ -11,7 +11,7 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 
 	const elapsedTimeText = useMemo(() => {
 		let total = 0;
-		let text = '';
+		let text: string | null = '';
 
 		const groupedJobs = jobs.reduce((acc: Record<string, JobReport[]>, job) => {
 			const parentId = String(job.parent_id);
@@ -39,7 +39,7 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 			} else {
 				text = lastJob?.completed_at
 					? `Took ${dayjs.duration(groupTotal, 'minutes').humanize()}`
-					: `Elapsed in ${dayjs.duration(groupTotal, 'minutes').humanize()}`;
+					: null;
 			}
 		});
 
