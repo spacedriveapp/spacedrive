@@ -49,7 +49,10 @@ where
 	// }
 
 	pub fn load(&self, path: &Path) -> Result<T, MigratorError> {
-		match path.try_exists().unwrap() {
+		match path
+			.try_exists()
+			.expect("unable to determine if config file exists!")
+		{
 			true => {
 				let mut file = File::options().read(true).write(true).open(path)?;
 				let mut cfg: BaseConfig = serde_json::from_reader(BufReader::new(&mut file))?;

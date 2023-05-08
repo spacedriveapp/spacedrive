@@ -103,8 +103,12 @@ impl Node {
 					};
 
 					for op in operations {
-						println!("ingest lib id: {}", library.id);
-						library.sync.ingest_op(op).await.unwrap();
+						library.sync.ingest_op(op).await.unwrap_or_else(|err| {
+							error!(
+								"error ingesting operation for library '{}': {err:?}",
+								library.id
+							);
+						});
 					}
 				}
 			}
