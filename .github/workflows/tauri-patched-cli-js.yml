@@ -352,7 +352,7 @@ jobs:
             .name = "@spacedriveapp/tauri-cli"
             | .version = "1.3.1"
             | .repository = "https://github.com/spacedriveapp/spacedrive"
-            | .scripts.prepublishOnly = "napi prepublish -t npm"
+            | .scripts.prepublishOnly = "napi prepublish --skip-gh-release"
             | .publishConfig["@spacedriveapp:registry"] = "https://npm.pkg.github.com"
           ' package.json)"
 
