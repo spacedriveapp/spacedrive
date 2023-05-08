@@ -40,8 +40,8 @@ pub async fn open_file_path(
 
 #[derive(Type, serde::Serialize)]
 pub struct OpenWithApplication {
-    name: String,
-    url: String,
+	name: String,
+	url: String,
 }
 
 #[tauri::command(async)]
@@ -51,33 +51,33 @@ pub async fn get_file_path_open_with_apps(
 	id: i32,
 	node: tauri::State<'_, Arc<Node>>,
 ) -> Result<Vec<OpenWithApplication>, ()> {
-	let Some(library) = node.library_manager.get_library(library).await else { 
+	let Some(library) = node.library_manager.get_library(library).await else {
         return Err(())
     };
 
-    let Ok(Some(path)) = library
+	let Ok(Some(path)) = library
         .get_file_path(id)
         .await
         else {
             return Err(())
         };
 
-    #[cfg(target_os = "macos")]
-    let apps = {
-        unsafe {
-            sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into())
-        }.as_slice().into_iter().map(|app| {
-            OpenWithApplication {
-                name: app.name.to_string(),
-                url: app.url.to_string()
-            }
-        }).collect()
-    };
+	#[cfg(target_os = "macos")]
+	let apps = {
+		unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
+			.as_slice()
+			.into_iter()
+			.map(|app| OpenWithApplication {
+				name: app.name.to_string(),
+				url: app.url.to_string(),
+			})
+			.collect()
+	};
 
-    #[cfg(not(target_os = "macos"))]
-    return Err(());
+	#[cfg(not(target_os = "macos"))]
+	return Err(());
 
-    Ok(apps)
+	Ok(apps)
 }
 
 #[tauri::command(async)]
@@ -93,11 +93,11 @@ pub async fn open_file_path_with(
     };
 
 	let Ok(Some(path)) = library
-			.get_file_path(id)
-			.await
-            else {
-                return Err(())
-            };
+        .get_file_path(id)
+        .await
+        else {
+            return Err(())
+        };
 
 	unsafe {
 		sd_desktop_macos::open_file_path_with(
