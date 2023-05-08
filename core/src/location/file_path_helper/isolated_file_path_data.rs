@@ -13,12 +13,12 @@ use super::{
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
-	pub location_id: LocationId,
-	pub materialized_path: Cow<'a, str>,
-	pub is_dir: bool,
-	pub name: Cow<'a, str>,
-	pub extension: Cow<'a, str>,
-	pub relative_path: Cow<'a, str>,
+	pub(in crate::location) location_id: LocationId,
+	pub(in crate::location) materialized_path: Cow<'a, str>,
+	pub(in crate::location) is_dir: bool,
+	pub(in crate::location) name: Cow<'a, str>,
+	pub(in crate::location) extension: Cow<'a, str>,
+	pub(in crate::location) relative_path: Cow<'a, str>,
 }
 
 impl IsolatedFilePathData<'static> {
@@ -77,6 +77,10 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
+	pub fn location_id(&self) -> LocationId {
+		self.location_id
+	}
+
 	pub fn parent(&'a self) -> Self {
 		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
 			("/", "", "")
@@ -107,7 +111,7 @@ impl<'a> IsolatedFilePathData<'a> {
 		let is_dir = relative_file_path_str.ends_with('/');
 
 		let (materialized_path, maybe_name, maybe_extension) =
-			Self::separate_path_name_and_extension_from_str(relative_file_path_str);
+			Self::separate_path_name_and_extension_from_str(relative_file_path_str, is_dir);
 
 		Self {
 			location_id,
@@ -126,22 +130,28 @@ impl<'a> IsolatedFilePathData<'a> {
 
 	pub fn separate_path_name_and_extension_from_str(
 		source: &'a str,
+		is_dir: bool,
 	) -> (
 		&'a str,         // Materialized path
 		Option<&'a str>, // Maybe a name
 		Option<&'a str>, // Maybe an extension
 	) {
-		let is_dir = source.ends_with('/');
 		let length = source.len();
 
 		if length == 1 {
 			// The case for the root path
 			(source, None, None)
 		} else if is_dir {
-			let first_name_char_idx = source[..(length - 1)].rfind('/').unwrap_or(0) + 1;
+			let last_char_idx = if source.ends_with('/') {
+				length - 1
+			} else {
+				length
+			};
+
+			let first_name_char_idx = source[..last_char_idx].rfind('/').unwrap_or(0) + 1;
 			(
 				&source[..(first_name_char_idx - 1)],
-				Some(&source[first_name_char_idx..(length - 1)]),
+				Some(&source[first_name_char_idx..last_char_idx]),
 				None,
 			)
 		} else {
@@ -198,6 +208,23 @@ impl<'a> IsolatedFilePathData<'a> {
 impl AsRef<Path> for IsolatedFilePathData<'_> {
 	fn as_ref(&self) -> &Path {
 		Path::new(self.relative_path.as_ref())
+	}
+}
+
+impl From<IsolatedFilePathData<'static>> for file_path::UniqueWhereParam {
+	fn from(path: IsolatedFilePathData<'static>) -> Self {
+		Self::LocationIdMaterializedPathNameExtensionEquals(
+			path.location_id,
+			path.materialized_path.into_owned(),
+			path.name.into_owned(),
+			path.extension.into_owned(),
+		)
+	}
+}
+
+impl From<IsolatedFilePathData<'static>> for file_path::WhereParam {
+	fn from(path: IsolatedFilePathData<'static>) -> Self {
+		file_path::UniqueWhereParam::from(path).into()
 	}
 }
 
