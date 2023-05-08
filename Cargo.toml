@@ -33,7 +33,7 @@ rspc = { version = "0.1.4" }
 specta = { version = "1.0.3" }
 httpz = { version = "0.0.3" }
 
-swift-rs = { version = "1.0.1" }
+swift-rs = { version = "1.0.5" }
 
 tokio = { version = "1.25.0" }
 
@@ -45,5 +45,5 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d
 
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "be58d898eb15cdde8e05c47334a7ac20e8c852d2" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "799eec5df7533edf331f41d3f1be03de07e038d7" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
