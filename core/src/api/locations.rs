@@ -102,7 +102,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let directory_materialized_path_str = if let Some(path) = args.path {
 						let (materialized_path, maybe_name, _maybe_extension) =
-							IsolatedFilePathData::separate_path_name_and_extension_from_str(&path, true);
+							IsolatedFilePathData::separate_path_name_and_extension_from_str(
+								&path, true,
+							);
 						let parent_dir = db
 							.file_path()
 							.find_first(chain_optional_iter(

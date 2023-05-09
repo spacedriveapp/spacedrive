@@ -268,6 +268,8 @@ export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
+export type LightScanArgs = { location_id: number; sub_path: string }
+
 export type SetNoteArgs = { id: number; note: string | null }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
@@ -302,8 +304,6 @@ export type ChangeNodeNameArgs = { name: string }
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 

@@ -317,6 +317,7 @@ pub(super) async fn update_file(
 		invalidate_query!(library, "locations.getExplorerData");
 		ret
 	} else {
+		// FIXME(fogodev): Have to handle files excluded by indexer rules
 		Err(LocationManagerError::UpdateNonExistingFile(
 			full_path.to_path_buf(),
 		))

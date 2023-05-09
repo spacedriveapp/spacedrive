@@ -467,34 +467,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 			kind,
 			name: data.name.clone(),
 			default: data.default,
-			parameters: match kind {
-				RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => {
-					let globs = rmp_serde::from_slice::<Vec<Glob>>(&data.parameters)?;
-					let glob_set = globs
-						.iter()
-						.fold(&mut GlobSetBuilder::new(), |builder, glob| {
-							builder.add(glob.to_owned())
-						})
-						.build()?;
-
-					if matches!(kind, RuleKind::AcceptFilesByGlob) {
-						ParametersPerKind::AcceptFilesByGlob(globs, glob_set)
-					} else {
-						ParametersPerKind::RejectFilesByGlob(globs, glob_set)
-					}
-				}
-				RuleKind::AcceptIfChildrenDirectoriesArePresent
-				| RuleKind::RejectIfChildrenDirectoriesArePresent => {
-					let childrens = rmp_serde::from_slice::<Vec<String>>(&data.parameters)?
-						.into_iter()
-						.collect();
-					if matches!(kind, RuleKind::AcceptIfChildrenDirectoriesArePresent) {
-						ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(childrens)
-					} else {
-						ParametersPerKind::RejectIfChildrenDirectoriesArePresent(childrens)
-					}
-				}
-			},
+			parameters: rmp_serde::from_slice(&data.parameters)?,
 			date_created: data.date_created.into(),
 			date_modified: data.date_modified.into(),
 		})
