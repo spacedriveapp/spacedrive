@@ -55,6 +55,9 @@ jobs:
           targets: ${{ matrix.settings.target }}
           toolchain: stable
 
+      - name: Install dependencies
+        run: yarn install --ignore-scripts --frozen-lockfile --registry https://registry.npmjs.org --network-timeout 300000
+
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
