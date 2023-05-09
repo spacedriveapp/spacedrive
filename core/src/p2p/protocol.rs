@@ -51,7 +51,7 @@ impl Header {
 				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
 					SpacedropRequest::from_stream(stream).await?,
 				)),
-				_ => return Err(HeaderError::SpacedropOverMulticastIsForbidden),
+				_ => Err(HeaderError::SpacedropOverMulticastIsForbidden),
 			},
 			1 => Ok(Self::Ping),
 			2 => {
