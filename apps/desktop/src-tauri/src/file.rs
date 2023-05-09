@@ -63,21 +63,19 @@ pub async fn get_file_path_open_with_apps(
         };
 
 	#[cfg(target_os = "macos")]
-	let apps = {
-		unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
-			.as_slice()
-			.into_iter()
-			.map(|app| OpenWithApplication {
-				name: app.name.to_string(),
-				url: app.url.to_string(),
-			})
-			.collect()
-	};
+	return Ok(unsafe {
+		sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into())
+	}
+	.as_slice()
+	.into_iter()
+	.map(|app| OpenWithApplication {
+		name: app.name.to_string(),
+		url: app.url.to_string(),
+	})
+	.collect());
 
 	#[cfg(not(target_os = "macos"))]
-	return Err(());
-
-	Ok(apps)
+	Err(())
 }
 
 #[tauri::command(async)]
