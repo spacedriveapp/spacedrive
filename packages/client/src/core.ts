@@ -25,6 +25,8 @@ export type Procedures = {
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: ({ id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; node: Node })[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
+        { key: "notifications.clearAll", input: never, result: null } | 
+        { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "search", input: LibraryArgs<{ locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: Ordering | null; search?: string | null; extension?: string | null; kind?: number | null; tags?: number[] | null; createdAtFrom?: string | null; createdAtTo?: string | null; path?: string | null }>, result: ExplorerItem[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
@@ -87,6 +89,7 @@ export type Procedures = {
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
         { key: "locations.online", input: never, result: number[][] } | 
+        { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
@@ -290,6 +293,8 @@ export type SharedOperationData = SharedOperationCreateData | { field: string; v
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
+export type NotificationLevel = "Alert" | "Warning" | "Info" | "Success" | "Error"
+
 export type ChangeNodeNameArgs = { name: string }
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
@@ -298,6 +303,10 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
+
+export type Notification = { title: string; level: NotificationLevel; style: NotificationStyle; body: string | null }
+
+export type NotificationStyle = "Dismiss" | "AcceptDeny" | "AcceptCancel"
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 

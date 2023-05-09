@@ -39,7 +39,6 @@ pub struct NodeContext {
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 	pub p2p: Arc<P2PManager>,
-	pub notifier: Arc<Notifier>,
 }
 
 pub struct Node {
@@ -49,6 +48,7 @@ pub struct Node {
 	jobs: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	notifier: Arc<Notifier>,
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
 
@@ -148,7 +148,6 @@ impl Node {
 				location_manager: location_manager.clone(),
 				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
-				notifier: notifier,
 			},
 		)
 		.await?;
@@ -188,7 +187,7 @@ impl Node {
 			jobs,
 			p2p,
 			event_bus,
-			// peer_request: tokio::sync::Mutex::new(None),
+			notifier, // peer_request: tokio::sync::Mutex::new(None),
 		};
 
 		info!("Spacedrive online.");

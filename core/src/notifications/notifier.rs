@@ -30,7 +30,7 @@ impl Notifier {
 		self.notifications.lock().await.clone()
 	}
 
-	pub async fn clear_notifications(&mut self) {
+	pub async fn clear_notifications(&self) {
 		self.notifications.lock().await.clear();
 	}
 

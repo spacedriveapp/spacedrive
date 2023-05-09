@@ -20,7 +20,7 @@ use crate::{
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
 #[allow(non_upper_case_globals)]
-pub(self) const R: Rspc<Ctx> = Rspc::new();
+pub(crate) const R: Rspc<Ctx> = Rspc::new();
 
 pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
@@ -211,6 +211,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("p2p.", p2p::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
+		.merge("notifications.", crate::notifications::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
 			#[allow(clippy::let_and_return)]
