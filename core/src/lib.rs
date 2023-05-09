@@ -20,6 +20,7 @@ pub mod library;
 pub(crate) mod location;
 pub(crate) mod migrations;
 pub(crate) mod node;
+pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod sync;
