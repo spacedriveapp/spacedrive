@@ -61,7 +61,7 @@ impl Node {
 		let data_dir = data_dir.as_ref();
 
 		#[cfg(debug_assertions)]
-		let init_data = util::debug_initializer::InitConfig::load(data_dir).await;
+		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
 
 		// This error is ignored because it's throwing on mobile despite the folder existing.
 		let _ = fs::create_dir_all(&data_dir).await;
@@ -87,7 +87,7 @@ impl Node {
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data.apply(&library_manager).await;
+			init_data.apply(&library_manager).await?;
 		}
 
 		tokio::spawn({
@@ -232,4 +232,7 @@ pub enum NodeError {
 	LocationManager(#[from] LocationManagerError),
 	#[error("invalid platform integer")]
 	InvalidPlatformInt(i32),
+	#[cfg(debug_assertions)]
+	#[error("Init config error")]
+	InitConfig(#[from] util::debug_initializer::InitConfigError),
 }
