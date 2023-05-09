@@ -7,7 +7,7 @@ import { PropsWithChildren } from 'react';
 
 export const selectStyles = cva(
 	[
-		'flex items-center justify-between rounded-md border pl-3 pr-[10px] py-0.5 text-sm',
+		'flex items-center justify-between rounded-md border py-0.5 pl-3 pr-[10px] text-sm',
 		'shadow-sm outline-none transition-all focus:ring-2',
 		'text-ink radix-placeholder:text-ink-faint'
 	],

@@ -172,7 +172,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						</div>
 					</div>
 					{isRunning && (
-						<div className="mb-1 mt-1 w-[335px]">
+						<div className="my-1 w-[335px]">
 							<ProgressBar value={job.completed_task_count} total={job.task_count} />
 						</div>
 					)}
