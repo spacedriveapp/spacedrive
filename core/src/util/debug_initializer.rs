@@ -73,8 +73,7 @@ pub enum InitConfigError {
 
 impl InitConfig {
 	pub async fn load(data_dir: &Path) -> Result<Option<Self>, InitConfigError> {
-		let path = std::env::current_dir()
-			.unwrap()
+		let path = std::env::current_dir()?
 			.join(std::env::var("SD_INIT_DATA").unwrap_or("sd_init.json".to_string()));
 
 		if metadata(&path).await.is_ok() {
@@ -98,12 +97,12 @@ impl InitConfig {
 
 		for lib in self.libraries {
 			let name = lib.name.clone();
-			let handle = tokio::spawn(async move {
+			let _guard = AbortOnDrop(tokio::spawn(async move {
 				loop {
 					info!("Initializing library '{name}' from 'sd_init.json'...");
 					sleep(Duration::from_secs(1)).await;
 				}
-			});
+			}));
 
 			let library = match library_manager.get_library(lib.id).await {
 				Some(lib) => lib,
@@ -158,22 +157,35 @@ impl InitConfig {
 				}
 
 				let location = LocationCreateArgs {
-					path: loc.path.into(),
+					path: loc.path.clone().into(),
 					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
 				.create(&library)
-				.await
-				.unwrap()
-				.unwrap();
-
-				scan_location(&library, location).await?;
+				.await?;
+				match location {
+					Some(location) => {
+						scan_location(&library, location).await?;
+					}
+					None => {
+						warn!(
+							"Debug init error: location '{}' was not found after being created!",
+							loc.path
+						);
+					}
+				}
 			}
-
-			handle.abort();
 		}
 
 		info!("Initialized app from file: {:?}", self.path);
 		Ok(())
+	}
+}
+
+pub struct AbortOnDrop<T>(tokio::task::JoinHandle<T>);
+
+impl<T> Drop for AbortOnDrop<T> {
+	fn drop(&mut self) {
+		self.0.abort();
 	}
 }

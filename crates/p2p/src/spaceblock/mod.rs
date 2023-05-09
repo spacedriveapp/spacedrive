@@ -6,8 +6,10 @@
 use std::{
 	marker::PhantomData,
 	path::{Path, PathBuf},
+	string::FromUtf8Error,
 };
 
+use thiserror::Error;
 use tokio::io::AsyncReadExt;
 
 use crate::spacetime::{SpaceTimeStream, UnicastStream};
@@ -34,14 +36,35 @@ pub struct SpacedropRequest {
 	pub block_size: BlockSize,
 }
 
-impl SpacedropRequest {
-	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, ()> {
-		let name_len = stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
-		let mut name = vec![0u8; name_len as usize];
-		stream.read_exact(&mut name).await.map_err(|_| ())?; // TODO: Error handling
-		let name = String::from_utf8(name).map_err(|_| ())?; // TODO: Error handling
+#[derive(Debug, Error)]
+pub enum SpacedropRequestError {
+	#[error("io error reading name len: {0}")]
+	NameLenIoError(std::io::Error),
+	#[error("io error reading name: {0}")]
+	NameIoError(std::io::Error),
+	#[error("error utf-8 decoding name: {0}")]
+	NameFormatError(FromUtf8Error),
+	#[error("io error reading file size: {0}")]
+	SizeIoError(std::io::Error),
+}
 
-		let size = stream.read_u8().await.map_err(|_| ())? as u64; // TODO: Error handling
+impl SpacedropRequest {
+	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, SpacedropRequestError> {
+		let name_len = stream
+			.read_u8()
+			.await
+			.map_err(SpacedropRequestError::NameLenIoError)?;
+		let mut name = vec![0u8; name_len as usize];
+		stream
+			.read_exact(&mut name)
+			.await
+			.map_err(SpacedropRequestError::NameIoError)?;
+		let name = String::from_utf8(name).map_err(SpacedropRequestError::NameFormatError)?;
+
+		let size = stream
+			.read_u8()
+			.await
+			.map_err(SpacedropRequestError::SizeIoError)? as u64;
 		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
