@@ -328,10 +328,10 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   echo "Download patched tauri cli.js build..."
   case "$_arch" in
     x86_64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/684422923.zip"
+      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/687573480.zip"
       ;;
     arm64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/684422911.zip"
+      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/687573479.zip"
       ;;
     *)
       err "Unsupported architecture: $_arch"
