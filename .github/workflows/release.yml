@@ -10,11 +10,30 @@ on:
 
 jobs:
   desktop-main:
-    name: Desktop - Main (${{ matrix.platform }})
-    runs-on: ${{ matrix.platform }}
     strategy:
+      fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        settings:
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          # - host: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          - host: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: x86_64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: armv7-unknown-linux-gnueabihf
+    name: Desktop - Main ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -28,20 +47,18 @@ jobs:
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          targets: ${{ matrix.settings.target }}
           save-cache: ${{ inputs.save-cache }}
 
-      - name: Apply build patches
-        run: pnpm desktop build
-
       - name: Build
-        uses: tauri-apps/tauri-action@dev
+        run: |
+          pnpm desktop build --ci -v --target ${{ matrix.settings.target }}
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          projectPath: apps/desktop
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
+          target: ${{ matrix.settings.target }}
           profile: release

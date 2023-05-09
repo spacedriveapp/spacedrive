@@ -29,6 +29,7 @@ runs:
         cache: 'pnpm'
         token: ${{ inputs.token }}
         node-version: 18
+        check-latest: true
         cache-dependency-path: 'pnpm-lock.yaml'
 
     - name: Restore cached pnpm deps

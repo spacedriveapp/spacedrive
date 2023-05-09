@@ -24,7 +24,7 @@ env:
 jobs:
   build-ffmpeg-macos:
     name: Build ffmpeg for macos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     defaults:
       run:
         shell: bash

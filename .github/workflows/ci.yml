@@ -22,7 +22,7 @@ concurrency:
 jobs:
   typescript:
     name: TypeScript
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
 
   eslint:
     name: ESLint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -52,7 +52,7 @@ jobs:
 
   rustfmt:
     name: Rust Formatting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -68,7 +68,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -89,7 +89,7 @@ jobs:
   #   runs-on: ${{ matrix.platform }}
   #   strategy:
   #     matrix:
-  #       platform: [ubuntu-latest, macos-latest, windows-latest]
+  #       platform: [ubuntu-20.04, macos-latest, windows-latest]
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v3

@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3

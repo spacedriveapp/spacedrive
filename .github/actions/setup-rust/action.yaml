@@ -1,6 +1,9 @@
 name: Setup Rust and Prisma
 description: Setup Rust and Prisma
 inputs:
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
   save-cache:
     description: Whether to save the Rust cache
     required: false
@@ -12,6 +15,7 @@ runs:
       id: toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
+        targets: ${{ inputs.targets }}
         toolchain: stable
         components: clippy, rustfmt
 

@@ -5,6 +5,9 @@ inputs:
     description: Github token
     required: false
     default: ''
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
   save-cache:
     description: Whether to save the Rust cache
     required: false
@@ -38,6 +41,7 @@ runs:
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
+        targets: ${{ inputs.targets }}
         save-cache: ${{ inputs.save-cache }}
 
     - name: Run 'setup-system.sh' script
@@ -45,6 +49,7 @@ runs:
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: ./.github/scripts/setup-system.sh
       env:
+        TARGET: ${{ inputs.targets }}
         GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Run 'setup-system.ps1' script
