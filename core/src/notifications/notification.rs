@@ -27,6 +27,8 @@ pub struct Notification {
 	title: String,
 	level: NotificationLevel,
 	style: NotificationStyle,
+	// Has the user seem it?
+	read: bool,
 	// icon: // TODO
 	body: Option<String>,
 }
@@ -37,6 +39,7 @@ impl Notification {
 			title,
 			level: Default::default(),
 			style: Default::default(),
+			read: false,
 			body: None,
 		}
 	}
