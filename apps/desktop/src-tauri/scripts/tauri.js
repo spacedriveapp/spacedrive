@@ -31,16 +31,17 @@ switch (args[0]) {
 		});
 
 		const tauriPatch = { tauri: { bundle: { macOS: {} } } };
+
 		switch (platform) {
 			case 'darwin': {
 				// Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
 				const cliNode =
 					process.arch === 'arm64' ? 'cli.darwin-arm64.node' : 'cli.darwin-x64.node';
 
-				const tauriPatch = path.join(workspace, 'target/Frameworks/bin/', cliNode);
-				if (!fs.existsSync(tauriPatch)) {
+				const tauriCliPatch = path.join(workspace, 'target/Frameworks/bin/', cliNode);
+				if (!fs.existsSync(tauriCliPatch)) {
 					throw new Error(
-						`tauri patch not found at ${tauriPatch}. Did you run the setup script: ${setupScript}?`
+						`tauri patch not found at ${tauriCliPatch}. Did you run the setup script: ${setupScript}?`
 					);
 				}
 
@@ -54,7 +55,7 @@ switch (args[0]) {
 					throw new Error('tauri bin not found at ${tauriBin}. Did you run `pnpm i`?');
 				}
 
-				fs.copyFileSync(tauriPatch, tauriBin);
+				fs.copyFileSync(tauriCliPatch, tauriBin);
 
 				// Point tauri to the ffmpeg framework
 				tauriPatch.tauri.bundle.macOS.frameworks = [
