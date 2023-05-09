@@ -11,9 +11,9 @@ function alpha(variableName) {
 module.exports = function (app, options) {
 	let config = {
 		content: [
-			!options?.ignorePackages && '../../packages/*/src/**/*.{ts,tsx,html}',
-			'../../interface/**/*.{ts,tsx,html}',
-			app ? `../../apps/${app}/src/**/*.{ts,tsx,html}` : `./src/**/*.{ts,tsx,html}`
+			`../../apps/${app}/src/**/*.{ts,tsx,html,stories.tsx}`,
+			'../../packages/*/src/**/*.{ts,tsx,html,stories.tsx}',
+			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
 		darkMode: app == 'landing' ? 'class' : 'media',
 		mode: 'jit',
@@ -159,10 +159,6 @@ module.exports = function (app, options) {
 		},
 		plugins: [
 			require('@tailwindcss/forms'),
-			// plugin(({ addVariant }) => {
-			// 	addVariant('open', '&[data-state="open"]');
-			// 	addVariant('closed', '&[data-state="closed"]');
-			// }),
 			require('tailwindcss-animate'),
 			require('@headlessui/tailwindcss'),
 			require('tailwindcss-radix')()
