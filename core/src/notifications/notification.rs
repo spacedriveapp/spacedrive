@@ -1,7 +1,7 @@
 use serde::Serialize;
 use specta::Type;
 
-#[derive(Serialize, Type)]
+#[derive(Serialize, Type, Default, Clone, Copy)]
 pub enum NotificationLevel {
 	#[default]
 	Alert,
@@ -11,7 +11,7 @@ pub enum NotificationLevel {
 	Error,
 }
 
-#[derive(Serialize, Type)]
+#[derive(Serialize, Type, Default, Clone, Copy)]
 pub enum NotificationStyle {
 	// Purely informational and dismissable
 	#[default]
@@ -22,7 +22,7 @@ pub enum NotificationStyle {
 	AcceptCancel,
 }
 
-#[derive(Serialize, Type)]
+#[derive(Serialize, Type, Clone)]
 pub struct Notification {
 	title: String,
 	level: NotificationLevel,

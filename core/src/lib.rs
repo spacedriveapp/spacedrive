@@ -4,6 +4,7 @@ use crate::{
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
+	notifications::Notifier,
 	p2p::P2PManager,
 };
 
@@ -38,6 +39,7 @@ pub struct NodeContext {
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 	pub p2p: Arc<P2PManager>,
+	pub notifier: Arc<Notifier>,
 }
 
 pub struct Node {
@@ -137,6 +139,7 @@ impl Node {
 		let location_manager = LocationManager::new();
 		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await;
 
+		let notifier = Notifier::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -145,6 +148,7 @@ impl Node {
 				location_manager: location_manager.clone(),
 				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
+				notifier: notifier,
 			},
 		)
 		.await?;
