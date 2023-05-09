@@ -28,7 +28,6 @@ jobs:
         uses: ./.github/actions/setup-pnpm
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          save-cache: 'true'
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
