@@ -9,6 +9,7 @@ import { useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 import Explorer from './Explorer';
+import { ToolOption } from './TopBar';
 import TopBarChildren from './TopBar/TopBarChildren';
 
 interface StatItemProps {
@@ -88,62 +89,74 @@ export const Component = () => {
 	const stats = useLibraryQuery(['library.getStatistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
-	const { explorerViewOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
 	const haveRecentFiles = (recentFiles.data?.length || 0) > 0;
 
 	overviewMounted = true;
 
+	const inspector = explorerControlOptions.find(
+		(t) => t.toolTipLabel === 'Show Inspector'
+	) as ToolOption;
 	const toolsViewOptions = haveRecentFiles
 		? explorerViewOptions.filter(
-			(o) =>
-				o.toolTipLabel === 'Grid view' ||
-				o.toolTipLabel === 'List view' ||
-				o.toolTipLabel === 'Media view'
-		)
+				(o) =>
+					o.toolTipLabel === 'Grid view' ||
+					o.toolTipLabel === 'List view' ||
+					o.toolTipLabel === 'Media view'
+		  )
 		: [];
 
 	return (
-		<div className="flex">
-			<TopBarChildren toolOptions={[toolsViewOptions]} />
-			<div className="flex h-screen w-full flex-col">
-				{/* STAT HEADER */}
-				<div className="flex w-full">
-					{/* STAT CONTAINER */}
-					<div className="-mb-1 flex h-20 overflow-hidden">
-						{Object.entries(stats?.data || []).map(([key, value]) => {
-							if (!displayableStatItems.includes(key)) return null;
-							return (
-								<StatItem
-									key={`${library.uuid} ${key}`}
-									title={StatItemNames[key as keyof Statistics]!}
-									bytes={BigInt(value)}
-									isLoading={platform.demoMode ? false : stats.isLoading}
-								/>
-							);
-						})}
+		<div>
+			<TopBarChildren toolOptions={[toolsViewOptions, [inspector]]} />
+			<Explorer
+				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
+				viewClassName="!pl-0 !pt-0"
+				items={recentFiles.data}
+			>
+				<div className="flex w-full flex-col">
+					{/* STAT HEADER */}
+					<div className="flex w-full">
+						{/* STAT CONTAINER */}
+						<div className="-mb-1 flex h-20 overflow-hidden">
+							{Object.entries(stats?.data || []).map(([key, value]) => {
+								if (!displayableStatItems.includes(key)) return null;
+								return (
+									<StatItem
+										key={`${library.uuid} ${key}`}
+										title={StatItemNames[key as keyof Statistics]!}
+										bytes={BigInt(value)}
+										isLoading={platform.demoMode ? false : stats.isLoading}
+									/>
+								);
+							})}
+						</div>
+					</div>
+					<div className="mt-4 flex flex-wrap space-x-[1px]">
+						<CategoryButton
+							selected
+							icon={icons.Collection}
+							category="Recents"
+							items={1}
+						/>
+						{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
+				<CategoryButton icon={icons.Folder} category="Locations" items={2} /> */}
+						<CategoryButton icon={icons.Video} category="Movies" items={345} />
+						<CategoryButton icon={icons.Audio} category="Music" items={54} />
+						<CategoryButton icon={icons.Image} category="Pictures" items={908} />
+						<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
+						<CategoryButton icon={icons.Package} category="Downloads" items={89} />
 					</div>
 				</div>
-				<div className="mt-4 flex flex-wrap space-x-[1px]">
-					<CategoryButton selected icon={icons.Collection} category="Recents" items={1} />
-					{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
-				<CategoryButton icon={icons.Folder} category="Locations" items={2} /> */}
-					<CategoryButton icon={icons.Video} category="Movies" items={345} />
-					<CategoryButton icon={icons.Audio} category="Music" items={54} />
-					<CategoryButton icon={icons.Image} category="Pictures" items={908} />
-					<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
-					<CategoryButton icon={icons.Package} category="Downloads" items={89} />
-				</div>
-
-
-				{/* Recents */}
 				{haveRecentFiles && (
-					<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
+					<div className="mt-6">
+						<ScreenHeading>Recents</ScreenHeading>
+					</div>
 				)}
-			</div>
+			</Explorer>
 		</div>
-
 	);
 };
 
@@ -156,7 +169,12 @@ interface CategoryButtonProps {
 
 function CategoryButton({ category, icon, items, selected }: CategoryButtonProps) {
 	return (
-		<div className={clsx("flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm", selected && "bg-app-selected/20")}>
+		<div
+			className={clsx(
+				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm',
+				selected && 'bg-app-selected/20'
+			)}
+		>
 			<img src={icon} className="mr-3 h-12 w-12" />
 			<div className="pr-5">
 				<h2 className="text-sm font-medium">{category}</h2>

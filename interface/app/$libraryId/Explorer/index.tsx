@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerData, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -16,6 +16,8 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
 }
 
 export default function Explorer(props: Props) {
@@ -24,13 +26,13 @@ export default function Explorer(props: Props) {
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
-			console.log("Started RSPC subscription new thumbnail");
+			console.log('Started RSPC subscription new thumbnail');
 		},
 		onError: (err) => {
-			console.error("Error in RSPC subscription new thumbnail", err);
+			console.error('Error in RSPC subscription new thumbnail', err);
 		},
 		onData: (cas_id) => {
-			console.log({ cas_id })
+			console.log({ cas_id });
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
@@ -54,8 +56,9 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
 			<div className="flex flex-1">
-				<ExplorerContextMenu>
-					<div className="flex-1 overflow-hidden">
+				<div className="flex-1 overflow-hidden">
+					{props.children}
+					<ExplorerContextMenu>
 						{props.items && (
 							<View
 								data={props.items}
@@ -65,12 +68,14 @@ export default function Explorer(props: Props) {
 								viewClassName={props.viewClassName}
 							/>
 						)}
-					</div>
-				</ExplorerContextMenu>
-
-				{expStore.showInspector && selectedItem !== null && (
+					</ExplorerContextMenu>
+				</div>
+				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={selectedItem} />
+						<Inspector
+							className={props.inspectorClassName}
+							data={selectedItem ?? undefined}
+						/>
 					</div>
 				)}
 			</div>

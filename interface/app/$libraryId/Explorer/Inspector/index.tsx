@@ -1,4 +1,5 @@
 // import types from '../../constants/file-types.json';
+import { Image } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
@@ -36,9 +37,10 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
+	className?: string;
 }
 
-export const Inspector = ({ data, context, ...elementProps }: Props) => {
+export const Inspector = ({ data, context, className, ...elementProps }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
 	const explorerStore = useExplorerStore();
@@ -71,10 +73,13 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1"
+			className={clsx(
+				`custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1`,
+				className
+			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
 		>
-			{data && (
+			{data ? (
 				<>
 					{explorerStore.layoutMode !== 'media' && (
 						<div
@@ -232,6 +237,16 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 						)}
 					</div>
 				</>
+			) : (
+				<div className="flex w-full flex-col items-center justify-center">
+					<img src={Image} />
+					<div
+						className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center
+					rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10"
+					>
+						<p className="text-sm text-ink-dull">Nothing selected</p>
+					</div>
+				</div>
 			)}
 		</div>
 	);
