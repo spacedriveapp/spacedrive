@@ -12,6 +12,8 @@ pub struct Notifier {
 
 impl Notifier {
 	pub fn new() -> Arc<Self> {
+		// TODO: Restore notifications from the DB
+
 		Arc::new(Self {
 			notifications: Mutex::new(Vec::new()),
 			chan: broadcast::channel(15).0,
@@ -36,5 +38,17 @@ impl Notifier {
 
 	pub fn subscribe(&self) -> broadcast::Receiver<Notification> {
 		self.chan.subscribe()
+	}
+
+	// When the frontend responds to a notification
+	pub fn handle_notification_callback(&self) {
+		match "todo" {
+			"spacedrop" => {
+				let drop_id = "todo"; // TODO: Decode from incoming data
+
+				// TODO: Emit back out to Spacedrop system
+			}
+			_ => panic!("TODO: Error handling"),
+		}
 	}
 }

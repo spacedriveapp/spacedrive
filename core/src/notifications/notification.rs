@@ -1,5 +1,6 @@
 use serde::Serialize;
 use specta::Type;
+use uuid::Uuid;
 
 #[derive(Serialize, Type, Default, Clone, Copy)]
 pub enum NotificationLevel {
@@ -24,6 +25,7 @@ pub enum NotificationStyle {
 
 #[derive(Serialize, Type, Clone)]
 pub struct Notification {
+	id: Uuid,
 	title: String,
 	level: NotificationLevel,
 	style: NotificationStyle,
@@ -36,6 +38,7 @@ pub struct Notification {
 impl Notification {
 	pub fn new(title: String) -> Self {
 		Self {
+			id: Uuid::new_v4(),
 			title,
 			level: Default::default(),
 			style: Default::default(),
