@@ -7,20 +7,15 @@ import { PropsWithChildren } from 'react';
 
 export const selectStyles = cva(
 	[
-		'flex items-center justify-between rounded-md border pl-3 pr-[10px] text-sm',
+		'flex items-center justify-between rounded-md border pl-3 pr-[10px] py-0.5 text-sm',
 		'shadow-sm outline-none transition-all focus:ring-2',
-		'radix-placeholder:text-ink-faint'
+		'text-ink radix-placeholder:text-ink-faint'
 	],
 	{
 		variants: {
 			variant: {
-				default: [
-					'bg-app-input focus:bg-app-focus',
-					'border-app-line focus:border-app-divider/80',
-					'focus:ring-app-selected/30'
-				]
+				default: ['bg-app-input', 'border-app-line']
 			},
-
 			size: {
 				sm: 'h-[30px]',
 				md: 'h-[34px]',
@@ -34,15 +29,18 @@ export const selectStyles = cva(
 	}
 );
 
-export interface SelectProps extends VariantProps<typeof selectStyles> {
-	value: string;
-	onChange: (value: string) => void;
+export interface SelectProps<TValue extends string = string>
+	extends VariantProps<typeof selectStyles> {
+	value: TValue;
+	onChange: (value: TValue) => void;
 	placeholder?: string;
 	className?: string;
 	disabled?: boolean;
 }
 
-export function Select(props: PropsWithChildren<SelectProps>) {
+export function Select<TValue extends string = string>(
+	props: PropsWithChildren<SelectProps<TValue>>
+) {
 	return (
 		<RS.Root
 			defaultValue={props.value}
