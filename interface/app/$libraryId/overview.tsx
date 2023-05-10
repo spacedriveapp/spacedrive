@@ -143,8 +143,8 @@ export const Component = () => {
 				{/* Recents */}
 				{haveRecentFiles && (
 					<>
-						<ScreenHeading className="mt-3">Recents</ScreenHeading>
-						<Explorer viewClassName="!pl-0 !pt-2" items={recentFiles.data} />
+						<ScreenHeading className="mt-5">Recents</ScreenHeading>
+						<Explorer viewClassName="!pl-0 !pt-0" items={recentFiles.data} />
 					</>
 				)}
 			</div>

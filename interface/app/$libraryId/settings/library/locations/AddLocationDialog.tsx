@@ -195,6 +195,8 @@ export const AddLocationDialog = ({
 			})}
 			ctaLabel="Add"
 		>
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
+
 			<Input
 				label="Path:"
 				readOnly={platform.platform !== 'web'}
@@ -222,7 +224,6 @@ export const AddLocationDialog = ({
 				</div>
 			</div>
 
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-3" />
 		</Dialog>
 	);
 };

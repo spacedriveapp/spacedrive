@@ -2,8 +2,7 @@ import { Gear } from 'phosphor-react';
 import { useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip } from '@sd/ui';
 import DebugPopover from './DebugPopover';
-import IsRunningJob from './IsRunningJob';
-import { JobsManager } from './JobManager';
+import { IsRunningJob, JobsManager } from './JobManager';
 
 export default () => {
 	const { library } = useClientContext();

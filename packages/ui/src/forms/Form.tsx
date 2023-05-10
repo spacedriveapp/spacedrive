@@ -58,12 +58,12 @@ export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, ne
 	});
 };
 
-export const errorStyles = cva('inline-block  whitespace-pre-wrap  text-red-500', {
+export const errorStyles = cva('inline-block  whitespace-pre-wrap rounded border border-red-400/40 bg-red-400/40 text-white', {
 	variants: {
 		variant: {
 			none: '',
 			default: 'text-xs',
-			large: 'w-full text-center text-sm font-semibold'
+			large: 'w-full px-3 py-2 text-center text-sm font-semibold'
 		}
 	},
 	defaultVariants: {
