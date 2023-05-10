@@ -77,12 +77,17 @@ switch (args[0]) {
 
 				// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
 				let macOSMinimumVersion = tauriConf?.tauri?.bundle?.macOS?.minimumSystemVersion;
+				let macOSArm64MinimumVersion = '11.2';
 				if (
 					(targets.includes('aarch64-apple-darwin') ||
 						(targets.length === 0 && process.arch === 'arm64')) &&
-					(macOSMinimumVersion == null || semver.lt(macOSMinimumVersion, '11.2'))
+					(macOSMinimumVersion == null ||
+						semver.lt(
+							semver.coerce(macOSMinimumVersion),
+							semver.coerce(macOSArm64MinimumVersion)
+						))
 				) {
-					macOSMinimumVersion = '11.2';
+					macOSMinimumVersion = macOSArm64MinimumVersion;
 					console.log(
 						`aarch64-apple-darwin target detected, set minimum system version to ${macOSMinimumVersion}`
 					);
