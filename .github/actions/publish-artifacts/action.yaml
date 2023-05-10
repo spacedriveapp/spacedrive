@@ -18,40 +18,61 @@ runs:
       if: matrix.settings.host == 'ubuntu-20.04'
       shell: bash
       run: |
-        chmod +x target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
+        chmod +x target/${{ inputs.target }}/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
 
-    - name: Publish artifacts (AppImage)
+    - name: Publish artifacts (Linux - AppImage)
       if: matrix.settings.host == 'ubuntu-20.04'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-AppImage-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
-        path: target/${{ inputs.profile }}/bundle/appimage/*.AppImage
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/appimage/*.AppImage
+        if-no-files-found: error
 
-    - name: Publish artifacts (deb)
+    - name: Publish artifacts (Ubuntu - deb)
       if: matrix.settings.host == 'ubuntu-20.04'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-deb-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
-        path: target/${{ inputs.profile }}/bundle/deb/*.deb
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/deb/*.deb
+        if-no-files-found: error
 
-    - name: Publish artifacts (Windows)
+    - name: Publish artifacts (Windows - msi)
       if: matrix.settings.host == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
-        path: target\${{ inputs.profile }}\bundle\msi\*.msi
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/msi/*.msi
+        if-no-files-found: error
 
-    - name: Publish artifacts (macOS)
+    - name: Publish artifacts (Windows - nsis)
+      if: matrix.settings.host == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-Windows-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/nsis/*.exe
+        if-no-files-found: error
+
+    - name: Publish artifacts (macOS - dmg)
       if: matrix.settings.host == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
-        path: target/${{ inputs.profile }}/bundle/macos/*.app
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/dmg/*.dmg
+        if-no-files-found: error
+
+    - name: Publish artifacts (macOS - app)
+      if: matrix.settings.host == 'macos-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-macOS-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
+        path: target/${{ inputs.target }}/${{ inputs.profile }}/bundle/macos/*.app
+        if-no-files-found: error
 
     - name: Publish updater binaries
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Updaters-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
         path: |
-          target/${{ inputs.profile }}/bundle/*/*.tar.gz*
-          target/${{ inputs.profile }}/bundle/*/*.zip*
+          target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.tar.gz*
+          target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.zip*
+        if-no-files-found: error
