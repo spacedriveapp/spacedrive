@@ -5,9 +5,9 @@ set -e
 __dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "${__dirname}../../../target" && pwd)"
 
-CARGO_FLAGS=
 if [[ $CONFIGURATION != "Debug" ]]; then
   CARGO_FLAGS=--release
+  export CARGO_FLAGS
 fi
 
 export PROTOC="${TARGET_DIRECTORY}/Frameworks/bin/protoc"

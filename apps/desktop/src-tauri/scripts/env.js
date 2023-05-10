@@ -26,10 +26,8 @@ module.exports.setupFFMpegDlls = function setupDlls(FFMPEG_DIR, dev = false) {
 	return ffmpegDlls;
 };
 
-module.exports.setupPlatformEnv = function setupEnv(env = {}, dev = false) {
-	if (env == null || typeof env !== 'object') {
-		env = {};
-	}
+module.exports.setupPlatformEnv = function setupEnv() {
+	const env = {};
 
 	if (platform === 'darwin' || platform === 'win32') {
 		env.PROTOC = path.join(

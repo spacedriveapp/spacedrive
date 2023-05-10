@@ -1,23 +1,25 @@
 const fs = require('node:fs');
 const util = require('node:util');
 const path = require('node:path');
+const semver = require('semver');
 
 const { spawn } = require('./spawn.js');
 const { platform, workspace, setupScript } = require('./const.js');
 const { setupFFMpegDlls, setupPlatformEnv } = require('./env.js');
-
-const BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png');
-const BACKGROUND_FILE_NAME = path.basename(BACKGROUND_FILE);
 
 const toRemove = [];
 const [_, __, ...args] = process.argv;
 
 if (args.length === 0) args.push('build');
 
+const tauriConf = JSON.parse(
+	fs.readFileSync(path.resolve(__dirname, '..', 'tauri.conf.json'), 'utf-8')
+);
+
 switch (args[0]) {
 	case 'dev': {
 		console.log('Tauri DEV');
-		const env = setupPlatformEnv(null, true);
+		const env = setupPlatformEnv();
 		if (platform === 'win32') setupFFMpegDlls(env.FFMPEG_DIR, true);
 		break;
 	}
@@ -35,11 +37,7 @@ switch (args[0]) {
 			})
 			.flatMap((target) => target.split(','));
 
-		const env = setupPlatformEnv({
-			BACKGROUND_FILE,
-			BACKGROUND_CLAUSE: `set background picture of opts to file ".background:${BACKGROUND_FILE_NAME}"`,
-			BACKGROUND_FILE_NAME
-		});
+		const env = setupPlatformEnv();
 
 		console.log(util.inspect(env, { depth: null, colors: true }));
 
@@ -59,14 +57,12 @@ switch (args[0]) {
 				// Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
 				const cliNode =
 					process.arch === 'arm64' ? 'cli.darwin-arm64.node' : 'cli.darwin-x64.node';
-
 				const tauriCliPatch = path.join(workspace, 'target/Frameworks/bin/', cliNode);
 				if (!fs.existsSync(tauriCliPatch)) {
 					throw new Error(
 						`tauri patch not found at ${tauriCliPatch}. Did you run the setup script: ${setupScript}?`
 					);
 				}
-
 				const tauriBin = path.join(
 					workspace,
 					'node_modules/@tauri-apps',
@@ -76,26 +72,37 @@ switch (args[0]) {
 				if (!fs.existsSync(tauriBin)) {
 					throw new Error('tauri bin not found at ${tauriBin}. Did you run `pnpm i`?');
 				}
-
 				console.log(`Replace ${tauriBin} with ${tauriCliPatch}`);
 				fs.copyFileSync(tauriCliPatch, tauriBin);
 
+				// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
+				let macOSMinimumVersion = tauriConf?.tauri?.bundle?.macOS?.minimumSystemVersion;
 				if (
-					targets.includes('aarch64-apple-darwin') ||
-					(targets.length === 0 && process.arch === 'arm64')
+					(targets.includes('aarch64-apple-darwin') ||
+						(targets.length === 0 && process.arch === 'arm64')) &&
+					(macOSMinimumVersion == null || semver.lt(macOSMinimumVersion, '11.2'))
 				) {
-					process.env.MACOSX_DEPLOYMENT_TARGET = '11.2';
+					macOSMinimumVersion = '11.2';
 					console.log(
-						`aarch64-apple-darwin target detected, set minimum system version to ${process.env.MACOSX_DEPLOYMENT_TARGET}`
+						`aarch64-apple-darwin target detected, set minimum system version to ${macOSMinimumVersion}`
 					);
-					tauriPatch.tauri.bundle.macOS.minimumSystemVersion =
-						process.env.MACOSX_DEPLOYMENT_TARGET;
 				}
 
-				// Point tauri to the ffmpeg framework
+				if (macOSMinimumVersion) {
+					process.env.MACOSX_DEPLOYMENT_TARGET = macOSMinimumVersion;
+					tauriPatch.tauri.bundle.macOS.minimumSystemVersion = macOSMinimumVersion;
+				}
+
+				// Point tauri to our ffmpeg framework
 				tauriPatch.tauri.bundle.macOS.frameworks = [
 					path.join(workspace, 'target/Frameworks/FFMpeg.framework')
 				];
+
+				// Configure DMG background
+				process.env.BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png');
+				process.env.BACKGROUND_FILE_NAME = path.basename(process.env.BACKGROUND_FILE);
+				process.env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${process.env.BACKGROUND_FILE_NAME}"`;
+
 				break;
 			}
 			case 'win32':
@@ -109,11 +116,11 @@ switch (args[0]) {
 				break;
 		}
 
-		const tauriConf = path.resolve(__dirname, '..', 'tauri.conf.patch.json');
-		fs.writeFileSync(tauriConf, JSON.stringify(tauriPatch, null, 2));
+		const tauriPatchConf = path.resolve(__dirname, '..', 'tauri.conf.patch.json');
+		fs.writeFileSync(tauriPatchConf, JSON.stringify(tauriPatch, null, 2));
 
-		toRemove.push(tauriConf);
-		args.splice(1, 0, '-c', tauriConf);
+		toRemove.push(tauriPatchConf);
+		args.splice(1, 0, '-c', tauriPatchConf);
 
 		console.log(util.inspect(tauriPatch, { depth: null, colors: true }));
 	}

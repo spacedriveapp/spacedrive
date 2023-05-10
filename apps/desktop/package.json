@@ -37,6 +37,7 @@
 		"lodash.merge": "^4.6.2",
 		"react-devtools": "^4.27.2",
 		"sass": "^1.55.0",
+		"semver": "^7.5.0",
 		"typescript": "^4.8.4",
 		"vite": "^4.0.4",
 		"vite-plugin-svgr": "^2.2.1",
