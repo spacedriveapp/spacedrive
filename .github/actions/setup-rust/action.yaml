@@ -19,11 +19,11 @@ runs:
         toolchain: stable
         components: clippy, rustfmt
 
-    - name: Cache Rust Dependencies
-      uses: Swatinem/rust-cache@v2
-      with:
-        save-if: ${{ inputs.save-cache }}
-        shared-key: rust-deps
+    # - name: Cache Rust Dependencies
+    #   uses: Swatinem/rust-cache@v2
+    #   with:
+    #     save-if: ${{ inputs.save-cache }}
+    #     shared-key: rust-deps
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore

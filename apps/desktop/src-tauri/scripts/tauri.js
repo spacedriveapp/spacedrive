@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const util = require('node:util');
 const path = require('node:path');
 
 const { spawn } = require('./spawn.js');
@@ -15,11 +16,13 @@ if (args.length === 0) args.push('build');
 
 switch (args[0]) {
 	case 'dev': {
+		console.log('Tauri DEV');
 		const env = setupPlatformEnv(null, true);
 		if (platform === 'win32') setupFFMpegDlls(env.FFMPEG_DIR, true);
 		break;
 	}
 	case 'build': {
+		console.log('Tauri Build');
 		if (args.findIndex((e) => e === '-c' || e === '--config') !== -1) {
 			throw new Error('Custom tauri build config is not supported.');
 		}
@@ -30,9 +33,15 @@ switch (args[0]) {
 			BACKGROUND_FILE_NAME
 		});
 
-		const tauriPatch = { build: { features: [] }, tauri: { bundle: { macOS: {} }, updater: {} } };
+		console.log(util.inspect(env, { depth: null, colors: true }));
+
+		const tauriPatch = {
+			build: { features: [] },
+			tauri: { bundle: { macOS: {} }, updater: {} }
+		};
 
 		if (process.env.TAURI_PRIVATE_KEY) {
+			console.log('Tauri Private Key detected, enable updater');
 			tauriPatch.build.features.push('updater');
 			tauriPatch.tauri.updater.active = true;
 		}
@@ -60,7 +69,13 @@ switch (args[0]) {
 					throw new Error('tauri bin not found at ${tauriBin}. Did you run `pnpm i`?');
 				}
 
+				console.log(`Replace ${tauriBin} with ${tauriCliPatch}`);
 				fs.copyFileSync(tauriCliPatch, tauriBin);
+
+				if (process.arch === 'arm64') {
+					console.log('Tauri ARM64 detected, set minimum system version to 11.2');
+					tauriPatch.tauri.bundle.macOS.minimumSystemVersion = '11.2';
+				}
 
 				// Point tauri to the ffmpeg framework
 				tauriPatch.tauri.bundle.macOS.frameworks = [
@@ -84,6 +99,8 @@ switch (args[0]) {
 
 		toRemove.push(tauriConf);
 		args.splice(1, 0, '-c', tauriConf);
+
+		console.log(util.inspect(tauriPatch, { depth: null, colors: true }));
 	}
 }
 

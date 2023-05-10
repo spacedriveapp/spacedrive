@@ -15,34 +15,34 @@ runs:
         echo "GITHUB_SHA_SHORT=$GITHUB_SHA_SHORT" >> $GITHUB_ENV
 
     - name: Set AppImage file permissions
-      if: matrix.platform == 'ubuntu-20.04'
+      if: matrix.settings.host == 'ubuntu-20.04'
       shell: bash
       run: |
         chmod +x target/${{ inputs.profile }}/bundle/appimage/spacedrive*.AppImage
 
     - name: Publish artifacts (AppImage)
-      if: matrix.platform == 'ubuntu-20.04'
+      if: matrix.settings.host == 'ubuntu-20.04'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-AppImage-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
         path: target/${{ inputs.profile }}/bundle/appimage/*.AppImage
 
     - name: Publish artifacts (deb)
-      if: matrix.platform == 'ubuntu-20.04'
+      if: matrix.settings.host == 'ubuntu-20.04'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-deb-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
         path: target/${{ inputs.profile }}/bundle/deb/*.deb
 
     - name: Publish artifacts (Windows)
-      if: matrix.platform == 'windows-latest'
+      if: matrix.settings.host == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
         path: target\${{ inputs.profile }}\bundle\msi\*.msi
 
     - name: Publish artifacts (macOS)
-      if: matrix.platform == 'macos-latest'
+      if: matrix.settings.host == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
