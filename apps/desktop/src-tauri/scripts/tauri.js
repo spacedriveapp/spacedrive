@@ -27,6 +27,14 @@ switch (args[0]) {
 			throw new Error('Custom tauri build config is not supported.');
 		}
 
+		const targets = args
+			.filter((_, index, args) => {
+				if (index === 0) return false;
+				const previous = args[index - 1];
+				return previous === '-t' || previous === '--target';
+			})
+			.flatMap((target) => target.split(','));
+
 		const env = setupPlatformEnv({
 			BACKGROUND_FILE,
 			BACKGROUND_CLAUSE: `set background picture of opts to file ".background:${BACKGROUND_FILE_NAME}"`,
@@ -72,9 +80,16 @@ switch (args[0]) {
 				console.log(`Replace ${tauriBin} with ${tauriCliPatch}`);
 				fs.copyFileSync(tauriCliPatch, tauriBin);
 
-				if (process.arch === 'arm64') {
-					console.log('Tauri ARM64 detected, set minimum system version to 11.2');
-					tauriPatch.tauri.bundle.macOS.minimumSystemVersion = '11.2';
+				if (
+					targets.includes('aarch64-apple-darwin') ||
+					(targets.length === 0 && process.arch === 'arm64')
+				) {
+					process.env.MACOSX_DEPLOYMENT_TARGET = '11.2';
+					console.log(
+						`aarch64-apple-darwin target detected, set minimum system version to ${process.env.MACOSX_DEPLOYMENT_TARGET}`
+					);
+					tauriPatch.tauri.bundle.macOS.minimumSystemVersion =
+						process.env.MACOSX_DEPLOYMENT_TARGET;
 				}
 
 				// Point tauri to the ffmpeg framework
