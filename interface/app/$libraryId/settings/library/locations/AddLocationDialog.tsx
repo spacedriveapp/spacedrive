@@ -11,7 +11,7 @@ import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
-import { IndexerRuleEditor } from './IndexerRuleEditor';
+import IndexerRuleEditor from './IndexerRuleEditor';
 
 const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 const REMOTE_ERROR_FORM_MESSAGE = {
@@ -223,7 +223,6 @@ export const AddLocationDialog = ({
 					/>
 				</div>
 			</div>
-
 		</Dialog>
 	);
 };

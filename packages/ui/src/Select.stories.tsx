@@ -22,8 +22,8 @@ export const Default = () => {
 	const [value, setValue] = useState(VALUES[0]);
 
 	return (
-		<div className="flex w-48 flex-col bg-app p-8">
-			<Select value={value} onChange={setValue}>
+		<div className="flex flex-col w-48 p-8 bg-app">
+			<Select value={value} onChange={setValue as (value: string) => void}>
 				{VALUES.map((value) => (
 					<SelectOption value={value} key={value}>
 						{value}

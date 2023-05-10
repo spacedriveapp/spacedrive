@@ -8,7 +8,7 @@ import { Button, Divider, Tooltip, forms, tw } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useZodRouteParams } from '~/hooks';
 import ModalLayout from '../../ModalLayout';
-import { IndexerRuleEditor } from './IndexerRuleEditor';
+import IndexerRuleEditor from './IndexerRuleEditor/index';
 
 const Label = tw.label`mb-1 text-sm font-medium`;
 const FlexCol = tw.label`flex flex-col flex-1`;
@@ -43,7 +43,8 @@ export const Component = () => {
 	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
-	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(true);
+	const [isFirstLoad, setIsFirstLoad] = useState(true);
+	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: () => {
 			showAlertDialog({
@@ -166,14 +167,31 @@ export const Component = () => {
 					</ToggleSection>
 				</div>
 				<Divider />
-				<div className="flex flex-col">
-					<Label className="grow">Indexer rules</Label>
-					<InfoText className="mb-1 mt-0">
-						Indexer rules allow you to specify paths to ignore using RegEx.
-					</InfoText>
+				<div className="flex flex-col rounded-md border border-app-line bg-app-overlay px-10 pt-8">
+					<div className="flex w-full items-center justify-between">
+						<div>
+							<Label className="!mb-2 grow !text-sm !font-bold">Indexer rules</Label>
+							<InfoText className="!mt-0 mb-4">
+								Indexer rules allow you to specify paths to ignore using RegEx.
+							</InfoText>
+						</div>
+						<Button
+							onClick={() => setToggleNewRule(!toggleNewRule)}
+							className="px-5"
+							variant="accent"
+						>
+							+ New
+						</Button>
+					</div>
 					<Controller
 						name="indexerRulesIds"
-						render={({ field }) => <IndexerRuleEditor field={field} editable />}
+						render={({ field }) => (
+							<IndexerRuleEditor
+								setToggleNewRule={setToggleNewRule}
+								toggleNewRule={toggleNewRule}
+								field={field}
+							/>
+						)}
 						control={form.control}
 					/>
 				</div>

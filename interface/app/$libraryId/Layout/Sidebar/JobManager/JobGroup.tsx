@@ -1,5 +1,6 @@
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
+import dayjs from 'dayjs';
 import { X } from 'phosphor-react';
 import { useMemo, useState } from 'react';
 import { JobReport } from '@sd/client';
@@ -7,7 +8,6 @@ import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 import { IJobGroup } from './useGroupedJobs';
-import dayjs from 'dayjs';
 
 interface JobGroupProps {
 	data: IJobGroup;
@@ -51,7 +51,7 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 					size="icon"
 				>
 					<Tooltip label="Remove">
-						<X className="h-4 w-4 cursor-pointer" />
+						<X className="w-4 h-4 cursor-pointer" />
 					</Tooltip>
 				</Button>
 			)}
@@ -67,22 +67,23 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 						src={Folder}
 						className={clsx('relative left-[-2px] top-2 z-10 mr-3 h-6 w-6')}
 					/>
-					<div className="flex w-full flex-col">
+					<div className="flex flex-col w-full">
 						<div className="flex items-center">
 							<div className="truncate">
-								<p className="truncate font-semibold">
+								<p className="font-semibold truncate">
 									{allJobsCompleted
-										? `Added location "${data.metadata.init.location.name || ''
-										}"`
+										? `Added location "${
+												data.metadata.init.location.name || ''
+										  }"`
 										: 'Processing added location...'}
 								</p>
 								<p className="my-[2px] text-ink-faint">
 									<b>{tasks.total} </b>
-									{tasks.total <= 1 ? 'task' : 'tasks'}
-									{" • "}
+									{tasks.total <= 1 ? 'item' : 'items'}
+									{' • '}
 									{date_started}
-									{totalGroupTime && ' • '}
-									{totalGroupTime}
+									{!allJobsCompleted && totalGroupTime && ' • '}
+									{!allJobsCompleted && totalGroupTime}
 								</p>
 							</div>
 							<div className="grow" />
