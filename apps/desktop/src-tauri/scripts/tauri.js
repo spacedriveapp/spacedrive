@@ -30,7 +30,12 @@ switch (args[0]) {
 			BACKGROUND_FILE_NAME
 		});
 
-		const tauriPatch = { tauri: { bundle: { macOS: {} } } };
+		const tauriPatch = { build: { features: [] }, tauri: { bundle: { macOS: {} }, updater: {} } };
+
+		if (process.env.TAURI_PRIVATE_KEY) {
+			tauriPatch.build.features.push('updater');
+			tauriPatch.tauri.updater.active = true;
+		}
 
 		switch (platform) {
 			case 'darwin': {
