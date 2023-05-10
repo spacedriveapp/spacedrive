@@ -25,7 +25,7 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				<SidebarLink className="group relative w-full" to={`location/jeff`} key={'jeff'}>
+				<SidebarLink className="group relative w-full" to={`/`} disabled key={'jeff'}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">{node.data?.name}</span>
 				</SidebarLink>

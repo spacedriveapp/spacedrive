@@ -165,62 +165,7 @@ export const Component = () => {
 			{/* <TemporarySpacedropDemo /> */}
 			<div className={classes.honeycombOuter}>
 				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-					<DropItem
-						name="Jamie's MacBook Pro"
-						receivingNodeOsType="macOS"
-						connectionType="lan"
-						icon={Laptop}
-					/>
-					<DropItem
-						name="Jamie's iPhone"
-						receivingNodeOsType="iOS"
-						connectionType="lan"
-						icon={DeviceMobile}
-					/>
-					<DropItem
-						name="Titan NAS"
-						receivingNodeOsType="linux"
-						connectionType="p2p"
-						icon={HardDrives}
-					/>
-					<DropItem
-						name="Jamie's iPad"
-						receivingNodeOsType="iOS"
-						connectionType="lan"
-						icon={DeviceMobile}
-					/>
-					<DropItem
-						name="Jamie's Google Drive"
-						brandIcon="google-drive"
-						connectionType="cloud"
-					/>
-					<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
-					<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
-					<DropItem
-						name="maxichrome"
-						image="https://github.com/maxichrome.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Brendan Alan"
-						image="https://github.com/brendonovich.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Oscar Beaumont"
-						image="https://github.com/oscartbeaumont.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Polar"
-						image="https://github.com/polargh.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Andrew Haskell"
-						image="https://github.com/andrewtechx.png"
-						connectionType="p2p"
-					/>
+
 				</div>
 			</div>
 		</>
