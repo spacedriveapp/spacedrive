@@ -101,9 +101,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^2.1.0
         version: 2.2.0(vite@4.3.5)
-      lodash.merge:
-        specifier: ^4.6.2
-        version: 4.6.2
       react-devtools:
         specifier: ^4.27.2
         version: 4.27.6
