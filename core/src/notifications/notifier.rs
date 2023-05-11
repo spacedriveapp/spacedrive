@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use tokio::sync::{broadcast, Mutex};
+use uuid::Uuid;
+
+use crate::{library::LibraryManager, node::NodeConfigManager};
 
 use super::Notification;
 
@@ -8,15 +11,19 @@ pub struct Notifier {
 	// TODO: Store to backend so they can be retrieved after restart
 	notifications: Mutex<Vec<Notification>>,
 	chan: broadcast::Sender<Notification>,
+	library_manager: Arc<LibraryManager>,
+	config: Arc<NodeConfigManager>,
 }
 
 impl Notifier {
-	pub fn new() -> Arc<Self> {
+	pub fn new(config: Arc<NodeConfigManager>, library_manager: Arc<LibraryManager>) -> Arc<Self> {
 		// TODO: Restore notifications from the DB
 
 		Arc::new(Self {
 			notifications: Mutex::new(Vec::new()),
 			chan: broadcast::channel(15).0,
+			library_manager,
+			config,
 		})
 	}
 
@@ -30,6 +37,10 @@ impl Notifier {
 
 	pub async fn get_notifications(&self) -> Vec<Notification> {
 		self.notifications.lock().await.clone()
+	}
+
+	pub fn dismiss_notification(&self, id: Uuid) {
+		todo!();
 	}
 
 	pub async fn clear_notifications(&self) {

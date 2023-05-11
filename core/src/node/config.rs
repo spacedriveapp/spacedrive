@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::{
 	migrations,
+	notifications::Notification,
 	util::migrator::{FileMigrator, MigratorError},
 };
 
@@ -30,8 +31,11 @@ pub struct NodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
+	/// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
+	/// core level notifications
+	#[serde(default)]
+	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	#[specta(skip)]
 	pub keypair: Keypair,
@@ -56,6 +60,7 @@ impl Default for NodeConfig {
 			keypair: Keypair::generate(),
 			p2p_email: None,
 			p2p_img_url: None,
+			notifications: Vec::new(),
 		}
 	}
 }

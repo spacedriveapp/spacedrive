@@ -139,7 +139,6 @@ impl Node {
 		let location_manager = LocationManager::new();
 		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await;
 
-		let notifier = Notifier::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -151,6 +150,8 @@ impl Node {
 			},
 		)
 		.await?;
+
+		let notifier = Notifier::new(config.clone(), library_manager.clone());
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {

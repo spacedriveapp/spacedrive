@@ -100,11 +100,6 @@ export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm:
 
 export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cursor: number[] | null }
 
-/**
- * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
- */
-export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
-
 export type Ordering = { name: boolean }
 
 /**
@@ -151,6 +146,8 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
+
+export type NotificationLevel = "Alert" | "Warning" | "Info" | "Success" | "Error"
 
 /**
  * This is a stored key, and can be freely written to the database.
@@ -234,6 +231,11 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
+/**
+ * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
+ */
+export type NodeConfig = { id: string; name: string; p2p_port: number | null; notifications: Notification[]; p2p_email: string | null; p2p_img_url: string | null }
+
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
@@ -249,17 +251,21 @@ export type Statistics = { id: number; date_captured: string; total_object_count
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
+export type Notification = { id: string; title: string; level: NotificationLevel; style: NotificationStyle; read: boolean; body: string | null; created_at: string }
+
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_port: number | null; notifications: Notification[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
+
+export type NotificationStyle = "Dismiss" | "AcceptDeny" | "AcceptCancel"
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
@@ -293,8 +299,6 @@ export type SharedOperationData = SharedOperationCreateData | { field: string; v
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
-export type NotificationLevel = "Alert" | "Warning" | "Info" | "Success" | "Error"
-
 export type ChangeNodeNameArgs = { name: string }
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
@@ -303,10 +307,6 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
-
-export type Notification = { title: string; level: NotificationLevel; style: NotificationStyle; body: string | null }
-
-export type NotificationStyle = "Dismiss" | "AcceptDeny" | "AcceptCancel"
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 
