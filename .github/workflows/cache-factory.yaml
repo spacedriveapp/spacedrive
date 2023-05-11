@@ -5,9 +5,24 @@ name: Cache Factory
 
 on:
   push:
+    paths:
+      - '.npmrc'
+      - '.nvmrc'
+      - 'Cargo.lock'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/scripts/setup-system.sh'
+      - '.github/scripts/setup-system.ps1'
+      - '.github/workflows/cache-factory.yaml'
+      - '.github/actions/**/*.yml'
+      - '.github/actions/**/*.yaml'
+      - '**/build.rs'
+      - 'core/prisma/**'
     branches:
       - main
+  pull_request:
 
+# Cancel previous runs of the same workflow on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

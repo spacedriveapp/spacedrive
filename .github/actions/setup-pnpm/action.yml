@@ -13,18 +13,12 @@ runs:
       with:
         version: 8.x.x
 
-    - name: Get pnpm store directory
-      id: pnpm-cache
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
     - name: Install Node.js
       uses: actions/setup-node@v3
       with:
         token: ${{ inputs.token }}
-        node-version: 18
         check-latest: true
+        node-version-file: '.nvmrc'
 
     - name: Install pnpm deps
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}

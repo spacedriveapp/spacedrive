@@ -12,6 +12,10 @@ inputs:
   targets:
     description: Comma-separated list of target triples to install for this toolchain
     required: false
+  setup-arg:
+    description: Argument for the system setup script
+    required: false
+    default: ''
   save-cache:
     description: Whether to save the System cache
     required: false
@@ -52,7 +56,7 @@ runs:
     - name: Run 'setup-system.sh' script
       shell: bash
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
-      run: ./.github/scripts/setup-system.sh
+      run: ./.github/scripts/setup-system.sh ${{ inputs.setup-arg }}
       env:
         TARGET: ${{ inputs.targets }}
         GITHUB_TOKEN: ${{ inputs.token }}
