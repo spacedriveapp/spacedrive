@@ -62,9 +62,6 @@ jobs:
       - name: Setup Rust and Prisma
         uses: ./.github/actions/setup-rust
 
-      - name: Remove swift-rs
-        run: rm -r crates/swift-rs
-
       - name: Run rustfmt
         run: cargo fmt --all -- --check
 

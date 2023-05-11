@@ -7173,31 +7173,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serial_test"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c789ec87f4687d022a2405cf46e0cd6284889f1839de292cadeb6c6019506f2"
-dependencies = [
- "dashmap",
- "futures",
- "lazy_static",
- "log",
- "parking_lot 0.12.1",
- "serial_test_derive",
-]
-
-[[package]]
-name = "serial_test_derive"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b64f9e531ce97c88b4778aad0ceee079216071cffec6ac9b904277f8f92e7fe3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.107",
-]
-
-[[package]]
 name = "serialize-to-javascript"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7775,11 +7750,11 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 [[package]]
 name = "swift-rs"
 version = "1.0.5"
+source = "git+https://github.com/Brendonovich/swift-rs?rev=973c22215734d1d5b97c496601d658371e537ece#973c22215734d1d5b97c496601d658371e537ece"
 dependencies = [
  "base64 0.21.0",
  "serde",
  "serde_json",
- "serial_test",
 ]
 
 [[package]]
