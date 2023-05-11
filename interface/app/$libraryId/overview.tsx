@@ -1,16 +1,18 @@
 import * as icons from '@sd/assets/icons';
+import { ExplorerItem, ObjectKind, ObjectKindKey, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import { Card, ScreenHeading, Select, SelectOption } from '@sd/ui';
-import { useExplorerTopBarOptions } from '~/hooks';
+import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 import Explorer from './Explorer';
 import { ToolOption } from './TopBar';
 import TopBarChildren from './TopBar/TopBarChildren';
+import { useMemo, useState } from 'react';
+import { z } from '@sd/ui/src/forms';
+import { SEARCH_PARAMS, getExplorerItemData } from './Explorer/util';
 
 interface StatItemProps {
 	title: string;
@@ -83,14 +85,59 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
+const CategoryToObjectKind: Record<string, ObjectKindKey> = {
+	Recents: "Collection",
+	Favorites: "Document",
+	Photos: "Image",
+	Videos: "Video",
+	Music: "Audio",
+	Documents: "Document",
+	Downloads: "Package",
+	Applications: "Executable",
+	Books: "Text",
+	Movies: "Video",
+	Encrypted: "Encrypted",
+	Archives: "Database",
+	Projects: "Folder",
+	Trash: "Document",
+}
+
+const SearchableCategories = ["Videos", "Photos", "Music", "Documents", "Encrypted"];
+
+export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
+
 export const Component = () => {
 	const platform = usePlatform();
+	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
 	const stats = useLibraryQuery(['library.getStatistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
+
+	const [selectedCategory, setSelectedCategory] = useState<string>("Recents");
+
+	const canSearch = SearchableCategories.includes(selectedCategory);
+
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
+
+	const kind = ObjectKind[CategoryToObjectKind[selectedCategory] || 0] as number;
+
+	const searchQuery = useLibraryQuery(['search', { kind }], {
+		suspense: true,
+		enabled: canSearch
+	});
+
+	const searchItems = useMemo(() => {
+		if (explorerStore.layoutMode !== 'media') return searchQuery.data;
+
+		return searchQuery.data?.filter((item) => {
+			const { kind } = getExplorerItemData(item);
+			return kind === 'Video' || kind === 'Image';
+		});
+	}, [searchQuery.data, explorerStore.layoutMode]);
+
+	const categories = useLibraryQuery(['categories.list']);
 
 	const haveRecentFiles = (recentFiles.data?.length || 0) > 0;
 
@@ -101,12 +148,24 @@ export const Component = () => {
 	) as ToolOption;
 	const toolsViewOptions = haveRecentFiles
 		? explorerViewOptions.filter(
-				(o) =>
-					o.toolTipLabel === 'Grid view' ||
-					o.toolTipLabel === 'List view' ||
-					o.toolTipLabel === 'Media view'
-		  )
+			(o) =>
+				o.toolTipLabel === 'Grid view' ||
+				o.toolTipLabel === 'List view' ||
+				o.toolTipLabel === 'Media view'
+		)
 		: [];
+
+	let items: ExplorerItem[] = [];
+	switch (selectedCategory) {
+		case 'Recents':
+			items = recentFiles.data || [];
+			break;
+		default:
+			if (canSearch) {
+				items = searchItems || [];
+			}
+	};
+
 
 	return (
 		<div>
@@ -114,7 +173,7 @@ export const Component = () => {
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
 				viewClassName="!pl-0 !pt-0"
-				items={recentFiles.data}
+				items={items}
 			>
 				<div className="flex w-full flex-col">
 					{/* STAT HEADER */}
@@ -135,26 +194,22 @@ export const Component = () => {
 						</div>
 					</div>
 					<div className="mt-4 flex flex-wrap space-x-[1px]">
-						<CategoryButton
-							selected
-							icon={icons.Collection}
-							category="Recents"
-							items={1}
-						/>
-						{/* <CategoryButton icon={icons.Node} category="Nodes" items={1} />
-				<CategoryButton icon={icons.Folder} category="Locations" items={2} /> */}
-						<CategoryButton icon={icons.Video} category="Movies" items={345} />
-						<CategoryButton icon={icons.Audio} category="Music" items={54} />
-						<CategoryButton icon={icons.Image} category="Pictures" items={908} />
-						<CategoryButton icon={icons.EncryptedLock} category="Encrypted" items={3} />
-						<CategoryButton icon={icons.Package} category="Downloads" items={89} />
+						{categories.data?.map((category) => {
+							//@ts-expect-error
+							const icon = icons[CategoryToObjectKind[category]];
+							return (
+								<CategoryButton
+									key={category}
+									category={category}
+									icon={icon}
+									items={0}
+									selected={selectedCategory === category}
+									onClick={() => setSelectedCategory(category)}
+								/>
+							);
+						})}
 					</div>
 				</div>
-				{haveRecentFiles && (
-					<div className="mt-6">
-						<ScreenHeading>Recents</ScreenHeading>
-					</div>
-				)}
 			</Explorer>
 		</div>
 	);
@@ -165,11 +220,13 @@ interface CategoryButtonProps {
 	items: number;
 	icon: string;
 	selected?: boolean;
+	onClick?: () => void;
 }
 
-function CategoryButton({ category, icon, items, selected }: CategoryButtonProps) {
+function CategoryButton({ category, icon, items, selected, onClick }: CategoryButtonProps) {
 	return (
 		<div
+			onClick={onClick}
 			className={clsx(
 				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm',
 				selected && 'bg-app-selected/20'

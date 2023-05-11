@@ -6771,6 +6771,8 @@ dependencies = [
  "serde_with",
  "specta",
  "static_assertions",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "sysinfo",
  "tempfile",
  "thiserror",

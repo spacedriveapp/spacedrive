@@ -4,6 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
+        { key: "categories.list", input: LibraryArgs<null>, result: string[] } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "files.getRecent", input: LibraryArgs<number>, result: ExplorerItem[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
@@ -102,8 +103,6 @@ export type ExplorerData = { context: ExplorerContext; items: ExplorerItem[]; cu
  */
 export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
-export type Ordering = { name: boolean }
-
 /**
  * This denotes the `StoredKey` version.
  */
@@ -149,6 +148,8 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
+export type Ordering = { name: boolean }
+
 /**
  * This is a stored key, and can be freely written to the database.
  * 
@@ -174,7 +175,7 @@ export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boo
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
-export type BuildInfo = { version: string; commit: string }
+export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 /**
  * This should be used for providing a nonce to encrypt/decrypt functions.
@@ -203,6 +204,8 @@ export type CRDTOperation = { node: string; timestamp: number; id: string; typ: 
  * You may also generate a salt with `Salt::generate()`
  */
 export type Salt = number[]
+
+export type BuildInfo = { version: string; commit: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
@@ -249,8 +252,6 @@ export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: Peer
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
-
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 
