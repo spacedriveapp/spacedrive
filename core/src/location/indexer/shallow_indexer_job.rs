@@ -2,8 +2,8 @@ use crate::{
 	file_paths_db_fetcher_fn,
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		IsolatedFilePathData,
+		check_file_path_exists, ensure_sub_path_is_directory,
+		ensure_sub_path_is_in_location, IsolatedFilePathData,
 	},
 	to_remove_db_fetcher_fn,
 };
@@ -80,7 +80,7 @@ impl StatefulJob for ShallowIndexerJob {
 		let rules_by_kind = aggregate_rules_by_kind(state.init.location.indexer_rules.iter())
 			.map_err(IndexerError::from)?;
 
-		let to_walk_path = if state.init.sub_path != Path::new("") {
+		let (add_root, to_walk_path) = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(location_path, &state.init.sub_path)
 				.await
 				.map_err(IndexerError::from)?;
@@ -88,17 +88,17 @@ impl StatefulJob for ShallowIndexerJob {
 				.await
 				.map_err(IndexerError::from)?;
 
-			ensure_file_path_exists(
-				&state.init.sub_path,
-				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
-					.map_err(IndexerError::from)?,
-				&db,
-				IndexerError::SubPathNotFound,
+			(
+				!check_file_path_exists::<IndexerError>(
+					&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+						.map_err(IndexerError::from)?,
+					&db,
+				)
+				.await?,
+				full_path,
 			)
-			.await?;
-			full_path
 		} else {
-			location_path.to_path_buf()
+			(false, location_path.to_path_buf())
 		};
 
 		let scan_start = Instant::now();
@@ -111,6 +111,7 @@ impl StatefulJob for ShallowIndexerJob {
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
+				add_root,
 			)
 			.await?
 		};
@@ -142,9 +143,7 @@ impl StatefulJob for ShallowIndexerJob {
 		IndexerJobData::on_scan_progress(
 			&mut ctx,
 			vec![ScanProgress::Message(format!(
-				"Starting saving {total_paths} files or directories, \
-					there still {} directories to index",
-				state.steps.len() as u64 - *total_paths
+				"Saving {total_paths} files or directories"
 			))],
 		);
 

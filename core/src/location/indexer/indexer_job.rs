@@ -141,8 +141,7 @@ impl StatefulJob for IndexerJob {
 			&mut ctx,
 			vec![ScanProgress::Message(format!(
 				"Starting saving {total_paths} files or directories, \
-					there still {} directories to index",
-				state.steps.len() as u64 - *total_paths
+					there still {to_walk_count} directories to index",
 			))],
 		);
 

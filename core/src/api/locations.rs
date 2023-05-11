@@ -2,11 +2,16 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		delete_location, file_path_helper::IsolatedFilePathData, find_location,
-		indexer::rules::IndexerRuleCreateArgs, light_scan_location, location_with_indexer_rules,
-		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
+		delete_location,
+		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+		find_location,
+		indexer::rules::IndexerRuleCreateArgs,
+		light_scan_location, location_with_indexer_rules, relink_location, scan_location,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	prisma::{
+		file_path, indexer_rule, indexer_rules_in_location, location, object, tag,
+	},
 	util::db::chain_optional_iter,
 };
 
@@ -93,43 +98,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.query(|(_, library), args: LocationExplorerArgs| async move {
 					let Library { db, .. } = &library;
 
-					dbg!(&args);
-
 					let location = find_location(&library, args.location_id)
 						.exec()
 						.await?
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-					let directory_materialized_path_str = if let Some(path) = args.path {
-						let (materialized_path, maybe_name, _maybe_extension) =
-							IsolatedFilePathData::separate_path_name_and_extension_from_str(
-								&path, true,
-							);
-						let parent_dir = db
-							.file_path()
-							.find_first(chain_optional_iter(
-								[
-									file_path::location_id::equals(location.id),
-									file_path::materialized_path::equals(
-										materialized_path.to_string(),
-									),
-									file_path::is_dir::equals(true),
-								],
-								[maybe_name.map(str::to_string).map(file_path::name::equals)],
-							))
-							.select(file_path::select!({ materialized_path name }))
-							.exec()
-							.await?
-							.ok_or_else(|| {
-								rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
-							})?;
+					let directory_materialized_path_str = match args.path {
+						Some(path) if !path.is_empty() && path != "/" => {
+							let parent_iso_file_path =
+								IsolatedFilePathData::from_relative_str(location.id, &path);
+							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
+								return Err(rspc::Error::new(
+									ErrorCode::NotFound,
+									"Directory not found".into(),
+								));
+							}
 
-						Some(format!(
-							"{}/{}/",
-							parent_dir.materialized_path, parent_dir.name
-						))
-					} else {
-						None
+							parent_iso_file_path.materialized_path_for_children()
+						}
+						Some(_empty) => Some("/".into()),
+						_ => None,
 					};
 
 					let expected_kinds = args

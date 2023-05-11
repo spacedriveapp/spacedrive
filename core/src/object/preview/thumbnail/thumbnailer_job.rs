@@ -34,7 +34,6 @@ pub struct ThumbnailerJob {}
 pub struct ThumbnailerJobInit {
 	pub location: location::Data,
 	pub sub_path: Option<PathBuf>,
-	pub background: bool,
 }
 
 impl Hash for ThumbnailerJobInit {
@@ -164,7 +163,7 @@ impl StatefulJob for ThumbnailerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		process_step(state.init.background, state, ctx).await
+		process_step(state, ctx).await
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {

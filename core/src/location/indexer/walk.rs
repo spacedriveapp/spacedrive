@@ -20,6 +20,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use prisma_client_rust::operator;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::trace;
@@ -88,9 +89,9 @@ pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
-		&Path,
+		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
-	) -> Result<ToRemoveDbFetcherFut, IndexerError>,
+	) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 	limit: u64,
 ) -> Result<
@@ -153,9 +154,9 @@ pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
-		&Path,
+		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
-	) -> Result<ToRemoveDbFetcherFut, IndexerError>,
+	) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 ) -> Result<
 	WalkResult<
@@ -203,10 +204,11 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
-		&Path,
+		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
-	) -> Result<ToRemoveDbFetcherFut, IndexerError>,
+	) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
+	add_root: bool,
 ) -> Result<
 	(
 		impl Iterator<Item = WalkedEntry>,
@@ -222,6 +224,36 @@ where
 	let root = root.as_ref();
 
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+
+	if add_root {
+		let metadata = fs::metadata(root)
+			.await
+			.map_err(|e| FileIOError::from((root, e)))?;
+
+		let (inode, device) = {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode_and_device(&metadata)
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_and_device_from_path(&current_path).await
+			}
+		}?;
+
+		indexed_paths.insert(WalkingEntry {
+			iso_file_path: iso_file_path_factory(root, true)?,
+			maybe_metadata: Some(FilePathMetadata {
+				inode,
+				device,
+				size_in_bytes: metadata.len(),
+				created_at: metadata.created_or_now().into(),
+				modified_at: metadata.modified_or_now().into(),
+			}),
+		});
+	}
+
 	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
 
@@ -304,9 +336,9 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
 	update_notifier: &mut impl FnMut(&Path, usize),
 	to_remove_db_fetcher: &impl Fn(
-		&Path,
+		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
-	) -> Result<ToRemoveDbFetcherFut, IndexerError>,
+	) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: &impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 	WorkingTable {
 		indexed_paths,
@@ -318,6 +350,11 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 where
 	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
 {
+	let Ok(iso_file_path_to_walk) = iso_file_path_factory(path, true).map_err(|e| errors.push(e))
+	else {
+		return vec![];
+	};
+
 	let Ok(mut read_dir) = fs::read_dir(path).await
 		.map_err(|e| errors.push(FileIOError::from((path.clone(), e)).into()))
 		else {
@@ -583,23 +620,21 @@ where
 	// We continue the function even if we fail to fetch `file_path`s to remove,
 	// the DB will have old `file_path`s but at least this is better than
 	// don't adding the newly indexed paths
-	let to_remove = if let Ok(to_remove_fut) = to_remove_db_fetcher(
-		path.as_path(),
-		paths_buffer
-			.iter()
-			.map(|entry| &entry.iso_file_path)
-			.map(Into::into)
-			.collect(),
+	let to_remove = to_remove_db_fetcher(
+		iso_file_path_to_walk,
+		vec![operator::or(
+			paths_buffer
+				.iter()
+				.map(|entry| &entry.iso_file_path)
+				.map(Into::into)
+				.collect(),
+		)],
 	)
-	.map_err(|e| errors.push(e))
-	{
-		to_remove_fut.await.unwrap_or_else(|e| {
-			errors.push(e);
-			vec![]
-		})
-	} else {
+	.await
+	.unwrap_or_else(|e| {
+		errors.push(e);
 		vec![]
-	};
+	});
 
 	// Just merging the `found_paths` with `indexed_paths` here in the end to avoid possibly
 	// multiple rehashes during function execution
@@ -738,7 +773,7 @@ mod tests {
 			&HashMap::new(),
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| Ok(async { Ok(vec![]) }),
+			|_, _| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -802,7 +837,7 @@ mod tests {
 			&only_photos_rule,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| Ok(async { Ok(vec![]) }),
+			|_, _| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -875,7 +910,7 @@ mod tests {
 			&git_repos,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| Ok(async { Ok(vec![]) }),
+			|_, _| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -973,7 +1008,7 @@ mod tests {
 			&git_repos_no_deps_no_build_dirs,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| Ok(async { Ok(vec![]) }),
+			|_, _| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},

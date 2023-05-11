@@ -4,7 +4,7 @@ use crate::{
 	},
 	library::Library,
 	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient},
@@ -84,31 +84,23 @@ impl StatefulJob for ShallowFileIdentifierJob {
 				.await
 				.map_err(FileIdentifierJobError::from)?;
 
-			IsolatedFilePathData::new(location_id, location_path, &full_path, true)
-				.map_err(FileIdentifierJobError::from)?
+			let sub_iso_file_path =
+				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+					.map_err(FileIdentifierJobError::from)?;
+
+			ensure_file_path_exists(
+				&state.init.sub_path,
+				&sub_iso_file_path,
+				db,
+				FileIdentifierJobError::SubPathNotFound,
+			)
+			.await?;
+
+			sub_iso_file_path
 		} else {
 			IsolatedFilePathData::new(location_id, location_path, location_path, true)
 				.map_err(FileIdentifierJobError::from)?
 		};
-
-		if db
-			.file_path()
-			.count(vec![
-				file_path::location_id::equals(location_id),
-				file_path::materialized_path::equals(
-					sub_iso_file_path
-						.materialized_path_for_children()
-						.expect("sub path for shallow file identifier must be a directory"),
-				),
-			])
-			.exec()
-			.await? == 0
-		{
-			return Err(FileIdentifierJobError::SubPathNotFound(
-				state.init.sub_path.clone().into(),
-			)
-			.into());
-		}
 
 		let orphan_count = count_orphan_file_paths(db, location_id, &sub_iso_file_path).await?;
 

@@ -124,8 +124,13 @@ impl<'a> IsolatedFilePathData<'a> {
 	}
 
 	pub fn materialized_path_for_children(&self) -> Option<String> {
-		self.is_dir
-			.then(|| format!("{}/{}/", self.materialized_path, self.name))
+		if self.materialized_path == "/" && self.name.is_empty() && self.is_dir {
+			// We're at the root file_path
+			Some("/".to_string())
+		} else {
+			self.is_dir
+				.then(|| format!("{}{}/", self.materialized_path, self.name))
+		}
 	}
 
 	pub fn separate_path_name_and_extension_from_str(
@@ -150,7 +155,7 @@ impl<'a> IsolatedFilePathData<'a> {
 
 			let first_name_char_idx = source[..last_char_idx].rfind('/').unwrap_or(0) + 1;
 			(
-				&source[..(first_name_char_idx - 1)],
+				&source[..first_name_char_idx],
 				Some(&source[first_name_char_idx..last_char_idx]),
 				None,
 			)
@@ -224,7 +229,12 @@ impl From<IsolatedFilePathData<'static>> for file_path::UniqueWhereParam {
 
 impl From<IsolatedFilePathData<'static>> for file_path::WhereParam {
 	fn from(path: IsolatedFilePathData<'static>) -> Self {
-		file_path::UniqueWhereParam::from(path).into()
+		Self::And(vec![
+			file_path::location_id::equals(path.location_id),
+			file_path::materialized_path::equals(path.materialized_path.into_owned()),
+			file_path::name::equals(path.name.into_owned()),
+			file_path::extension::equals(path.extension.into_owned()),
+		])
 	}
 }
 
@@ -241,7 +251,12 @@ impl From<&IsolatedFilePathData<'_>> for file_path::UniqueWhereParam {
 
 impl From<&IsolatedFilePathData<'_>> for file_path::WhereParam {
 	fn from(path: &IsolatedFilePathData<'_>) -> Self {
-		file_path::UniqueWhereParam::from(path).into()
+		Self::And(vec![
+			file_path::location_id::equals(path.location_id),
+			file_path::materialized_path::equals(path.materialized_path.to_string()),
+			file_path::name::equals(path.name.to_string()),
+			file_path::extension::equals(path.extension.to_string()),
+		])
 	}
 }
 

@@ -175,7 +175,6 @@ impl StatefulJob for ShallowThumbnailerJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		process_step(
-			false, // On shallow thumbnailer, we want to show thumbnails ASAP
 			state, ctx,
 		)
 		.await

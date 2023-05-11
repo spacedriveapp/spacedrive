@@ -1,7 +1,7 @@
+import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
-import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
@@ -32,7 +32,7 @@ export const ViewItem = ({
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({ path: data.item.materialized_path }).toString()
+				search: createSearchParams({ path: `${data.item.materialized_path}${data.item.name}/` }).toString()
 			});
 
 			getExplorerStore().selectedRowIndex = null;

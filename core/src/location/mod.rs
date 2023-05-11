@@ -378,7 +378,6 @@ pub async fn scan_location(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: None,
-				background: true,
 			}),
 		)
 		.await
@@ -413,7 +412,6 @@ pub async fn scan_location_sub_path(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: Some(sub_path),
-				background: true,
 			}),
 		)
 		.await

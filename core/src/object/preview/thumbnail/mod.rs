@@ -178,7 +178,6 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 }
 
 async fn process_step<SJob, Init>(
-	is_background: bool,
 	state: &mut JobState<SJob>,
 	ctx: WorkerContext,
 ) -> Result<(), JobError>
@@ -193,7 +192,7 @@ where
 		step.file_path.materialized_path
 	))]);
 
-	let step_result = inner_process_step(is_background, state, &ctx).await;
+	let step_result = inner_process_step(state, &ctx).await;
 
 	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 		state.step_number + 1,
@@ -203,7 +202,6 @@ where
 }
 
 async fn inner_process_step<SJob, Init>(
-	is_background: bool,
 	state: &mut JobState<SJob>,
 	ctx: &WorkerContext,
 ) -> Result<(), JobError>

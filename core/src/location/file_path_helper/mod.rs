@@ -322,18 +322,26 @@ pub async fn ensure_file_path_exists<E>(
 where
 	E: From<QueryError>,
 {
-	if db
-		.file_path()
-		.count(filter_existing_file_path_params(iso_file_path))
-		.exec()
-		.await
-		.map_err(Into::into)?
-		== 0
-	{
+	if !check_file_path_exists(iso_file_path, db).await? {
 		Err(error_fn(sub_path.as_ref().into()))
 	} else {
 		Ok(())
 	}
+}
+
+pub async fn check_file_path_exists<E>(
+	iso_file_path: &IsolatedFilePathData<'_>,
+	db: &PrismaClient,
+) -> Result<bool, E>
+where
+	E: From<QueryError>,
+{
+	db.file_path()
+		.count(filter_existing_file_path_params(iso_file_path))
+		.exec()
+		.await
+		.map(|count| count > 0)
+		.map_err(Into::into)
 }
 
 pub async fn ensure_sub_path_is_directory(
