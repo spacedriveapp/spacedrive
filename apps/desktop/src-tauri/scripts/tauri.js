@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const util = require('node:util');
 const path = require('node:path');
 const semver = require('semver');
 
@@ -18,13 +17,11 @@ const tauriConf = JSON.parse(
 
 switch (args[0]) {
 	case 'dev': {
-		console.log('Tauri DEV');
 		const env = setupPlatformEnv();
 		if (platform === 'win32') setupFFMpegDlls(env.FFMPEG_DIR, true);
 		break;
 	}
 	case 'build': {
-		console.log('Tauri Build');
 		if (args.findIndex((e) => e === '-c' || e === '--config') !== -1) {
 			throw new Error('Custom tauri build config is not supported.');
 		}
@@ -39,15 +36,13 @@ switch (args[0]) {
 
 		const env = setupPlatformEnv();
 
-		console.log(util.inspect(env, { depth: null, colors: true }));
-
 		const tauriPatch = {
 			build: { features: [] },
 			tauri: { bundle: { macOS: {} }, updater: {} }
 		};
 
 		if (process.env.TAURI_PRIVATE_KEY) {
-			console.log('Tauri Private Key detected, enable updater');
+			console.log('Tauri Private Key detected, enabling updater');
 			tauriPatch.build.features.push('updater');
 			tauriPatch.tauri.updater.active = true;
 		}
@@ -60,7 +55,10 @@ switch (args[0]) {
 				const tauriCliPatch = path.join(workspace, 'target/Frameworks/bin/', cliNode);
 				if (!fs.existsSync(tauriCliPatch)) {
 					throw new Error(
-						`tauri patch not found at ${tauriCliPatch}. Did you run the setup script: ${setupScript}?`
+						`Tauri cli patch not found at ${path.relative(
+							workspace,
+							tauriCliPatch
+						)}. Did you run the setup script: ${setupScript}?`
 					);
 				}
 				const tauriBin = path.join(
@@ -72,7 +70,12 @@ switch (args[0]) {
 				if (!fs.existsSync(tauriBin)) {
 					throw new Error('tauri bin not found at ${tauriBin}. Did you run `pnpm i`?');
 				}
-				console.log(`Replace ${tauriBin} with ${tauriCliPatch}`);
+				console.log(
+					`WORKAROUND tauri-apps/tauri#3933: Replace ${path.relative(
+						workspace,
+						tauriBin
+					)} -> ${path.relative(workspace, tauriCliPatch)}`
+				);
 				fs.copyFileSync(tauriCliPatch, tauriBin);
 
 				// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
@@ -89,7 +92,7 @@ switch (args[0]) {
 				) {
 					macOSMinimumVersion = macOSArm64MinimumVersion;
 					console.log(
-						`aarch64-apple-darwin target detected, set minimum system version to ${macOSMinimumVersion}`
+						`aarch64-apple-darwin target detected, setting minimum system version to ${macOSMinimumVersion}`
 					);
 				}
 
@@ -126,8 +129,6 @@ switch (args[0]) {
 
 		toRemove.push(tauriPatchConf);
 		args.splice(1, 0, '-c', tauriPatchConf);
-
-		console.log(util.inspect(tauriPatch, { depth: null, colors: true }));
 	}
 }
 

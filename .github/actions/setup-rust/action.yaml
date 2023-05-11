@@ -1,6 +1,10 @@
 name: Setup Rust and Prisma
 description: Setup Rust and Prisma
 inputs:
+  cache:
+    description: Whether to use the Rust cache
+    required: false
+    default: 'true'
   targets:
     description: Comma-separated list of target triples to install for this toolchain
     required: false
@@ -19,13 +23,15 @@ runs:
         toolchain: stable
         components: clippy, rustfmt
 
-    # - name: Cache Rust Dependencies
-    #   uses: Swatinem/rust-cache@v2
-    #   with:
-    #     save-if: ${{ inputs.save-cache }}
-    #     shared-key: rust-deps
+    - name: Cache Rust Dependencies
+      if: inputs.cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        save-if: ${{ inputs.save-cache }}
+        shared-key: rust-deps
 
     - name: Restore cached Prisma codegen
+      if: inputs.cache
       id: cache-prisma-restore
       uses: actions/cache/restore@v3
       with:
@@ -40,7 +46,7 @@ runs:
 
     - name: Save Prisma codegen
       id: cache-prisma-save
-      if: inputs.save-cache
+      if: inputs.cache && inputs.save-cache
       uses: actions/cache/save@v3
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}

@@ -53,9 +53,9 @@ jobs:
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
+          cache: 'false'
           token: ${{ secrets.GITHUB_TOKEN }}
           targets: ${{ matrix.settings.target }}
-          save-cache: ${{ inputs.save-cache }}
 
       - name: Build
         run: |

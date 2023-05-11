@@ -5,18 +5,22 @@ inputs:
     description: Github token
     required: false
     default: ''
+  cache:
+    description: Whether to use the System cache
+    required: false
+    default: 'true'
   targets:
     description: Comma-separated list of target triples to install for this toolchain
     required: false
   save-cache:
-    description: Whether to save the Rust cache
+    description: Whether to save the System cache
     required: false
     default: 'false'
 runs:
   using: 'composite'
   steps:
     - name: Restore cached LLVM and Clang
-      if: runner.os == 'Windows'
+      if: runner.os == 'Windows' && inputs.cache
       id: cache-llvm-restore
       uses: actions/cache/restore@v3
       with:
@@ -31,7 +35,7 @@ runs:
         version: '15'
 
     - name: Save LLVM and Clang
-      if: runner.os == 'Windows' && inputs.save-cache
+      if: runner.os == 'Windows' && inputs.cache && inputs.save-cache
       id: cache-llvm-save
       uses: actions/cache/save@v3
       with:
@@ -41,6 +45,7 @@ runs:
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
+        cache: ${{ inputs.cache }}
         targets: ${{ inputs.targets }}
         save-cache: ${{ inputs.save-cache }}
 
