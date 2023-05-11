@@ -20,7 +20,7 @@ runs:
   using: 'composite'
   steps:
     - name: Restore cached LLVM and Clang
-      if: runner.os == 'Windows' && inputs.cache
+      if: ${{ runner.os == 'Windows' && inputs.cache == 'true' }}
       id: cache-llvm-restore
       uses: actions/cache/restore@v3
       with:
@@ -28,14 +28,14 @@ runs:
         path: C:/Program Files/LLVM
 
     - name: Install LLVM and Clang
-      if: runner.os == 'Windows'
+      if: ${{ runner.os == 'Windows' }}
       uses: KyleMayes/install-llvm-action@v1
       with:
         cached: ${{ steps.cache-llvm.outputs.cache-hit }}
         version: '15'
 
     - name: Save LLVM and Clang
-      if: runner.os == 'Windows' && inputs.cache && inputs.save-cache
+      if: ${{ runner.os == 'Windows' && inputs.cache == 'true' && inputs.save-cache == 'true' }}
       id: cache-llvm-save
       uses: actions/cache/save@v3
       with:
@@ -51,7 +51,7 @@ runs:
 
     - name: Run 'setup-system.sh' script
       shell: bash
-      if: runner.os == 'Linux' || runner.os == 'macOS'
+      if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
       run: ./.github/scripts/setup-system.sh
       env:
         TARGET: ${{ inputs.targets }}
@@ -59,7 +59,7 @@ runs:
 
     - name: Run 'setup-system.ps1' script
       shell: powershell
-      if: runner.os == 'Windows'
+      if: ${{ runner.os == 'Windows' }}
       run: ./.github/scripts/setup-system.ps1
       env:
         GITHUB_TOKEN: ${{ inputs.token }}

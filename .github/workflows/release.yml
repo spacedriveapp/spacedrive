@@ -53,7 +53,7 @@ jobs:
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
-          cache: 'false'
+          cache: ${{ matrix.settings.host != "windows-latest" }}
           token: ${{ secrets.GITHUB_TOKEN }}
           targets: ${{ matrix.settings.target }}
 

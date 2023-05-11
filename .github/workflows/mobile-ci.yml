@@ -102,7 +102,7 @@ jobs:
   #         key: avd-30
   #
   #     - name: Generate AVD Snapshot
-  #       if: steps.avd-cache.outputs.cache-hit != 'true'
+  #       if: ${{ steps.avd-cache.outputs.cache-hit != 'true' }}
   #       uses: ReactiveCircus/android-emulator-runner@v2.28.0
   #       with:
   #         arch: x86_64

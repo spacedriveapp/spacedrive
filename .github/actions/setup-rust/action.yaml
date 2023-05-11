@@ -24,14 +24,14 @@ runs:
         components: clippy, rustfmt
 
     - name: Cache Rust Dependencies
-      if: inputs.cache
+      if: ${{ inputs.cache == 'true' }}
       uses: Swatinem/rust-cache@v2
       with:
         save-if: ${{ inputs.save-cache }}
         shared-key: rust-deps
 
     - name: Restore cached Prisma codegen
-      if: inputs.cache
+      if: ${{ inputs.cache == 'true' }}
       id: cache-prisma-restore
       uses: actions/cache/restore@v3
       with:
@@ -40,13 +40,13 @@ runs:
 
     - name: Generate Prisma client
       working-directory: core
-      if: steps.cache-prisma-restore.outputs.cache-hit != 'true'
+      if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       shell: bash
       run: cargo run -p prisma-cli --bin prisma -- generate
 
     - name: Save Prisma codegen
       id: cache-prisma-save
-      if: inputs.cache && inputs.save-cache
+      if: ${{ inputs.cache == 'true' && inputs.save-cache == 'true' }}
       uses: actions/cache/save@v3
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}

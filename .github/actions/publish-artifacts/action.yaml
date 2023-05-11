@@ -15,7 +15,7 @@ runs:
         echo "GITHUB_SHA_SHORT=$GITHUB_SHA_SHORT" >> $GITHUB_ENV
 
     - name: Publish artifacts (Linux - AppImage)
-      if: matrix.settings.host == 'ubuntu-20.04'
+      if: ${{ matrix.settings.host == 'ubuntu-20.04' }}
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-AppImage-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
@@ -23,7 +23,7 @@ runs:
         if-no-files-found: error
 
     - name: Publish artifacts (Debian - deb)
-      if: matrix.settings.host == 'ubuntu-20.04'
+      if: ${{ matrix.settings.host == 'ubuntu-20.04' }}
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-deb-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
@@ -31,7 +31,7 @@ runs:
         if-no-files-found: error
 
     - name: Publish artifacts (Windows - msi)
-      if: matrix.settings.host == 'windows-latest'
+      if: ${{ matrix.settings.host == 'windows-latest' }}
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-msi-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
@@ -39,7 +39,7 @@ runs:
         if-no-files-found: error
 
     - name: Publish artifacts (macOS - dmg)
-      if: matrix.settings.host == 'macos-latest'
+      if: ${{ matrix.settings.host == 'macos-latest' }}
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS-dmg-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
