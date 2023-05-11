@@ -56,6 +56,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Setup Rust and Prisma
         uses: ./.github/actions/setup-rust
@@ -72,6 +74,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
@@ -93,9 +97,11 @@ jobs:
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v3
-
+  #       with:
+  #         submodules: recursive
+  #
   #     - name: Setup
   #       uses: ./.github/actions/setup
-
+  #
   #     - name: Test
   #       run: cargo test --workspace --all-features

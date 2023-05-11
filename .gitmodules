@@ -1,3 +1,6 @@
 [submodule "packages/test-files"]
 	path = packages/test-files
 	url = https://github.com/spacedriveapp/test-files
+[submodule "crates/swift-rs"]
+	path = crates/swift-rs
+	url = https://github.com/HeavenVolkoff/swift-rs.git
