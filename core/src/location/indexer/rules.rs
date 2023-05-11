@@ -168,6 +168,42 @@ pub enum ParametersPerKind {
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
 }
 
+impl ParametersPerKind {
+	fn new_files_by_globs_str_and_kind(
+		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
+		kind_fn: impl Fn(Vec<Glob>, GlobSet) -> Self,
+	) -> Result<Self, IndexerRuleError> {
+		globs_str
+			.into_iter()
+			.map(|s| s.as_ref().parse::<Glob>())
+			.collect::<Result<Vec<_>, _>>()
+			.and_then(|globs| {
+				globs
+					.iter()
+					.cloned()
+					.fold(&mut GlobSetBuilder::new(), |builder, glob| {
+						builder.add(glob)
+					})
+					.build()
+					.map(move |glob_set| kind_fn(globs, glob_set))
+					.map_err(Into::into)
+			})
+			.map_err(Into::into)
+	}
+
+	pub fn new_accept_files_by_globs_str(
+		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
+	) -> Result<Self, IndexerRuleError> {
+		Self::new_files_by_globs_str_and_kind(globs_str, Self::AcceptFilesByGlob)
+	}
+
+	pub fn new_reject_files_by_glob(
+		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
+	) -> Result<Self, IndexerRuleError> {
+		Self::new_files_by_globs_str_and_kind(globs_str, Self::RejectFilesByGlob)
+	}
+}
+
 /// We're implementing `Serialize` by hand as `GlobSet`s aren't serializable, so we ignore them on
 /// serialization
 impl Serialize for ParametersPerKind {
@@ -720,5 +756,66 @@ mod tests {
 		assert!(!rule.apply(project1).await.unwrap());
 		assert!(!rule.apply(project2).await.unwrap());
 		assert!(rule.apply(not_project).await.unwrap());
+	}
+
+	impl PartialEq for ParametersPerKind {
+		fn eq(&self, other: &Self) -> bool {
+			match (self, other) {
+				(
+					ParametersPerKind::AcceptFilesByGlob(self_globs, _),
+					ParametersPerKind::AcceptFilesByGlob(other_globs, _),
+				) => self_globs == other_globs,
+				(
+					ParametersPerKind::RejectFilesByGlob(self_globs, _),
+					ParametersPerKind::RejectFilesByGlob(other_globs, _),
+				) => self_globs == other_globs,
+				(
+					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(self_childrens),
+					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(other_childrens),
+				) => self_childrens == other_childrens,
+				(
+					ParametersPerKind::RejectIfChildrenDirectoriesArePresent(self_childrens),
+					ParametersPerKind::RejectIfChildrenDirectoriesArePresent(other_childrens),
+				) => self_childrens == other_childrens,
+				_ => false,
+			}
+		}
+	}
+
+	impl Eq for ParametersPerKind {}
+
+	impl PartialEq for IndexerRule {
+		fn eq(&self, other: &Self) -> bool {
+			self.id == other.id
+				&& self.kind == other.kind
+				&& self.name == other.name
+				&& self.default == other.default
+				&& self.parameters == other.parameters
+				&& self.date_created == other.date_created
+				&& self.date_modified == other.date_modified
+		}
+	}
+
+	impl Eq for IndexerRule {}
+
+	#[test]
+	fn serde_smoke_test() {
+		let actual = IndexerRule::new(
+			RuleKind::RejectFilesByGlob,
+			"No Hidden".to_string(),
+			true,
+			ParametersPerKind::RejectFilesByGlob(
+				vec![Glob::new("**/.*").unwrap()],
+				Glob::new("**/.*")
+					.and_then(|glob| GlobSetBuilder::new().add(glob).build())
+					.unwrap(),
+			),
+		);
+
+		let expected =
+			rmp_serde::from_slice::<IndexerRule>(&rmp_serde::to_vec_named(&actual).unwrap())
+				.unwrap();
+
+		assert_eq!(actual, expected);
 	}
 }

@@ -2,7 +2,6 @@ use crate::{
 	location::indexer::rules::{IndexerRule, IndexerRuleError, ParametersPerKind, RuleKind},
 	prisma::PrismaClient,
 };
-use globset::{Glob, GlobSetBuilder};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -22,9 +21,7 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 				// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
 				"No OS protected".to_string(),
 				true,
-				ParametersPerKind::RejectFilesByGlob(
-					vec![],
-					[
+				ParametersPerKind::new_reject_files_by_glob([
 						vec![
 							"**/.spacedrive",
 						],
@@ -114,25 +111,15 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 					]
 					.into_iter()
 					.flatten()
-					.map(Glob::new)
-					.try_fold(
-						&mut GlobSetBuilder::new(),
-						|builder, maybe_glob| maybe_glob.map(|glob| builder.add(glob)),
-					)
-					.and_then(|builder| builder.build())
-					.map_err(IndexerRuleError::Glob)?
-				)
+				)?
 			),
 			IndexerRule::new(
 				RuleKind::RejectFilesByGlob,
 				"No Hidden".to_string(),
 				true,
-				ParametersPerKind::RejectFilesByGlob(
-					vec![],
-					Glob::new("**/.*")
-					.and_then(|glob| GlobSetBuilder::new().add(glob).build())
-					.map_err(IndexerRuleError::Glob)?,
-				)
+				ParametersPerKind::new_reject_files_by_glob(
+					["**/.*"],
+				)?
 			),
 			IndexerRule::new(
 				RuleKind::AcceptIfChildrenDirectoriesArePresent,
@@ -146,14 +133,9 @@ pub async fn indexer_rules_seeder(client: &PrismaClient) -> Result<(), SeederErr
 				RuleKind::AcceptFilesByGlob,
 				"Only Images".to_string(),
 				false,
-				ParametersPerKind::AcceptFilesByGlob(
-					vec![],
-					Glob::new(
-						"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
-					)
-					.and_then(|glob| GlobSetBuilder::new().add(glob).build())
-					.map_err(IndexerRuleError::Glob)?,
-				),
+				ParametersPerKind::new_accept_files_by_globs_str(
+					["*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}"],
+				)?,
 			),
 		] {
 			rule.save(client).await?;
