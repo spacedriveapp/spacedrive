@@ -265,12 +265,10 @@ EOF
 # Process FFMpeg libraries to be compatible with the Framework structure
 cd "$TARGET_DIR/lib"
 
-# Move all symlinks for ffmpeg libraries to Framework
+# Move all symlinks of ffmpeg libraries to Framework
 while IFS= read -r -d '' _lib; do
-  # Remove leading ./
-  _lib="${_lib#./}"
   # Copy symlinks to the output directory
-  cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib}"
+  cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib#./}"
   rm "$_lib"
 done < <(find . -type l -print0)
 
@@ -279,6 +277,19 @@ set -- # Clear command line arguments
 while IFS= read -r -d '' _lib; do
   set -- "$@" "${_lib#./}"
 done < <(find . -name '*.dylib' -print0)
+
+# Copy all symlinks of libheif libraries to Framework
+while IFS= read -r -d '' _lib; do
+  # Copy symlinks to the output directory
+  cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib#"${_macports_root}/lib/"}"
+done < <(find "${_macports_root}/lib" -type l \( -name 'libheif.*' -a -name '*.dylib' \) -print0)
+
+# Copy libheif to cwd and add it to queue
+while IFS= read -r -d '' _lib; do
+  _lib_rel="${_lib#"${_macports_root}/lib/"}"
+  cp -Lpv "$_lib" "./${_lib_rel}"
+  set -- "$@" "${_lib_rel}"
+done < <(find "${_macports_root}/lib" -type f \( -name 'libheif.*' -a -name '*.dylib' \) -print0)
 
 while [ $# -gt 0 ]; do
   # Loop through each of the library's dependencies

@@ -1,6 +1,6 @@
-ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libogg libopus libpng libtheora \
-	libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 x265 XviD \
-	xz zimg zlib" \
+ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libheif libogg libopus libpng \
+	libtheora libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 \
+	x265 XviD xz zimg zlib" \
 	FFMPEG_VERSION=6.0
 
 FROM vvasconcellos/osxcross:12.3-50e86eb-1 as base

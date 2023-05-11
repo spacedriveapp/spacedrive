@@ -5,10 +5,6 @@ inputs:
     description: Github token
     required: false
     default: ''
-  cache:
-    description: Whether to use the System cache
-    required: false
-    default: 'true'
   targets:
     description: Comma-separated list of target triples to install for this toolchain
     required: false
@@ -24,7 +20,7 @@ runs:
   using: 'composite'
   steps:
     - name: Restore cached LLVM and Clang
-      if: ${{ runner.os == 'Windows' && inputs.cache == 'true' }}
+      if: ${{ runner.os == 'Windows' }}
       id: cache-llvm-restore
       uses: actions/cache/restore@v3
       with:
@@ -35,11 +31,11 @@ runs:
       if: ${{ runner.os == 'Windows' }}
       uses: KyleMayes/install-llvm-action@v1
       with:
-        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+        cached: ${{ steps.cache-llvm-restore.outputs.cache-hit }}
         version: '15'
 
     - name: Save LLVM and Clang
-      if: ${{ runner.os == 'Windows' && inputs.cache == 'true' && inputs.save-cache == 'true' }}
+      if: ${{ runner.os == 'Windows' && inputs.save-cache == 'true' }}
       id: cache-llvm-save
       uses: actions/cache/save@v3
       with:
@@ -49,7 +45,6 @@ runs:
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
-        cache: ${{ inputs.cache }}
         targets: ${{ inputs.targets }}
         save-cache: ${{ inputs.save-cache }}
 
