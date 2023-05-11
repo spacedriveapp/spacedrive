@@ -174,10 +174,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		process_step(
-			state, ctx,
-		)
-		.await
+		process_step(state, ctx).await
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {

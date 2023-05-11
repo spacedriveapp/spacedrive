@@ -9,9 +9,7 @@ use crate::{
 		light_scan_location, location_with_indexer_rules, relink_location, scan_location,
 		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	prisma::{
-		file_path, indexer_rule, indexer_rules_in_location, location, object, tag,
-	},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 	util::db::chain_optional_iter,
 };
 
@@ -107,7 +105,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						Some(path) if !path.is_empty() && path != "/" => {
 							let parent_iso_file_path =
 								IsolatedFilePathData::from_relative_str(location.id, &path);
-							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
+							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db)
+								.await?
+							{
 								return Err(rspc::Error::new(
 									ErrorCode::NotFound,
 									"Directory not found".into(),
