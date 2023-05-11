@@ -27,8 +27,11 @@ runs:
       if: ${{ inputs.cache == 'true' }}
       uses: Swatinem/rust-cache@v2
       with:
+        key: ${{ inputs.targets }}
         save-if: ${{ inputs.save-cache }}
         shared-key: rust-deps
+        # Windows is having disk related problems with target caching
+        cache-targets: ${{ runner.os != 'Windows' }}
 
     - name: Restore cached Prisma codegen
       if: ${{ inputs.cache == 'true' }}

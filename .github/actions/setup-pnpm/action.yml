@@ -22,11 +22,9 @@ runs:
     - name: Install Node.js
       uses: actions/setup-node@v3
       with:
-        cache: 'pnpm'
         token: ${{ inputs.token }}
         node-version: 18
         check-latest: true
-        cache-dependency-path: 'pnpm-lock.yaml'
 
     - name: Install pnpm deps
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}

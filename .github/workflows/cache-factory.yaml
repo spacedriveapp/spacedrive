@@ -14,12 +14,30 @@ concurrency:
 
 jobs:
   make_cache:
-    name: 'Make Cache'
-    runs-on: ${{ matrix.platform }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        platform: [ubuntu-20.04, macos-latest, windows-latest]
+        settings:
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          # - host: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          - host: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: x86_64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: armv7-unknown-linux-gnueabihf
+    name: 'Make Cache'
+    runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -35,6 +53,7 @@ jobs:
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          targets: ${{ matrix.settings.target }}
           save-cache: 'true'
 
       - name: Compile (debug)
