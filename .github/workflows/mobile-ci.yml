@@ -32,8 +32,6 @@ jobs:
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v3
-  #        with:
-  #          submodules: recursive
   #
   #     - name: Setup Java JDK
   #       uses: actions/setup-java@v3.10.0
@@ -145,8 +143,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Install Xcode
         uses: maxim-lobanov/setup-xcode@v1
