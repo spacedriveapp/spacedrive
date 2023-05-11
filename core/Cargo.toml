@@ -10,8 +10,12 @@ rust-version = "1.68.1"
 
 [features]
 default = []
-mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = ["dep:ffmpeg-next", "dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+mobile = [
+] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = [
+	"dep:ffmpeg-next",
+	"dep:sd-ffmpeg",
+] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 sync-messages = []
 
@@ -27,7 +31,13 @@ sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
 
-rspc = { workspace = true, features = ["uuid", "chrono", "tracing", "alpha", "unstable"] }
+rspc = { workspace = true, features = [
+	"uuid",
+	"chrono",
+	"tracing",
+	"alpha",
+	"unstable",
+] }
 httpz = { workspace = true }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }
@@ -75,6 +85,10 @@ notify = { version = "5.0.0", default-features = false, features = [
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
+
+# for HEIF/HEIC handling
+libheif-rs = "0.19.2"
+png = "0.17.8"
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
