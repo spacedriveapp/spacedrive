@@ -21,15 +21,17 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
 	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 
-	const query = useLibraryQuery(['search', props.args], {
+	const query = useLibraryQuery(['search.paths', props.args], {
 		suspense: true,
 		enabled: !!props.args.search
 	});
 
 	const items = useMemo(() => {
-		if (explorerStore.layoutMode !== 'media') return query.data;
+		const items = query.data?.items;
 
-		return query.data?.filter((item) => {
+		if (explorerStore.layoutMode !== 'media') return items;
+
+		return items?.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
