@@ -123,6 +123,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
+		.procedure("removeAccessTime", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(id),
+							vec![object::date_accessed::set(None)],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "files.getRecent");
+					Ok(())
+				})
+		})
 		.procedure("getRecent", {
 			R.with2(library())
 				.query(|(_, library), amount: i32| async move {
