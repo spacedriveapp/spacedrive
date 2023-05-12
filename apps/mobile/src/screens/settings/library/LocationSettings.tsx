@@ -125,8 +125,6 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 	);
 }
 
-// TODO: Add new location from here (ImportModal)
-
 const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'LocationSettings'>) => {
 	const { data: locations } = useLibraryQuery(['locations.list']);
 
@@ -137,7 +135,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 					variant="accent"
 					style={tw`mr-2`}
 					size="sm"
-					onPress={() => importModalRef.current?.present()}
+					onPress={() => modalRef.current?.present()}
 				>
 					<Text style={tw`text-white`}>New</Text>
 				</AnimatedButton>
@@ -145,7 +143,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 		});
 	}, [navigation]);
 
-	const importModalRef = useRef<ModalRef>(null);
+	const modalRef = useRef<ModalRef>(null);
 
 	return (
 		<View style={tw`flex-1 px-3 py-4`}>
@@ -156,7 +154,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 					<LocationItem navigation={navigation} location={item} index={index} />
 				)}
 			/>
-			<ImportModal ref={importModalRef} />
+			<ImportModal ref={modalRef} />
 		</View>
 	);
 };
