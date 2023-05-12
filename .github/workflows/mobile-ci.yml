@@ -39,37 +39,16 @@ jobs:
   #         java-version: '18'
   #         distribution: 'temurin'
   #
-  #     - name: Install pnpm
-  #       uses: pnpm/action-setup@v2.2.2
+  #     - name: Setup Node.js, pnpm and dependencies
+  #       uses: ./.github/actions/setup-pnpm
   #       with:
-  #         version: 8.x.x
+  #         token: ${{ secrets.GITHUB_TOKEN }}
   #
-  #     - name: Install Node.js
-  #       uses: actions/setup-node@v3
+  #     - name: Setup System and Rust
+  #       uses: ./.github/actions/setup-system
   #       with:
-  #         node-version: 18
-  #         cache: 'pnpm'
-  #
-  #     - name: Install Rust stable
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         profile: minimal
-  #
-  #     - name: Cache Rust deps
-  #       uses: Swatinem/rust-cache@v2
-  #       with:
-  #         save-if: ${{ inputs.save-cache }} == "true"
-  #
-  #     - name: Run 'setup-system.sh' script
-  #       shell: bash
-  #       run: ./.github/scripts/setup-system.sh mobile
-  #
-  #     - name: Generate Prisma client
-  #       uses: ./.github/actions/generate-prisma-client
-  #
-  #     - name: Install pnpm dependencies
-  #       run: pnpm i --frozen-lockfile
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #        setup-arg: mobile
   #
   #     - name: Setup Android SDK Tools
   #       uses: android-actions/setup-android@v2.0.2

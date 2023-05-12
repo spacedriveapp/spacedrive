@@ -308,7 +308,10 @@ while [ $# -gt 0 ]; do
           _linker_path="/usr/lib/${_dep_rel}"
         else
           _linker_path="@loader_path/${_dep_rel}"
-          if [ ! -f "$_dep_rel" ]; then
+          if ! [ -e "${_macports_root}/lib/${_dep_rel}" ]; then
+            echo "Missing macports dependency: ${_dep_rel}"
+            exit 1
+          elif ! { [ -f "$_dep_rel" ] || [ -e "/${_framework}/Libraries/${_dep_rel}" ]; }; then
             # Copy dependency to the current directory if this is the first time we see it
             cp -Lpv "${_macports_root}/lib/${_dep_rel}" "./${_dep_rel}"
             # Add it to the queue to have it's own dependencies processed
@@ -334,6 +337,9 @@ while [ $# -gt 0 ]; do
   # Remove library from queue
   shift
 done
+
+# Copy all libheif headers to framework
+cp -av "${_macports_root}/include/libheif" "/${_framework}/Headers/"
 
 # Copy all FFMPEG headers to framework
 cp -av "${TARGET_DIR}/include/"* "/${_framework}/Headers/"

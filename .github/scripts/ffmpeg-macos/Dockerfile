@@ -1,4 +1,5 @@
-ARG FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libheif libogg libopus libpng \
+ARG FAKE_DEPS="python311 perl5.34 gdk-pixbuf2 xorg-libsm xorg-libX11" \
+	FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libheif libogg libopus libpng \
 	libtheora libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 \
 	x265 XviD xz zimg zlib" \
 	FFMPEG_VERSION=6.0
@@ -16,6 +17,11 @@ COPY ./ffmpeg-build-macos.sh ./
 
 # ---
 FROM base as x86_64
+
+# Fake Install macOS dependencies not required to build ffmpeg
+ARG FAKE_DEPS
+# hadolint ignore=SC2086
+RUN osxcross-macports fake-install $FAKE_DEPS
 
 # Install macOS dependencies required to build ffmpeg
 ARG FFMPEG_DEPS
@@ -37,6 +43,11 @@ RUN chmod +x /usr/local/bin/gas-preprocessor.pl
 # libbrotli macports precompiled binaries are only available for macOS 11.2+
 ENV OSX_VERSION_MIN="11.2" \
 	MACOSX_DEPLOYMENT_TARGET="11.2"
+
+# Fake Install macOS dependencies not required to build ffmpeg
+ARG FAKE_DEPS
+# hadolint ignore=SC2086
+RUN osxcross-macports fake-install --arm64 $FAKE_DEPS
 
 # Install macOS dependencies required to build ffmpeg
 ARG FFMPEG_DEPS
