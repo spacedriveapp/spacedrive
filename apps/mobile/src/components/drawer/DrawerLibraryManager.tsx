@@ -1,7 +1,7 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
-import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
+import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useClientContext } from '@sd/client';
@@ -39,13 +39,10 @@ const DrawerLibraryManager = () => {
 						{currentLibrary?.config.name}
 					</Text>
 					<MotiView
-						animate={{
-							rotate: dropdownClosed ? '0deg' : '180deg',
-							translateX: dropdownClosed ? 0 : -9
-						}}
+						animate={{ rotateZ: dropdownClosed ? '0deg' : '90deg' }}
 						transition={{ type: 'timing', duration: 100 }}
 					>
-						<CaretDown color="white" size={18} weight="bold" style={tw`ml-2`} />
+						<CaretRight color="white" size={18} weight="bold" />
 					</MotiView>
 				</View>
 			</Pressable>
