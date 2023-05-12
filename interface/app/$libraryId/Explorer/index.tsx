@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerData, useLibrarySubscription } from '@sd/client';
@@ -18,6 +19,8 @@ interface Props {
 	viewClassName?: string;
 	children?: ReactNode;
 	inspectorClassName?: string;
+	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -56,7 +59,7 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
 			<div className="flex flex-1">
-				<div className="flex-1 overflow-hidden">
+				<div className={clsx('flex-1 overflow-hidden', props.explorerClassName)}>
 					{props.children}
 					<ExplorerContextMenu>
 						{props.items && (
@@ -66,6 +69,7 @@ export default function Explorer(props: Props) {
 								hasNextPage={props.hasNextPage}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
+								scrollRef={props.scrollRef}
 							/>
 						)}
 					</ExplorerContextMenu>

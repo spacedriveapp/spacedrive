@@ -70,6 +70,7 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default memo((props: Props) => {
@@ -83,7 +84,7 @@ export default memo((props: Props) => {
 
 	return (
 		<div
-			ref={scrollRef}
+			ref={props.scrollRef || scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
 				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
@@ -96,7 +97,7 @@ export default memo((props: Props) => {
 			<ViewContext.Provider
 				value={{
 					data: props.data,
-					scrollRef,
+					scrollRef: props.scrollRef || scrollRef,
 					onLoadMore: props.onLoadMore,
 					hasNextPage: props.hasNextPage,
 					isFetchingNextPage: props.isFetchingNextPage

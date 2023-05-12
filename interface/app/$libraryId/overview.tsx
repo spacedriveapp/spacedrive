@@ -1,18 +1,26 @@
 import * as icons from '@sd/assets/icons';
-import { ExplorerItem, ObjectKind, ObjectKindKey, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import { useMemo, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import {
+	ExplorerItem,
+	ObjectKind,
+	ObjectKindKey,
+	Statistics,
+	useLibraryContext,
+	useLibraryQuery
+} from '@sd/client';
+import { z } from '@sd/ui/src/forms';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
 import Explorer from './Explorer';
+import { SEARCH_PARAMS, getExplorerItemData } from './Explorer/util';
+import { usePageLayout } from './PageLayout';
 import { ToolOption } from './TopBar';
 import TopBarChildren from './TopBar/TopBarChildren';
-import { useMemo, useState } from 'react';
-import { z } from '@sd/ui/src/forms';
-import { SEARCH_PARAMS, getExplorerItemData } from './Explorer/util';
 
 interface StatItemProps {
 	title: string;
@@ -86,23 +94,23 @@ const StatItem = (props: StatItemProps) => {
 };
 
 const CategoryToObjectKind: Record<string, ObjectKindKey> = {
-	Recents: "Collection",
-	Favorites: "Document",
-	Photos: "Image",
-	Videos: "Video",
-	Music: "Audio",
-	Documents: "Document",
-	Downloads: "Package",
-	Applications: "Executable",
-	Books: "Text",
-	Movies: "Video",
-	Encrypted: "Encrypted",
-	Archives: "Database",
-	Projects: "Folder",
-	Trash: "Document",
-}
+	Recents: 'Collection',
+	Favorites: 'Document',
+	Photos: 'Image',
+	Videos: 'Video',
+	Music: 'Audio',
+	Documents: 'Document',
+	Downloads: 'Package',
+	Applications: 'Executable',
+	Books: 'Text',
+	Movies: 'Video',
+	Encrypted: 'Encrypted',
+	Archives: 'Database',
+	Projects: 'Folder',
+	Trash: 'Document'
+};
 
-const SearchableCategories = ["Videos", "Photos", "Music", "Documents", "Encrypted"];
+const SearchableCategories = ['Videos', 'Photos', 'Music', 'Documents', 'Encrypted'];
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -115,7 +123,7 @@ export const Component = () => {
 	});
 	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 
-	const [selectedCategory, setSelectedCategory] = useState<string>("Recents");
+	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
 	const canSearch = SearchableCategories.includes(selectedCategory);
 
@@ -148,11 +156,11 @@ export const Component = () => {
 	) as ToolOption;
 	const toolsViewOptions = haveRecentFiles
 		? explorerViewOptions.filter(
-			(o) =>
-				o.toolTipLabel === 'Grid view' ||
-				o.toolTipLabel === 'List view' ||
-				o.toolTipLabel === 'Media view'
-		)
+				(o) =>
+					o.toolTipLabel === 'Grid view' ||
+					o.toolTipLabel === 'List view' ||
+					o.toolTipLabel === 'Media view'
+		  )
 		: [];
 
 	let items: ExplorerItem[] = [];
@@ -164,51 +172,52 @@ export const Component = () => {
 			if (canSearch) {
 				items = searchItems || [];
 			}
-	};
+	}
 
+	const page = usePageLayout();
 
 	return (
 		<div>
 			<TopBarChildren toolOptions={[toolsViewOptions, [inspector]]} />
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
-				viewClassName="!pl-0 !pt-0"
+				viewClassName="!pl-0 !pt-0 !h-auto"
+				explorerClassName="!overflow-visible"
 				items={items}
+				scrollRef={page?.ref}
 			>
-				<div className="flex w-full flex-col">
-					{/* STAT HEADER */}
-					<div className="flex w-full">
-						{/* STAT CONTAINER */}
-						<div className="-mb-1 flex h-20 overflow-hidden">
-							{Object.entries(stats?.data || []).map(([key, value]) => {
-								if (!displayableStatItems.includes(key)) return null;
-								return (
-									<StatItem
-										key={`${library.uuid} ${key}`}
-										title={StatItemNames[key as keyof Statistics]!}
-										bytes={BigInt(value)}
-										isLoading={platform.demoMode ? false : stats.isLoading}
-									/>
-								);
-							})}
-						</div>
-					</div>
-					<div className="mt-4 flex flex-wrap space-x-[1px]">
-						{categories.data?.map((category) => {
-							//@ts-expect-error
-							const icon = icons[CategoryToObjectKind[category]];
+				{/* STAT HEADER */}
+				<div className="flex w-full">
+					{/* STAT CONTAINER */}
+					<div className="-mb-1 flex h-20 overflow-hidden">
+						{Object.entries(stats?.data || []).map(([key, value]) => {
+							if (!displayableStatItems.includes(key)) return null;
 							return (
-								<CategoryButton
-									key={category}
-									category={category}
-									icon={icon}
-									items={0}
-									selected={selectedCategory === category}
-									onClick={() => setSelectedCategory(category)}
+								<StatItem
+									key={`${library.uuid} ${key}`}
+									title={StatItemNames[key as keyof Statistics]!}
+									bytes={BigInt(value)}
+									isLoading={platform.demoMode ? false : stats.isLoading}
 								/>
 							);
 						})}
 					</div>
+				</div>
+				<div className="sticky top-0 z-50 mt-4 flex flex-wrap space-x-[1px] bg-app py-1">
+					{categories.data?.map((category) => {
+						//@ts-expect-error
+						const icon = icons[CategoryToObjectKind[category]];
+						return (
+							<CategoryButton
+								key={category}
+								category={category}
+								icon={icon}
+								items={0}
+								selected={selectedCategory === category}
+								onClick={() => setSelectedCategory(category)}
+							/>
+						);
+					})}
 				</div>
 			</Explorer>
 		</div>
