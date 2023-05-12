@@ -20,7 +20,6 @@ on:
       - 'core/prisma/**'
     branches:
       - main
-  pull_request:
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
