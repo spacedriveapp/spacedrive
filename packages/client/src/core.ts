@@ -40,6 +40,7 @@ export type Procedures = {
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.removeAccessTime", input: LibraryArgs<number>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
@@ -281,8 +282,6 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
@@ -299,6 +298,8 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
 
