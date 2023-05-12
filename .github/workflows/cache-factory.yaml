@@ -6,11 +6,7 @@ name: Cache Factory
 on:
   push:
     paths:
-      - '.npmrc'
-      - '.nvmrc'
       - 'Cargo.lock'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
       - '.github/scripts/setup-system.sh'
       - '.github/scripts/setup-system.ps1'
       - '.github/workflows/cache-factory.yaml'
@@ -55,11 +51,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
