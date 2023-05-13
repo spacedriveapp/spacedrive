@@ -61,7 +61,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await?)
 			})
 		})
-		.procedure("getById", {
+		.procedure("get", {
+			R.with2(library())
+				.query(|(_, library), location_id: i32| async move {
+					Ok(library
+						.db
+						.location()
+						.find_unique(location::id::equals(location_id))
+						.exec()
+						.await?)
+				})
+		})
+		.procedure("getWithRules", {
 			R.with2(library())
 				.query(|(_, library), location_id: i32| async move {
 					Ok(library

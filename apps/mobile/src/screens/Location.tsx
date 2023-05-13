@@ -7,7 +7,7 @@ import { getExplorerStore } from '~/stores/explorerStore';
 export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
 	const { id, path } = route.params;
 
-	const location = useLibraryQuery(['locations.getById', route.params.id]);
+	const location = useLibraryQuery(['locations.get', route.params.id]);
 
 	const { data } = useLibraryQuery([
 		'search.paths',

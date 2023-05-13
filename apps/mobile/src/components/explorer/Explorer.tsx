@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { ExplorerData, ExplorerItem, isPath } from '@sd/client';
+import { ExplorerItem, isPath } from '@sd/client';
 import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
@@ -14,7 +14,7 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	items: ExplorerData['items'] | undefined;
+	items?: ExplorerItem[];
 };
 
 const Explorer = ({ items }: ExplorerProps) => {

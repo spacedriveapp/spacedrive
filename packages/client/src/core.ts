@@ -18,7 +18,8 @@ export type Procedures = {
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
-        { key: "locations.getById", input: LibraryArgs<number>, result: LocationWithIndexerRules | null } | 
+        { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
+        { key: "locations.getWithRules", input: LibraryArgs<number>, result: LocationWithIndexerRules | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
@@ -174,6 +175,8 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
+export type LightScanArgs = { location_id: number; sub_path: string }
+
 export type TagCreateArgs = { name: string; color: string }
 
 /**
@@ -188,6 +191,8 @@ export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Pr
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+
+export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
 
 export type GetArgs = { id: number }
 
@@ -275,8 +280,6 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
-
-export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type ChangeNodeNameArgs = { name: string }
 
