@@ -1,8 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog';
+import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { XCircle } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { animated, useTransition } from 'react-spring';
 import { subscribeKey } from 'valtio/utils';
 import { ExplorerItem } from '~/../packages/client/src';
 import { showAlertDialog } from '~/components/AlertDialog';
@@ -207,9 +207,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 												</span>
 											</Dialog.Title>
 										</nav>
-										<div className='flex shrink overflow-hidden'>
-											{preview}
-										</div>
+										<div className="flex shrink overflow-hidden">{preview}</div>
 									</div>
 								</AnimatedDialogContent>
 							</Dialog.Portal>
