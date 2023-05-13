@@ -166,7 +166,6 @@ module.exports = function (app, options) {
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));
-		config.plugins.push(require('@tailwindcss/line-clamp'));
 	}
 	return config;
 };
