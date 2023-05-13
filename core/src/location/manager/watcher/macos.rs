@@ -161,7 +161,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to create file_path on MacOS : {e}");
 				} else {
 					trace!("Created file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer
@@ -184,7 +184,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to remove file_path: {e}");
 				} else {
 					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer

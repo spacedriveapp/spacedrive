@@ -14,10 +14,10 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	data: ExplorerData | undefined;
+	items: ExplorerData['items'] | undefined;
 };
 
-const Explorer = ({ data }: ExplorerProps) => {
+const Explorer = ({ items }: ExplorerProps) => {
 	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
@@ -60,11 +60,11 @@ const Explorer = ({ data }: ExplorerProps) => {
 				)}
 			</View>
 			{/* Items */}
-			{data && (
+			{items && (
 				<FlashList
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
-					data={data.items}
+					data={items}
 					keyExtractor={(item) => item.item.id.toString()}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>

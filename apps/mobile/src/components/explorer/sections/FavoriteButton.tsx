@@ -15,9 +15,7 @@ const FavoriteButton = (props: Props) => {
 
 	const { mutate: toggleFavorite, isLoading } = useLibraryMutation('files.setFavorite', {
 		onSuccess: () => {
-			// TODO: Not sure why rust isn't invalidating these...
-			queryClient.invalidateQueries(['locations.getExplorerData']);
-			queryClient.invalidateQueries(['tags.getExplorerData']);
+			// TODO: Invalidate search queries
 			setFavorite(!favorite);
 		}
 	});
