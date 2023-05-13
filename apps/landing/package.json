@@ -3,7 +3,6 @@
 	"scripts": {
 		"dev": "pnpm run server",
 		"prod": "pnpm run build && pnpm run server:prod",
-		"vercel-build": "./vercel/deploy.sh",
 		"build": "vite build",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
@@ -38,6 +37,7 @@
 		"vite-plugin-ssr": "^0.4.39"
 	},
 	"devDependencies": {
+		"@magne4000/vite-plugin-vercel-ssr": "^0.1.5",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tailwindcss/typography": "^0.5.7",
@@ -56,6 +56,6 @@
 		"vite-plugin-esmodule": "^1.5.0",
 		"vite-plugin-markdown": "^2.1.0",
 		"vite-plugin-svgr": "^3.2.0",
-		"vite-tsconfig-paths": "^4.2.0"
+		"vite-plugin-vercel": "^0.1.7"
 	}
 }
