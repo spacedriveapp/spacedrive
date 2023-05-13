@@ -25,7 +25,7 @@ concurrency:
 jobs:
   make_cache:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         settings:
           - host: macos-latest
