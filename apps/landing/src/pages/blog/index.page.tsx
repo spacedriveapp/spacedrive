@@ -17,11 +17,9 @@ function Page({ posts }: { posts: BlogPosts }) {
 			<section className="animation-delay-2 grid grid-cols-1 gap-4 will-change-transform fade-in sm:grid-cols-1 lg:grid-cols-1">
 				{postsArray.map((post) => {
 					return (
-						<div
+						<a
 							key={post.slug}
-							onClick={() => {
-								window.location.href = `/blog/${post.slug}`;
-							}}
+							href="/blog/${post.slug}"
 							className="relative z-0 mb-8 flex cursor-pointer flex-col gap-2 overflow-hidden rounded-xl border border-gray-500 transition-colors"
 						>
 							{post.image && (
@@ -45,7 +43,7 @@ function Page({ posts }: { posts: BlogPosts }) {
 									))}
 								</div>
 							</div>
-						</div>
+						</a>
 					);
 				})}
 			</section>
