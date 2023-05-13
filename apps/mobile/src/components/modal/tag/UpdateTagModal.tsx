@@ -82,7 +82,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 					variant="accent"
 					onPress={() => updateTag({ id: props.tag.id, color: tagColor, name: tagName })}
 					style={tw`mt-6`}
-					disabled={tagName.length === 0}
+					disabled={tagName.length === 0 || tagColor.length === 0 || isLoading}
 				>
 					<Text style={tw`text-sm font-medium text-white`}>Save</Text>
 				</Button>
