@@ -56,8 +56,5 @@
 	},
 	"eslintConfig": {
 		"root": true
-	},
-	"dependencies": {
-		"tsconfck": "^2.1.1"
 	}
 }
