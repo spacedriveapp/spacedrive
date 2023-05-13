@@ -10,8 +10,6 @@ import svg from 'vite-plugin-svgr';
 import vercel from 'vite-plugin-vercel';
 
 export default defineConfig({
-	// prettier-ignore
-	// Prettier reeeally wants to one-line this -- I AM PUTTING MY FOOT DOWN AND SAYING NO!
 	plugins: [
 		react(),
 		svg(),
