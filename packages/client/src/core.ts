@@ -42,6 +42,7 @@ export type Procedures = {
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.removeAccessTime", input: LibraryArgs<number>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
@@ -281,8 +282,6 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
 
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
@@ -299,6 +298,8 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: ({ indexer_rule: IndexerRule })[] }
 

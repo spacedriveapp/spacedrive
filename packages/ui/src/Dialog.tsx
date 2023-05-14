@@ -1,8 +1,8 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { animated, useTransition } from 'react-spring';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';

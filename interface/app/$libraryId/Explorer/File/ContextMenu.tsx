@@ -53,6 +53,8 @@ export default ({ data, className, ...props }: Props) => {
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
+	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
+
 	return (
 		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
@@ -79,6 +81,15 @@ export default ({ data, className, ...props }: Props) => {
 					keybind="Enter"
 					onClick={() => (getExplorerStore().isRenaming = true)}
 				/>
+
+				{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+					<ContextMenu.Item
+						label="Remove from recents"
+						onClick={() =>
+							data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						}
+					/>
+				)}
 
 				<ContextMenu.Item
 					label="Cut"

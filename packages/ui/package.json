@@ -42,7 +42,7 @@
 		"react-dom": "^18.2.0",
 		"react-loading-icons": "^1.1.0",
 		"react-router-dom": "6.9.0",
-		"react-spring": "^9.5.5",
+		"@react-spring/web": "9.6.0",
 		"tailwindcss-radix": "^2.6.0",
 		"use-debounce": "^9.0.4",
 		"zod": "^3.21.4"
