@@ -642,6 +642,8 @@ pub(super) async fn remove_by_file_path(
 						.await?;
 				}
 			}
+
+			library.orphan_remover_tx.send(()).await.ok();
 		}
 		Err(e) => return Err(e.into()),
 	}

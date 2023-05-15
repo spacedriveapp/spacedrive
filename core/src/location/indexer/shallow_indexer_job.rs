@@ -186,6 +186,8 @@ impl StatefulJob for ShallowIndexerJob {
 				.await
 				.map_err(IndexerError::from)?;
 
+		ctx.library.orphan_remover_tx.send(()).await.ok();
+
 		// Filter out paths that are already in the databases
 		let new_paths = found_paths
 			.into_iter()

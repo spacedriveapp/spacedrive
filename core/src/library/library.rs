@@ -16,6 +16,7 @@ use std::{
 };
 
 use sd_crypto::keys::keymanager::KeyManager;
+use tokio::sync::mpsc::Sender;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -39,6 +40,7 @@ pub struct Library {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
+	pub orphan_remover_tx: Sender<()>,
 }
 
 impl Debug for Library {
