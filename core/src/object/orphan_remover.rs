@@ -9,36 +9,43 @@ pub fn start(db: Arc<PrismaClient>) -> Sender<()> {
 
 	tokio::spawn(async move {
 		while let Some(()) = rx.recv().await {
+			// prevents timeouts
 			tokio::time::sleep(Duration::from_millis(10)).await;
 
-			let Ok(objs) = db
-				.object()
-				.find_many(vec![object::file_paths::none(vec![])])
-				.take(512)
-				.select(object::select!({ id pub_id }))
-				.exec()
-				.await else {
-                    continue;
-                };
+			loop {
+				let objs = match db
+					.object()
+					.find_many(vec![object::file_paths::none(vec![])])
+					.take(512)
+					.select(object::select!({ id pub_id }))
+					.exec()
+					.await
+				{
+					Ok(objs) => objs,
+					Err(e) => {
+						error!("Failed to fetch orphaned objects: {e}");
+						break;
+					}
+				};
 
-			if objs.is_empty() {
-				continue;
-			}
+				if objs.is_empty() {
+					break;
+				}
 
-			debug!("Removing {} orphaned objects", objs.len());
+				debug!("Removing {} orphaned objects", objs.len());
 
-			let ids: Vec<_> = objs.iter().map(|o| o.id).collect();
+				let ids: Vec<_> = objs.iter().map(|o| o.id).collect();
 
-			if let Err(e) = db
-				._batch((
-					db.tag_on_object()
-						.delete_many(vec![tag_on_object::object_id::in_vec(ids.clone())]),
-					db.object()
-						.delete_many(vec![object::id::in_vec(ids.clone())]),
-				))
-				.await
-			{
-				error!("Failed to remove orphaned objects: {e}");
+				if let Err(e) = db
+					._batch((
+						db.tag_on_object()
+							.delete_many(vec![tag_on_object::object_id::in_vec(ids.clone())]),
+						db.object().delete_many(vec![object::id::in_vec(ids)]),
+					))
+					.await
+				{
+					error!("Failed to remove orphaned objects: {e}");
+				}
 			}
 		}
 	});
