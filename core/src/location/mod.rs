@@ -645,6 +645,8 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 		}
 	}
 
+	library.orphan_remover.invoke().await;
+
 	info!("Location {} deleted", location_id);
 	invalidate_query!(library, "locations.list");
 
