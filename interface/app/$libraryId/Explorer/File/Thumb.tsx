@@ -60,7 +60,7 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	const [loadOriginal, setLoadOriginal] = useState<boolean>();
 
 	useEffect(() => {
-		if (props.loadOriginal) setLoadOriginal(true);
+		setLoadOriginal(props.loadOriginal);
 	}, [props.loadOriginal]);
 
 	// Allows disabling thumbnails when they fail to load
