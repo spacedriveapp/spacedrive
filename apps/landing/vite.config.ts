@@ -1,5 +1,6 @@
 import vercelSsr from '@magne4000/vite-plugin-vercel-ssr';
 import react from '@vitejs/plugin-react';
+import { globSync } from 'glob';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
@@ -7,6 +8,15 @@ import md, { Mode } from 'vite-plugin-markdown';
 import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 import vercel from 'vite-plugin-vercel';
+
+const edgeEndpoints = () =>
+	globSync('**/*.ts', {
+		cwd: 'edge'
+	}).map((file) => ({
+		source: `./edge/${file}`,
+		destination: `/api/${path.join(file, '../')}${path.basename(file, '.ts')}`,
+		edge: true
+	}));
 
 export default defineConfig({
 	plugins: [
@@ -18,6 +28,9 @@ export default defineConfig({
 		vercel(),
 		vercelSsr()
 	],
+	vercel: {
+		additionalEndpoints: edgeEndpoints()
+	},
 	css: {
 		modules: {
 			localsConvention: 'camelCaseOnly'

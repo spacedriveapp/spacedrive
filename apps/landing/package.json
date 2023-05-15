@@ -51,13 +51,14 @@
 		"@types/react-burger-menu": "^2.8.3",
 		"@types/react-dom": "^18.0.6",
 		"@types/react-helmet": "^6.1.5",
+		"glob": "^10.2.4",
 		"postcss": "^8.4.17",
 		"rollup-plugin-visualizer": "^5.8.2",
 		"sass": "^1.55.0",
 		"vite-plugin-esmodule": "^1.4.4",
 		"vite-plugin-markdown": "^2.1.0",
 		"vite-plugin-svgr": "^2.2.1",
-		"vite-plugin-vercel": "^0.1.7",
+		"vite-plugin-vercel": "^0.2.0",
 		"vite-tsconfig-paths": "^3.5.2"
 	}
 }
