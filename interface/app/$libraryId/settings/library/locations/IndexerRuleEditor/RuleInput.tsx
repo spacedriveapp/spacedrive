@@ -16,6 +16,56 @@ interface Props {
 	onBlur?: ChangeEventHandler<HTMLInputElement> | undefined;
 }
 
+export const validateInput = (
+	type: InputKinds,
+	value: string,
+	os?: string,
+	isWeb?: boolean
+): { value: any; message: string } | undefined => {
+	switch (type) {
+		case 'Extension': {
+			const regex = new RegExp('^.[^.s]+$');
+			return {
+				value: regex.test(value),
+				message: value ? 'Invalid extension' : 'Value required'
+			};
+		}
+		case 'Name': {
+			const regex =
+				os === 'windows'
+					? new RegExp('[^<>:"/\\|?*\u0000-\u0031]*')
+					: new RegExp('[^/\0]+');
+			return {
+				value: regex.test(value),
+				message: 'Value required'
+			};
+		}
+		case 'Path': {
+			const regex = isWeb
+				? // Non web plataforms use the native file picker, so there is no need to validate
+				  ''
+				: // TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
+				os === 'windows'
+				? new RegExp('[^<>:"/|?*\u0000-\u0031]*')
+				: new RegExp('[^\0]+');
+			return {
+				value: regex !== '' && regex.test(value),
+				message: 'Value required'
+			};
+		}
+		case 'Advanced': {
+			const regex =
+				os === 'windows' ? new RegExp('[^<>:"\u0000-\u0031]*') : new RegExp('[^\0]+');
+			return {
+				value: regex.test(value),
+				message: 'Value required'
+			};
+		}
+		default:
+			return undefined;
+	}
+};
+
 export const RuleInput = memo(
 	forwardRef<HTMLInputElement, Props>((props, ref) => {
 		const os = useOperatingSystem(true);
@@ -34,7 +84,6 @@ export const RuleInput = memo(
 							}
 						}}
 						// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
-						pattern={os === 'windows' ? '[^<>:"/\\|?*\u0000-\u0031]*' : '[^/\0]+'}
 						placeholder="File/Directory name"
 						{...props}
 					/>
@@ -49,7 +98,6 @@ export const RuleInput = memo(
 								props.onBlur?.(event);
 							}
 						}}
-						pattern="^\.[^\.\s]+$"
 						aria-label="Add a file extension to the current rule"
 						placeholder="File extension (e.g., .mp4, .jpg, .txt)"
 						{...props}
@@ -65,15 +113,6 @@ export const RuleInput = memo(
 								props.onBlur?.(event);
 							}
 						}}
-						pattern={
-							isWeb
-								? // Non web plataforms use the native file picker, so there is no need to validate
-								  ''
-								: // TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
-								os === 'windows'
-								? '[^<>:"/|?*\u0000-\u0031]*'
-								: '[^\0]+'
-						}
 						readOnly={!isWeb}
 						className={clsx(props.className, isWeb || 'cursor-pointer')}
 						placeholder={
@@ -118,10 +157,6 @@ export const RuleInput = memo(
 								props.onBlur?.(event);
 							}
 						}}
-						pattern={
-							// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
-							os === 'windows' ? '[^<>:"\u0000-\u0031]*' : '[^\0]+'
-						}
 						placeholder="Glob (e.g., **/.git)"
 						{...props}
 					/>

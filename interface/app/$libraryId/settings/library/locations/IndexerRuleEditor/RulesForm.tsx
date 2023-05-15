@@ -6,11 +6,11 @@ import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
-import { RuleKind, UnionToTuple, useLibraryMutation } from '@sd/client';
+import { RuleKind, UnionToTuple, extractInfoRSPCError, useLibraryMutation } from '@sd/client';
 import { IndexerRuleCreateArgs } from '@sd/client';
 import { Button, Card, Divider, Input, Select, SelectOption, Switch, Tooltip } from '@sd/ui';
-import { Form, useZodForm } from '~/../packages/ui/src/forms';
-import { InputKinds, RuleInput } from './RuleInput';
+import { ErrorMessage, Form, useZodForm } from '~/../packages/ui/src/forms';
+import { InputKinds, RuleInput, validateInput } from './RuleInput';
 
 const ruleKinds: UnionToTuple<RuleKind> = [
 	'AcceptFilesByGlob',
@@ -39,6 +39,7 @@ interface Props {
 
 const RulesForm = ({ setToggleNewRule }: Props) => {
 	const selectValues = ['Name', 'Extension', 'Path', 'Advanced'];
+	const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const formId = useId();
 	const form = useZodForm({
@@ -73,41 +74,6 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 		[form]
 	);
 
-	const validateInput = (
-		type: InputKinds,
-		value: string
-	): { value: any; message: string } | undefined => {
-		switch (type) {
-			case 'Extension': {
-				const extensionRegex = /^\.[^.\s]+$/;
-				return {
-					value: extensionRegex.test(value),
-					message: value ? 'Invalid extension' : 'Value required'
-				};
-			}
-			case 'Name': {
-				return {
-					value: value ? true : false,
-					message: 'Value required'
-				};
-			}
-			case 'Path': {
-				return {
-					value: value ? true : false,
-					message: 'Value required'
-				};
-			}
-			case 'Advanced': {
-				return {
-					value: value ? true : false,
-					message: 'Value required'
-				};
-			}
-			default:
-				return undefined;
-		}
-	};
-
 	const inputValidator = (
 		index: number,
 		watcher: InputKinds,
@@ -124,11 +90,11 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 	};
 
 	const addIndexerRules = useCallback(
-		(data: formType) => {
+		async (data: formType, dryRun = false) => {
 			const formatData = {
 				kind: data.kind,
 				name: data.name,
-				dry_run: false,
+				dry_run: dryRun,
 				parameters: data.rules.flatMap(({ type, value }) => {
 					switch (type) {
 						case 'Name':
@@ -141,13 +107,25 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 					}
 				})
 			} as IndexerRuleCreateArgs;
-			createIndexerRules.mutateAsync(formatData);
-			setToggleNewRule && setToggleNewRule(false);
+			try {
+				await createIndexerRules.mutateAsync(formatData);
+			} catch (error) {
+				const rspcErrorInfo = extractInfoRSPCError(error);
+				if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
+
+				const { message } = rspcErrorInfo;
+
+				if (message)
+					form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+			} finally {
+				setToggleNewRule?.(false);
+			}
 		},
-		[createIndexerRules, setToggleNewRule]
+		[createIndexerRules, setToggleNewRule, form]
 	);
 
 	return (
+		// The portal is required for Form because this component can be nested inside another form element
 		<>
 			{createPortal(
 				<Form
@@ -173,7 +151,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2'
 					}
 				>
-					<div className="mb-4 grid grid-cols-3 px-3 pt-4 text-sm font-bold">
+					<div className="grid grid-cols-3 px-3 pt-4 mb-4 text-sm font-bold">
 						<h3 className="pl-2">Type</h3>
 						<h3 className="pl-2">Value</h3>
 					</div>
@@ -272,10 +250,17 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						+ New
 					</Button>
 				</div>
-				<div className="mb-2 flex flex-row justify-between">
+				<div className="flex flex-row justify-between mb-2">
 					<div className="mr-2 grow">
+						<div className="mt-5 text-center">
+							<ErrorMessage
+								name={REMOTE_ERROR_FORM_FIELD}
+								variant="large"
+								className="mt-2"
+							/>
+						</div>
 						<div className="my-[25px] flex w-full flex-row items-center">
-							<label className="grow text-sm font-medium">
+							<label className="text-sm font-medium grow">
 								This group of index rules is a Whitelist{' '}
 								<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
 									<Info className="inline" />

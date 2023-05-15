@@ -27,25 +27,23 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 	const value = field?.value ?? [];
 	const ruleEnabled = value.includes(rule.id);
 
-	const ruleDeleteHandler: MouseEventHandler<HTMLDivElement> = (e) => {
+	const ruleDeleteHandler: MouseEventHandler<HTMLDivElement> = async (e) => {
 		e.stopPropagation();
 		e.preventDefault();
 		if (willDelete) {
-			setIsDeleting(true);
-			deleteIndexerRule
-				.mutateAsync(rule.id)
-				.then(
-					() => listIndexerRules.refetch(),
-					(error) =>
-						showAlertDialog({
-							title: 'Error',
-							value: String(error) || 'Failed to add location'
-						})
-				)
-				.finally(() => {
-					setWillDelete(false);
-					setIsDeleting(false);
+			try {
+				setIsDeleting(true);
+				await deleteIndexerRule.mutateAsync(rule.id);
+				listIndexerRules.refetch();
+			} catch (error) {
+				showAlertDialog({
+					title: 'Error',
+					value: String(error) || 'Failed to add location'
 				});
+			} finally {
+				setWillDelete(false);
+				setIsDeleting(false);
+			}
 		} else {
 			setWillDelete(true);
 		}
