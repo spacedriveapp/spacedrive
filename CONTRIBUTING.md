@@ -43,7 +43,6 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
   - This will install FFmpeg and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
   - This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build.
-  - Ensure you run it like documented above as it expects it is executed from the root of the repository.
 - `pnpm i`
 - `pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
@@ -67,6 +66,8 @@ If you are having issues ensure you are using the following versions of Rust and
 
 - Rust version: **1.68.2**
 - Node version: **18**
+
+After clearing out your build artifacts with either `pnpm clean`, `git clean` or `cargo clean`, it is required to re-run the `setup-system` script.
 
 Be sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to make sure your code is a similar style to ours.
 
