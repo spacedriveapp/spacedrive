@@ -25,6 +25,7 @@ packages/*/data
 apps/*/data
 apps/*/stats.html
 apps/releases/.vscode
+apps/desktop/src-tauri/tauri.conf.patch.json
 docs/public/*.st
 docs/public/*.toml
 dev.db
@@ -75,3 +76,5 @@ dev.db-journal
 sd_init.json
 
 spacedrive
+.cargo/config
+.github/scripts/deps
