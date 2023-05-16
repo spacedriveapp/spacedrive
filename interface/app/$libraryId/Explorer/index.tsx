@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, useLibrarySubscription } from '@sd/client';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
@@ -12,7 +12,7 @@ interface Props {
 	// TODO: not using data since context isn't actually used
 	// and it's not exactly compatible with search
 	// data?: ExplorerData;
-	items?: ExplorerData['items'];
+	items?: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;

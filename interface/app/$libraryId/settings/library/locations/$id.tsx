@@ -61,7 +61,7 @@ export const Component = () => {
 
 	const { isDirty } = form.formState;
 
-	useLibraryQuery(['locations.getById', locationId], {
+	useLibraryQuery(['locations.getWithRules', locationId], {
 		onSettled: (data, error) => {
 			if (isFirstLoad) {
 				// @ts-expect-error // TODO: Fix the types

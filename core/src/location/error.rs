@@ -1,8 +1,9 @@
+use crate::util::error::FileIOError;
+
 use std::path::PathBuf;
 
 use rspc::{self, ErrorCode};
 use thiserror::Error;
-use tokio::io;
 use uuid::Uuid;
 
 use super::{
@@ -13,20 +14,20 @@ use super::{
 #[derive(Error, Debug)]
 pub enum LocationError {
 	// Not Found errors
-	#[error("Location not found (path: {})", .0.display())]
+	#[error("location not found <path='{}'>", .0.display())]
 	PathNotFound(PathBuf),
-	#[error("Location not found (uuid: {0})")]
+	#[error("location not found <uuid='{0}'>")]
 	UuidNotFound(Uuid),
-	#[error("Location not found (id: {0})")]
+	#[error("location not found <id='{0}'>")]
 	IdNotFound(i32),
 
 	// User errors
-	#[error("Location not a directory (path: {})", .0.display())]
+	#[error("location not a directory <path='{}'>", .0.display())]
 	NotDirectory(PathBuf),
-	#[error("Could not find directory in Location (path: {})", .0.display())]
+	#[error("could not find directory in location <path='{}'>", .0.display())]
 	DirectoryNotFound(PathBuf),
 	#[error(
-		"Library exists in the location metadata file, must relink: (old_path: {}, new_path: {})",
+		"library exists in the location metadata file, must relink <old_path='{}', new_path='{}'>",
 		.old_path.display(),
 		.new_path.display(),
 	)]
@@ -35,36 +36,36 @@ pub enum LocationError {
 		new_path: PathBuf,
 	},
 	#[error(
-		"This location belongs to another library, must update .spacedrive file: (path: {})",
+		"this location belongs to another library, must update .spacedrive file <path='{}'>",
 		.0.display()
 	)]
 	AddLibraryToMetadata(PathBuf),
-	#[error("Location metadata file not found: (path: {})", .0.display())]
+	#[error("location metadata file not found <path='{}'>", .0.display())]
 	MetadataNotFound(PathBuf),
-	#[error("Location already exists in database (path: {})", .0.display())]
+	#[error("location already exists in database <path='{}'>", .0.display())]
 	LocationAlreadyExists(PathBuf),
-	#[error("Nested location currently not supported (path: {})", .0.display())]
+	#[error("nested location currently not supported <path='{}'>", .0.display())]
 	NestedLocation(PathBuf),
 
 	// Internal Errors
-	#[error("Location metadata error (error: {0:?})")]
+	#[error(transparent)]
 	LocationMetadataError(#[from] LocationMetadataError),
-	#[error("Failed to read location path metadata info (path: {}); (error: {0:?})", .1.display())]
-	LocationPathFilesystemMetadataAccess(io::Error, PathBuf),
-	#[error("Missing metadata file for location (path: {})", .0.display())]
+	#[error("failed to read location path metadata info")]
+	LocationPathFilesystemMetadataAccess(FileIOError),
+	#[error("missing metadata file for location <path='{}'>", .0.display())]
 	MissingMetadataFile(PathBuf),
-	#[error("Failed to open file from local os (error: {0:?})")]
-	FileReadError(io::Error),
-	#[error("Failed to read mounted volumes from local os (error: {0:?})")]
+	#[error("failed to open file from local OS")]
+	FileReadError(FileIOError),
+	#[error("failed to read mounted volumes from local OS")]
 	VolumeReadError(String),
-	#[error("Failed to connect to database (error: {0:?})")]
-	IOError(io::Error),
-	#[error("Database error (error: {0:?})")]
+	#[error("database error")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("Location manager error (error: {0:?})")]
+	#[error(transparent)]
 	LocationManagerError(#[from] LocationManagerError),
-	#[error("File path related error (error: {0})")]
+	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 impl From<LocationError> for rspc::Error {
