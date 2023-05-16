@@ -122,7 +122,6 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				self.handle_single_rename_event(paths.remove(0)).await?;
 			}
-
 			EventKind::Remove(_) => {
 				remove(self.location_id, &paths[0], self.library).await?;
 			}
