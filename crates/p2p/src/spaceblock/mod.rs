@@ -132,7 +132,7 @@ impl<'a> Block<'a> {
 	}
 }
 
-pub async fn spaceblock_send(stream: &mut UnicastStream, mut file: File, req: &SpacedropRequest) {
+pub async fn send(stream: &mut UnicastStream, mut file: File, req: &SpacedropRequest) {
 	// We manually implement what is basically a `BufReader` so we have more control
 	let mut buf = vec![0u8; req.block_size.to_size() as usize];
 	let mut offset: u64 = 0;
@@ -162,11 +162,7 @@ pub async fn spaceblock_send(stream: &mut UnicastStream, mut file: File, req: &S
 	}
 }
 
-pub async fn spaceblock_receive(
-	stream: &mut UnicastStream,
-	mut file: File,
-	req: &SpacedropRequest,
-) {
+pub async fn receive(stream: &mut UnicastStream, mut file: File, req: &SpacedropRequest) {
 	// We manually implement what is basically a `BufReader` so we have more control
 	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
 	let mut offset: u64 = 0;

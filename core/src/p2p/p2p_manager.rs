@@ -6,7 +6,7 @@ use std::{
 };
 
 use sd_p2p::{
-	spaceblock::{spaceblock_receive, spaceblock_send, BlockSize, SpacedropRequest},
+	spaceblock::{self, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
 	Event, Manager, MetadataManager, PeerId,
 };
@@ -170,7 +170,7 @@ impl P2PManager {
 
 										let f = File::create(file_path).await.unwrap();
 
-										spaceblock_receive(&mut stream, f, &req).await;
+										spaceblock::receive(&mut stream, f, &req).await;
 
 										info!("spacedrop({id}): complete");
 									}
@@ -334,7 +334,7 @@ impl P2PManager {
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
-		spaceblock_send(
+		spaceblock::send(
 			&mut stream,
 			file,
 			&match header {
