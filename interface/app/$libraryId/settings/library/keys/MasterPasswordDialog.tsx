@@ -87,7 +87,7 @@ export default (props: UseDialogProps) => {
 			<Input
 				placeholder="New password"
 				type={show.masterPassword ? 'text' : 'password'}
-				className="mt-3 mb-2"
+				className="mb-2 mt-3"
 				{...form.register('masterPassword', { required: true })}
 				right={
 					<div className="flex">
@@ -151,7 +151,7 @@ export default (props: UseDialogProps) => {
 
 			<PasswordMeter password={form.watch('masterPassword')} />
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select

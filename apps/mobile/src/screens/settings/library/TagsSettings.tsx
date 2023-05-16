@@ -6,7 +6,7 @@ import { Tag, useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirm-modals/DeleteTagModal';
 import UpdateTagModal from '~/components/modal/tag/UpdateTagModal';
-import { AnimatedButton } from '~/components/primitive/Button';
+import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -39,9 +39,9 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 				<DeleteTagModal
 					tagId={tag.id}
 					trigger={
-						<AnimatedButton style={tw`mx-2`}>
+						<FakeButton style={tw`mx-2`}>
 							<Trash size={18} color="white" />
-						</AnimatedButton>
+						</FakeButton>
 					}
 				/>
 			</Animated.View>

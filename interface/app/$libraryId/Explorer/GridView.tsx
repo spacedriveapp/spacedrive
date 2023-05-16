@@ -1,13 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
-import { Button } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
 import Thumb from './File/Thumb';
-import { ViewItem, useExplorerView } from './View';
+import { ViewItem } from './View';
+import { useExplorerViewContext } from './ViewContext';
 import { getItemFilePath } from './util';
 
 interface GridViewItemProps {
@@ -73,10 +73,10 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 export default () => {
 	const explorerStore = useExplorerStore();
-	const { data, scrollRef } = useExplorerView();
+	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
+		useExplorerViewContext();
 
 	const [width, setWidth] = useState(0);
-	const [lastSelectedIndex, setLastSelectedIndex] = useState(explorerStore.selectedRowIndex);
 
 	// Virtualizer count calculation
 	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 1;
@@ -96,6 +96,15 @@ export default () => {
 		paddingEnd: 12
 	});
 
+	const virtualRows = rowVirtualizer.getVirtualItems();
+
+	useEffect(() => {
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (lastRow?.index === amountOfRows - 1 && hasNextPage && !isFetchingNextPage) {
+			onLoadMore?.();
+		}
+	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, data.length]);
+
 	function handleWindowResize() {
 		if (scrollRef.current) {
 			setWidth(scrollRef.current.offsetWidth);
@@ -108,24 +117,25 @@ export default () => {
 	// Resize view on window resize
 	useOnWindowResize(handleWindowResize);
 
+	const lastSelectedIndex = useRef(explorerStore.selectedRowIndex);
+
 	// Resize view on item selection/deselection
 	useEffect(() => {
-		const index = explorerStore.selectedRowIndex;
+		const { selectedRowIndex } = explorerStore;
+
 		if (
 			explorerStore.showInspector &&
-			((lastSelectedIndex === -1 && index !== -1) ||
-				(lastSelectedIndex !== -1 && index === -1))
+			typeof lastSelectedIndex.current !== typeof selectedRowIndex
 		) {
 			handleWindowResize();
 		}
-		setLastSelectedIndex(index);
+
+		lastSelectedIndex.current = selectedRowIndex;
 	}, [explorerStore.selectedRowIndex]);
 
 	// Resize view on inspector toggle
 	useEffect(() => {
-		if (explorerStore.selectedRowIndex !== -1) {
-			handleWindowResize();
-		}
+		if (explorerStore.selectedRowIndex !== null) handleWindowResize();
 	}, [explorerStore.showInspector]);
 
 	// Measure item on grid item size change
@@ -145,9 +155,12 @@ export default () => {
 		'ArrowUp',
 		(e) => {
 			e.preventDefault();
-			if (explorerStore.selectedRowIndex > 0) {
-				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
-			}
+
+			const { selectedRowIndex } = explorerStore;
+
+			if (selectedRowIndex === null) return;
+
+			getExplorerStore().selectedRowIndex = Math.max(selectedRowIndex - 1, 0);
 		},
 		{ when: !explorerStore.isRenaming }
 	);
@@ -157,17 +170,18 @@ export default () => {
 		'ArrowDown',
 		(e) => {
 			e.preventDefault();
-			if (
-				explorerStore.selectedRowIndex !== -1 &&
-				explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
-			) {
-				getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
-			}
+
+			const { selectedRowIndex } = explorerStore;
+
+			if (selectedRowIndex === null) return;
+
+			getExplorerStore().selectedRowIndex = Math.min(selectedRowIndex + 1, data.length - 1);
 		},
 		{ when: !explorerStore.isRenaming }
 	);
 
 	if (!width) return null;
+
 	return (
 		<div
 			className="relative"
@@ -175,10 +189,10 @@ export default () => {
 				height: `${rowVirtualizer.getTotalSize()}px`
 			}}
 		>
-			{rowVirtualizer.getVirtualItems().map((virtualRow) => (
+			{virtualRows.map((virtualRow) => (
 				<div
 					key={virtualRow.key}
-					className="absolute top-0 left-0 flex w-full"
+					className="absolute left-0 top-0 flex w-full"
 					style={{
 						height: virtualRow.size,
 						transform: `translateY(${virtualRow.start}px)`

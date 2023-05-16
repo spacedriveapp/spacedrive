@@ -1,5 +1,5 @@
-import { PageContextBuiltIn } from 'vite-plugin-ssr';
-import { getBlogPost, getBlogPosts } from './api';
+import { PageContextBuiltIn } from 'vite-plugin-ssr/types';
+import { getBlogPost } from './api';
 
 export const passToClient = ['pageProps'];
 

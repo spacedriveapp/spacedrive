@@ -6,14 +6,14 @@ import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
 
 const MediaViewIcon = () => (
-	<div className="relative mr-10 ml-3 h-14 w-14 shrink-0">
-		<img src={Image} className="absolute left-6 -top-1 h-14 w-14 rotate-6 overflow-hidden" />
+	<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
+		<img src={Image} className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden" />
 		<img src={Video} className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden" />
 	</div>
 );
 
 const CollectionIcon = () => (
-	<div className="mr-4 ml-3 h-14 w-14 shrink-0">
+	<div className="ml-3 mr-4 h-14 w-14 shrink-0">
 		<img src={Collection} />
 	</div>
 );
@@ -52,9 +52,11 @@ const notices = {
 
 export default () => {
 	const { layoutMode } = useExplorerStore();
+
 	const notice = notices[layoutMode];
 
 	if (!notice) return null;
+
 	return (
 		<DismissibleNotice
 			title={

@@ -23,7 +23,7 @@ function Page({ is404 }: { is404: boolean }) {
 					<div className="flex flex-wrap justify-center">
 						<Button
 							href={getWindow()?.document.referrer || 'javascript:history.back()'}
-							className="mt-2 mr-3 cursor-pointer "
+							className="mr-3 mt-2 cursor-pointer "
 							variant="gray"
 						>
 							← Back

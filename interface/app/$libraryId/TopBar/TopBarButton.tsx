@@ -18,13 +18,13 @@ const topBarButtonStyle = cva(
 	{
 		variants: {
 			active: {
-				true: 'bg-app-selected',
+				true: '!bg-app-selected',
 				false: 'bg-transparent'
 			},
 			rounding: {
 				none: 'rounded-none',
 				left: 'rounded-l-md rounded-r-none',
-				right: 'rounded-r-md rounded-l-none',
+				right: 'rounded-l-none rounded-r-md',
 				both: 'rounded-md'
 			}
 		},

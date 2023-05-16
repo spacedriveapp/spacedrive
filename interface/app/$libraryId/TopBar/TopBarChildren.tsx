@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { useContext, useLayoutEffect } from 'react';
-import { useState } from 'react';
+import { useContext, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Popover, Tooltip } from '@sd/ui';
 import { ToolOption } from '.';

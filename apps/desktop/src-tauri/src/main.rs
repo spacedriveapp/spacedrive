@@ -83,6 +83,7 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.setup(|app| {
+			#[cfg(feature = "updater")]
 			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
 
 			let app = app.handle();
@@ -121,7 +122,12 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
-		.invoke_handler(tauri_handlers![app_ready, file::open_file_path])
+		.invoke_handler(tauri_handlers![
+			app_ready,
+			file::open_file_path,
+			file::get_file_path_open_with_apps,
+			file::open_file_path_with
+		])
 		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {

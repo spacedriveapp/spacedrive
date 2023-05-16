@@ -61,10 +61,13 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 						title="Share anonymous usage"
 						description="Share completely anonymous telemetry data to help the developers improve the app"
 						isSelected={shareTelemetry === 'share-telemetry'}
-						style={tw`mt-4 mb-3`}
+						style={tw`mb-3 mt-4`}
 					/>
 				</Pressable>
-				<Pressable onPress={() => setShareTelemetry('no-share-telemetry')}>
+				<Pressable
+					testID="share-nothing"
+					onPress={() => setShareTelemetry('no-share-telemetry')}
+				>
 					<RadioButton
 						title="Share nothing"
 						description="Do not share any telemetry data with the developers"

@@ -23,7 +23,8 @@ export const inputSizes = {
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-7',
-		'shadow-sm outline-none transition-all focus-within:ring-2'
+		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'text-ink'
 	],
 	{
 		variants: {
@@ -63,7 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 					<div
 						className={clsx(
 							'flex h-full items-center',
-							iconPosition === 'left' ? 'pr-2 pl-[10px]' : 'pl-2 pr-[10px]'
+							iconPosition === 'left' ? 'pl-[10px] pr-2' : 'pl-2 pr-[10px]'
 						)}
 					>
 						{isValidElement(icon)

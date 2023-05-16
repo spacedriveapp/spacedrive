@@ -96,6 +96,11 @@ export const teamMembers: Array<TeamMemberProps> = [
 			github: 'https://github.com/niikeec',
 			twitter: 'https://twitter.com/nikec_'
 		}
+	},
+	{
+		name: 'Kryssa Lynn',
+		role: 'Personal Assistant',
+		image: teamImages['kryssa.jpg']!
 	}
 ];
 
@@ -264,7 +269,7 @@ function Page() {
 						</p>
 						<h2
 							id="investors"
-							className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 "
+							className="mb-2 mt-10 text-2xl leading-relaxed sm:mt-20 "
 						>
 							Our investors
 						</h2>

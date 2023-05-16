@@ -57,7 +57,7 @@ export function TeamMember(props: TeamMemberProps) {
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
-			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
+			<h3 className="mb-0 mt-4 text-base">{props.name}</h3>
 			<p
 				className={clsx('text-xs', {
 					'mb-0': props.investmentRound

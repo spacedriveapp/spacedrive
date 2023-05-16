@@ -1,6 +1,6 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
-import { memo, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
@@ -48,11 +48,21 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	const [thumbSize, setThumbSize] = useState<null | VideoThumbSize>(null);
 	const { library } = useLibraryContext();
 	const [thumbLoaded, setThumbLoaded] = useState<boolean>(false);
-	const { locationId } = useExplorerStore();
-	const { cas_id, isDir, kind, hasThumbnail, extension } = getExplorerItemData(props.data);
+	const { locationId, newThumbnails } = useExplorerStore();
+
+	const { cas_id, isDir, kind, hasThumbnail, newThumb, extension } = getExplorerItemData(
+		props.data,
+		newThumbnails
+	);
 
 	// Allows disabling thumbnails when they fail to load
 	const [useThumb, setUseThumb] = useState<boolean>(hasThumbnail);
+
+	// When new thumbnails are generated, reset the useThumb state
+	// If it fails to load, it will be set back to false by the error handler in the img
+	useEffect(() => {
+		if (newThumb) setUseThumb(true);
+	}, [newThumb]);
 
 	useLayoutEffect(() => {
 		const img = thumbImg.current;
@@ -139,9 +149,9 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 								kind === 'Video' ? 'rounded' : 'rounded-sm',
 								classes.checkers,
 								size &&
-									(kind === 'Video'
-										? 'border-x-0 border-black'
-										: size > 60 && 'border-2 border-app-line'),
+								(kind === 'Video'
+									? 'border-x-0 border-black'
+									: size > 60 && 'border-2 border-app-line'),
 								props.className
 							)}
 						/>
@@ -151,18 +161,18 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 									cover
 										? {}
 										: thumbSize
-										? {
+											? {
 												marginTop: Math.floor(thumbSize.height / 2) - 2,
 												marginLeft: Math.floor(thumbSize.width / 2) - 2
-										  }
-										: { display: 'none' }
+											}
+											: { display: 'none' }
 								}
 								className={clsx(
 									cover
-										? 'right-1 bottom-1'
+										? 'bottom-1 right-1'
 										: 'left-1/2 top-1/2 -translate-x-full -translate-y-full',
 									'absolute rounded',
-									'bg-black/60 py-0.5 px-1 text-[9px] font-semibold uppercase opacity-70'
+									'bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase opacity-70'
 								)}
 							>
 								{extension}
@@ -181,4 +191,4 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	);
 }
 
-export default memo(Thumb);
+export default Thumb;

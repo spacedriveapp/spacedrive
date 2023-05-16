@@ -1,13 +1,11 @@
-import { loggerLink } from '@rspc/client';
-import { tauriLink } from '@rspc/tauri';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
-import { createMemoryRouter } from 'react-router-dom';
-import { getDebugState, hooks } from '@sd/client';
+import { createBrowserRouter } from 'react-router-dom';
+import { RspcProvider } from '@sd/client';
 import {
 	ErrorPage,
 	KeybindEvent,
@@ -19,16 +17,17 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import { appReady, openFilePath } from './commands';
+import { appReady, getFilePathOpenWithApps, openFilePath, openFilePathWith } from './commands';
 
-const client = hooks.createClient({
-	links: [
-		loggerLink({
-			enabled: () => getDebugState().rspcLogger
-		}),
-		tauriLink()
-	]
-});
+// TODO: Bring this back once upstream is fixed up.
+// const client = hooks.createClient({
+// 	links: [
+// 		loggerLink({
+// 			enabled: () => getDebugState().rspcLogger
+// 		}),
+// 		tauriLink()
+// 	]
+// });
 
 async function getOs(): Promise<OperatingSystem> {
 	switch (await os.type()) {
@@ -74,12 +73,14 @@ const platform: Platform = {
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
 	openPath: (path) => shell.open(path),
-	openFilePath
+	openFilePath,
+	getFilePathOpenWithApps,
+	openFilePathWith
 };
 
 const queryClient = new QueryClient();
 
-const router = createMemoryRouter(routes);
+const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
@@ -109,13 +110,12 @@ export default function App() {
 	}
 
 	return (
-		// @ts-expect-error: Just a version mismatch
-		<hooks.Provider client={client} queryClient={queryClient}>
+		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
 					<SpacedriveInterface router={router} />
 				</QueryClientProvider>
 			</PlatformProvider>
-		</hooks.Provider>
+		</RspcProvider>
 	);
 }
