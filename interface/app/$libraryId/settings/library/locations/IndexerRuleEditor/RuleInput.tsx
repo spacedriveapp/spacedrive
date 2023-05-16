@@ -25,7 +25,7 @@ export const validateInput = (
 	// TODO: The os checks here shouldn't be for which os the UI is running, but for which os the node is running
 	switch (type) {
 		case 'Extension': {
-			const regex =  os === 'windows' ? /^\.[^<>:"/\\|?*\u0000-\u0031]+$/ : /^\.[^/\0\s]+$/;
+			const regex = os === 'windows' ? /^\.[^<>:"/\\|?*\u0000-\u0031]+$/ : /^\.[^/\0\s]+$/;
 			return {
 				value: regex.test(value),
 				message: value ? 'Invalid extension' : 'Value required'

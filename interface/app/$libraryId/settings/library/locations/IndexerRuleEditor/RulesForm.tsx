@@ -250,7 +250,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						+ New
 					</Button>
 				</div>
-				<div className="mb-2 flex flex-row justify-between">
+				<div className="flex flex-row justify-between">
 					<div className="mr-2 grow">
 						<div className="mt-5 text-center">
 							<ErrorMessage
@@ -259,14 +259,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 								className="mt-2"
 							/>
 						</div>
-						<div className="my-[25px] flex w-full flex-row items-center">
-							<label className="grow text-sm font-medium">
-								This group of index rules is a Whitelist{' '}
-								<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
-									<Info className="inline" />
-								</Tooltip>
-							</label>
-
+						<div className="my-[25px] flex w-full justify-center">
 							<div className="flex items-center gap-2">
 								<p className="text-sm text-ink-faint">Blacklist</p>
 								<Controller
@@ -290,11 +283,14 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 									control={form.control}
 								/>
 								<p className="text-sm text-ink-faint">Whitelist</p>
+								<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
+									<Info />
+								</Tooltip>
 							</div>
 						</div>
-						<Divider />
 					</div>
 				</div>
+				<Divider className="!my-0" />
 				<Button
 					form={formId}
 					type="submit"
