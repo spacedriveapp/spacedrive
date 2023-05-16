@@ -57,20 +57,20 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	);
 
 	// Allows returning to thumbnails if the orignal fails to load
-	const [loadOriginal, setLoadOriginal] = useState<boolean>();
+	const [loadOriginal, setLoadOriginal] = useState<boolean>(false);
 
 	useEffect(() => {
-		setLoadOriginal(props.loadOriginal);
-	}, [props.loadOriginal]);
+		setLoadOriginal(props.loadOriginal || false);
+	}, [props.loadOriginal, props.data]);
 
 	// Allows disabling thumbnails when they fail to load
-	const [loadThumb, setLoadThumb] = useState<boolean>(hasThumbnail);
+	const [loadThumb, setLoadThumb] = useState<boolean>(false);
 
 	// When new thumbnails are generated, reset the useThumb state
 	// If it fails to load, it will be set back to false by the error handler in the img
 	useEffect(() => {
-		if (newThumb) setLoadThumb(true);
-	}, [newThumb]);
+		setLoadThumb(newThumb || hasThumbnail);
+	}, [newThumb, hasThumbnail]);
 
 	useLayoutEffect(() => {
 		const img = thumbImg.current;
@@ -87,11 +87,20 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 
 	let style = {};
 	if (size && kind === 'Video') {
-		const videoBarsHeight = Math.floor(size / 10);
-		style = {
-			borderTopWidth: videoBarsHeight,
-			borderBottomWidth: videoBarsHeight
-		};
+		const { height, width } = thumbSize ?? { height: 0, width: 0 };
+		if (height >= width) {
+			const videoBarsHeight = Math.floor(size / 10);
+			style = {
+				borderLeftWidth: videoBarsHeight,
+				borderRightWidth: videoBarsHeight
+			};
+		} else {
+			const videoBarsHeight = Math.floor(size / 10);
+			style = {
+				borderTopWidth: videoBarsHeight,
+				borderBottomWidth: videoBarsHeight
+			};
+		}
 	}
 
 	const thumbSrc = loadThumb && cas_id && platform.getThumbnailUrlById(cas_id);
