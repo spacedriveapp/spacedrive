@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use std::hash::Hash;
@@ -44,7 +45,7 @@ impl StatefulJob for FileDeleterJob {
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
 
-		state.steps = [fs_info].into_iter().collect();
+		state.steps.push_back(fs_info);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -62,10 +63,11 @@ impl StatefulJob for FileDeleterJob {
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
 		if info.path_data.is_dir {
-			tokio::fs::remove_dir_all(info.fs_path.clone()).await
+			tokio::fs::remove_dir_all(&info.fs_path).await
 		} else {
-			tokio::fs::remove_file(info.fs_path.clone()).await
-		}?;
+			tokio::fs::remove_file(&info.fs_path).await
+		}
+		.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

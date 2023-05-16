@@ -13,7 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::db::uuid_to_bytes,
+	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
 use std::{
@@ -71,7 +71,7 @@ impl LocationCreateArgs {
 			}
 			Err(e) => {
 				return Err(LocationError::LocationPathFilesystemMetadataAccess(
-					e, self.path,
+					FileIOError::from((self.path, e)),
 				));
 			}
 		};
@@ -378,7 +378,6 @@ pub async fn scan_location(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: None,
-				background: true,
 			}),
 		)
 		.await
@@ -413,7 +412,6 @@ pub async fn scan_location_sub_path(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: Some(sub_path),
-				background: true,
 			}),
 		)
 		.await
@@ -775,24 +773,3 @@ async fn check_nested_location(
 
 	Ok(parents_count > 0 || children_count > 0)
 }
-
-// check if a path exists in our database at that location
-// pub async fn check_virtual_path_exists(
-// 	library: &Library,
-// 	location_id: i32,
-// 	subpath: impl AsRef<Path>,
-// ) -> Result<bool, LocationError> {
-// 	let path = subpath.as_ref().to_str().unwrap().to_string();
-
-// 	let file_path = library
-// 		.db
-// 		.file_path()
-// 		.find_first(vec![
-// 			file_path::location_id::equals(location_id),
-// 			file_path::materialized_path::equals(path),
-// 		])
-// 		.exec()
-// 		.await?;
-
-// 	Ok(file_path.is_some())
-// }

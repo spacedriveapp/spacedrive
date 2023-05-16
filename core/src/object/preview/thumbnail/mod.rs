@@ -1,14 +1,15 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
 	location::{
-		file_path_helper::{
-			file_path_just_materialized_path_cas_id, FilePathError, MaterializedPath,
-		},
+		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 		LocationId,
 	},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -75,16 +76,22 @@ pub struct ThumbnailerJobState {
 
 #[derive(Error, Debug)]
 pub enum ThumbnailerError {
-	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
-	#[error("IO error (error: {0})")]
-	IOError(#[from] io::Error),
+	#[error("sub path not found: <path='{}'>", .0.display())]
+	SubPathNotFound(Box<Path>),
+
+	// Internal errors
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
+	#[error(transparent)]
+	FilePath(#[from] FilePathError),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobReport {
 	location_id: LocationId,
-	materialized_path: String,
+	path: PathBuf,
 	thumbnails_created: u32,
 }
 
@@ -97,7 +104,7 @@ enum ThumbnailerJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobStep {
-	file_path: file_path_just_materialized_path_cas_id::Data,
+	file_path: file_path_for_thumbnailer::Data,
 	kind: ThumbnailerJobStepKind,
 }
 
@@ -160,12 +167,7 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 	info!(
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
-		data.location_path
-			.join(&MaterializedPath::from((
-				data.report.location_id,
-				&data.report.materialized_path
-			)))
-			.display()
+		data.report.path.display()
 	);
 
 	if data.report.thumbnails_created > 0 {
@@ -175,43 +177,56 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 	Ok(Some(serde_json::to_value(&data.report)?))
 }
 
-async fn process_step(
-	is_background: bool,
-	step_number: usize,
-	step: &ThumbnailerJobStep,
-	data: &mut ThumbnailerJobState,
+async fn process_step<SJob, Init>(
+	state: &mut JobState<SJob>,
 	ctx: WorkerContext,
-) -> Result<(), JobError> {
+) -> Result<(), JobError>
+where
+	SJob: StatefulJob<Init = Init, Data = ThumbnailerJobState, Step = ThumbnailerJobStep>,
+	Init: JobInitData<Job = SJob>,
+{
+	let step = &state.steps[0];
+
 	ctx.progress(vec![JobReportUpdate::Message(format!(
 		"Processing {}",
 		step.file_path.materialized_path
 	))]);
 
-	let step_result = inner_process_step(is_background, step, data, &ctx).await;
+	let step_result = inner_process_step(state, &ctx).await;
 
-	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
+	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+		state.step_number + 1,
+	)]);
 
 	step_result
 }
 
-async fn inner_process_step(
-	is_background: bool,
-	step: &ThumbnailerJobStep,
-	data: &mut ThumbnailerJobState,
+async fn inner_process_step<SJob, Init>(
+	state: &mut JobState<SJob>,
 	ctx: &WorkerContext,
-) -> Result<(), JobError> {
+) -> Result<(), JobError>
+where
+	SJob: StatefulJob<Init = Init, Data = ThumbnailerJobState, Step = ThumbnailerJobStep>,
+	Init: JobInitData<Job = SJob>,
+{
+	let ThumbnailerJobStep { file_path, kind } = &state.steps[0];
+	let data = state
+		.data
+		.as_ref()
+		.expect("critical error: missing data on job state");
+
 	// assemble the file path
-	let path = data.location_path.join(&MaterializedPath::from((
+	let path = data.location_path.join(IsolatedFilePathData::from((
 		data.report.location_id,
-		&step.file_path.materialized_path,
+		file_path,
 	)));
-	trace!("image_file {:?}", step);
+	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
-	let Some(cas_id) = &step.file_path.cas_id else {
+	let Some(cas_id) = &file_path.cas_id else {
 		warn!(
 			"skipping thumbnail generation for {}",
-			step.file_path.materialized_path
+			file_path.materialized_path
 		);
 
 		return Ok(());
@@ -227,7 +242,7 @@ async fn inner_process_step(
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			info!("Writing {:?} to {:?}", path, output_path);
 
-			match step.kind {
+			match kind {
 				ThumbnailerJobStepKind::Image => {
 					if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 						error!("Error generating thumb for image {:#?}", e);
@@ -246,9 +261,14 @@ async fn inner_process_step(
 				cas_id: cas_id.clone(),
 			});
 
-			data.report.thumbnails_created += 1;
+			state
+				.data
+				.as_mut()
+				.expect("critical error: missing data on job state")
+				.report
+				.thumbnails_created += 1;
 		}
-		Err(e) => return Err(ThumbnailerError::from(e).into()),
+		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
 
 	Ok(())
