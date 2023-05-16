@@ -1,15 +1,9 @@
-import { inferQueryInput } from '@rspc/client';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import {
-	LibraryProceduresDef,
-	useLibraryContext,
-	useLibraryMutation,
-	useRspcLibraryContext
-} from '@sd/client';
+import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { useZodRouteParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -119,20 +113,18 @@ const useItems = () => {
 
 	const explorerState = useExplorerStore();
 
-	const arg: inferQueryInput<LibraryProceduresDef, 'search.paths'> = {
-		locationId,
-		take
-	};
-
-	if (explorerState.layoutMode === 'media') arg.kind = [5, 7];
-	else arg.path = path ?? '';
-
 	const query = useInfiniteQuery({
 		queryKey: [
 			'search.paths',
 			{
 				library_id: library.uuid,
-				arg
+				arg: {
+					locationId,
+					take,
+					...(explorerState.layoutMode === 'media'
+						? { kind: [5, 7] }
+						: { path: path ?? '' })
+				}
 			}
 		] as const,
 		queryFn: ({ pageParam: cursor, queryKey }) =>
