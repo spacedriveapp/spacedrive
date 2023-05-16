@@ -129,7 +129,6 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				self.handle_single_rename_event(paths.remove(0)).await?;
 			}
-
 			EventKind::Remove(_) => {
 				remove(self.location_id, &paths[0], self.library).await?;
 			}
@@ -168,7 +167,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to create file_path on MacOS : {e}");
 				} else {
 					trace!("Created file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer
@@ -191,7 +190,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to remove file_path: {e}");
 				} else {
 					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer

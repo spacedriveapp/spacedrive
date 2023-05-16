@@ -387,7 +387,7 @@ fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -
 	info!("Finalizing identifier job: {report:?}");
 
 	if report.total_orphan_paths > 0 {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 	}
 
 	Ok(Some(serde_json::to_value(report)?))

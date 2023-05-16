@@ -171,7 +171,7 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 	);
 
 	if data.report.thumbnails_created > 0 {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 	}
 
 	Ok(Some(serde_json::to_value(&data.report)?))

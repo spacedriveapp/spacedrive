@@ -1,19 +1,14 @@
 use crate::{
 	invalidate_query,
-	library::Library,
 	location::{
-		delete_location,
-		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		find_location,
-		indexer::rules::IndexerRuleCreateArgs,
-		light_scan_location, location_with_indexer_rules, relink_location, scan_location,
-		LocationCreateArgs, LocationError, LocationUpdateArgs,
+		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
+		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
+		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
-	util::db::chain_optional_iter,
 };
 
-use std::{collections::BTreeSet, path::PathBuf};
+use std::path::PathBuf;
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -66,7 +61,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await?)
 			})
 		})
-		.procedure("getById", {
+		.procedure("get", {
+			R.with2(library())
+				.query(|(_, library), location_id: i32| async move {
+					Ok(library
+						.db
+						.location()
+						.find_unique(location::id::equals(location_id))
+						.exec()
+						.await?)
+				})
+		})
+		.procedure("getWithRules", {
 			R.with2(library())
 				.query(|(_, library), location_id: i32| async move {
 					Ok(library
@@ -76,120 +82,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?)
-				})
-		})
-		.procedure("getExplorerData", {
-			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-			pub struct LocationExplorerArgs {
-				pub location_id: i32,
-				#[specta(optional)]
-				pub path: Option<String>,
-				#[specta(optional)]
-				pub limit: Option<i32>,
-				#[specta(optional)]
-				pub cursor: Option<Vec<u8>>,
-				#[specta(optional)]
-				pub kind: Option<Vec<i32>>,
-			}
-
-			R.with2(library())
-				.query(|(_, library), args: LocationExplorerArgs| async move {
-					let Library { db, .. } = &library;
-
-					let location = find_location(&library, args.location_id)
-						.exec()
-						.await?
-						.ok_or(LocationError::IdNotFound(args.location_id))?;
-
-					let directory_materialized_path_str = match args.path {
-						Some(path) if !path.is_empty() && path != "/" => {
-							let parent_iso_file_path =
-								IsolatedFilePathData::from_relative_str(location.id, &path);
-							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db)
-								.await?
-							{
-								return Err(rspc::Error::new(
-									ErrorCode::NotFound,
-									"Directory not found".into(),
-								));
-							}
-
-							parent_iso_file_path.materialized_path_for_children()
-						}
-						Some(_empty) => Some("/".into()),
-						_ => None,
-					};
-
-					let expected_kinds = args
-						.kind
-						.map(|kinds| kinds.into_iter().collect::<BTreeSet<_>>())
-						.unwrap_or_default();
-
-					let (mut file_paths, cursor) = {
-						let limit = args.limit.unwrap_or(100);
-
-						let mut query = db
-							.file_path()
-							.find_many(chain_optional_iter(
-								[file_path::location_id::equals(location.id)],
-								[directory_materialized_path_str
-									.map(file_path::materialized_path::equals)],
-							))
-							.take((limit + 1) as i64);
-
-						if let Some(cursor) = args.cursor {
-							query = query.cursor(file_path::pub_id::equals(cursor));
-						}
-
-						let mut results = query
-							.include(file_path_with_object::include())
-							.exec()
-							.await?;
-
-						let cursor = if results.len() as i32 > limit {
-							results.pop().map(|r| r.pub_id)
-						} else {
-							None
-						};
-
-						(results, cursor)
-					};
-
-					if !expected_kinds.is_empty() {
-						file_paths = file_paths
-							.into_iter()
-							.filter(|file_path| {
-								file_path
-									.object
-									.as_ref()
-									.map(|object| expected_kinds.contains(&object.kind))
-									.unwrap_or(false)
-							})
-							.collect::<Vec<_>>();
-					}
-
-					let mut items = Vec::with_capacity(file_paths.len());
-					for file_path in file_paths {
-						let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
-							library
-								.thumbnail_exists(cas_id)
-								.await
-								.map_err(LocationError::from)?
-						} else {
-							false
-						};
-
-						items.push(ExplorerItem::Path {
-							has_thumbnail,
-							item: file_path,
-						});
-					}
-
-					Ok(ExplorerData {
-						context: ExplorerContext::Location(location),
-						items,
-						cursor,
-					})
 				})
 		})
 		.procedure("create", {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, useLibrarySubscription } from '@sd/client';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
@@ -11,7 +11,7 @@ interface Props {
 	// TODO: not using data since context isn't actually used
 	// and it's not exactly compatible with search
 	// data?: ExplorerData;
-	items?: ExplorerData['items'];
+	items?: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
@@ -24,13 +24,13 @@ export default function Explorer(props: Props) {
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
-			console.log("Started RSPC subscription new thumbnail");
+			console.log('Started RSPC subscription new thumbnail');
 		},
 		onError: (err) => {
-			console.error("Error in RSPC subscription new thumbnail", err);
+			console.error('Error in RSPC subscription new thumbnail', err);
 		},
 		onData: (cas_id) => {
-			console.log({ cas_id })
+			console.log({ cas_id });
 			expStore.addNewThumbnail(cas_id);
 		}
 	});

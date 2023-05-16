@@ -59,8 +59,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})
@@ -84,8 +84,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})
@@ -100,7 +100,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
+					invalidate_query!(library, "search.paths");
 					Ok(())
 				})
 		})
@@ -115,6 +115,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							vec![object::date_accessed::set(Some(
 								Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
 							))],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "files.getRecent");
+					Ok(())
+				})
+		})
+		.procedure("removeAccessTime", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(id),
+							vec![object::date_accessed::set(None)],
 						)
 						.exec()
 						.await?;
@@ -251,7 +268,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				},

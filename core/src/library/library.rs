@@ -6,7 +6,7 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::preview::get_thumbnail_path,
+	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
 	util::error::FileIOError,
@@ -44,6 +44,7 @@ pub struct Library {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
+	pub orphan_remover: OrphanRemoverActor,
 }
 
 impl Debug for Library {

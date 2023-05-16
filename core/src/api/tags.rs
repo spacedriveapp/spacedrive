@@ -1,13 +1,11 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use specta::Type;
 
 use serde_json::json;
-use tracing::info;
 use uuid::Uuid;
 
 use crate::{
-	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
 	library::Library,
 	prisma::{object, tag, tag_on_object},
@@ -22,70 +20,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				Ok(library.db.tag().find_many(vec![]).exec().await?)
 			})
-		})
-		.procedure("getExplorerData", {
-			R.with2(library())
-				.query(|(_, library), tag_id: i32| async move {
-					info!("Getting files for tag {}", tag_id);
-
-					let Library { db, .. } = &library;
-
-					let tag = db
-						.tag()
-						.find_unique(tag::id::equals(tag_id))
-						.exec()
-						.await?
-						.ok_or_else(|| {
-							rspc::Error::new(
-								ErrorCode::NotFound,
-								format!("Tag <id={tag_id}> not found"),
-							)
-						})?;
-
-					let objects = db
-						.object()
-						.find_many(vec![object::tags::some(vec![
-							tag_on_object::tag_id::equals(tag_id),
-						])])
-						.include(object_with_file_paths::include())
-						.exec()
-						.await?;
-
-					let mut items = Vec::with_capacity(objects.len());
-
-					for object in objects {
-						let cas_id = object
-							.file_paths
-							.iter()
-							.map(|fp| fp.cas_id.as_ref())
-							.find_map(|c| c);
-
-						let has_thumbnail = if let Some(cas_id) = cas_id {
-							library.thumbnail_exists(cas_id).await.map_err(|e| {
-								rspc::Error::with_cause(
-									ErrorCode::InternalServerError,
-									"Failed to check that thumbnail exists".to_string(),
-									e,
-								)
-							})?
-						} else {
-							false
-						};
-
-						items.push(ExplorerItem::Object {
-							has_thumbnail,
-							item: object,
-						});
-					}
-
-					info!("Got objects {}", items.len());
-
-					Ok(ExplorerData {
-						context: ExplorerContext::Tag(tag),
-						items,
-						cursor: None,
-					})
-				})
 		})
 		.procedure("getForObject", {
 			R.with2(library())

@@ -244,7 +244,7 @@ where
 	);
 
 	if data.indexed_count > 0 || data.removed_count > 0 {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 	}
 
 	Ok(Some(serde_json::to_value(state)?))

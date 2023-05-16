@@ -165,7 +165,7 @@ impl StatefulJob for FileEraserJob {
 				.map_err(|e| FileIOError::from((&data.fs_path, e)))?;
 		}
 
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

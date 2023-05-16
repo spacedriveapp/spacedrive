@@ -89,6 +89,7 @@ export default (props: PropsWithChildren) => {
 					onClick={() => {
 						if (store.cutCopyState.actionType == 'Copy') {
 							store.locationId &&
+								params.path &&
 								copyFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
 									source_path_id: store.cutCopyState.sourcePathId,
@@ -98,6 +99,7 @@ export default (props: PropsWithChildren) => {
 								});
 						} else {
 							store.locationId &&
+								params.path &&
 								cutFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
 									source_path_id: store.cutCopyState.sourcePathId,

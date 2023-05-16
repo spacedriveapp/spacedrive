@@ -140,6 +140,8 @@ impl StatefulJob for ShallowIndexerJob {
 				}),
 		);
 
+		ctx.library.orphan_remover.invoke().await;
+
 		IndexerJobData::on_scan_progress(
 			&mut ctx,
 			vec![ScanProgress::Message(format!(

@@ -90,7 +90,7 @@ const EditLocationSettingsScreen = ({
 		});
 	}, [form, navigation, onSubmit]);
 
-	useLibraryQuery(['locations.getById', id], {
+	useLibraryQuery(['locations.getWithRules', id], {
 		onSuccess: (data) => {
 			if (data && !form.formState.isDirty)
 				form.reset({

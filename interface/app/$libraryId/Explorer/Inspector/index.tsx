@@ -4,10 +4,12 @@ import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
 import { ComponentProps, useEffect, useState } from 'react';
 import {
-	ExplorerContext,
 	ExplorerItem,
+	Location,
 	ObjectKind,
+	Tag,
 	formatBytes,
+	isPath,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
@@ -34,8 +36,8 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 );
 
 interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
-	context?: ExplorerContext;
-	data?: ExplorerItem;
+	context?: Location | Tag;
+	data: ExplorerItem;
 }
 
 export const Inspector = ({ data, context, ...elementProps }: Props) => {
@@ -63,7 +65,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 		enabled: readyToFetch && objectData?.id !== undefined
 	});
 
-	const item = data?.item;
+	const { item } = data;
 
 	// map array of numbers into string
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
@@ -74,168 +76,150 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1"
 			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
 		>
-			{data && (
-				<>
-					{explorerStore.layoutMode !== 'media' && (
-						<div
-							className={clsx(
-								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
-							)}
-						>
-							<FileThumb loadOriginal size={240} data={data} />
-						</div>
+			{explorerStore.layoutMode !== 'media' && (
+				<div
+					className={clsx(
+						'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
 					)}
-					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
-							{filePathData?.name}
-							{filePathData?.extension && `.${filePathData.extension}`}
-						</h3>
-						{objectData && (
-							<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
-								<Tooltip label="Favorite">
-									<FavoriteButton data={objectData} />
-								</Tooltip>
+				>
+					<FileThumb loadOriginal size={240} data={data} />
+				</div>
+			)}
+			<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+				<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+					{filePathData?.name}
+					{filePathData?.extension && `.${filePathData.extension}`}
+				</h3>
+				{objectData && (
+					<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
+						<Tooltip label="Favorite">
+							<FavoriteButton data={objectData} />
+						</Tooltip>
 
-								<Tooltip label="Encrypt">
-									<Button size="icon">
-										<Lock className="h-[18px] w-[18px]" />
-									</Button>
-								</Tooltip>
-								<Tooltip label="Share">
-									<Button size="icon">
-										<Link className="h-[18px] w-[18px]" />
-									</Button>
-								</Tooltip>
-							</div>
-						)}
-
-						{context?.type == 'Location' && data?.type === 'Path' && (
-							<MetaContainer>
-								<MetaTitle>URI</MetaTitle>
-								<MetaValue>{data.item.is_dir ?
-									`${context.path}/${data.item.materialized_path}${data.item.name}/` :
-									`${context.path}/${data.item.materialized_path}${data.item.name}.${data.item.extension}`
-								}</MetaValue>
-							</MetaContainer>
-						)}
-						<Divider />
-						<MetaContainer>
-							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>
-									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+						<Tooltip label="Encrypt">
+							<Button size="icon">
+								<Lock className="h-[18px] w-[18px]" />
+							</Button>
+						</Tooltip>
+						<Tooltip label="Share">
+							<Button size="icon">
+								<Link className="h-[18px] w-[18px]" />
+							</Button>
+						</Tooltip>
+					</div>
+				)}
+				{isPath(data) && context && 'path' in context && (
+					<MetaContainer>
+						<MetaTitle>URI</MetaTitle>
+						<MetaValue>
+							{`${context.path}/${data.item.materialized_path}${data.item.name}${
+								data.item.is_dir ? `.${data.item.extension}` : '/'
+							}`}
+						</MetaValue>
+					</MetaContainer>
+				)}
+				<Divider />
+				<MetaContainer>
+					<div className="flex flex-wrap gap-1 overflow-hidden">
+						<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+						{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+						{tags.data?.map((tag) => (
+							<Tooltip
+								key={tag.id}
+								label={tag.name || ''}
+								className="flex overflow-hidden"
+							>
+								<InfoPill
+									className="truncate !text-white"
+									style={{ backgroundColor: tag.color + 'CC' }}
+								>
+									{tag.name}
 								</InfoPill>
-								{filePathData?.extension && (
-									<InfoPill>{filePathData.extension}</InfoPill>
-								)}
-								{tags?.data?.map((tag) => (
-									<Tooltip
-										key={tag.id}
-										label={tag.name || ''}
-										className="flex overflow-hidden"
-									>
-										<InfoPill
-											className="truncate !text-white"
-											style={{ backgroundColor: tag.color + 'CC' }}
-										>
-											{tag.name}
-										</InfoPill>
-									</Tooltip>
-								))}
-								{objectData?.id && (
-									<DropdownMenu.Root
-										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-										side="left"
-										sideOffset={5}
-										alignOffset={-10}
-									>
-										<AssignTagMenuItems objectId={objectData.id} />
-									</DropdownMenu.Root>
-								)}
-							</div>
-						</MetaContainer>
-						<Divider />
-						<MetaContainer className="!flex-row space-x-2">
-							<MetaTextLine>
-								<InspectorIcon component={Cube} />
-								<span className="mr-1.5">Size</span>
-								<MetaValue>
-									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-								</MetaValue>
-							</MetaTextLine>
-							{fullObjectData.data?.media_data?.duration_seconds && (
-								<MetaTextLine>
-									<InspectorIcon component={Clock} />
-									<span className="mr-1.5">Duration</span>
-									<MetaValue>
-										{fullObjectData.data.media_data.duration_seconds}
-									</MetaValue>
-								</MetaTextLine>
-							)}
-						</MetaContainer>
-						<Divider />
-						<MetaContainer>
-							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Clock} />
-									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>
-										{dayjs(item?.date_created).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
 							</Tooltip>
-							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Barcode} />
-									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>
-										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
-						</MetaContainer>
-
-						{!isDir && objectData && (
-							<>
-								<Note data={objectData} />
-								<Divider />
-								<MetaContainer>
-									<Tooltip label={filePathData?.cas_id || ''}>
-										<MetaTextLine>
-											<InspectorIcon component={Snowflake} />
-											<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
-											<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
-										</MetaTextLine>
-									</Tooltip>
-									{filePathData?.integrity_checksum && (
-										<Tooltip label={filePathData?.integrity_checksum || ''}>
-											<MetaTextLine>
-												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">
-													Checksum
-												</MetaKeyName>
-												<MetaValue>
-													{filePathData?.integrity_checksum}
-												</MetaValue>
-											</MetaTextLine>
-										</Tooltip>
-									)}
-									{pub_id && (
-										<Tooltip label={pub_id || ''}>
-											<MetaTextLine>
-												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">
-													Object ID
-												</MetaKeyName>
-												<MetaValue>{pub_id}</MetaValue>
-											</MetaTextLine>
-										</Tooltip>
-									)}
-								</MetaContainer>
-							</>
+						))}
+						{objectData?.id && (
+							<DropdownMenu.Root
+								trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+								side="left"
+								sideOffset={5}
+								alignOffset={-10}
+							>
+								<AssignTagMenuItems objectId={objectData.id} />
+							</DropdownMenu.Root>
 						)}
 					</div>
-				</>
-			)}
+				</MetaContainer>
+				<Divider />
+				<MetaContainer className="!flex-row space-x-2">
+					<MetaTextLine>
+						<InspectorIcon component={Cube} />
+						<span className="mr-1.5">Size</span>
+						<MetaValue>
+							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+						</MetaValue>
+					</MetaTextLine>
+					{fullObjectData.data?.media_data?.duration_seconds && (
+						<MetaTextLine>
+							<InspectorIcon component={Clock} />
+							<span className="mr-1.5">Duration</span>
+							<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+						</MetaTextLine>
+					)}
+				</MetaContainer>
+				<Divider />
+				<MetaContainer>
+					<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
+						<MetaTextLine>
+							<InspectorIcon component={Clock} />
+							<MetaKeyName className="mr-1.5">Created</MetaKeyName>
+							<MetaValue>{dayjs(item.date_created).format('MMM Do YYYY')}</MetaValue>
+						</MetaTextLine>
+					</Tooltip>
+					<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
+						<MetaTextLine>
+							<InspectorIcon component={Barcode} />
+							<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
+							<MetaValue>
+								{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
+							</MetaValue>
+						</MetaTextLine>
+					</Tooltip>
+				</MetaContainer>
+
+				{!isDir && objectData && (
+					<>
+						<Note data={objectData} />
+						<Divider />
+						<MetaContainer>
+							<Tooltip label={filePathData?.cas_id || ''}>
+								<MetaTextLine>
+									<InspectorIcon component={Snowflake} />
+									<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
+									<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
+								</MetaTextLine>
+							</Tooltip>
+							{filePathData?.integrity_checksum && (
+								<Tooltip label={filePathData?.integrity_checksum || ''}>
+									<MetaTextLine>
+										<InspectorIcon component={CircleWavyCheck} />
+										<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
+										<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
+							{pub_id && (
+								<Tooltip label={pub_id || ''}>
+									<MetaTextLine>
+										<InspectorIcon component={Hash} />
+										<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+										<MetaValue>{pub_id}</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
+						</MetaContainer>
+					</>
+				)}
+			</div>
 		</div>
 	);
 };
