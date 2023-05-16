@@ -2211,17 +2211,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ffmpeg-next"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8af03c47ad26832ab3aabc4cdbf210af3d3b878783edd5a7ba044ba33aab7a60"
-dependencies = [
- "bitflags",
- "ffmpeg-sys-next",
- "libc",
-]
-
-[[package]]
 name = "ffmpeg-sys-next"
 version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6743,7 +6732,6 @@ dependencies = [
  "ctor",
  "dashmap",
  "enumflags2 0.7.5",
- "ffmpeg-next",
  "futures",
  "globset",
  "hostname",
@@ -7762,8 +7750,7 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 [[package]]
 name = "swift-rs"
 version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05e51d6f2b5fff4808614f429f8a7655ac8bcfe218185413f3a60c508482c2d6"
+source = "git+https://github.com/Brendonovich/swift-rs?rev=973c22215734d1d5b97c496601d658371e537ece#973c22215734d1d5b97c496601d658371e537ece"
 dependencies = [
  "base64 0.21.0",
  "serde",

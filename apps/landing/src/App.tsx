@@ -1,5 +1,5 @@
 import React, { PropsWithChildren } from 'react';
-import { PageContextBuiltIn } from 'vite-plugin-ssr';
+import { PageContextBuiltIn } from 'vite-plugin-ssr/types';
 import '@sd/ui/style';
 import { Footer } from './components/Footer';
 import NavBar from './components/NavBar';

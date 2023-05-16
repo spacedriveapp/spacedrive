@@ -23,7 +23,8 @@ export const inputSizes = {
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-7',
-		'shadow-sm outline-none transition-all focus-within:ring-2'
+		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'text-ink'
 	],
 	{
 		variants: {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
+import { useDebounce } from 'use-debounce';
 import { useLibraryQuery } from '@sd/client';
 import { SearchInput } from '@sd/ui';
 import { Heading } from '../../Layout';
@@ -10,14 +10,14 @@ export const Component = () => {
 	const locations = useLibraryQuery(['locations.list']);
 
 	const [search, setSearch] = useState('');
-	const updateSearch = useDebouncedCallback(setSearch, 750);
+	const [debouncedSearch] = useDebounce(search, 200);
 
 	const filteredLocations = useMemo(
 		() =>
 			locations.data?.filter((location) =>
-				location.name.toLowerCase().includes(search.toLowerCase())
+				location.name.toLowerCase().includes(debouncedSearch.toLowerCase())
 			),
-		[search, locations.data]
+		[debouncedSearch, locations.data]
 	);
 
 	return (
@@ -30,7 +30,7 @@ export const Component = () => {
 						<SearchInput
 							placeholder="Search locations"
 							className="h-[33px]"
-							onChange={(e) => updateSearch(e.target.value)}
+							onChange={(e) => setSearch(e.target.value)}
 						/>
 						<AddLocationButton variant="accent" size="md" />
 					</div>
