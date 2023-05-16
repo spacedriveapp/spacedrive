@@ -1,6 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
+	object::orphan_remover::OrphanRemoverActor,
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
@@ -387,6 +388,7 @@ impl LibraryManager {
 			config,
 			key_manager,
 			sync: Arc::new(sync_manager),
+			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
 			node_local_id: node_data.id,
 			node_context,
