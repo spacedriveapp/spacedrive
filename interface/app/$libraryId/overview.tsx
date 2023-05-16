@@ -93,24 +93,32 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-const CategoryToObjectKind: Record<string, ObjectKindKey> = {
+// TODO: Replace string with Category enum type
+const CategoryToIcon: Record<string, string> = {
 	Recents: 'Collection',
-	Favorites: 'Document',
+	Favorites: 'HeartFlat',
 	Photos: 'Image',
 	Videos: 'Video',
 	Music: 'Audio',
 	Documents: 'Document',
 	Downloads: 'Package',
-	Applications: 'Executable',
-	Books: 'Text',
-	Movies: 'Video',
+	Applications: 'Application',
+	Games: "Game",
+	Books: 'Book',
 	Encrypted: 'Encrypted',
 	Archives: 'Database',
 	Projects: 'Folder',
-	Trash: 'Document'
+	Trash: 'Trash'
 };
 
-const SearchableCategories = ['Videos', 'Photos', 'Music', 'Documents', 'Encrypted'];
+// Map the category to the ObjectKind for searching
+const SearchableCategories: Record<string, ObjectKindKey> = {
+	Photos: 'Image',
+	Videos: 'Video',
+	Music: 'Audio',
+	Documents: 'Document',
+	Encrypted: 'Encrypted'
+}
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -125,21 +133,21 @@ export const Component = () => {
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
-	const canSearch = SearchableCategories.includes(selectedCategory);
+	const canSearch = !!SearchableCategories[selectedCategory];
 
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
-	const kind = ObjectKind[CategoryToObjectKind[selectedCategory] || 0] as number;
+	const kind = [ObjectKind[SearchableCategories[selectedCategory] || 0] as number];
 
-	const searchQuery = useLibraryQuery(['search', { kind }], {
+	const searchQuery = useLibraryQuery(['search.paths', { kind }], {
 		suspense: true,
 		enabled: canSearch
 	});
 
 	const searchItems = useMemo(() => {
-		if (explorerStore.layoutMode !== 'media') return searchQuery.data;
+		if (explorerStore.layoutMode !== 'media') return searchQuery.data?.items;
 
-		return searchQuery.data?.filter((item) => {
+		return searchQuery.data?.items.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
@@ -156,11 +164,11 @@ export const Component = () => {
 	) as ToolOption;
 	const toolsViewOptions = haveRecentFiles
 		? explorerViewOptions.filter(
-				(o) =>
-					o.toolTipLabel === 'Grid view' ||
-					o.toolTipLabel === 'List view' ||
-					o.toolTipLabel === 'Media view'
-		  )
+			(o) =>
+				o.toolTipLabel === 'Grid view' ||
+				o.toolTipLabel === 'List view' ||
+				o.toolTipLabel === 'Media view'
+		)
 		: [];
 
 	let items: ExplorerItem[] = [];
@@ -205,8 +213,8 @@ export const Component = () => {
 				</div>
 				<div className="sticky top-0 z-50 mt-4 flex flex-wrap space-x-[1px] bg-app py-1">
 					{categories.data?.map((category) => {
-						//@ts-expect-error
-						const icon = icons[CategoryToObjectKind[category]];
+						const iconString = CategoryToIcon[category] || 'Document';
+						const icon = icons[iconString as keyof typeof icons];
 						return (
 							<CategoryButton
 								key={category}

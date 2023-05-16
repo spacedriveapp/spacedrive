@@ -18,9 +18,9 @@ pub enum Category {
 	// Applications,
 	// Archives,
 	// Databases
-	// Games,
-	// Books,
+	Games,
+	Books,
 	// Contacts,
 	// Movies,
-	// Trash,
+	Trash,
 }

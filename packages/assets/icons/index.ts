@@ -4,10 +4,12 @@
  */
 import Alias from './Alias.png';
 import Alias_Light from './Alias_Light.png';
+import Application from './Application.png';
 import Archive from './Archive.png';
 import Archive_Light from './Archive_Light.png';
 import Audio from './Audio.png';
 import Audio_Light from './Audio_Light.png';
+import Book from './Book.png';
 import Collection from './Collection.png';
 import Collection_Light from './Collection_Light.png';
 import Database from './Database.png';
@@ -35,6 +37,9 @@ import Folder from './Folder.png';
 import FolderGrey from './FolderGrey.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import Folder_Light from './Folder_Light.png';
+import Game from './Game.png';
+import Heart from './Heart.png';
+import HeartFlat from './HeartFlat.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
 import Laptop from './Laptop.png';
@@ -54,6 +59,7 @@ import Text from './Text.png';
 import Text_Light from './Text_Light.png';
 import TexturedMesh from './TexturedMesh.png';
 import TexturedMesh_Light from './TexturedMesh_Light.png';
+import Trash from './Trash.png';
 import Video from './Video.png';
 import Video_Light from './Video_Light.png';
 import Widget from './Widget.png';
@@ -62,10 +68,12 @@ import Widget_Light from './Widget_Light.png';
 export {
 	Alias,
 	Alias_Light,
+	Application,
 	Archive,
 	Archive_Light,
 	Audio,
 	Audio_Light,
+	Book,
 	Collection,
 	Collection_Light,
 	Database,
@@ -93,6 +101,9 @@ export {
 	FolderGrey,
 	FolderGrey_Light,
 	Folder_Light,
+	Game,
+	Heart,
+	HeartFlat,
 	Image,
 	Image_Light,
 	Laptop,
@@ -112,6 +123,7 @@ export {
 	Text_Light,
 	TexturedMesh,
 	TexturedMesh_Light,
+	Trash,
 	Video,
 	Video_Light,
 	Widget,
