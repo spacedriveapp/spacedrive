@@ -26,7 +26,7 @@ export type Procedures = {
         { key: "locations.list", input: LibraryArgs<null>, result: ({ id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; node: Node })[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "search.objects", input: LibraryArgs<{ take?: number | null; tagId?: number | null; cursor?: number[] | null }>, result: SearchData<ExplorerItem> } | 
-        { key: "search.paths", input: LibraryArgs<{ locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: Ordering | null; search?: string | null; extension?: string | null; kind?: number[] | null; tags?: number[] | null; createdAtFrom?: string | null; createdAtTo?: string | null; path?: string | null; cursor?: number[] | null }>, result: SearchData<ExplorerItem> } | 
+        { key: "search.paths", input: LibraryArgs<{ locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: Ordering | null; search?: string; extension?: string | null; kind?: number[]; tags?: number[]; createdAt?: OptionalRange<string>; path?: string | null; cursor?: number[] | null }>, result: SearchData<ExplorerItem> } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -159,6 +159,8 @@ export type Object = { id: number; pub_id: number[]; kind: number; key_id: numbe
 
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
 
+export type TagCreateArgs = { name: string; color: string }
+
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
  * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
@@ -173,11 +175,7 @@ export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boo
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
-export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
-
 export type LightScanArgs = { location_id: number; sub_path: string }
-
-export type TagCreateArgs = { name: string; color: string }
 
 /**
  * This should be used for providing a nonce to encrypt/decrypt functions.
@@ -187,6 +185,8 @@ export type TagCreateArgs = { name: string; color: string }
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
+
+export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
@@ -279,7 +279,11 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
+export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
+export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type ChangeNodeNameArgs = { name: string }
 
@@ -289,8 +293,6 @@ export type ChangeNodeNameArgs = { name: string }
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
 
 export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
-export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; parent_id: number[] | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
 

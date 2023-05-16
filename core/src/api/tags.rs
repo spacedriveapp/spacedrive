@@ -1,13 +1,11 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use specta::Type;
 
 use serde_json::json;
-use tracing::info;
 use uuid::Uuid;
 
 use crate::{
-	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
 	library::Library,
 	prisma::{object, tag, tag_on_object},

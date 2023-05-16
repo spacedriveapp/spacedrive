@@ -26,6 +26,13 @@ struct SearchData<T> {
 	items: Vec<T>,
 }
 
+#[derive(Deserialize, Default, Type)]
+#[serde(rename_all = "camelCase")]
+struct OptionalRange<T> {
+	from: Option<T>,
+	to: Option<T>,
+}
+
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("paths", {
@@ -53,7 +60,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				}
 			}
 
-			#[derive(Deserialize, Type, Debug)]
+			#[derive(Deserialize, Type)]
 			#[serde(rename_all = "camelCase")]
 			#[specta(inline)]
 			struct Args {
@@ -66,20 +73,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order: Option<Ordering>,
 				#[serde(default)]
-				#[specta(optional)]
 				search: String,
 				#[specta(optional)]
 				extension: Option<String>,
 				#[serde(default)]
-				#[specta(optional)]
 				kind: Vec<i32>,
 				#[serde(default)]
-				#[specta(optional)]
 				tags: Vec<i32>,
-				#[specta(optional)]
-				created_at_from: Option<DateTime<Utc>>,
-				#[specta(optional)]
-				created_at_to: Option<DateTime<Utc>>,
+				#[serde(default)]
+				created_at: OptionalRange<DateTime<Utc>>,
 				#[specta(optional)]
 				path: Option<String>,
 				#[specta(optional)]
@@ -151,9 +153,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						[
 							args.location_id.map(file_path::location_id::equals),
 							args.extension.map(file_path::extension::equals),
-							args.created_at_from
+							args.created_at
+								.from
 								.map(|v| file_path::date_created::gte(v.into())),
-							args.created_at_to
+							args.created_at
+								.to
 								.map(|v| file_path::date_created::lte(v.into())),
 							args.path.map(file_path::materialized_path::starts_with),
 							directory_id.map(Some).map(file_path::parent_id::equals),
