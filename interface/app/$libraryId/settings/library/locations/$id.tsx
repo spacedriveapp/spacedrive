@@ -8,7 +8,7 @@ import { Button, Divider, Tooltip, forms, tw } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useZodRouteParams } from '~/hooks';
 import ModalLayout from '../../ModalLayout';
-import IndexerRuleEditor from './IndexerRuleEditor/index';
+import IndexerRuleEditor from './IndexerRuleEditor';
 
 const Label = tw.label`mb-1 text-sm font-medium`;
 const FlexCol = tw.label`flex flex-col flex-1`;

@@ -21,44 +21,40 @@ export const validateInput = (
 	value: string,
 	os?: string,
 	isWeb?: boolean
-): { value: any; message: string } | undefined => {
+): { value: boolean; message: string } | undefined => {
+	// TODO: The os checks here shouldn't be for which os the UI is running, but for which os the node is running
 	switch (type) {
 		case 'Extension': {
-			const regex = new RegExp('^.[^.s]+$');
+			const regex =  os === 'windows' ? /^\.[^<>:"/\\|?*\u0000-\u0031]+$/ : /^\.[^/\0\s]+$/;
 			return {
 				value: regex.test(value),
 				message: value ? 'Invalid extension' : 'Value required'
 			};
 		}
 		case 'Name': {
-			const regex =
-				os === 'windows'
-					? new RegExp('[^<>:"/\\|?*\u0000-\u0031]*')
-					: new RegExp('[^/\0]+');
+			// https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#:~:text=The following reserved characters
+			const regex = os === 'windows' ? /^[^<>:"/\\|?*\u0000-\u0031]+$/ : /^[^/\0]+$/;
 			return {
 				value: regex.test(value),
-				message: 'Value required'
+				message: value ? 'Invalid name' : 'Value required'
 			};
 		}
 		case 'Path': {
 			const regex = isWeb
-				? // Non web plataforms use the native file picker, so there is no need to validate
-				  ''
-				: // TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
-				os === 'windows'
-				? new RegExp('[^<>:"/|?*\u0000-\u0031]*')
-				: new RegExp('[^\0]+');
+				? null // Non web plataforms use the native file picker, so there is no need to validate
+				: os === 'windows'
+				? /^[^<>:"/|?*\u0000-\u0031]+$/
+				: /^[^\0]+$/;
 			return {
-				value: regex !== '' && regex.test(value),
-				message: 'Value required'
+				value: regex?.test(value) || false,
+				message: value ? 'Invalid path' : 'Value required'
 			};
 		}
 		case 'Advanced': {
-			const regex =
-				os === 'windows' ? new RegExp('[^<>:"\u0000-\u0031]*') : new RegExp('[^\0]+');
+			const regex = os === 'windows' ? /^[^<>:"\u0000-\u0031]+$/ : /^[^\0]+/;
 			return {
 				value: regex.test(value),
-				message: 'Value required'
+				message: value ? 'Invalid glob' : 'Value required'
 			};
 		}
 		default:

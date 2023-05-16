@@ -31,10 +31,10 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 		e.stopPropagation();
 		e.preventDefault();
 		if (willDelete) {
+			setIsDeleting(true);
+
 			try {
-				setIsDeleting(true);
 				await deleteIndexerRule.mutateAsync(rule.id);
-				listIndexerRules.refetch();
 			} catch (error) {
 				showAlertDialog({
 					title: 'Error',
@@ -44,6 +44,8 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 				setWillDelete(false);
 				setIsDeleting(false);
 			}
+
+			await listIndexerRules.refetch();
 		} else {
 			setWillDelete(true);
 		}
@@ -71,7 +73,7 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 		>
 			{rule.name}
 			<p className="text-sm text-ink-faint">({ruleEnabled ? 'Enabled' : 'Disabled'})</p>
-			{!rule.default && showDelete && (
+			{!rule.default && (showDelete || willDelete) && (
 				<div
 					onClick={ruleDeleteHandler}
 					onMouseEnter={() => {
