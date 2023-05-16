@@ -59,8 +59,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})
@@ -84,8 +84,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})
@@ -100,7 +100,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "locations.getExplorerData");
+					invalidate_query!(library, "search.paths");
 					Ok(())
 				})
 		})
@@ -262,7 +262,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				},

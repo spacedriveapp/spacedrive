@@ -136,7 +136,7 @@ impl StatefulJob for FileEraserJob {
 			warn!("missing job state, unable to fully finalise erase job");
 		}
 
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

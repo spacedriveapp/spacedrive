@@ -119,7 +119,7 @@ impl LinuxEventHandler<'_> {
 					error!("Failed to remove file_path: {e}");
 				} else {
 					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.rename_from_buffer.push((path, instant));

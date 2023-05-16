@@ -34,7 +34,7 @@ type NonLibraryProceduresDef = {
 	subscriptions: NonLibraryProcedure<'subscriptions'>;
 };
 
-type LibraryProceduresDef = {
+export type LibraryProceduresDef = {
 	queries: StripLibraryArgsFromInput<LibraryProcedures<'queries'>, true>;
 	mutations: StripLibraryArgsFromInput<LibraryProcedures<'mutations'>, false>;
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;

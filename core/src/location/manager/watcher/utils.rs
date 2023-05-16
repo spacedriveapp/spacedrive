@@ -125,7 +125,7 @@ pub(super) async fn create_dir(
 	// scan the new directory
 	scan_location_sub_path(library, location, &created_path.materialized_path).await?;
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
@@ -239,7 +239,7 @@ pub(super) async fn create_file(
 		});
 	}
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
@@ -315,7 +315,7 @@ pub(super) async fn update_file(
 		.await?
 	{
 		let ret = inner_update_file(location_id, file_path, full_path, library).await;
-		invalidate_query!(library, "locations.getExplorerData");
+		invalidate_query!(library, "search.paths");
 		ret
 	} else {
 		Err(LocationManagerError::UpdateNonExistingFile(
@@ -448,7 +448,7 @@ async fn inner_update_file(
 				}
 			}
 
-			invalidate_query!(library, "locations.getExplorerData");
+			invalidate_query!(library, "search.paths");
 		}
 	}
 
@@ -575,7 +575,7 @@ pub(super) async fn rename(
 			.exec()
 			.await?;
 
-		invalidate_query!(library, "locations.getExplorerData");
+		invalidate_query!(library, "search.paths");
 	}
 
 	Ok(())
@@ -648,7 +648,7 @@ pub(super) async fn remove_by_file_path(
 		Err(e) => return Err(e.into()),
 	}
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }

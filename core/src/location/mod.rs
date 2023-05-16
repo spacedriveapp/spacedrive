@@ -660,6 +660,8 @@ pub async fn delete_directory(
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
+	let Library { db, .. } = library;
+
 	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
 		vec![
 			file_path::location_id::equals(location_id),
@@ -670,8 +672,7 @@ pub async fn delete_directory(
 	};
 
 	// Fetching all object_ids from all children file_paths
-	let object_ids = library
-		.db
+	let object_ids = db
 		.file_path()
 		.find_many(children_params.clone())
 		.select(file_path::select!({ object_id }))
@@ -683,17 +684,10 @@ pub async fn delete_directory(
 
 	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
-	library
-		.db
-		.file_path()
-		.delete_many(children_params)
-		.exec()
-		.await?;
+	db.file_path().delete_many(children_params).exec().await?;
 
 	// delete all children objects
-	library
-		.db
-		.object()
+	db.object()
 		.delete_many(vec![
 			object::id::in_vec(object_ids),
 			// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
@@ -702,7 +696,7 @@ pub async fn delete_directory(
 		.exec()
 		.await?;
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }

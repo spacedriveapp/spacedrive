@@ -3,13 +3,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
 import { ComponentProps, useEffect, useState } from 'react';
-import {
-	ExplorerContext,
-	ExplorerItem,
-	ObjectKind,
-	formatBytes,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, ObjectKind, Tag, formatBytes, isPath, useLibraryQuery } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { TOP_BAR_HEIGHT } from '../../TopBar';
@@ -34,8 +28,8 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 );
 
 interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
-	context?: ExplorerContext;
-	data?: ExplorerItem;
+	context?: Location | Tag;
+	data: ExplorerItem;
 }
 
 export const Inspector = ({ data, context, ...elementProps }: Props) => {
@@ -108,13 +102,7 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 								</Tooltip>
 							</div>
 						)}
-
-						{context?.type == 'Location' && data?.type === 'Path' && (
-							<MetaContainer>
-								<MetaTitle>URI</MetaTitle>
-								<MetaValue>{`${context.path}/${data.item.materialized_path}`}</MetaValue>
-							</MetaContainer>
-						)}
+						{isPath(data) && <PathDisplay data={data} />}
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
@@ -234,5 +222,20 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 				</>
 			)}
 		</div>
+	);
+};
+
+const PathDisplay = ({ data }: { data: Extract<ExplorerItem, { type: 'Path' }> }) => {
+	const location = useLibraryQuery(['locations.get', data.item.location_id]);
+
+	return (
+		<>
+			{location.data && (
+				<MetaContainer>
+					<MetaTitle>URI</MetaTitle>
+					<MetaValue>{`${location.data.path}/${data.item.materialized_path}`}</MetaValue>
+				</MetaContainer>
+			)}
+		</>
 	);
 };

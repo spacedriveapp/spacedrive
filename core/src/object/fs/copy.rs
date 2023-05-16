@@ -206,7 +206,7 @@ impl StatefulJob for FileCopierJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
