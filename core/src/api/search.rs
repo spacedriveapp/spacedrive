@@ -1,4 +1,5 @@
-use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
+use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePathData};
+use std::collections::BTreeSet;
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::{operator::or, Direction};
@@ -77,7 +78,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				extension: Option<String>,
 				#[serde(default)]
-				kind: Vec<i32>,
+				kind: BTreeSet<i32>,
 				#[serde(default)]
 				tags: Vec<i32>,
 				#[serde(default)]
@@ -103,39 +104,30 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						None
 					};
 
-					let directory_id = if let Some(mut path) = args.path.clone() {
-						if !path.ends_with(MAIN_SEPARATOR) {
-							path += MAIN_SEPARATOR_STR;
-						}
-
-						Some(
-							db.file_path()
-								.find_first(chain_optional_iter(
-									[
-										file_path::materialized_path::equals(path),
-										file_path::is_dir::equals(true),
-									],
-									[location.map(|l| file_path::location_id::equals(l.id))],
-								))
-								.select(file_path::select!({ pub_id }))
-								.exec()
+					let directory_materialized_path_str = match (args.path, location) {
+						(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
+							let parent_iso_file_path =
+								IsolatedFilePathData::from_relative_str(location.id, &path);
+							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db)
 								.await?
-								.ok_or_else(|| {
-									rspc::Error::new(
-										ErrorCode::NotFound,
-										"Directory not found".into(),
-									)
-								})?
-								.pub_id,
-						)
-					} else {
-						None
+							{
+								return Err(rspc::Error::new(
+									ErrorCode::NotFound,
+									"Directory not found".into(),
+								));
+							}
+
+							parent_iso_file_path.materialized_path_for_children()
+						}
+						(Some(_empty), _) => Some("/".into()),
+						_ => None,
 					};
 
 					let object_params = chain_optional_iter(
 						[],
 						[
-							(!args.kind.is_empty()).then(|| object::kind::in_vec(args.kind)),
+							(!args.kind.is_empty())
+								.then(|| object::kind::in_vec(args.kind.into_iter().collect())),
 							(!args.tags.is_empty()).then(|| {
 								let tags = args.tags.into_iter().map(tag::id::equals).collect();
 								let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
@@ -149,7 +141,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						args.search
 							.split(' ')
 							.map(str::to_string)
-							.map(file_path::materialized_path::contains),
+							.map(file_path::name::contains),
 						[
 							args.location_id.map(file_path::location_id::equals),
 							args.extension.map(file_path::extension::equals),
@@ -159,8 +151,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							args.created_at
 								.to
 								.map(|v| file_path::date_created::lte(v.into())),
-							args.path.map(file_path::materialized_path::starts_with),
-							directory_id.map(Some).map(file_path::parent_id::equals),
+							directory_materialized_path_str
+								.map(file_path::materialized_path::equals),
 							(!object_params.is_empty())
 								.then(|| file_path::object::is(object_params)),
 						],
@@ -203,7 +195,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							library
 								.thumbnail_exists(cas_id)
 								.await
-								.map_err(LocationError::IOError)?
+								.map_err(LocationError::from)?
 						} else {
 							false
 						};

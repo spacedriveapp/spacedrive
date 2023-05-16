@@ -6,7 +6,10 @@
 //! Aside from that, when a directory is moved to our watched location from the outside, we receive
 //! a Create Dir event, this one is actually ok at least.
 
-use crate::{invalidate_query, library::Library, location::manager::LocationManagerError};
+use crate::{
+	invalidate_query, library::Library, location::manager::LocationManagerError,
+	util::error::FileIOError,
+};
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -67,7 +70,9 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 				create_dir(
 					self.location_id,
 					path,
-					&fs::metadata(path).await?,
+					&fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?,
 					self.library,
 				)
 				.await?;

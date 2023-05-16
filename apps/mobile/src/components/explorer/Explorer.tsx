@@ -34,7 +34,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 		if (isPath(data) && data.item.is_dir) {
 			navigation.push('Location', {
 				id: data.item.location_id,
-				path: data.item.materialized_path
+				path: `${data.item.materialized_path}${data.item.name}/`
 			});
 		} else {
 			setData(data);

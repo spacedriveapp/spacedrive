@@ -103,6 +103,7 @@ const StatusColors: Record<JobReport['status'], string> = {
 	Running: 'text-blue-500',
 	Failed: 'text-red-500',
 	Completed: 'text-green-500',
+	CompletedWithErrors: 'text-orange-500',
 	Queued: 'text-yellow-500',
 	Canceled: 'text-gray-500',
 	Paused: 'text-gray-500'

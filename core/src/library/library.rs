@@ -1,11 +1,15 @@
 use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
-	location::{file_path_helper::MaterializedPath, LocationManager},
+	location::{
+		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+		LocationManager,
+	},
 	node::NodeConfigManager,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
+	util::error::FileIOError,
 	NodeContext,
 };
 
@@ -16,6 +20,7 @@ use std::{
 };
 
 use sd_crypto::keys::keymanager::KeyManager;
+use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -85,13 +90,13 @@ impl Library {
 		&self.node_context.location_manager
 	}
 
-	pub async fn thumbnail_exists(&self, cas_id: &str) -> tokio::io::Result<bool> {
+	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
 		let thumb_path = get_thumbnail_path(self, cas_id);
 
-		match tokio::fs::metadata(thumb_path).await {
+		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
-			Err(e) if e.kind() == tokio::io::ErrorKind::NotFound => Ok(false),
-			Err(e) => Err(e),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+			Err(e) => Err(FileIOError::from((thumb_path, e))),
 		}
 	}
 
@@ -104,20 +109,12 @@ impl Library {
 				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
 				file_path::id::equals(id),
 			])
-			.select(file_path::select!({
-				materialized_path
-				location: select {
-					id
-					path
-				}
-			}))
+			.select(file_path_to_full_path::select())
 			.exec()
 			.await?
 			.map(|record| {
-				Path::new(&record.location.path).join(&MaterializedPath::from((
-					record.location.id,
-					&record.materialized_path,
-				)))
+				Path::new(&record.location.path)
+					.join(IsolatedFilePathData::from((record.location.id, &record)))
 			}))
 	}
 }

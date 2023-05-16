@@ -13,6 +13,7 @@ use crate::{
 	location::{
 		file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError, LocationId,
 	},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -100,11 +101,14 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				}
 			}
 			EventKind::Modify(ModifyKind::Any) => {
+				let path = &paths[0];
 				// Windows emite events of update right after create events
-				if !self.recently_created_files.contains_key(&paths[0]) {
-					let metadata = fs::metadata(&paths[0]).await?;
+				if !self.recently_created_files.contains_key(path) {
+					let metadata = fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?;
 					if metadata.is_file() {
-						update_file(self.location_id, &paths[0], self.library).await?;
+						update_file(self.location_id, path, self.library).await?;
 					}
 				}
 			}

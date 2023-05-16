@@ -14,7 +14,7 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
-use super::{JobMetadata, JobReport};
+use super::{JobMetadata, JobReport, JobRunErrors};
 
 const JOB_REPORT_UPDATE_INTERVAL: Duration = Duration::from_millis(1000 / 60);
 
@@ -23,6 +23,7 @@ const JOB_REPORT_UPDATE_INTERVAL: Duration = Duration::from_millis(1000 / 60);
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
 	Completed(oneshot::Sender<()>, JobMetadata),
+	CompletedWithErrors(oneshot::Sender<()>, JobMetadata, JobRunErrors),
 	Failed(oneshot::Sender<()>),
 	Paused(Vec<u8>, oneshot::Sender<()>),
 }
@@ -143,15 +144,21 @@ impl Worker {
 			let (done_tx, done_rx) = oneshot::channel();
 
 			match job.run(job_manager.clone(), worker_ctx.clone()).await {
-				Ok(metadata) => {
-					// handle completion
+				Ok((metadata, errors)) if errors.is_empty() => {
 					worker_ctx
 						.events_tx
 						.send(WorkerEvent::Completed(done_tx, metadata))
 						.expect("critical error: failed to send worker complete event");
 				}
+				Ok((metadata, errors)) => {
+					warn!("Job<id'{job_id}'> completed with errors");
+					worker_ctx
+						.events_tx
+						.send(WorkerEvent::CompletedWithErrors(done_tx, metadata, errors))
+						.expect("critical error: failed to send worker complete event");
+				}
 				Err(JobError::Paused(state)) => {
-					info!("Job <id='{job_id}'> paused, we will pause all children jobs");
+					info!("Job<id='{job_id}'> paused, we will pause all children jobs");
 					if let Err(e) = job.pause_children(&library).await {
 						error!("Failed to pause children jobs: {e:#?}");
 					}
@@ -162,7 +169,7 @@ impl Worker {
 						.expect("critical error: failed to send worker pause event");
 				}
 				Err(e) => {
-					error!("Job <id='{job_id}'> failed with error: {e:#?}; We will cancel all children jobs");
+					error!("Job<id='{job_id}'> failed with error: {e:#?}; We will cancel all children jobs");
 					if let Err(e) = job.cancel_children(&library).await {
 						error!("Failed to cancel children jobs: {e:#?}");
 					}
@@ -215,6 +222,27 @@ impl Worker {
 				}
 				WorkerEvent::Completed(done_tx, metadata) => {
 					worker.report.status = JobStatus::Completed;
+					worker.report.data = None;
+					worker.report.metadata = metadata;
+					worker.report.completed_at = Some(Utc::now());
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
+					invalidate_query!(library, "jobs.getRunning");
+					invalidate_query!(library, "jobs.getHistory");
+
+					info!("{}", worker.report);
+
+					done_tx
+						.send(())
+						.expect("critical error: failed to send worker completion");
+
+					break;
+				}
+				WorkerEvent::CompletedWithErrors(done_tx, metadata, errors) => {
+					worker.report.status = JobStatus::CompletedWithErrors;
+					worker.report.errors_text = errors;
 					worker.report.data = None;
 					worker.report.metadata = metadata;
 					worker.report.completed_at = Some(Utc::now());
