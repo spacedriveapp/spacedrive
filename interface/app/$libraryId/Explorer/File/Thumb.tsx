@@ -1,6 +1,6 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
@@ -86,8 +86,8 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	}, [kind, cover, thumbImg, thumbLoaded]);
 
 	let style = {};
-	if (size && kind === 'Video') {
-		const { height, width } = thumbSize ?? { height: 0, width: 0 };
+	if (size && kind === 'Video' && thumbSize) {
+		const { height, width } = thumbSize;
 		if (height >= width) {
 			const videoBarsHeight = Math.floor(size / 10);
 			style = {
@@ -249,4 +249,4 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 	);
 }
 
-export default Thumb;
+export default memo(Thumb);
