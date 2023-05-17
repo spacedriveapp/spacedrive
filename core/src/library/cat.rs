@@ -15,6 +15,7 @@ pub enum Category {
 	Favorites,
 	Photos,
 	Videos,
+	Movies,
 	Music,
 	// Documents,
 	Downloads,
@@ -62,6 +63,10 @@ pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i
 		}
 		Category::Games => {
 			// TODO: Fetch the actual count for the Games category.
+			return 0;
+		}
+		Category::Movies => {
+			// TODO: Fetch the actual count for the Trash category.
 			return 0;
 		}
 		Category::Trash => {
