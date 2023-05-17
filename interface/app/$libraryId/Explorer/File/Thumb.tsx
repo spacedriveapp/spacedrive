@@ -1,9 +1,9 @@
 import { getIcon } from '@sd/assets/icons/util';
 import clsx from 'clsx';
-import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ImgHTMLAttributes, memo, useEffect, useRef, useState } from 'react';
 import { ExplorerItem, useLibraryContext } from '@sd/client';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
-import { useIsDark, usePlatform } from '~/util/Platform';
+import { useCallbackToWatchResize, useExplorerStore, useIsDark } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { getExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
@@ -33,20 +33,15 @@ const Thumbnail = ({
 }: ThumbnailProps) => {
 	const ref = useRef<HTMLImageElement>(null);
 	const [size, setSize] = useState<null | ThumbSize>(null);
-	const [loaded, setLoaded] = useState<boolean>(false);
 
-	// useLayoutEffect(() => {
-	// 	const thumbnail = ref.current;
-	// 	if (type !== ThumbnailType.Video || !thumbnail || !loaded) return;
-
-	// 	const resizeObserver = new ResizeObserver(() => {
-	// 		const { width, height } = thumbnail;
-	// 		setSize(width && height ? { width, height } : null);
-	// 	});
-
-	// 	resizeObserver.observe(thumbnail);
-	// 	return () => resizeObserver.disconnect();
-	// }, [type, ref, loaded]);
+	useCallbackToWatchResize(
+		(rect) => {
+			const { width, height } = rect;
+			setSize((width && height && { width, height }) || null);
+		},
+		[],
+		ref
+	);
 
 	return (
 		<>
@@ -69,14 +64,10 @@ const Thumbnail = ({
 							  }
 						: {}
 				}
-				onLoad={() => {
-					onLoad?.();
-					setLoaded(true);
-				}}
+				onLoad={onLoad}
 				onError={() => {
 					onError?.();
 					setSize(null);
-					setLoaded(false);
 				}}
 				decoding={decoding}
 				className={className}
@@ -132,6 +123,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
+	const [src, setSrc] = useState<string>('#');
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { locationId, newThumbnails } = useExplorerStore();
 	const { kind, extension, newThumb, hasThumbnail, cas_id, isDir } = getExplorerItemData(
@@ -139,31 +131,47 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		newThumbnails
 	);
 
-	const src = useRef<string>('#');
 	useEffect(() => {
-		if (props.loadOriginal && locationId) {
+		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
-			src.current = platform.getFileUrl(library.uuid, locationId, props.data.item.id);
-		} else if ((newThumb || hasThumbnail) && cas_id) {
+		} else if (newThumb || hasThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
-			src.current = platform.getThumbnailUrlById(cas_id);
 		} else {
 			setThumbType(ThumbType.Icon);
-			src.current = getIcon(kind, isDir, isDark, extension);
+		}
+	}, [props.loadOriginal, newThumb, hasThumbnail]);
+
+	useEffect(() => {
+		switch (thumbType) {
+			case ThumbType.Original:
+				if (locationId) {
+					setSrc(platform.getFileUrl(library.uuid, locationId, props.data.item.id));
+				} else {
+					setThumbType(ThumbType.Thumbnail);
+				}
+				break;
+			case ThumbType.Thumbnail:
+				if (cas_id) {
+					setSrc(platform.getThumbnailUrlById(cas_id));
+				} else {
+					setThumbType(ThumbType.Icon);
+				}
+				break;
+			default:
+				setSrc(getIcon(kind, isDir, isDark, extension));
+				break;
 		}
 	}, [
 		kind,
-		isDir,
 		props.data.item.id,
-		props.loadOriginal,
-		cas_id,
+		isDir,
 		isDark,
+		cas_id,
 		library.uuid,
-		newThumb,
 		platform,
+		thumbType,
 		extension,
-		locationId,
-		hasThumbnail
+		locationId
 	]);
 
 	const childClassName = 'max-h-full max-w-full object-contain';
@@ -184,7 +192,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 							case 'PDF':
 								return (
 									<object
-										data={src.current}
+										data={src}
 										type="application/pdf"
 										className={clsx(
 											'h-full w-full border-0',
@@ -197,7 +205,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								return (
 									<video
 										crossOrigin="anonymous"
-										src={src.current}
+										src={src}
 										onError={() => {
 											setThumbType(ThumbType.Thumbnail);
 										}}
@@ -231,7 +239,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										{props.mediaControls && (
 											<audio
 												crossOrigin="anonymous"
-												src={src.current}
+												src={src}
 												onError={() => {
 													setThumbType(ThumbType.Thumbnail);
 												}}
@@ -249,7 +257,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 					case ThumbType.Thumbnail:
 						return (
 							<Thumbnail
-								src={src.current}
+								src={src}
 								cover={cover}
 								onError={() => {
 									setThumbType(ThumbType.Icon);
@@ -274,13 +282,18 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								videoBarsSize={
 									(kind === 'Video' && size && Math.floor(size / 10)) || 0
 								}
-								videoExtension={(kind === 'Video' && extension) || ''}
+								videoExtension={
+									(kind === 'Video' &&
+										(size == null || size > 80) &&
+										extension) ||
+									''
+								}
 							/>
 						);
 					case ThumbType.Icon:
 						return (
 							<img
-								src={src.current}
+								src={src}
 								decoding={size ? 'async' : 'sync'}
 								className={clsx(childClassName, props.className)}
 							/>
