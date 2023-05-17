@@ -13,7 +13,7 @@ interface ThumbnailProps {
 	cover?: boolean;
 	onLoad?: () => void;
 	onError?: () => void;
-	decoding: ImgHTMLAttributes<HTMLImageElement>['decoding'];
+	decoding?: ImgHTMLAttributes<HTMLImageElement>['decoding'];
 	className?: string;
 	crossOrigin?: ImgHTMLAttributes<HTMLImageElement>['crossOrigin'];
 	videoBarsSize?: number;
