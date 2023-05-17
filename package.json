@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"scripts": {
-		"prep": "pnpm gen:prisma && cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
+		"prep": "pnpm gen:prisma && pnpm codegen",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"gen:migrations": "cd core && cargo prisma migrate dev",

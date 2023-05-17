@@ -117,22 +117,22 @@ macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		#[cfg(debug_assertions)]
-		{
-			#[ctor::ctor]
-			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
-					.lock()
-					.unwrap()
-					.queries
-					.push(crate::api::utils::InvalidationRequest {
-						key: $key,
-						arg_ty: None,
-						result_ty: None,
-            			macro_src: concat!(file!(), ":", line!()),
-					})
-			}
-		}
+		// #[cfg(debug_assertions)]
+		// {
+		// 	#[ctor::ctor]
+		// 	fn invalidate() {
+		// 		crate::api::utils::INVALIDATION_REQUESTS
+		// 			.lock()
+		// 			.unwrap()
+		// 			.queries
+		// 			.push(crate::api::utils::InvalidationRequest {
+		// 				key: $key,
+		// 				arg_ty: None,
+		// 				result_ty: None,
+  //           			macro_src: concat!(file!(), ":", line!()),
+		// 			})
+		// 	}
+		// }
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
@@ -143,25 +143,25 @@ macro_rules! invalidate_query {
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		#[cfg(debug_assertions)]
-		{
-			#[ctor::ctor]
-			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
-					.lock()
-					.unwrap()
-					.queries
-					.push(crate::api::utils::InvalidationRequest {
-						key: $key,
-						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
-                            parent_inline: false,
-                            type_map: &mut rspc::internal::specta::TypeDefs::new(),
-                        }, &[])),
-						result_ty: None,
-                        macro_src: concat!(file!(), ":", line!()),
-					})
-			}
-		}
+		// #[cfg(debug_assertions)]
+		// {
+		// 	#[ctor::ctor]
+		// 	fn invalidate() {
+		// 		crate::api::utils::INVALIDATION_REQUESTS
+		// 			.lock()
+		// 			.unwrap()
+		// 			.queries
+		// 			.push(crate::api::utils::InvalidationRequest {
+		// 				key: $key,
+		// 				arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
+  //                           parent_inline: false,
+  //                           type_map: &mut rspc::internal::specta::TypeDefs::new(),
+  //                       }, &[])),
+		// 				result_ty: None,
+  //                       macro_src: concat!(file!(), ":", line!()),
+		// 			})
+		// 	}
+		// }
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)

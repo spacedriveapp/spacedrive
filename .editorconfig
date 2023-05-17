@@ -71,3 +71,14 @@ indent_style = space
 # http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
 [*.{yaml,yml}]
 indent_style = space
+
+# Shell
+# https://google.github.io/styleguide/shell.xml#Indentation
+[*.{bash,sh,zsh}]
+indent_style = space
+
+# PowerShell
+# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
+[*.{ps1,psd1,psm1}]
+indent_size = 4
+indent_style = space

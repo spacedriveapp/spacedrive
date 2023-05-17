@@ -3,12 +3,7 @@ import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import {
-	ExplorerData,
-	useLibraryContext,
-	useLibraryMutation,
-	useRspcLibraryContext
-} from '@sd/client';
+import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { useZodRouteParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -110,8 +105,8 @@ const useToolBarOptions = () => {
 };
 
 const useItems = () => {
-	const { id: location_id } = useZodRouteParams(PARAMS);
-	const [{ path, limit }] = useExplorerSearchParams();
+	const { id: locationId } = useZodRouteParams(PARAMS);
+	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
@@ -120,23 +115,26 @@ const useItems = () => {
 
 	const query = useInfiniteQuery({
 		queryKey: [
-			'locations.getExplorerData',
+			'search.paths',
 			{
 				library_id: library.uuid,
 				arg: {
-					location_id,
-					path: explorerState.layoutMode === 'media' ? null : path,
-					limit,
-					kind: explorerState.layoutMode === 'media' ? [5, 7] : null
+					locationId,
+					take,
+					...(explorerState.layoutMode === 'media'
+						? { kind: [5, 7] }
+						: { path: path ?? '' })
 				}
 			}
 		] as const,
-		queryFn: async ({ pageParam: cursor, queryKey }): Promise<ExplorerData> => {
-			const arg = queryKey[1];
-			(arg.arg as any).cursor = cursor;
-
-			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
-		},
+		queryFn: ({ pageParam: cursor, queryKey }) =>
+			ctx.client.query([
+				'search.paths',
+				{
+					...queryKey[1].arg,
+					cursor
+				}
+			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
 

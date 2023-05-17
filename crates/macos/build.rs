@@ -1,6 +1,14 @@
+#[cfg(target_os = "macos")]
+use std::env;
+
 fn main() {
 	#[cfg(target_os = "macos")]
-	swift_rs::SwiftLinker::new("10.15")
-		.with_package("sd-macos", "./")
-		.link()
+	{
+		let deployment_target =
+			env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| String::from("10.15"));
+
+		swift_rs::SwiftLinker::new(deployment_target.as_str())
+			.with_package("sd-macos", "./")
+			.link()
+	}
 }
