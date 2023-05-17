@@ -102,7 +102,7 @@ export const Component = () => {
 	);
 
 	return (
-		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="w-full h-full">
 			<ModalLayout
 				title="Edit Location"
 				topRight={
@@ -166,9 +166,9 @@ export const Component = () => {
 						<Switch {...form.register('hidden')} size="sm" />
 					</ToggleSection>
 				</div>
-				<Divider />
-				<div className="flex flex-col rounded-md border border-app-line bg-app-overlay px-10 pt-8">
-					<div className="flex w-full items-center justify-between">
+				<Divider  />
+				<div className="flex flex-col px-5 py-5 border rounded-md border-app-line bg-app-overlay">
+					<div className="flex items-start justify-between w-full">
 						<div>
 							<Label className="!mb-2 grow !text-sm !font-bold">Indexer rules</Label>
 							<InfoText className="!mt-0 mb-4">
@@ -232,7 +232,7 @@ export const Component = () => {
 							<Button
 								size="sm"
 								variant="colored"
-								className="border-red-500 bg-red-500"
+								className="bg-red-500 border-red-500"
 							>
 								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Delete

@@ -148,10 +148,10 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 				<h3 className="mb-[15px] mt-[20px] w-full text-sm font-semibold">Rules</h3>
 				<div
 					className={
-						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2'
+						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2 pb-0'
 					}
 				>
-					<div className="mb-4 grid grid-cols-3 px-3 pt-4 text-sm font-bold">
+					<div className="grid grid-cols-3 px-3 pt-4 mb-4 text-sm font-bold">
 						<h3 className="pl-2">Type</h3>
 						<h3 className="pl-2">Value</h3>
 					</div>
@@ -243,24 +243,16 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 								{ shouldFocus: false }
 							)
 						}
-						className="!mt-1 border
-										!border-app-line !bg-app-darkBox py-3 !font-bold
+						className="border w-full mx-auto !my-2
+										!border-app-line !bg-app-darkBox py-2 !font-bold
 										 hover:brightness-105"
 					>
 						+ New
 					</Button>
 				</div>
-				<div className="flex flex-row justify-between">
-					<div className="mr-2 grow">
-						<div className="mt-5 text-center">
-							<ErrorMessage
-								name={REMOTE_ERROR_FORM_FIELD}
-								variant="large"
-								className="mt-2"
-							/>
-						</div>
-						<div className="my-[25px] flex w-full justify-center">
-							<div className="flex items-center gap-2">
+				<Divider className='my-[25px]'/>
+						<div className="flex justify-center w-full">
+							<div className="flex items-center gap-2 mb-5">
 								<p className="text-sm text-ink-faint">Blacklist</p>
 								<Controller
 									name="kind"
@@ -288,17 +280,21 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 								</Tooltip>
 							</div>
 						</div>
-					</div>
-				</div>
-				<Divider className="!my-0" />
-				<Button
+			<Button
 					form={formId}
 					type="submit"
-					className="mx-auto my-[25px] block w-full max-w-[130px]"
 					variant="accent"
+					className="w-[90px] mx-auto"
 				>
 					Save
 				</Button>
+				<div className="text-center">
+									<ErrorMessage
+										name={REMOTE_ERROR_FORM_FIELD}
+										variant="large"
+										className="mt-2"
+									/>
+								</div>
 			</FormProvider>
 		</>
 	);
