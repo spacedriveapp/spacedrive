@@ -98,6 +98,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 											<FileThumb
 												size={0}
 												data={explorerItem.current}
+												className="w-full"
 												loadOriginal
 												mediaControls
 											/>

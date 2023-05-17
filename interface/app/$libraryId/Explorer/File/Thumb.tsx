@@ -1,6 +1,14 @@
 import { getIcon } from '@sd/assets/icons/util';
 import clsx from 'clsx';
-import { ImgHTMLAttributes, memo, useEffect, useRef, useState } from 'react';
+import {
+	ImgHTMLAttributes,
+	memo,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState
+} from 'react';
 import { ExplorerItem, useLibraryContext } from '@sd/client';
 import { useCallbackToWatchResize, useExplorerStore, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -121,26 +129,40 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<string>('#');
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { locationId, newThumbnails } = useExplorerStore();
-	const { kind, extension, hasThumbnail, cas_id, isDir } = getExplorerItemData(
-		props.data,
-		newThumbnails
+	const itemData = useMemo(
+		() => getExplorerItemData(props.data, newThumbnails),
+		[props.data, newThumbnails]
 	);
 
-	useEffect(() => {
+	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
+	// thus avoiding improper thumb types changes
+	useLayoutEffect(() => {
+		// Reset src when item changes, to allow detection of yet not updated src
+		setSrc('#');
+
 		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
-		} else if (hasThumbnail) {
+		} else if (itemData.hasThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
-	}, [props.loadOriginal, props.data, hasThumbnail]);
+	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
+		const { cas_id, kind, isDir, extension } = itemData;
 		switch (thumbType) {
 			case ThumbType.Original:
 				if (locationId) {
-					setSrc(platform.getFileUrl(library.uuid, locationId, props.data.item.id));
+					setSrc(
+						platform.getFileUrl(
+							library.uuid,
+							locationId,
+							props.data.item.id,
+							// Workaround Linux webview not supporting playng video and audio through custom protocol urls
+							kind == 'Video' || kind == 'Audio'
+						)
+					);
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}
@@ -156,19 +178,18 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				setSrc(getIcon(kind, isDir, isDark, extension));
 				break;
 		}
-	}, [
-		kind,
-		props.data.item.id,
-		isDir,
-		isDark,
-		cas_id,
-		library.uuid,
-		platform,
-		thumbType,
-		extension,
-		locationId
-	]);
+	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, locationId]);
 
+	const onError = () => {
+		if (src === '#') return;
+		setThumbType((prevThumbType) => {
+			return prevThumbType === ThumbType.Original && itemData.hasThumbnail
+				? ThumbType.Thumbnail
+				: ThumbType.Icon;
+		});
+	};
+
+	const { kind, extension } = itemData;
 	const childClassName = 'max-h-full max-w-full object-contain';
 	return (
 		<div
@@ -185,10 +206,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		>
 			{(() => {
 				switch (thumbType) {
-					case ThumbType.Original: {
-						const onError = () =>
-							void setThumbType(hasThumbnail ? ThumbType.Thumbnail : ThumbType.Icon);
-
+					case ThumbType.Original:
 						switch (extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind) {
 							case 'PDF':
 								return (
@@ -250,16 +268,13 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									</>
 								);
 						}
-					}
 					// eslint-disable-next-line no-fallthrough
 					case ThumbType.Thumbnail:
 						return (
 							<Thumbnail
 								src={src}
 								cover={cover}
-								onError={() => {
-									setThumbType(ThumbType.Icon);
-								}}
+								onError={onError}
 								decoding={size ? 'async' : 'sync'}
 								className={clsx(
 									cover
