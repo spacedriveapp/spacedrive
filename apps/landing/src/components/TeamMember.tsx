@@ -1,5 +1,6 @@
 import { Dribbble, Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
+import Image from 'next/image';
 import { PropsWithChildren } from 'react';
 
 export interface TeamMemberProps {
@@ -10,7 +11,7 @@ export interface TeamMemberProps {
 	role: string;
 
 	// Member's avatar
-	image: string;
+	imageUrl: string;
 
 	// Socials
 	socials?: {
@@ -46,8 +47,8 @@ export function TeamMember(props: TeamMemberProps) {
 
 	return (
 		<div className="flex flex-col">
-			<img
-				src={props.image}
+			<Image
+				src={props.imageUrl}
 				role="img"
 				alt={`Portrait of ${props.name}`}
 				width={size}

@@ -20,9 +20,10 @@ export function HomeCTA() {
 	const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
 	const [fire, setFire] = useState<boolean | number>(false);
 
-	const url = import.meta.env.PROD
-		? 'https://waitlist-api.spacedrive.com'
-		: 'http://localhost:3000';
+	const url =
+		process.env.NODE_ENV === 'production'
+			? 'https://waitlist-api.spacedrive.com'
+			: 'http://localhost:3000';
 
 	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
 		if (!email.trim().length) return;
@@ -180,7 +181,7 @@ export function HomeCTA() {
 			>
 				{showWaitlistInput ? (
 					<>
-						We'll keep your place in the queue for early access.
+						We&apos;ll keep your place in the queue for early access.
 						<br />
 						<br />
 					</>

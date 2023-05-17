@@ -1,14 +1,14 @@
+import { useRouter } from 'next/router';
 import { SmileyXEyes } from 'phosphor-react';
 import { Helmet } from 'react-helmet';
 import { Button } from '@sd/ui';
-import Markdown from '../components/Markdown';
-import { getWindow } from '../utils';
+import Markdown from '~/components/Markdown';
+import PageWrapper from '~/components/PageWrapper';
 
-export { Page };
-
-function Page({ is404 }: { is404: boolean }) {
+export default function Custom404Page() {
+	const router = useRouter();
 	return (
-		<>
+		<PageWrapper>
 			<Markdown classNames="flex w-full justify-center">
 				<Helmet>
 					<title>Not Found - Spacedrive</title>
@@ -22,7 +22,7 @@ function Page({ is404 }: { is404: boolean }) {
 					<p>In other words, thats a 404.</p>
 					<div className="flex flex-wrap justify-center">
 						<Button
-							href={getWindow()?.document.referrer || 'javascript:history.back()'}
+							onClick={() => router.back()}
 							className="mr-3 mt-2 cursor-pointer "
 							variant="gray"
 						>
@@ -39,6 +39,6 @@ function Page({ is404 }: { is404: boolean }) {
 				</div>
 				<div className="h-80" />
 			</Markdown>
-		</>
+		</PageWrapper>
 	);
 }

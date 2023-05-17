@@ -12,6 +12,7 @@ import {
 import { useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { Button } from '@sd/ui';
+import PageWrapper from '~/components/PageWrapper';
 
 interface PositionPosting {
 	name: string;
@@ -84,13 +85,13 @@ const perks = [
 	}
 ];
 
-function Page() {
+export default function CareersPage() {
 	const openPositionsRef = useRef<HTMLHRElement>(null);
 	const scrollToPositions = () =>
 		openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
 	return (
-		<>
+		<PageWrapper>
 			<Helmet>
 				<title>Careers - Spacedrive</title>
 				<meta
@@ -213,8 +214,6 @@ function Page() {
 					</p>
 				</div>
 			</div>
-		</>
+		</PageWrapper>
 	);
 }
-
-export { Page };

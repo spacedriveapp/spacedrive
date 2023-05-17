@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import { getWindow } from '../utils';
+import { getWindow } from '~/utils';
 
 const AppEmbed = () => {
 	const [showApp, setShowApp] = useState(false);
@@ -84,7 +84,7 @@ const AppEmbed = () => {
 									: 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
-								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
+								process.env.NEXT_PUBLIC_SDWEB_BASE_URL || 'http://localhost:8002'
 							}?showControls&library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
 						/>
 					)}
