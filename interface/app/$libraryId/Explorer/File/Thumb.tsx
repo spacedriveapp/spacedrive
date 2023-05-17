@@ -32,7 +32,7 @@ const Thumbnail = ({
 	videoExtension
 }: ThumbnailProps) => {
 	const ref = useRef<HTMLImageElement>(null);
-	const [size, setSize] = useState<null | ThumbSize>(null);
+	const [size, setSize] = useState<null | { width: number; height: number }>(null);
 
 	useCallbackToWatchResize(
 		(rect) => {
@@ -103,11 +103,6 @@ enum ThumbType {
 	Icon,
 	Original,
 	Thumbnail
-}
-
-interface ThumbSize {
-	width: number;
-	height: number;
 }
 
 export interface ThumbProps {
