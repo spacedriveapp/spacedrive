@@ -3,8 +3,8 @@ import { animated, useTransition } from '@react-spring/web';
 import { XCircle } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
-import { ExplorerItem } from '~/../packages/client/src';
-import { getExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerItem } from '@sd/client';
+import { getExplorerStore } from '~/hooks';
 import FileThumb from './File/Thumb';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);

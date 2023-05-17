@@ -16,9 +16,12 @@ import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
+import {
+	getExplorerStore,
+	useDismissibleNoticeStore,
+	useExplorerStore,
+	useScrolled
+} from '~/hooks';
 import RenameTextBox from './File/RenameTextBox';
 import FileThumb from './File/Thumb';
 import { InfoPill } from './Inspector';

@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import RenameTextBox from './File/RenameTextBox';
 import FileThumb from './File/Thumb';
 import { ViewItem } from './View';

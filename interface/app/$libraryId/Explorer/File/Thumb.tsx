@@ -175,7 +175,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			style={size ? { maxWidth: size, width: size - 10, height: size } : {}}
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
-				size && !(ThumbType.Original && kind === 'Video') && 'border-2 border-transparent',
+				size && kind !== 'Video' && thumbType !== ThumbType.Icon && 'border-2 border-transparent',
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
