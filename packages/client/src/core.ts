@@ -102,6 +102,8 @@ export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm:
  */
 export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
+export type CategoryItem = { name: string; count: number }
+
 /**
  * This denotes the `StoredKey` version.
  */
@@ -190,8 +192,6 @@ export type InvalidateOperationEvent = { key: string; arg: any; result: any | nu
 export type GetArgs = { id: number }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
-
-export type CategoryItem = { name: string; count: number }
 
 /**
  * This should be used for passing a salt around.

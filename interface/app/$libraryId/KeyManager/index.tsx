@@ -34,14 +34,14 @@ const Unlocked = () => {
 						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="keys">
 							Keys
 						</Tabs.Trigger> */}
-						<ButtonLink
-							// to={`/${library.uuid}/settings/library/keys`}
+						<Button
+
 							size="icon"
 							variant="subtle"
 							className="text-ink-faint"
 						>
 							<MagnifyingGlass className="h-4 w-4 text-ink-faint" />
-						</ButtonLink>
+						</Button>
 						<div className="grow" />
 						<Button
 							size="icon"
@@ -56,22 +56,20 @@ const Unlocked = () => {
 						>
 							<Lock className="h-4 w-4 text-ink-faint" />
 						</Button>
-						<ButtonLink
-							to={`/${library.uuid}/settings/library/keys`}
+						<Button
 							size="icon"
 							variant="subtle"
 							className="text-ink-faint"
 						>
 							<Gear className="h-4 w-4 text-ink-faint" />
-						</ButtonLink>
-						<ButtonLink
-							// to={`/${library.uuid}/settings/library/keys`}
+						</Button>
+						<Button
 							size="icon"
 							variant="subtle"
 							className="text-ink-faint"
 						>
 							<X className="h-4 w-4 text-ink-faint" />
-						</ButtonLink>
+						</Button>
 					</Tabs.List>
 				</div>
 				<Tabs.Content value="keys">
