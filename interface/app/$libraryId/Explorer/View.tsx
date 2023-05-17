@@ -1,4 +1,4 @@
-import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
+import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
@@ -11,6 +11,8 @@ import ListView from './ListView';
 import MediaView from './MediaView';
 import { ViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
+import { usePlatform } from '~/util/Platform';
+import { useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -28,6 +30,12 @@ export const ViewItem = ({
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
 
+	const { openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const filePath = getItemFilePath(data);
+
+	const explorerConfig = useExplorerConfigStore();
+
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
@@ -36,6 +44,12 @@ export const ViewItem = ({
 			});
 
 			getExplorerStore().selectedRowIndex = null;
+
+		} else if (openFilePath && filePath && explorerConfig.openOnDoubleClick) {
+			data.type === 'Path' &&
+				data.item.object_id &&
+				updateAccessTime.mutate(data.item.object_id);
+			openFilePath(library.uuid, filePath.id);
 		} else {
 			const { kind } = getExplorerItemData(data);
 

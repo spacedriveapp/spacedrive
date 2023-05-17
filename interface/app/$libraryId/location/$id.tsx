@@ -22,6 +22,7 @@ const PARAMS = z.object({
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -53,7 +54,7 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren toolOptions={useToolBarOptions()} />
+			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions,]} />
 			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
@@ -66,43 +67,7 @@ export const Component = () => {
 	);
 };
 
-const useToolBarOptions = () => {
-	const store = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 
-	return [
-		explorerViewOptions,
-		[
-			{
-				toolTipLabel: 'Key Manager',
-				icon: <Key className={TOP_BAR_ICON_STYLE} />,
-				popOverComponent: <KeyManager />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Tag Assign Mode',
-				icon: (
-					<Tag
-						weight={store.tagAssignMode ? 'fill' : 'regular'}
-						className={TOP_BAR_ICON_STYLE}
-					/>
-				),
-				onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
-				topBarActive: store.tagAssignMode,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Regenerate thumbs (temp)',
-				icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			}
-		],
-		explorerControlOptions
-	] satisfies ToolOption[][];
-};
 
 const useItems = () => {
 	const { id: locationId } = useZodRouteParams(PARAMS);

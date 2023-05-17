@@ -1,9 +1,4 @@
 import * as icons from '@sd/assets/icons';
-import byteSize from 'byte-size';
-import clsx from 'clsx';
-import { useMemo, useState } from 'react';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import {
 	ExplorerItem,
 	ObjectKind,
@@ -13,6 +8,11 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
+import byteSize from 'byte-size';
+import clsx from 'clsx';
+import { useMemo, useState } from 'react';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import useCounter from '~/hooks/useCounter';
 import { usePlatform } from '~/util/Platform';
@@ -50,6 +50,35 @@ const EMPTY_STATISTICS = {
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
 let overviewMounted = false;
+
+// TODO: Replace left hand type with Category enum type (doesn't exist yet)
+const CategoryToIcon: Record<string, string> = {
+	Recents: 'Collection',
+	Favorites: 'HeartFlat',
+	Photos: 'Image',
+	Videos: 'Video',
+	Music: 'Audio',
+	Documents: 'Document',
+	Downloads: 'Package',
+	Applications: 'Application',
+	Games: "Game",
+	Books: 'Book',
+	Encrypted: 'EncryptedLock',
+	Archives: 'Database',
+	Projects: 'Folder',
+	Trash: 'Trash'
+};
+
+// Map the category to the ObjectKind for searching
+const SearchableCategories: Record<string, ObjectKindKey> = {
+	Photos: 'Image',
+	Videos: 'Video',
+	Music: 'Audio',
+	Documents: 'Document',
+	Encrypted: 'Encrypted'
+}
+
+export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const StatItem = (props: StatItemProps) => {
 	const { title, bytes = BigInt('0'), isLoading } = props;
@@ -93,56 +122,29 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-// TODO: Replace string with Category enum type
-const CategoryToIcon: Record<string, string> = {
-	Recents: 'Collection',
-	Favorites: 'HeartFlat',
-	Photos: 'Image',
-	Videos: 'Video',
-	Music: 'Audio',
-	Documents: 'Document',
-	Downloads: 'Package',
-	Applications: 'Application',
-	Games: "Game",
-	Books: 'Book',
-	Encrypted: 'EncryptedLock',
-	Archives: 'Database',
-	Projects: 'Folder',
-	Trash: 'Trash'
-};
-
-// Map the category to the ObjectKind for searching
-const SearchableCategories: Record<string, ObjectKindKey> = {
-	Photos: 'Image',
-	Videos: 'Video',
-	Music: 'Audio',
-	Documents: 'Document',
-	Encrypted: 'Encrypted'
-}
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
 export const Component = () => {
 	const platform = usePlatform();
 	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
-	const stats = useLibraryQuery(['library.getStatistics'], {
-		initialData: { ...EMPTY_STATISTICS }
-	});
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
-	const canSearch = !!SearchableCategories[selectedCategory];
+	const stats = useLibraryQuery(['library.getStatistics'], {
+		initialData: { ...EMPTY_STATISTICS }
+	});
 
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
+	const canSearch = !!SearchableCategories[selectedCategory];
 	const kind = [ObjectKind[SearchableCategories[selectedCategory] || 0] as number];
 
 	const searchQuery = useLibraryQuery(['search.paths', { kind }], {
 		suspense: true,
 		enabled: canSearch
 	});
+
+	const categories = useLibraryQuery(['categories.list']);
 
 	const searchItems = useMemo(() => {
 		if (explorerStore.layoutMode !== 'media') return searchQuery.data?.items;
@@ -153,23 +155,12 @@ export const Component = () => {
 		});
 	}, [searchQuery.data, explorerStore.layoutMode]);
 
-	const categories = useLibraryQuery(['categories.list']);
-
-	const haveRecentFiles = (recentFiles.data?.length || 0) > 0;
-
 	overviewMounted = true;
 
 	const inspector = explorerControlOptions.find(
 		(t) => t.toolTipLabel === 'Show Inspector'
 	) as ToolOption;
-	const toolsViewOptions = haveRecentFiles
-		? explorerViewOptions.filter(
-			(o) =>
-				o.toolTipLabel === 'Grid view' ||
-				o.toolTipLabel === 'List view' ||
-				o.toolTipLabel === 'Media view'
-		)
-		: [];
+
 
 	let items: ExplorerItem[] = [];
 	switch (selectedCategory) {
@@ -186,7 +177,7 @@ export const Component = () => {
 
 	return (
 		<div>
-			<TopBarChildren toolOptions={[toolsViewOptions, [inspector]]} />
+			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
 				viewClassName="!pl-0 !pt-0 !h-auto"
@@ -211,7 +202,7 @@ export const Component = () => {
 						})}
 					</div>
 				</div>
-				<div className="no-scrollbar sticky top-0 backdrop-blur z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5">
+				<div className="no-scrollbar sticky top-0 z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category] || 'Document';
 						const icon = icons[iconString as keyof typeof icons];
