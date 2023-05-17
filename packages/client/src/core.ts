@@ -27,7 +27,7 @@ export type Procedures = {
         { key: "locations.list", input: LibraryArgs<null>, result: ({ id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; node: Node })[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "search.objects", input: LibraryArgs<{ take?: number | null; tagId?: number | null; cursor?: number[] | null }>, result: SearchData<ExplorerItem> } | 
-        { key: "search.paths", input: LibraryArgs<{ locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: Ordering | null; search?: string; extension?: string | null; kind?: number[]; tags?: number[]; createdAt?: OptionalRange<string>; path?: string | null; cursor?: number[] | null }>, result: SearchData<ExplorerItem> } | 
+        { key: "search.paths", input: LibraryArgs<{ locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: Ordering | null; search?: string; extension?: string | null; kind?: number[]; tags?: number[]; createdAt?: OptionalRange<string>; path?: string | null; cursor?: number[] | null; favorite?: boolean | null; hidden?: boolean | null }>, result: SearchData<ExplorerItem> } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -191,6 +191,8 @@ export type GetArgs = { id: number }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
 
+export type CategoryItem = { name: string; count: number }
+
 /**
  * This should be used for passing a salt around.
  * 
@@ -229,8 +231,6 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
-
-export type CategoryItem = { name: string; count: number }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 

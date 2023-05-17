@@ -11,8 +11,6 @@ use specta::Type;
 use std::str::FromStr;
 use strum::VariantNames;
 
-// static array of searchable categories
-
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router().procedure("list", {
 		#[derive(Type, Deserialize, Serialize)]

@@ -38,23 +38,29 @@ pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i
 			.exec()
 			.await
 			.unwrap_or(0) as i32,
-		Category::Favorites => {
-			// TODO: Fetch the actual count for the Favorites category.
-			0
-		}
-		Category::Photos | Category::Videos | Category::Music | Category::Encrypted => {
-			db.object()
-				.count(vec![object::kind::equals(match category {
-					Category::Photos => ObjectKind::Image as i32,
-					Category::Videos => ObjectKind::Video as i32,
-					Category::Music => ObjectKind::Audio as i32,
-					Category::Encrypted => ObjectKind::Encrypted as i32,
-					_ => unreachable!(),
-				})])
-				.exec()
-				.await
-				.unwrap_or(0) as i32
-		}
+		Category::Favorites => db
+			.object()
+			.count(vec![object::favorite::equals(true)])
+			.exec()
+			.await
+			.unwrap_or(0) as i32,
+		Category::Photos
+		| Category::Videos
+		| Category::Music
+		| Category::Encrypted
+		| Category::Books => db
+			.object()
+			.count(vec![object::kind::equals(match category {
+				Category::Photos => ObjectKind::Image as i32,
+				Category::Videos => ObjectKind::Video as i32,
+				Category::Music => ObjectKind::Audio as i32,
+				Category::Books => ObjectKind::Book as i32,
+				Category::Encrypted => ObjectKind::Encrypted as i32,
+				_ => unreachable!(),
+			})])
+			.exec()
+			.await
+			.unwrap_or(0) as i32,
 		Category::Downloads => {
 			// TODO: Fetch the actual count for the Downloads category.
 			0
@@ -65,10 +71,6 @@ pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i
 		}
 		Category::Games => {
 			// TODO: Fetch the actual count for the Games category.
-			0
-		}
-		Category::Books => {
-			// TODO: Fetch the actual count for the Books category.
 			0
 		}
 		Category::Trash => {

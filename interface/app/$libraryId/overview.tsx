@@ -74,7 +74,8 @@ const SearchableCategories: Record<string, ObjectKindKey> = {
 	Videos: 'Video',
 	Music: 'Audio',
 	Documents: 'Document',
-	Encrypted: 'Encrypted'
+	Encrypted: 'Encrypted',
+	Books: 'Book',
 }
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
@@ -126,7 +127,6 @@ export const Component = () => {
 	const platform = usePlatform();
 	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
-
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
@@ -135,13 +135,14 @@ export const Component = () => {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 
+	// TODO: integrate this into search query
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
-
-	const canSearch = !!SearchableCategories[selectedCategory];
+	// this should be redundant once above todo is complete
+	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
 
 	const kind = [ObjectKind[SearchableCategories[selectedCategory] || 0] as number];
 
-	const searchQuery = useLibraryQuery(['search.paths', { kind }], {
+	const searchQuery = useLibraryQuery(['search.paths', selectedCategory === 'Favorites' ? { favorite: true } : { kind }], {
 		suspense: true,
 		enabled: canSearch
 	});
