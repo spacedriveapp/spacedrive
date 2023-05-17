@@ -5,7 +5,7 @@ import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import RenameTextBox from './File/RenameTextBox';
-import Thumb from './File/Thumb';
+import FileThumb from './File/Thumb';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
 import { getItemFilePath } from './util';
@@ -40,7 +40,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 					}
 				)}
 			>
-				<Thumb data={data} size={explorerStore.gridItemSize} />
+				<FileThumb data={data} size={explorerStore.gridItemSize} />
 			</div>
 			<div className="flex flex-col justify-center">
 				{filePathData && (

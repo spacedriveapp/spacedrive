@@ -8,7 +8,7 @@ import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import Thumb from './File/Thumb';
+import FileThumb from './File/Thumb';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
 
@@ -36,7 +36,7 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 					selected && 'bg-app-selected/20'
 				)}
 			>
-				<Thumb
+				<FileThumb
 					size={0}
 					data={data}
 					cover={explorerStore.mediaAspectSquare}
