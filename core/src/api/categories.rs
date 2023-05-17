@@ -20,8 +20,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			let mut category_items = Vec::with_capacity(Category::VARIANTS.len());
 
 			for category_str in Category::VARIANTS {
-				let category =
-					Category::from_str(category_str).expect("it's alright this category string exists");
+				let category = Category::from_str(category_str)
+					.expect("it's alright this category string exists");
 
 				// Convert the category to a CategoryItem and push to vector.
 				category_items.push(CategoryItem {
