@@ -123,9 +123,11 @@ const StatItem = (props: StatItemProps) => {
 };
 
 export const Component = () => {
+	const page = usePageLayout();
 	const platform = usePlatform();
 	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
+
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
@@ -155,13 +157,6 @@ export const Component = () => {
 		});
 	}, [searchQuery.data, explorerStore.layoutMode]);
 
-	overviewMounted = true;
-
-	const inspector = explorerControlOptions.find(
-		(t) => t.toolTipLabel === 'Show Inspector'
-	) as ToolOption;
-
-
 	let items: ExplorerItem[] = [];
 	switch (selectedCategory) {
 		case 'Recents':
@@ -173,8 +168,7 @@ export const Component = () => {
 			}
 	}
 
-	const page = usePageLayout();
-
+	overviewMounted = true;
 	return (
 		<div>
 			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
