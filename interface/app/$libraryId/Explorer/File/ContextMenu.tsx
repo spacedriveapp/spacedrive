@@ -273,7 +273,6 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
 	const filePath = getItemFilePath(props.data);
 
 	const { library } = useLibraryContext();

@@ -1,15 +1,19 @@
 import clsx from 'clsx';
 import {
+	ArrowClockwise,
 	Columns,
+	Key,
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
-	SquaresFour
+	SquaresFour,
+	Tag
 } from 'phosphor-react';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
+import { KeyManager } from '../app/$libraryId/KeyManager';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
@@ -68,5 +72,34 @@ export const useExplorerTopBarOptions = () => {
 		}
 	];
 
-	return { explorerViewOptions, explorerControlOptions };
+	const explorerToolOptions: ToolOption[] = [
+		{
+			toolTipLabel: 'Key Manager',
+			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			popOverComponent: <KeyManager />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
+			toolTipLabel: 'Tag Assign Mode',
+			icon: (
+				<Tag
+					weight={explorerStore.tagAssignMode ? 'fill' : 'regular'}
+					className={TOP_BAR_ICON_STYLE}
+				/>
+			),
+			onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			topBarActive: explorerStore.tagAssignMode,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
+			toolTipLabel: 'Regenerate thumbs (temp)',
+			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		}
+	];
+
+	return { explorerViewOptions, explorerControlOptions, explorerToolOptions };
 };

@@ -22,7 +22,8 @@ export enum ObjectKind {
 	Font,
 	Mesh,
 	Code,
-	Database
+	Database,
+	Book
 }
 
 export type ObjectKindKey = keyof typeof ObjectKind;
