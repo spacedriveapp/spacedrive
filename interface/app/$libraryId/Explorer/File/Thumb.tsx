@@ -126,7 +126,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<string>('#');
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { locationId, newThumbnails } = useExplorerStore();
-	const { kind, extension, newThumb, hasThumbnail, cas_id, isDir } = getExplorerItemData(
+	const { kind, extension, hasThumbnail, cas_id, isDir } = getExplorerItemData(
 		props.data,
 		newThumbnails
 	);
@@ -134,12 +134,12 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	useEffect(() => {
 		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
-		} else if (newThumb || hasThumbnail) {
+		} else if (hasThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
-	}, [props.loadOriginal, newThumb, hasThumbnail]);
+	}, [props.loadOriginal, props.data, hasThumbnail]);
 
 	useEffect(() => {
 		switch (thumbType) {
@@ -187,7 +187,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		>
 			{(() => {
 				switch (thumbType) {
-					case ThumbType.Original:
+					case ThumbType.Original: {
+						const onError = () =>
+							void setThumbType(hasThumbnail ? ThumbType.Thumbnail : ThumbType.Icon);
+
 						switch (extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind) {
 							case 'PDF':
 								return (
@@ -206,9 +209,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									<video
 										crossOrigin="anonymous"
 										src={src}
-										onError={() => {
-											setThumbType(ThumbType.Thumbnail);
-										}}
+										onError={onError}
 										autoPlay
 										controls={props.mediaControls}
 										onCanPlay={(e) => {
@@ -240,9 +241,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											<audio
 												crossOrigin="anonymous"
 												src={src}
-												onError={() => {
-													setThumbType(ThumbType.Thumbnail);
-												}}
+												onError={onError}
 												controls
 												autoPlay
 												className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
@@ -253,6 +252,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									</>
 								);
 						}
+					}
 					// eslint-disable-next-line no-fallthrough
 					case ThumbType.Thumbnail:
 						return (
@@ -290,7 +290,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								}
 							/>
 						);
-					case ThumbType.Icon:
+					default:
 						return (
 							<img
 								src={src}
