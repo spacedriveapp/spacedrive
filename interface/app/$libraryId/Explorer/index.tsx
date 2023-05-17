@@ -78,7 +78,7 @@ export default function Explorer(props: Props) {
 					<div className="w-[260px] shrink-0">
 						<Inspector
 							className={props.inspectorClassName}
-							data={selectedItem ?? undefined}
+							data={selectedItem}
 						/>
 					</div>
 				)}
