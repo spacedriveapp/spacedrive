@@ -1,12 +1,12 @@
 import clsx from 'clsx';
-import { Dispatch, SetStateAction, useState, MouseEventHandler } from 'react';
+import { Trash } from 'phosphor-react';
+import { Dispatch, MouseEventHandler, SetStateAction, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
-import { IndexerRule, useLibraryQuery, useLibraryMutation } from '@sd/client';
+import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import RuleButton from './RuleButton';
 import RulesForm from './RulesForm';
-import { Trash } from 'phosphor-react';
-import { showAlertDialog } from '~/components';
 
 export type IndexerRuleIdFieldType = ControllerRenderProps<
 	{ indexerRulesIds: number[] },
@@ -60,10 +60,16 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 
 	return (
 		<>
-			<div className="flex flex-wrap w-full gap-1">
+			<div className="flex w-full flex-wrap gap-1">
 				{indexRules ? (
 					indexRules.map((rule) => (
-						<RuleButton ruleSelected={ruleSelected} setRuleSelected={v => setRuleSelected(v)} key={rule.id} rule={rule} field={field} />
+						<RuleButton
+							ruleSelected={ruleSelected}
+							setRuleSelected={(v) => setRuleSelected(v)}
+							key={rule.id}
+							rule={rule}
+							field={field}
+						/>
 					))
 				) : (
 					<p className={clsx(listIndexerRules.isError && 'text-red-500')}>
@@ -81,15 +87,15 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 			)}
 			{ruleSelected && (
 				<Button
-				disabled={isDeleting || !field}
-				onClick={confirmDelete}
-				size="sm"
-				variant="colored"
-				className="mx-auto mt-5 bg-red-500 border-red-500"
-			>
-				<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-				Delete
-			</Button>
+					disabled={isDeleting || !field}
+					onClick={confirmDelete}
+					size="sm"
+					variant="colored"
+					className="mx-auto mt-5 border-red-500 bg-red-500"
+				>
+					<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+					Delete
+				</Button>
 			)}
 		</>
 	);

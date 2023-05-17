@@ -151,7 +151,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2 pb-0'
 					}
 				>
-					<div className="grid grid-cols-3 px-3 pt-4 mb-4 text-sm font-bold">
+					<div className="mb-4 grid grid-cols-3 px-3 pt-4 text-sm font-bold">
 						<h3 className="pl-2">Type</h3>
 						<h3 className="pl-2">Value</h3>
 					</div>
@@ -243,58 +243,49 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 								{ shouldFocus: false }
 							)
 						}
-						className="border w-full mx-auto !my-2
+						className="!my-2 mx-auto w-full border
 										!border-app-line !bg-app-darkBox py-2 !font-bold
 										 hover:brightness-105"
 					>
 						+ New
 					</Button>
 				</div>
-				<Divider className='my-[25px]'/>
-						<div className="flex justify-center w-full">
-							<div className="flex items-center gap-2 mb-5">
-								<p className="text-sm text-ink-faint">Blacklist</p>
-								<Controller
-									name="kind"
-									render={({ field }) => (
-										<Switch
-											onCheckedChange={(checked) => {
-												// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for them
-												// kind.AcceptIfChildrenDirectoriesArePresent
-												// kind.RejectIfChildrenDirectoriesArePresent
-												const kind = ruleKindEnum.enum;
-												field.onChange(
-													checked
-														? kind.AcceptFilesByGlob
-														: kind.RejectFilesByGlob
-												);
-											}}
-											size="md"
-										/>
-									)}
-									control={form.control}
+				<Divider className="my-[25px]" />
+				<div className="flex w-full justify-center">
+					<div className="mb-5 flex items-center gap-2">
+						<p className="text-sm text-ink-faint">Blacklist</p>
+						<Controller
+							name="kind"
+							render={({ field }) => (
+								<Switch
+									onCheckedChange={(checked) => {
+										// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for them
+										// kind.AcceptIfChildrenDirectoriesArePresent
+										// kind.RejectIfChildrenDirectoriesArePresent
+										const kind = ruleKindEnum.enum;
+										field.onChange(
+											checked
+												? kind.AcceptFilesByGlob
+												: kind.RejectFilesByGlob
+										);
+									}}
+									size="md"
 								/>
-								<p className="text-sm text-ink-faint">Whitelist</p>
-								<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
-									<Info />
-								</Tooltip>
-							</div>
-						</div>
-			<Button
-					form={formId}
-					type="submit"
-					variant="accent"
-					className="w-[90px] mx-auto"
-				>
+							)}
+							control={form.control}
+						/>
+						<p className="text-sm text-ink-faint">Whitelist</p>
+						<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
+							<Info />
+						</Tooltip>
+					</div>
+				</div>
+				<Button form={formId} type="submit" variant="accent" className="mx-auto w-[90px]">
 					Save
 				</Button>
 				<div className="text-center">
-									<ErrorMessage
-										name={REMOTE_ERROR_FORM_FIELD}
-										variant="large"
-										className="mt-2"
-									/>
-								</div>
+					<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2" />
+				</div>
 			</FormProvider>
 		</>
 	);
