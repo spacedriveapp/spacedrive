@@ -22,7 +22,7 @@ const schema = z.object({
 	path: z.string(),
 	hidden: z.boolean(),
 	indexerRulesIds: z.array(z.number()),
-	location_type: z.string(),
+	locationType: z.string(),
 	syncPreviewMedia: z.boolean(),
 	generatePreviewMedia: z.boolean()
 });
@@ -36,7 +36,7 @@ export const Component = () => {
 		schema,
 		defaultValues: {
 			indexerRulesIds: [],
-			location_type: 'normal',
+			locationType: 'normal',
 		}
 	});
 
@@ -82,7 +82,7 @@ export const Component = () => {
 					path: data.path,
 					name: data.name,
 					hidden: data.hidden,
-					location_type: 'normal', // temp
+					locationType: 'normal', // temp
 					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
 					syncPreviewMedia: data.sync_preview_media,
 					generatePreviewMedia: data.generate_preview_media
@@ -149,7 +149,7 @@ export const Component = () => {
 				<Divider />
 				<div className="space-y-2">
 					<Label className="grow">Location Type</Label>
-					<RadioGroup.Root className='flex flex-row !space-y-0 space-x-2' {...form.register('location_type')}>
+					<RadioGroup.Root className='flex flex-row !space-y-0 space-x-2' {...form.register('locationType')}>
 						<RadioGroup.Item key="normal" value="normal">
 							<h1 className="font-bold">Normal</h1>
 							<p className="text-sm text-ink-faint">Contents will be indexed as-is, new files will not be automatically sorted.</p>
