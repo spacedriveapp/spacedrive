@@ -57,9 +57,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 			]
 		}
 	});
-	const {
-		formState: { errors }
-	} = form;
+	const errors = form.formState.errors;
 
 	const { fields, append, remove } = useFieldArray({
 		control: form.control,
@@ -151,7 +149,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2 pb-0'
 					}
 				>
-					<div className="mb-4 grid grid-cols-3 px-3 pt-4 text-sm font-bold">
+					<div className="grid grid-cols-3 px-3 pt-4 mb-4 text-sm font-bold">
 						<h3 className="pl-2">Type</h3>
 						<h3 className="pl-2">Value</h3>
 					</div>
@@ -251,8 +249,8 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 					</Button>
 				</div>
 				<Divider className="my-[25px]" />
-				<div className="flex w-full justify-center">
-					<div className="mb-5 flex items-center gap-2">
+				<div className="flex justify-center w-full">
+					<div className="flex items-center gap-2 mb-5">
 						<p className="text-sm text-ink-faint">Blacklist</p>
 						<Controller
 							name="kind"

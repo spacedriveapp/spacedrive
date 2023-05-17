@@ -121,24 +121,23 @@ export const RuleInput = memo(
 								: '/home/emily/Documents') +
 							')'
 						}
-						onClick={() => {
-							openDirectoryPickerDialog(platform)
-								.then((path) => {
-									const event = {
-										target: {
-											value: path
-										}
-									} as ChangeEvent<HTMLInputElement>;
-									if (path) {
-										props.onChange?.(event);
-									}
-								})
-								.catch((error) =>
-									showAlertDialog({
-										title: 'Error',
-										value: String(error)
-									})
-								);
+						onClick={async () => {
+							try {
+								const path = await openDirectoryPickerDialog(platform);
+								const event = {
+								  target: {
+									value: path
+								  }
+								} as ChangeEvent<HTMLInputElement>;
+								if (path) {
+								  props.onChange?.(event);
+								}
+							  } catch (error) {
+								showAlertDialog({
+								  title: 'Error',
+								  value: String(error)
+								});
+							  }
 						}}
 						{...props}
 					/>
