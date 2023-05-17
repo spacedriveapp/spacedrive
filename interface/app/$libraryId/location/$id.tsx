@@ -1,18 +1,15 @@
+import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { dialogManager } from '@sd/ui';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { dialogManager } from '@sd/ui';
 import { useZodRouteParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerSearchParams } from '../Explorer/util';
-import { KeyManager } from '../KeyManager';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar';
 import TopBarChildren from '../TopBar/TopBarChildren';
 
 const PARAMS = z.object({

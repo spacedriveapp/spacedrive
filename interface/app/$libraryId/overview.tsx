@@ -19,7 +19,6 @@ import { usePlatform } from '~/util/Platform';
 import Explorer from './Explorer';
 import { SEARCH_PARAMS, getExplorerItemData } from './Explorer/util';
 import { usePageLayout } from './PageLayout';
-import { ToolOption } from './TopBar';
 import TopBarChildren from './TopBar/TopBarChildren';
 
 interface StatItemProps {
@@ -139,6 +138,7 @@ export const Component = () => {
 	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
 
 	const canSearch = !!SearchableCategories[selectedCategory];
+
 	const kind = [ObjectKind[SearchableCategories[selectedCategory] || 0] as number];
 
 	const searchQuery = useLibraryQuery(['search.paths', { kind }], {
@@ -198,16 +198,16 @@ export const Component = () => {
 				</div>
 				<div className="no-scrollbar sticky top-0 z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
-						const iconString = CategoryToIcon[category] || 'Document';
+						const iconString = CategoryToIcon[category.name] || 'Document';
 						const icon = icons[iconString as keyof typeof icons];
 						return (
 							<CategoryButton
-								key={category}
-								category={category}
+								key={category.name}
+								category={category.name}
 								icon={icon}
-								items={0}
-								selected={selectedCategory === category}
-								onClick={() => setSelectedCategory(category)}
+								items={category.count}
+								selected={selectedCategory === category.name}
+								onClick={() => setSelectedCategory(category.name)}
 							/>
 						);
 					})}
@@ -239,10 +239,15 @@ function CategoryButton({ category, icon, items, selected, onClick }: CategoryBu
 				<h2 className="text-sm font-medium">{category}</h2>
 				{items !== undefined && (
 					<p className="text-xs text-ink-faint">
-						{items} Item{items > 1 && 's'}
+						{numberWithCommas(items)} Item{(items > 1 || items === 0) && 's'}
 					</p>
 				)}
 			</div>
 		</div>
 	);
+}
+
+
+function numberWithCommas(x: number) {
+	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }

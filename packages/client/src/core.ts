@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "categories.list", input: LibraryArgs<null>, result: string[] } | 
+        { key: "categories.list", input: LibraryArgs<null>, result: CategoryItem[] } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "files.getRecent", input: LibraryArgs<number>, result: ExplorerItem[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
@@ -229,6 +229,8 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
+
+export type CategoryItem = { name: string; count: number }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 

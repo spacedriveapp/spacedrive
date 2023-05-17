@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { explorerConfigStore, getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
+import { getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
@@ -24,7 +24,6 @@ export default () => {
 
 	return (
 		<div className="p-4 ">
-			{/* <Heading>Explorer Appearance</Heading> */}
 			<Subheading>Item size</Subheading>
 			{explorerStore.layoutMode === 'media' ? (
 				<Slider
@@ -95,9 +94,8 @@ export default () => {
 					/>
 				)}
 				<div>
-
 					<Subheading>Double click action</Subheading>
-					<Select value={explorerConfigStore.openOnDoubleClick ? "openFile" : "quickPreview"} onChange={(value) => {
+					<Select className='w-full' value={explorerConfig.openOnDoubleClick ? "openFile" : "quickPreview"} onChange={(value) => {
 						getExplorerConfigStore().openOnDoubleClick = value === "openFile";
 					}}>
 						<SelectOption value="openFile">Open File</SelectOption>
