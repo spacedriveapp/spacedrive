@@ -105,7 +105,7 @@ const CategoryToIcon: Record<string, string> = {
 	Applications: 'Application',
 	Games: "Game",
 	Books: 'Book',
-	Encrypted: 'Encrypted',
+	Encrypted: 'EncryptedLock',
 	Archives: 'Database',
 	Projects: 'Folder',
 	Trash: 'Trash'
@@ -211,7 +211,7 @@ export const Component = () => {
 						})}
 					</div>
 				</div>
-				<div className="sticky top-0 z-50 mt-4 flex flex-wrap space-x-[1px] bg-app py-1">
+				<div className="no-scrollbar sticky top-0 backdrop-blur z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category] || 'Document';
 						const icon = icons[iconString as keyof typeof icons];
