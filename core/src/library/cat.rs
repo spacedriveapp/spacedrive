@@ -30,52 +30,45 @@ pub enum Category {
 	Trash,
 }
 
+impl Category {
+	fn to_object_kind(&self) -> ObjectKind {
+		match self {
+			Category::Photos => ObjectKind::Image,
+			Category::Videos => ObjectKind::Video,
+			Category::Music => ObjectKind::Audio,
+			Category::Books => ObjectKind::Book,
+			Category::Encrypted => ObjectKind::Encrypted,
+			_ => unimplemented!("Category::to_object_kind() for {:?}", self),
+		}
+	}
+}
+
 pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	match category {
-		Category::Recents => db
-			.object()
-			.count(vec![not![object::date_accessed::equals(None)]])
-			.exec()
-			.await
-			.unwrap_or(0) as i32,
-		Category::Favorites => db
-			.object()
-			.count(vec![object::favorite::equals(true)])
-			.exec()
-			.await
-			.unwrap_or(0) as i32,
+	let params = match category {
+		Category::Recents => vec![not![object::date_accessed::equals(None)]],
+		Category::Favorites => vec![object::favorite::equals(true)],
 		Category::Photos
 		| Category::Videos
 		| Category::Music
 		| Category::Encrypted
-		| Category::Books => db
-			.object()
-			.count(vec![object::kind::equals(match category {
-				Category::Photos => ObjectKind::Image as i32,
-				Category::Videos => ObjectKind::Video as i32,
-				Category::Music => ObjectKind::Audio as i32,
-				Category::Books => ObjectKind::Book as i32,
-				Category::Encrypted => ObjectKind::Encrypted as i32,
-				_ => unreachable!(),
-			})])
-			.exec()
-			.await
-			.unwrap_or(0) as i32,
+		| Category::Books => vec![object::kind::equals(category.to_object_kind() as i32)],
 		Category::Downloads => {
 			// TODO: Fetch the actual count for the Downloads category.
-			0
+			return 0;
 		}
 		Category::Projects => {
 			// TODO: Fetch the actual count for the Projects category.
-			0
+			return 0;
 		}
 		Category::Games => {
 			// TODO: Fetch the actual count for the Games category.
-			0
+			return 0;
 		}
 		Category::Trash => {
 			// TODO: Fetch the actual count for the Trash category.
-			0
+			return 0;
 		}
-	}
+	};
+
+	db.object().count(params).exec().await.unwrap_or(0) as i32
 }

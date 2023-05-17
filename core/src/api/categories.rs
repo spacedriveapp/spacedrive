@@ -1,15 +1,13 @@
-use std::vec;
-
 use crate::library::{get_category_count, Category};
 
-use super::{utils::library, Ctx, R};
+use std::str::FromStr;
 
-use futures::executor::block_on;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::str::FromStr;
 use strum::VariantNames;
+
+use super::{utils::library, Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router().procedure("list", {
@@ -19,18 +17,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			count: i32,
 		}
 		R.with2(library()).query(|(_, library), _: ()| async move {
-			let mut category_items = Vec::new();
+			let mut category_items = Vec::with_capacity(Category::VARIANTS.len());
 
-			for category_str in Category::VARIANTS.into_iter() {
-				let category = Category::from_str(&category_str).unwrap();
-
-				// Fetch the count for the category.
-				let count = block_on(get_category_count(&library.db, category));
+			for category_str in Category::VARIANTS {
+				let category =
+					Category::from_str(category_str).expect("it's alright this category string exists");
 
 				// Convert the category to a CategoryItem and push to vector.
 				category_items.push(CategoryItem {
 					name: category_str.to_string(),
-					count,
+					count: get_category_count(&library.db, category).await,
 				});
 			}
 
