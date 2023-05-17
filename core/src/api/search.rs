@@ -87,6 +87,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				path: Option<String>,
 				#[specta(optional)]
 				cursor: Option<Vec<u8>>,
+				#[specta(optional)]
+				favorite: Option<bool>,
+				#[specta(optional)]
+				hidden: Option<bool>,
 			}
 
 			R.with2(library())
@@ -126,6 +130,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let object_params = chain_optional_iter(
 						[],
 						[
+							args.favorite.map(object::favorite::equals),
+							args.hidden.map(object::hidden::equals),
 							(!args.kind.is_empty())
 								.then(|| object::kind::in_vec(args.kind.into_iter().collect())),
 							(!args.tags.is_empty()).then(|| {

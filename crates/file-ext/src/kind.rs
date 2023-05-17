@@ -47,4 +47,6 @@ pub enum ObjectKind {
 	Code = 20,
 	/// Database file
 	Database = 21,
+	/// E-book file
+	Book = 22,
 }

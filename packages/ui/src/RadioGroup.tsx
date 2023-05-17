@@ -3,7 +3,7 @@ import { cx } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
-export interface RootProps extends RadioGroup.RadioGroupProps {}
+export interface RootProps extends RadioGroup.RadioGroupProps { }
 export const Root = forwardRef<HTMLDivElement, RootProps>(
 	({ children, className, ...props }, ref) => {
 		return (
@@ -18,7 +18,7 @@ export const Root = forwardRef<HTMLDivElement, RootProps>(
 // 	RadioGroup.Item
 // )`rounded-md border border-app-line bg-app-box px-4 py-2 flex items-center space-x-2`;
 
-export interface ItemProps extends RadioGroup.RadioGroupItemProps {}
+export interface ItemProps extends RadioGroup.RadioGroupItemProps { }
 export const Item = ({ children, ...props }: ItemProps) => {
 	return (
 		<div className="flex max-w-sm space-x-2 rounded-md border border-app-line bg-app-box/50 px-4 py-3">
