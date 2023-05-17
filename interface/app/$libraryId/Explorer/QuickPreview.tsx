@@ -51,7 +51,7 @@ const pdfViewerEnabled = () => {
 };
 
 function FilePreview({ explorerItem, kind, src, onError }: FilePreviewProps) {
-	const className = clsx('object-contain');
+	const className = clsx('w-full object-contain');
 	const fileThumb = <FileThumb size={0} data={explorerItem} cover className={className} />;
 	switch (kind) {
 		case 'PDF':
@@ -207,7 +207,7 @@ export function QuickPreview({ libraryUuid, transformOrigin }: QuickPreviewProps
 												</span>
 											</Dialog.Title>
 										</nav>
-										<div className="flex shrink overflow-hidden">{preview}</div>
+										<div className="flex shrink h-full overflow-hidden">{preview}</div>
 									</div>
 								</AnimatedDialogContent>
 							</Dialog.Portal>

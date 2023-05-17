@@ -46,6 +46,8 @@ import Laptop from './Laptop.png';
 import Mesh from './Mesh.png';
 import Mesh_Light from './Mesh_Light.png';
 import Mobile from './Mobile.png';
+import Movie from './Movie.png';
+import Movie_white from './Movie_white.png';
 import Node from './Node.png';
 import Node_Light from './Node_Light.png';
 import Package from './Package.png';
@@ -110,6 +112,8 @@ export {
 	Mesh,
 	Mesh_Light,
 	Mobile,
+	Movie,
+	Movie_white,
 	Node,
 	Node_Light,
 	Package,
