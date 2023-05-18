@@ -52,7 +52,7 @@ impl Header {
 				bytes.extend_from_slice(uuid.as_bytes());
 
 				let len_buf = len.to_le_bytes();
-				debug_assert_eq!(len_buf.len(), 4);
+				debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
 				bytes.extend_from_slice(&len_buf);
 
 				bytes
