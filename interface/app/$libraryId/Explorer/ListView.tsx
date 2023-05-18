@@ -16,11 +16,14 @@ import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
+import {
+	getExplorerStore,
+	useDismissibleNoticeStore,
+	useExplorerStore,
+	useScrolled
+} from '~/hooks';
 import RenameTextBox from './File/RenameTextBox';
-import Thumb from './File/Thumb';
+import FileThumb from './File/Thumb';
 import { InfoPill } from './Inspector';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
@@ -104,7 +107,7 @@ export default () => {
 					return (
 						<div className="relative flex items-center">
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
-								<Thumb data={file} size={35} />
+								<FileThumb data={file} size={35} />
 							</div>
 							{filePathData && (
 								<RenameTextBox

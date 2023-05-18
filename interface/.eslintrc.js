@@ -5,6 +5,9 @@ module.exports = {
 		project: './tsconfig.json'
 	},
 	rules: {
-		'react-hooks/exhaustive-deps': ['warn', { additionalHooks: 'useCallbackToWatchForm' }]
+		'react-hooks/exhaustive-deps': [
+			'warn',
+			{ additionalHooks: '(useCallbackToWatchForm|useCallbackToWatchResize)' }
+		]
 	}
 };
