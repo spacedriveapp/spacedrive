@@ -96,7 +96,7 @@ impl<'a> Block<'a> {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(&self.offset.to_le_bytes());
 		buf.extend_from_slice(&self.size.to_le_bytes());
-		buf.extend_from_slice(&self.data);
+		buf.extend_from_slice(self.data);
 		buf
 	}
 
@@ -154,7 +154,7 @@ pub async fn send(
 		}
 
 		let block = Block {
-			offset: offset,
+			offset,
 			size: read as u64,
 			data: &buf[..read],
 		};
