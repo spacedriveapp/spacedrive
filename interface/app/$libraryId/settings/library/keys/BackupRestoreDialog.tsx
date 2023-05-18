@@ -36,8 +36,6 @@ export default (props: UseDialogProps) => {
 		secretKey: false
 	});
 
-	const dialog = useDialog(props);
-
 	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
 
@@ -45,22 +43,21 @@ export default (props: UseDialogProps) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		if (data.filePath !== '') {
-			restoreKeystoreMutation.mutate({
-				password: data.masterPassword,
-				secret_key: data.secretKey,
-				path: data.filePath
-			});
-			form.reset();
-		}
-	});
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={(data) =>
+				data.filePath !== ''
+					? restoreKeystoreMutation
+							.mutateAsync({
+								password: data.masterPassword,
+								secret_key: data.secretKey,
+								path: data.filePath
+							})
+							.then(() => form.reset())
+					: null
+			}
+			dialog={useDialog(props)}
 			title="Restore Keys"
 			description="Restore keys from a backup."
 			loading={restoreKeystoreMutation.isLoading}

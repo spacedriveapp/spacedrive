@@ -26,7 +26,6 @@ const schema = z.object({
 });
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
 	const platform = usePlatform();
 
 	const UpdateKey = (uuid: string) => {
@@ -64,23 +63,21 @@ export default (props: Props) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		encryptFile.mutateAsync({
-			algorithm: data.encryptionAlgo as Algorithm,
-			key_uuid: data.key,
-			location_id: props.location_id,
-			path_id: props.path_id,
-			metadata: data.metadata,
-			preview_media: data.previewMedia,
-			output_path: data.outputPath || null
-		})
-	);
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={(data) =>
+				encryptFile.mutateAsync({
+					algorithm: data.encryptionAlgo as Algorithm,
+					key_uuid: data.key,
+					location_id: props.location_id,
+					path_id: props.path_id,
+					metadata: data.metadata,
+					preview_media: data.previewMedia,
+					output_path: data.outputPath || null
+				})
+			}
+			dialog={useDialog(props)}
 			title="Encrypt a file"
 			description="Configure your encryption settings. Leave the output file blank for the default."
 			loading={encryptFile.isLoading}

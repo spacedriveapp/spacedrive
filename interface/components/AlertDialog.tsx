@@ -1,6 +1,6 @@
 import { Clipboard } from 'phosphor-react';
 import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
+import { useZodForm } from '@sd/ui/src/forms';
 
 interface Props extends UseDialogProps {
 	title: string; // dialog title
@@ -11,19 +11,17 @@ interface Props extends UseDialogProps {
 }
 
 const AlertDialog = (props: Props) => {
-	const dialog = useDialog(props);
-	const form = useZodForm({ schema: z.object({}) });
 	// maybe a copy-to-clipboard button would be beneficial too
 	return (
 		<Dialog
 			title={props.title}
-			form={form}
-			onSubmit={form.handleSubmit(() => {})}
-			dialog={dialog}
+			form={useZodForm()}
+			dialog={useDialog(props)}
 			description={props.description}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
+			onCancelled={false}
 		>
-			{props.inputBox && (
+			{props.inputBox ? (
 				<Input
 					value={props.value}
 					disabled
@@ -40,9 +38,9 @@ const AlertDialog = (props: Props) => {
 						</Button>
 					}
 				/>
+			) : (
+				<div className="text-sm">{props.value}</div>
 			)}
-
-			{!props.inputBox && <div className="text-sm">{props.value}</div>}
 		</Dialog>
 	);
 };

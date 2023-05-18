@@ -21,7 +21,6 @@ interface Props extends UseDialogProps {
 
 export default (props: Props) => {
 	const platform = usePlatform();
-	const dialog = useDialog(props);
 
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
@@ -63,22 +62,20 @@ export default (props: Props) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		decryptFile.mutateAsync({
-			location_id: props.location_id,
-			path_id: props.path_id,
-			output_path: data.outputPath !== '' ? data.outputPath : null,
-			mount_associated_key: data.mountAssociatedKey,
-			password: data.type === 'password' ? data.password : null,
-			save_to_library: data.type === 'password' ? data.saveToKeyManager : null
-		})
-	);
-
 	return (
 		<Dialog
 			form={form}
-			dialog={dialog}
-			onSubmit={onSubmit}
+			dialog={useDialog(props)}
+			onSubmit={(data) =>
+				decryptFile.mutateAsync({
+					location_id: props.location_id,
+					path_id: props.path_id,
+					output_path: data.outputPath !== '' ? data.outputPath : null,
+					mount_associated_key: data.mountAssociatedKey,
+					password: data.type === 'password' ? data.password : null,
+					save_to_library: data.type === 'password' ? data.saveToKeyManager : null
+				})
+			}
 			title="Decrypt a file"
 			description="Leave the output file blank for the default."
 			loading={decryptFile.isLoading}

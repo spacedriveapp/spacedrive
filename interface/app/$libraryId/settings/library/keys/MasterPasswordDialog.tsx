@@ -42,8 +42,6 @@ export default (props: UseDialogProps) => {
 		masterPassword2: false
 	});
 
-	const dialog = useDialog(props);
-
 	const MP1CurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = show.masterPassword2 ? EyeSlash : Eye;
 
@@ -57,7 +55,7 @@ export default (props: UseDialogProps) => {
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
+	const onSubmit: Parameters<typeof form.handleSubmit>[0] = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
 			showAlertDialog({
 				title: 'Error',
@@ -72,13 +70,13 @@ export default (props: UseDialogProps) => {
 				password: data.masterPassword
 			});
 		}
-	});
+	};
 
 	return (
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			dialog={dialog}
+			dialog={useDialog(props)}
 			title="Change Master Password"
 			description="Select a new master password for your key manager."
 			ctaDanger={true}

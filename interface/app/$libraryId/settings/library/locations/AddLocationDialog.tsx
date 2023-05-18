@@ -28,7 +28,7 @@ const isRemoteErrorFormMessage = (message: unknown): message is RemoteErrorFormM
 	typeof message === 'string' && Object.hasOwnProperty.call(REMOTE_ERROR_FORM_MESSAGE, message);
 
 const schema = z.object({
-	path: z.string(),
+	path: z.string().min(1),
 	method: z.enum(Object.keys(REMOTE_ERROR_FORM_MESSAGE) as UnionToTuple<RemoteErrorFormMessage>),
 	indexerRulesIds: z.array(z.number())
 });
@@ -57,7 +57,6 @@ export const AddLocationDialog = ({
 	method = 'CREATE',
 	...dialogProps
 }: AddLocationDialog) => {
-	const dialog = useDialog(dialogProps);
 	const platform = usePlatform();
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
@@ -154,6 +153,8 @@ export const AddLocationDialog = ({
 				// Reset method when path changes
 				form.setValue('method', method);
 
+			if (values.path === '') return;
+
 			try {
 				await addLocation(values, true);
 			} catch (error) {
@@ -163,52 +164,55 @@ export const AddLocationDialog = ({
 		[form, method, addLocation, handleAddError]
 	);
 
+	const onSubmit: Parameters<typeof form.handleSubmit>[0] = async (values) => {
+		try {
+			await addLocation(values);
+		} catch (error) {
+			if (handleAddError(error)) {
+				// Reset form to remove isSubmitting state
+				form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
+				// Throw error to prevent dialog from closing
+				throw error;
+			}
+
+			showAlertDialog({
+				title: 'Error',
+				value: String(error) || 'Failed to add location'
+			});
+
+			return;
+		}
+
+		await listLocations.refetch();
+	};
+
 	return (
 		<Dialog
-			{...{ dialog, form }}
+			form={form}
 			title="New Location"
+			dialog={useDialog(dialogProps)}
+			onSubmit={onSubmit}
+			ctaLabel="Add"
 			description={
 				platform.platform === 'web'
-					? 'As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node.'
+					? 'As you are using the browser version of Spacedrive you will (for now) ' +
+					  'need to specify an absolute URL of a directory local to the remote node.'
 					: ''
 			}
-			onSubmit={form.handleSubmit(async (values) => {
-				try {
-					await addLocation(values);
-				} catch (error) {
-					if (handleAddError(error)) {
-						// Reset form to remove isSubmitting state
-						form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
-						// Throw error to prevent dialog from closing
-						throw error;
-					}
-
-					showAlertDialog({
-						title: 'Error',
-						value: String(error) || 'Failed to add location'
-					});
-
-					return;
-				}
-
-				await listLocations.refetch();
-			})}
-			ctaLabel="Add"
 		>
 			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
 			<Input
-				label="Path:"
-				readOnly={platform.platform !== 'web'}
-				className="mb-3 cursor-pointer"
+				name="path"
 				size="md"
-				required
+				label="Path:"
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => path && form.setValue('path', path))
 						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
 				}
-				{...form.register('path')}
+				readOnly={platform.platform !== 'web'}
+				className="mb-3 cursor-pointer"
 			/>
 
 			<input type="hidden" {...form.register('method')} />
