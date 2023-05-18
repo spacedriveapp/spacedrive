@@ -2,43 +2,42 @@ import * as RadixCM from '@radix-ui/react-context-menu';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { CaretRight, Icon, IconProps } from 'phosphor-react';
-import { PropsWithChildren, Suspense } from 'react';
+import { PropsWithChildren, Suspense, createContext, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
 }
 
-export const contextMenuClasses = clsx(
-	'z-50 flex flex-col',
-	'my-2 min-w-[8rem] px-1 py-0.5',
-	'text-menu-ink text-left text-sm',
-	'bg-menu cool-shadow',
-	'border-menu-line border',
-	'cursor-default select-none rounded-md'
+export const contextMenuClassNames = clsx(
+	'z-50 max-h-[calc(100vh-20px)] overflow-y-auto',
+	'my-2 min-w-[12rem] max-w-[16rem] py-0.5',
+	'cool-shadow bg-menu',
+	'border border-menu-line',
+	'cursor-default select-none rounded-md',
+	'animate-in fade-in'
 );
 
-const Root = ({ trigger, children, className, ...props }: PropsWithChildren<ContextMenuProps>) => {
+const context = createContext<boolean>(false);
+export const useContextMenu = () => useContext(context);
+
+const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
 	return (
 		<RadixCM.Root>
 			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
 			<RadixCM.Portal>
-				<RadixCM.Content {...props} className={clsx(contextMenuClasses, className)}>
-					{children}
+				<RadixCM.Content className={clsx(contextMenuClassNames, className)} {...props}>
+					<context.Provider value={true}>{children}</context.Provider>
 				</RadixCM.Content>
 			</RadixCM.Portal>
 		</RadixCM.Root>
 	);
 };
 
-export const contextMenuSeparatorClassNames =
-	'border-b-menu-line pointer-events-none mx-2 my-1 border-0 border-b';
+export const contextMenuSeparatorClassNames = 'border-b-menu-line mx-1 my-0.5 border-b';
 
 const Separator = (props: { className?: string }) => (
 	<RadixCM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
 );
-
-export const contextSubMenuTriggerClassNames =
-	"[&[data-state='open']_div]:bg-accent text-menu-ink py-[3px]  focus:outline-none [&[data-state='open']_div]:text-white";
 
 const SubMenu = ({
 	label,
@@ -48,33 +47,37 @@ const SubMenu = ({
 }: RadixCM.MenuSubContentProps & ContextMenuItemProps) => {
 	return (
 		<RadixCM.Sub>
-			<RadixCM.SubTrigger className={contextSubMenuTriggerClassNames}>
-				<DivItem rightArrow {...{ label, icon }} />
+			<RadixCM.SubTrigger className={contextMenuItemClassNames}>
+				<ContextMenuDivItem rightArrow {...{ label, icon }} />
 			</RadixCM.SubTrigger>
 			<RadixCM.Portal>
 				<Suspense fallback={null}>
-					<RadixCM.SubContent {...props} className={clsx(contextMenuClasses, '-mt-2', className)} />
+					<RadixCM.SubContent
+						className={clsx(contextMenuClassNames, '-mt-2', className)}
+						{...props}
+					/>
 				</Suspense>
 			</RadixCM.Portal>
 		</RadixCM.Sub>
 	);
 };
 
-export const contextMenuItemStyles = cva(
+const contextMenuItemStyles = cva(
 	[
-		'flex flex-1 flex-row items-center justify-start overflow-hidden',
-		'space-x-2 px-2 py-[3px]',
-		'cursor-default rounded',
-		'focus:outline-none'
+		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
+		'text-sm text-ink',
+		'group-radix-highlighted:text-white dark:group-radix-highlighted:text-ink',
+		'group-radix-disabled:pointer-events-none group-radix-disabled:text-ink/50',
+		'group-radix-state-open:bg-accent group-radix-state-open:text-white dark:group-radix-state-open:text-ink'
 	],
 	{
 		variants: {
 			variant: {
-				default: 'hover:bg-accent focus:bg-accent hover:text-white',
+				default: 'group-radix-highlighted:bg-accent',
 				danger: [
 					'text-red-600 dark:text-red-400',
-					'hover:text-white focus:text-white',
-					'hover:bg-red-500 focus:bg-red-500'
+					'group-radix-highlighted:text-white',
+					'group-radix-highlighted:bg-red-500'
 				]
 			}
 		},
@@ -92,6 +95,8 @@ export interface ContextMenuItemProps extends VariantProps<typeof contextMenuIte
 	keybind?: string;
 }
 
+export const contextMenuItemClassNames = 'group py-0.5 outline-none px-1';
+
 const Item = ({
 	icon,
 	label,
@@ -99,46 +104,48 @@ const Item = ({
 	children,
 	keybind,
 	variant,
+	iconProps,
 	...props
 }: ContextMenuItemProps & RadixCM.MenuItemProps) => {
 	return (
-		<RadixCM.Item {...props} className="">
-			<div className={contextMenuItemStyles({ variant })}>
-				{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
-			</div>
+		<RadixCM.Item className={contextMenuItemClassNames} {...props}>
+			<ContextMenuDivItem
+				{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+			/>
 		</RadixCM.Item>
 	);
 };
 
-const DivItem = ({ variant, ...props }: ContextMenuItemProps) => (
-	<div className={contextMenuItemStyles({ variant })}>
-		<ItemInternals {...props} />
+export const ContextMenuDivItem = ({
+	variant,
+	children,
+	className,
+	...props
+}: PropsWithChildren<ContextMenuItemProps & { className?: string }>) => (
+	<div className={contextMenuItemStyles({ variant, className })}>
+		{children || <ItemInternals {...props} />}
 	</div>
 );
 
-export const ItemInternals = ({
-	icon,
-	label,
-	rightArrow,
-	keybind,
-	iconProps
-}: ContextMenuItemProps) => {
+const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextMenuItemProps) => {
 	const ItemIcon = icon;
+
 	return (
 		<>
 			{ItemIcon && <ItemIcon size={18} {...iconProps} />}
-			{label && <p>{label}</p>}
+			{label && <span className="flex-1 truncate">{label}</span>}
 
 			{keybind && (
-				<span className="flex-end text-menu-faint absolute right-3 text-xs font-medium group-hover:text-white">
+				<span className="text-xs font-medium text-menu-faint group-radix-highlighted:text-white">
 					{keybind}
 				</span>
 			)}
 			{rightArrow && (
-				<>
-					<div className="flex-1" />
-					<CaretRight weight="fill" size={12} alt="" className="text-menu-faint" />
-				</>
+				<CaretRight
+					weight="fill"
+					size={12}
+					className="text-menu-faint group-radix-highlighted:text-white group-radix-state-open:text-white"
+				/>
 			)}
 		</>
 	);

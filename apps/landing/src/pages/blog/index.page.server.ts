@@ -1,7 +1,7 @@
-import { blogEnabled, getPosts } from './blog';
+import { getBlogPosts } from './api';
 
 export async function onBeforeRender() {
-	const posts = await getPosts();
+	const posts = getBlogPosts();
 
 	return {
 		pageContext: {
@@ -12,16 +12,17 @@ export async function onBeforeRender() {
 	};
 }
 
+// pre-render all doc pages at the same time as index
 export async function prerender() {
-	const posts = await getPosts();
+	const posts = getBlogPosts();
 
-	const individualPosts = posts.map((post) => ({
-		url: `/blog/${post.slug}`,
+	const docsArray = Object.values(posts).map((post) => ({
+		url: `/blog/${post.slug}/`,
 		pageContext: { pageProps: { post } }
 	}));
 
 	return [
-		...individualPosts,
+		...docsArray,
 		{
 			url: '/blog',
 			pageContext: { pageProps: { posts } }

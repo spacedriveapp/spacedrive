@@ -13,6 +13,20 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
+const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
+
+const EMPTY_STATISTICS = {
+	id: 0,
+	date_captured: '',
+	total_bytes_capacity: '0',
+	preview_media_bytes: '0',
+	library_db_size: '0',
+	total_object_count: 0,
+	total_bytes_free: '0',
+	total_bytes_used: '0',
+	total_unique_bytes: '0'
+};
+
 const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
 
@@ -30,11 +44,13 @@ const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
 };
 
 const OverviewStats = () => {
-	// TODO: Add loading state
+	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics'], {
+		initialData: { ...EMPTY_STATISTICS }
+	});
 
-	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics']);
-
-	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
+	const displayableStatItems = Object.keys(
+		StatItemNames
+	) as unknown as keyof typeof StatItemNames;
 
 	// For Demo purposes as we probably wanna save this to database
 	// Sets Total Capacity and Free Space of the device
@@ -49,7 +65,9 @@ const OverviewStats = () => {
 		});
 	}, []);
 
-	return libraryStatistics ? (
+	if (!libraryStatistics) return null;
+
+	return (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 			{Object.entries(libraryStatistics).map(([key, bytesRaw]) => {
 				if (!displayableStatItems.includes(key)) return null;
@@ -59,13 +77,15 @@ const OverviewStats = () => {
 				} else if (key === 'total_bytes_capacity') {
 					bytes = BigInt(sizeInfo.totalSpace);
 				}
-				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
+				return (
+					<StatItem
+						key={key}
+						title={StatItemNames[key as keyof Statistics]!}
+						bytes={bytes}
+					/>
+				);
 			})}
 		</ScrollView>
-	) : (
-		<View>
-			<Text style={tw`text-center font-bold text-red-600`}>No library found...</Text>
-		</View>
 	);
 };
 

@@ -9,7 +9,7 @@ default-run = "spacedrive"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "1.2.4", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
+tauri = { version = "1.3.0", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
 httpz = { workspace = true, features = ["axum", "tauri"] } # TODO: The `axum` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
 sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
@@ -19,19 +19,22 @@ tracing = "0.1.36"
 serde = "1.0.145"
 percent-encoding = "2.2.0"
 http = "0.2.8"
+opener = "0.6.1"
+specta.workspace = true
+tauri-specta = { version = "1.0.0", features = ["typescript"] }
+uuid = { version = "1.1.2", features = ["serde"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-server = { path = "../../server" }
-axum = "0.6.4"
+axum = { version = "0.6.4", features = ["headers", "query"] }
 rand = "0.8.5"
-url = "2.1.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos.path = "../crates/macos"
 
 [build-dependencies]
-tauri-build = { version = "1.1.1", features = [] }
+tauri-build = { version = "1.3.0", features = [] }
 
 [features]
 default = ["custom-protocol"]
+updater = ["tauri/updater"]
 custom-protocol = ["tauri/custom-protocol"]

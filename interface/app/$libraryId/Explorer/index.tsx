@@ -1,81 +1,88 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
-import { Inspector } from '../Explorer/Inspector';
+import clsx from 'clsx';
+import { ReactNode, useEffect, useMemo } from 'react';
+import { useKey } from 'rooks';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import ExplorerContextMenu from './ContextMenu';
-import TopBar from './TopBar';
-import { VirtualizedList } from './VirtualizedList';
+import { Inspector } from './Inspector';
+import View from './View';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
-	data?: ExplorerData;
+	// TODO: not using data since context isn't actually used
+	// and it's not exactly compatible with search
+	// data?: ExplorerData;
+	items?: ExplorerItem[];
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
+	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
+	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
-	const expStore = useExplorerStore();
-	const { library } = useLibraryContext();
+	const { selectedRowIndex, ...expStore } = useExplorerStore();
+	const [{ path }] = useExplorerSearchParams();
 
-	const [scrollSegments, setScrollSegments] = useState<{ [key: string]: number }>({});
-	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
-
-	useEffect(() => {
-		setSeparateTopBar((oldValue) => {
-			const newValue = Object.values(scrollSegments).some((val) => val >= 5);
-
-			if (newValue !== oldValue) return newValue;
-			return oldValue;
-		});
-	}, [scrollSegments]);
-
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
+	useLibrarySubscription(['jobs.newThumbnail'], {
+		onStarted: () => {
+			console.log('Started RSPC subscription new thumbnail');
+		},
+		onError: (err) => {
+			console.error('Error in RSPC subscription new thumbnail', err);
+		},
 		onData: (cas_id) => {
+			console.log({ cas_id });
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
 
-	const onScroll = useCallback((y: number) => {
-		setScrollSegments((old) => {
-			return {
-				...old,
-				mainList: y
-			};
-		});
-	}, []);
+	useEffect(() => {
+		getExplorerStore().selectedRowIndex = null;
+	}, [path]);
+
+	const selectedItem = useMemo(() => {
+		if (selectedRowIndex === null) return null;
+
+		return props.items?.[selectedRowIndex] ?? null;
+	}, [selectedRowIndex, props.items]);
+
+	useKey('Space', (e) => {
+		e.preventDefault();
+
+		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
+	});
 
 	return (
-		<div className="relative">
-			<ExplorerContextMenu>
-				<div className="relative flex w-full flex-col">
-					<TopBar showSeparator={separateTopBar} />
-
-					<div className="app-background relative flex max-h-full w-full flex-row">
-						{props.data && (
-							<VirtualizedList
-								data={props.data.items}
-								context={props.data.context}
-								onScroll={onScroll}
+		<div className="flex h-screen w-full flex-col bg-app">
+			<div className="flex flex-1">
+				<div className={clsx('flex-1 overflow-hidden', props.explorerClassName)}>
+					{props.children}
+					<ExplorerContextMenu>
+						{props.items && (
+							<View
+								data={props.items}
+								onLoadMore={props.onLoadMore}
+								hasNextPage={props.hasNextPage}
+								isFetchingNextPage={props.isFetchingNextPage}
+								viewClassName={props.viewClassName}
+								scrollRef={props.scrollRef}
 							/>
 						)}
-						{expStore.showInspector && (
-							<div className="flex min-w-[260px] max-w-[260px]">
-								<Inspector
-									onScroll={(e) => {
-										const y = (e.target as HTMLElement).scrollTop;
-
-										setScrollSegments((old) => {
-											return {
-												...old,
-												inspector: y
-											};
-										});
-									}}
-									key={props.data?.items[expStore.selectedRowIndex]?.item.id}
-									data={props.data?.items[expStore.selectedRowIndex]}
-								/>
-							</div>
-						)}
-					</div>
+					</ExplorerContextMenu>
 				</div>
-			</ExplorerContextMenu>
+				{expStore.showInspector && (
+					<div className="w-[260px] shrink-0">
+						<Inspector
+							className={props.inspectorClassName}
+							data={selectedItem}
+						/>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

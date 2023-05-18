@@ -43,7 +43,6 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
   - This will install FFmpeg and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
   - This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build.
-  - Ensure you run it like documented above as it expects it is executed from the root of the repository.
 - `pnpm i`
 - `pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
@@ -51,15 +50,24 @@ To quickly run only the desktop app after `prep` you can use:
 
 - `pnpm desktop dev`
 
-To run the landing page
+  If necessary, react-devtools can be launched using `pnpm react-devtools`.
+  However, it must be executed before the desktop app for it to connect.
 
-- `pnpm web dev` - runs the web app for the embed
+To run the web app:
+
+- `cargo run -p server` - runs the server
+- `pnpm web dev` - runs the web embed server
+
+To run the landing page:
+
 - `pnpm landing dev`
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.67.0**
+- Rust version: **1.68.2**
 - Node version: **18**
+
+After clearing out your build artifacts with either `pnpm clean`, `git clean` or `cargo clean`, it is required to re-run the `setup-system` script.
 
 Be sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to make sure your code is a similar style to ours.
 
@@ -75,6 +83,7 @@ To run mobile app
 - You must also ensure [you must have NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 - `pnpm android` - runs on Android Emulator
 - `pnpm ios` - runs on iOS Emulator
+- `pnpm start` - runs the metro bundler
 
 ### Pull Request
 

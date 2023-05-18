@@ -48,8 +48,7 @@ export default (props: Props) => {
 		onSuccess: () => {
 			showAlertDialog({
 				title: 'Success',
-				value:
-					'The encryption job has started successfully. You may track the progress in the job overview panel.'
+				value: 'The encryption job has started successfully. You may track the progress in the job overview panel.'
 			});
 		},
 		onError: () => {
@@ -87,7 +86,7 @@ export default (props: Props) => {
 			loading={encryptFile.isLoading}
 			ctaLabel="Encrypt"
 		>
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -131,7 +130,7 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -154,20 +153,26 @@ export default (props: Props) => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Metadata</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Metadata</span>
 					<CheckBox {...form.register('metadata')} />
 				</div>
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Preview Media</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Preview Media</span>
 					<CheckBox {...form.register('previewMedia')} />
 				</div>
 			</div>

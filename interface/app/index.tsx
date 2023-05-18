@@ -1,5 +1,6 @@
 import { Navigate, Outlet, RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
+import { Dialogs } from '@sd/ui';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
@@ -10,20 +11,25 @@ const Index = () => {
 
 	if (libraries.status !== 'success') return null;
 
-	if (libraries.data.length === 0) return <Navigate to="onboarding" />;
+	if (libraries.data.length === 0) return <Navigate to="onboarding" replace />;
 
 	const currentLibrary = libraries.data.find((l) => l.uuid === currentLibraryCache.id);
 
 	const libraryId = currentLibrary ? currentLibrary.uuid : libraries.data[0]?.uuid;
 
-	return <Navigate to={`${libraryId}/overview`} />;
+	return <Navigate to={`${libraryId}/overview`} replace />;
 };
 
 const Wrapper = () => {
 	useKeybindHandler();
 	useInvalidateQuery();
 
-	return <Outlet />;
+	return (
+		<>
+			<Outlet />
+			<Dialogs />
+		</>
+	);
 };
 
 // NOTE: all route `Layout`s below should contain

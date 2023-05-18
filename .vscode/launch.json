@@ -1,0 +1,66 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Tauri Development Debug",
+			"cargo": {
+				"args": [
+					"build",
+					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
+					"--no-default-features"
+				],
+				"problemMatcher": "$rustc"
+			},
+			"sourceLanguages": ["rust"],
+			"preLaunchTask": "ui:dev"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Tauri Production Debug",
+			"cargo": {
+				"args": [
+					"build",
+					"--release",
+					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml"
+				],
+				"problemMatcher": "$rustc"
+			},
+			"sourceLanguages": ["rust"],
+			"preLaunchTask": "ui:build"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'sd-core'",
+			"cargo": {
+				"args": ["test", "--no-run", "--lib", "--package=sd-core"],
+				"filter": {
+					"name": "sd-core",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'sd-crypto'",
+			"cargo": {
+				"args": ["test", "--no-run", "--lib", "--package=sd-crypto"],
+				"filter": {
+					"name": "sd-crypto",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

@@ -20,14 +20,7 @@ interface PositionPosting {
 	description: string;
 }
 
-export const positions: PositionPosting[] = [
-	{
-		name: 'Senior Frontend Engineer',
-		type: 'Full-time',
-		salary: '$80,000',
-		description: `You will be responsible for building our web based interface in TypeScript, React and Tailwind; working closely with our backend engineers to build a great user experience. A keen eye for design and clean code is a must. As our 9th employee, you'll have a huge impact and creative control over the development of Spacedrive.`
-	}
-];
+export const positions: PositionPosting[] = [];
 
 const values = [
 	{
@@ -93,13 +86,17 @@ const perks = [
 
 function Page() {
 	const openPositionsRef = useRef<HTMLHRElement>(null);
-	const scrollToPositions = () => openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
+	const scrollToPositions = () =>
+		openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
 	return (
 		<>
 			<Helmet>
 				<title>Careers - Spacedrive</title>
-				<meta name="description" content="Work with us to build the future of file management." />
+				<meta
+					name="description"
+					content="Work with us to build the future of file management."
+				/>
 			</Helmet>
 			<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 				<div
@@ -109,11 +106,11 @@ function Page() {
 				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
 					Build the future of files.
 				</h1>
-				<div className="fade-in animation-delay-1 z-30 flex flex-col items-center">
-					<p className="text-gray-350 z-40 text-center text-lg">
-						Spacedrive is redefining the way we think about our personal data, building a open
-						ecosystem to help preserve your digital legacy and make cross-platform file management a
-						breeze.
+				<div className="animation-delay-1 z-30 flex flex-col items-center fade-in">
+					<p className="z-40 text-center text-lg text-gray-350">
+						Spacedrive is redefining the way we think about our personal data, building
+						a open ecosystem to help preserve your digital legacy and make
+						cross-platform file management a breeze.
 					</p>
 					<Button
 						onClick={scrollToPositions}
@@ -123,17 +120,21 @@ function Page() {
 						See Open Positions
 					</Button>
 					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
-					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">Our Values</h2>
-					<p className="mt-2 mb-4">What drives us daily.</p>
+					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">
+						Our Values
+					</h2>
+					<p className="mb-4 mt-2">What drives us daily.</p>
 					<div className="mt-5 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
 						{values.map((value, index) => (
 							<div
 								key={value.title + index}
-								className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
+								className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
 							>
 								<value.icon className="text-[32px]" weight="bold" />
-								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
-								<p className="text-gray-350 mt-1 mb-0">{value.desc}</p>
+								<h3 className="mb-1 mt-4 text-2xl font-bold leading-snug">
+									{value.title}
+								</h3>
+								<p className="mb-0 mt-1 text-gray-350">{value.desc}</p>
 							</div>
 						))}
 					</div>
@@ -141,59 +142,74 @@ function Page() {
 					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Perks and Benefits
 					</h2>
-					<p className="mt-2 mb-4">We're behind you 100%.</p>
+					<p className="mb-4 mt-2">We're behind you 100%.</p>
 					<div className="mt-5 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
 						{perks.map((value, index) => (
 							<div
 								key={value.title + index}
-								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
-								className="bg-gray-550/30 flex flex-col rounded-md border p-8"
+								style={{
+									backgroundColor: value.color + '10',
+									borderColor: value.color + '30'
+								}}
+								className="flex flex-col rounded-md border bg-gray-550/30 p-8"
 							>
-								<value.icon className="text-[32px]" weight="bold" color={value.color} />
-								<h3 className="mt-4 mb-1">{value.title}</h3>
-								<p className="mt-1 mb-0 text-sm text-white opacity-60">{value.desc}</p>
+								<value.icon
+									className="text-[32px]"
+									weight="bold"
+									color={value.color}
+								/>
+								<h3 className="mb-1 mt-4">{value.title}</h3>
+								<p className="mb-0 mt-1 text-sm text-white opacity-60">
+									{value.desc}
+								</p>
 							</div>
 						))}
 					</div>
-					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" ref={openPositionsRef} />
+					<hr
+						className="border-1 my-24 w-full border-gray-200 opacity-10"
+						ref={openPositionsRef}
+					/>
 					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Open Positions
 					</h2>
-					<p className="mt-2 mb-4">If any open positions suit you, apply now!</p>
+					<p className="mb-4 mt-2">If any open positions suit you, apply now!</p>
 					<div className="mt-5 grid w-full grid-cols-1 gap-4">
 						{positions.length === 0 ? (
-							<p className="text-gray-350 m-0 text-center">
+							<p className="m-0 text-center text-gray-350">
 								There are no positions open at this time. Please check back later!
 							</p>
 						) : (
 							positions.map((value, index) => (
 								<div
 									key={value.name + index}
-									className="bg-gray-550/50 flex flex-col rounded-md border border-gray-500 p-10"
+									className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
 								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
 										<div className="mt-3 sm:mt-0.5">
 											<span className="text-sm font-semibold text-gray-300 sm:ml-4">
-												<CurrencyDollar className="mr-1 -mt-1 inline w-4" />
+												<CurrencyDollar className="-mt-1 mr-1 inline w-4" />
 												{value.salary}
 											</span>
 											<span className="ml-4 text-sm font-semibold text-gray-300">
-												<Clock className="mr-1 -mt-1 inline w-4" />
+												<Clock className="-mt-1 mr-1 inline w-4" />
 												{value.type}
 											</span>
 										</div>
 									</div>
-									<p className="text-gray-350 mt-3 mb-0">{value.description}</p>
+									<p className="mb-0 mt-3 text-gray-350">{value.description}</p>
 								</div>
 							))
 						)}
 					</div>
 					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
-					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">How to apply?</h2>
+					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">
+						How to apply?
+					</h2>
 					<p className="mt-2">
-						Send your cover letter and resume to <strong>careers at spacedrive dot com</strong> and
-						we'll get back to you shortly!
+						Send your cover letter and resume to{' '}
+						<strong>careers at spacedrive dot com</strong> and we'll get back to you
+						shortly!
 					</p>
 				</div>
 			</div>

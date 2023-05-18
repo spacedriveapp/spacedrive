@@ -57,7 +57,7 @@ export function TeamMember(props: TeamMemberProps) {
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}
 			/>
-			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
+			<h3 className="mb-0 mt-4 text-base">{props.name}</h3>
 			<p
 				className={clsx('text-xs', {
 					'mb-0': props.investmentRound
@@ -66,7 +66,7 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.role}
 			</p>
 			{props.investmentRound && (
-				<p className="text-gray-450 my-0 text-sm font-semibold">{props.investmentRound}</p>
+				<p className="my-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
 			)}
 			<div className="mt-auto flex flex-row space-x-2">
 				{props.socials?.twitter && (

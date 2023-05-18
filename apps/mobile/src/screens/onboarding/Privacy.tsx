@@ -18,7 +18,7 @@ const RadioButton = ({ title, description, isSelected, style }: RadioButtonProps
 	return (
 		<View
 			style={twStyle(
-				'border-app-line bg-app-box/50 flex w-full flex-row items-center rounded-md border p-3',
+				'flex w-full flex-row items-center rounded-md border border-app-line bg-app-box/50 p-3',
 				style
 			)}
 		>
@@ -31,8 +31,8 @@ const RadioButton = ({ title, description, isSelected, style }: RadioButtonProps
 				{isSelected && <View style={tw`h-1.5 w-1.5 rounded-full bg-white`} />}
 			</View>
 			<View style={tw`flex-1`}>
-				<Text style={tw`text-ink text-base font-bold`}>{title}</Text>
-				<Text style={tw`text-ink-faint text-sm`}>{description}</Text>
+				<Text style={tw`text-base font-bold text-ink`}>{title}</Text>
+				<Text style={tw`text-sm text-ink-faint`}>{description}</Text>
 			</View>
 		</View>
 	);
@@ -52,8 +52,8 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 		<OnboardingContainer>
 			<OnboardingTitle>Your Privacy</OnboardingTitle>
 			<OnboardingDescription style={tw`mt-4`}>
-				Spacedrive is built for privacy, that's why we're open source and local first. So we'll make
-				it very clear what data is shared with us.
+				Spacedrive is built for privacy, that's why we're open source and local first. So
+				we'll make it very clear what data is shared with us.
 			</OnboardingDescription>
 			<View style={tw`w-full`}>
 				<Pressable onPress={() => setShareTelemetry('share-telemetry')}>
@@ -61,10 +61,13 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 						title="Share anonymous usage"
 						description="Share completely anonymous telemetry data to help the developers improve the app"
 						isSelected={shareTelemetry === 'share-telemetry'}
-						style={tw`mt-4 mb-3`}
+						style={tw`mb-3 mt-4`}
 					/>
 				</Pressable>
-				<Pressable onPress={() => setShareTelemetry('no-share-telemetry')}>
+				<Pressable
+					testID="share-nothing"
+					onPress={() => setShareTelemetry('no-share-telemetry')}
+				>
 					<RadioButton
 						title="Share nothing"
 						description="Do not share any telemetry data with the developers"
@@ -73,7 +76,7 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 				</Pressable>
 			</View>
 			<Button variant="accent" size="sm" onPress={onPress} style={tw`mt-6`}>
-				<Text style={tw`text-ink text-center text-base font-medium`}>Continue</Text>
+				<Text style={tw`text-center text-base font-medium text-ink`}>Continue</Text>
 			</Button>
 		</OnboardingContainer>
 	);

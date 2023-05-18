@@ -2,7 +2,10 @@ mod attribute;
 
 use attribute::*;
 
-use prisma_client_rust_sdk::prelude::*;
+use prisma_client_rust_sdk::{
+	prelude::*,
+	prisma::prisma_models::walkers::{FieldWalker, ModelWalker, RefinedFieldWalker},
+};
 
 #[derive(Debug, serde::Serialize, thiserror::Error)]
 enum Error {}
@@ -10,10 +13,10 @@ enum Error {}
 #[derive(serde::Deserialize)]
 struct SDSyncGenerator {}
 
-type FieldVec<'a> = Vec<&'a dml::Field>;
+type FieldVec<'a> = Vec<FieldWalker<'a>>;
 
-#[derive(Debug)]
 #[allow(unused)]
+#[derive(Clone)]
 enum ModelSyncType<'a> {
 	Local {
 		id: FieldVec<'a>,
@@ -31,7 +34,7 @@ enum ModelSyncType<'a> {
 }
 
 impl<'a> ModelSyncType<'a> {
-	fn from_attribute(attr: Attribute, model: &'a dml::Model) -> Option<Self> {
+	fn from_attribute(attr: Attribute, model: ModelWalker<'a>) -> Option<Self> {
 		let id = attr
 			.field("id")
 			.map(|field| match field {
@@ -40,16 +43,15 @@ impl<'a> ModelSyncType<'a> {
 			})
 			.unwrap_or_else(|| {
 				model
-					.primary_key
+					.primary_key()
 					.as_ref()
 					.unwrap()
-					.fields
-					.iter()
-					.map(|f| f.name.as_str())
+					.fields()
+					.map(|f| f.name())
 					.collect()
 			})
 			.into_iter()
-			.flat_map(|name| model.find_field(name))
+			.flat_map(|name| model.fields().find(|f| f.name() == name))
 			.collect();
 
 		Some(match attr.name {
@@ -60,7 +62,7 @@ impl<'a> ModelSyncType<'a> {
 		})
 	}
 
-	fn sync_id(&self) -> Vec<&dml::Field> {
+	fn sync_id(&self) -> Vec<FieldWalker> {
 		match self {
 			Self::Owned { id } => id.clone(),
 			Self::Local { id } => id.clone(),
@@ -90,21 +92,22 @@ impl PrismaGenerator for SDSyncGenerator {
 	type Error = Error;
 
 	fn generate(self, args: GenerateArgs) -> Result<String, Self::Error> {
-		let models_with_attributes = args
-			.dml
-			.models()
-			.map(|model| (model, model_attributes(model)));
+		let db = &args.schema.db;
 
-		let models_with_sync_types = models_with_attributes.map(|(model, attributes)| {
-			let sync_type = attributes
-				.into_iter()
-				.find_map(|a| ModelSyncType::from_attribute(a, model));
+		let models_with_sync_types = db
+			.walk_models()
+			.map(|model| (model, model_attributes(model)))
+			.map(|(model, attributes)| {
+				let sync_type = attributes
+					.into_iter()
+					.find_map(|a| ModelSyncType::from_attribute(a, model));
 
-			(model, sync_type)
-		});
+				(model, sync_type)
+			})
+			.collect::<Vec<_>>();
 
-		let model_modules = models_with_sync_types.clone().map(|(model, sync_type)| {
-			let model_name_snake = snake_ident(&model.name);
+		let model_modules = models_with_sync_types.clone().into_iter().map(|(model, sync_type)| {
+			let model_name_snake = snake_ident(model.name());
 
             let sync_id = sync_type.as_ref()
                 .map(|sync_type| {
@@ -112,15 +115,14 @@ impl PrismaGenerator for SDSyncGenerator {
                     let fields = fields.iter().flat_map(|field| {
                         let name_snake = snake_ident(field.name());
 
-                        let typ = match field {
-                            dml::Field::ScalarField(_) => {
-                                field.type_tokens(quote!(self))
+                        let typ = match field.refine() {
+                            RefinedFieldWalker::Scalar(_) => {
+                                field.type_tokens(&quote!(self))
                             },
-                            dml::Field::RelationField(relation)=> {
-                                let relation_model_name_snake = snake_ident(&relation.relation_info.referenced_model);
-                                quote!(super::#relation_model_name_snake::SyncId)
+                            RefinedFieldWalker::Relation(relation)=> {
+                                let relation_model_name_snake = snake_ident(relation.related_model().name());
+                                Some(quote!(super::#relation_model_name_snake::SyncId))
                             },
-                            _ => return None
                         };
 
                         Some(quote!(pub #name_snake: #typ))
@@ -146,36 +148,33 @@ impl PrismaGenerator for SDSyncGenerator {
             let set_param_impl = {
                 let field_matches = model.fields().filter_map(|field| {
                     let field_name_snake = snake_ident(field.name());
-                    let field_name_snake_str = field_name_snake.to_string();
 
-
-                    match field {
-                        dml::Field::ScalarField(_) => {
-                            Some(quote! {
-                                #field_name_snake_str => #model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
+                    match field.refine() {
+                        RefinedFieldWalker::Scalar(scalar_field) => {
+                       		(!scalar_field.is_in_required_relation()).then(|| quote! {
+                                #model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
                             })
                         },
-                        dml::Field::RelationField(relation_field) => {
-                            let relation_model_name_snake = snake_ident(&relation_field.relation_info.referenced_model);
+                        RefinedFieldWalker::Relation(relation_field) => {
+                            let relation_model_name_snake = snake_ident(relation_field.related_model().name());
 
-                            match &relation_field.relation_info.references[..] {
-                                [_] => {
-                                    Some(quote! {
-                                        #field_name_snake_str => {
+                            match relation_field.referenced_fields() {
+                                Some(i)  => {
+                                    if i.count() == 1 {
+                                        Some(quote! {{
                                             let val: std::collections::HashMap<String, ::serde_json::Value> = ::serde_json::from_value(val).unwrap();
                                             let val = val.into_iter().next().unwrap();
 
                                             #model_name_snake::#field_name_snake::connect(
                                                 #relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
                                             )
-                                        },
-                                    })
+                                        }})
+                                    } else { None }
                                 },
                                 _ => None
                             }
                         },
-                        _ => None
-                    }
+                    }.map(|body| quote!(#model_name_snake::#field_name_snake::NAME => #body))
                 });
 
                 match field_matches.clone().count() {
@@ -195,15 +194,13 @@ impl PrismaGenerator for SDSyncGenerator {
 
             let unique_param_impl = {
                 let field_matches = model
-                    .loose_unique_criterias()
-                    .iter()
-                    .flat_map(|criteria| match &criteria.fields[..] {
-                        [field] => {
-                            let unique_field_name_str = &field.name;
-                            let unique_field_name_snake = snake_ident(unique_field_name_str);
+                    .unique_criterias()
+                    .flat_map(|criteria| match &criteria.fields().next() {
+                        Some(field) if criteria.fields().len() == 1 => {
+                            let field_name_snake = snake_ident(field.name());
 
-                            Some(quote!(#unique_field_name_str =>
-                                #model_name_snake::#unique_field_name_snake::equals(
+                            Some(quote!(#model_name_snake::#field_name_snake::NAME =>
+                                #model_name_snake::#field_name_snake::equals(
                                     ::serde_json::from_value(val).unwrap()
                                 ),
                             ))
@@ -242,10 +239,10 @@ impl PrismaGenerator for SDSyncGenerator {
 
 		let model_sync_data = {
 			let (variants, matches): (Vec<_>, Vec<_>) = models_with_sync_types
+				.into_iter()
 				.filter_map(|(model, sync_type)| {
-					let model_name_snake = snake_ident(&model.name);
-					let model_name_pascal = pascal_ident(&model.name);
-					let model_name_str = &model.name;
+					let model_name_snake = snake_ident(model.name());
+					let model_name_pascal = pascal_ident(model.name());
 
 					sync_type.and_then(|a| {
 						let data_type = match a {
@@ -263,16 +260,18 @@ impl PrismaGenerator for SDSyncGenerator {
 
 						let op_type_enum = quote!(sd_sync::CRDTOperationType);
 
+						let cond = quote!(if op.model == prisma::#model_name_snake::NAME);
+
 						let match_case = match a {
 							ModelSyncType::Owned { .. } => {
 								quote! {
-									#op_type_enum::Owned(op) if op.model == #model_name_str =>
+									#op_type_enum::Owned(op) #cond =>
 										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
 								}
 							}
 							ModelSyncType::Shared { .. } => {
 								quote! {
-									#op_type_enum::Shared(op) if op.model == #model_name_str =>
+									#op_type_enum::Shared(op) #cond =>
 										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
 								}
 							}

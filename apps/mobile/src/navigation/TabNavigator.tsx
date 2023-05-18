@@ -1,7 +1,6 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { Broadcast, CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
-import React from 'react';
+import { Broadcast, CirclesFour, Planet } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
@@ -13,6 +12,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 export default function TabNavigator() {
 	return (
 		<Tab.Navigator
+			id="tab"
 			initialRouteName="OverviewStack"
 			screenOptions={{
 				headerShown: false,

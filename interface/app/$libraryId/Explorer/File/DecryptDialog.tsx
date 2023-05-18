@@ -1,8 +1,7 @@
 import { RadioGroup } from '@headlessui/react';
 import { Info } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { Tooltip } from '@sd/ui';
+import { Button, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
 import { PasswordInput, Switch, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
@@ -42,8 +41,7 @@ export default (props: Props) => {
 		onSuccess: () => {
 			showAlertDialog({
 				title: 'Success',
-				value:
-					'The decryption job has started successfully. You may track the progress in the job overview panel.'
+				value: 'The decryption job has started successfully. You may track the progress in the job overview panel.'
 			});
 		},
 		onError: () => {
@@ -123,9 +121,11 @@ export default (props: Props) => {
 							checked={form.watch('mountAssociatedKey')}
 							onCheckedChange={(e) => form.setValue('mountAssociatedKey', e)}
 						/>
-						<span className="ml-3 mt-0.5 text-xs font-medium">Automatically mount key</span>
+						<span className="ml-3 mt-0.5 text-xs font-medium">
+							Automatically mount key
+						</span>
 						<Tooltip label="The key linked with the file will be automatically mounted">
-							<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+							<Info className="ml-1.5 mt-0.5 h-4 w-4 text-ink-faint" />
 						</Tooltip>
 					</div>
 				)}
@@ -134,7 +134,6 @@ export default (props: Props) => {
 					<>
 						<PasswordInput
 							placeholder="Password"
-							size="sm"
 							{...form.register('password', { required: true })}
 						/>
 
@@ -144,9 +143,11 @@ export default (props: Props) => {
 								size="sm"
 								{...form.register('saveToKeyManager')}
 							/>
-							<span className="ml-3 mt-0.5 text-xs font-medium">Save to Key Manager</span>
+							<span className="ml-3 mt-0.5 text-xs font-medium">
+								Save to Key Manager
+							</span>
 							<Tooltip label="This key will be saved to the key manager">
-								<Info className="text-ink-faint ml-1.5 mt-0.5 h-4 w-4" />
+								<Info className="ml-1.5 mt-0.5 h-4 w-4 text-ink-faint" />
 							</Tooltip>
 						</div>
 					</>

@@ -1,68 +1,91 @@
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
-import * as SelectPrimitive from '@radix-ui/react-select';
+import * as RS from '@radix-ui/react-select';
+import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretDown, Check } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
+import { Check } from 'phosphor-react';
+import { PropsWithChildren, forwardRef } from 'react';
 
-interface SelectProps {
-	value: string;
-	size?: 'sm' | 'md' | 'lg';
+export const selectStyles = cva(
+	[
+		'flex items-center justify-between rounded-md border py-0.5 pl-3 pr-[10px] text-sm',
+		'shadow-sm outline-none transition-all focus:ring-2',
+		'text-ink radix-placeholder:text-ink-faint'
+	],
+	{
+		variants: {
+			variant: {
+				default: ['bg-app-input', 'border-app-line']
+			},
+			size: {
+				sm: 'h-[30px]',
+				md: 'h-[34px]',
+				lg: 'h-[38px]'
+			}
+		},
+		defaultVariants: {
+			variant: 'default',
+			size: 'sm'
+		}
+	}
+);
+
+export interface SelectProps<TValue extends string = string>
+	extends VariantProps<typeof selectStyles> {
+	value: TValue;
+	onChange: (value: TValue) => void;
+	placeholder?: string;
 	className?: string;
-	onChange: (value: string) => void;
 	disabled?: boolean;
 }
 
-export function Select(props: PropsWithChildren<SelectProps>) {
+export const Select = forwardRef(
+	<TValue extends string = string>(
+		props: PropsWithChildren<SelectProps<TValue>>,
+		ref: React.ForwardedRef<HTMLDivElement>
+	) => {
+		return (
+			<div ref={ref}>
+				<RS.Root
+					defaultValue={props.value}
+					value={props.value}
+					onValueChange={props.onChange}
+					disabled={props.disabled}
+				>
+					<RS.Trigger
+						className={selectStyles({ size: props.size, className: props.className })}
+					>
+						<RS.Value placeholder={props.placeholder} />
+						<RS.Icon className="ml-2">
+							<ChevronDouble className="text-ink-dull" />
+						</RS.Icon>
+					</RS.Trigger>
+
+					<RS.Portal>
+						<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
+							<RS.Viewport className="p-1">{props.children}</RS.Viewport>
+						</RS.Content>
+					</RS.Portal>
+				</RS.Root>
+			</div>
+		);
+	}
+);
+
+export function SelectOption(props: PropsWithChildren<{ value: string; default?: boolean }>) {
 	return (
-		<SelectPrimitive.Root
-			defaultValue={props.value}
+		<RS.Item
 			value={props.value}
-			onValueChange={props.onChange}
-			disabled={props.disabled}
-		>
-			<SelectPrimitive.Trigger
-				className={clsx(
-					'bg-app-box inline-flex items-center border py-0.5 pl-2',
-					'border-app-line shadow-app-shade/10 rounded-md shadow outline-none',
-					props.className
-				)}
-			>
-				<span className="grow truncate text-left text-xs">
-					<SelectPrimitive.Value />
-				</span>
-
-				<SelectPrimitive.Icon>
-					<ChevronDouble className="text-ink-dull mr-0.5 h-3 w-3" />
-				</SelectPrimitive.Icon>
-			</SelectPrimitive.Trigger>
-
-			<SelectPrimitive.Portal className="relative">
-				<SelectPrimitive.Content className="bg-app-box border-app-line shadow-app-shade/20 absolute z-50 w-full rounded-md border p-1 shadow-2xl ">
-					<SelectPrimitive.ScrollUpButton className="hidden ">
-						<CaretDown />
-					</SelectPrimitive.ScrollUpButton>
-					<SelectPrimitive.Viewport>{props.children}</SelectPrimitive.Viewport>
-					<SelectPrimitive.ScrollDownButton className="hidden "></SelectPrimitive.ScrollDownButton>
-				</SelectPrimitive.Content>
-			</SelectPrimitive.Portal>
-		</SelectPrimitive.Root>
-	);
-}
-
-export function SelectOption(props: PropsWithChildren<{ value: string }>) {
-	return (
-		<SelectPrimitive.Item
+			defaultChecked={props.default}
 			className={clsx(
-				'relative flex items-center px-1 py-0.5 pl-6 pr-4 text-xs',
-				'font-sm text-ink cursor-pointer select-none rounded',
-				'radix-disabled:opacity-50 hover:bg-accent hover:text-white focus:outline-none '
+				'relative flex h-6 cursor-pointer select-none items-center rounded pl-6 pr-3',
+				'text-sm text-ink radix-highlighted:text-white',
+				'focus:outline-none radix-disabled:opacity-50 radix-highlighted:bg-accent '
 			)}
-			value={props.value}
 		>
-			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>
-			<SelectPrimitive.ItemIndicator className="absolute left-1 inline-flex items-center">
+			<RS.ItemText>{props.children}</RS.ItemText>
+			<RS.ItemIndicator className="absolute left-1 inline-flex items-center">
 				<Check className="h-4 w-4" />
-			</SelectPrimitive.ItemIndicator>
-		</SelectPrimitive.Item>
+			</RS.ItemIndicator>
+		</RS.Item>
 	);
 }

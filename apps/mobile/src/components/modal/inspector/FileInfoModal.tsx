@@ -64,28 +64,33 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			ref={modalRef}
 			enableContentPanningGesture={false}
 			enablePanDownToClose={false}
-			snapPoints={['70%']}
+			snapPoints={['70']}
 		>
 			{data && (
 				<ModalScrollView style={tw`flex-1 p-4`}>
 					{/* Back Button */}
-					<Pressable onPress={() => modalRef.current?.close()} style={tw`absolute z-10 ml-4`}>
+					<Pressable
+						onPress={() => modalRef.current?.close()}
+						style={tw`absolute z-10 ml-4`}
+					>
 						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
 					</Pressable>
 					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>{item?.name}</Text>
+						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>
+							{filePathData?.name}
+						</Text>
 						<InfoTagPills data={data} style={tw`mt-3`} />
 					</View>
 					{/* Details */}
-					<Divider style={tw`mt-6 mb-4`} />
+					<Divider style={tw`mb-4 mt-6`} />
 					<>
 						{/* Size */}
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={formatBytes(Number(objectData?.size_in_bytes || 0))}
+							value={formatBytes(Number(filePathData?.size_in_bytes || 0))}
 						/>
 						{/* Duration */}
 						{fullObjectData.data?.media_data?.duration_seconds && (
@@ -105,14 +110,18 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							icon={Barcode}
 							title="Indexed"
-							value={dayjs(item?.date_indexed).format('MMM Do YYYY')}
+							value={dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
 						/>
 
 						{filePathData && (
 							<>
 								{/* TODO: Note */}
 								{filePathData.cas_id && (
-									<MetaItem icon={Snowflake} title="Content ID" value={filePathData.cas_id} />
+									<MetaItem
+										icon={Snowflake}
+										title="Content ID"
+										value={filePathData.cas_id}
+									/>
 								)}
 								{/* Checksum */}
 								{filePathData?.integrity_checksum && (

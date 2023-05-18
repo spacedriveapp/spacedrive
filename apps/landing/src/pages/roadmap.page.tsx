@@ -48,9 +48,20 @@ function Page() {
 				'Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.'
 		},
 		{
+			completed: true,
+			title: 'Key manager',
+			description:
+				'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
+		},
+		{
 			when: 'Present Day',
+			title: 'Spacedrop',
+			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+		},
+		{
 			title: 'Search',
-			description: 'Deep search into your filesystem with a keybind, including offline locations.'
+			description:
+				'Deep search into your filesystem with a keybind, including offline locations.'
 		},
 		{
 			title: 'Photos',
@@ -58,13 +69,9 @@ function Page() {
 		},
 		{
 			when: '0.1.0 Beta',
-			subtext: 'Q4 2022',
+			subtext: 'Q2 2023',
 			title: 'Realtime library synchronization',
 			description: 'Automatically synchronized libraries across devices via P2P connections.'
-		},
-		{
-			title: 'Spacedrop',
-			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
 		},
 		{
 			title: 'Media encoder',
@@ -78,11 +85,12 @@ function Page() {
 		},
 		{
 			title: 'Hosted Spaces',
-			description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
+			description:
+				'Host select Spaces on our cloud to share with friends or publish on the web.'
 		},
 		{
 			when: '0.6.0 Beta',
-			subtext: 'Q1 2023',
+			subtext: 'Q3 2023',
 			title: 'Extensions',
 			description:
 				'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
@@ -93,13 +101,8 @@ function Page() {
 				'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
 		},
 		{
-			title: 'Key manager',
-			description:
-				'View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.'
-		},
-		{
 			when: 'Release',
-			subtext: 'Q2 2023',
+			subtext: 'Q4 2023',
 			title: 'Timeline',
 			description:
 				'View a linear timeline of content, travel to any time and see media represented visually.'
@@ -129,7 +132,8 @@ function Page() {
 						What's next for Spacedrive?
 					</h1>
 					<p className="animation-delay-2 fade-in-heading text-center text-gray-400">
-						Here is a list of the features we are working on, and the progress we have made so far.
+						Here is a list of the features we are working on, and the progress we have
+						made so far.
 					</p>
 				</section>
 				<section className="grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
@@ -146,20 +150,26 @@ function Page() {
 									>
 										{item.when}
 									</h3>
-									{item?.subtext && <span className="text-sm text-gray-300">{item?.subtext}</span>}
+									{item?.subtext && (
+										<span className="text-sm text-gray-300">
+											{item?.subtext}
+										</span>
+									)}
 								</div>
 								<div className="flex h-full w-2 group-first:mt-2 group-first:rounded-t-full group-last-of-type:rounded-b-full lg:items-center">
 									<div
 										className={
 											'flex h-full w-full ' +
-											(item.completed ? 'bg-primary-500 z-10' : 'bg-gray-550')
+											(item.completed ? 'z-10 bg-primary-500' : 'bg-gray-550')
 										}
 									>
 										{item?.when !== undefined ? (
 											<div
 												className={clsx(
-													'absolute z-20 mt-5 h-4 w-4 -translate-y-1/2 -translate-x-1/4 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
-													items[i - 1]?.completed || i === 0 ? 'bg-primary-500 z-10' : 'bg-gray-550'
+													'absolute z-20 mt-5 h-4 w-4 -translate-x-1/4 -translate-y-1/2 rounded-full border-2 border-gray-200 group-first:mt-0 group-first:self-start lg:mt-0',
+													items[i - 1]?.completed || i === 0
+														? 'z-10 bg-primary-500'
+														: 'bg-gray-550'
 												)}
 											>
 												&zwj;
@@ -172,7 +182,9 @@ function Page() {
 							</span>
 							<div className="group flex flex-col items-start justify-center gap-4">
 								{item?.when && (
-									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
+									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">
+										{item.when}
+									</h3>
 								)}
 								<div className="my-2 flex w-full flex-col space-y-2 rounded-xl border border-gray-500 p-4 group-last:mb-0 group-first-of-type:mt-0">
 									<h3 className="m-0">{item.title}</h3>
@@ -182,12 +194,13 @@ function Page() {
 						</>
 					))}
 				</section>
-				<section className="bg-gray-850 space-y-2 rounded-xl p-8">
+				<section className="space-y-2 rounded-xl bg-gray-850 p-8">
 					<h2 className="my-1">That's not all.</h2>
 					<p>
 						We're always open to ideas and feedback over{' '}
-						<a href="https://github.com/spacedriveapp/spacedrive/discussions">here</a> and we have a{' '}
-						<a href="/blog">blog</a> where you can find the latest news and updates.
+						<a href="https://github.com/spacedriveapp/spacedrive/discussions">here</a>{' '}
+						and we have a <a href="/blog">blog</a> where you can find the latest news
+						and updates.
 					</p>
 				</section>
 			</div>

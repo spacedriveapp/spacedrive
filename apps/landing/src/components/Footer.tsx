@@ -24,16 +24,16 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 
 export function Footer() {
 	return (
-		<footer id="footer" className="border-gray-550 bg-gray-850 z-50 w-screen border-t pt-3">
-			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pt-10 pb-20 text-white sm:grid-cols-2 lg:grid-cols-6">
+		<footer id="footer" className="z-50 w-screen border-t border-gray-550 bg-gray-850 pt-3">
+			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<img src={AppLogo} className="mb-5 h-10 w-10" />
 
 					<h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
-					<p className="text-gray-350 text-sm">
+					<p className="text-sm text-gray-350">
 						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
-					<div className="mt-6 mb-10 flex flex-row space-x-3">
+					<div className="mb-10 mt-6 flex flex-row space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
 							<Twitter />
 						</FooterLink>
@@ -70,11 +70,16 @@ export function Footer() {
 						<FooterLink link="#">macOS</FooterLink>
 						<FooterLink link="#">Windows</FooterLink>
 						<FooterLink link="#">Linux</FooterLink>
+						<FooterLink link="#">Android</FooterLink>
+						<FooterLink link="#">iOS</FooterLink>
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
 					<h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
+					<FooterLink
+						blank
+						link="https://github.com/spacedriveapp/spacedrive/tree/main/docs"
+					>
 						Documentation
 					</FooterLink>
 					<FooterLink
@@ -95,7 +100,10 @@ export function Footer() {
 					<FooterLink blank link="https://opencollective.com/spacedrive">
 						Open Collective
 					</FooterLink>
-					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
+					<FooterLink
+						blank
+						link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE"
+					>
 						License
 					</FooterLink>
 					<div>

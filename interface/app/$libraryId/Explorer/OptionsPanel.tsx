@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
@@ -19,21 +20,35 @@ export default () => {
 	const [stackBy, setStackBy] = useState('kind');
 
 	const explorerStore = useExplorerStore();
+	const explorerConfig = useExplorerConfigStore();
 
 	return (
 		<div className="p-4 ">
-			{/* <Heading>Explorer Appearance</Heading> */}
 			<Subheading>Item size</Subheading>
-			<Slider
-				onValueChange={(value) => {
-					getExplorerStore().gridItemSize = value[0] || 100;
-					console.log({ value: value, gridItemSize: explorerStore.gridItemSize });
-				}}
-				defaultValue={[explorerStore.gridItemSize]}
-				max={200}
-				step={10}
-				min={60}
-			/>
+			{explorerStore.layoutMode === 'media' ? (
+				<Slider
+					defaultValue={[10 - explorerStore.mediaColumns]}
+					min={0}
+					max={6}
+					step={2}
+					onValueChange={([val]) => {
+						if (val !== undefined) {
+							getExplorerStore().mediaColumns = 10 - val;
+						}
+					}}
+				/>
+			) : (
+				<Slider
+					onValueChange={(value) => {
+						getExplorerStore().gridItemSize = value[0] || 100;
+					}}
+					defaultValue={[explorerStore.gridItemSize]}
+					max={200}
+					step={10}
+					min={60}
+				/>
+			)}
+
 			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">
 					<Subheading>Sort by</Subheading>
@@ -54,18 +69,39 @@ export default () => {
 					</Select>
 				</div>
 			</div>
-			<div className="flex w-full pt-2">
-				<RadixCheckbox
-					checked={explorerStore.showBytesInGridView}
-					label="Show Object size"
-					name="showBytesInGridView"
-					onCheckedChange={(value) => {
-						console.log(value);
-						if (typeof value === 'boolean') {
-							getExplorerStore().showBytesInGridView = value;
-						}
-					}}
-				/>
+			<div className="flex w-full flex-col space-y-3 pt-2">
+				{explorerStore.layoutMode === 'media' ? (
+					<RadixCheckbox
+						checked={explorerStore.mediaAspectSquare}
+						label="Show square thumbnails"
+						name="mediaAspectSquare"
+						onCheckedChange={(value) => {
+							if (typeof value === 'boolean') {
+								getExplorerStore().mediaAspectSquare = value;
+							}
+						}}
+					/>
+				) : (
+					<RadixCheckbox
+						checked={explorerStore.showBytesInGridView}
+						label="Show Object size"
+						name="showBytesInGridView"
+						onCheckedChange={(value) => {
+							if (typeof value === 'boolean') {
+								getExplorerStore().showBytesInGridView = value;
+							}
+						}}
+					/>
+				)}
+				<div>
+					<Subheading>Double click action</Subheading>
+					<Select className='w-full' value={explorerConfig.openOnDoubleClick ? "openFile" : "quickPreview"} onChange={(value) => {
+						getExplorerConfigStore().openOnDoubleClick = value === "openFile";
+					}}>
+						<SelectOption value="openFile">Open File</SelectOption>
+						<SelectOption value="quickPreview">Quick Preview</SelectOption>
+					</Select>
+				</div>
 			</div>
 		</div>
 	);

@@ -68,7 +68,7 @@ const AppEmbed = () => {
 			<div className="relative z-30 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div
 					className={clsx(
-						'border-gray-550 relative m-auto h-full max-w-7xl rounded-lg border opacity-0 transition-opacity',
+						'relative m-auto h-full max-w-7xl rounded-lg border border-gray-550 opacity-0 transition-opacity',
 						renderBloom && '!opacity-100',
 						renderImage && 'border-none bg-transparent'
 					)}
@@ -78,8 +78,10 @@ const AppEmbed = () => {
 							ref={iFrame}
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
-								'shadow-iframe inset-center bg-gray-850  z-30 h-full w-full rounded-lg',
-								iFrameAppReady ? 'fade-in-app-embed opacity-100' : 'ml-[-10000px] opacity-0'
+								'shadow-iframe inset-center z-30  h-full w-full rounded-lg bg-gray-850',
+								iFrameAppReady
+									? 'fade-in-app-embed opacity-100'
+									: 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
 								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
@@ -87,7 +89,9 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && <div className="fade-in-app-embed landing-img z-40 h-full w-auto" />}
+					{renderImage && (
+						<div className="fade-in-app-embed landing-img z-40 h-full w-auto" />
+					)}
 				</div>
 			</div>
 		</div>

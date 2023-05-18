@@ -1,3 +1,4 @@
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { VariantProps, cva } from 'class-variance-authority';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import { useState } from 'react';
@@ -33,7 +34,19 @@ export const Input = ({ variant, size, ...props }: InputProps) => {
 	);
 };
 
-// Same as above but configured with password props & show/hide password button
+// To use in modals (for keyboard handling)
+export const ModalInput = ({ variant, size, ...props }: InputProps) => {
+	const { style, ...otherProps } = props;
+	return (
+		<BottomSheetTextInput
+			placeholderTextColor={tw.color('ink-faint')}
+			style={twStyle(input({ variant, size }), style as string)}
+			{...otherProps}
+		/>
+	);
+};
+
+// Same as Input but configured with password props & show/hide password button
 
 type PasswordInputProps = InputProps & {
 	isNewPassword?: boolean;

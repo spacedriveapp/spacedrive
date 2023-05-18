@@ -81,7 +81,7 @@ export function HomeCTA() {
 				useWorker
 				zIndex={-1}
 			/> */}
-			<div className="animation-delay-2 fade-in z-30 flex h-10 flex-row items-center space-x-4">
+			<div className="animation-delay-2 z-30 flex h-10 flex-row items-center space-x-4 fade-in">
 				{!showWaitlistInput ? (
 					<>
 						<Button
@@ -97,7 +97,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<Github className="mt-[-4px] -ml-1 mr-2 inline h-5 w-5" fill="white" />
+							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>
@@ -107,7 +107,8 @@ export function HomeCTA() {
 							{(waitlistError || waitlistSubmitted) && (
 								<div
 									className={clsx({
-										'my-2 flex flex-row items-center rounded-md border-2 px-2': true,
+										'my-2 flex flex-row items-center rounded-md border-2 px-2':
+											true,
 										'border-red-900 bg-red-800/20': waitlistError,
 										'border-green-900 bg-green-800/20': !waitlistError,
 										'-mt-2': waitlistSubmitted
@@ -140,14 +141,18 @@ export function HomeCTA() {
 										'hidden': waitlistSubmitted,
 										'rounded-r-none': !waitlistSubmitted
 									})}
+									size="lg"
 									disabled={waitlistSubmitted}
 								/>
 								{!waitlistSubmitted && (
 									<Button
 										onClick={() => setShowWaitlistInput(true)}
-										className={clsx('z-30 cursor-pointer rounded-l-none border-0', {
-											'cursor-default opacity-50': loading
-										})}
+										className={clsx(
+											'z-30 cursor-pointer rounded-l-none border-0',
+											{
+												'cursor-default opacity-50': loading
+											}
+										)}
 										disabled={loading}
 										variant="accent"
 										type="submit"
@@ -165,10 +170,13 @@ export function HomeCTA() {
 				)}
 			</div>
 			<p
-				className={clsx('animation-delay-3 fade-in text-gray-450 z-30 px-6 text-center text-sm', {
-					'mt-10': waitlistError,
-					'mt-3': !waitlistError
-				})}
+				className={clsx(
+					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-450 fade-in',
+					{
+						'mt-10': waitlistError,
+						'mt-3': !waitlistError
+					}
+				)}
 			>
 				{showWaitlistInput ? (
 					<>

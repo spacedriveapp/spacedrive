@@ -1,8 +1,7 @@
 import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { forms } from '@sd/ui';
+import { Button, Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 
@@ -67,37 +66,39 @@ export default (props: UseDialogProps) => {
 			loading={restoreKeystoreMutation.isLoading}
 			ctaLabel="Restore"
 		>
-			<div className="relative mt-3 mb-2 flex grow">
-				<Input
-					className="grow !py-0.5"
-					placeholder="Master Password"
-					type={show.masterPassword ? 'text' : 'password'}
-					{...form.register('masterPassword', { required: true })}
-				/>
-				<Button
-					onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
-					size="icon"
-					className="absolute right-[5px] top-[5px] border-none"
-					type="button"
-				>
-					<MPCurrentEyeIcon className="h-4 w-4" />
-				</Button>
-			</div>
-			<div className="relative mb-3 flex grow">
-				<Input
-					className="grow !py-0.5"
-					placeholder="Secret Key"
-					type={show.secretKey ? 'text' : 'password'}
-					{...form.register('secretKey')}
-				/>
-				<Button
-					onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
-					size="icon"
-					className="absolute right-[5px] top-[5px] border-none"
-				>
-					<SKCurrentEyeIcon className="h-4 w-4" />
-				</Button>
-			</div>
+			<Input
+				placeholder="Master Password"
+				type={show.masterPassword ? 'text' : 'password'}
+				className="mb-2 mt-3"
+				right={
+					<Button
+						onClick={() =>
+							setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))
+						}
+						size="icon"
+						type="button"
+					>
+						<MPCurrentEyeIcon className="h-4 w-4" />
+					</Button>
+				}
+				{...form.register('masterPassword', { required: true })}
+			/>
+
+			<Input
+				placeholder="Secret Key"
+				type={show.secretKey ? 'text' : 'password'}
+				className="mb-3"
+				right={
+					<Button
+						onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
+						size="icon"
+					>
+						<SKCurrentEyeIcon className="h-4 w-4" />
+					</Button>
+				}
+				{...form.register('secretKey')}
+			/>
+
 			<div className="relative mb-2 flex grow">
 				<Button
 					size="sm"

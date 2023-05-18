@@ -1,0 +1,175 @@
+name: Mobile CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+      - 'core/**'
+      - 'crates/**'
+      - 'packages/assets/**'
+      - 'packages/client/**'
+      - 'packages/config/**'
+  workflow_dispatch:
+
+env:
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+  SPACEDRIVE_CI: '1'
+
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Disabled until I can figure out why our app on x86_64 crashes on startup.
+  # android:
+  #   name: Android
+  #   runs-on: macos-12
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+  #
+  #     - name: Setup Java JDK
+  #       uses: actions/setup-java@v3.10.0
+  #       with:
+  #         java-version: '18'
+  #         distribution: 'temurin'
+  #
+  #     - name: Setup Node.js, pnpm and dependencies
+  #       uses: ./.github/actions/setup-pnpm
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - name: Setup System and Rust
+  #       uses: ./.github/actions/setup-system
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #        setup-arg: mobile
+  #
+  #     - name: Setup Android SDK Tools
+  #       uses: android-actions/setup-android@v2.0.2
+  #
+  #     - name: Cache NDK
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ${{ env.ANDROID_HOME }}/ndk/23.1.7779620
+  #         key: ndk-23.1.7779620
+  #
+  #     - name: Install NDK
+  #       run: echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;23.1.7779620"
+  #
+  #     - name: Cache Gradle
+  #       uses: gradle/gradle-build-action@v2
+  #
+  #     - name: Build Android
+  #       working-directory: ./apps/mobile/android
+  #       run: chmod +x ./gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+  #
+  #     - name: Cache AVD
+  #       uses: actions/cache@v3
+  #       id: avd-cache
+  #       with:
+  #         path: |
+  #           ~/.android/avd/*
+  #           ~/.android/adb*
+  #         key: avd-30
+  #
+  #     - name: Generate AVD Snapshot
+  #       if: ${{ steps.avd-cache.outputs.cache-hit != 'true' }}
+  #       uses: ReactiveCircus/android-emulator-runner@v2.28.0
+  #       with:
+  #         arch: x86_64
+  #         api-level: 30
+  #         target: google_apis
+  #         ndk: 23.1.7779620
+  #         ram-size: 4096M
+  #         emulator-boot-timeout: 12000
+  #         force-avd-creation: false
+  #         emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+  #         disable-animations: false
+  #         script: echo "Generated AVD snapshot."
+  #
+  #     - name: Install Maestro
+  #       run: |
+  #         # workaround for https://github.com/mobile-dev-inc/maestro/issues/877
+  #         export MAESTRO_VERSION=1.21.3; curl -Ls "https://get.maestro.mobile.dev" | bash
+  #         echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+  #
+  #     - name: Run Tests
+  #       uses: ReactiveCircus/android-emulator-runner@v2.28.0
+  #       with:
+  #         arch: x86_64
+  #         api-level: 30
+  #         target: google_apis
+  #         ndk: 23.1.7779620
+  #         ram-size: 4096M
+  #         emulator-boot-timeout: 12000
+  #         force-avd-creation: false
+  #         emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+  #         disable-animations: true
+  #         script: |
+  #           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+  #           adb wait-for-device
+  #           bash ./apps/mobile/scripts/run-maestro-tests android
+
+  ios:
+    name: iOS
+    runs-on: macos-12
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          setup-arg: mobile
+
+      - name: Cache Pods
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./apps/mobile/ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: pods-${{ hashFiles('./apps/mobile/ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      - name: Install Pods
+        working-directory: ./apps/mobile/ios
+        run: pod install --repo-update
+
+      - name: Build iOS
+        working-directory: ./apps/mobile/ios
+        run: xcodebuild -workspace ./Spacedrive.xcworkspace -scheme Spacedrive -configuration Release -sdk iphonesimulator -derivedDataPath build -arch x86_64
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          brew tap facebook/fb
+          brew install facebook/fb/idb-companion
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Run Simulator
+        uses: futureware-tech/simulator-action@v2
+        with:
+          model: 'iPhone 11'
+
+      - name: Run Tests
+        run: |
+          xcrun simctl install booted apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app
+          bash ./apps/mobile/scripts/run-maestro-tests ios

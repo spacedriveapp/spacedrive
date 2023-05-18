@@ -1,8 +1,11 @@
-use crate::{library::Library, prisma::volume::*};
+use crate::{
+	library::Library,
+	prisma::volume::{self, *},
+};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
+use specta::Type;
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
@@ -52,7 +55,7 @@ pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 					volume.mount_point.to_string(),
 					volume.name.to_string(),
 				),
-				(
+				volume::create(
 					library.node_local_id,
 					volume.name,
 					volume.mount_point,

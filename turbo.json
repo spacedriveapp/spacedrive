@@ -14,5 +14,6 @@
 		"dev": {
 			"cache": false
 		}
-	}
+	},
+	"globalEnv": ["PORT", "NODE_ENV"]
 }

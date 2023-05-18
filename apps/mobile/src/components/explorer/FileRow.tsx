@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isObject } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
 import FileThumb from './FileThumb';
@@ -10,7 +10,7 @@ type FileRowProps = {
 };
 
 const FileRow = ({ data }: FileRowProps) => {
-	const { item } = data;
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
 
 	return (
 		<View
@@ -20,9 +20,9 @@ const FileRow = ({ data }: FileRowProps) => {
 		>
 			<FileThumb data={data} size={0.6} />
 			<View style={tw`ml-3`}>
-				<Text numberOfLines={1} style={tw`text-ink-dull text-center text-xs font-medium`}>
-					{item?.name}
-					{item?.extension && `.${item.extension}`}
+				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-ink-dull`}>
+					{filePath?.name}
+					{filePath?.extension && `.${filePath.extension}`}
 				</Text>
 			</View>
 		</View>

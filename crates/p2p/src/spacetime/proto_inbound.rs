@@ -33,6 +33,11 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 	fn upgrade_inbound(self, io: NegotiatedSubstream, _: Self::Info) -> Self::Future {
 		let id = self.manager.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
+			debug!(
+				"stream({}, {id}): accepting inbound connection",
+				self.peer_id
+			);
+
 			let stream = SpaceTimeStream::from_stream(io).await;
 			debug!(
 				"stream({}, {id}): stream of type {} accepted",

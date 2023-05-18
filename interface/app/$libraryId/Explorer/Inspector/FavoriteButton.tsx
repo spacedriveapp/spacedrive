@@ -1,7 +1,6 @@
 import { Heart } from 'phosphor-react';
 import { useEffect, useState } from 'react';
-import { useLibraryMutation } from '@sd/client';
-import { Object as SDObject } from '@sd/client';
+import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Button } from '@sd/ui';
 
 interface Props {

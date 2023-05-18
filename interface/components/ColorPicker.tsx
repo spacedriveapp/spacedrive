@@ -1,39 +1,32 @@
 import clsx from 'clsx';
-import { useCallback, useRef, useState } from 'react';
-import { HexColorPicker } from 'react-colorful';
-import { UseControllerProps, useController } from 'react-hook-form';
-import useClickOutside from '~/hooks/useClickOutside';
+import { HexColorInput, HexColorPicker } from 'react-colorful';
+import { FieldValues, UseControllerProps, useController } from 'react-hook-form';
+import { Popover, inputStyles } from '@sd/ui';
 
-interface Props extends UseControllerProps {
+interface Props<T extends FieldValues> extends UseControllerProps<T> {
 	className?: string;
 }
 
-export default ({ className, ...props }: Props) => {
-	const { field } = useController(props);
-	const popover = useRef<HTMLDivElement | null>(null);
-	const [isOpen, toggle] = useState(false);
-
-	const close = useCallback(() => toggle(false), []);
-	useClickOutside(popover, close);
+export default <T extends FieldValues>({ className, ...props }: Props<T>) => {
+	const { field } = useController({ name: props.name });
 
 	return (
-		<div className={clsx('relative mt-3 flex items-center', className)}>
-			<div
-				className={clsx('h-4 w-4 rounded-full shadow', isOpen && 'dark:border-gray-500')}
-				style={{ backgroundColor: field.value }}
-				onClick={() => toggle(true)}
-			/>
-			{/* <span className="inline ml-2 text-sm text-gray-200">Pick Color</span> */}
-
-			{isOpen && (
+		<Popover
+			trigger={
 				<div
-					style={{ top: 'calc(100% + 7px)' }}
-					className="absolute left-0 rounded-md shadow"
-					ref={popover}
-				>
-					<HexColorPicker color={field.value} onChange={field.onChange} />
-				</div>
-			)}
-		</div>
+					className={clsx('h-4 w-4 rounded-full shadow', className)}
+					style={{ backgroundColor: field.value }}
+				/>
+			}
+			className="p-3"
+			sideOffset={5}
+		>
+			<HexColorPicker color={field.value} onChange={field.onChange} />
+			<HexColorInput
+				color={field.value}
+				onChange={field.onChange}
+				className={inputStyles({ size: 'md', className: '!mt-5 bg-app px-3' })}
+			/>
+		</Popover>
 	);
 };

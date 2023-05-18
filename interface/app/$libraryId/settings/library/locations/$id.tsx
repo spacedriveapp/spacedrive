@@ -1,77 +1,111 @@
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Divider, RadioGroup, Tooltip, forms, tw } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { useParams } from 'react-router';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider, forms, tw } from '@sd/ui';
-import { Tooltip } from '@sd/ui';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { useNavigate } from 'react-router';
+import { showAlertDialog } from '~/components/AlertDialog';
+import { useZodRouteParams } from '~/hooks';
 import ModalLayout from '../../ModalLayout';
-import { IndexerRuleEditor } from './IndexerRuleEditor';
+import IndexerRuleEditor from './IndexerRuleEditor';
 
-const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const Label = tw.label`mb-1 text-sm font-medium`;
 const FlexCol = tw.label`flex flex-col flex-1`;
+const InfoText = tw.p`mt-2 text-xs text-ink-faint`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const { Form, Input, Switch, useZodForm, z } = forms;
 
 const schema = z.object({
-	displayName: z.string(),
-	localPath: z.string(),
-	indexer_rules_ids: z.array(z.string()),
-	generatePreviewMedia: z.boolean(),
+	name: z.string(),
+	path: z.string(),
+	hidden: z.boolean(),
+	indexerRulesIds: z.array(z.number()),
+	locationType: z.string(),
 	syncPreviewMedia: z.boolean(),
-	hidden: z.boolean()
+	generatePreviewMedia: z.boolean()
+});
+
+const PARAMS = z.object({
+	id: z.coerce.number().default(0)
 });
 
 export const Component = () => {
-	const queryClient = useQueryClient();
-	const { id } = useParams<{
-		id: string;
-	}>();
-
-	useLibraryQuery(['locations.getById', Number(id)], {
-		onSuccess: (data) => {
-			if (data && !isDirty)
-				form.reset({
-					displayName: data.name,
-					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.indexer_rule.id.toString()),
-					generatePreviewMedia: data.generate_preview_media,
-					syncPreviewMedia: data.sync_preview_media,
-					hidden: data.hidden
-				});
+	const form = useZodForm({
+		schema,
+		defaultValues: {
+			indexerRulesIds: [],
+			locationType: 'normal',
 		}
 	});
 
-	const form = useZodForm({
-		schema
-	});
+	const { id: locationId } = useZodRouteParams(PARAMS);
 
+	const navigate = useNavigate();
+	const fullRescan = useLibraryMutation('locations.fullRescan');
+	const queryClient = useQueryClient();
+	const [isFirstLoad, setIsFirstLoad] = useState(true);
+	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log({ e }),
+		onError: () => {
+			showAlertDialog({
+				title: 'Error',
+				value: 'Failed to update location settings'
+			});
+		},
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries(['locations.list']);
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		updateLocation.mutateAsync({
-			id: Number(id),
-			name: data.displayName,
-			sync_preview_media: data.syncPreviewMedia,
-			generate_preview_media: data.generatePreviewMedia,
-			hidden: data.hidden,
-			indexer_rules_ids: []
-		})
-	);
-
-	const fullRescan = useLibraryMutation('locations.fullRescan');
-
 	const { isDirty } = form.formState;
 
+	useLibraryQuery(['locations.getWithRules', locationId], {
+		onSettled: (data, error) => {
+			if (isFirstLoad) {
+				// @ts-expect-error // TODO: Fix the types
+				if (!data && error == null) error = new Error('Failed to load location settings');
+
+				// Return to previous page when no data is available at first load
+				if (error) navigate(-1);
+				else setIsFirstLoad(false);
+			}
+
+			if (error) {
+				showAlertDialog({
+					title: 'Error',
+					value: 'Failed to load location settings'
+				});
+			} else if (data && (isFirstLoad || !isDirty)) {
+				form.reset({
+					path: data.path,
+					name: data.name,
+					hidden: data.hidden,
+					locationType: 'normal', // temp
+					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
+					syncPreviewMedia: data.sync_preview_media,
+					generatePreviewMedia: data.generate_preview_media
+				});
+			}
+		}
+	});
+
+	const onSubmit = form.handleSubmit(
+		({ name, hidden, indexerRulesIds, syncPreviewMedia, generatePreviewMedia }) =>
+			updateLocation.mutateAsync({
+				id: locationId,
+				name,
+				hidden,
+				indexer_rules_ids: indexerRulesIds,
+				sync_preview_media: syncPreviewMedia,
+				generate_preview_media: generatePreviewMedia
+			})
+	);
+
 	return (
-		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
 				title="Edit Location"
 				topRight={
@@ -94,20 +128,47 @@ export const Component = () => {
 			>
 				<div className="flex space-x-4">
 					<FlexCol>
-						<Label>Display Name</Label>
-						<Input {...form.register('displayName')} />
+						<Input label="Display Name" {...form.register('name')} />
 						<InfoText>
-							The name of this Location, this is what will be displayed in the sidebar. Will not
-							rename the actual folder on disk.
+							The name of this Location, this is what will be displayed in the
+							sidebar. Will not rename the actual folder on disk.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<Label>Local Path</Label>
-						<Input {...form.register('localPath')} />
+						<Input
+							label="Local Path"
+							readOnly={true}
+							className="text-ink-dull"
+							{...form.register('path')}
+						/>
 						<InfoText>
-							The path to this Location, this is where the files will be stored on disk.
+							The path to this Location, this is where the files will be stored on
+							disk.
 						</InfoText>
 					</FlexCol>
+				</div>
+				<Divider />
+				<div className="space-y-2">
+					<Label className="grow">Location Type</Label>
+					<RadioGroup.Root className='flex flex-row !space-y-0 space-x-2' {...form.register('locationType')}>
+						<RadioGroup.Item key="normal" value="normal">
+							<h1 className="font-bold">Normal</h1>
+							<p className="text-sm text-ink-faint">Contents will be indexed as-is, new files will not be automatically sorted.</p>
+						</RadioGroup.Item>
+						<span className='opacity-30'>
+							<RadioGroup.Item disabled key="managed" value="managed">
+								<h1 className="font-bold">Managed</h1>
+								<p className="text-sm text-ink-faint">Spacedrive will sort files for you, based on rules you define. Location must be empty to start.</p>
+							</RadioGroup.Item>
+						</span>
+						<span className='opacity-30'>
+							<RadioGroup.Item disabled key="replica" value="replica">
+								<h1 className="font-bold">Replica</h1>
+								<p className="text-sm text-ink-faint">This Location is a replica of another, it will be automatically synchronized</p>
+							</RadioGroup.Item>
+						</span>
+					</RadioGroup.Root>
+
 				</div>
 				<Divider />
 				<div className="space-y-2">
@@ -116,7 +177,9 @@ export const Component = () => {
 						<Switch {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="grow">Sync preview media for this Location with your devices</Label>
+						<Label className="grow">
+							Sync preview media for this Location with your devices
+						</Label>
 						<Switch {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
@@ -130,19 +193,44 @@ export const Component = () => {
 					</ToggleSection>
 				</div>
 				<Divider />
-				<div className="pointer-events-none flex flex-col opacity-30">
-					<Label className="grow">Indexer rules</Label>
-					<InfoText className="mt-0 mb-1">
-						Indexer rules allow you to specify paths to ignore using RegEx.
-					</InfoText>
-					<IndexerRuleEditor locationId={id!} />
+				<div className="flex flex-col rounded-md border border-app-line bg-app-overlay px-5 py-5">
+					<div className="flex w-full items-start justify-between">
+						<div>
+							<Label className="!mb-2 grow !text-sm !font-bold">Indexer rules</Label>
+							<InfoText className="!mt-0 mb-4">
+								Indexer rules allow you to specify paths to ignore using RegEx.
+							</InfoText>
+						</div>
+						<Button
+							onClick={() => setToggleNewRule(!toggleNewRule)}
+							className="px-5"
+							variant="accent"
+						>
+							+ New
+						</Button>
+					</div>
+					<Controller
+						name="indexerRulesIds"
+						render={({ field }) => (
+							<IndexerRuleEditor
+								setToggleNewRule={setToggleNewRule}
+								toggleNewRule={toggleNewRule}
+								field={field}
+							/>
+						)}
+						control={form.control}
+					/>
 				</div>
 				<Divider />
 				<div className="flex space-x-5">
 					<FlexCol>
 						<div>
-							<Button onClick={() => fullRescan.mutate(Number(id))} size="sm" variant="outline">
-								<ArrowsClockwise className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+							<Button
+								onClick={() => fullRescan.mutate(locationId)}
+								size="sm"
+								variant="outline"
+							>
+								<ArrowsClockwise className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Full Reindex
 							</Button>
 						</div>
@@ -156,18 +244,23 @@ export const Component = () => {
 								variant="outline"
 								className=""
 							>
-								<Archive className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+								<Archive className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Archive
 							</Button>
 						</div>
 						<InfoText>
-							Extract data from Library as an archive, useful to preserve Location folder structure.
+							Extract data from Library as an archive, useful to preserve Location
+							folder structure.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
 						<div>
-							<Button size="sm" variant="colored" className="border-red-500 bg-red-500 ">
-								<Trash className="mr-1.5 -mt-0.5 inline h-4 w-4" />
+							<Button
+								size="sm"
+								variant="colored"
+								className="border-red-500 bg-red-500"
+							>
+								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Delete
 							</Button>
 						</div>

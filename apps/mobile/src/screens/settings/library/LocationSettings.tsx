@@ -48,7 +48,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				]}
 			>
 				<Pressable
-					style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
 					onPress={() => {
 						navigation.navigate('EditLocationSettings', { id: location.id });
 						swipeable.close();
@@ -60,7 +60,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					locationId={location.id}
 					trigger={
 						<View
-							style={tw`bg-app-button border-app-line items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+							style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
 						>
 							<Trash size={18} color="white" />
 						</View>
@@ -68,7 +68,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				/>
 				{/* Full Re-scan IS too much here */}
 				<Pressable
-					style={tw`border-app-line bg-app-button items-center justify-center rounded-md border py-1.5 px-3 shadow-sm`}
+					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
 					onPress={() => fullRescan.mutate(location.id)}
 				>
 					<Repeat size={18} color="white" />
@@ -80,7 +80,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 	return (
 		<Swipeable
 			containerStyle={twStyle(
-				'border-app-line bg-app-overlay rounded-lg border px-4 py-3',
+				'rounded-lg border border-app-line bg-app-overlay px-4 py-3',
 				index !== 0 && 'mt-2'
 			)}
 			enableTrackpadTwoFingerGesture
@@ -92,7 +92,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					{/* Online/Offline Indicator */}
 					<View
 						style={twStyle(
-							'absolute right-0 bottom-0.5 h-2 w-2 rounded-full',
+							'absolute bottom-0.5 right-0 h-2 w-2 rounded-full',
 							onlineLocations?.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
@@ -100,15 +100,18 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					/>
 				</View>
 				<View style={tw`mx-4 flex-1`}>
-					<Text numberOfLines={1} style={tw`text-ink text-sm font-semibold`}>
+					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
 						{location.name}
 					</Text>
-					<View style={tw`bg-app-highlight mt-0.5 self-start rounded py-[1px] px-1`}>
-						<Text numberOfLines={1} style={tw`text-ink-dull text-xs font-semibold`}>
+					<View style={tw`mt-0.5 self-start rounded bg-app-highlight px-1 py-[1px]`}>
+						<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
 							{location.node.name}
 						</Text>
 					</View>
-					<Text numberOfLines={1} style={tw`text-ink-dull mt-0.5 text-[10px] font-semibold`}>
+					<Text
+						numberOfLines={1}
+						style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}
+					>
 						{location.path}
 					</Text>
 				</View>

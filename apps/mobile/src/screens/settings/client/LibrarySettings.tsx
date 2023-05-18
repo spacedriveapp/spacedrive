@@ -4,7 +4,7 @@ import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
-import { AnimatedButton } from '~/components/primitive/Button';
+import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -37,9 +37,9 @@ function LibraryItem({
 				<DeleteLibraryModal
 					libraryUuid={library.uuid}
 					trigger={
-						<AnimatedButton style={tw`mx-2`}>
+						<FakeButton style={tw`mx-2`}>
 							<Trash size={18} color="white" />
-						</AnimatedButton>
+						</FakeButton>
 					}
 				/>
 			</Animated.View>
@@ -50,15 +50,15 @@ function LibraryItem({
 		<Swipeable
 			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'border-app-line bg-app-overlay rounded-lg border px-4 py-3'
+				'rounded-lg border border-app-line bg-app-overlay px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
 		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View>
-					<Text style={tw`text-ink font-semibold`}>{library.config.name}</Text>
-					<Text style={tw`text-ink-dull mt-0.5 text-xs`}>{library.uuid}</Text>
+					<Text style={tw`font-semibold text-ink`}>{library.config.name}</Text>
+					<Text style={tw`mt-0.5 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>
@@ -70,7 +70,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	return (
-		<View style={tw`flex-1 py-4 px-3`}>
+		<View style={tw`flex-1 px-3 py-4`}>
 			<FlatList
 				data={libraries}
 				keyExtractor={(item) => item.uuid}

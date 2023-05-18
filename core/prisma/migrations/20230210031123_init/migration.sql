@@ -64,8 +64,8 @@ CREATE TABLE "location" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "node_id" INTEGER NOT NULL,
-    "name" TEXT,
-    "local_path" TEXT,
+    "name" TEXT NOT NULL,
+    "path" TEXT NOT NULL,
     "total_capacity" INTEGER,
     "available_capacity" INTEGER,
     "is_archived" BOOLEAN NOT NULL DEFAULT false,
@@ -80,10 +80,7 @@ CREATE TABLE "location" (
 CREATE TABLE "object" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
-    "name" TEXT,
-    "extension" TEXT COLLATE NOCASE,
     "kind" INTEGER NOT NULL DEFAULT 0,
-    "size_in_bytes" TEXT NOT NULL DEFAULT '0',
     "key_id" INTEGER,
     "hidden" BOOLEAN NOT NULL DEFAULT false,
     "favorite" BOOLEAN NOT NULL DEFAULT false,
@@ -94,8 +91,6 @@ CREATE TABLE "object" (
     "ipfs_id" TEXT,
     "note" TEXT,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "object_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "key" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -109,6 +104,9 @@ CREATE TABLE "file_path" (
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "extension" TEXT COLLATE NOCASE NOT NULL,
+    "size_in_bytes" TEXT NOT NULL DEFAULT '0',
+    "inode" BLOB NOT NULL,
+    "device" BLOB NOT NULL,
     "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,
@@ -238,12 +236,14 @@ CREATE TABLE "job" (
     "status" INTEGER NOT NULL DEFAULT 0,
     "data" BLOB,
     "metadata" BLOB,
+    "parent_id" BLOB,
     "task_count" INTEGER NOT NULL DEFAULT 1,
     "completed_task_count" INTEGER NOT NULL DEFAULT 0,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "seconds_elapsed" INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT "job_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "job_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "job_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -319,6 +319,9 @@ CREATE INDEX "file_path_location_id_idx" ON "file_path"("location_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "file_path_location_id_materialized_path_name_extension_key" ON "file_path"("location_id", "materialized_path", "name", "extension");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "file_path_location_id_inode_device_key" ON "file_path"("location_id", "inode", "device");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "file_conflict_original_object_id_key" ON "file_conflict"("original_object_id");

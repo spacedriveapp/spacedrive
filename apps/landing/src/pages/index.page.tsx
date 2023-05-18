@@ -23,7 +23,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 		<div className="px-4 py-10 sm:px-10">
 			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
 			{props.description && (
-				<p className="text-md text-gray-450 mt-5 sm:text-xl">{props.description}</p>
+				<p className="text-md mt-5 text-gray-450 sm:text-xl">{props.description}</p>
 			)}
 		</div>
 	);
@@ -112,16 +112,18 @@ function Page() {
 					}
 				>
 					<Info className="mr-1 w-5 fill-green-500" />
-					<p className={'text-sm text-green-500'}>You have been unsubscribed from the waitlist</p>
+					<p className={'text-sm text-green-500'}>
+						You have been unsubscribed from the waitlist
+					</p>
 				</div>
 			)}
 
 			<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-6xl">
 				A file explorer from the future.
 			</h1>
-			<p className="animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 z-30 mt-1 mb-8 max-w-4xl text-center lg:text-lg lg:leading-8">
-				Combine your drives and clouds into one database that you can organize and explore from any
-				device.
+			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+				Combine your drives and clouds into one database that you can organize and explore
+				from any device.
 				<br />
 				<span className="hidden sm:block">
 					Designed for creators, hoarders and the painfully disorganized.
@@ -135,13 +137,13 @@ function Page() {
 				className="z-30 mt-0 sm:mt-8"
 				description={
 					<>
-						Spacedrive accounts for every file you own, uniquely fingerprinting and extracting
-						metadata so you can sort, tag, backup and share files without limitations of any one
-						cloud provider.
+						Spacedrive accounts for every file you own, uniquely fingerprinting and
+						extracting metadata so you can sort, tag, backup and share files without
+						limitations of any one cloud provider.
 						<br />
 						<br />
 						<a
-							className="text-primary-600 hover:text-primary-500 transition"
+							className="text-primary-600 transition hover:text-primary-500"
 							href="/docs/product/getting-started/introduction"
 						>
 							Find out more →

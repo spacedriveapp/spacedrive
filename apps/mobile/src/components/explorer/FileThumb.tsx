@@ -23,12 +23,14 @@ type KindType = keyof typeof icons | 'Unknown';
 function getExplorerItemData(data: ExplorerItem) {
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
+	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+
 	return {
-		casId: (isObject(data) ? data.item.file_paths[0]?.cas_id : data.item.cas_id) || null,
+		casId: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		kind: ObjectKind[objectData?.kind || 0] as KindType,
 		hasThumbnail: data.has_thumbnail,
-		extension: data.item.extension
+		extension: filePath?.extension
 	};
 }
 
@@ -78,7 +80,7 @@ export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 		icon = icons[kind];
 	}
 
-	// TODO: Handle video thumbnails
+	// TODO: Handle video thumbnails (do we have ffmpeg on mobile?)
 
 	// // 10 percent of the size
 	// const videoBarsHeight = Math.floor(size / 10);

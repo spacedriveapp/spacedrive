@@ -1,61 +1,121 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash, MagnifyingGlass } from 'phosphor-react';
-import { PropsWithChildren, forwardRef, useState } from 'react';
+import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from 'phosphor-react';
+import { PropsWithChildren, createElement, forwardRef, isValidElement, useState } from 'react';
 import { Button } from './Button';
 
-export interface InputBaseProps extends VariantProps<typeof styles> {}
+export interface InputBaseProps extends VariantProps<typeof inputStyles> {
+	icon?: Icon | React.ReactNode;
+	iconPosition?: 'left' | 'right';
+	right?: React.ReactNode;
+}
 
 export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 'size'>;
 
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
-const styles = cva(
+export const inputSizes = {
+	sm: 'h-[30px]',
+	md: 'h-[34px]',
+	lg: 'h-[38px]'
+};
+
+export const inputStyles = cva(
 	[
-		'w-full',
-		'rounded-md border px-3 text-sm leading-7',
-		'shadow-sm outline-none transition-all focus:ring-2'
+		'rounded-md border text-sm leading-7',
+		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'text-ink'
 	],
 	{
 		variants: {
 			variant: {
 				default: [
-					'bg-app-input focus:bg-app-focus placeholder-ink-faint border-app-line',
-					'focus:ring-app-selected/30 focus:border-app-divider/80'
+					'border-app-line bg-app-input placeholder-ink-faint focus-within:bg-app-focus',
+					'focus-within:border-app-divider/80 focus-within:ring-app-selected/30'
 				]
 			},
-			size: {
-				sm: 'py-0.5 text-sm',
-				md: 'py-1 text-sm'
-			}
+			error: {
+				true: 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30'
+			},
+			size: inputSizes
 		},
 		defaultVariants: {
-			variant: 'default'
+			variant: 'default',
+			size: 'sm'
 		}
 	}
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-	({ variant, size, className, ...props }, ref) => (
-		<input {...props} ref={ref} className={styles({ variant, size, className })} />
-	)
-);
+	({ variant, size, right, icon, iconPosition = 'left', className, error, ...props }, ref) => (
+		<div
+			className={clsx(
+				'group flex',
+				inputStyles({ variant, size: right && !size ? 'md' : size, error, className })
+			)}
+		>
+			<div
+				className={clsx(
+					'flex h-full flex-1 overflow-hidden',
+					iconPosition === 'right' && 'flex-row-reverse'
+				)}
+			>
+				{icon && (
+					<div
+						className={clsx(
+							'flex h-full items-center',
+							iconPosition === 'left' ? 'pl-[10px] pr-2' : 'pl-2 pr-[10px]'
+						)}
+					>
+						{isValidElement(icon)
+							? icon
+							: createElement<IconProps>(icon as Icon, {
+									size: 18,
+									className: 'text-gray-350'
+							  })}
+					</div>
+				)}
 
-export const SearchInput = forwardRef<HTMLInputElement, InputProps & { outerClassnames?: string }>(
-	({ variant, size, className, outerClassnames, ...props }, ref) => (
-		<div className={clsx('relative', outerClassnames)}>
-			<MagnifyingGlass className="text-gray-350 absolute top-[8px] left-[11px] h-auto w-[18px]" />
-			<Input
-				{...props}
-				ref={ref}
-				className={clsx(styles({ variant, size, className }), '!p-0.5 !pl-9')}
-			/>
+				<input
+					className={clsx(
+						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint',
+						(right || (icon && iconPosition === 'right')) && 'pr-0',
+						icon && iconPosition === 'left' && 'pl-0'
+					)}
+					ref={ref}
+					{...props}
+				/>
+			</div>
+
+			{right && (
+				<div
+					className={clsx(
+						'flex h-full min-w-[12px] items-center',
+						size === 'lg' ? 'px-[5px]' : 'px-1'
+					)}
+				>
+					{right}
+				</div>
+			)}
 		</div>
 	)
 );
 
-export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
-	return <textarea {...props} className={clsx(styles({ size, variant }), props.className)} />;
+export const SearchInput = forwardRef<HTMLInputElement, InputProps>((props, ref) => (
+	<Input {...props} ref={ref} icon={MagnifyingGlass} />
+));
+
+export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
+	return (
+		<textarea
+			{...props}
+			className={clsx(
+				'h-auto px-3 py-2',
+				inputStyles({ size, variant, error }),
+				props.className
+			)}
+		/>
+	);
 };
 
 export function Label(props: PropsWithChildren<{ slug?: string }>) {
@@ -76,18 +136,20 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 	const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
 
 	return (
-		<div className="relative grow">
-			<Button
-				onClick={() => setShowPassword(!showPassword)}
-				size="icon"
-				className={clsx(
-					'absolute inset-y-1.5 right-2 m-auto w-[25px] border-none',
-					props.buttonClassnames
-				)}
-			>
-				<CurrentEyeIcon className="h-4 w-4" />
-			</Button>
-			<Input {...props} type={showPassword ? 'text' : 'password'} ref={ref} />
-		</div>
+		<Input
+			{...props}
+			type={showPassword ? 'text' : 'password'}
+			ref={ref}
+			right={
+				<Button
+					tabIndex={0}
+					onClick={() => setShowPassword(!showPassword)}
+					size="icon"
+					className={clsx(props.buttonClassnames)}
+				>
+					<CurrentEyeIcon className="!pointer-events-none h-4 w-4" />
+				</Button>
+			}
+		/>
 	);
 });

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
@@ -11,7 +10,6 @@ import {
 	usePlausibleEvent
 } from '@sd/client';
 import { Loader } from '@sd/ui';
-import { usePlatform } from '~/util/Platform';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
@@ -19,8 +17,7 @@ export default function OnboardingCreatingLibrary() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const debugState = useDebugState();
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+	const submitPlausibleEvent = usePlausibleEvent();
 
 	const [status, setStatus] = useState('Creating your library...');
 
@@ -33,10 +30,12 @@ export default function OnboardingCreatingLibrary() {
 				library
 			]);
 
-			submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			if (obStore.shareTelemetry) {
+				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			}
 
 			resetOnboardingStore();
-			navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
 		onError: () => {
 			resetOnboardingStore();
@@ -52,13 +51,7 @@ export default function OnboardingCreatingLibrary() {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
 
 		createLibrary.mutate({
-			name: obStore.newLibraryName,
-			auth: {
-				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken || ''
-			},
-			algorithm: obStore.algorithm,
-			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
+			name: obStore.newLibraryName
 		});
 
 		return;

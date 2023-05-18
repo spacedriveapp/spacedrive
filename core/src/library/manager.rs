@@ -1,11 +1,13 @@
 use crate::{
 	invalidate_query,
-	location::file_path_helper::LastFilePathIdManager,
 	node::Platform,
+	object::orphan_remover::OrphanRemoverActor,
 	prisma::{node, PrismaClient},
-	sync::SyncManager,
+	sync::{SyncManager, SyncMessage},
 	util::{
-		db::{load_and_migrate, write_storedkey_to_db},
+		db::load_and_migrate,
+		error::{FileIOError, NonUtf8PathError},
+		migrator::MigratorError,
 		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
@@ -13,17 +15,19 @@ use crate::{
 
 use sd_crypto::{
 	keys::keymanager::{KeyManager, StoredKey},
-	types::{EncryptedKey, Nonce, OnboardingConfig, Salt},
+	types::{EncryptedKey, Nonce, Salt},
 };
+
 use std::{
-	env, fs, io,
+	env,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
+
 use thiserror::Error;
-use tokio::sync::RwLock;
-use tracing::debug;
+use tokio::{fs, io, sync::RwLock, try_join};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
@@ -35,29 +39,33 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	pub node_context: NodeContext,
+	node_context: NodeContext,
 }
 
 #[derive(Error, Debug)]
 pub enum LibraryManagerError {
-	#[error("error saving or loading the config from the filesystem")]
-	IO(#[from] io::Error),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 	#[error("error serializing or deserializing the JSON in the config file")]
 	Json(#[from] serde_json::Error),
-	#[error("Database error: {0}")]
+	#[error("database error")]
 	Database(#[from] prisma_client_rust::QueryError),
-	#[error("Library not found error")]
+	#[error("library not found error")]
 	LibraryNotFound,
 	#[error("error migrating the config file")]
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
-	#[error("error opening database as the path contains non-UTF-8 characters")]
-	InvalidDatabasePath(PathBuf),
-	#[error("Failed to run seeder: {0}")]
+	#[error("failed to run seeder")]
 	Seeder(#[from] SeederError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),
+	#[error("failed to run library migrations")]
+	MigratorError(#[from] MigratorError),
+	#[error("invalid library configuration: {0}")]
+	InvalidConfig(String),
+	#[error(transparent)]
+	NonUtf8Path(#[from] NonUtf8PathError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -128,42 +136,56 @@ impl LibraryManager {
 		libraries_dir: PathBuf,
 		node_context: NodeContext,
 	) -> Result<Arc<Self>, LibraryManagerError> {
-		fs::create_dir_all(&libraries_dir)?;
+		fs::create_dir_all(&libraries_dir)
+			.await
+			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
 		let mut libraries = Vec::new();
-		for entry in fs::read_dir(&libraries_dir)?
-			.filter_map(|entry| entry.ok())
-			.filter(|entry| {
-				entry.path().is_file()
-					&& entry
-						.path()
-						.extension()
-						.map(|v| v == "sdlibrary")
-						.unwrap_or(false)
-			}) {
-			let config_path = entry.path();
-			let library_id = match Path::new(&config_path)
-				.file_stem()
-				.map(|v| v.to_str().map(Uuid::from_str))
+		let mut read_dir = fs::read_dir(&libraries_dir)
+			.await
+			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
+
+		while let Some(entry) = read_dir
+			.next_entry()
+			.await
+			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
+		{
+			let entry_path = entry.path();
+			let metadata = entry
+				.metadata()
+				.await
+				.map_err(|e| FileIOError::from((&entry_path, e)))?;
+			if metadata.is_file()
+				&& entry_path
+					.extension()
+					.map(|ext| ext == "sdlibrary")
+					.unwrap_or(false)
 			{
-				Some(Some(Ok(id))) => id,
-				_ => {
-					println!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", config_path.display());
+				let Some(Ok(library_id)) = entry_path
+				.file_stem()
+				.and_then(|v| v.to_str().map(Uuid::from_str))
+			else {
+				warn!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", entry_path.display());
 					continue;
-				}
 			};
 
-			let db_path = config_path.clone().with_extension("db");
-			if !db_path.try_exists().unwrap() {
-				println!(
+				let db_path = entry_path.with_extension("db");
+				match fs::metadata(&db_path).await {
+					Ok(_) => {}
+					Err(e) if e.kind() == io::ErrorKind::NotFound => {
+						warn!(
 					"Found library '{}' but no matching database file was found. Skipping...",
-					config_path.display()
-				);
-				continue;
-			}
+						entry_path.display()
+					);
+						continue;
+					}
+					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
+				}
 
-			let config = LibraryConfig::read(config_path).await?;
-			libraries.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
+				let config = LibraryConfig::read(entry_path)?;
+				libraries
+					.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
+			}
 		}
 
 		let this = Arc::new(Self {
@@ -181,14 +203,25 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		let id = Uuid::new_v4();
+		self.create_with_uuid(Uuid::new_v4(), config).await
+	}
+
+	pub(crate) async fn create_with_uuid(
+		&self,
+		id: Uuid,
+		config: LibraryConfig,
+	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
+		if config.name.is_empty() || config.name.chars().all(|x| x.is_whitespace()) {
+			return Err(LibraryManagerError::InvalidConfig(
+				"name cannot be empty".to_string(),
+			));
+		}
+
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&config,
-		)
-		.await?;
+		)?;
 
 		let library = Self::load(
 			id,
@@ -200,14 +233,6 @@ impl LibraryManager {
 
 		// Run seeders
 		indexer_rules_seeder(&library.db).await?;
-
-		// setup master password
-		let verification_key = KeyManager::onboarding(km_config, library.id).await?;
-
-		write_storedkey_to_db(&library.db, &verification_key).await?;
-
-		// populate KM with the verification key
-		seed_keymanager(&library.db, &library.key_manager).await?;
 
 		invalidate_query!(library, "library.list");
 
@@ -227,9 +252,9 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
-		self.libraries.read().await.clone()
-	}
+	// pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
+	// 	self.libraries.read().await.clone()
+	// }
 
 	pub(crate) async fn edit(
 		&self,
@@ -255,15 +280,39 @@ impl LibraryManager {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&library.config,
-		)
-		.await?;
+		)?;
 
 		invalidate_query!(library, "library.list");
+
+		for library in self.libraries.read().await.iter() {
+			for location in library
+				.db
+				.location()
+				.find_many(vec![])
+				.exec()
+				.await
+				.unwrap_or_else(|e| {
+					error!(
+						"Failed to get locations from database for location manager: {:#?}",
+						e
+					);
+					vec![]
+				}) {
+				if let Err(e) = self
+					.node_context
+					.location_manager
+					.add(location.id, library.clone())
+					.await
+				{
+					error!("Failed to add location to location manager: {:#?}", e);
+				}
+			}
+		}
 
 		Ok(())
 	}
 
-	pub async fn delete_library(&self, id: Uuid) -> Result<(), LibraryManagerError> {
+	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
 		let mut libraries = self.libraries.write().await;
 
 		let library = libraries
@@ -271,8 +320,21 @@ impl LibraryManager {
 			.find(|l| l.id == id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
-		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
+		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
+		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
+
+		try_join!(
+			async {
+				fs::remove_file(&db_path)
+					.await
+					.map_err(|e| LibraryManagerError::FileIO(FileIOError::from((db_path, e))))
+			},
+			async {
+				fs::remove_file(&sd_lib_path)
+					.await
+					.map_err(|e| LibraryManagerError::FileIO(FileIOError::from((sd_lib_path, e))))
+			},
+		)?;
 
 		invalidate_query!(library, "library.list");
 
@@ -282,7 +344,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<Library> {
+	pub async fn get_library(&self, library_id: Uuid) -> Option<Library> {
 		self.libraries
 			.read()
 			.await
@@ -303,7 +365,7 @@ impl LibraryManager {
 			load_and_migrate(&format!(
 				"file:{}",
 				db_path.as_os_str().to_str().ok_or_else(|| {
-					LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
+					LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 				})?
 			))
 			.await
@@ -324,7 +386,7 @@ impl LibraryManager {
 			.node()
 			.upsert(
 				node::pub_id::equals(uuid_vec.clone()),
-				(
+				node::create(
 					uuid_vec,
 					node_config.name.clone(),
 					vec![node::platform::set(platform as i32)],
@@ -337,18 +399,42 @@ impl LibraryManager {
 		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		seed_keymanager(&db, &key_manager).await?;
 
-		let (sync_manager, _) = SyncManager::new(&db, id);
+		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
 
-		Ok(Library {
+		tokio::spawn({
+			let node_context = node_context.clone();
+
+			async move {
+				while let Ok(op) = sync_rx.recv().await {
+					let SyncMessage::Created(op) = op else { continue; };
+
+					node_context.p2p.broadcast_sync_events(id, vec![op]).await;
+				}
+			}
+		});
+
+		let library = Library {
 			id,
 			local_id: node_data.id,
 			config,
 			key_manager,
 			sync: Arc::new(sync_manager),
+			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
-			last_file_path_id_manager: Arc::new(LastFilePathIdManager::new()),
 			node_local_id: node_data.id,
 			node_context,
-		})
+		};
+
+		if let Err(e) = library
+			.node_context
+			.jobs
+			.clone()
+			.resume_jobs(&library)
+			.await
+		{
+			error!("Failed to resume jobs for library. {:#?}", e);
+		}
+
+		Ok(library)
 	}
 }

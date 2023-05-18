@@ -2,12 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import {
-	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
 	useDebugState,
-	useOnboardingStore
+	useOnboardingStore,
+	usePlausibleEvent
 } from '@sd/client';
 import { PulseAnimation } from '~/components/animation/lottie';
 import { tw } from '~/lib/tailwind';
@@ -23,12 +23,20 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 	const debugState = useDebugState();
 	const obStore = useOnboardingStore();
 
+	const submitPlausibleEvent = usePlausibleEvent();
+
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (lib) => {
 			resetOnboardingStore();
-			queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
+			queryClient.setQueryData(['library.list'], (libraries: any) => [
+				...(libraries || []),
+				lib
+			]);
 			// Switch to the new library
 			currentLibraryStore.id = lib.uuid;
+			if (obStore.shareTelemetry) {
+				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+			}
 		},
 		onError: () => {
 			// TODO: Show toast
@@ -41,16 +49,7 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 
 	const create = async () => {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
-
-		createLibrary.mutate({
-			name: obStore.newLibraryName,
-			auth: {
-				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken || ''
-			},
-			algorithm: obStore.algorithm,
-			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
-		});
+		createLibrary.mutate({ name: obStore.newLibraryName });
 
 		return;
 	};

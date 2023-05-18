@@ -67,7 +67,7 @@ export default (props: UseDialogProps) => {
 				setContentSalt={setContentSalt}
 			/>
 
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -77,11 +77,13 @@ export default (props: UseDialogProps) => {
 							setKey(e);
 						}}
 					>
-						{keys.data && <KeyListSelectOptions keys={keys.data.map((key) => key.uuid)} />}
+						{keys.data && (
+							<KeyListSelectOptions keys={keys.data.map((key) => key.uuid)} />
+						)}
 					</Select>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -96,50 +98,65 @@ export default (props: UseDialogProps) => {
 				</div>
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Hashing</span>
-					<Select className="mt-2 text-gray-300" value={hashingAlgo} disabled onChange={() => {}}>
+					<Select
+						className="mt-2 text-gray-300"
+						value={hashingAlgo}
+						disabled
+						onChange={() => {}}
+					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Content Salt (hex)</span>
-					<div className="relative flex grow">
-						<Input value={contentSalt} disabled className="grow !py-0.5" />
-						<Button
-							type="button"
-							onClick={() => {
-								navigator.clipboard.writeText(contentSalt);
-							}}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<Clipboard className="h-4 w-4" />
-						</Button>
-					</div>
+					<Input
+						value={contentSalt}
+						disabled
+						right={
+							<Button
+								type="button"
+								onClick={() => {
+									navigator.clipboard.writeText(contentSalt);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+						}
+					/>
 				</div>
 			</div>
-			<div className="mt-4 mb-3 grid w-full gap-4">
+			<div className="mb-3 mt-4 grid w-full gap-4">
 				<div className="flex flex-col">
 					<span className="mb-2 text-xs font-bold">Key Value</span>
-					<div className="relative flex grow">
-						<Input value={keyValue} disabled className="grow !py-0.5" />
-						<Button
-							type="button"
-							onClick={() => {
-								navigator.clipboard.writeText(keyValue);
-							}}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<Clipboard className="h-4 w-4" />
-						</Button>
-					</div>
+					<Input
+						value={keyValue}
+						disabled
+						right={
+							<Button
+								type="button"
+								onClick={() => {
+									navigator.clipboard.writeText(keyValue);
+								}}
+								size="icon"
+							>
+								<Clipboard className="h-4 w-4" />
+							</Button>
+						}
+					/>
 				</div>
 			</div>
 		</Dialog>

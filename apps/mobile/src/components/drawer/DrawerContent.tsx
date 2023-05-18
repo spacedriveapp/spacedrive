@@ -24,7 +24,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 				<View>
 					<View style={tw`flex flex-row items-center`}>
 						<Image source={AppLogo} style={tw`h-[40px] w-[40px]`} />
-						<Text style={tw`text-ink ml-2 text-lg font-bold`}>Spacedrive</Text>
+						<Text style={tw`ml-2 text-lg font-bold text-ink`}>Spacedrive</Text>
 					</View>
 					<View style={tw`mt-6`} />
 					{/* Library Manager */}

@@ -84,69 +84,74 @@ export default (props: UseDialogProps) => {
 			ctaDanger={true}
 			ctaLabel="Change"
 		>
-			<div className="relative mt-3 mb-2 flex grow">
-				<Input
-					className={`w-max grow !py-0.5`}
-					placeholder="New password"
-					type={show.masterPassword ? 'text' : 'password'}
-					{...form.register('masterPassword', { required: true })}
-				/>
-				<Button
-					onClick={() => {
-						const password = generatePassword(32);
-						form.setValue('masterPassword', password);
-						form.setValue('masterPassword2', password);
-						setShow((old) => ({
-							...old,
-							masterPassword: true,
-							masterPassword2: true
-						}));
-					}}
-					size="icon"
-					className="absolute right-[65px] top-[5px] border-none"
-					type="button"
-				>
-					<ArrowsClockwise className="h-4 w-4" />
-				</Button>
-				<Button
-					type="button"
-					onClick={() => {
-						navigator.clipboard.writeText(form.watch('masterPassword') as string);
-					}}
-					size="icon"
-					className="absolute right-[35px] top-[5px] border-none"
-				>
-					<Clipboard className="h-4 w-4" />
-				</Button>
-				<Button
-					onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
-					size="icon"
-					className="absolute right-[5px] top-[5px] border-none"
-					type="button"
-				>
-					<MP1CurrentEyeIcon className="h-4 w-4" />
-				</Button>
-			</div>
-			<div className="relative mb-2 flex grow">
-				<Input
-					className={`!py-0.5} grow`}
-					placeholder="New password (again)"
-					type={show.masterPassword2 ? 'text' : 'password'}
-					{...form.register('masterPassword2', { required: true })}
-				/>
-				<Button
-					onClick={() => setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))}
-					size="icon"
-					className="absolute right-[5px] top-[5px] border-none"
-					type="button"
-				>
-					<MP2CurrentEyeIcon className="h-4 w-4" />
-				</Button>
-			</div>
+			<Input
+				placeholder="New password"
+				type={show.masterPassword ? 'text' : 'password'}
+				className="mb-2 mt-3"
+				{...form.register('masterPassword', { required: true })}
+				right={
+					<div className="flex">
+						<Button
+							onClick={() => {
+								const password = generatePassword(32);
+								form.setValue('masterPassword', password);
+								form.setValue('masterPassword2', password);
+								setShow((old) => ({
+									...old,
+									masterPassword: true,
+									masterPassword2: true
+								}));
+							}}
+							size="icon"
+							type="button"
+						>
+							<ArrowsClockwise className="h-4 w-4" />
+						</Button>
+						<Button
+							type="button"
+							onClick={() => {
+								navigator.clipboard.writeText(
+									form.watch('masterPassword') as string
+								);
+							}}
+							size="icon"
+						>
+							<Clipboard className="h-4 w-4" />
+						</Button>
+						<Button
+							onClick={() =>
+								setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))
+							}
+							size="icon"
+							type="button"
+						>
+							<MP1CurrentEyeIcon className="h-4 w-4" />
+						</Button>
+					</div>
+				}
+			/>
+
+			<Input
+				placeholder="New password (again)"
+				type={show.masterPassword2 ? 'text' : 'password'}
+				className="mb-2"
+				{...form.register('masterPassword2', { required: true })}
+				right={
+					<Button
+						onClick={() =>
+							setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))
+						}
+						size="icon"
+						type="button"
+					>
+						<MP2CurrentEyeIcon className="h-4 w-4" />
+					</Button>
+				}
+			/>
 
 			<PasswordMeter password={form.watch('masterPassword')} />
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -168,9 +173,15 @@ export default (props: UseDialogProps) => {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">
+							BLAKE3-Balloon (standard)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-h">
+							BLAKE3-Balloon (hardened)
+						</SelectOption>
+						<SelectOption value="BalloonBlake3-p">
+							BLAKE3-Balloon (paranoid)
+						</SelectOption>
 					</Select>
 				</div>
 			</div>

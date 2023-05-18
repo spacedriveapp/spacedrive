@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { ExplorerData, ExplorerItem, isPath } from '@sd/client';
+import { ExplorerItem, isPath } from '@sd/client';
 import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
@@ -14,10 +14,10 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 
 type ExplorerProps = {
-	data: ExplorerData | undefined;
+	items?: ExplorerItem[];
 };
 
-const Explorer = ({ data }: ExplorerProps) => {
+const Explorer = ({ items }: ExplorerProps) => {
 	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
@@ -32,7 +32,10 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	function handlePress(data: ExplorerItem) {
 		if (isPath(data) && data.item.is_dir) {
-			navigation.push('Location', { id: data.item.location_id, path: data.item.materialized_path });
+			navigation.push('Location', {
+				id: data.item.location_id,
+				path: `${data.item.materialized_path}${data.item.name}/`
+			});
 		} else {
 			setData(data);
 			modalRef.current?.present();
@@ -57,15 +60,19 @@ const Explorer = ({ data }: ExplorerProps) => {
 				)}
 			</View>
 			{/* Items */}
-			{data && (
+			{items && (
 				<FlashList
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
-					data={data.items}
+					data={items}
 					keyExtractor={(item) => item.item.id.toString()}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
-							{layoutMode === 'grid' ? <FileItem data={item} /> : <FileRow data={item} />}
+							{layoutMode === 'grid' ? (
+								<FileItem data={item} />
+							) : (
+								<FileRow data={item} />
+							)}
 						</Pressable>
 					)}
 					extraData={layoutMode}

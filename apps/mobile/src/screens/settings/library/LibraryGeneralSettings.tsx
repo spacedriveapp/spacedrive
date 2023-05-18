@@ -6,9 +6,9 @@ import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
-import { AnimatedButton } from '~/components/primitive/Button';
+import { FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
-import { SettingsContainer, SettingsInputTitle } from '~/components/settings/SettingsContainer';
+import { SettingsContainer, SettingsTitle } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import { useZodForm, z } from '~/hooks/useZodForm';
@@ -38,7 +38,7 @@ const LibraryGeneralSettingsScreen = ({
 	return (
 		<View style={tw`gap-4`}>
 			<View style={tw`mt-4 px-2`}>
-				<SettingsInputTitle>Name</SettingsInputTitle>
+				<SettingsTitle>Name</SettingsTitle>
 				<Controller
 					name="name"
 					control={form.control}
@@ -47,7 +47,7 @@ const LibraryGeneralSettingsScreen = ({
 					)}
 				/>
 				{/* Description */}
-				<SettingsInputTitle style={tw`mt-4`}>Description</SettingsInputTitle>
+				<SettingsTitle style={tw`mt-4`}>Description</SettingsTitle>
 				<Controller
 					name="description"
 					control={form.control}
@@ -72,9 +72,9 @@ const LibraryGeneralSettingsScreen = ({
 							<DeleteLibraryModal
 								libraryUuid={library.uuid}
 								trigger={
-									<AnimatedButton size="sm" variant="danger">
+									<FakeButton size="sm" variant="danger">
 										<Trash color={tw.color('ink')} size={20} />
-									</AnimatedButton>
+									</FakeButton>
 								}
 							/>
 						}

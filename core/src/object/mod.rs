@@ -1,11 +1,12 @@
 use crate::prisma::{file_path, object};
 
-use rspc::Type;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 pub mod cas;
 pub mod file_identifier;
 pub mod fs;
+pub mod orphan_remover;
 pub mod preview;
 pub mod tag;
 pub mod validation;
@@ -18,7 +19,7 @@ pub mod validation;
 object::select!(object_just_id_has_thumbnail { id has_thumbnail });
 object::select!(object_for_file_identifier {
 	pub_id
-	file_paths: select { id cas_id }
+	file_paths: select { pub_id cas_id }
 });
 
 // The response to provide the Explorer when looking at Objects

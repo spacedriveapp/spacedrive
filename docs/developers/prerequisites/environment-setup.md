@@ -67,5 +67,32 @@ To run mobile app
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.67.0**
+- Rust version: **1.68.2**
 - Node version: **18**
+
+### Seeding data on startup
+
+::: slot note
+You may loose data if your using this feature so please be careful! This only works on development builds for this reason.
+:::
+
+You can add a file called `sd_init.json` in the same folder where you start Spacedrive and it can automatically seed data on startup.
+
+```json
+{
+	"resetOnStartup": false,
+	"libraries": [
+		{
+			"id": "26697dc0-ef06-4b39-ad72-ffe5d5205b61",
+			"name": "Oscar's Library",
+			"password": "password",
+			"resetLocationsOnStartup": true,
+			"locations": [
+				{
+					"path": "/Users/oscar/Pictures/assets"
+				}
+			]
+		}
+	]
+}
+```

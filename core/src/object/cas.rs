@@ -1,44 +1,62 @@
-use blake3::Hasher;
 use std::path::Path;
+
+use blake3::Hasher;
+use static_assertions::const_assert;
 use tokio::{
-	fs::File,
+	fs::{self, File},
 	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 
-static SAMPLE_COUNT: u64 = 4;
-static SAMPLE_SIZE: u64 = 10000;
+const SAMPLE_COUNT: u64 = 4;
+const SAMPLE_SIZE: u64 = 1024 * 10;
+const HEADER_OR_FOOTER_SIZE: u64 = 1024 * 8;
 
-async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io::Error> {
-	let mut buf = vec![0u8; size as usize];
+// minimum file size of 100KiB, to avoid sample hashing for small files as they can be smaller than the total sample size
+const MINIMUM_FILE_SIZE: u64 = 1024 * 100;
 
-	file.seek(SeekFrom::Start(offset)).await?;
-	file.read_exact(&mut buf).await?;
+// Asserting that nobody messed up our consts
+const_assert!((HEADER_OR_FOOTER_SIZE * 2 + SAMPLE_COUNT * SAMPLE_SIZE) < MINIMUM_FILE_SIZE);
 
-	Ok(buf)
-}
+// Asserting that the sample size is larger than header/footer size, as the same buffer is used for both
+const_assert!(SAMPLE_SIZE > HEADER_OR_FOOTER_SIZE);
 
 pub async fn generate_cas_id(path: impl AsRef<Path>, size: u64) -> Result<String, io::Error> {
-	let mut file = File::open(path).await?;
 	let mut hasher = Hasher::new();
 	hasher.update(&size.to_le_bytes());
 
-	let sample_interval = if SAMPLE_COUNT * SAMPLE_SIZE > size {
-		size
+	if size <= MINIMUM_FILE_SIZE {
+		// For small files, we hash the whole file
+		hasher.update(&fs::read(path).await?);
 	} else {
-		size / SAMPLE_COUNT
-	};
+		let mut file = File::open(path).await?;
+		let mut buf = vec![0; SAMPLE_SIZE as usize].into_boxed_slice();
 
-	for i in 0..=SAMPLE_COUNT {
-		let offset = if i == SAMPLE_COUNT {
-			size - SAMPLE_SIZE
-		} else {
-			sample_interval * i
-		};
-		let buf = read_at(&mut file, offset, SAMPLE_SIZE).await?;
-		hasher.update(&buf);
+		// Hashing the header
+		let mut current_pos = file
+			.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
+			.await? as u64;
+		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
+
+		// Sample hashing the inner content of the file
+		let seek_jump = (size - HEADER_OR_FOOTER_SIZE * 2) / SAMPLE_COUNT;
+		loop {
+			file.read_exact(&mut buf).await?;
+			hasher.update(&buf);
+
+			if current_pos >= (HEADER_OR_FOOTER_SIZE + seek_jump * (SAMPLE_COUNT - 1)) {
+				break;
+			}
+
+			current_pos = file.seek(SeekFrom::Start(current_pos + seek_jump)).await?;
+		}
+
+		// Hashing the footer
+		file.seek(SeekFrom::End(-(HEADER_OR_FOOTER_SIZE as i64)))
+			.await?;
+		file.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
+			.await?;
+		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
 	}
 
-	let mut id = hasher.finalize().to_hex();
-	id.truncate(16);
-	Ok(id.to_string())
+	Ok(hasher.finalize().to_hex()[..16].to_string())
 }

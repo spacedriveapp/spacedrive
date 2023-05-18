@@ -26,7 +26,7 @@ type ActionsContainerProps = PropsWithChildren<{
 }>;
 
 const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
-	<View style={twStyle('bg-app-box rounded-lg py-3.5', style)}>{children}</View>
+	<View style={twStyle('rounded-lg bg-app-box py-3.5', style)}>{children}</View>
 );
 
 type ActionsItemProps = {
@@ -53,20 +53,19 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 	);
 };
 
-const ActionDivider = () => <View style={tw`bg-app-line/80 my-3.5 h-[0.5px]`} />;
+const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
 
 	const { modalRef, data } = useActionsModalStore();
 
-	const item = data?.item;
-
+	const filePath = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	return (
 		<>
-			<Modal ref={modalRef} snapPoints={['60%', '90%']}>
+			<Modal ref={modalRef} snapPoints={['60', '90']}>
 				{data && (
 					<View style={tw`flex-1 px-4`}>
 						<View style={tw`flex flex-row items-center`}>
@@ -76,17 +75,20 @@ export const ActionsModal = () => {
 							</Pressable>
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
-								<Text style={tw`text-base font-bold text-gray-200`} numberOfLines={1}>
-									{item?.name}
-									{item?.extension && `.${item?.extension}`}
+								<Text
+									style={tw`text-base font-bold text-gray-200`}
+									numberOfLines={1}
+								>
+									{filePath?.name}
+									{filePath?.extension && `.${filePath?.extension}`}
 								</Text>
 								<View style={tw`flex flex-row`}>
-									<Text style={tw`text-ink-faint text-xs`}>
-										{formatBytes(Number(objectData?.size_in_bytes || 0))},
+									<Text style={tw`text-xs text-ink-faint`}>
+										{formatBytes(Number(filePath?.size_in_bytes || 0))},
 									</Text>
-									<Text style={tw`text-ink-faint text-xs`}>
+									<Text style={tw`text-xs text-ink-faint`}>
 										{' '}
-										{dayjs(item?.date_created).format('MMM Do YYYY')}
+										{dayjs(filePath?.date_created).format('MMM Do YYYY')}
 									</Text>
 								</View>
 								<InfoTagPills data={data} />

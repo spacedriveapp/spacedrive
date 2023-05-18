@@ -5,27 +5,62 @@ name: Cache Factory
 
 on:
   push:
+    paths:
+      - 'Cargo.lock'
+      - '.github/scripts/setup-system.sh'
+      - '.github/scripts/setup-system.ps1'
+      - '.github/workflows/cache-factory.yaml'
+      - '.github/actions/**/*.yml'
+      - '.github/actions/**/*.yaml'
+      - '**/build.rs'
+      - 'core/prisma/**'
     branches:
       - main
 
+# Cancel previous runs of the same workflow on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   make_cache:
-    name: 'Make Cache'
-    runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        settings:
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          # - host: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          - host: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: x86_64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-gnu
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-musl
+          # - host: ubuntu-20.04
+          #   target: armv7-unknown-linux-gnueabihf
+    name: 'Make Cache'
+    runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: ./.github/actions/setup
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          targets: ${{ matrix.settings.target }}
           save-cache: 'true'
 
-      - name: Compile workspace with stable Rust
+      - name: Compile (debug)
         run: cargo test --workspace --all-features --no-run
+
+      - name: Compile (release)
+        run: cargo test --workspace --all-features --no-run --release

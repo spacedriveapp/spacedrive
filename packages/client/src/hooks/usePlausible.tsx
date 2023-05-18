@@ -1,26 +1,16 @@
-import Plausible from 'plausible-tracker';
-import { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
+import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect, useRef } from 'react';
-import { useDebugState, useTelemetryState } from '../stores';
+import { PlausiblePlatformType, telemetryStore, useDebugState, useTelemetryState } from '../stores';
 
 /**
  * This should be in sync with the Core's version.
  */
-const Version = '0.1.0';
-
-/**
- * Possible Platform types that can be sourced from `usePlatform().platform` or even hardcoded.
- *
- * @remarks
- * The `tauri` platform is renamed to `desktop` for analytic purposes.
- */
-type PlatformType = 'web' | 'mobile' | 'tauri';
-
-const Domain = 'app.spacedrive.com';
+const VERSION = '0.1.0';
+const DOMAIN = 'app.spacedrive.com';
 
 const PlausibleProvider = Plausible({
 	trackLocalhost: true,
-	domain: Domain
+	domain: DOMAIN
 });
 
 /**
@@ -71,7 +61,7 @@ type PageViewEvent = BasePlausibleEvent<'pageview', 'url'>;
  * @example
  * ```ts
  * const platform = usePlatform();
- * const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+ * const submitPlausibleEvent = usePlausibleEvent();
  *
  * const createLibrary = useBridgeMutation('library.create', {
  *		onSuccess: (library) => {
@@ -97,7 +87,7 @@ type TagAssignEvent = BasePlausibleEvent<'tagAssign'>;
 /**
  * All union of available, ready-to-use events.
  *
- * Every possible event must also be added as a "goal" in Plausible's settings (on their site) for the currently active {@link Domain domain}.
+ * Every possible event must also be added as a "goal" in Plausible's settings (on their site) for the currently active {@link DOMAIN domain}.
  */
 type PlausibleEvent =
 	| PageViewEvent
@@ -117,7 +107,7 @@ type PlausibleEvent =
 interface PlausibleTrackerEvent {
 	eventName: string;
 	props: {
-		platform: 'web' | 'desktop' | 'mobile';
+		platform: PlausiblePlatformType;
 		version: string;
 		debug: boolean;
 	};
@@ -135,9 +125,9 @@ interface SubmitEventProps {
 	/**
 	 *  The current platform type. This should be the output of `usePlatform().platform`
 	 *
-	 * @see {@link PlatformType}
+	 * @see {@link PlausiblePlatformType}
 	 */
-	platformType: PlatformType;
+	platformType: PlausiblePlatformType;
 	/**
 	 * An optional screen width. Default is `window.screen.width`
 	 */
@@ -182,6 +172,7 @@ interface SubmitEventProps {
  * @see {@link https://plausible-tracker.netlify.app/#tracking-custom-events-and-goals Tracking custom events}
  */
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
+	if (props.platformType === 'unknown') return;
 	if (debugState.enabled && debugState.shareTelemetry !== true) return;
 	if (
 		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
@@ -193,8 +184,8 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 	const fullEvent: PlausibleTrackerEvent = {
 		eventName: event.type,
 		props: {
-			platform: props.platformType === 'tauri' ? 'desktop' : props.platformType,
-			version: Version,
+			platform: props.platformType,
+			version: VERSION,
 			debug: debugState.enabled
 		},
 		options: {
@@ -219,15 +210,6 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		fullEvent.options
 	);
 };
-
-interface UsePlausibleEventProps {
-	/**
-	 *  The current platform type. This should be the output of `usePlatform().platform`
-	 *
-	 * @see {@link PlatformType}
-	 */
-	platformType: PlatformType;
-}
 
 interface EventSubmissionCallbackProps {
 	/**
@@ -260,7 +242,7 @@ interface EventSubmissionCallbackProps {
  * @example
  * ```ts
  * const platform = usePlatform();
- * const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+ * const submitPlausibleEvent = usePlausibleEvent();
  *
  * const createLibrary = useBridgeMutation('library.create', {
  *		onSuccess: (library) => {
@@ -273,9 +255,9 @@ interface EventSubmissionCallbackProps {
  * });
  * ```
  */
-export const usePlausibleEvent = ({ platformType }: UsePlausibleEventProps) => {
+export const usePlausibleEvent = () => {
 	const debugState = useDebugState();
-	const shareTelemetry = useTelemetryState().shareTelemetry;
+	const telemetryState = useTelemetryState();
 	const previousEvent = useRef({} as BasePlausibleEvent<string>);
 
 	return useCallback(
@@ -283,9 +265,14 @@ export const usePlausibleEvent = ({ platformType }: UsePlausibleEventProps) => {
 			if (previousEvent.current === props.event) return;
 			else previousEvent.current = props.event;
 
-			submitPlausibleEvent({ debugState, shareTelemetry, platformType, ...props });
+			submitPlausibleEvent({
+				debugState,
+				shareTelemetry: telemetryState.shareTelemetry,
+				platformType: telemetryState.platform,
+				...props
+			});
 		},
-		[debugState, platformType, shareTelemetry]
+		[debugState, telemetryState]
 	);
 };
 
@@ -331,12 +318,6 @@ export interface PageViewMonitorProps {
 	 * @see {@link PageViewRegexRules} for sanitization
 	 */
 	currentPath: string;
-	/**
-	 *  The current platform type. This should be the output of `usePlatform().platform`
-	 *
-	 * @see {@link PlatformType}
-	 */
-	platformType: PlatformType;
 }
 
 /**
@@ -358,15 +339,14 @@ export interface PageViewMonitorProps {
  * @example
  * ```ts
  *  usePlausiblePageViewMonitor({
- *  	currentPath: useLocation().pathname,
- *  	platformType: usePlatform().platform
+ *  	currentPath: useLocation().pathname
  *  });
  * ```
  */
-export const usePlausiblePageViewMonitor = (props: PageViewMonitorProps) => {
-	const plausibleEvent = usePlausibleEvent({ platformType: props.platformType });
+export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProps) => {
+	const plausibleEvent = usePlausibleEvent();
 
-	let path = props.currentPath;
+	let path = currentPath;
 	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
 
 	useEffect(() => {
@@ -377,4 +357,9 @@ export const usePlausiblePageViewMonitor = (props: PageViewMonitorProps) => {
 			}
 		});
 	}, [path, plausibleEvent]);
+};
+
+export const initPlausible = ({ platformType }: { platformType: PlausiblePlatformType }) => {
+	telemetryStore.platform = platformType;
+	return;
 };

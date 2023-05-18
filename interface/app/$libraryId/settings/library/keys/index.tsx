@@ -1,11 +1,11 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
-import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
+import { Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { animated, useTransition } from 'react-spring';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Input, dialogManager } from '@sd/ui';
+import { Button, PasswordInput, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 import KeyList from '../../../KeyManager/List';
@@ -54,7 +54,7 @@ export const KeyMounterDropdown = ({
 										'flex flex-col',
 										'z-50 m-2 space-y-1',
 										'cursor-default select-none rounded-lg',
-										'text-ink text-left text-sm',
+										'text-left text-sm text-ink',
 										'bg-app-overlay/80 backdrop-blur',
 										// 'border border-app-overlay',
 										'shadow-2xl shadow-black/60 ',
@@ -90,56 +90,32 @@ export const Component = () => {
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 
-	const [showMasterPassword, setShowMasterPassword] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState(''); // for the unlock form
 	const [viewSecretKey, setViewSecretKey] = useState(false); // for the settings page
 
 	const keys = useLibraryQuery(['keys.list']);
 
-	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
-
 	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
 	if (!isUnlocked?.data) {
 		return (
 			<div className="mx-20 mt-10 p-2">
-				<div className="relative mb-2 flex grow">
-					<Input
-						value={masterPassword}
-						onChange={(e) => setMasterPassword(e.target.value)}
-						autoFocus
-						type={showMasterPassword ? 'text' : 'password'}
-						className="grow !py-0.5"
-						placeholder="Master Password"
-					/>
-					<Button
-						onClick={() => setShowMasterPassword(!showMasterPassword)}
-						size="icon"
-						className="absolute right-[5px] top-[5px] border-none"
-					>
-						<MPCurrentEyeIcon className="h-4 w-4" />
-					</Button>
-				</div>
+				<PasswordInput
+					value={masterPassword}
+					onChange={(e) => setMasterPassword(e.target.value)}
+					autoFocus
+					placeholder="Master Password"
+					className="mb-2"
+				/>
+
 				{enterSkManually && (
-					<div className="relative mb-2 flex grow">
-						<Input
-							value={secretKey}
-							onChange={(e) => setSecretKey(e.target.value)}
-							type={showSecretKey ? 'text' : 'password'}
-							className="grow !py-0.5"
-							placeholder="Secret Key"
-						/>
-						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
-							size="icon"
-							className="absolute right-[5px] top-[5px] border-none"
-						>
-							<SKCurrentEyeIcon className="h-4 w-4" />
-						</Button>
-					</div>
+					<PasswordInput
+						value={secretKey}
+						onChange={(e) => setSecretKey(e.target.value)}
+						placeholder="Secret Key"
+						className="mb-2"
+					/>
 				)}
 
 				<Button
@@ -154,7 +130,10 @@ export const Component = () => {
 						if (masterPassword !== '') {
 							setMasterPassword('');
 							setSecretKey('');
-							unlockKeyManager.mutate({ password: masterPassword, secret_key: secretKey });
+							unlockKeyManager.mutate({
+								password: masterPassword,
+								secret_key: secretKey
+							});
 						}
 					}}
 				>
@@ -162,7 +141,7 @@ export const Component = () => {
 				</Button>
 				{!enterSkManually && (
 					<div className="relative flex grow">
-						<p className="text-accent mt-2" onClick={() => setEnterSkManually(true)}>
+						<p className="mt-2 text-accent" onClick={() => setEnterSkManually(true)}>
 							or enter secret key manually
 						</p>
 					</div>
@@ -186,12 +165,12 @@ export const Component = () => {
 								variant="subtle"
 								className="text-ink-faint"
 							>
-								<Lock className="text-ink-faint h-4 w-4" />
+								<Lock className="h-4 w-4 text-ink-faint" />
 							</Button>
 							<KeyMounterDropdown
 								trigger={
 									<Button size="icon" variant="subtle" className="text-ink-faint">
-										<Plus className="text-ink-faint h-4 w-4" />
+										<Plus className="h-4 w-4 text-ink-faint" />
 									</Button>
 								}
 							>
@@ -212,7 +191,11 @@ export const Component = () => {
 						<Subheading title="Secret key" />
 						{!viewSecretKey && (
 							<div className="flex flex-row">
-								<Button size="sm" variant="gray" onClick={() => setViewSecretKey(true)}>
+								<Button
+									size="sm"
+									variant="gray"
+									onClick={() => setViewSecretKey(true)}
+								>
 									View Secret Key
 								</Button>
 							</div>
@@ -226,7 +209,7 @@ export const Component = () => {
 							>
 								<>
 									<QRCode size={128} value={keyringSk.data} />
-									<p className="mt-14 ml-6 text-xl font-bold">{keyringSk.data}</p>
+									<p className="ml-6 mt-14 text-xl font-bold">{keyringSk.data}</p>
 								</>
 							</div>
 						)}
@@ -239,7 +222,9 @@ export const Component = () => {
 						size="sm"
 						variant="gray"
 						className="mr-2"
-						onClick={() => dialogManager.create((dp) => <MasterPasswordDialog {...dp} />)}
+						onClick={() =>
+							dialogManager.create((dp) => <MasterPasswordDialog {...dp} />)
+						}
 					>
 						Change Master Password
 					</Button>
@@ -281,7 +266,9 @@ export const Component = () => {
 						size="sm"
 						variant="gray"
 						className="mr-2"
-						onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
+						onClick={() =>
+							dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)
+						}
 					>
 						Restore
 					</Button>

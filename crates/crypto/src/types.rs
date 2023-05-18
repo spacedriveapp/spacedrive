@@ -17,7 +17,7 @@ use serde_big_array::BigArray;
 /// You may also generate a nonce for a given algorithm with `Nonce::generate()`
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Nonce {
 	XChaCha20Poly1305([u8; 20]),
 	Aes256Gcm([u8; 8]),
@@ -32,7 +32,7 @@ pub enum Nonce {
 	derive(serde::Serialize),
 	derive(serde::Deserialize)
 )]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -47,7 +47,7 @@ pub enum Params {
 	derive(serde::Deserialize),
 	serde(tag = "name", content = "params")
 )]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	BalloonBlake3(Params),
@@ -127,7 +127,7 @@ impl Deref for Nonce {
 	derive(serde::Serialize),
 	derive(serde::Deserialize)
 )]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
@@ -300,7 +300,7 @@ impl From<SecretKeyString> for SecretKey {
 /// This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
 	pub  [u8; ENCRYPTED_KEY_LEN],
@@ -327,7 +327,7 @@ impl TryFrom<Vec<u8>> for EncryptedKey {
 /// You may also generate a salt with `Salt::generate()`
 #[derive(Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Salt(pub [u8; SALT_LEN]);
 
 impl Salt {
@@ -357,7 +357,7 @@ impl TryFrom<Vec<u8>> for Salt {
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(rspc::Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct OnboardingConfig {
 	pub password: Protected<String>,
 	pub algorithm: Algorithm,

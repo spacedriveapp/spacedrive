@@ -1,54 +1,75 @@
-import { Gear, Lock } from 'phosphor-react';
+import { Gear, Lock, MagnifyingGlass, X } from 'phosphor-react';
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, ButtonLink, Tabs } from '@sd/ui';
+import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
 import KeyList from './List';
 import KeyMounter from './Mounter';
+import NotSetup from './NotSetup';
 import NotUnlocked from './NotUnlocked';
 
 export function KeyManager() {
 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	const isSetup = useLibraryQuery(['keys.isSetup']);
 
+	if (!isSetup?.data) return <NotSetup />;
 	if (!isUnlocked?.data) return <NotUnlocked />;
 	else return <Unlocked />;
 }
 
 const Unlocked = () => {
 	const { library } = useLibraryContext();
+	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
 
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 
 	return (
-		<div>
-			<Tabs.Root defaultValue="mount">
-				<div className="flex flex-col">
+		<div className="w-[350px]">
+			<Tabs.Root defaultValue="keys">
+				<div className="min-w-32 flex flex-col">
 					<Tabs.List>
-						<Tabs.Trigger className="text-sm font-medium" value="mount">
+						{/* <Input placeholder="Search" /> */}
+						{/* <Tabs.Trigger className="!rounded-md text-sm font-medium" value="mount">
 							Mount
 						</Tabs.Trigger>
-						<Tabs.Trigger className="text-sm font-medium" value="keys">
+						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="keys">
 							Keys
-						</Tabs.Trigger>
+						</Tabs.Trigger> */}
+						<Button
+
+							size="icon"
+							variant="subtle"
+							className="text-ink-faint"
+						>
+							<MagnifyingGlass className="h-4 w-4 text-ink-faint" />
+						</Button>
 						<div className="grow" />
 						<Button
 							size="icon"
 							onClick={() => {
-								unmountAll.mutate(null);
-								clearMasterPassword.mutate(null);
+								unmountAll
+									.mutateAsync(null)
+									.then(() => clearMasterPassword.mutateAsync(null))
+									.then(() => isUnlocked.refetch());
 							}}
 							variant="subtle"
 							className="text-ink-faint"
 						>
-							<Lock className="text-ink-faint h-4 w-4" />
+							<Lock className="h-4 w-4 text-ink-faint" />
 						</Button>
-						<ButtonLink
-							to={`/${library.uuid}/settings/library/keys`}
+						<Button
 							size="icon"
 							variant="subtle"
 							className="text-ink-faint"
 						>
-							<Gear className="text-ink-faint h-4 w-4" />
-						</ButtonLink>
+							<Gear className="h-4 w-4 text-ink-faint" />
+						</Button>
+						<Button
+							size="icon"
+							variant="subtle"
+							className="text-ink-faint"
+						>
+							<X className="h-4 w-4 text-ink-faint" />
+						</Button>
 					</Tabs.List>
 				</div>
 				<Tabs.Content value="keys">
@@ -63,32 +84,14 @@ const Unlocked = () => {
 };
 
 const Keys = () => {
-	const unmountAll = useLibraryMutation(['keys.unmountAll']);
-
 	return (
 		<div className="flex h-full max-h-[360px] flex-col">
 			<div className="custom-scroll overlay-scroll p-3">
 				<div className="">
-					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
 						<KeyList />
 					</div>
 				</div>
-			</div>
-			<div className="border-app-line flex w-full rounded-b-md border-t p-2">
-				<Button
-					size="sm"
-					variant="gray"
-					onClick={() => {
-						unmountAll.mutate(null);
-					}}
-				>
-					Unmount All
-				</Button>
-				<div className="grow" />
-				<Button size="sm" variant="gray">
-					Close
-				</Button>
 			</div>
 		</div>
 	);

@@ -38,9 +38,9 @@ export default function OnboardingProgress() {
 						<button
 							key={path}
 							disabled={!obStore.unlockedScreens.includes(path)}
-							onClick={() => navigate(`/onboarding/${path}`)}
+							onClick={() => navigate(`/onboarding/${path}`, { replace: true })}
 							className={clsx(
-								'hover:bg-ink h-2 w-2 rounded-full transition disabled:opacity-10',
+								'h-2 w-2 rounded-full transition hover:bg-ink disabled:opacity-10',
 								currentScreenKey === path ? 'bg-ink' : 'bg-ink-faint'
 							)}
 						/>

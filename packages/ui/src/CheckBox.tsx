@@ -5,7 +5,7 @@ import { ComponentProps, forwardRef } from 'react';
 
 const styles = cva(
 	[
-		'form-check-input float-left mt-1 mr-2 h-4 w-4 appearance-none rounded-sm border border-gray-300 bg-white bg-contain bg-center bg-no-repeat align-top transition duration-200',
+		'form-check-input float-left mr-2 mt-1 h-4 w-4 appearance-none rounded-sm border border-gray-300 bg-white bg-contain bg-center bg-no-repeat align-top transition duration-200',
 		'checked:border-blue-600 checked:bg-blue-600 focus:outline-none '
 	],
 	{ variants: {} }
@@ -25,18 +25,18 @@ export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root>
 
 // TODO: Replace above with this, requires refactor of usage
 export const RadixCheckbox = (props: RadixCheckboxProps) => (
-	<div className="align-center flex">
+	<div className="flex items-center">
 		<Checkbox.Root
-			className="bg-app-button flex h-[17px] w-[17px] shrink-0 rounded-md"
+			className="flex h-[17px] w-[17px] shrink-0 rounded-md bg-app-button"
 			id={props.name}
 			{...props}
 		>
-			<Checkbox.Indicator className="bg-accent flex h-[17px] w-[17px] items-center justify-center rounded-md">
-				<Check weight="bold" />
+			<Checkbox.Indicator className="flex h-[17px] w-[17px] items-center justify-center rounded-md bg-accent">
+				<Check weight="bold" size={14} />
 			</Checkbox.Indicator>
 		</Checkbox.Root>
 		{props.label && (
-			<label className=" ml-2 font-medium" htmlFor={props.name}>
+			<label className="ml-2 text-sm font-medium" htmlFor={props.name}>
 				{props.label}
 			</label>
 		)}

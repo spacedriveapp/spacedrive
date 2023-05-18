@@ -2,13 +2,6 @@
 # disabled for now because we have some dead code that doesn't really need reviewed yet
 # * @spacedriveapp
 
-# crates
-/crates/crypto @brxken128
-/crates/ffmpeg @fogodev
-/crates/file-ext @jamiepine
-/crates/p2p @oscartbeaumont
-/crates/prisma-cli @brendonovich
-/crates/sync @brendonovich
 
 # documentation
 /apps/landing/src/pages/docs/ @jamiepine
@@ -22,8 +15,8 @@
 /apps/mobile/ @spacedriveapp/mobile
 
 # core logic
-/core/ @jamiepine @Brendonovich @oscartbeaumont @fogodev
-/packages/macos/ @jamiepine @Brendonovich @oscartbeaumont
+/core/ @spacedriveapp/backend
+/crates/ @spacedriveapp/backend
 
 # server app
 /apps/server/ @oscartbeaumont
@@ -32,9 +25,7 @@
 /apps/landing/ @spacedriveapp/frontend
 
 # UI
-/packages/interface/ @spacedriveapp/frontend @utkubakir
-/packages/ui/ @spacedriveapp/frontend
-/packages/assets/ @spacedriveapp/frontend @utkubakir
+/packages/ @spacedriveapp/frontend
 
 # base config files
 /* @jamiepine
@@ -49,4 +40,4 @@
 
 # development workflow
 /.github/scripts/ @oscartbeaumont
-/.github/ISSUES_TEMPLATE/ @jamiepine @Brendonovich @maxichrome @oscartbeaumont
+/.github/ISSUES_TEMPLATE/ @jamiepine @Brendonovich @oscartbeaumont

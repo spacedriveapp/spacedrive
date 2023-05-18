@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Copy,
@@ -18,15 +19,17 @@ import {
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
-	useLibraryQuery,
-	usePlausibleEvent
+	useLibraryQuery
 } from '@sd/client';
-import { ContextMenu, Input, dialogManager } from '@sd/ui';
-import { useExplorerParams } from '~/app/$libraryId/location/$id';
+import { ContextMenu, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { getItemFilePath, useExplorerSearchParams } from '../util';
+import OpenWith from './ContextMenu/OpenWith';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -34,13 +37,12 @@ import EraseDialog from './EraseDialog';
 
 interface Props extends PropsWithChildren {
 	data: ExplorerItem;
+	className?: string;
 }
 
-export default ({ data, ...props }: Props) => {
-	const { library } = useLibraryContext();
+export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
-	const params = useExplorerParams();
-	const platform = usePlatform();
+	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
@@ -49,23 +51,12 @@ export default ({ data, ...props }: Props) => {
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
+	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
+
 	return (
-		<div className="relative">
+		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
-				<ContextMenu.Item
-					label="Open"
-					keybind="⌘O"
-					onClick={() => {
-						// TODO: Replace this with a proper UI
-						window.location.href = platform.getFileUrl(
-							library.uuid,
-							store.locationId!,
-							data.item.id
-						);
-					}}
-					icon={Copy}
-				/>
-				<ContextMenu.Item label="Open with..." />
+				<OpenOrDownloadOptions data={data} />
 
 				<ContextMenu.Separator />
 
@@ -73,6 +64,7 @@ export default ({ data, ...props }: Props) => {
 					<>
 						<ContextMenu.Item
 							label="Details"
+							keybind="⌘I"
 							// icon={Sidebar}
 							onClick={() => (getExplorerStore().showInspector = true)}
 						/>
@@ -80,31 +72,31 @@ export default ({ data, ...props }: Props) => {
 					</>
 				)}
 
-				<ContextMenu.Item label="Quick view" keybind="␣" />
 				<OpenInNativeExplorer />
 
-				<ContextMenu.Separator />
-
-				<ContextMenu.Item label="Rename" />
 				<ContextMenu.Item
-					label="Duplicate"
-					keybind="⌘D"
-					onClick={() => {
-						copyFiles.mutate({
-							source_location_id: store.locationId!,
-							source_path_id: data.item.id,
-							target_location_id: store.locationId!,
-							target_path: params.path,
-							target_file_name_suffix: ' copy'
-						});
-					}}
+					label="Rename"
+					keybind="Enter"
+					onClick={() => (getExplorerStore().isRenaming = true)}
 				/>
+
+				{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+					<ContextMenu.Item
+						label="Remove from recents"
+						onClick={() =>
+							data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						}
+					/>
+				)}
 
 				<ContextMenu.Item
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Cut',
@@ -118,7 +110,10 @@ export default ({ data, ...props }: Props) => {
 					label="Copy"
 					keybind="⌘C"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Copy',
@@ -126,6 +121,22 @@ export default ({ data, ...props }: Props) => {
 						};
 					}}
 					icon={Copy}
+				/>
+
+				<ContextMenu.Item
+					label="Duplicate"
+					keybind="⌘D"
+					onClick={() => {
+						if (params.path === undefined) return;
+
+						copyFiles.mutate({
+							source_location_id: store.locationId!,
+							source_path_id: data.item.id,
+							target_location_id: store.locationId!,
+							target_path: params.path,
+							target_file_name_suffix: ' copy'
+						});
+					}}
 				/>
 
 				<ContextMenu.Item
@@ -158,9 +169,11 @@ export default ({ data, ...props }: Props) => {
 
 				<ContextMenu.Separator />
 
-				<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
-					<AssignTagMenuItems objectId={objectData?.id || 0} />
-				</ContextMenu.SubMenu>
+				{objectData && (
+					<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
+						<AssignTagMenuItems objectId={objectData.id} />
+					</ContextMenu.SubMenu>
+				)}
 
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
 					<ContextMenu.Item
@@ -170,7 +183,11 @@ export default ({ data, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked && hasMountedKeys) {
 								dialogManager.create((dp) => (
-									<EncryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<EncryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else if (!keyManagerUnlocked) {
 								showAlertDialog({
@@ -193,7 +210,11 @@ export default ({ data, ...props }: Props) => {
 						onClick={() => {
 							if (keyManagerUnlocked) {
 								dialogManager.create((dp) => (
-									<DecryptDialog {...dp} location_id={store.locationId!} path_id={data.item.id} />
+									<DecryptDialog
+										{...dp}
+										location_id={store.locationId!}
+										path_id={data.item.id}
+									/>
 								));
 							} else {
 								showAlertDialog({
@@ -248,54 +269,40 @@ export default ({ data, ...props }: Props) => {
 	);
 };
 
-const AssignTagMenuItems = (props: { objectId: number }) => {
-	const platform = usePlatform();
-	const submitPlausibleEvent = usePlausibleEvent({ platformType: platform.platform });
+const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
+	const os = useOperatingSystem();
+	const { openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const filePath = getItemFilePath(props.data);
 
-	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
-	const assignTag = useLibraryMutation('tags.assign', {
-		onSuccess: () => {
-			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-		}
-	});
+	const { library } = useLibraryContext();
 
-	return (
-		<>
-			{tags.data?.length === 0 && (
-				<div className="m-1 pb-10">
-					<Input autoFocus defaultValue="New tag" />
-				</div>
-			)}
-			{tags.data?.map((tag, index) => {
-				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
-
-				return (
-					<ContextMenu.Item
-						key={tag.id}
-						keybind={`${index + 1}`}
-						onClick={(e) => {
-							e.preventDefault();
-							if (props.objectId === null) return;
-
-							assignTag.mutate({
-								tag_id: tag.id,
-								object_id: props.objectId,
-								unassign: active
-							});
-						}}
-					>
-						<div
-							className="mr-0.5 block h-[15px] w-[15px] rounded-full border"
-							style={{
-								backgroundColor: active ? tag.color || '#efefef' : 'transparent' || '#efefef',
-								borderColor: tag.color || '#efefef'
-							}}
-						/>
-						<p>{tag.name}</p>
-					</ContextMenu.Item>
-				);
-			})}
-		</>
-	);
+	if (os === 'browser') return <ContextMenu.Item label="Download" />;
+	else
+		return (
+			<>
+				{filePath && (
+					<>
+						{openFilePath && (
+							<ContextMenu.Item
+								label="Open"
+								keybind="⌘O"
+								onClick={() => {
+									props.data.type === 'Path' &&
+										props.data.item.object_id &&
+										updateAccessTime.mutate(props.data.item.object_id);
+									openFilePath(library.uuid, filePath.id);
+								}}
+							/>
+						)}
+						<OpenWith filePath={filePath} />
+					</>
+				)}
+				<ContextMenu.Item
+					label="Quick view"
+					keybind="␣"
+					onClick={() => (getExplorerStore().quickViewObject = props.data)}
+				/>
+			</>
+		);
 };

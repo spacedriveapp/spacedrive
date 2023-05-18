@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SplashScreen from 'expo-splash-screen';
 import { Suspense, lazy } from 'react';
 import { Platform } from 'react-native';
+import { reactNativeLink } from './lib/rspcReactNativeTransport';
 
 // Enable the splash screen
 SplashScreen.preventAutoHideAsync();
@@ -40,9 +41,17 @@ globalThis.localStorage = {
 	length: _localStorage.size
 };
 
-/* 
+globalThis.rspcLinks = [
+	// TODO
+	// loggerLink({
+	// 	enabled: () => getDebugState().rspcLogger
+	// }),
+	reactNativeLink()
+];
+
+/*
 	https://github.com/facebook/hermes/issues/23
-	
+
 	We are using "Hermes" on Android & IOS, which for the current version (0.11),
 	IOS does not support the Intl fully so we need polyfill it.
 

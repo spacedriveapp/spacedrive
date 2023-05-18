@@ -1,17 +1,21 @@
-use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	invalidate_query,
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
+	util::error::FileIOError,
+};
 
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::sync::oneshot;
-use tracing::{error, trace};
+use tokio::fs;
+use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo};
+use super::{context_menu_fs_info, get_location_path_from_location_id, osstr_to_string, FsInfo};
 
-pub struct FileCopierJob {
-	pub done_tx: Option<oneshot::Sender<()>>,
-}
+pub struct FileCopierJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobState {
@@ -48,7 +52,9 @@ impl From<FsInfo> for FileCopierJobStep {
 	}
 }
 
-pub const COPY_JOB_NAME: &str = "file_copier";
+impl JobInitData for FileCopierJobInit {
+	type Job = FileCopierJob;
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
@@ -56,8 +62,10 @@ impl StatefulJob for FileCopierJob {
 	type Data = FileCopierJobState;
 	type Step = FileCopierJobStep;
 
-	fn name(&self) -> &'static str {
-		COPY_JOB_NAME
+	const NAME: &'static str = "file_copier";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
@@ -69,7 +77,8 @@ impl StatefulJob for FileCopierJob {
 		.await?;
 
 		let mut full_target_path =
-			get_path_from_location_id(&ctx.library.db, state.init.target_location_id).await?;
+			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
+				.await?;
 
 		// add the currently viewed subdirectory to the location root
 		full_target_path.push(&state.init.target_path);
@@ -102,7 +111,7 @@ impl StatefulJob for FileCopierJob {
 			source_fs_info: source_fs_info.clone(),
 		});
 
-		state.steps = [source_fs_info.into()].into_iter().collect();
+		state.steps.push_back(source_fs_info.into());
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -114,54 +123,95 @@ impl StatefulJob for FileCopierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
 
-		let job_state = state.data.as_ref().ok_or(JobError::MissingData {
-			value: String::from("job state"),
-		})?;
-
-		match step {
+		match &state.steps[0] {
 			FileCopierJobStep::File { path } => {
-				let mut target_path = job_state.target_path.clone();
+				let mut target_path = data.target_path.clone();
 
-				if job_state.source_fs_info.path_data.is_dir {
+				if data.source_fs_info.path_data.is_dir {
 					// if root type is a dir, we need to preserve structure by making paths relative
 					target_path.push(
-						path.strip_prefix(&job_state.source_fs_info.fs_path)
+						path.strip_prefix(&data.source_fs_info.fs_path)
 							.map_err(|_| JobError::Path)?,
 					);
 				}
 
-				trace!("Copying from {:?} to {:?}", path, target_path);
+				let parent_path = path.parent().ok_or(JobError::Path)?;
+				let parent_target_path = target_path.parent().ok_or(JobError::Path)?;
 
-				tokio::fs::copy(&path, &target_path).await?;
+				if fs::canonicalize(parent_path)
+					.await
+					.map_err(|e| FileIOError::from((parent_path, e)))?
+					== fs::canonicalize(parent_target_path)
+						.await
+						.map_err(|e| FileIOError::from((parent_target_path, e)))?
+				{
+					return Err(JobError::MatchingSrcDest(path.clone()));
+				}
+
+				if fs::metadata(&target_path).await.is_ok() {
+					// only skip as it could be half way through a huge directory copy and run into an issue
+					warn!(
+						"Skipping {} as it would be overwritten",
+						target_path.display()
+					);
+				// TODO(brxken128): could possibly return an error if the skipped file was the *only* file to be copied?
+				} else {
+					trace!(
+						"Copying from {} to {}",
+						path.display(),
+						target_path.display()
+					);
+
+					fs::copy(&path, &target_path)
+						.await
+						.map_err(|e| FileIOError::from((&target_path, e)))?;
+				}
 			}
 			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir
 				// fixes copying dirs with no child directories
-				if job_state.source_fs_info.path_data.is_dir
-					&& &job_state.source_fs_info.fs_path == path
-				{
-					tokio::fs::create_dir_all(&job_state.target_path).await?;
+				if data.source_fs_info.path_data.is_dir && &data.source_fs_info.fs_path == path {
+					fs::create_dir_all(&data.target_path)
+						.await
+						.map_err(|e| FileIOError::from((&data.target_path, e)))?;
 				}
 
-				let mut dir = tokio::fs::read_dir(&path).await?;
+				let path = path.clone(); // To appease the borrowck
 
-				while let Some(entry) = dir.next_entry().await? {
-					if entry.metadata().await?.is_dir() {
+				let mut dir = fs::read_dir(&path)
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?;
+
+				while let Some(entry) = dir
+					.next_entry()
+					.await
+					.map_err(|e| FileIOError::from((&path, e)))?
+				{
+					let entry_path = entry.path();
+					if entry
+						.metadata()
+						.await
+						.map_err(|e| FileIOError::from((&entry_path, e)))?
+						.is_dir()
+					{
 						state
 							.steps
 							.push_back(FileCopierJobStep::Directory { path: entry.path() });
 
-						tokio::fs::create_dir_all(
-							job_state.target_path.join(
-								entry
-									.path()
-									.strip_prefix(&job_state.source_fs_info.fs_path)
-									.map_err(|_| JobError::Path)?,
-							),
-						)
-						.await?;
+						let full_path = data.target_path.join(
+							entry_path
+								.strip_prefix(&data.source_fs_info.fs_path)
+								.map_err(|_| JobError::Path)?,
+						);
+
+						fs::create_dir_all(&full_path)
+							.await
+							.map_err(|e| FileIOError::from((full_path, e)))?;
 					} else {
 						state
 							.steps
@@ -179,12 +229,8 @@ impl StatefulJob for FileCopierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		if let Some(done_tx) = self.done_tx.take() {
-			if done_tx.send(()).is_err() {
-				error!("Failed to send done signal on FileCopierJob");
-			}
-		}
+	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

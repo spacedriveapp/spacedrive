@@ -1,14 +1,31 @@
-#! /bin/zsh
+#!/usr/bin/env zsh
 
 set -e
 
-export PROTOC=/opt/homebrew/bin/protoc
+__dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+TARGET_DIRECTORY="$(CDPATH='' cd -- "${__dirname}/../../../target" && pwd)"
 
-TARGET_DIRECTORY=../../../target
-
-CARGO_FLAGS=
 if [[ $CONFIGURATION != "Debug" ]]; then
   CARGO_FLAGS=--release
+  export CARGO_FLAGS
+fi
+
+export PROTOC="${TARGET_DIRECTORY}/Frameworks/bin/protoc"
+
+# TODO: Also do this for non-Apple Silicon Macs
+if [[ $SPACEDRIVE_CI == "1" ]]; then
+  # Required for CI
+  export PATH="$HOME/.cargo/bin:$PATH"
+
+  cargo build -p sd-mobile-ios --target x86_64-apple-ios
+
+  if [[ $PLATFORM_NAME = "iphonesimulator" ]]
+  then
+    lipo -create -output $TARGET_DIRECTORY/libsd_mobile_ios-iossim.a $TARGET_DIRECTORY/x86_64-apple-ios/debug/libsd_mobile_ios.a
+  else
+    lipo -create -output $TARGET_DIRECTORY/libsd_mobile_ios-ios.a $TARGET_DIRECTORY/x86_64-apple-ios/debug/libsd_mobile_ios.a
+  fi
+  exit 0
 fi
 
 if [[ $PLATFORM_NAME = "iphonesimulator" ]]

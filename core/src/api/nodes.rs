@@ -1,24 +1,28 @@
-use super::RouterBuilder;
-use rspc::Type;
-use serde::{Deserialize, Serialize};
+use rspc::alpha::AlphaRouter;
+use serde::Deserialize;
+use specta::Type;
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new().mutation("tokenizeSensitiveKey", |t| {
+use crate::api::R;
+
+use super::Ctx;
+
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router().procedure("changeNodeName", {
 		#[derive(Deserialize, Type)]
-		pub struct TokenizeKeyArgs {
-			pub secret_key: String,
+		pub struct ChangeNodeNameArgs {
+			pub name: String,
 		}
-		#[derive(Serialize, Type)]
-		pub struct TokenizeResponse {
-			pub token: String,
-		}
+		// TODO: validate name isn't empty or too long
 
-		t(|ctx, args: TokenizeKeyArgs| async move {
-			let token = ctx.secure_temp_keystore.tokenize(args.secret_key);
+		R.mutation(|ctx, args: ChangeNodeNameArgs| async move {
+			ctx.config
+				.write(|mut config| {
+					config.name = args.name;
+				})
+				.await
+				.unwrap();
 
-			Ok(TokenizeResponse {
-				token: token.to_string(),
-			})
+			Ok(())
 		})
 	})
 }

@@ -1,84 +1,86 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches:
       - main
     paths-ignore:
-      - '**/.md'
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.cspell/**'
+      - '.vscode/**'
+      - '.github/CODEOWNERS'
+      - '.github/FUNDING.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/scripts/osxcross/**'
+      - '.github/scripts/ffmpeg-macos/**'
+      - '.gitattributes'
+      - 'cspell.config.yaml'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.cspell/**'
+      - '.vscode/**'
+      - '.github/CODEOWNERS'
+      - '.github/FUNDING.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/scripts/osxcross/**'
+      - '.github/scripts/ffmpeg-macos/**'
+      - '.gitattributes'
+      - 'cspell.config.yaml'
   workflow_dispatch:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typescript:
     name: TypeScript
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.2
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
         with:
-          version: 7.x.x
-
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Perform typechecks
         run: pnpm typecheck
 
   eslint:
     name: ESLint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.2
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
         with:
-          version: 7.x.x
-
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Perform linting
         run: pnpm lint
 
   rustfmt:
     name: Rust Formatting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt
-
-      - name: Cache Rust deps
-        uses: Swatinem/rust-cache@v2
-
-      - name: Generate Prisma client
-        uses: ./.github/actions/generate-prisma-client
+      - name: Setup Rust and Prisma
+        uses: ./.github/actions/setup-rust
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
@@ -88,32 +90,34 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Setup
-        uses: ./.github/actions/setup
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           args: --workspace --all-features
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   # test:
   #   name: Test (${{ matrix.platform }})
   #   runs-on: ${{ matrix.platform }}
   #   strategy:
   #     matrix:
-  #       platform: [ubuntu-latest, macos-latest, windows-latest]
+  #       platform: [ubuntu-20.04, macos-latest, windows-latest]
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v3
-
+  #
   #     - name: Setup
   #       uses: ./.github/actions/setup
-
+  #
   #     - name: Test
   #       run: cargo test --workspace --all-features

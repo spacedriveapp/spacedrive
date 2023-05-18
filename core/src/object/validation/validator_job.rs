@@ -1,20 +1,21 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::Library,
-	location::file_path_helper::file_path_for_object_validator,
+	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
 	prisma::{file_path, location},
 	sync,
+	util::error::FileIOError,
 };
 
-use std::{collections::VecDeque, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::info;
 
 use super::hash::file_checksum;
-
-pub const VALIDATOR_JOB_NAME: &str = "object_validator";
 
 // The Validator is able to:
 // - generate a full byte checksum for Objects in a Location
@@ -36,31 +37,36 @@ pub struct ObjectValidatorJobInit {
 	pub background: bool,
 }
 
+impl JobInitData for ObjectValidatorJobInit {
+	type Job = ObjectValidatorJob;
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJob {
 	type Init = ObjectValidatorJobInit;
 	type Data = ObjectValidatorJobState;
 	type Step = file_path_for_object_validator::Data;
 
-	fn name(&self) -> &'static str {
-		VALIDATOR_JOB_NAME
+	const NAME: &'static str = "object_validator";
+
+	fn new() -> Self {
+		Self {}
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
-		state.steps = db
-			.file_path()
-			.find_many(vec![
-				file_path::location_id::equals(state.init.location_id),
-				file_path::is_dir::equals(false),
-				file_path::integrity_checksum::equals(None),
-			])
-			.select(file_path_for_object_validator::select())
-			.exec()
-			.await?
-			.into_iter()
-			.collect::<VecDeque<_>>();
+		state.steps.extend(
+			db.file_path()
+				.find_many(vec![
+					file_path::location_id::equals(state.init.location_id),
+					file_path::is_dir::equals(false),
+					file_path::integrity_checksum::equals(None),
+				])
+				.select(file_path_for_object_validator::select())
+				.exec()
+				.await?,
+		);
 
 		let location = db
 			.location()
@@ -87,29 +93,35 @@ impl StatefulJob for ObjectValidatorJob {
 		let Library { db, sync, .. } = &ctx.library;
 
 		let file_path = &state.steps[0];
-		let data = state.data.as_ref().expect("fatal: missing job state");
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
 
 		// this is to skip files that already have checksums
 		// i'm unsure what the desired behaviour is in this case
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let checksum = file_checksum(data.root_path.join(&file_path.materialized_path)).await?;
+			let path = data.root_path.join(IsolatedFilePathData::from((
+				file_path.location.id,
+				file_path,
+			)));
+			let checksum = file_checksum(&path)
+				.await
+				.map_err(|e| FileIOError::from((path, e)))?;
 
 			sync.write_op(
 				db,
 				sync.shared_update(
 					sync::file_path::SyncId {
-						id: file_path.id,
-						location: sync::location::SyncId {
-							pub_id: file_path.location.pub_id.clone(),
-						},
+						pub_id: file_path.pub_id.clone(),
 					},
-					"integrity_checksum",
+					file_path::integrity_checksum::NAME,
 					json!(&checksum),
 				),
 				db.file_path().update(
-					file_path::location_id_id(file_path.location.id, file_path.id),
+					file_path::pub_id::equals(file_path.pub_id.clone()),
 					vec![file_path::integrity_checksum::set(Some(checksum))],
 				),
 			)

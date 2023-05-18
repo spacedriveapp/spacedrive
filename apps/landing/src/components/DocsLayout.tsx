@@ -25,7 +25,7 @@ export default function DocsLayout(props: Props) {
 				pageWrapId="page-container"
 				className="shadow-2xl shadow-black"
 			>
-				<div className="custom-scroll doc-sidebar-scroll bg-gray-650 visible h-screen overflow-x-hidden px-7 pb-20 pt-7 sm:invisible">
+				<div className="custom-scroll doc-sidebar-scroll visible h-screen overflow-x-hidden bg-gray-650 px-7 pb-20 pt-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						className="-ml-0.5 mb-3 !border-none !px-1"
@@ -36,13 +36,16 @@ export default function DocsLayout(props: Props) {
 				</div>
 			</Menu>
 
-			<aside className="sticky top-32 mt-32 mb-20 ml-2 mr-0 hidden px-5 sm:inline lg:mr-4">
+			<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden px-5 sm:inline lg:mr-4">
 				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 			</aside>
 			<div className="flex w-full flex-col sm:flex-row" id="page-container">
 				<div className="mt-[65px] flex h-12 w-full items-center border-y border-gray-600 px-5 sm:hidden">
 					<div className="flex sm:hidden">
-						<Button onClick={() => setMenuOpen(!menuOpen)} className="ml-1 !border-none !px-2">
+						<Button
+							onClick={() => setMenuOpen(!menuOpen)}
+							className="ml-1 !border-none !px-2"
+						>
 							<List weight="bold" className="h-6 w-6" />
 						</Button>
 					</div>
@@ -51,7 +54,7 @@ export default function DocsLayout(props: Props) {
 						return (
 							<div key={index} className="ml-2 flex flex-row items-center">
 								<a className="px-1 text-sm">{toTitleCase(item)}</a>
-								{index < 1 && <CaretRight className="ml-1 -mr-2 h-4 w-4" />}
+								{index < 1 && <CaretRight className="-mr-2 ml-1 h-4 w-4" />}
 							</div>
 						);
 					})}

@@ -2,8 +2,7 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Location, Node } from '@sd/client';
+import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
 import DeleteDialog from './DeleteDialog';
 
@@ -32,8 +31,10 @@ export default ({ location }: Props) => {
 			<Folder size={30} className="mr-3" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="text-ink-dull mt-0.5 select-text  truncate text-sm">
-					<span className="bg-app-selected mr-1 rounded  py-[1px] px-1">{location.node.name}</span>
+				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
+					<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
+						{location.node.name}
+					</span>
 					{location.path}
 				</p>
 			</div>
@@ -46,10 +47,17 @@ export default ({ location }: Props) => {
 						e.stopPropagation();
 					}}
 					variant="gray"
-					className="pointer-events-none flex !py-1.5 !px-2"
+					className="pointer-events-none flex !px-2 !py-1.5"
 				>
-					<div className={clsx('h-2 w-2  rounded-full', online ? 'bg-green-500' : 'bg-red-500')} />
-					<span className="text-ink-dull ml-1.5 text-xs">{online ? 'Online' : 'Offline'}</span>
+					<div
+						className={clsx(
+							'h-2 w-2  rounded-full',
+							online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+					<span className="ml-1.5 text-xs text-ink-dull">
+						{online ? 'Online' : 'Offline'}
+					</span>
 				</Button>
 				<Button
 					variant="gray"
@@ -57,7 +65,11 @@ export default ({ location }: Props) => {
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
 						dialogManager.create((dp) => (
-							<DeleteDialog {...dp} onSuccess={() => setHide(true)} locationId={location.id} />
+							<DeleteDialog
+								{...dp}
+								onSuccess={() => setHide(true)}
+								locationId={location.id}
+							/>
 						));
 					}}
 				>

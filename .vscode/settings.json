@@ -50,14 +50,33 @@
 		"**/bower_components": true,
 		"**/*.code-search": true,
 		// Hiding these folders bcs they create a lot of noise in the search results
-		"apps/mobile/android": true,
-		"apps/mobile/ios": true
+		"apps/mobile/ios/Pods": true
+		// "apps/mobile/android": true
+		// "apps/mobile/ios": true
 	},
 	"eslint.workingDirectories": [
+		"apps/desktop",
 		"apps/landing",
 		"apps/mobile",
-		"packages/ui",
+		"interface",
 		"packages/client",
-		"packages/interface"
-	]
+		"packages/config",
+		"packages/ui"
+	],
+	"eslint.packageManager": "pnpm",
+	"eslint.lintTask.enable": true,
+	"explorer.fileNesting.enabled": true,
+	"explorer.fileNesting.patterns": {
+		"*.ts": "${capture}.js",
+		"*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+		"*.jsx": "${capture}.js",
+		"*.tsx": "${capture}.ts",
+		".npmrc": ".nvmrc, .yarnrc.yml",
+		".gitignore": ".eslintignore, .prettierignore",
+		"README.md": "CONTRIBUTING.md, CODE_OF_CONDUCT.md",
+		"Cargo.toml": "Cargo.lock",
+		".eslintrc.js": ".eslintcache",
+		"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, pnpm-workspace.yaml, .pnp.cjs, .pnp.loader.mjs",
+		"tsconfig.json": "tsconfig.*.json"
+	}
 }
