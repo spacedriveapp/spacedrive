@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { animated, useTransition } from '@react-spring/web';
 import { VariantProps, cva } from 'class-variance-authority';
+import clsx from 'clsx';
 import { ComponentProps } from 'react';
 import {
 	FieldErrors,
@@ -37,9 +38,15 @@ export const Form = <T extends FieldValues>({
 				}}
 				{...props}
 			>
-				{/* <fieldset> passes the form's 'disabled' state to all of its elements,
-            allowing us to handle disabled style variants with just css */}
-				<fieldset disabled={disabled || form.formState.isSubmitting}>{children}</fieldset>
+				{/**
+				 * <fieldset> passes the form's 'disabled' state to all of its elements,
+				 * allowing us to handle disabled style variants with just css.
+				 * <fieldset> has a default `min-width: min-content`, which causes it to behave weirdly,
+				 * so we override it.
+				 */}
+				<fieldset disabled={disabled || form.formState.isSubmitting} className="min-w-0">
+					{children}
+				</fieldset>
 			</form>
 		</FormProvider>
 	);
@@ -89,7 +96,9 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 		from: { opacity: 0 },
 		enter: { opacity: 1 },
 		leave: { opacity: 0 },
-		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 }
+		clamp: true,
+		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 },
+		exitBeforeEnter: true,
 	});
 
 	return (
