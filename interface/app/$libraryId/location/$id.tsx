@@ -1,23 +1,15 @@
+import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { dialogManager } from '@sd/ui';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import {
-	ExplorerData,
-	useLibraryContext,
-	useLibraryMutation,
-	useRspcLibraryContext
-} from '@sd/client';
-import { dialogManager } from '@sd/ui';
 import { useZodRouteParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerSearchParams } from '../Explorer/util';
-import { KeyManager } from '../KeyManager';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar';
 import TopBarChildren from '../TopBar/TopBarChildren';
 
 const PARAMS = z.object({
@@ -27,6 +19,7 @@ const PARAMS = z.object({
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -58,7 +51,7 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren toolOptions={useToolBarOptions()} />
+			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions,]} />
 			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
@@ -71,47 +64,11 @@ export const Component = () => {
 	);
 };
 
-const useToolBarOptions = () => {
-	const store = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
 
-	return [
-		explorerViewOptions,
-		[
-			{
-				toolTipLabel: 'Key Manager',
-				icon: <Key className={TOP_BAR_ICON_STYLE} />,
-				popOverComponent: <KeyManager />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Tag Assign Mode',
-				icon: (
-					<Tag
-						weight={store.tagAssignMode ? 'fill' : 'regular'}
-						className={TOP_BAR_ICON_STYLE}
-					/>
-				),
-				onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
-				topBarActive: store.tagAssignMode,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Regenerate thumbs (temp)',
-				icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			}
-		],
-		explorerControlOptions
-	] satisfies ToolOption[][];
-};
 
 const useItems = () => {
-	const { id: location_id } = useZodRouteParams(PARAMS);
-	const [{ path, limit }] = useExplorerSearchParams();
+	const { id: locationId } = useZodRouteParams(PARAMS);
+	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
@@ -120,23 +77,26 @@ const useItems = () => {
 
 	const query = useInfiniteQuery({
 		queryKey: [
-			'locations.getExplorerData',
+			'search.paths',
 			{
 				library_id: library.uuid,
 				arg: {
-					location_id,
-					path: explorerState.layoutMode === 'media' ? null : path,
-					limit,
-					kind: explorerState.layoutMode === 'media' ? [5, 7] : null
+					locationId,
+					take,
+					...(explorerState.layoutMode === 'media'
+						? { kind: [5, 7] }
+						: { path: path ?? '' })
 				}
 			}
 		] as const,
-		queryFn: async ({ pageParam: cursor, queryKey }): Promise<ExplorerData> => {
-			const arg = queryKey[1];
-			(arg.arg as any).cursor = cursor;
-
-			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
-		},
+		queryFn: ({ pageParam: cursor, queryKey }) =>
+			ctx.client.query([
+				'search.paths',
+				{
+					...queryKey[1].arg,
+					cursor
+				}
+			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
 

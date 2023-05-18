@@ -133,7 +133,9 @@ impl Node {
 			.init();
 
 		let event_bus = broadcast::channel(1024);
-		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
+		let config = NodeConfigManager::new(data_dir.to_path_buf())
+			.await
+			.map_err(NodeError::FailedToInitializeConfig)?;
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
@@ -221,13 +223,11 @@ impl Node {
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
 pub enum NodeError {
-	#[error("Failed to create data directory: {0}")]
-	FailedToCreateDataDirectory(#[from] std::io::Error),
-	#[error("Failed to initialize config: {0}")]
-	FailedToInitializeConfig(#[from] util::migrator::MigratorError),
-	#[error("Failed to initialize library manager: {0}")]
+	#[error("failed to initialize config")]
+	FailedToInitializeConfig(util::migrator::MigratorError),
+	#[error("failed to initialize library manager")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
-	#[error("Location manager error: {0}")]
+	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),
 	#[error("invalid platform integer")]
 	InvalidPlatformInt(i32),

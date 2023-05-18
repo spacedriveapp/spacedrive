@@ -45,24 +45,9 @@ const explorerStore = proxy({
 	addNewThumbnail: (cas_id: string) => {
 		explorerStore.newThumbnails[cas_id] = true;
 	}
-	// selectMore: (indexes: number[]) => {
-	// 	if (!explorerStore.multiSelectIndexes.length && indexes.length) {
-	// 		explorerStore.multiSelectIndexes = [explorerStore.selectedRowIndex, ...indexes];
-	// 	} else {
-	// 		explorerStore.multiSelectIndexes = [
-	// 			...new Set([...explorerStore.multiSelectIndexes, ...indexes])
-	// 		];
-	// 	}
-	// }
 });
 
 export function useExplorerStore() {
-	// const { library } = useLibraryContext();
-
-	// useEffect(() => {
-	// 	explorerStore.reset();
-	// }, [library.uuid]);
-
 	return useSnapshot(explorerStore);
 }
 

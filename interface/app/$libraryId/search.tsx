@@ -19,17 +19,19 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
-	const query = useLibraryQuery(['search', props.args], {
+	const query = useLibraryQuery(['search.paths', props.args], {
 		suspense: true,
 		enabled: !!props.args.search
 	});
 
 	const items = useMemo(() => {
-		if (explorerStore.layoutMode !== 'media') return query.data;
+		const items = query.data?.items;
 
-		return query.data?.filter((item) => {
+		if (explorerStore.layoutMode !== 'media') return items;
+
+		return items?.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
@@ -43,7 +45,7 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 		<>
 			{items && items.length > 0 ? (
 				<>
-					<TopBarChildren toolOptions={[explorerViewOptions, explorerControlOptions]} />
+					<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
 					<Explorer items={items} />
 				</>
 			) : (

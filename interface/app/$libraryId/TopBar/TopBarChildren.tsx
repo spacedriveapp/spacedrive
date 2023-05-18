@@ -15,7 +15,9 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 	const ctx = useContext(TopBarContext);
 	const target = ctx.topBarChildrenRef?.current;
 	const [windowSize, setWindowSize] = useState(0);
-	const countToolOptions = toolOptions?.flatMap((group) => group).length || 0;
+	const toolsNotSmFlex = toolOptions
+		?.flatMap((group) => group)
+		.filter((t) => t.showAtResolution !== 'sm:flex');
 
 	useLayoutEffect(() => {
 		const handleResize = () => {
@@ -108,7 +110,9 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 			</div>
 			<TopBarMobile
 				toolOptions={toolOptions}
-				className={`${windowSize <= 1279 && countToolOptions > 4 ? 'flex' : 'hidden'}`}
+				className={`${
+					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
+				}`}
 			/>
 		</div>,
 		target

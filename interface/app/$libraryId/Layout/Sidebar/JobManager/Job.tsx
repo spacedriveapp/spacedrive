@@ -46,7 +46,7 @@ const getNiceData = (
 				: 'Generated thumbnails'
 		}`,
 		icon: Camera,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'path')}`
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	file_identifier: {
 		name: `${
@@ -57,7 +57,7 @@ const getNiceData = (
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
-			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'task')}`
+			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	object_validator: {
 		name: `Generated full object hashes`,
@@ -103,6 +103,7 @@ const StatusColors: Record<JobReport['status'], string> = {
 	Running: 'text-blue-500',
 	Failed: 'text-red-500',
 	Completed: 'text-green-500',
+	CompletedWithErrors: 'text-orange-500',
 	Queued: 'text-yellow-500',
 	Canceled: 'text-gray-500',
 	Paused: 'text-gray-500'
