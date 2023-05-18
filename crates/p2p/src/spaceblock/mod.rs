@@ -10,7 +10,7 @@ use std::{
 
 use tokio::{
 	fs::File,
-	io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+	io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 use tracing::debug;
 
@@ -43,7 +43,7 @@ pub struct SpacedropRequest {
 }
 
 impl SpacedropRequest {
-	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, ()> {
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> Result<Self, ()> {
 		let mut name_len = [0; 2];
 		stream.read_exact(&mut name_len).await.map_err(|_| ())?; // TODO: Error handling
 		let name_len = u16::from_le_bytes(name_len);
@@ -69,7 +69,7 @@ impl SpacedropRequest {
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
 
-		let len_buf = self.name.len().to_le_bytes();
+		let len_buf = (self.name.len() as u16).to_le_bytes();
 		if self.name.len() > u16::MAX as usize {
 			panic!("Name is too long!"); // TODO: Error handling
 		}
@@ -202,6 +202,21 @@ mod tests {
 	use tokio::sync::oneshot;
 
 	use super::*;
+
+	#[tokio::test]
+	async fn test_spaceblock_request() {
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: 42069,
+			block_size: BlockSize::from_size(42069),
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpacedropRequest::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
 
 	#[tokio::test]
 	async fn test_spaceblock() {
