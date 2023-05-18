@@ -1,8 +1,10 @@
 import { defineDocumentType, makeSource } from '@contentlayer/source-files';
 import readingTime from 'reading-time';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
 // Blog
 export const Post = defineDocumentType(() => ({
@@ -94,7 +96,10 @@ export default makeSource({
 	contentDirPath: '../../', // project dir
 	contentDirInclude: ['docs', 'apps/landing/posts'],
 	documentTypes: [Post, Document],
-	mdx: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings] }
+	mdx: {
+		remarkPlugins: [remarkGfm, remarkMath],
+		rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings, rehypeKatex]
+	}
 });
 
 // Can't import the one in utils/util.ts so we have to duplicate it here

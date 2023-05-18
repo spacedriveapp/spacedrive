@@ -2,6 +2,7 @@ import { allDocs } from '@contentlayer/generated';
 import { Github } from '@icons-pack/react-simple-icons';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
+import Link from 'next/link';
 import { CaretRight } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { Helmet } from 'react-helmet';
@@ -79,6 +80,13 @@ export default function DocPage({
 				<meta property="og:image" content={featured_image} />
 				<meta content="summary_large_image" name="twitter:card" />
 			<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
+				{/* For Math styles */}
+				<link
+					rel="stylesheet"
+					href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css"
+					integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI7mLTdk1wblIUnrIq35nqwEvC"
+					crossOrigin="anonymous"
+				/>
 			</Helmet>
 
 			<DocsLayout docUrl={doc.url} navigation={navigation}>
@@ -88,17 +96,17 @@ export default function DocPage({
 					</h5>
 					<MDXContent components={DocMDXComponents} />
 					<div className="mt-10 flex flex-col gap-3 sm:flex-row">
-						<a
+						<Link
 							target="_blank"
 							rel="noreferrer"
-							href={`https://github.com/spacedriveapp/spacedrive/blob/main/docs/${doc.url}.md`}
+							href={`https://github.com/spacedriveapp/spacedrive/blob/main${doc.url}.mdx`}
 							className="w-full"
 						>
 							<BottomCard>
 								<Github className="mr-3 w-5" />
 								Edit this page on GitHub
 							</BottomCard>
-						</a>
+						</Link>
 						{nextDoc && (
 							<a href={nextDoc.url} className="w-full">
 								<BottomCard>
