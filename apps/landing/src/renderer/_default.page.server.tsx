@@ -1,5 +1,6 @@
 import ReactDOMServer from 'react-dom/server';
 import { Helmet } from 'react-helmet';
+// @ts-expect-error
 import { dangerouslySkipEscape, escapeInject } from 'vite-plugin-ssr/server';
 import type { PageContextBuiltIn } from 'vite-plugin-ssr/types';
 import App from '../App';
