@@ -6,7 +6,7 @@
 		"start": "next start",
 		"prod": "next build && next start",
 		"lint": "eslint src --cache",
-		"typecheck": "tsc -b"
+		"typecheck": "contentlayer build && tsc -b"
 	},
 	"dependencies": {
 		"@icons-pack/react-simple-icons": "^5.8.0",
