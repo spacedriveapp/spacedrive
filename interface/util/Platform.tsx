@@ -1,5 +1,4 @@
 import { PropsWithChildren, createContext, useContext, useState } from 'react';
-import { useMediaQuery } from 'react-responsive';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -8,7 +7,12 @@ export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unkno
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
 	getThumbnailUrlById: (casId: string) => string;
-	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
+	getFileUrl: (
+		libraryId: string,
+		locationLocalId: number,
+		filePathId: number,
+		_linux_workaround?: boolean
+	) => string;
 	openLink: (url: string) => void;
 	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
 	getOs?(): Promise<OperatingSystem>;
@@ -19,6 +23,8 @@ export type Platform = {
 	openPath?(path: string): void;
 	// Opens a file path with a given ID
 	openFilePath?(library: string, id: number): any;
+	getFilePathOpenWithApps?(library: string, id: number): any;
+	openFilePathWith?(library: string, id: number, appUrl: string): any;
 };
 
 // Keep this private and use through helpers below
@@ -43,18 +49,3 @@ export function PlatformProvider({
 }: PropsWithChildren<{ platform: Platform }>) {
 	return <context.Provider value={platform}>{children}</context.Provider>;
 }
-
-export const useIsDark = () => {
-	const systemPrefersDark = useMediaQuery(
-		{
-			query: '(prefers-color-scheme: dark)'
-		},
-		undefined,
-		(prefersDark: boolean) => {
-			setIsDark(prefersDark);
-		}
-	);
-	const [isDark, setIsDark] = useState(systemPrefersDark);
-
-	return isDark;
-};

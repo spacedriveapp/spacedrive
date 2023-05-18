@@ -37,3 +37,73 @@ pub async fn open_file_path(
 
 	Ok(res)
 }
+
+#[derive(Type, serde::Serialize)]
+pub struct OpenWithApplication {
+	name: String,
+	url: String,
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_file_path_open_with_apps(
+	library: uuid::Uuid,
+	id: i32,
+	node: tauri::State<'_, Arc<Node>>,
+) -> Result<Vec<OpenWithApplication>, ()> {
+	let Some(library) = node.library_manager.get_library(library).await else {
+        return Err(())
+    };
+
+	let Ok(Some(path)) = library
+        .get_file_path(id)
+        .await
+        else {
+            return Err(())
+        };
+
+	#[cfg(target_os = "macos")]
+	return Ok(unsafe {
+		sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into())
+	}
+	.as_slice()
+	.iter()
+	.map(|app| OpenWithApplication {
+		name: app.name.to_string(),
+		url: app.url.to_string(),
+	})
+	.collect());
+
+	#[cfg(not(target_os = "macos"))]
+	Err(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn open_file_path_with(
+	library: uuid::Uuid,
+	id: i32,
+	with_url: String,
+	node: tauri::State<'_, Arc<Node>>,
+) -> Result<(), ()> {
+	let Some(library) = node.library_manager.get_library(library).await else {
+        return Err(())
+    };
+
+	let Ok(Some(path)) = library
+        .get_file_path(id)
+        .await
+        else {
+            return Err(())
+        };
+
+	#[cfg(target_os = "macos")]
+	unsafe {
+		sd_desktop_macos::open_file_path_with(
+			&path.to_str().unwrap().into(),
+			&with_url.as_str().into(),
+		)
+	};
+
+	Ok(())
+}

@@ -11,7 +11,7 @@ import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
-import { IndexerRuleEditor } from './IndexerRuleEditor';
+import IndexerRuleEditor from './IndexerRuleEditor';
 
 const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 const REMOTE_ERROR_FORM_MESSAGE = {
@@ -195,6 +195,8 @@ export const AddLocationDialog = ({
 			})}
 			ctaLabel="Add"
 		>
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
+
 			<Input
 				label="Path:"
 				readOnly={platform.platform !== 'web'}
@@ -221,8 +223,6 @@ export const AddLocationDialog = ({
 					/>
 				</div>
 			</div>
-
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-3" />
 		</Dialog>
 	);
 };

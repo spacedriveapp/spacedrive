@@ -7,7 +7,10 @@ use std::{path::PathBuf, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
-use tauri::{api::path, async_runtime::block_on, plugin::TauriPlugin, Manager, RunEvent, Runtime};
+use tauri::{
+	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin, Manager,
+	RunEvent, Runtime,
+};
 use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
 
@@ -60,18 +63,13 @@ async fn main() -> tauri::Result<()> {
 	let (node, app) = match result {
 		Ok((node, router)) => {
 			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-			let endpoint = create_custom_uri_endpoint(node.clone());
-
 			#[cfg(target_os = "linux")]
-			let app = app_linux::setup(app, rx, endpoint).await;
-
-			#[cfg(not(target_os = "linux"))]
-			let app = app.register_uri_scheme_protocol(
-				"spacedrive",
-				endpoint.tauri_uri_scheme("spacedrive"),
-			);
-
+			let app = app_linux::setup(app, rx, create_custom_uri_endpoint(node.clone()).axum()).await;
 			let app = app
+				.register_uri_scheme_protocol(
+					"spacedrive",
+					create_custom_uri_endpoint(node.clone()).tauri_uri_scheme("spacedrive"),
+				)
 				.plugin(rspc::integrations::tauri::plugin(router, {
 					let node = node.clone();
 					move || node.clone()
@@ -85,6 +83,7 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.setup(|app| {
+			#[cfg(feature = "updater")]
 			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
 
 			let app = app.handle();
@@ -119,11 +118,24 @@ async fn main() -> tauri::Result<()> {
 				}
 			});
 
+			// Configure IPC for custom protocol
+			app.ipc_scope().configure_remote_access(
+				RemoteDomainAccessScope::new("localhost")
+					.allow_on_scheme("spacedrive")
+					.add_window("main")
+					.enable_tauri_api(),
+			);
+
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
-		.invoke_handler(tauri_handlers![app_ready, file::open_file_path])
+		.invoke_handler(tauri_handlers![
+			app_ready,
+			file::open_file_path,
+			file::get_file_path_open_with_apps,
+			file::open_file_path_with
+		])
 		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {

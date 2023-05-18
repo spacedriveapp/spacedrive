@@ -1,4 +1,4 @@
-import { PageContextBuiltIn } from 'vite-plugin-ssr';
+import { PageContextBuiltIn } from 'vite-plugin-ssr/types';
 import { getDoc } from './api';
 import config from './docs';
 

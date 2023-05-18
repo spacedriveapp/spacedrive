@@ -3,24 +3,19 @@ import * as RS from '@radix-ui/react-select';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Check } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, forwardRef } from 'react';
 
 export const selectStyles = cva(
 	[
-		'flex items-center justify-between rounded-md border pl-3 pr-[10px] text-sm',
+		'flex items-center justify-between rounded-md border py-0.5 pl-3 pr-[10px] text-sm',
 		'shadow-sm outline-none transition-all focus:ring-2',
-		'radix-placeholder:text-ink-faint'
+		'text-ink radix-placeholder:text-ink-faint'
 	],
 	{
 		variants: {
 			variant: {
-				default: [
-					'bg-app-input focus:bg-app-focus',
-					'border-app-line focus:border-app-divider/80',
-					'focus:ring-app-selected/30'
-				]
+				default: ['bg-app-input', 'border-app-line']
 			},
-
 			size: {
 				sm: 'h-[30px]',
 				md: 'h-[34px]',
@@ -34,37 +29,47 @@ export const selectStyles = cva(
 	}
 );
 
-export interface SelectProps extends VariantProps<typeof selectStyles> {
-	value: string;
-	onChange: (value: string) => void;
+export interface SelectProps<TValue extends string = string>
+	extends VariantProps<typeof selectStyles> {
+	value: TValue;
+	onChange: (value: TValue) => void;
 	placeholder?: string;
 	className?: string;
 	disabled?: boolean;
 }
 
-export function Select(props: PropsWithChildren<SelectProps>) {
-	return (
-		<RS.Root
-			defaultValue={props.value}
-			value={props.value}
-			onValueChange={props.onChange}
-			disabled={props.disabled}
-		>
-			<RS.Trigger className={selectStyles({ size: props.size, className: props.className })}>
-				<RS.Value placeholder={props.placeholder} />
-				<RS.Icon className="ml-2">
-					<ChevronDouble className="text-ink-dull" />
-				</RS.Icon>
-			</RS.Trigger>
+export const Select = forwardRef(
+	<TValue extends string = string>(
+		props: PropsWithChildren<SelectProps<TValue>>,
+		ref: React.ForwardedRef<HTMLDivElement>
+	) => {
+		return (
+			<div ref={ref}>
+				<RS.Root
+					defaultValue={props.value}
+					value={props.value}
+					onValueChange={props.onChange}
+					disabled={props.disabled}
+				>
+					<RS.Trigger
+						className={selectStyles({ size: props.size, className: props.className })}
+					>
+						<RS.Value placeholder={props.placeholder} />
+						<RS.Icon className="ml-2">
+							<ChevronDouble className="text-ink-dull" />
+						</RS.Icon>
+					</RS.Trigger>
 
-			<RS.Portal>
-				<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
-					<RS.Viewport className="p-1">{props.children}</RS.Viewport>
-				</RS.Content>
-			</RS.Portal>
-		</RS.Root>
-	);
-}
+					<RS.Portal>
+						<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
+							<RS.Viewport className="p-1">{props.children}</RS.Viewport>
+						</RS.Content>
+					</RS.Portal>
+				</RS.Root>
+			</div>
+		);
+	}
+);
 
 export function SelectOption(props: PropsWithChildren<{ value: string; default?: boolean }>) {
 	return (

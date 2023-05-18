@@ -10,7 +10,12 @@ const PARAMS = z.object({
 export const Component = () => {
 	const { id } = useZodRouteParams(PARAMS);
 
-	const explorerData = useLibraryQuery(['tags.getExplorerData', id]);
+	const explorerData = useLibraryQuery([
+		'search.objects',
+		{
+			tagId: id
+		}
+	]);
 
 	return (
 		<div className="w-full">

@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import clsx from 'clsx';
+import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
-import { ExplorerData, useLibrarySubscription } from '@sd/client';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
@@ -11,11 +12,15 @@ interface Props {
 	// TODO: not using data since context isn't actually used
 	// and it's not exactly compatible with search
 	// data?: ExplorerData;
-	items?: ExplorerData['items'];
+	items?: ExplorerItem[];
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
+	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -23,7 +28,14 @@ export default function Explorer(props: Props) {
 	const [{ path }] = useExplorerSearchParams();
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
+		onStarted: () => {
+			console.log('Started RSPC subscription new thumbnail');
+		},
+		onError: (err) => {
+			console.error('Error in RSPC subscription new thumbnail', err);
+		},
 		onData: (cas_id) => {
+			console.log({ cas_id });
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
@@ -47,8 +59,9 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
 			<div className="flex flex-1">
-				<ExplorerContextMenu>
-					<div className="flex-1 overflow-hidden">
+				<div className={clsx('flex-1 overflow-hidden', props.explorerClassName)}>
+					{props.children}
+					<ExplorerContextMenu>
 						{props.items && (
 							<View
 								data={props.items}
@@ -56,14 +69,17 @@ export default function Explorer(props: Props) {
 								hasNextPage={props.hasNextPage}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
+								scrollRef={props.scrollRef}
 							/>
 						)}
-					</div>
-				</ExplorerContextMenu>
-
-				{expStore.showInspector && selectedItem !== null && (
+					</ExplorerContextMenu>
+				</div>
+				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={selectedItem} />
+						<Inspector
+							className={props.inspectorClassName}
+							data={selectedItem}
+						/>
 					</div>
 				)}
 			</div>

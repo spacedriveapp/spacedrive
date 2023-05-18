@@ -29,6 +29,7 @@ import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
+import OpenWith from './ContextMenu/OpenWith';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -49,6 +50,8 @@ export default ({ data, className, ...props }: Props) => {
 	const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
+
+	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
 
 	return (
 		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
@@ -77,10 +80,21 @@ export default ({ data, className, ...props }: Props) => {
 					onClick={() => (getExplorerStore().isRenaming = true)}
 				/>
 
+				{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+					<ContextMenu.Item
+						label="Remove from recents"
+						onClick={() =>
+							data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						}
+					/>
+				)}
+
 				<ContextMenu.Item
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
 							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
@@ -96,6 +110,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Copy"
 					keybind="⌘C"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
 							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
@@ -111,6 +127,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Duplicate"
 					keybind="⌘D"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
 							source_path_id: data.item.id,
@@ -253,11 +271,9 @@ export default ({ data, className, ...props }: Props) => {
 
 const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
-	const platform = usePlatform();
+	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
 	const filePath = getItemFilePath(props.data);
-	const openFilePath = platform.openFilePath;
 
 	const { library } = useLibraryContext();
 
@@ -265,24 +281,28 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	else
 		return (
 			<>
-				{filePath && openFilePath && (
-					<ContextMenu.Item
-						label="Open"
-						keybind="⌘O"
-						onClick={() => {
-							props.data.type === 'Path' &&
-								props.data.item.object_id &&
-								updateAccessTime.mutate(props.data.item.object_id);
-							openFilePath(library.uuid, filePath.id);
-						}}
-					/>
+				{filePath && (
+					<>
+						{openFilePath && (
+							<ContextMenu.Item
+								label="Open"
+								keybind="⌘O"
+								onClick={() => {
+									props.data.type === 'Path' &&
+										props.data.item.object_id &&
+										updateAccessTime.mutate(props.data.item.object_id);
+									openFilePath(library.uuid, filePath.id);
+								}}
+							/>
+						)}
+						<OpenWith filePath={filePath} />
+					</>
 				)}
 				<ContextMenu.Item
 					label="Quick view"
 					keybind="␣"
 					onClick={() => (getExplorerStore().quickViewObject = props.data)}
 				/>
-				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
 			</>
 		);
 };
