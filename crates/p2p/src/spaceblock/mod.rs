@@ -10,7 +10,7 @@ use std::{
 
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+	io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 use tracing::debug;
 
@@ -101,7 +101,7 @@ impl<'a> Block<'a> {
 	}
 
 	pub async fn from_stream(
-		stream: &mut UnicastStream,
+		stream: &mut (impl AsyncReadExt + Unpin),
 		data_buf: &mut [u8],
 	) -> Result<Block<'a>, ()> {
 		let mut offset = [0; 8];
@@ -132,7 +132,11 @@ impl<'a> Block<'a> {
 	}
 }
 
-pub async fn send(stream: &mut UnicastStream, mut file: File, req: &SpacedropRequest) {
+pub async fn send(
+	stream: &mut (impl AsyncWrite + Unpin),
+	mut file: (impl AsyncBufRead + Unpin),
+	req: &SpacedropRequest,
+) {
 	// We manually implement what is basically a `BufReader` so we have more control
 	let mut buf = vec![0u8; req.block_size.to_size() as usize];
 	let mut offset: u64 = 0;
@@ -140,6 +144,14 @@ pub async fn send(stream: &mut UnicastStream, mut file: File, req: &SpacedropReq
 	loop {
 		let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
 		offset += read as u64;
+
+		if read == 0 {
+			if offset != req.size {
+				panic!("U dun goofed"); // TODO: Error handling
+			}
+
+			break;
+		}
 
 		let block = Block {
 			offset: offset,
@@ -151,34 +163,73 @@ pub async fn send(stream: &mut UnicastStream, mut file: File, req: &SpacedropReq
 			block.offset, block.size
 		);
 		stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
-
-		if read == 0 {
-			if offset != req.size {
-				panic!("U dun goofed"); // TODO: Error handling
-			}
-
-			break;
-		}
 	}
 }
 
-pub async fn receive(stream: &mut UnicastStream, mut file: File, req: &SpacedropRequest) {
+pub async fn receive(
+	stream: &mut (impl AsyncReadExt + Unpin),
+	mut file: (impl AsyncWrite + Unpin),
+	req: &SpacedropRequest,
+) {
 	// We manually implement what is basically a `BufReader` so we have more control
 	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
 	let mut offset: u64 = 0;
 
 	loop {
+		// TODO: Timeout if nothing is being received
 		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
+		offset += block.size;
 
 		debug!(
 			"Received block at offset {} of size {}",
 			block.offset, block.size
 		);
-		file.write_all(&data_buf).await.unwrap(); // TODO: Error handling
+		file.write_all(&data_buf[..block.size as usize])
+			.await
+			.unwrap(); // TODO: Error handling
 
 		// TODO: Should this be `read == 0`
 		if offset == req.size {
 			break;
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use tokio::sync::oneshot;
+
+	use super::*;
+
+	#[tokio::test]
+	async fn test_spaceblock() {
+		let (mut client, mut server) = tokio::io::duplex(64);
+
+		// This is sent out of band of Spaceblock
+		let data = b"Spacedrive".to_vec();
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: data.len() as u64,
+			block_size: BlockSize::from_size(data.len() as u64),
+		};
+
+		let (tx, rx) = oneshot::channel();
+		tokio::spawn({
+			let req = req.clone();
+			let data = data.clone();
+			async move {
+				let file = BufReader::new(Cursor::new(data));
+				tx.send(()).unwrap();
+				send(&mut client, file, &req).await;
+			}
+		});
+
+		rx.await.unwrap();
+
+		let mut result = Vec::new();
+		receive(&mut server, &mut result, &req).await;
+		assert_eq!(result, data);
 	}
 }
