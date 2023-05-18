@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, get } from 'react-hook-form';
 import {
 	UnionToTuple,
 	extractInfoRSPCError,
@@ -135,7 +135,7 @@ export const AddLocationDialog = ({
 				}
 			}
 
-			if (message)
+			if (message && get(form.formState.errors, REMOTE_ERROR_FORM_FIELD)?.message !== message)
 				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
 			return true;
 		},
@@ -203,7 +203,6 @@ export const AddLocationDialog = ({
 			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
 			<Input
-				name="path"
 				size="md"
 				label="Path:"
 				onClick={() =>
@@ -213,6 +212,7 @@ export const AddLocationDialog = ({
 				}
 				readOnly={platform.platform !== 'web'}
 				className="mb-3 cursor-pointer"
+				{...form.register('path')}
 			/>
 
 			<input type="hidden" {...form.register('method')} />
