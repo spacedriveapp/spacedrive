@@ -15,7 +15,7 @@ use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt},
+	io::{AsyncReadExt, AsyncWriteExt, BufReader},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
@@ -334,6 +334,7 @@ impl P2PManager {
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
+		let file = BufReader::new(file);
 		spaceblock::send(
 			&mut stream,
 			file,
