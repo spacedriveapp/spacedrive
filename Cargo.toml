@@ -30,7 +30,7 @@ prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-
 ] }
 
 rspc = { version = "0.1.4" }
-specta = { version = "1.0.3" }
+specta = { version = "1.0.4" }
 httpz = { version = "0.0.3" }
 
 swift-rs = { version = "1.0.5" }

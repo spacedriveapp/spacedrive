@@ -26,19 +26,19 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				<SidebarLink disabled to="spaces">
+				{/* <SidebarLink disabled to="spaces">
 					<Icon component={CirclesFour} />
 					Spaces
-				</SidebarLink>
-				<SidebarLink disabled to="media">
-					<Icon component={MonitorPlay} />
-					Media
-				</SidebarLink>
-				<SidebarLink disabled to="spacedrop">
+				</SidebarLink> */}
+				<SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
-				<SidebarLink disabled to="imports">
+				{/* <SidebarLink disabled to="media">
+					<Icon component={MonitorPlay} />
+					Media
+				</SidebarLink> */}
+				<SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink>

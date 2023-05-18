@@ -6759,6 +6759,8 @@ dependencies = [
  "serde_with",
  "specta",
  "static_assertions",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -7449,9 +7451,9 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95aa33f3135e656964f468db8369ac8e0b77ac957fe8cf335960202d68966d3b"
+checksum = "7230ab99f7b726fa49e350886816dbe5b5b151a5f4158470f92850246d5cae5e"
 dependencies = [
  "chrono",
  "document-features",
@@ -7471,9 +7473,9 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66517b551b511fa78fa94bc553c7baf4a8d81c68a90e7458ea74f3de70acf6c"
+checksum = "6252ed50d005e1dc2b77ed140f1c230299e0566492470eba40ba34e18cbcfa10"
 dependencies = [
  "Inflector",
  "itertools",

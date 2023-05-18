@@ -1,7 +1,7 @@
 use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, path::PathBuf};
+use std::path::PathBuf;
 use tokio::fs::File;
 
 use crate::{
@@ -9,6 +9,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	util::error::FileIOError,
 };
 
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
@@ -55,7 +56,6 @@ impl StatefulJob for FileDecryptorJob {
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
 
-		state.steps = VecDeque::new();
 		state.steps.push_back(FileDecryptorJobStep { fs_info });
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
@@ -68,8 +68,7 @@ impl StatefulJob for FileDecryptorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-		let info = &step.fs_info;
+		let info = &&state.steps[0].fs_info;
 		let key_manager = &ctx.library.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
@@ -89,8 +88,12 @@ impl StatefulJob for FileDecryptorJob {
 			|p| p,
 		);
 
-		let mut reader = File::open(info.fs_path.clone()).await?;
-		let mut writer = File::create(output_path).await?;
+		let mut reader = File::open(info.fs_path.clone())
+			.await
+			.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+		let mut writer = File::create(&output_path)
+			.await
+			.map_err(|e| FileIOError::from((output_path, e)))?;
 
 		let (header, aad) = FileHeader::from_reader(&mut reader).await?;
 
@@ -155,7 +158,7 @@ impl StatefulJob for FileDecryptorJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))

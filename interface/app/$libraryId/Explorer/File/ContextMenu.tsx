@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
@@ -14,10 +13,9 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren, Suspense } from 'react';
+import { PropsWithChildren } from 'react';
 import {
 	ExplorerItem,
-	FilePath,
 	isObject,
 	useLibraryContext,
 	useLibraryMutation,
@@ -27,7 +25,7 @@ import { ContextMenu, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { Platform, usePlatform } from '~/util/Platform';
+import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
@@ -95,6 +93,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
 							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
@@ -110,6 +110,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Copy"
 					keybind="⌘C"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
 							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
@@ -125,6 +127,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Duplicate"
 					keybind="⌘D"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
 							source_path_id: data.item.id,
@@ -269,7 +273,6 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
 	const filePath = getItemFilePath(props.data);
 
 	const { library } = useLibraryContext();

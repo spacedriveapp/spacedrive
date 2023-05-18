@@ -1,10 +1,10 @@
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Divider, RadioGroup, Tooltip, forms, tw } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider, Tooltip, forms, tw } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { useZodRouteParams } from '~/hooks';
 import ModalLayout from '../../ModalLayout';
@@ -22,6 +22,7 @@ const schema = z.object({
 	path: z.string(),
 	hidden: z.boolean(),
 	indexerRulesIds: z.array(z.number()),
+	locationType: z.string(),
 	syncPreviewMedia: z.boolean(),
 	generatePreviewMedia: z.boolean()
 });
@@ -34,7 +35,8 @@ export const Component = () => {
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			indexerRulesIds: []
+			indexerRulesIds: [],
+			locationType: 'normal',
 		}
 	});
 
@@ -59,7 +61,7 @@ export const Component = () => {
 
 	const { isDirty } = form.formState;
 
-	useLibraryQuery(['locations.getById', locationId], {
+	useLibraryQuery(['locations.getWithRules', locationId], {
 		onSettled: (data, error) => {
 			if (isFirstLoad) {
 				// @ts-expect-error // TODO: Fix the types
@@ -80,6 +82,7 @@ export const Component = () => {
 					path: data.path,
 					name: data.name,
 					hidden: data.hidden,
+					locationType: 'normal', // temp
 					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
 					syncPreviewMedia: data.sync_preview_media,
 					generatePreviewMedia: data.generate_preview_media
@@ -142,6 +145,29 @@ export const Component = () => {
 							disk.
 						</InfoText>
 					</FlexCol>
+				</div>
+				<Divider />
+				<div className="space-y-2">
+					<Label className="grow">Location Type</Label>
+					<RadioGroup.Root className='flex flex-row !space-y-0 space-x-2' {...form.register('locationType')}>
+						<RadioGroup.Item key="normal" value="normal">
+							<h1 className="font-bold">Normal</h1>
+							<p className="text-sm text-ink-faint">Contents will be indexed as-is, new files will not be automatically sorted.</p>
+						</RadioGroup.Item>
+						<span className='opacity-30'>
+							<RadioGroup.Item disabled key="managed" value="managed">
+								<h1 className="font-bold">Managed</h1>
+								<p className="text-sm text-ink-faint">Spacedrive will sort files for you, based on rules you define. Location must be empty to start.</p>
+							</RadioGroup.Item>
+						</span>
+						<span className='opacity-30'>
+							<RadioGroup.Item disabled key="replica" value="replica">
+								<h1 className="font-bold">Replica</h1>
+								<p className="text-sm text-ink-faint">This Location is a replica of another, it will be automatically synchronized</p>
+							</RadioGroup.Item>
+						</span>
+					</RadioGroup.Root>
+
 				</div>
 				<Divider />
 				<div className="space-y-2">
