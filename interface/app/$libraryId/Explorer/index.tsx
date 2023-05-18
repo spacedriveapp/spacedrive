@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import clsx from 'clsx';
+import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
@@ -16,6 +17,10 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
+	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -54,8 +59,9 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
 			<div className="flex flex-1">
-				<ExplorerContextMenu>
-					<div className="flex-1 overflow-hidden">
+				<div className={clsx('flex-1 overflow-hidden', props.explorerClassName)}>
+					{props.children}
+					<ExplorerContextMenu>
 						{props.items && (
 							<View
 								data={props.items}
@@ -63,14 +69,17 @@ export default function Explorer(props: Props) {
 								hasNextPage={props.hasNextPage}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
+								scrollRef={props.scrollRef}
 							/>
 						)}
-					</div>
-				</ExplorerContextMenu>
-
-				{expStore.showInspector && selectedItem !== null && (
+					</ExplorerContextMenu>
+				</div>
+				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector data={selectedItem} />
+						<Inspector
+							className={props.inspectorClassName}
+							data={selectedItem}
+						/>
 					</div>
 				)}
 			</div>

@@ -46,7 +46,7 @@ const getNiceData = (
 				: 'Generated thumbnails'
 		}`,
 		icon: Camera,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'path')}`
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	file_identifier: {
 		name: `${
@@ -57,7 +57,7 @@ const getNiceData = (
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
-			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'task')}`
+			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	object_validator: {
 		name: `Generated full object hashes`,
