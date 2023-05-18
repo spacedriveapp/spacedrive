@@ -168,6 +168,8 @@ html {
 	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
 }
 
+// TODO: DELETE SLOTS
+
 .slot-block {
 	@apply mb-2 rounded border-l-4 border-app-line bg-app-box px-4 py-3;
 }
@@ -245,4 +247,49 @@ html {
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-selected;
 	}
+}
+
+// CODE HIGHIGHTING
+
+pre {
+	overflow-x: auto;
+}
+
+.code-highlight {
+	float: left; /* 1 */
+	min-width: 100%; /* 2 */
+}
+
+.code-line {
+	display: block;
+	padding-left: 16px;
+	padding-right: 16px;
+	margin-left: -16px;
+	margin-right: -16px;
+	border-left: 4px solid rgba(0, 0, 0, 0); /* Set placeholder for highlight accent border color to transparent */
+}
+
+.code-line.inserted {
+	background-color: rgba(16, 185, 129, 0.2); /* Set inserted line (+) color */
+}
+
+.code-line.deleted {
+	background-color: rgba(239, 68, 68, 0.2); /* Set deleted line (-) color */
+}
+
+.highlight-line {
+	margin-left: -16px;
+	margin-right: -16px;
+	background-color: rgba(55, 65, 81, 0.5); /* Set highlight bg color */
+	border-left: 4px solid rgb(59, 130, 246); /* Set highlight accent border color */
+}
+
+.line-number::before {
+	display: inline-block;
+	width: 1rem;
+	text-align: right;
+	margin-right: 16px;
+	margin-left: -8px;
+	color: rgb(156, 163, 175); /* Line number color */
+	content: attr(line);
 }

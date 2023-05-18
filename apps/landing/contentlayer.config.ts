@@ -2,6 +2,7 @@ import { defineDocumentType, makeSource } from '@contentlayer/source-files';
 import readingTime from 'reading-time';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeKatex from 'rehype-katex';
+import rehypePrism from 'rehype-prism-plus';
 import rehypeSlug from 'rehype-slug';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -98,7 +99,7 @@ export default makeSource({
 	documentTypes: [Post, Document],
 	mdx: {
 		remarkPlugins: [remarkGfm, remarkMath],
-		rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings, rehypeKatex]
+		rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings, rehypeKatex, rehypePrism]
 	}
 });
 
