@@ -1,7 +1,6 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import { getWindow } from '~/utils';
+import { getWindow } from '~/utils/util';
 
 const AppEmbed = () => {
 	const [showApp, setShowApp] = useState(false);

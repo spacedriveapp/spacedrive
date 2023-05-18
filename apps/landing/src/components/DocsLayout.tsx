@@ -1,19 +1,16 @@
 import { CaretRight, List, X } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
-import pkg from 'react-burger-menu';
+import { slide as Menu } from 'react-burger-menu';
 import { Button } from '@sd/ui';
-import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
+import { DocsNavigation } from '~/utils/contentlayer';
 import DocsSidebar from './DocsSidebar';
 
-// this is due to a commonjs export, it fixes build, trust
-const { push: Menu } = pkg;
-
-interface Props extends PropsWithChildren {
-	doc?: Doc;
+type DocsLayoutProps = {
+	docUrl?: string;
 	navigation: DocsNavigation;
-}
+};
 
-export default function DocsLayout(props: Props) {
+export default function DocsLayout(props: PropsWithChildren<DocsLayoutProps>) {
 	const [menuOpen, setMenuOpen] = useState(false);
 
 	return (
@@ -32,12 +29,12 @@ export default function DocsLayout(props: Props) {
 					>
 						<X weight="bold" className="h-6 w-6" />
 					</Button>
-					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
+					<DocsSidebar activePath={props.docUrl} navigation={props.navigation} />
 				</div>
 			</Menu>
 
 			<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden px-5 sm:inline lg:mr-4">
-				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
+				<DocsSidebar activePath={props.docUrl} navigation={props.navigation} />
 			</aside>
 			<div className="flex w-full flex-col sm:flex-row" id="page-container">
 				<div className="mt-[65px] flex h-12 w-full items-center border-y border-gray-600 px-5 sm:hidden">
@@ -49,11 +46,11 @@ export default function DocsLayout(props: Props) {
 							<List weight="bold" className="h-6 w-6" />
 						</Button>
 					</div>
-					{props.doc?.url.split('/').map((item, index) => {
+					{props.docUrl?.split('/').map((item, index) => {
 						if (index === 2) return null;
 						return (
 							<div key={index} className="ml-2 flex flex-row items-center">
-								<a className="px-1 text-sm">{toTitleCase(item)}</a>
+								<a className="px-1 text-sm">{item}</a>
 								{index < 1 && <CaretRight className="-mr-2 ml-1 h-4 w-4" />}
 							</div>
 						);

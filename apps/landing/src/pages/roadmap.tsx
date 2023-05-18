@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { Helmet } from 'react-helmet';
 import PageWrapper from '~/components/PageWrapper';
 
@@ -138,7 +139,7 @@ export default function RoadmapPage() {
 				</section>
 				<section className="grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
 					{items.map((item, i) => (
-						<>
+						<Fragment key={i}>
 							{/* Using span so i can use the group-last-of-type selector */}
 							<span className="group flex max-w-[10rem] items-start justify-end gap-4 first:items-start">
 								<div className="flex flex-col items-end">
@@ -191,7 +192,7 @@ export default function RoadmapPage() {
 									<p>{item.description}</p>
 								</div>
 							</div>
-						</>
+						</Fragment>
 					))}
 				</section>
 				<section className="space-y-2 rounded-xl bg-gray-850 p-8">

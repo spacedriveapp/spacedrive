@@ -1,15 +1,21 @@
 import { allDocs } from '@contentlayer/generated';
+import { InferGetStaticPropsType } from 'next';
+import Link from 'next/link';
 import { Helmet } from 'react-helmet';
 import DocsLayout from '~/components/DocsLayout';
 import Markdown from '~/components/Markdown';
+import PageWrapper from '~/components/PageWrapper';
+import { getDocsNavigation } from '~/utils/contentlayer';
 
 export function getStaticProps() {
-	return { props: { docs: allDocs } };
+	return { props: { navigation: getDocsNavigation(allDocs) } };
 }
 
-export default function DocHomePage({ navigation }: { navigation: DocsNavigation }) {
+export default function DocHomePage({
+	navigation
+}: InferGetStaticPropsType<typeof getStaticProps>) {
 	return (
-		<>
+		<PageWrapper>
 			<Helmet>
 				<title>Spacedrive Docs</title>
 				<meta name="description" content="Learn more about Spacedrive" />
@@ -23,15 +29,15 @@ export default function DocHomePage({ navigation }: { navigation: DocsNavigation
 							Welcome to the Spacedrive documentation. Here you can find all the
 							information you need to get started with Spacedrive.
 						</p>
-						<a
+						<Link
 							className="text-primary-600 transition hover:text-primary-500"
 							href="/docs/product/getting-started/introduction"
 						>
 							Get Started →
-						</a>
+						</Link>
 					</div>
 				</Markdown>
 			</DocsLayout>
-		</>
+		</PageWrapper>
 	);
 }

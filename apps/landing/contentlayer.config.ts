@@ -50,18 +50,42 @@ export const Document = defineDocumentType(() => ({
 	filePathPattern: `docs/**/*.mdx`,
 	contentType: 'mdx',
 	fields: {
-		title: { type: 'string', required: true },
-		index: { type: 'number', required: true, default: 100 }
+		title: {
+			type: 'string',
+			description: 'Title of the document, if nothing is provided file name will be used'
+		},
+		index: {
+			type: 'number',
+			default: 100,
+			description:
+				'Order of the document, if nothing is provided, 100 is default. This is relative to the other docs in the category. Group of lower indexes (categories) will be shown first.'
+		}
 	},
 	computedFields: {
-		url: { type: 'string', resolve: (post) => `/docs/${post._raw.flattenedPath}` },
+		url: { type: 'string', resolve: (post) => `/${post._raw.flattenedPath}` },
 		slug: {
 			type: 'string',
 			resolve: (p) => p._raw.flattenedPath.replace(/^.+?(\/)/, '')
 		},
-		categoryName: {
+		title: {
+			type: 'string',
+			resolve: (p) =>
+				p.title
+					? toTitleCase(p.title)
+					: toTitleCase(
+							p._raw.flattenedPath
+								.replace(/^.+?(\/)/, '')
+								.split('/')
+								.slice(-1)[0]
+					  )
+		},
+		section: {
 			type: 'string',
 			resolve: (p) => p._raw.flattenedPath.replace(/^.+?(\/)/, '').split('/')[0]
+		},
+		category: {
+			type: 'string',
+			resolve: (p) => p._raw.flattenedPath.replace(/^.+?(\/)/, '').split('/')[1] || ''
 		}
 	}
 }));
@@ -72,3 +96,13 @@ export default makeSource({
 	documentTypes: [Post, Document],
 	mdx: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings] }
 });
+
+// Can't import the one in utils/util.ts so we have to duplicate it here
+function toTitleCase(str: string) {
+	return str
+		.toLowerCase()
+		.replace(/(?:^|[\s-/])\w/g, function (match) {
+			return match.toUpperCase();
+		})
+		.replaceAll('-', ' ');
+}
