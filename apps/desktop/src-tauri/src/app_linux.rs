@@ -7,9 +7,8 @@ use axum::{
 	middleware::{self, Next},
 	response::Response,
 	routing::get,
-	RequestPartsExt,
+	RequestPartsExt, Router,
 };
-use httpz::{Endpoint, HttpEndpoint};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::Deserialize;
 use tauri::{async_runtime::Receiver, plugin::TauriPlugin, Builder, Runtime};
@@ -18,7 +17,7 @@ use tracing::debug;
 pub(super) async fn setup<R: Runtime>(
 	app: Builder<R>,
 	mut rx: Receiver<()>,
-	endpoint: Endpoint<impl HttpEndpoint>,
+	router: Router<()>,
 ) -> Builder<R> {
 	let auth_token: String = rand::thread_rng()
 		.sample_iter(&Alphanumeric)
@@ -28,7 +27,7 @@ pub(super) async fn setup<R: Runtime>(
 
 	let axum_app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))
-		.nest("/spacedrive", endpoint.axum())
+		.nest("/spacedrive", router)
 		.route_layer(middleware::from_fn_with_state(
 			auth_token.clone(),
 			auth_middleware,
