@@ -6,6 +6,8 @@ ARG FAKE_DEPS="python311 perl5.34 gdk-pixbuf2 xorg-libsm xorg-libX11" \
 
 FROM vvasconcellos/osxcross:12.3-50e86eb-1 as base
 
+ARG APPLE_SIGNING_IDENTITY
+
 # Download ffmpeg
 ARG FFMPEG_VERSION
 ADD "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" ./
