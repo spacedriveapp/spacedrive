@@ -11,6 +11,11 @@ use thiserror::Error;
 
 type HeifResult<T> = Result<T, HeifError>;
 
+/// The maximum file size that an image can be in order to have a thumbnail generated.
+///
+/// This value is in MiB.
+const HEIF_MAXIMUM_FILE_SIZE: usize = 1048576 * 20;
+
 #[derive(Error, Debug)]
 pub enum HeifError {
 	#[error("error with libheif: {0}")]
@@ -23,32 +28,36 @@ pub enum HeifError {
 	Io(#[from] std::io::Error),
 	#[error("the image provided is unsupported")]
 	Unsupported,
-	#[error("the image provided is too large (over 30mb)")]
+	#[error("the image provided is too large (over 20MiB)")]
 	TooLarge,
 	#[error("the provided bit depth is invalid")]
 	InvalidBitDepth,
+	#[error("invalid path provided (non UTF-8)")]
+	InvalidPath,
 }
 
 pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
-	if fs::metadata(path)?.len() > 1048576 * 30 {
+	if fs::metadata(path)?.len() > HEIF_MAXIMUM_FILE_SIZE {
 		return Err(HeifError::TooLarge);
 	}
 
 	let img = {
 		// do this in a separate block so we drop the raw (potentially huge) image
-		let ctx = HeifContext::read_from_file(path.to_str().unwrap())?;
+		let ctx = HeifContext::read_from_file(path.to_str().ok_or(HeifError::InvalidPath)?)?;
 		let heif = LibHeif::new();
 		let handle = ctx.primary_image_handle()?;
 
 		let img_raw = heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)?;
 
 		// TODO(brxken128): handle the scaling better here, and limit it to x bytes
+		// with the current 20mib file size limit (`HEIF_MAXIMUM_FILE_SIZE`), images in memory will be
+		// an absolute maximum of ~6.7mib
 		img_raw.scale(img_raw.width() / 3, img_raw.height() / 3, None)?
 	};
 
 	// TODO(brxken128): add support for images with individual r/g/b channels
-	if img.has_channel(Channel::Interleaved) {
-		let i = img.planes().interleaved.unwrap();
+	// i'm unable to find a sample to test with, but it should follow the same principles as this one
+	if let Some(i) = img.planes().interleaved {
 		let data = i.data.to_vec();
 		let mut reader = Cursor::new(data);
 
