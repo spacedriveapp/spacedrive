@@ -168,33 +168,6 @@ html {
 	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
 }
 
-// TODO: DELETE SLOTS
-
-.slot-block {
-	@apply mb-2 rounded border-l-4 border-app-line bg-app-box px-4 py-3;
-}
-.slot-block.note {
-	@apply border-yellow-400 bg-yellow-300/20;
-}
-.slot-block.info {
-	@apply border-green-400 bg-green-400/20;
-}
-.slot-block.warning {
-	@apply border-red-400 bg-red-400/20;
-}
-.slot-block-title {
-	@apply m-0 text-sm font-bold uppercase text-white;
-}
-.slot-block-content {
-	@apply mx-0 my-1 mb-0 text-white;
-}
-.slot-block-title-icon {
-	@apply my-0 h-5 w-5 text-white;
-}
-.slot-block-title-container {
-	@apply flex flex-row items-center gap-x-1;
-}
-
 .doc-sidebar-button:hover,
 .doc-sidebar-button.nav-active {
 	&.product {

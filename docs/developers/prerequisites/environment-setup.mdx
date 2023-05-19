@@ -48,9 +48,10 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 - **Server:** `DATA_DIR=/path/to/library cargo run -p sdcore`
 - **Webapp:** `pnpm web dev`
 
-::: slot note
-When changing branches, make sure to run `pnpm prep` command right after. This ensures all the codegen is up to date.
-:::
+<Notice
+	type="note"
+	text="When changing branches, make sure to run `pnpm prep` command right after. This ensures all the codegen is up to date."
+/>
 
 ### Mobile app
 
@@ -72,9 +73,10 @@ If you are having issues ensure you are using the following versions of Rust and
 
 ### Seeding data on startup
 
-::: slot note
-You may loose data if your using this feature so please be careful! This only works on development builds for this reason.
-:::
+<Notice
+	type="note"
+	text="You may loose data if your using this feature so please be careful! This only works on development builds for this reason."
+/>
 
 You can add a file called `sd_init.json` in the same folder where you start Spacedrive and it can automatically seed data on startup.
 
