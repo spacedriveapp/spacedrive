@@ -299,7 +299,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								}
 								videoExtension={
 									(kind === 'Video' &&
-										(size == null || size > 80) &&
+										(cover || size == null || size > 80) &&
 										extension) ||
 									''
 								}

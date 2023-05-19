@@ -145,14 +145,14 @@ export const AddLocationDialog = ({
 
 	useCallbackToWatchForm(
 		async (values, { name }) => {
-			if (name !== 'method')
-				// Remote errors should not be cleared by method changes,
+			if (name === 'path') {
+				// Remote errors should only be cleared when path changes,
 				// as the previous error is used to notify the user of this change
 				form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 
-			if (name === 'path' && form.getValues().method !== method)
 				// Reset method when path changes
-				form.setValue('method', method);
+				if (form.getValues().method !== method) form.setValue('method', method);
+			}
 
 			if (values.path === '') return;
 
