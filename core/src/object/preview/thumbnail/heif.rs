@@ -5,7 +5,7 @@ use std::{
 };
 
 use image::DynamicImage;
-use libheif_rs::{Channel, ColorSpace, HeifContext, LibHeif, RgbChroma};
+use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use png::{BitDepth, ColorType};
 use thiserror::Error;
 
@@ -14,7 +14,7 @@ type HeifResult<T> = Result<T, HeifError>;
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
-const HEIF_MAXIMUM_FILE_SIZE: usize = 1048576 * 20;
+const HEIF_MAXIMUM_FILE_SIZE: u64 = 1048576 * 20;
 
 #[derive(Error, Debug)]
 pub enum HeifError {
