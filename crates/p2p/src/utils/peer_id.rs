@@ -4,7 +4,10 @@ use std::{fmt::Display, str::FromStr};
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
-pub struct PeerId(#[specta(type = String)] pub(crate) libp2p::PeerId);
+pub struct PeerId(
+	#[cfg_attr(any(feature = "specta", feature = "serde"), specta(type = String))]
+	pub(crate)  libp2p::PeerId,
+);
 
 impl FromStr for PeerId {
 	type Err = libp2p::core::ParseError;

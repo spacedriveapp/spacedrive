@@ -6,6 +6,7 @@ use specta::Type;
 pub mod cas;
 pub mod file_identifier;
 pub mod fs;
+pub mod orphan_remover;
 pub mod preview;
 pub mod tag;
 pub mod validation;

@@ -321,6 +321,7 @@ pub struct JobReport {
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
 	pub is_background: bool,
+	pub errors_text: Vec<String>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -361,6 +362,10 @@ impl From<job::Data> for JobReport {
 					None
 				})
 			}),
+			errors_text: data
+				.errors_text
+				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
+				.unwrap_or_default(),
 			created_at: Some(data.date_created.into()),
 			started_at: data.date_started.map(|d| d.into()),
 			completed_at: data.date_completed.map(|d| d.into()),
@@ -386,6 +391,7 @@ impl JobReport {
 			started_at: None,
 			completed_at: None,
 			status: JobStatus::Queued,
+			errors_text: vec![],
 			task_count: 0,
 			data: None,
 			metadata: None,
@@ -449,6 +455,9 @@ impl JobReport {
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
 					job::status::set(self.status as i32),
+					job::errors_text::set(
+						(!self.errors_text.is_empty()).then(|| self.errors_text.join("\n\n")),
+					),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
@@ -472,6 +481,7 @@ pub enum JobStatus {
 	Canceled = 3,
 	Failed = 4,
 	Paused = 5,
+	CompletedWithErrors = 6,
 }
 
 impl TryFrom<i32> for JobStatus {
@@ -485,6 +495,7 @@ impl TryFrom<i32> for JobStatus {
 			3 => Self::Canceled,
 			4 => Self::Failed,
 			5 => Self::Paused,
+			6 => Self::CompletedWithErrors,
 			_ => return Err(JobError::InvalidJobStatusInt(value)),
 		};
 

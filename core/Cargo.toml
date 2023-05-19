@@ -13,7 +13,6 @@ default = []
 mobile = [
 ] # This feature allows features to be disabled when the Core is running on mobile.
 ffmpeg = [
-	"dep:ffmpeg-next",
 	"dep:sd-ffmpeg",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
@@ -78,13 +77,14 @@ http-range = "0.1.5"
 mini-moka = "0.10.0"
 serde_with = "2.2.0"
 dashmap = { version = "5.4.0", features = ["serde"] }
-ffmpeg-next = { version = "6.0.0", optional = true, features = [] }
 notify = { version = "5.0.0", default-features = false, features = [
 	"macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
+strum = { version = "0.24", features = ["derive"] }
+strum_macros = "0.24"
 
 # for HEIF/HEIC handling
 libheif-rs = "0.19.2"

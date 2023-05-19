@@ -13,7 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::db::uuid_to_bytes,
+	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
 use std::{
@@ -71,7 +71,7 @@ impl LocationCreateArgs {
 			}
 			Err(e) => {
 				return Err(LocationError::LocationPathFilesystemMetadataAccess(
-					e, self.path,
+					FileIOError::from((self.path, e)),
 				));
 			}
 		};
@@ -378,7 +378,6 @@ pub async fn scan_location(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: None,
-				background: true,
 			}),
 		)
 		.await
@@ -413,7 +412,6 @@ pub async fn scan_location_sub_path(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: Some(sub_path),
-				background: true,
 			}),
 		)
 		.await
@@ -645,6 +643,8 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 		}
 	}
 
+	library.orphan_remover.invoke().await;
+
 	info!("Location {} deleted", location_id);
 	invalidate_query!(library, "locations.list");
 
@@ -658,6 +658,8 @@ pub async fn delete_directory(
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
+	let Library { db, .. } = library;
+
 	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
 		vec![
 			file_path::location_id::equals(location_id),
@@ -668,8 +670,7 @@ pub async fn delete_directory(
 	};
 
 	// Fetching all object_ids from all children file_paths
-	let object_ids = library
-		.db
+	let object_ids = db
 		.file_path()
 		.find_many(children_params.clone())
 		.select(file_path::select!({ object_id }))
@@ -681,17 +682,10 @@ pub async fn delete_directory(
 
 	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
-	library
-		.db
-		.file_path()
-		.delete_many(children_params)
-		.exec()
-		.await?;
+	db.file_path().delete_many(children_params).exec().await?;
 
 	// delete all children objects
-	library
-		.db
-		.object()
+	db.object()
 		.delete_many(vec![
 			object::id::in_vec(object_ids),
 			// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
@@ -700,7 +694,7 @@ pub async fn delete_directory(
 		.exec()
 		.await?;
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
@@ -779,24 +773,3 @@ async fn check_nested_location(
 
 	Ok(parents_count > 0 || children_count > 0)
 }
-
-// check if a path exists in our database at that location
-// pub async fn check_virtual_path_exists(
-// 	library: &Library,
-// 	location_id: i32,
-// 	subpath: impl AsRef<Path>,
-// ) -> Result<bool, LocationError> {
-// 	let path = subpath.as_ref().to_str().unwrap().to_string();
-
-// 	let file_path = library
-// 		.db
-// 		.file_path()
-// 		.find_first(vec![
-// 			file_path::location_id::equals(location_id),
-// 			file_path::materialized_path::equals(path),
-// 		])
-// 		.exec()
-// 		.await?;
-
-// 	Ok(file_path.is_some())
-// }

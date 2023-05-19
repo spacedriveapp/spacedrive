@@ -577,7 +577,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bf9e4f4da24116dc0e3ffef4afbabadb7fba375bf32ccf9a1da81a667bababc"
 dependencies = [
- "crypto-bigint 0.5.0",
+ "crypto-bigint 0.5.1",
  "digest 0.10.6",
  "password-hash",
 ]
@@ -1450,9 +1450,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-bigint"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "071c0f5945634bc9ba7a452f492377dd6b1993665ddb58f28704119b32f07a9a"
+checksum = "7c2538c4e68e52548bacb3e83ac549f903d44f011ac9d5abb5e132e67d0808f7"
 dependencies = [
  "generic-array",
  "subtle",
@@ -2228,17 +2228,6 @@ checksum = "d013fc25338cc558c5c2cfbad646908fb23591e2404481826742b651c9af7160"
 dependencies = [
  "rand_core 0.6.4",
  "subtle",
-]
-
-[[package]]
-name = "ffmpeg-next"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8af03c47ad26832ab3aabc4cdbf210af3d3b878783edd5a7ba044ba33aab7a60"
-dependencies = [
- "bitflags",
- "ffmpeg-sys-next",
- "libc",
 ]
 
 [[package]]
@@ -6801,7 +6790,6 @@ dependencies = [
  "ctor",
  "dashmap",
  "enumflags2 0.7.5",
- "ffmpeg-next",
  "futures",
  "globset",
  "hostname",
@@ -6831,6 +6819,8 @@ dependencies = [
  "serde_with",
  "specta",
  "static_assertions",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -7527,9 +7517,9 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95aa33f3135e656964f468db8369ac8e0b77ac957fe8cf335960202d68966d3b"
+checksum = "7230ab99f7b726fa49e350886816dbe5b5b151a5f4158470f92850246d5cae5e"
 dependencies = [
  "chrono",
  "document-features",
@@ -7549,9 +7539,9 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66517b551b511fa78fa94bc553c7baf4a8d81c68a90e7458ea74f3de70acf6c"
+checksum = "6252ed50d005e1dc2b77ed140f1c230299e0566492470eba40ba34e18cbcfa10"
 dependencies = [
  "Inflector",
  "itertools",
@@ -7828,8 +7818,7 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 [[package]]
 name = "swift-rs"
 version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05e51d6f2b5fff4808614f429f8a7655ac8bcfe218185413f3a60c508482c2d6"
+source = "git+https://github.com/Brendonovich/swift-rs?rev=973c22215734d1d5b97c496601d658371e537ece#973c22215734d1d5b97c496601d658371e537ece"
 dependencies = [
  "base64 0.21.0",
  "serde",

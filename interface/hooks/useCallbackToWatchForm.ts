@@ -3,25 +3,21 @@ import { EventType, FieldPath, FieldValues, UseFormReturn } from 'react-hook-for
 
 const noop = () => {};
 
+type Cb<S extends FieldValues> = (
+	value: S,
+	info: {
+		name?: FieldPath<S>;
+		type?: EventType;
+	}
+) => void | Promise<void>;
+
 export function useCallbackToWatchForm<S extends FieldValues>(
-	callback: (
-		value: S,
-		info: {
-			name?: FieldPath<S>;
-			type?: EventType;
-		}
-	) => void | Promise<void>,
+	callback: Cb<S>,
 	deps: [UseFormReturn<S, unknown>, ...React.DependencyList]
 ): void;
 
 export function useCallbackToWatchForm<S extends FieldValues>(
-	callback: (
-		value: S,
-		info: {
-			name?: FieldPath<S>;
-			type?: EventType;
-		}
-	) => void | Promise<void>,
+	callback: Cb<S>,
 	deps: React.DependencyList,
 	form: UseFormReturn<S, unknown>
 ): void;
@@ -39,13 +35,7 @@ export function useCallbackToWatchForm<S extends FieldValues>(
  * @param form - Form to watch. If not provided, it will be taken from the first element of the dependency list
  */
 export function useCallbackToWatchForm<S extends FieldValues>(
-	callback: (
-		value: S,
-		info: {
-			name?: FieldPath<S>;
-			type?: EventType;
-		}
-	) => void | Promise<void>,
+	callback: Cb<S>,
 	deps: React.DependencyList,
 	form?: UseFormReturn<S, unknown>
 ): void {

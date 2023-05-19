@@ -2,7 +2,9 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
 	library::Library,
-	location::file_path_helper::{file_path_for_file_identifier, FilePathError, MaterializedPath},
+	location::file_path_helper::{
+		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
+	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
@@ -33,8 +35,14 @@ const CHUNK_SIZE: usize = 100;
 
 #[derive(Error, Debug)]
 pub enum FileIdentifierJobError {
-	#[error("File path related error (error: {0})")]
+	#[error("received sub path not in database: <path='{}'>", .0.display())]
+	SubPathNotFound(Box<Path>),
+
+	// Internal Errors
+	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
 }
 
 #[derive(Debug, Clone)]
@@ -48,9 +56,9 @@ impl FileMetadata {
 	/// Assembles `create_unchecked` params for a given file path
 	pub async fn new(
 		location_path: impl AsRef<Path>,
-		materialized_path: &MaterializedPath<'_>, // TODO: use dedicated CreateUnchecked type
+		iso_file_path: &IsolatedFilePathData<'_>, // TODO: use dedicated CreateUnchecked type
 	) -> Result<FileMetadata, io::Error> {
-		let path = location_path.as_ref().join(materialized_path);
+		let path = location_path.as_ref().join(iso_file_path);
 
 		let fs_metadata = fs::metadata(&path).await?;
 
@@ -95,7 +103,7 @@ async fn identifier_job_step(
 		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
 		FileMetadata::new(
 			&location.path,
-			&MaterializedPath::from((location.id, &file_path.materialized_path)),
+			&IsolatedFilePathData::from((location.id, file_path)),
 		)
 		.await
 		.map(|params| {
@@ -379,7 +387,7 @@ fn finalize_file_identifier(report: &FileIdentifierReport, ctx: WorkerContext) -
 	info!("Finalizing identifier job: {report:?}");
 
 	if report.total_orphan_paths > 0 {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 	}
 
 	Ok(Some(serde_json::to_value(report)?))

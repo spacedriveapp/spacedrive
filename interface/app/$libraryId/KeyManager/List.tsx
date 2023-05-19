@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { useLibraryQuery } from '@sd/client';
-import { SelectOption } from '@sd/ui';
+import { Button, SelectOption } from '@sd/ui';
 import { DummyKey, Key } from './Key';
 
 // ideal for going within a select box
@@ -31,7 +31,11 @@ export default () => {
 	);
 
 	if (keys.data?.length === 0) {
-		return <DummyKey text="No keys available" />;
+		return (
+			<Button variant="dotted" className="w-full">
+				Mount a new key
+			</Button>
+		);
 	}
 
 	return (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
@@ -19,10 +20,10 @@ export default () => {
 	const [stackBy, setStackBy] = useState('kind');
 
 	const explorerStore = useExplorerStore();
+	const explorerConfig = useExplorerConfigStore();
 
 	return (
 		<div className="p-4 ">
-			{/* <Heading>Explorer Appearance</Heading> */}
 			<Subheading>Item size</Subheading>
 			{explorerStore.layoutMode === 'media' ? (
 				<Slider
@@ -68,7 +69,7 @@ export default () => {
 					</Select>
 				</div>
 			</div>
-			<div className="flex w-full pt-2">
+			<div className="flex w-full flex-col space-y-3 pt-2">
 				{explorerStore.layoutMode === 'media' ? (
 					<RadixCheckbox
 						checked={explorerStore.mediaAspectSquare}
@@ -92,6 +93,15 @@ export default () => {
 						}}
 					/>
 				)}
+				<div>
+					<Subheading>Double click action</Subheading>
+					<Select className='w-full' value={explorerConfig.openOnDoubleClick ? "openFile" : "quickPreview"} onChange={(value) => {
+						getExplorerConfigStore().openOnDoubleClick = value === "openFile";
+					}}>
+						<SelectOption value="openFile">Open File</SelectOption>
+						<SelectOption value="quickPreview">Quick Preview</SelectOption>
+					</Select>
+				</div>
 			</div>
 		</div>
 	);
