@@ -186,14 +186,20 @@ export function Dialog<S extends FieldValues>({
 									<DialogTitle className="mb-2 font-bold">
 										{props.title}
 									</DialogTitle>
-									<DialogDescription className="text-sm text-ink-dull">
-										{props.description}
-									</DialogDescription>
+
+									{props.description && (
+										<DialogDescription className="mb-2 text-sm text-ink-dull">
+											{props.description}
+										</DialogDescription>
+									)}
+
 									{props.children}
 								</div>
 								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 									{form.formState.isSubmitting && <Loader />}
+
 									<div className="grow" />
+
 									{onCancelled && (
 										<DialogClose asChild>
 											<Button
@@ -210,6 +216,7 @@ export function Dialog<S extends FieldValues>({
 											</Button>
 										</DialogClose>
 									)}
+
 									<Button
 										type="submit"
 										size="sm"

@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Controller, get } from 'react-hook-form';
 import {
@@ -211,22 +212,23 @@ export const AddLocationDialog = ({
 						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
 				}
 				readOnly={platform.platform !== 'web'}
-				className="mb-3 cursor-pointer"
+				className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}
 				{...form.register('path')}
 			/>
 
 			<input type="hidden" {...form.register('method')} />
 
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">File indexing rules:</p>
-				<div className="w-full text-xs font-medium">
-					<Controller
-						name="indexerRulesIds"
-						render={({ field }) => <IndexerRuleEditor field={field} />}
-						control={form.control}
+			<Controller
+				name="indexerRulesIds"
+				render={({ field }) => (
+					<IndexerRuleEditor
+						field={field}
+						label="File indexing rules:"
+						className="relative flex flex-col"
 					/>
-				</div>
-			</div>
+				)}
+				control={form.control}
+			/>
 		</Dialog>
 	);
 };

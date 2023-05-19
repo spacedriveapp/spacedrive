@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { Button, Tooltip } from '@sd/ui';
 import { useSearchStore } from '~/hooks/useSearchStore';
 
-export default () => {
+export const NavigationButtons = () => {
 	const navigate = useNavigate();
 	const { isFocused } = useSearchStore();
 	const idx = history.state.idx as number;

@@ -177,7 +177,7 @@ export default () => {
 			{
 				header: 'Content ID',
 				size: 180,
-				accessorFn: (file) => getExplorerItemData(file).cas_id
+				accessorFn: (file) => getExplorerItemData(file).casId
 			}
 		],
 		[explorerStore.selectedRowIndex, explorerStore.isRenaming, sorting]

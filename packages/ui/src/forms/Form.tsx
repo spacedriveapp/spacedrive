@@ -69,12 +69,12 @@ export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, ne
 };
 
 export const errorStyles = cva(
-	'inline-block  whitespace-pre-wrap rounded border border-red-400/40 bg-red-400/40 text-white',
+	'inline-block whitespace-pre-wrap rounded border border-red-400/40 bg-red-400/40 text-white',
 	{
 		variants: {
 			variant: {
 				none: '',
-				default: 'text-xs',
+				default: 'px-1 text-xs',
 				large: 'w-full px-3 py-2 text-center text-sm font-semibold'
 			}
 		},
@@ -98,7 +98,7 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 		leave: { opacity: 0 },
 		clamp: true,
 		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 },
-		exitBeforeEnter: true,
+		exitBeforeEnter: true
 	});
 
 	return (

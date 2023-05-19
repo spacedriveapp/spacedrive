@@ -30,7 +30,7 @@ const state = {
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
-	newThumbnails: {} as Record<string, boolean>,
+	newThumbnails: {} as Record<string, boolean | undefined>,
 	cutCopyState: {
 		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
@@ -51,8 +51,8 @@ const state = {
 const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
-	addNewThumbnail: (cas_id: string) => {
-		explorerStore.newThumbnails[cas_id] = true;
+	addNewThumbnail: (casId: string) => {
+		explorerStore.newThumbnails[casId] = true;
 	}
 });
 
