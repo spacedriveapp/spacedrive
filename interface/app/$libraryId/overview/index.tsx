@@ -68,6 +68,8 @@ export const Component = () => {
 
 	const categories = useLibraryQuery(['categories.list']);
 
+	const isFavoritesCategory = selectedCategory === "Favorites";
+
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
 	const query = useInfiniteQuery({
@@ -77,9 +79,10 @@ export const Component = () => {
 			{
 				library_id: library.uuid,
 				arg: {
+					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
-						? { kind: [5, 7].includes(kind) ? [kind] : [5, 7, kind] }
-						: { kind: [kind] })
+						? { kind: [5, 7].includes(kind) ? [kind] : isFavoritesCategory ? [5, 7] : [5, 7, kind] }
+						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
 		] as const,
