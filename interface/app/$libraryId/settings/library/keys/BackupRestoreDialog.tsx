@@ -54,7 +54,7 @@ export default (props: UseDialogProps) => {
 								secret_key: data.secretKey,
 								path: data.filePath
 							})
-							.then(() => form.reset())
+							.finally(() => form.reset())
 					: null
 			}
 			dialog={useDialog(props)}
