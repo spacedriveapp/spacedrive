@@ -158,13 +158,13 @@ export const Component = () => {
 						<span className='opacity-30'>
 							<RadioGroup.Item disabled key="managed" value="managed">
 								<h1 className="font-bold">Managed</h1>
-								<p className="text-sm text-ink-faint">Spacedrive will sort files for you, based on rules you define. Location must be empty to start.</p>
+								<p className="text-sm text-ink-faint">Spacedrive will sort files for you. If Location isn't empty a "spacedrive" folder will be created.</p>
 							</RadioGroup.Item>
 						</span>
 						<span className='opacity-30'>
 							<RadioGroup.Item disabled key="replica" value="replica">
 								<h1 className="font-bold">Replica</h1>
-								<p className="text-sm text-ink-faint">This Location is a replica of another, it will be automatically synchronized</p>
+								<p className="text-sm text-ink-faint ">This Location is a replica of another, its contents will be automatically synchronized.</p>
 							</RadioGroup.Item>
 						</span>
 					</RadioGroup.Root>
