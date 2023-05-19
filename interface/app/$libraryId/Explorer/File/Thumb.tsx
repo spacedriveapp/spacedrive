@@ -13,7 +13,7 @@ import { ExplorerItem, useLibraryContext } from '@sd/client';
 import { useCallbackToWatchResize, useExplorerStore, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
-import { getExplorerItemData } from '../util';
+import { getExplorerItemData, getItemFilePath } from '../util';
 import classes from './Thumb.module.scss';
 
 interface ThumbnailProps {
@@ -63,13 +63,13 @@ const Thumbnail = ({
 					videoBarsSize
 						? size && size.height >= size.width
 							? {
-									borderLeftWidth: videoBarsSize,
-									borderRightWidth: videoBarsSize
-							  }
+								borderLeftWidth: videoBarsSize,
+								borderRightWidth: videoBarsSize
+							}
 							: {
-									borderTopWidth: videoBarsSize,
-									borderBottomWidth: videoBarsSize
-							  }
+								borderTopWidth: videoBarsSize,
+								borderBottomWidth: videoBarsSize
+							}
 						: {}
 				}
 				onLoad={onLoad}
@@ -86,11 +86,11 @@ const Thumbnail = ({
 						cover
 							? {}
 							: size
-							? {
+								? {
 									marginTop: Math.floor(size.height / 2) - 2,
 									marginLeft: Math.floor(size.width / 2) - 2
-							  }
-							: { display: 'none' }
+								}
+								: { display: 'none' }
 					}
 					className={clsx(
 						cover
@@ -129,9 +129,13 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<string>('#');
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { locationId, newThumbnails } = useExplorerStore();
+
+	const filePath = getItemFilePath(props.data);
+
+	const hasNewThumbnail = !!newThumbnails[filePath?.cas_id || ''];
 	const itemData = useMemo(
-		() => getExplorerItemData(props.data, newThumbnails),
-		[props.data, newThumbnails]
+		() => getExplorerItemData(props.data, hasNewThumbnail),
+		[props.data, hasNewThumbnail]
 	);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
@@ -197,9 +201,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				size &&
-					kind !== 'Video' &&
-					thumbType !== ThumbType.Icon &&
-					'border-2 border-transparent',
+				kind !== 'Video' &&
+				thumbType !== ThumbType.Icon &&
+				'border-2 border-transparent',
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
@@ -286,9 +290,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										'shadow shadow-black/30'
 									],
 									size &&
-										(kind === 'Video'
-											? 'border-x-0 border-black'
-											: size > 60 && 'border-2 border-app-line'),
+									(kind === 'Video'
+										? 'border-x-0 border-black'
+										: size > 60 && 'border-2 border-app-line'),
 									props.className
 								)}
 								crossOrigin={ThumbType.Original && 'anonymous'}

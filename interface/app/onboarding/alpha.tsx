@@ -12,9 +12,9 @@ export default function OnboardingAlpha() {
 		<OnboardingContainer>
 			<img src={AlphaBg} alt="Alpha Background" className="absolute top-[120px] z-0" />
 			<div className="z-1 relative mx-auto mt-14 w-full max-w-[450px] text-center">
-				<div className="flex w-full items-center justify-center gap-2">
+				<div className="flex w-full items-center mb-5 justify-center gap-2">
 					<img src={AppLogo} alt="Spacedrive" className="h-8 w-8" />
-					<h1 className="text-[25px] font-bold">Spacedrive</h1>
+					<h1 className="text-[25px] font-semibold">Spacedrive</h1>
 				</div>
 				<h1 className="text-[40px] font-bold">Alpha Release</h1>
 				<p className="mt-3 text-sm text-ink-faint">
