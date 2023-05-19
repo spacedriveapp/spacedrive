@@ -55,6 +55,7 @@ runs:
       env:
         TARGET: ${{ inputs.targets }}
         GITHUB_TOKEN: ${{ inputs.token }}
+        APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
 
     - name: Run 'setup-system.ps1' script
       shell: powershell

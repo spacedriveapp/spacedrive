@@ -48,6 +48,12 @@ jobs:
           base64 --decode AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
+      - name: Install Codesigning Certificate
+        uses: apple-actions/import-codesign-certs@v2
+        with: 
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
         with:
@@ -55,6 +61,8 @@ jobs:
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           targets: ${{ matrix.settings.target }}
