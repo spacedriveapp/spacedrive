@@ -10,7 +10,7 @@ export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail: boolean
 		cas_id: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		hasThumbnail: data.has_thumbnail || hasNewThumbnail || false,
+		hasThumbnail: data.has_thumbnail || hasNewThumbnail,
 		extension: filePath?.extension || null
 	};
 }
