@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
 import { useZodSearchParams } from '~/hooks';
 
-export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail: boolean) {
+export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail?: boolean) {
 	const objectData = getItemObject(data);
 	const filePath = getItemFilePath(data);
 
@@ -10,7 +10,7 @@ export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail: boolean
 		cas_id: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		hasThumbnail: data.has_thumbnail || hasNewThumbnail,
+		hasThumbnail: data.has_thumbnail || hasNewThumbnail || false,
 		extension: filePath?.extension || null
 	};
 }

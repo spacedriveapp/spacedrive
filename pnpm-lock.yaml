@@ -644,6 +644,9 @@ importers:
       '@headlessui/react':
         specifier: ^1.7.3
         version: 1.7.3(react-dom@18.2.0)(react@18.2.0)
+      '@icons-pack/react-simple-icons':
+        specifier: ^7.2.0
+        version: 7.2.0(react@18.2.0)
       '@radix-ui/react-progress':
         specifier: ^1.0.1
         version: 1.0.1(react-dom@18.2.0)(react@18.2.0)
@@ -3419,6 +3422,14 @@ packages:
 
   /@icons-pack/react-simple-icons@5.8.0(react@18.2.0):
     resolution: {integrity: sha512-5szUSKt/jslgOsNmH+uRs9wfRVl399Xhwf4//V28H5TXgMXZPaqQ+w82mMwmapsMW6DigFkgynLHZcic43PQRw==}
+    peerDependencies:
+      react: ^16.13 || ^17 || ^18
+    dependencies:
+      react: 18.2.0
+    dev: false
+
+  /@icons-pack/react-simple-icons@7.2.0(react@18.2.0):
+    resolution: {integrity: sha512-XmyAiE+cDWDoCQGboie4se79ph2xAj/lQV+YVmLlX0nAFf92lci2ciVxWSN28f4MWZojskRWsu9S9BoH8UCQgg==}
     peerDependencies:
       react: ^16.13 || ^17 || ^18
     dependencies:
