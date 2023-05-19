@@ -312,8 +312,15 @@ elif [ "$SYSNAME" = "Darwin" ]; then
     sleep 1
   done
 
-  # Symlink the FFMpeg.framework libs to the lib directory
+  # Sign and Symlink the FFMpeg.framework libs to the lib directory
   for _lib in "${_frameworks_dir}/FFMpeg.framework/Libraries/"*; do
+    if [ -f "$_lib" ]; then
+      # Sign the lib with the local machine certificate (Required for it to work on macOS 13+)
+      if ! codesign -s $APPLE_SIGNING_IDENTITY -f "$_lib" 1>/dev/null 2>&1; then
+        err "Failed to sign: ${_lib#"$_frameworks_dir"}" \
+          'Please open an issue on https://github.com/spacedriveapp/spacedrive/issues'
+      fi
+    fi
     _lib="${_lib#"${_frameworks_dir}/FFMpeg.framework/Libraries/"}"
     ln -s "../FFMpeg.framework/Libraries/${_lib}" "${_frameworks_dir}/lib/${_lib}"
   done
@@ -328,10 +335,10 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   echo "Download patched tauri cli.js build..."
   case "$_arch" in
     x86_64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/687573480.zip"
+      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683038.zip"
       ;;
     arm64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/687573479.zip"
+      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683035.zip"
       ;;
     *)
       err "Unsupported architecture: $_arch"

@@ -54,7 +54,7 @@ const Layout = () => {
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
 							<Outlet />
 						</Suspense>
-						<QuickPreview libraryUuid={library.uuid} />
+						<QuickPreview />
 					</LibraryContextProvider>
 				) : (
 					<h1 className="p-4 text-white">

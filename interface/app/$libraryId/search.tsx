@@ -19,7 +19,7 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
 	const query = useLibraryQuery(['search.paths', props.args], {
 		suspense: true,
@@ -45,7 +45,7 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 		<>
 			{items && items.length > 0 ? (
 				<>
-					<TopBarChildren toolOptions={[explorerViewOptions, explorerControlOptions]} />
+					<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
 					<Explorer items={items} />
 				</>
 			) : (

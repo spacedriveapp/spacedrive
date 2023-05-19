@@ -52,6 +52,8 @@ export default ({ data, className, ...props }: Props) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
+	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	return (
 		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
@@ -229,8 +231,15 @@ export default ({ data, className, ...props }: Props) => {
 						<ContextMenu.Item label="PNG" />
 						<ContextMenu.Item label="WebP" />
 					</ContextMenu.SubMenu>
-					<ContextMenu.Item label="Rescan Directory" icon={Package} />
-					<ContextMenu.Item label="Regen Thumbnails" icon={Package} />
+					<ContextMenu.Item onClick={() => {
+						fullRescan.mutate(getExplorerStore().locationId!);
+					}} label="Rescan Directory" icon={Package} />
+					<ContextMenu.Item onClick={() => {
+						generateThumbnails.mutate({
+							id: getExplorerStore().locationId!,
+							path: '/'
+						});
+					}} label="Regen Thumbnails" icon={Package} />
 					<ContextMenu.Item
 						variant="danger"
 						label="Secure delete"
@@ -273,7 +282,6 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
 	const filePath = getItemFilePath(props.data);
 
 	const { library } = useLibraryContext();

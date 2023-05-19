@@ -331,6 +331,9 @@ while [ $# -gt 0 ]; do
   # Update the library's own id
   "${TRIPLE}-install_name_tool" -id "@executable_path/../Frameworks/${_framework}/Libraries/${1}" "$1"
 
+  # Codesign library
+  codesign -s $APPLE_SIGNING_IDENTITY -f "$1"
+
   # Copy the library to framework
   cp -Lpv "$1" "/${_framework}/Libraries/${1}"
 

@@ -577,7 +577,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bf9e4f4da24116dc0e3ffef4afbabadb7fba375bf32ccf9a1da81a667bababc"
 dependencies = [
- "crypto-bigint 0.5.0",
+ "crypto-bigint 0.5.1",
  "digest 0.10.6",
  "password-hash",
 ]
@@ -1450,9 +1450,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-bigint"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "071c0f5945634bc9ba7a452f492377dd6b1993665ddb58f28704119b32f07a9a"
+checksum = "7c2538c4e68e52548bacb3e83ac549f903d44f011ac9d5abb5e132e67d0808f7"
 dependencies = [
  "generic-array",
  "subtle",
@@ -6759,6 +6759,8 @@ dependencies = [
  "serde_with",
  "specta",
  "static_assertions",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "sysinfo",
  "tempfile",
  "thiserror",
