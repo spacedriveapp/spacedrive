@@ -72,6 +72,10 @@ pub enum JobError {
 	MatchingSrcDest(PathBuf),
 	#[error("action would overwrite another file: {}", .0.display())]
 	WouldOverwrite(PathBuf),
+	#[error("item of type '{0}' with id '{1}' is missing from the db")]
+	MissingFromDb(&'static str, String),
+	#[error("the cas id is not set on the path data")]
+	MissingCasId,
 
 	// Not errors
 	#[error("step completed with errors")]
@@ -295,7 +299,10 @@ pub struct JobState<Job: StatefulJob> {
 impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	fn id(&self) -> Uuid {
 		// SAFETY: This method is using during queueing, so we still have a report
-		self.report().as_ref().unwrap().id
+		self.report()
+			.as_ref()
+			.expect("This method is using during queueing, so we still have a report")
+			.id
 	}
 
 	fn parent_id(&self) -> Option<Uuid> {
@@ -347,7 +354,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				) => {
 					match step_result {
 						Err(JobError::EarlyFinish { .. }) => {
-							info!("{}", step_result.unwrap_err());
+							step_result.map_err(|err| {
+								warn!("{}", err);
+							}).ok();
 							break;
 						},
 						Err(JobError::StepCompletedWithErrors(errors_text)) => {

@@ -78,7 +78,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: NodeConfig } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
@@ -94,8 +94,6 @@ export type Procedures = {
 };
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
-
-export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 /**
  * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
@@ -131,17 +129,9 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-/**
- * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
- * It contains the id of the location to be updated, possible a name to change the current location's name
- * and a vector of indexer rules ids to add or remove from the location.
- * 
- * It is important to note that only the indexer rule ids in this vector will be used from now on.
- * Old rules that aren't in this vector will be purged.
- */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
-
 export type SetFavoriteArgs = { id: number; favorite: boolean }
+
+export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -181,9 +171,19 @@ export type FileEraserJobInit = { location_id: number; path_id: number; passes: 
  */
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
-export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
+export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+
+/**
+ * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
+ * It contains the id of the location to be updated, possible a name to change the current location's name
+ * and a vector of indexer rules ids to add or remove from the location.
+ * 
+ * It is important to note that only the indexer rule ids in this vector will be used from now on.
+ * Old rules that aren't in this vector will be purged.
+ */
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
@@ -206,7 +206,16 @@ export type Node = { id: number; pub_id: number[]; name: string; platform: numbe
 
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+
+/**
+ * TODO: P2P event for the frontend
+ */
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
+
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
+export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type BuildInfo = { version: string; commit: string }
 
@@ -224,11 +233,6 @@ export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
-
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
@@ -260,8 +264,6 @@ export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boo
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
-export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
-
 export type SetNoteArgs = { id: number; note: string | null }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
@@ -280,6 +282,8 @@ export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePat
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
+export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
+
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
@@ -292,20 +296,18 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
+export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
+
 export type ObjectValidatorArgs = { id: number; path: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
-export type ChangeNodeNameArgs = { name: string }
-
 /**
  * This defines all available password hashing algorithms.
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
 
@@ -318,11 +320,9 @@ export type LibraryConfig = { name: string; description: string }
 
 export type CreateLibraryArgs = { name: string }
 
-export type AutomountUpdateArgs = { uuid: string; status: boolean }
-
 export type Protected<T> = T
 
-export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
+export type ChangeNodeNameArgs = { name: string }
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
 

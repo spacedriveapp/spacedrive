@@ -77,7 +77,7 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
-		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await;
+		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await?;
 
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
@@ -235,6 +235,8 @@ pub enum NodeError {
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),
+	#[error("failed to initialize p2p manager")]
+	P2PManager(#[from] sd_p2p::ManagerError),
 	#[error("invalid platform integer")]
 	InvalidPlatformInt(i32),
 	#[cfg(debug_assertions)]

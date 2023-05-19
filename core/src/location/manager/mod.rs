@@ -103,6 +103,11 @@ pub enum LocationManagerError {
 	#[error("Job Manager error: (error: {0})")]
 	JobManager(#[from] JobManagerError),
 
+	#[error("invalid inode")]
+	InvalidInode,
+	#[error("invalid device")]
+	InvalidDevice,
+
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }
@@ -554,10 +559,10 @@ impl Drop for StopWatcherGuard<'_> {
 	fn drop(&mut self) {
 		if cfg!(feature = "location-watcher") {
 			// FIXME: change this Drop to async drop in the future
-			if let Err(e) = block_on(
-				self.manager
-					.reinit_watcher(self.location_id, self.library.take().unwrap()),
-			) {
+			if let Err(e) = block_on(self.manager.reinit_watcher(
+				self.location_id,
+				self.library.take().expect("library should be set"),
+			)) {
 				error!("Failed to reinit watcher on stop watcher guard drop: {e}");
 			}
 		}
@@ -578,9 +583,9 @@ impl Drop for IgnoreEventsForPathGuard<'_> {
 			// FIXME: change this Drop to async drop in the future
 			if let Err(e) = block_on(self.manager.watcher_management_message(
 				self.location_id,
-				self.library.take().unwrap(),
+				self.library.take().expect("library should be set"),
 				WatcherManagementMessageAction::IgnoreEventsForPath {
-					path: self.path.take().unwrap(),
+					path: self.path.take().expect("path should be set"),
 					ignore: false,
 				},
 			)) {
