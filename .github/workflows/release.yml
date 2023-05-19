@@ -49,6 +49,7 @@ jobs:
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
       - name: Install Codesigning Certificate
+        if: ${{ runner.os == 'macOS' }}
         uses: apple-actions/import-codesign-certs@v2
         with: 
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
