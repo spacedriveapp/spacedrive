@@ -22,11 +22,9 @@ export function getExplorerItemData(data: ExplorerItem) {
 	const filePath = getItemFilePath(data);
 	const objectData = getItemObject(data);
 
-	const casId = filePath?.cas_id || null;
-
 	return {
 		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		casId,
+		casId: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		extension: filePath?.extension || null,
 		hasThumbnail: data.has_thumbnail

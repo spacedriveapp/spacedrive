@@ -1,14 +1,4 @@
-import {
-	Close as DialogClose,
-	Content as DialogContent,
-	Description as DialogDescription,
-	Overlay as DialogOverlay,
-	Portal as DialogPortal,
-	DialogProps as DialogPrimitiveProps,
-	Root as DialogRoot,
-	Title as DialogTitle,
-	Trigger as DialogTrigger
-} from '@radix-ui/react-dialog';
+import * as RDialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
@@ -113,11 +103,11 @@ export function Dialogs() {
 	);
 }
 
-const AnimatedDialogContent = animated(DialogContent);
-const AnimatedDialogOverlay = animated(DialogOverlay);
+const AnimatedDialogContent = animated(RDialog.Content);
+const AnimatedDialogOverlay = animated(RDialog.Overlay);
 
 export interface DialogProps<S extends FieldValues>
-	extends DialogPrimitiveProps,
+	extends RDialog.DialogProps,
 		Omit<FormProps<S>, 'onSubmit'> {
 	title?: string;
 	dialog: ReturnType<typeof useDialog>;
@@ -157,11 +147,11 @@ export function Dialog<S extends FieldValues>({
 	const setOpen = (v: boolean) => (dialog.state.open = v);
 
 	return (
-		<DialogRoot open={stateSnap.open} onOpenChange={setOpen}>
-			{props.trigger && <DialogTrigger asChild>{props.trigger}</DialogTrigger>}
+		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>
+			{props.trigger && <RDialog.Trigger asChild>{props.trigger}</RDialog.Trigger>}
 			{transitions((styles, show) =>
 				show ? (
-					<DialogPortal forceMount>
+					<RDialog.Portal forceMount>
 						<AnimatedDialogOverlay
 							className="z-49 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
 							style={{
@@ -183,14 +173,14 @@ export function Dialog<S extends FieldValues>({
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>
 								<div className="p-5">
-									<DialogTitle className="mb-2 font-bold">
+									<RDialog.Title className="mb-2 font-bold">
 										{props.title}
-									</DialogTitle>
+									</RDialog.Title>
 
 									{props.description && (
-										<DialogDescription className="mb-2 text-sm text-ink-dull">
+										<RDialog.Description className="mb-2 text-sm text-ink-dull">
 											{props.description}
-										</DialogDescription>
+										</RDialog.Description>
 									)}
 
 									{props.children}
@@ -201,7 +191,7 @@ export function Dialog<S extends FieldValues>({
 									<div className="grow" />
 
 									{onCancelled && (
-										<DialogClose asChild>
+										<RDialog.Close asChild>
 											<Button
 												disabled={props.loading}
 												size="sm"
@@ -214,7 +204,7 @@ export function Dialog<S extends FieldValues>({
 											>
 												{props.closeLabel || 'Close'}
 											</Button>
-										</DialogClose>
+										</RDialog.Close>
 									)}
 
 									<Button
@@ -234,9 +224,9 @@ export function Dialog<S extends FieldValues>({
 							</Form>
 							<Remover id={dialog.id} />
 						</AnimatedDialogContent>
-					</DialogPortal>
+					</RDialog.Portal>
 				) : null
 			)}
-		</DialogRoot>
+		</RDialog.Root>
 	);
 }
