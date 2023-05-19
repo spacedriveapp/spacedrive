@@ -22,7 +22,7 @@
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/dist/!(.gitignore)**\""
+		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/.contentlayer/\" \"**/dist/!(.gitignore)**\""
 	},
 	"pnpm": {
 		"overrides": {
