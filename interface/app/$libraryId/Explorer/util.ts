@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
-import { useZodSearchParams } from '~/hooks';
+import { ExplorerItem, ObjectKind, ObjectKindKey, Ordering, isObject, isPath } from '@sd/client';
+import { useExplorerStore, useZodSearchParams } from '~/hooks';
 
-export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail: boolean) {
+export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail?: boolean) {
 	const objectData = getItemObject(data);
 	const filePath = getItemFilePath(data);
 
@@ -13,6 +13,14 @@ export function getExplorerItemData(data: ExplorerItem, hasNewThumbnail: boolean
 		hasThumbnail: data.has_thumbnail || hasNewThumbnail,
 		extension: filePath?.extension || null
 	};
+}
+
+export function useExplorerOrder(): Ordering | undefined {
+	const explorerStore = useExplorerStore();
+
+	if (explorerStore.orderBy === 'none') return undefined;
+
+	return { [explorerStore.orderBy]: explorerStore.orderByDirection === 'asc' } as Ordering;
 }
 
 export function getItemObject(data: ExplorerItem) {

@@ -140,6 +140,8 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
+export type FilePathSearchArgs = { locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: FilePathSearchOrdering | null; search?: string; extension?: string | null; kind?: number[]; tags?: number[]; createdAt?: OptionalRange<string>; path?: string | null; cursor?: number[] | null; favorite?: boolean | null; hidden?: boolean | null }
+
 /**
  * Represents the operating system which the remote peer is running.
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
@@ -193,6 +195,8 @@ export type CRDTOperation = { node: string; timestamp: number; id: string; typ: 
  */
 export type Salt = number[]
 
+export type ObjectSearchArgs = { take?: number | null; tagId?: number | null; cursor?: number[] | null }
+
 export type SetNoteArgs = { id: number; note: string | null }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
@@ -201,15 +205,11 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
-export type ObjectSearchOrdering = { dateAccessed: boolean }
-
-export type FilePathSearchOrdering = { name: boolean } | { object: ObjectSearchOrdering }
+export type FilePathSearchOrdering = { name: boolean } | { sizeInBytes: boolean } | { dateCreated: boolean } | { dateModified: boolean } | { dateIndexed: boolean } | { object: ObjectSearchOrdering }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
 export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
-
-export type ObjectSearchArgs = { take?: number | null; tagId?: number | null; cursor?: number[] | null }
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
@@ -221,6 +221,8 @@ export type IdentifyUniqueFilesArgs = { id: number; path: string }
  * These are all possible algorithms that can be used for encryption and decryption
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
+
+export type ObjectSearchOrdering = { dateAccessed: boolean }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
@@ -326,8 +328,6 @@ export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
-
-export type FilePathSearchArgs = { locationId?: number | null; afterFileId?: string | null; take?: number | null; order?: FilePathSearchOrdering | null; search?: string; extension?: string | null; kind?: number[]; tags?: number[]; createdAt?: OptionalRange<string>; path?: string | null; cursor?: number[] | null; favorite?: boolean | null; hidden?: boolean | null }
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
 

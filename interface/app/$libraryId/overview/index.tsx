@@ -13,7 +13,7 @@ import {
 import { z } from '@sd/ui/src/forms';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import Explorer from '../Explorer';
-import { SEARCH_PARAMS } from '../Explorer/util';
+import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
 import TopBarChildren from '../TopBar/TopBarChildren';
 import CategoryButton from '../overview/CategoryButton';
@@ -86,6 +86,7 @@ export const Component = () => {
 			{
 				library_id: library.uuid,
 				arg: {
+					order: useExplorerOrder(),
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
@@ -105,7 +106,7 @@ export const Component = () => {
 				{
 					...queryKey[1].arg,
 					cursor
-				}
+				},
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
@@ -138,8 +139,9 @@ export const Component = () => {
 				isFetchingNextPage={query.isFetchingNextPage}
 				scrollRef={page?.ref}
 			>
+
 				<Statistics />
-				<div className="no-scrollbar sticky top-0 z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5 backdrop-blur">
+				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
 						const icon = icons[iconString as keyof typeof icons];
@@ -155,6 +157,7 @@ export const Component = () => {
 						);
 					})}
 				</div>
+
 			</Explorer>
 		</>
 	);

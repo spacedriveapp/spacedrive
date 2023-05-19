@@ -87,7 +87,7 @@ export default () => {
 	});
 	mounted = true;
 	return (
-		<div className="flex w-full">
+		<div className="flex w-full px-5 pt-4">
 			{/* STAT CONTAINER */}
 			<div className="-mb-1 flex h-20 overflow-hidden">
 				{Object.entries(stats?.data || []).map(([key, value]) => {

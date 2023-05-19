@@ -38,6 +38,10 @@ struct OptionalRange<T> {
 #[serde(rename_all = "camelCase")]
 enum FilePathSearchOrdering {
 	Name(bool),
+	SizeInBytes(bool),
+	DateCreated(bool),
+	DateModified(bool),
+	DateIndexed(bool),
 	Object(Box<ObjectSearchOrdering>),
 }
 
@@ -45,6 +49,10 @@ impl FilePathSearchOrdering {
 	fn get_sort_order(&self) -> SortOrder {
 		match self {
 			Self::Name(v) => v,
+			Self::SizeInBytes(v) => v,
+			Self::DateCreated(v) => v,
+			Self::DateModified(v) => v,
+			Self::DateIndexed(v) => v,
 			Self::Object(v) => return v.get_sort_order(),
 		}
 		.then_some(SortOrder::Asc)
@@ -56,6 +64,10 @@ impl FilePathSearchOrdering {
 		use file_path::*;
 		match self {
 			Self::Name(_) => name::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::DateCreated(_) => date_created::order(dir),
+			Self::DateModified(_) => date_modified::order(dir),
+			Self::DateIndexed(_) => date_indexed::order(dir),
 			Self::Object(v) => object::order(vec![v.to_param()]),
 		}
 	}
