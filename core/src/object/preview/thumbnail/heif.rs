@@ -25,6 +25,8 @@ pub enum HeifError {
 	Unsupported,
 	#[error("the image provided is too large (over 30mb)")]
 	TooLarge,
+	#[error("the provided bit depth is invalid")]
+	InvalidBitDepth,
 }
 
 pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
@@ -66,7 +68,8 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 
 		let mut png_encoder = png::Encoder::new(&mut writer, i.width, i.height);
 		png_encoder.set_color(ColorType::Rgb);
-		png_encoder.set_depth(BitDepth::from_u8(i.bits_per_pixel).unwrap());
+		png_encoder
+			.set_depth(BitDepth::from_u8(i.bits_per_pixel).ok_or(HeifError::InvalidBitDepth)?);
 
 		let mut png_writer = png_encoder.write_header()?;
 		png_writer.write_image_data(&sequence)?;
