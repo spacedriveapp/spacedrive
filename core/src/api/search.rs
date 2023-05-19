@@ -42,12 +42,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[specta(inline)]
 			enum Ordering {
 				Name(bool),
+				SizeInBytes(bool),
+				DateCreated(bool),
+				DateModified(bool),
+				DateIndexed(bool),
 			}
 
 			impl Ordering {
 				fn get_direction(&self) -> Direction {
 					match self {
 						Self::Name(v) => v,
+						Self::SizeInBytes(v) => v,
+						Self::DateCreated(v) => v,
+						Self::DateModified(v) => v,
+						Self::DateIndexed(v) => v,
 					}
 					.then_some(Direction::Asc)
 					.unwrap_or(Direction::Desc)
@@ -57,6 +65,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					use file_path::*;
 					match self {
 						Self::Name(_) => name::order(dir),
+						Self::SizeInBytes(_) => size_in_bytes::order(dir),
+						Self::DateCreated(_) => date_created::order(dir),
+						Self::DateModified(_) => date_modified::order(dir),
+						Self::DateIndexed(_) => date_indexed::order(dir),
 					}
 				}
 			}

@@ -9,7 +9,7 @@ import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
-import { useExplorerSearchParams } from '../Explorer/util';
+import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import TopBarChildren from '../TopBar/TopBarChildren';
 
 const PARAMS = z.object({
@@ -81,6 +81,7 @@ const useItems = () => {
 			{
 				library_id: library.uuid,
 				arg: {
+					order: useExplorerOrder(),
 					locationId,
 					take,
 					...(explorerState.layoutMode === 'media'

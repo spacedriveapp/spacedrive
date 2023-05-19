@@ -1,6 +1,8 @@
 import { proxy, useSnapshot } from 'valtio';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, Ordering } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
+
+type UnionKeys<T> = T extends any ? keyof T : never;
 
 export type ExplorerLayoutMode = 'rows' | 'grid' | 'columns' | 'media';
 
@@ -11,6 +13,10 @@ export enum ExplorerKind {
 }
 
 export type CutCopyType = 'Cut' | 'Copy';
+
+export type ExplorerOrderByKeys = UnionKeys<Ordering> | 'none';
+
+export type ExplorerDirection = 'asc' | 'desc';
 
 const state = {
 	locationId: null as number | null,
@@ -35,7 +41,10 @@ const state = {
 	quickViewObject: null as ExplorerItem | null,
 	isRenaming: false,
 	mediaColumns: 8,
-	mediaAspectSquare: true
+	mediaAspectSquare: true,
+	orderBy: 'dateCreated' as ExplorerOrderByKeys,
+	orderByDirection: 'desc' as ExplorerDirection,
+	groupBy: 'none',
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
