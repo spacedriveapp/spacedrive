@@ -101,7 +101,7 @@ export default memo((props: Props) => {
 			ref={props.scrollRef || scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
-				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
+				layoutMode === 'grid' && 'overflow-x-hidden',
 				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}

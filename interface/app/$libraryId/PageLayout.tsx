@@ -15,7 +15,7 @@ export const Component = () => {
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 		>
 			<PageContext.Provider value={{ ref }}>
-				<div className="flex h-screen w-full flex-col p-5">
+				<div className="flex h-screen w-full flex-col">
 					<Outlet />
 				</div>
 			</PageContext.Provider>
