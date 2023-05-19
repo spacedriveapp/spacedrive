@@ -244,10 +244,8 @@ async fn handle_file(
 		"3gp" => "video/3gpp",
 		// 3GPP2 audio/video container (TODO: audio/3gpp2 if it doesn't contain video)
 		"3g2" => "video/3gpp2",
-		//  Quicktime movies
+		// Quicktime movies
 		"mov" => "video/quicktime",
-		// AVIF image
-		"avif" => "image/avif",
 		// Windows OS/2 Bitmap Graphics
 		"bmp" => "image/bmp",
 		// Graphics Interchange Format (GIF)
@@ -266,6 +264,12 @@ async fn handle_file(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
+
+		"heif" | "heifs" => "image/heif", //, image/heif-sequence
+
+		"heic" | "heics" => "image/heic", //, image/heic-sequence
+		// AVIF image
+		"avif" | "avci" | "avcs" => "image/avif",
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
 				"TODO: This filetype is not supported because of the missing mime type!",

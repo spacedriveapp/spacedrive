@@ -114,6 +114,9 @@ pub struct ThumbnailerJobStep {
 	kind: ThumbnailerJobStepKind,
 }
 
+// TOOD(brxken128): validate avci and avcs
+const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
+
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
@@ -122,7 +125,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 
 	// Webp creation has blocking code
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		let img = if ext == OsStr::new("heif") || ext == OsStr::new("heic") {
+		let img = if HEIF_EXTENSIONS.iter().any(|e| ext == OsStr::new(e)) {
 			heif::heif_to_dynamic_image(file_path.as_ref())?
 		} else {
 			image::open(file_path)?
@@ -172,7 +175,10 @@ pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) 
 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
-	matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif | Heic | Heif)
+	matches!(
+		image_extension,
+		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
+	)
 }
 
 fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {

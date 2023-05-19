@@ -47,12 +47,7 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 		let heif = LibHeif::new();
 		let handle = ctx.primary_image_handle()?;
 
-		let img_raw = heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)?;
-
-		// TODO(brxken128): handle the scaling better here, and limit it to x bytes
-		// with the current 20mib file size limit (`HEIF_MAXIMUM_FILE_SIZE`), images in memory will be
-		// an absolute maximum of ~6.7mib
-		img_raw.scale(img_raw.width() / 3, img_raw.height() / 3, None)?
+		heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)?
 	};
 
 	// TODO(brxken128): add support for images with individual r/g/b channels
@@ -64,6 +59,8 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 		let mut sequence = vec![];
 		let mut buffer = [0u8; 3]; // [r, g, b]
 
+		// this is the interpolation stuff, it essentially just makes the image correct
+		// in regards to stretching/resolution, etc
 		for y in 0..img.height() {
 			reader.seek(SeekFrom::Start((i.stride * y as usize) as u64))?;
 
