@@ -200,7 +200,7 @@ export type CRDTOperation = { node: string; timestamp: number; id: string; typ: 
  */
 export type Salt = number[]
 
-export type Ordering = { name: boolean }
+export type Ordering = { name: boolean } | { sizeInBytes: boolean } | { dateCreated: boolean } | { dateModified: boolean } | { dateIndexed: boolean }
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
