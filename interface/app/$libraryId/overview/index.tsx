@@ -1,4 +1,7 @@
 import * as icons from '@sd/assets/icons';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import 'react-loading-skeleton/dist/skeleton.css';
 import {
 	ExplorerItem,
 	ObjectKind,
@@ -8,9 +11,6 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS } from '../Explorer/util';
@@ -30,7 +30,7 @@ const CategoryToIcon: Record<string, string> = {
 	Documents: 'Document',
 	Downloads: 'Package',
 	Applications: 'Application',
-	Games: "Game",
+	Games: 'Game',
 	Books: 'Book',
 	Encrypted: 'EncryptedLock',
 	Archives: 'Database',
@@ -45,8 +45,8 @@ const SearchableCategories: Record<string, ObjectKindKey> = {
 	Music: 'Audio',
 	Documents: 'Document',
 	Encrypted: 'Encrypted',
-	Books: 'Book',
-}
+	Books: 'Book'
+};
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -55,12 +55,19 @@ export const Component = () => {
 	const explorerStore = useExplorerStore();
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
 	// TODO: integrate this into search query
-	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
+	const recentFiles = useLibraryQuery([
+		'search.paths',
+		{
+			order: { object: { dateAccessed: false } },
+			take: 50
+		}
+	]);
 	// this should be redundant once above todo is complete
 	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
 
@@ -68,7 +75,7 @@ export const Component = () => {
 
 	const categories = useLibraryQuery(['categories.list']);
 
-	const isFavoritesCategory = selectedCategory === "Favorites";
+	const isFavoritesCategory = selectedCategory === 'Favorites';
 
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
@@ -81,7 +88,13 @@ export const Component = () => {
 				arg: {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
-						? { kind: [5, 7].includes(kind) ? [kind] : isFavoritesCategory ? [5, 7] : [5, 7, kind] }
+						? {
+								kind: [5, 7].includes(kind)
+									? [kind]
+									: isFavoritesCategory
+									? [5, 7]
+									: [5, 7, kind]
+						  }
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -91,8 +104,8 @@ export const Component = () => {
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor,
-				},
+					cursor
+				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
@@ -102,7 +115,7 @@ export const Component = () => {
 	let items: ExplorerItem[] = [];
 	switch (selectedCategory) {
 		case 'Recents':
-			items = recentFiles.data || [];
+			items = recentFiles.data?.items || [];
 			break;
 		default:
 			if (canSearch) {
@@ -112,7 +125,9 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
+			<TopBarChildren
+				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			/>
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
 				viewClassName="!pl-0 !pt-0 !h-auto"
@@ -144,5 +159,3 @@ export const Component = () => {
 		</>
 	);
 };
-
-
