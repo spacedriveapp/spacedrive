@@ -1,7 +1,9 @@
 [package]
 name = "prisma-cli"
 version = "0.1.0"
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 [dependencies]
 prisma-client-rust-cli = { workspace = true }
