@@ -10,20 +10,28 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
+use tokio::{
+	fs::File,
+	io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+};
+use tracing::debug;
 
 use crate::spacetime::{SpaceTimeStream, UnicastStream};
 
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockSize(i64);
+pub struct BlockSize(u32); // Max block size is gonna be 3.9GB which is stupidly overkill
 
 impl BlockSize {
-	// TODO: Validating `BlockSize` are multiple of 2, i think
+	// TODO: Validating `BlockSize` are multiple of 2, i think. Idk why but BEP does it.
 
 	pub fn from_size(size: u64) -> Self {
 		// TODO: Something like: https://docs.syncthing.net/specs/bep-v1.html#selection-of-block-size
 		Self(131072) // 128 KiB
+	}
+
+	pub fn to_size(&self) -> u32 {
+		self.0
 	}
 }
 
@@ -49,9 +57,11 @@ pub enum SpacedropRequestError {
 }
 
 impl SpacedropRequest {
-	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, SpacedropRequestError> {
+	pub async fn from_stream(
+		stream: &mut (impl AsyncRead + Unpin),
+	) -> Result<Self, SpacedropRequestError> {
 		let name_len = stream
-			.read_u8()
+			.read_u16_le()
 			.await
 			.map_err(SpacedropRequestError::NameLenIoError)?;
 		let mut name = vec![0u8; name_len as usize];
@@ -62,9 +72,9 @@ impl SpacedropRequest {
 		let name = String::from_utf8(name).map_err(SpacedropRequestError::NameFormatError)?;
 
 		let size = stream
-			.read_u8()
+			.read_u64_le()
 			.await
-			.map_err(SpacedropRequestError::SizeIoError)? as u64;
+			.map_err(SpacedropRequestError::SizeIoError)?;
 		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
@@ -76,10 +86,16 @@ impl SpacedropRequest {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
-		buf.push(self.name.len() as u8); // TODO: This being a `u8` isn't going to scale to a name bigger than 255 bytes lmao
+
+		let len_buf = (self.name.len() as u16).to_le_bytes();
+		if self.name.len() > u16::MAX as usize {
+			panic!("Name is too long!"); // TODO: Error handling
+		}
+		buf.extend_from_slice(&len_buf);
 		buf.extend(self.name.as_bytes());
-		buf.push(self.size as u8); // TODO: This being a `u8` isn't going to scale to files bigger than 255 bytes lmao
-						   // buf.push(&self.block_size.to_be_bytes()); // TODO: Do this as well
+
+		buf.extend_from_slice(&self.size.to_le_bytes());
+
 		buf
 	}
 }
@@ -87,28 +103,166 @@ impl SpacedropRequest {
 /// TODO
 pub struct Block<'a> {
 	// TODO: File content, checksum, source location so it can be resent!
-	pub offset: i64,
-	pub size: i64,
+	pub offset: u64,
+	pub size: u64,
 	pub data: &'a [u8],
 	// TODO: Checksum?
 }
 
-/// TODO
-pub struct Transfer<'a> {
-	// buf: &'a mut [u8],
-	phantom: PhantomData<&'a ()>,
+impl<'a> Block<'a> {
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let mut buf = Vec::new();
+		buf.extend_from_slice(&self.offset.to_le_bytes());
+		buf.extend_from_slice(&self.size.to_le_bytes());
+		buf.extend_from_slice(self.data);
+		buf
+	}
+
+	pub async fn from_stream(
+		stream: &mut (impl AsyncReadExt + Unpin),
+		data_buf: &mut [u8],
+	) -> Result<Block<'a>, ()> {
+		let mut offset = [0; 8];
+		stream.read_exact(&mut offset).await.map_err(|_| ())?; // TODO: Error handling
+		let offset = u64::from_le_bytes(offset);
+
+		let mut size = [0; 8];
+		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
+		let size = u64::from_le_bytes(size);
+
+		// TODO: Handle overflow of `data_buf`
+		// TODO: Prevent this being used as a DoS cause I think it can
+		let mut read_offset = 0u64;
+		loop {
+			let read = stream.read(data_buf).await.map_err(|_| ())?; // TODO: Error handling
+			read_offset += read as u64;
+
+			if read_offset == size {
+				break;
+			}
+		}
+
+		Ok(Self {
+			offset,
+			size,
+			data: &[], // TODO: This is super cringe. Data should be decoded here but lifetimes and extra allocations become a major concern.
+		})
+	}
 }
 
-impl<'a> Transfer<'a> {
-	// TODO: Allow the user to cancel a tranfer
-	// TODO: Handle if the stream is dropped
+pub async fn send(
+	stream: &mut (impl AsyncWrite + Unpin),
+	mut file: (impl AsyncBufRead + Unpin),
+	req: &SpacedropRequest,
+) {
+	// We manually implement what is basically a `BufReader` so we have more control
+	let mut buf = vec![0u8; req.block_size.to_size() as usize];
+	let mut offset: u64 = 0;
 
-	pub fn from_file(path: impl AsRef<Path>) -> Self {
-		// let size = std::fs::metadata(path.as_ref()).unwrap().len();
+	loop {
+		let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
+		offset += read as u64;
 
-		Self {
-			// buf: &mut Vec::with_capacity(42069),
-			phantom: PhantomData,
+		if read == 0 {
+			if offset != req.size {
+				panic!("U dun goofed"); // TODO: Error handling
+			}
+
+			break;
 		}
+
+		let block = Block {
+			offset,
+			size: read as u64,
+			data: &buf[..read],
+		};
+		debug!(
+			"Sending block at offset {} of size {}",
+			block.offset, block.size
+		);
+		stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
+	}
+}
+
+pub async fn receive(
+	stream: &mut (impl AsyncReadExt + Unpin),
+	mut file: (impl AsyncWrite + Unpin),
+	req: &SpacedropRequest,
+) {
+	// We manually implement what is basically a `BufReader` so we have more control
+	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
+	let mut offset: u64 = 0;
+
+	loop {
+		// TODO: Timeout if nothing is being received
+		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
+		offset += block.size;
+
+		debug!(
+			"Received block at offset {} of size {}",
+			block.offset, block.size
+		);
+		file.write_all(&data_buf[..block.size as usize])
+			.await
+			.unwrap(); // TODO: Error handling
+
+		// TODO: Should this be `read == 0`
+		if offset == req.size {
+			break;
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use tokio::sync::oneshot;
+
+	use super::*;
+
+	#[tokio::test]
+	async fn test_spaceblock_request() {
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: 42069,
+			block_size: BlockSize::from_size(42069),
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpacedropRequest::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
+
+	#[tokio::test]
+	async fn test_spaceblock() {
+		let (mut client, mut server) = tokio::io::duplex(64);
+
+		// This is sent out of band of Spaceblock
+		let data = b"Spacedrive".to_vec();
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: data.len() as u64,
+			block_size: BlockSize::from_size(data.len() as u64),
+		};
+
+		let (tx, rx) = oneshot::channel();
+		tokio::spawn({
+			let req = req.clone();
+			let data = data.clone();
+			async move {
+				let file = BufReader::new(Cursor::new(data));
+				tx.send(()).unwrap();
+				send(&mut client, file, &req).await;
+			}
+		});
+
+		rx.await.unwrap();
+
+		let mut result = Vec::new();
+		receive(&mut server, &mut result, &req).await;
+		assert_eq!(result, data);
 	}
 }
