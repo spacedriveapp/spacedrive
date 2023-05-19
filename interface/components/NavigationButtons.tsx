@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { useNavigate } from 'react-router';
 import { Button, Tooltip } from '@sd/ui';
-import { useSearchStore } from '~/hooks/useSearchStore';
+import { useSearchStore } from '~/hooks';
 
 export const NavigationButtons = () => {
 	const navigate = useNavigate();

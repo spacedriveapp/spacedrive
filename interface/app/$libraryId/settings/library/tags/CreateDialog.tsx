@@ -1,7 +1,7 @@
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
-import ColorPicker from '~/components/ColorPicker';
+import { ColorPicker } from '~/components';
 
 const schema = z.object({
 	name: z.string(),

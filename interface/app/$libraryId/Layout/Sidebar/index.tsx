@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { MacTrafficLights, NavigationButtons } from '~/components';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useOperatingSystem } from '~/hooks';
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';

@@ -2,7 +2,7 @@ import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { showAlertDialog } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 const { Input, useZodForm, z } = forms;

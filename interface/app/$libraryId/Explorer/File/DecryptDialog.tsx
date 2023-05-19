@@ -3,7 +3,7 @@ import { Info } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
 import { PasswordInput, Switch, useZodForm, z } from '@sd/ui/src/forms';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { showAlertDialog } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 const schema = z.object({

@@ -1,7 +1,7 @@
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
-import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
+import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
