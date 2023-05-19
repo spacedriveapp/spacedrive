@@ -316,7 +316,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   for _lib in "${_frameworks_dir}/FFMpeg.framework/Libraries/"*; do
     if [ -f "$_lib" ]; then
       # Sign the lib with the local machine certificate (Required for it to work on macOS 13+)
-      if ! codesign -s - -f "$_lib" 1>/dev/null 2>&1; then
+      if ! codesign -s $APPLE_SIGNING_IDENTITY -f "$_lib" 1>/dev/null 2>&1; then
         err "Failed to sign: ${_lib#"$_frameworks_dir"}" \
           'Please open an issue on https://github.com/spacedriveapp/spacedrive/issues'
       fi
