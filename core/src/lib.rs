@@ -9,7 +9,10 @@ use crate::{
 	p2p::P2PManager,
 };
 
-use std::{path::Path, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
 use tracing::{debug, error, info, warn};
@@ -47,6 +50,7 @@ pub struct NodeContext {
 }
 
 pub struct Node {
+	pub data_dir: PathBuf,
 	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
 	location_manager: Arc<LocationManager>,
@@ -118,6 +122,7 @@ impl Node {
 
 		let router = api::mount();
 		let node = Node {
+			data_dir: data_dir.to_path_buf(),
 			config,
 			library_manager,
 			location_manager,

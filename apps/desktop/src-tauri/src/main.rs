@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -26,6 +26,13 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
+	opener::open(node.data_dir.join("logs")).ok();
+	Ok(())
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
@@ -132,6 +139,7 @@ async fn main() -> tauri::Result<()> {
 		.menu(menu::get_menu())
 		.invoke_handler(tauri_handlers![
 			app_ready,
+			open_logs_dir,
 			file::open_file_path,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with
