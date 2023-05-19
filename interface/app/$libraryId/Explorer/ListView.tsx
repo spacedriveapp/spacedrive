@@ -163,12 +163,12 @@ export default () => {
 						return aName === bName
 							? 0
 							: aName > bName
-								? desc
-									? 1
-									: -1
-								: desc
-									? -1
-									: 1;
+							? desc
+								? 1
+								: -1
+							: desc
+							? -1
+							: 1;
 					}
 
 					return aDate > bDate ? 1 : -1;
@@ -226,13 +226,13 @@ export default () => {
 						...sizing,
 						...(scrollWidth && nameWidth
 							? {
-								Name:
-									nameWidth +
-									scrollWidth -
-									paddingX * 2 -
-									scrollBarWidth -
-									tableLength
-							}
+									Name:
+										nameWidth +
+										scrollWidth -
+										paddingX * 2 -
+										scrollBarWidth -
+										tableLength
+							  }
 							: {})
 					};
 				});
@@ -361,8 +361,8 @@ export default () => {
 											i === 0
 												? size + paddingX
 												: i === headerGroup.headers.length - 1
-													? size - paddingX
-													: size
+												? size - paddingX
+												: size
 									}}
 									onClick={header.column.getToggleSortingHandler()}
 								>
@@ -382,16 +382,16 @@ export default () => {
 											{(i !== headerGroup.headers.length - 1 ||
 												(i === headerGroup.headers.length - 1 &&
 													!locked)) && (
-													<div
-														onClick={(e) => e.stopPropagation()}
-														onMouseDown={(e) => {
-															setLocked(false);
-															header.getResizeHandler()(e);
-														}}
-														onTouchStart={header.getResizeHandler()}
-														className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
-													/>
-												)}
+												<div
+													onClick={(e) => e.stopPropagation()}
+													onMouseDown={(e) => {
+														setLocked(false);
+														header.getResizeHandler()(e);
+													}}
+													onTouchStart={header.getResizeHandler()}
+													className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+												/>
+											)}
 										</div>
 									)}
 								</div>

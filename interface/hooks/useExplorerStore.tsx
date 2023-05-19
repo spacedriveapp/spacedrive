@@ -44,7 +44,7 @@ const state = {
 	mediaAspectSquare: true,
 	orderBy: 'dateCreated' as ExplorerOrderByKeys,
 	orderByDirection: 'desc' as ExplorerDirection,
-	groupBy: 'none',
+	groupBy: 'none'
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
