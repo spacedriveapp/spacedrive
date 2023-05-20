@@ -1,8 +1,9 @@
-import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { getExplorerStore, useExplorerConfigStore, useExplorerStore } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
@@ -11,8 +12,6 @@ import ListView from './ListView';
 import MediaView from './MediaView';
 import { ViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
-import { usePlatform } from '~/util/Platform';
-import { useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -40,11 +39,12 @@ export const ViewItem = ({
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({ path: `${data.item.materialized_path}${data.item.name}/` }).toString()
+				search: createSearchParams({
+					path: `${data.item.materialized_path}${data.item.name}/`
+				}).toString()
 			});
 
 			getExplorerStore().selectedRowIndex = null;
-
 		} else if (openFilePath && filePath && explorerConfig.openOnDoubleClick) {
 			data.type === 'Path' &&
 				data.item.object_id &&
@@ -84,7 +84,6 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
-	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default memo((props: Props) => {
@@ -98,7 +97,7 @@ export default memo((props: Props) => {
 
 	return (
 		<div
-			ref={props.scrollRef || scrollRef}
+			ref={scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
 				layoutMode === 'grid' && 'overflow-x-hidden',
@@ -111,7 +110,7 @@ export default memo((props: Props) => {
 			<ViewContext.Provider
 				value={{
 					data: props.data,
-					scrollRef: props.scrollRef || scrollRef,
+					scrollRef: scrollRef,
 					onLoadMore: props.onLoadMore,
 					hasNextPage: props.hasNextPage,
 					isFetchingNextPage: props.isFetchingNextPage

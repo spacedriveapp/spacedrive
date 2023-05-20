@@ -1,6 +1,6 @@
 import { Gear, Lock, MagnifyingGlass, X } from 'phosphor-react';
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
+import { Button, Tabs } from '@sd/ui';
 import KeyList from './List';
 import KeyMounter from './Mounter';
 import NotSetup from './NotSetup';
@@ -34,12 +34,7 @@ const Unlocked = () => {
 						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="keys">
 							Keys
 						</Tabs.Trigger> */}
-						<Button
-
-							size="icon"
-							variant="subtle"
-							className="text-ink-faint"
-						>
+						<Button size="icon" variant="subtle" className="text-ink-faint">
 							<MagnifyingGlass className="h-4 w-4 text-ink-faint" />
 						</Button>
 						<div className="grow" />
@@ -56,18 +51,10 @@ const Unlocked = () => {
 						>
 							<Lock className="h-4 w-4 text-ink-faint" />
 						</Button>
-						<Button
-							size="icon"
-							variant="subtle"
-							className="text-ink-faint"
-						>
+						<Button size="icon" variant="subtle" className="text-ink-faint">
 							<Gear className="h-4 w-4 text-ink-faint" />
 						</Button>
-						<Button
-							size="icon"
-							variant="subtle"
-							className="text-ink-faint"
-						>
+						<Button size="icon" variant="subtle" className="text-ink-faint">
 							<X className="h-4 w-4 text-ink-faint" />
 						</Button>
 					</Tabs.List>
