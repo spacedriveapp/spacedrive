@@ -172,13 +172,15 @@ if [ "$SYSNAME" = "Linux" ]; then
     # FFmpeg dependencies
     ARCH_FFMPEG_DEPS="ffmpeg"
 
+    ARCH_LIBHEIF_DEPS="libheif"
+
     # Bindgen dependencies - it's used by a dependency of Spacedrive
     ARCH_BINDGEN_DEPS="clang"
 
     # Protobuf compiler - https://github.com/archlinux/svntogit-packages/blob/packages/protobuf/trunk/PKGBUILD provides `libprotoc`
     ARCH_LIBP2P_DEPS="protobuf"
 
-    sudo pacman -Sy --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS $ARCH_VIDEO_DEPS
+    sudo pacman -Sy --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_LIBHEIF_DEPS $ARCH_BINDGEN_DEPS $ARCH_LIBP2P_DEPS $ARCH_VIDEO_DEPS
   elif has dnf; then
     echo "Detected dnf!"
     echo "Installing dependencies with dnf..."
