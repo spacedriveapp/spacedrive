@@ -10,7 +10,7 @@ export const NavigationButtons = () => {
 	const idx = history.state.idx as number;
 
 	return (
-		<div className="flex">
+		<div data-tauri-drag-region className="flex">
 			<Tooltip label="Navigate back">
 				<TopBarButton
 					rounding='left'
