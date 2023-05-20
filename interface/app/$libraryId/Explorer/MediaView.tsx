@@ -32,8 +32,8 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 		>
 			<div
 				className={clsx(
-					'hover:bg-app-selected-item group relative flex aspect-square items-center justify-center',
-					selected && 'bg-app-selected-item'
+					'hover:bg-app-selectedItem group relative flex aspect-square items-center justify-center',
+					selected && 'bg-app-selectedItem'
 				)}
 			>
 				<FileThumb

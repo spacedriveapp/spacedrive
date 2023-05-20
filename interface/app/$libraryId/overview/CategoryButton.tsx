@@ -14,7 +14,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 			onClick={onClick}
 			className={clsx(
 				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm',
-				selected && 'bg-app-selected-item'
+				selected && 'bg-app-selectedItem'
 			)}
 		>
 			<img src={icon} className="mr-3 h-12 w-12" />
