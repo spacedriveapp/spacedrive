@@ -1,7 +1,7 @@
+import { Popover, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
 import { useContext, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Popover, Tooltip } from '@sd/ui';
 import { ToolOption } from '.';
 import { TopBarContext } from './Layout';
 import TopBarButton from './TopBarButton';
@@ -53,10 +53,10 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-								? 'left'
-								: index === group.length - 1
-								? 'right'
-								: 'none';
+									? 'left'
+									: index === group.length - 1
+										? 'right'
+										: 'none';
 							return (
 								<div
 									data-tauri-drag-region
@@ -110,9 +110,8 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 			</div>
 			<TopBarMobile
 				toolOptions={toolOptions}
-				className={`${
-					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
-				}`}
+				className={`${windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
+					}`}
 			/>
 		</div>,
 		target

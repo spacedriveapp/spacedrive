@@ -1,5 +1,8 @@
+import { Folder } from '@sd/ui';
 import { forwardRef } from 'react';
+import { NavigationButtons } from './NavigationButtons';
 import SearchBar from './SearchBar';
+import { useExplorerStore } from '~/hooks';
 
 export interface ToolOption {
 	icon: JSX.Element;
@@ -17,6 +20,7 @@ export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 export const TOP_BAR_HEIGHT = 46;
 
 const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
+	const explorerStore = useExplorerStore();
 	return (
 		<div
 			data-tauri-drag-region
@@ -27,7 +31,13 @@ const TopBar = forwardRef<HTMLDivElement>((_, ref) => {
 				transition-[background-color,border-color] ease-out
 			"
 		>
-			<div className="flex-1" />
+			<div data-tauri-drag-region className='flex flex-1 flex-row items-center'>
+				<NavigationButtons />
+				{explorerStore.topBarActiveDirectory && <div className=' m-3 flex  items-center'>
+					<Folder className='mr-2 inline-block' />
+					<span className='mt-[1px] text-sm font-medium'>{explorerStore.topBarActiveDirectory.name}</span>
+				</div>}
+			</div>
 			<SearchBar />
 			<div className="flex-1" ref={ref} />
 		</div>

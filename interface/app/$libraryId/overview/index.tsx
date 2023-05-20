@@ -85,12 +85,12 @@ export const Component = () => {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
-								kind: [5, 7].includes(kind)
-									? [kind]
-									: isFavoritesCategory
+							kind: [5, 7].includes(kind)
+								? [kind]
+								: isFavoritesCategory
 									? [5, 7]
 									: [5, 7, kind]
-						  }
+						}
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -125,12 +125,14 @@ export const Component = () => {
 				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
 			/>
 			<Explorer
-				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
+				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px]  !w-[260px]"
+				explorerClassName="!overflow-visible" // required to ensure categories are sticky, remove with caution
 				viewClassName="!pl-0 !pt-0 !h-auto"
 				items={items}
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
+				scrollRef={page?.ref}
 			>
 				<Statistics />
 				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
