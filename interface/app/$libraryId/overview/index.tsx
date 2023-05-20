@@ -131,7 +131,6 @@ export const Component = () => {
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
-				scrollRef={page?.ref}
 			>
 				<Statistics />
 				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">

@@ -2,7 +2,7 @@ import { Spinner } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, PasswordInput } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { showAlertDialog } from '~/components';
 
 // TODO: Should be a form
 export default () => {
@@ -31,7 +31,6 @@ export default () => {
 				disabled={isUnlocking}
 			/>
 
-
 			<Button
 				className="w-full"
 				variant="accent"
@@ -53,7 +52,6 @@ export default () => {
 					'Unlock'
 				)}
 			</Button>
-
 		</div>
 	);
 };
