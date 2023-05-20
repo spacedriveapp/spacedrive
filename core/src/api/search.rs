@@ -2,7 +2,7 @@ use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePath
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, Utc};
-use prisma_client_rust::{operator::or, Direction};
+use prisma_client_rust::operator::or;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -34,79 +34,117 @@ struct OptionalRange<T> {
 	to: Option<T>,
 }
 
+#[derive(Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+enum FilePathSearchOrdering {
+	Name(bool),
+	SizeInBytes(bool),
+	DateCreated(bool),
+	DateModified(bool),
+	DateIndexed(bool),
+	Object(Box<ObjectSearchOrdering>),
+}
+
+impl FilePathSearchOrdering {
+	fn get_sort_order(&self) -> SortOrder {
+		match self {
+			Self::Name(v) => v,
+			Self::SizeInBytes(v) => v,
+			Self::DateCreated(v) => v,
+			Self::DateModified(v) => v,
+			Self::DateIndexed(v) => v,
+			Self::Object(v) => return v.get_sort_order(),
+		}
+		.then_some(SortOrder::Asc)
+		.unwrap_or(SortOrder::Desc)
+	}
+
+	fn to_param(self) -> file_path::OrderByWithRelationParam {
+		let dir = self.get_sort_order();
+		use file_path::*;
+		match self {
+			Self::Name(_) => name::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::DateCreated(_) => date_created::order(dir),
+			Self::DateModified(_) => date_modified::order(dir),
+			Self::DateIndexed(_) => date_indexed::order(dir),
+			Self::Object(v) => object::order(vec![v.to_param()]),
+		}
+	}
+}
+
+#[derive(Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FilePathSearchArgs {
+	#[specta(optional)]
+	location_id: Option<i32>,
+	#[specta(optional)]
+	after_file_id: Option<Uuid>,
+	#[specta(optional)]
+	take: Option<i32>,
+	#[specta(optional)]
+	order: Option<FilePathSearchOrdering>,
+	#[serde(default)]
+	search: String,
+	#[specta(optional)]
+	extension: Option<String>,
+	#[serde(default)]
+	kind: BTreeSet<i32>,
+	#[serde(default)]
+	tags: Vec<i32>,
+	#[serde(default)]
+	created_at: OptionalRange<DateTime<Utc>>,
+	#[specta(optional)]
+	path: Option<String>,
+	#[specta(optional)]
+	cursor: Option<Vec<u8>>,
+	#[specta(optional)]
+	favorite: Option<bool>,
+	#[specta(optional)]
+	hidden: Option<bool>,
+}
+
+#[derive(Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ObjectSearchOrdering {
+	DateAccessed(bool),
+}
+
+impl ObjectSearchOrdering {
+	fn get_sort_order(&self) -> SortOrder {
+		match self {
+			Self::DateAccessed(v) => v,
+		}
+		.then_some(SortOrder::Asc)
+		.unwrap_or(SortOrder::Desc)
+	}
+
+	fn to_param(self) -> object::OrderByWithRelationParam {
+		let dir = self.get_sort_order();
+		use object::*;
+		match self {
+			Self::DateAccessed(_) => date_accessed::order(dir),
+		}
+	}
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ObjectSearchArgs {
+	#[specta(optional)]
+	take: Option<i32>,
+	#[serde(default)]
+	#[specta(optional)]
+	tag_id: Option<i32>,
+	#[specta(optional)]
+	cursor: Option<Vec<u8>>,
+}
+
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("paths", {
-			#[derive(Deserialize, Type, Debug, Clone, Copy)]
-			#[serde(rename_all = "camelCase")]
-			#[specta(inline)]
-			enum Ordering {
-				Name(bool),
-				SizeInBytes(bool),
-				DateCreated(bool),
-				DateModified(bool),
-				DateIndexed(bool),
-			}
-
-			impl Ordering {
-				fn get_direction(&self) -> Direction {
-					match self {
-						Self::Name(v) => v,
-						Self::SizeInBytes(v) => v,
-						Self::DateCreated(v) => v,
-						Self::DateModified(v) => v,
-						Self::DateIndexed(v) => v,
-					}
-					.then_some(Direction::Asc)
-					.unwrap_or(Direction::Desc)
-				}
-				fn to_param(self) -> file_path::OrderByParam {
-					let dir = self.get_direction();
-					use file_path::*;
-					match self {
-						Self::Name(_) => name::order(dir),
-						Self::SizeInBytes(_) => size_in_bytes::order(dir),
-						Self::DateCreated(_) => date_created::order(dir),
-						Self::DateModified(_) => date_modified::order(dir),
-						Self::DateIndexed(_) => date_indexed::order(dir),
-					}
-				}
-			}
-
-			#[derive(Deserialize, Type)]
-			#[serde(rename_all = "camelCase")]
-			#[specta(inline)]
-			struct Args {
-				#[specta(optional)]
-				location_id: Option<i32>,
-				#[specta(optional)]
-				after_file_id: Option<Uuid>,
-				#[specta(optional)]
-				take: Option<i32>,
-				#[specta(optional)]
-				order: Option<Ordering>,
-				#[serde(default)]
-				search: String,
-				#[specta(optional)]
-				extension: Option<String>,
-				#[serde(default)]
-				kind: BTreeSet<i32>,
-				#[serde(default)]
-				tags: Vec<i32>,
-				#[serde(default)]
-				created_at: OptionalRange<DateTime<Utc>>,
-				#[specta(optional)]
-				path: Option<String>,
-				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
-				#[specta(optional)]
-				favorite: Option<bool>,
-				#[specta(optional)]
-				hidden: Option<bool>,
-			}
-
 			R.with2(library())
-				.query(|(_, library), args: Args| async move {
+				.query(|(_, library), args: FilePathSearchArgs| async move {
 					let Library { db, .. } = &library;
 
 					let location = if let Some(location_id) = args.location_id {
@@ -228,21 +266,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("objects", {
-			#[derive(Deserialize, Type, Debug)]
-			#[serde(rename_all = "camelCase")]
-			#[specta(inline)]
-			struct Args {
-				#[specta(optional)]
-				take: Option<i32>,
-				#[serde(default)]
-				#[specta(optional)]
-				tag_id: Option<i32>,
-				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
-			}
-
 			R.with2(library())
-				.query(|(_, library), args: Args| async move {
+				.query(|(_, library), args: ObjectSearchArgs| async move {
 					let Library { db, .. } = &library;
 
 					let take = args.take.unwrap_or(100);
