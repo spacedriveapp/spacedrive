@@ -1,5 +1,5 @@
 // import types from '../../constants/file-types.json';
-import { Image } from '@sd/assets/icons';
+import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
@@ -14,7 +14,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { useExplorerStore, useIsDark } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
@@ -42,6 +42,7 @@ interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
 }
 
 export const Inspector = ({ data, context, className, ...elementProps }: Props) => {
+	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
 	const explorerStore = useExplorerStore();
@@ -118,16 +119,21 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
 								<MetaValue>
-									{`${context.path}/${data.item.materialized_path}${data.item.name}${data.item.is_dir ? `.${data.item.extension}` : '/'
-										}`}
+									{`${context.path}/${data.item.materialized_path}${
+										data.item.name
+									}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
 								</MetaValue>
 							</MetaContainer>
 						)}
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+								<InfoPill>
+									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+								</InfoPill>
+								{filePathData?.extension && (
+									<InfoPill>{filePathData.extension}</InfoPill>
+								)}
 								{tags.data?.map((tag) => (
 									<Tooltip
 										key={tag.id}
@@ -167,7 +173,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+									<MetaValue>
+										{fullObjectData.data.media_data.duration_seconds}
+									</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -177,7 +185,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>{dayjs(item.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(item.date_created).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
@@ -207,8 +217,12 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+												<MetaKeyName className="mr-1.5">
+													Checksum
+												</MetaKeyName>
+												<MetaValue>
+													{filePathData?.integrity_checksum}
+												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}
@@ -216,7 +230,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 										<Tooltip label={pub_id || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaKeyName className="mr-1.5">
+													Object ID
+												</MetaKeyName>
 												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
@@ -228,7 +244,7 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 				</>
 			) : (
 				<div className="flex w-full flex-col items-center justify-center">
-					<img src={Image} />
+					<img src={isDark ? Image : Image_Light} />
 					<div
 						className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center
 					rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10"
