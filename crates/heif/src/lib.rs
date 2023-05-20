@@ -42,7 +42,7 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 	}
 
 	let img = {
-		// do this in a separate block so we drop the raw (potentially huge) image
+		// do this in a separate block so we drop the raw (potentially huge) image handle
 		let ctx = HeifContext::read_from_file(path.to_str().ok_or(HeifError::InvalidPath)?)?;
 		let heif = LibHeif::new();
 		let handle = ctx.primary_image_handle()?;
