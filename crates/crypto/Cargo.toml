@@ -4,8 +4,10 @@ version = "0.0.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
-edition = "2021"
 rust-version = "1.67.0"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
@@ -65,6 +67,6 @@ security-framework = { version = "2.8.1", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [
-    "fs",
-    "macros",
+	"fs",
+	"macros",
 ] } # features needed for examples

@@ -33,9 +33,6 @@ export const KeyUpdater = (props: {
 };
 
 export default (props: UseDialogProps) => {
-	const form = useZodForm();
-	const dialog = useDialog(props);
-
 	const keys = useLibraryQuery(['keys.list'], {
 		onSuccess: (data) => {
 			if (key === '' && data.length !== 0) {
@@ -52,9 +49,8 @@ export default (props: UseDialogProps) => {
 
 	return (
 		<Dialog
-			form={form}
-			onSubmit={form.handleSubmit(() => {})}
-			dialog={dialog}
+			form={useZodForm()}
+			dialog={useDialog(props)}
 			title="View Key Values"
 			description="Here you can view the values of your keys."
 			ctaLabel="Done"

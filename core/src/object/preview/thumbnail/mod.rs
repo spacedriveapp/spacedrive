@@ -27,7 +27,11 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, task::block_in_place};
+use tokio::{
+	fs::{self},
+	io::{self},
+	task::block_in_place,
+};
 use tracing::{error, info, trace, warn};
 use webp::Encoder;
 
@@ -108,14 +112,32 @@ pub struct ThumbnailerJobStep {
 	kind: ThumbnailerJobStepKind,
 }
 
+// TOOD(brxken128): validate avci and avcs
+#[cfg(all(feature = "heif", target_os = "macos"))]
+const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
+
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
 	// Webp creation has blocking code
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		// Using `image` crate, open the included .jpg file
+		#[cfg(all(feature = "heif", target_os = "macos"))]
+		let img = {
+			let ext = file_path.as_ref().extension().unwrap().to_ascii_lowercase();
+			if HEIF_EXTENSIONS
+				.iter()
+				.any(|e| ext == std::ffi::OsStr::new(e))
+			{
+				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
+			} else {
+				image::open(file_path)?
+			}
+		};
+
+		#[cfg(not(all(feature = "heif", target_os = "macos")))]
 		let img = image::open(file_path)?;
+
 		let (w, h) = img.dimensions();
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let img = DynamicImage::ImageRgba8(imageops::resize(
@@ -160,7 +182,17 @@ pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) 
 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
-	matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif)
+
+	#[cfg(all(feature = "heif", target_os = "macos"))]
+	let res = matches!(
+		image_extension,
+		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
+	);
+
+	#[cfg(not(all(feature = "heif", target_os = "macos")))]
+	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif);
+
+	res
 }
 
 fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {

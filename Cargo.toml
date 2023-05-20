@@ -1,16 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-  "core",
-  "crates/*",
-  # "crates/p2p/tunnel",
-  # "crates/p2p/tunnel/utils",
-  "apps/cli",
-  "apps/desktop/src-tauri",
-  "apps/desktop/crates/*",
-  "apps/mobile/crates/*",
-  "apps/server",
+	"core",
+	"crates/*",
+	# "crates/p2p/tunnel",
+	# "crates/p2p/tunnel/utils",
+	"apps/cli",
+	"apps/desktop/src-tauri",
+	"apps/desktop/crates/*",
+	"apps/mobile/crates/*",
+	"apps/server",
 ]
+
+[workspace.package]
+license = "AGPL-3.0-only"
+edition = "2021"
+repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
 prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c2353175992a502e9eda580533629e97d4974d6e", features = [

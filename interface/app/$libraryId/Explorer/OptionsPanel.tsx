@@ -1,7 +1,12 @@
-import { useState } from 'react';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
-import { ExplorerDirection, ExplorerOrderByKeys, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
+import {
+	ExplorerDirection,
+	ExplorerOrderByKeys,
+	getExplorerConfigStore,
+	getExplorerStore,
+	useExplorerConfigStore,
+	useExplorerStore
+} from '~/hooks';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
@@ -49,7 +54,14 @@ export default () => {
 			<div className="my-2 mt-4 grid grid-cols-2 gap-2">
 				<div className="flex flex-col">
 					<Subheading>Sort by</Subheading>
-					<Select value={explorerStore.orderBy} size="sm" className='w-full' onChange={(value) => getExplorerStore().orderBy = value as ExplorerOrderByKeys}>
+					<Select
+						value={explorerStore.orderBy}
+						size="sm"
+						className="w-full"
+						onChange={(value) =>
+							(getExplorerStore().orderBy = value as ExplorerOrderByKeys)
+						}
+					>
 						{Object.entries(sortOptions).map(([value, text]) => (
 							<SelectOption key={value} value={value}>
 								{text}
@@ -59,7 +71,14 @@ export default () => {
 				</div>
 				<div className="flex flex-col">
 					<Subheading>Direction</Subheading>
-					<Select value={explorerStore.orderByDirection} size="sm" className='w-full' onChange={(value) => getExplorerStore().orderByDirection = value as ExplorerDirection}>
+					<Select
+						value={explorerStore.orderByDirection}
+						size="sm"
+						className="w-full"
+						onChange={(value) =>
+							(getExplorerStore().orderByDirection = value as ExplorerDirection)
+						}
+					>
 						<SelectOption value="asc">Asc</SelectOption>
 						<SelectOption value="desc">Desc</SelectOption>
 					</Select>
@@ -91,9 +110,13 @@ export default () => {
 				)}
 				<div>
 					<Subheading>Double click action</Subheading>
-					<Select className='w-full' value={explorerConfig.openOnDoubleClick ? "openFile" : "quickPreview"} onChange={(value) => {
-						getExplorerConfigStore().openOnDoubleClick = value === "openFile";
-					}}>
+					<Select
+						className="w-full"
+						value={explorerConfig.openOnDoubleClick ? 'openFile' : 'quickPreview'}
+						onChange={(value) => {
+							getExplorerConfigStore().openOnDoubleClick = value === 'openFile';
+						}}
+					>
 						<SelectOption value="openFile">Open File</SelectOption>
 						<SelectOption value="quickPreview">Quick Preview</SelectOption>
 					</Select>
