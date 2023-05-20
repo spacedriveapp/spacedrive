@@ -18,20 +18,20 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
-	"rspc",
-	"sqlite-create-many",
-	"migrations",
-	"sqlite",
+prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c2353175992a502e9eda580533629e97d4974d6e", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
 ] }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
-	"rspc",
-	"sqlite-create-many",
-	"migrations",
-	"sqlite",
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c2353175992a502e9eda580533629e97d4974d6e", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
 ] }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
-	"sqlite",
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "c2353175992a502e9eda580533629e97d4974d6e", features = [
+  "sqlite",
 ] }
 
 rspc = { version = "0.1.4" }

@@ -1,3 +1,4 @@
+import * as icons from '@sd/assets/icons';
 import { getIcon, iconNames } from '@sd/assets/icons/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -63,7 +64,13 @@ export const Component = () => {
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
 	// TODO: integrate this into search query
-	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
+	const recentFiles = useLibraryQuery([
+		'search.paths',
+		{
+			order: { object: { dateAccessed: false } },
+			take: 50
+		}
+	]);
 	// this should be redundant once above todo is complete
 	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
 
@@ -112,7 +119,7 @@ export const Component = () => {
 	let items: ExplorerItem[] = [];
 	switch (selectedCategory) {
 		case 'Recents':
-			items = recentFiles.data || [];
+			items = recentFiles.data?.items || [];
 			break;
 		default:
 			if (canSearch) {

@@ -2,7 +2,6 @@ use crate::prisma::*;
 
 use std::{collections::HashMap, sync::Arc};
 
-use prisma_client_rust::Direction;
 use sd_sync::*;
 
 use serde_json::{from_value, json, to_vec, Value};
@@ -161,7 +160,7 @@ impl SyncManager {
 			.db
 			.shared_operation()
 			.find_many(vec![])
-			.order_by(shared_operation::timestamp::order(Direction::Asc))
+			.order_by(shared_operation::timestamp::order(SortOrder::Asc))
 			.include(shared_operation::include!({ node: select {
                 pub_id
             } }))

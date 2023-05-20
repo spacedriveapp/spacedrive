@@ -15,7 +15,11 @@ httpz = { workspace = true, features = [
 	"axum",
 	"tauri",
 ] } # TODO: The `axum` feature should be only enabled on Linux but this currently can't be done: https://github.com/rust-lang/cargo/issues/1197
-sd-core = { path = "../../../core", features = ["ffmpeg", "location-watcher"] }
+sd-core = { path = "../../../core", features = [
+	"ffmpeg",
+	"location-watcher",
+	"heif",
+] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.0"
 tracing = "0.1.36"

@@ -6,11 +6,10 @@ use crate::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
-	prisma::{file_path, location, object},
+	prisma::{file_path, location, object, SortOrder},
 };
 
 use chrono::{FixedOffset, Utc};
-use prisma_client_rust::not;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
@@ -119,7 +118,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "files.getRecent");
+					invalidate_query!(library, "search.paths");
 					Ok(())
 				})
 		})
@@ -136,53 +135,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					invalidate_query!(library, "files.getRecent");
+					invalidate_query!(library, "search.paths");
 					Ok(())
-				})
-		})
-		.procedure("getRecent", {
-			R.with2(library())
-				.query(|(_, library), amount: i32| async move {
-					let object_ids = library
-						.db
-						.object()
-						.find_many(vec![not![object::date_accessed::equals(None)]])
-						.order_by(object::date_accessed::order(
-							prisma_client_rust::Direction::Desc,
-						))
-						.take(amount as i64)
-						.exec()
-						.await?
-						.into_iter()
-						.map(|o| o.id)
-						.collect::<Vec<_>>();
-
-					let file_paths = library
-						.db
-						.file_path()
-						.find_many(vec![file_path::object_id::in_vec(object_ids)])
-						.include(file_path_with_object::include())
-						.exec()
-						.await?;
-
-					let mut items = vec![];
-
-					for path in file_paths.into_iter() {
-						let has_thumbnail = if let Some(cas_id) = &path.cas_id {
-							library.thumbnail_exists(cas_id).await.map_err(|e| {
-								rspc::Error::new(ErrorCode::InternalServerError, e.to_string())
-							})?
-						} else {
-							false
-						};
-
-						items.push(ExplorerItem::Path {
-							has_thumbnail,
-							item: path,
-						});
-					}
-
-					Ok(items)
 				})
 		})
 		.procedure("encryptFiles", {
