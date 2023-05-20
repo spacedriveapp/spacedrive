@@ -2,8 +2,7 @@ import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerConfigStore, useExplorerStore } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
@@ -86,7 +85,6 @@ interface Props {
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
 	listViewHeadersClassName?: string;
-	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default memo((props: Props) => {
@@ -100,7 +98,7 @@ export default memo((props: Props) => {
 
 	return (
 		<div
-			ref={props.scrollRef || scrollRef}
+			ref={scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
 				layoutMode === 'grid' && 'overflow-x-hidden',
@@ -113,7 +111,7 @@ export default memo((props: Props) => {
 			<ViewContext.Provider
 				value={{
 					data: props.data,
-					scrollRef: props.scrollRef || scrollRef,
+					scrollRef: scrollRef,
 					onLoadMore: props.onLoadMore,
 					hasNextPage: props.hasNextPage,
 					isFetchingNextPage: props.isFetchingNextPage

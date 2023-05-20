@@ -1,4 +1,4 @@
-import * as icons from '@sd/assets/icons';
+import { getIcon, iconNames } from '@sd/assets/icons/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -11,7 +11,7 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
+import { useExplorerStore, useExplorerTopBarOptions, useIsDark } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
@@ -21,21 +21,21 @@ import Statistics from '../overview/Statistics';
 
 // TODO: Replace left hand type with Category enum type (doesn't exist yet)
 const CategoryToIcon: Record<string, string> = {
-	Recents: 'Collection',
-	Favorites: 'HeartFlat',
-	Photos: 'Image',
-	Videos: 'Video',
-	Movies: 'Movie',
-	Music: 'Audio',
-	Documents: 'Document',
-	Downloads: 'Package',
-	Applications: 'Application',
-	Games: 'Game',
-	Books: 'Book',
-	Encrypted: 'EncryptedLock',
-	Archives: 'Database',
-	Projects: 'Folder',
-	Trash: 'Trash'
+	Recents: iconNames.Collection,
+	Favorites: iconNames.HeartFlat,
+	Photos: iconNames.Image,
+	Videos: iconNames.Video,
+	Movies: iconNames.Movie,
+	Music: iconNames.Audio,
+	Documents: iconNames.Document,
+	Downloads: iconNames.Package,
+	Applications: iconNames.Application,
+	Games: iconNames.Game,
+	Books: iconNames.Book,
+	Encrypted: iconNames.EncryptedLock,
+	Archives: iconNames.Database,
+	Projects: iconNames.Folder,
+	Trash: iconNames.Trash
 };
 
 // Map the category to the ObjectKind for searching
@@ -52,6 +52,7 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 export const Component = () => {
 	const page = usePageLayout();
+	const isDark = useIsDark();
 	const explorerStore = useExplorerStore();
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
@@ -133,17 +134,15 @@ export const Component = () => {
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
-				scrollRef={page?.ref}
 			>
-				<div className="no-scrollbar sticky top-0 z-[50] mt-2 flex w-full space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
+				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
-						const icon = icons[iconString as keyof typeof icons];
 						return (
 							<CategoryButton
 								key={category.name}
 								category={category.name}
-								icon={icon}
+								icon={getIcon(iconString, isDark)}
 								items={category.count}
 								selected={selectedCategory === category.name}
 								onClick={() => {

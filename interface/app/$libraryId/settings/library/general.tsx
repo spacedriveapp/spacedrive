@@ -1,16 +1,23 @@
-import { useForm } from 'react-hook-form';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
-import { useDebouncedFormWatch } from '~/hooks/useDebouncedForm';
+import { useZodForm, z } from '@sd/ui/src/forms';
+import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
+
+const schema = z.object({
+	id: z.string(),
+	name: z.string().min(1),
+	description: z.string()
+});
 
 export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
 
-	const form = useForm({
+	const form = useZodForm({
+		schema,
 		defaultValues: { id: library!.uuid, ...library?.config }
 	});
 
@@ -28,6 +35,9 @@ export const Component = () => {
 				title="Library Settings"
 				description="General settings related to the currently active library."
 			/>
+
+			<input type="hidden" {...form.register('id')} />
+
 			<div className="flex flex-row space-x-5 pb-3">
 				<div className="flex grow flex-col">
 					<span className="mb-1 text-sm font-medium">Name</span>
@@ -52,6 +62,7 @@ export const Component = () => {
 					<Switch checked={false} />
 				</div>
 			</Setting> */}
+
 			{/* <Setting mini title="Export Library" description="Export this library to a file.">
 				<div className="mt-2">
 					<Button size="sm" variant="gray">
@@ -59,6 +70,7 @@ export const Component = () => {
 					</Button>
 				</div>
 			</Setting> */}
+
 			<Setting
 				mini
 				title="Delete Library"

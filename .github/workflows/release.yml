@@ -39,6 +39,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install Apple API key
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys/
+          cd ~/.appstoreconnect/private_keys/
+          echo ${{ secrets.APPLE_API_KEY_BASE64 }} >> AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
+          base64 --decode AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
+
+      - name: Install Codesigning Certificate
+        if: ${{ runner.os == 'macOS' }}
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
         with:
@@ -46,6 +62,8 @@ jobs:
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           targets: ${{ matrix.settings.target }}
@@ -56,6 +74,13 @@ jobs:
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          ENABLE_CODE_SIGNING: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts

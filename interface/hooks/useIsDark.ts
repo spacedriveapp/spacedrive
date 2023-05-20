@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 const lightMediaQuery = matchMedia('(prefers-color-scheme: light)');
 
 export function useIsDark(): boolean {
-	const [isDark, setIsDark] = useState(true);
+	const [isDark, setIsDark] = useState(!lightMediaQuery.matches);
 
 	useEffect(() => {
 		const handleChange = () => setIsDark(!lightMediaQuery.matches);
