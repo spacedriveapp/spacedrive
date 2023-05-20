@@ -4,6 +4,8 @@ export * from './useClickOutside';
 export * from './useCounter';
 export * from './useDebouncedForm';
 export * from './useDismissibleNoticeStore';
+export * from './useExplorerConfigStore';
+export * from './useExplorerItemData';
 export * from './useExplorerStore';
 export * from './useExplorerTopBarOptions';
 export * from './useFocusState';

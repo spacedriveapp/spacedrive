@@ -1,7 +1,6 @@
 import clsx from 'clsx';
-import NavigationButtons from '~/components/NavigationButtons';
-import { MacTrafficLights } from '~/components/TrafficLights';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { MacTrafficLights, NavigationButtons } from '~/components';
+import { useOperatingSystem } from '~/hooks';
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
@@ -20,7 +19,7 @@ export default () => {
 		>
 			{showControls && <MacTrafficLights className="absolute left-[13px] top-[13px] z-50" />}
 			{(os !== 'browser' || showControls) && (
-				<div className="-mt-[4px] flex justify-end">
+				<div className="mt-[-4px] flex justify-end">
 					<NavigationButtons />
 				</div>
 			)}

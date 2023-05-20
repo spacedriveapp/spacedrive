@@ -3,10 +3,10 @@ name = "sd-core"
 version = "0.1.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
-license = "GNU GENERAL PUBLIC LICENSE"
-repository = "https://github.com/spacedriveapp/spacedrive"
-edition = "2021"
 rust-version = "1.68.1"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 [features]
 default = []
@@ -17,6 +17,7 @@ ffmpeg = [
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 sync-messages = []
+heif = ["dep:sd-heif"]
 
 [dependencies]
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
@@ -26,6 +27,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"serde",
 	"keymanager",
 ] }
+sd-heif = { path = "../crates/heif", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
@@ -62,7 +64,7 @@ sysinfo = "0.28.3"
 thiserror = "1.0.37"
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.57"
-image = "0.24.4"
+image = "0.24.6"
 webp = "0.2.2"
 tracing = { git = "https://github.com/tokio-rs/tracing", rev = "998774eb7a9e8f5fe7020fa660fbcca9aaec2169" } # To work with tracing-appender
 tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "998774eb7a9e8f5fe7020fa660fbcca9aaec2169", features = ["env-filter"] } # To work with tracing-appender
@@ -86,6 +88,7 @@ normpath = { version = "1.1.1", features = ["localization"] }
 tracing-appender =  { git = "https://github.com/tokio-rs/tracing", rev = "998774eb7a9e8f5fe7020fa660fbcca9aaec2169" } # Unreleased changes for log deletion
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
+
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
