@@ -1,9 +1,10 @@
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
-import { Dispatch, MouseEventHandler, SetStateAction, useState } from 'react';
+import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
 import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider } from '@sd/ui';
+import { Button, Divider, Label } from '@sd/ui';
+import { InfoText } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
 import RuleButton from './RuleButton';
 import RulesForm from './RulesForm';
@@ -14,61 +15,110 @@ export type IndexerRuleIdFieldType = ControllerRenderProps<
 >;
 
 export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
+	label?: string;
 	field?: T;
-	toggleNewRule?: boolean;
-	setToggleNewRule?: Dispatch<SetStateAction<boolean>>;
+	infoText?: string;
+	editable?: boolean;
+	className?: string;
 }
 
 export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
-	field,
-	toggleNewRule,
-	setToggleNewRule
+	infoText,
+	editable,
+	...props
 }: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const indexRules = listIndexerRules.data;
-	const [ruleSelected, setRuleSelected] = useState<IndexerRule | undefined>(undefined);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [selectedRule, setSelectedRule] = useState<IndexerRule | undefined>(undefined);
+	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 
-	const ruleDeleteHandler = async () => {
-		setIsDeleting(true);
-		try {
-			await deleteIndexerRule.mutateAsync(ruleSelected?.id as number);
-		} catch (error) {
-			showAlertDialog({
-				title: 'Error',
-				value: String(error) || 'Failed to delete rule'
-			});
-		} finally {
-			setIsDeleting(false);
-			setRuleSelected(undefined);
-		}
+	const deleteRule: MouseEventHandler<HTMLButtonElement> = (e) => {
+		if (!selectedRule) return;
 
-		await listIndexerRules.refetch();
-	};
-
-	const confirmDelete: MouseEventHandler<HTMLButtonElement> = (e) => {
-		e.stopPropagation();
-		e.preventDefault();
 		showAlertDialog({
 			title: 'Delete',
 			value: 'Are you sure you want to delete this rule?',
 			label: 'Confirm',
-			onSubmit: ruleDeleteHandler
+			onSubmit: async () => {
+				setIsDeleting(true);
+
+				try {
+					await deleteIndexerRule.mutateAsync(selectedRule.id);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: String(error) || 'Failed to delete rule'
+					});
+				} finally {
+					setIsDeleting(false);
+					setSelectedRule(undefined);
+				}
+
+				await listIndexerRules.refetch();
+			}
 		});
 	};
 
+	const disableDelete = isDeleting || !selectedRule;
 	return (
-		<>
-			<div className="flex w-full flex-wrap gap-1">
+		<div className={props.className} onClick={() => setSelectedRule(undefined)}>
+			<div className={'flex items-start justify-between'}>
+				<div className="grow">
+					<Label className="mb-2">{props.label || 'Indexer rules'}</Label>
+					{infoText && <InfoText className="mb-4">{infoText}</InfoText>}
+				</div>
+				{editable && (
+					<>
+						<Button
+							size="sm"
+							variant={disableDelete ? 'gray' : 'colored'}
+							onClick={deleteRule}
+							disabled={disableDelete}
+							className={clsx(
+								'mr-2 px-5',
+								disableDelete || 'border-red-500 bg-red-500'
+							)}
+						>
+							<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
+							Delete
+						</Button>
+						<Button
+							size="sm"
+							variant="accent"
+							onClick={() => setToggleNewRule(!toggleNewRule)}
+							className={clsx('px-5', toggleNewRule && 'opacity-50')}
+						>
+							New
+						</Button>
+					</>
+				)}
+			</div>
+
+			<div className="flex flex-wrap justify-center gap-1">
 				{indexRules ? (
 					indexRules.map((rule) => (
 						<RuleButton
-							ruleSelected={ruleSelected}
-							setRuleSelected={(v) => setRuleSelected(v)}
 							key={rule.id}
 							rule={rule}
-							field={field}
+							field={props.field}
+							onClick={
+								editable
+									? (e) => {
+											e.stopPropagation();
+											if (!rule.default)
+												setSelectedRule(
+													selectedRule === rule ? undefined : rule
+												);
+									  }
+									: undefined
+							}
+							className={clsx(
+								!(editable && rule.default) && 'cursor-pointer',
+								editable || 'select-none',
+								selectedRule?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input'
+							)}
 						/>
 					))
 				) : (
@@ -79,24 +129,13 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 					</p>
 				)}
 			</div>
-			{toggleNewRule && (
+
+			{editable && toggleNewRule && (
 				<>
 					<Divider className="my-[25px]" />
-					<RulesForm setToggleNewRule={setToggleNewRule} />
+					<RulesForm onSubmitted={() => setToggleNewRule(false)} />
 				</>
 			)}
-			{ruleSelected && (
-				<Button
-					disabled={isDeleting || !field}
-					onClick={confirmDelete}
-					size="sm"
-					variant="colored"
-					className="mx-auto mt-5 border-red-500 bg-red-500"
-				>
-					<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-					Delete
-				</Button>
-			)}
-		</>
+		</div>
 	);
 }

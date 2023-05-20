@@ -118,10 +118,14 @@ export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
 	);
 };
 
-export function Label(props: PropsWithChildren<{ slug?: string }>) {
+export interface LabelProps extends Omit<React.ComponentProps<'label'>, 'htmlFor'> {
+	slug?: string;
+}
+
+export function Label({ slug, children, className, ...props }: LabelProps) {
 	return (
-		<label className="text-sm font-bold" htmlFor={props.slug}>
-			{props.children}
+		<label htmlFor={slug} className={clsx('text-sm font-bold', className)} {...props}>
+			{children}
 		</label>
 	);
 }

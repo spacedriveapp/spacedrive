@@ -8,10 +8,7 @@ interface Props extends UseDialogProps {
 }
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
 	const submitPlausibleEvent = usePlausibleEvent();
-
-	const form = useZodForm();
 
 	const deleteTag = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
@@ -22,8 +19,9 @@ export default (props: Props) => {
 
 	return (
 		<Dialog
-			{...{ form, dialog }}
-			onSubmit={form.handleSubmit(() => deleteTag.mutateAsync(props.tagId))}
+			form={useZodForm()}
+			dialog={useDialog(props)}
+			onSubmit={() => deleteTag.mutateAsync(props.tagId)}
 			title="Delete Tag"
 			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 			ctaDanger
