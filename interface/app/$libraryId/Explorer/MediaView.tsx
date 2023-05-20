@@ -82,7 +82,7 @@ export default () => {
 		measureElement: () => itemSize,
 		paddingStart: gridPadding,
 		paddingEnd: gridPadding,
-		overscan: !dismissibleNoticeStore.mediaView ? 2 : 1
+		overscan: !dismissibleNoticeStore.mediaView ? 8 : 4
 	});
 
 	const columnVirtualizer = useVirtualizer({
