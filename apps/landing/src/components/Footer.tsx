@@ -78,10 +78,7 @@ export function Footer() {
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
 					<h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-					<FooterLink
-						blank
-						link="https://github.com/spacedriveapp/spacedrive/tree/main/docs"
-					>
+					<FooterLink link="/docs/product/getting-started/introduction">
 						Documentation
 					</FooterLink>
 					<FooterLink
