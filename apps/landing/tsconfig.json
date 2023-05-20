@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
-		"target": "es5",
+		"module": "ESNext",
+		"target": "ESNext",
 		"lib": ["dom", "dom.iterable", "esnext"],
 		"allowJs": true,
 		"skipLibCheck": true,
@@ -8,13 +9,15 @@
 		"forceConsistentCasingInFileNames": true,
 		"noEmit": true,
 		"esModuleInterop": true,
-		"module": "esnext",
 		"moduleResolution": "node",
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"jsx": "preserve",
 		"incremental": true,
 		"baseUrl": ".",
+		"preserveWatchOutput": true,
+		"allowSyntheticDefaultImports": true,
+		"composite": true,
 		"paths": {
 			"~/*": ["./src/*"],
 			"@contentlayer/generated": ["./.contentlayer/generated"]
