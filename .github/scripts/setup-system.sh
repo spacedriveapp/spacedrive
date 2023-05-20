@@ -146,6 +146,8 @@ if [ "$SYSNAME" = "Linux" ]; then
     # FFmpeg dependencies
     DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
 
+    DEBIAN_LIBHEIF_DEPS="libheif1 libheif-dev"
+
     # Webkit2gtk requires gstreamer plugins for video playback to work
     DEBIAN_VIDEO_DEPS="gstreamer1.0-libav gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly"
 
@@ -156,7 +158,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     DEBIAN_LIBP2P_DEPS="protobuf-compiler"
 
     sudo apt-get -y update
-    sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS $DEBIAN_LIBP2P_DEPS $DEBIAN_VIDEO_DEPS
+    sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_LIBHEIF_DEPS $DEBIAN_BINDGEN_DEPS $DEBIAN_LIBP2P_DEPS $DEBIAN_VIDEO_DEPS
   elif has pacman; then
     echo "Detected pacman!"
     echo "Installing dependencies with pacman..."
