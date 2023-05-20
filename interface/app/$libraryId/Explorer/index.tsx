@@ -2,7 +2,9 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
+import { dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import DeleteDialog from '../Explorer/File/DeleteDialog';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -20,6 +22,7 @@ interface Props {
 	children?: ReactNode;
 	inspectorClassName?: string;
 	explorerClassName?: string;
+	listViewHeadersClassName?: string;
 	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -56,6 +59,20 @@ export default function Explorer(props: Props) {
 		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
 	});
 
+	useKey('Delete', (e) => {
+		e.preventDefault();
+
+		if (!selectedItem) return;
+
+		dialogManager.create((dp) => (
+			<DeleteDialog
+				{...dp}
+				location_id={selectedItem.item.location_id}
+				path_id={selectedItem.item.id}
+			/>
+		));
+	});
+
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
 			<div className="flex flex-1">
@@ -67,6 +84,7 @@ export default function Explorer(props: Props) {
 								data={props.items}
 								onLoadMore={props.onLoadMore}
 								hasNextPage={props.hasNextPage}
+								listViewHeadersClassName={props.listViewHeadersClassName}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
 								scrollRef={props.scrollRef}
@@ -76,10 +94,7 @@ export default function Explorer(props: Props) {
 				</div>
 				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector
-							className={props.inspectorClassName}
-							data={selectedItem}
-						/>
+						<Inspector className={props.inspectorClassName} data={selectedItem} />
 					</div>
 				)}
 			</div>

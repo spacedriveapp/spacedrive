@@ -1,4 +1,7 @@
 import * as icons from '@sd/assets/icons';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import 'react-loading-skeleton/dist/skeleton.css';
 import {
 	ExplorerItem,
 	ObjectKind,
@@ -8,9 +11,6 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
@@ -30,7 +30,7 @@ const CategoryToIcon: Record<string, string> = {
 	Documents: 'Document',
 	Downloads: 'Package',
 	Applications: 'Application',
-	Games: "Game",
+	Games: 'Game',
 	Books: 'Book',
 	Encrypted: 'EncryptedLock',
 	Archives: 'Database',
@@ -45,8 +45,8 @@ const SearchableCategories: Record<string, ObjectKindKey> = {
 	Music: 'Audio',
 	Documents: 'Document',
 	Encrypted: 'Encrypted',
-	Books: 'Book',
-}
+	Books: 'Book'
+};
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -55,7 +55,8 @@ export const Component = () => {
 	const explorerStore = useExplorerStore();
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
@@ -68,7 +69,7 @@ export const Component = () => {
 
 	const categories = useLibraryQuery(['categories.list']);
 
-	const isFavoritesCategory = selectedCategory === "Favorites";
+	const isFavoritesCategory = selectedCategory === 'Favorites';
 
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
@@ -82,7 +83,13 @@ export const Component = () => {
 					order: useExplorerOrder(),
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
-						? { kind: [5, 7].includes(kind) ? [kind] : isFavoritesCategory ? [5, 7] : [5, 7, kind] }
+						? {
+								kind: [5, 7].includes(kind)
+									? [kind]
+									: isFavoritesCategory
+									? [5, 7]
+									: [5, 7, kind]
+						  }
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -93,7 +100,7 @@ export const Component = () => {
 				{
 					...queryKey[1].arg,
 					cursor
-				},
+				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
@@ -113,20 +120,22 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
+			<TopBarChildren
+				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			/>
+			<Statistics />
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
-				viewClassName="!pl-0 !pt-0 !h-auto"
+				viewClassName="!pl-0 !pt-[0] !h-auto !overflow-visible"
 				explorerClassName="!overflow-visible"
+				listViewHeadersClassName="!top-[65px] z-30"
 				items={items}
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
 				scrollRef={page?.ref}
 			>
-
-				<Statistics />
-				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
+				<div className="no-scrollbar sticky top-0 z-[50] mt-2 flex w-full space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
 						const icon = icons[iconString as keyof typeof icons];
@@ -137,15 +146,14 @@ export const Component = () => {
 								icon={icon}
 								items={category.count}
 								selected={selectedCategory === category.name}
-								onClick={() => setSelectedCategory(category.name)}
+								onClick={() => {
+									setSelectedCategory(category.name);
+								}}
 							/>
 						);
 					})}
 				</div>
-
 			</Explorer>
 		</>
 	);
 };
-
-

@@ -1,8 +1,10 @@
-import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
+import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { usePlatform } from '~/util/Platform';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
@@ -11,8 +13,6 @@ import ListView from './ListView';
 import MediaView from './MediaView';
 import { ViewContext } from './ViewContext';
 import { getExplorerItemData, getItemFilePath } from './util';
-import { usePlatform } from '~/util/Platform';
-import { useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -40,11 +40,12 @@ export const ViewItem = ({
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({ path: `${data.item.materialized_path}${data.item.name}/` }).toString()
+				search: createSearchParams({
+					path: `${data.item.materialized_path}${data.item.name}/`
+				}).toString()
 			});
 
 			getExplorerStore().selectedRowIndex = null;
-
 		} else if (openFilePath && filePath && explorerConfig.openOnDoubleClick) {
 			data.type === 'Path' &&
 				data.item.object_id &&
@@ -84,6 +85,7 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	listViewHeadersClassName?: string;
 	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -118,7 +120,9 @@ export default memo((props: Props) => {
 				}}
 			>
 				{layoutMode === 'grid' && <GridView />}
-				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'rows' && (
+					<ListView listViewHeadersClassName={props.listViewHeadersClassName} />
+				)}
 				{layoutMode === 'media' && <MediaView />}
 			</ViewContext.Provider>
 		</div>

@@ -1,14 +1,11 @@
-import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { dialogManager } from '@sd/ui';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { useKey } from 'rooks';
 import { z } from 'zod';
+import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { useZodRouteParams } from '~/hooks';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
 import Explorer from '../Explorer';
-import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import TopBarChildren from '../TopBar/TopBarChildren';
 
@@ -19,7 +16,8 @@ const PARAMS = z.object({
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -33,25 +31,11 @@ export const Component = () => {
 
 	const { query, items } = useItems();
 
-	useKey('Delete', (e) => {
-		e.preventDefault();
-
-		const explorerStore = getExplorerStore();
-
-		if (explorerStore.selectedRowIndex === null) return;
-
-		const file = items?.[explorerStore.selectedRowIndex];
-
-		if (!file) return;
-
-		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
-		));
-	});
-
 	return (
 		<>
-			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions,]} />
+			<TopBarChildren
+				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			/>
 			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
@@ -63,8 +47,6 @@ export const Component = () => {
 		</>
 	);
 };
-
-
 
 const useItems = () => {
 	const { id: locationId } = useZodRouteParams(PARAMS);
