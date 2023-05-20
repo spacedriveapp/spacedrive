@@ -231,15 +231,23 @@ export default ({ data, className, ...props }: Props) => {
 						<ContextMenu.Item label="PNG" />
 						<ContextMenu.Item label="WebP" />
 					</ContextMenu.SubMenu>
-					<ContextMenu.Item onClick={() => {
-						fullRescan.mutate(getExplorerStore().locationId!);
-					}} label="Rescan Directory" icon={Package} />
-					<ContextMenu.Item onClick={() => {
-						generateThumbnails.mutate({
-							id: getExplorerStore().locationId!,
-							path: '/'
-						});
-					}} label="Regen Thumbnails" icon={Package} />
+					<ContextMenu.Item
+						onClick={() => {
+							fullRescan.mutate(getExplorerStore().locationId!);
+						}}
+						label="Rescan Directory"
+						icon={Package}
+					/>
+					<ContextMenu.Item
+						onClick={() => {
+							generateThumbnails.mutate({
+								id: getExplorerStore().locationId!,
+								path: '/'
+							});
+						}}
+						label="Regen Thumbnails"
+						icon={Package}
+					/>
 					<ContextMenu.Item
 						variant="danger"
 						label="Secure delete"

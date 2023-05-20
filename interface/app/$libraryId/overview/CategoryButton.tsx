@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import clsx from 'clsx';
 
 interface CategoryButtonProps {
 	category: string;
@@ -28,8 +28,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 			</div>
 		</div>
 	);
-}
-
+};
 
 function numberWithCommas(x: number) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');

@@ -1,9 +1,9 @@
-import { Statistics, useLibraryContext, useLibraryQuery } from "@sd/client";
-import byteSize from "byte-size";
-import clsx from "clsx";
-import Skeleton from "react-loading-skeleton";
+import byteSize from 'byte-size';
+import clsx from 'clsx';
+import Skeleton from 'react-loading-skeleton';
+import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
-import { usePlatform } from "~/util/Platform";
+import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;
@@ -29,7 +29,6 @@ const EMPTY_STATISTICS = {
 	total_bytes_used: '0',
 	total_unique_bytes: '0'
 };
-
 
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
@@ -77,7 +76,6 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-
 export default () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
@@ -103,5 +101,5 @@ export default () => {
 				})}
 			</div>
 		</div>
-	)
-}
+	);
+};

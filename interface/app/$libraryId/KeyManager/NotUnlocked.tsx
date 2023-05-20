@@ -31,7 +31,6 @@ export default () => {
 				disabled={isUnlocking}
 			/>
 
-
 			<Button
 				className="w-full"
 				variant="accent"
@@ -53,7 +52,6 @@ export default () => {
 					'Unlock'
 				)}
 			</Button>
-
 		</div>
 	);
 };

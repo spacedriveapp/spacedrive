@@ -9,11 +9,7 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
-tauri = { version = "1.3.0", features = [
-	"api-all",
-	"linux-protocol-headers",
-	"macos-private-api",
-] }
+tauri = { version = "1.3.0", features = ["api-all", "linux-protocol-headers", "macos-private-api"] }
 rspc = { workspace = true, features = ["tauri"] }
 httpz = { workspace = true, features = [
 	"axum",

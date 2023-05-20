@@ -164,9 +164,7 @@ export const Component = () => {
 		<>
 			{/* <TemporarySpacedropDemo /> */}
 			<div className={classes.honeycombOuter}>
-				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-
-				</div>
+				<div className={clsx(classes.honeycombContainer, 'mt-8')}></div>
 			</div>
 		</>
 	);
