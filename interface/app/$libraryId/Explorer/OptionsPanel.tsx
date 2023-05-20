@@ -1,12 +1,12 @@
-import { useState } from 'react';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
-import { getExplorerConfigStore, useExplorerConfigStore } from '~/hooks/useExplorerConfigStore';
 import {
 	ExplorerDirection,
 	ExplorerOrderByKeys,
+	getExplorerConfigStore,
 	getExplorerStore,
+	useExplorerConfigStore,
 	useExplorerStore
-} from '~/hooks/useExplorerStore';
+} from '~/hooks';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;

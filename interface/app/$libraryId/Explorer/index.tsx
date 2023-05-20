@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';

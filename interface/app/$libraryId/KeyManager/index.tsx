@@ -1,6 +1,6 @@
 import { Gear, Lock, MagnifyingGlass, X } from 'phosphor-react';
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
+import { Button, Tabs } from '@sd/ui';
 import KeyList from './List';
 import KeyMounter from './Mounter';
 import NotSetup from './NotSetup';

@@ -22,9 +22,8 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { showAlertDialog } from '~/components';
+import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';

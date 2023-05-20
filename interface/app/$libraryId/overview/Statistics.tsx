@@ -2,7 +2,7 @@ import byteSize from 'byte-size';
 import clsx from 'clsx';
 import Skeleton from 'react-loading-skeleton';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
-import useCounter from '~/hooks/useCounter';
+import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
