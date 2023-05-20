@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
 import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { dialogManager } from '@sd/ui';
+import { Folder, dialogManager } from '@sd/ui';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -13,7 +13,8 @@ import {
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
-import TopBarChildren from '../TopBar/TopBarChildren';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -55,8 +56,21 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren
-				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			<TopBarPortal
+				left={
+					<>
+						<Folder className="ml-3 mr-2 inline-block" />
+						<span className="mt-[1px] text-sm font-medium">
+							TODO
+							{/* {explorerStore.topBarActiveDirectory.name} */}
+						</span>
+					</>
+				}
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
 			/>
 			<div className="relative flex w-full flex-col">
 				<Explorer

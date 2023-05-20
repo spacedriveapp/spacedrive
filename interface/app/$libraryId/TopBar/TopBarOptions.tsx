@@ -1,21 +1,29 @@
-import { Popover, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
-import { useContext, useLayoutEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ToolOption } from '.';
-import { TopBarContext } from './Layout';
+import { useLayoutEffect, useState } from 'react';
+import { Popover, Tooltip } from '@sd/ui';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
-interface TopBarChildrenProps {
-	toolOptions?: ToolOption[][];
+export interface ToolOption {
+	icon: JSX.Element;
+	onClick?: () => void;
+	individual?: boolean;
+	toolTipLabel: string;
+	topBarActive?: boolean;
+	popOverComponent?: JSX.Element;
+	showAtResolution: ShowAtResolution;
 }
 
-export default ({ toolOptions }: TopBarChildrenProps) => {
-	const ctx = useContext(TopBarContext);
-	const target = ctx.topBarChildrenRef?.current;
+export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
+interface TopBarChildrenProps {
+	options?: ToolOption[][];
+}
+
+export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
+
+export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
-	const toolsNotSmFlex = toolOptions
+	const toolsNotSmFlex = options
 		?.flatMap((group) => group)
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 
@@ -28,14 +36,10 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
-	if (!target) {
-		return null;
-	}
-
-	return createPortal(
+	return (
 		<div data-tauri-drag-region className="flex w-full flex-row justify-end">
 			<div data-tauri-drag-region className={`flex gap-0`}>
-				{toolOptions?.map((group, groupIndex) => {
+				{options?.map((group, groupIndex) => {
 					return group.map(
 						(
 							{
@@ -49,14 +53,14 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 							},
 							index
 						) => {
-							const groupCount = toolOptions.length;
+							const groupCount = options.length;
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-									? 'left'
-									: index === group.length - 1
-										? 'right'
-										: 'none';
+								? 'left'
+								: index === group.length - 1
+								? 'right'
+								: 'none';
 							return (
 								<div
 									data-tauri-drag-region
@@ -109,11 +113,11 @@ export default ({ toolOptions }: TopBarChildrenProps) => {
 				})}
 			</div>
 			<TopBarMobile
-				toolOptions={toolOptions}
-				className={`${windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
-					}`}
+				toolOptions={options}
+				className={
+					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
+				}
 			/>
-		</div>,
-		target
+		</div>
 	);
 };

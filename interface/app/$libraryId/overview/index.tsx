@@ -15,7 +15,8 @@ import { useExplorerStore, useExplorerTopBarOptions, useIsDark } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
-import TopBarChildren from '../TopBar/TopBarChildren';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import CategoryButton from '../overview/CategoryButton';
 import Statistics from '../overview/Statistics';
 
@@ -85,12 +86,12 @@ export const Component = () => {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
-							kind: [5, 7].includes(kind)
-								? [kind]
-								: isFavoritesCategory
+								kind: [5, 7].includes(kind)
+									? [kind]
+									: isFavoritesCategory
 									? [5, 7]
 									: [5, 7, kind]
-						}
+						  }
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -121,8 +122,12 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren
-				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			<TopBarPortal
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
 			/>
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px]  !w-[260px]"
