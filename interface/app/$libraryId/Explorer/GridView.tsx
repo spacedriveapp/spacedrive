@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
@@ -71,6 +72,8 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	);
 });
 
+const LEFT_PADDING = 14;
+
 export default () => {
 	const explorerStore = useExplorerStore();
 	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
@@ -107,7 +110,7 @@ export default () => {
 
 	function handleWindowResize() {
 		if (scrollRef.current) {
-			setWidth(scrollRef.current.offsetWidth);
+			setWidth(scrollRef.current.offsetWidth - LEFT_PADDING);
 		}
 	}
 
@@ -186,7 +189,8 @@ export default () => {
 		<div
 			className="relative"
 			style={{
-				height: `${rowVirtualizer.getTotalSize()}px`
+				height: `${rowVirtualizer.getTotalSize()}px`,
+				marginLeft: `${LEFT_PADDING - 4}px`
 			}}
 		>
 			{virtualRows.map((virtualRow) => (

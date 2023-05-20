@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -20,7 +20,6 @@ interface Props {
 	children?: ReactNode;
 	inspectorClassName?: string;
 	explorerClassName?: string;
-	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -69,17 +68,13 @@ export default function Explorer(props: Props) {
 								hasNextPage={props.hasNextPage}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
-								scrollRef={props.scrollRef}
 							/>
 						)}
 					</ExplorerContextMenu>
 				</div>
 				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector
-							className={props.inspectorClassName}
-							data={selectedItem}
-						/>
+						<Inspector className={props.inspectorClassName} data={selectedItem} />
 					</div>
 				)}
 			</div>

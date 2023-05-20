@@ -24,7 +24,7 @@ runs:
       with:
         key: ${{ inputs.targets }}
         save-if: ${{ inputs.save-cache }}
-        prefix-key: "v0"
+        prefix-key: 'v0'
         shared-key: rust-deps
         # Windows is having disk related problems with target caching
         cache-targets: ${{ runner.os != 'Windows' }}

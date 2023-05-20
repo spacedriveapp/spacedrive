@@ -1,5 +1,6 @@
+import clsx from 'clsx';
 import { useCallback, useEffect, useMemo } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, get } from 'react-hook-form';
 import {
 	UnionToTuple,
 	extractInfoRSPCError,
@@ -28,7 +29,7 @@ const isRemoteErrorFormMessage = (message: unknown): message is RemoteErrorFormM
 	typeof message === 'string' && Object.hasOwnProperty.call(REMOTE_ERROR_FORM_MESSAGE, message);
 
 const schema = z.object({
-	path: z.string(),
+	path: z.string().min(1),
 	method: z.enum(Object.keys(REMOTE_ERROR_FORM_MESSAGE) as UnionToTuple<RemoteErrorFormMessage>),
 	indexerRulesIds: z.array(z.number())
 });
@@ -57,7 +58,6 @@ export const AddLocationDialog = ({
 	method = 'CREATE',
 	...dialogProps
 }: AddLocationDialog) => {
-	const dialog = useDialog(dialogProps);
 	const platform = usePlatform();
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
@@ -136,7 +136,7 @@ export const AddLocationDialog = ({
 				}
 			}
 
-			if (message)
+			if (message && get(form.formState.errors, REMOTE_ERROR_FORM_FIELD)?.message !== message)
 				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
 			return true;
 		},
@@ -145,14 +145,16 @@ export const AddLocationDialog = ({
 
 	useCallbackToWatchForm(
 		async (values, { name }) => {
-			if (name !== 'method')
-				// Remote errors should not be cleared by method changes,
+			if (name === 'path') {
+				// Remote errors should only be cleared when path changes,
 				// as the previous error is used to notify the user of this change
 				form.clearErrors(REMOTE_ERROR_FORM_FIELD);
 
-			if (name === 'path' && form.getValues().method !== method)
 				// Reset method when path changes
-				form.setValue('method', method);
+				if (form.getValues().method !== method) form.setValue('method', method);
+			}
+
+			if (values.path === '') return;
 
 			try {
 				await addLocation(values, true);
@@ -163,66 +165,70 @@ export const AddLocationDialog = ({
 		[form, method, addLocation, handleAddError]
 	);
 
+	const onSubmit: Parameters<typeof form.handleSubmit>[0] = async (values) => {
+		try {
+			await addLocation(values);
+		} catch (error) {
+			if (handleAddError(error)) {
+				// Reset form to remove isSubmitting state
+				form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
+				// Throw error to prevent dialog from closing
+				throw error;
+			}
+
+			showAlertDialog({
+				title: 'Error',
+				value: String(error) || 'Failed to add location'
+			});
+
+			return;
+		}
+
+		await listLocations.refetch();
+	};
+
 	return (
 		<Dialog
-			{...{ dialog, form }}
+			form={form}
 			title="New Location"
+			dialog={useDialog(dialogProps)}
+			onSubmit={onSubmit}
+			ctaLabel="Add"
 			description={
 				platform.platform === 'web'
-					? 'As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node.'
+					? 'As you are using the browser version of Spacedrive you will (for now) ' +
+					  'need to specify an absolute URL of a directory local to the remote node.'
 					: ''
 			}
-			onSubmit={form.handleSubmit(async (values) => {
-				try {
-					await addLocation(values);
-				} catch (error) {
-					if (handleAddError(error)) {
-						// Reset form to remove isSubmitting state
-						form.reset({}, { keepValues: true, keepErrors: true, keepIsValid: true });
-						// Throw error to prevent dialog from closing
-						throw error;
-					}
-
-					showAlertDialog({
-						title: 'Error',
-						value: String(error) || 'Failed to add location'
-					});
-
-					return;
-				}
-
-				await listLocations.refetch();
-			})}
-			ctaLabel="Add"
 		>
 			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
 			<Input
-				label="Path:"
-				readOnly={platform.platform !== 'web'}
-				className="mb-3 cursor-pointer"
 				size="md"
-				required
+				label="Path:"
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => path && form.setValue('path', path))
 						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
 				}
+				readOnly={platform.platform !== 'web'}
+				className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}
 				{...form.register('path')}
 			/>
 
 			<input type="hidden" {...form.register('method')} />
 
-			<div className="relative flex flex-col">
-				<p className="my-2 text-sm font-bold">File indexing rules:</p>
-				<div className="w-full text-xs font-medium">
-					<Controller
-						name="indexerRulesIds"
-						render={({ field }) => <IndexerRuleEditor field={field} />}
-						control={form.control}
+			<Controller
+				name="indexerRulesIds"
+				render={({ field }) => (
+					<IndexerRuleEditor
+						field={field}
+						label="File indexing rules:"
+						className="relative flex flex-col"
 					/>
-				</div>
-			</div>
+				)}
+				control={form.control}
+			/>
 		</Dialog>
 	);
 };
