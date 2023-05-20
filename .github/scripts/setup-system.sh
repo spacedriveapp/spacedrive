@@ -198,6 +198,9 @@ if [ "$SYSNAME" = "Linux" ]; then
     # FFmpeg dependencies
     FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
 
+    # libheif dependencies
+    FEDORA_LIBHEIF_DEPS="libheif libheif-devel"
+
     # Webkit2gtk requires gstreamer plugins for video playback to work
     FEDORA_VIDEO_DEPS="gstreamer1-plugin-libav gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-good-extras gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-extras gstreamer1-plugins-ugly-free"
 
@@ -219,7 +222,7 @@ if [ "$SYSNAME" = "Linux" ]; then
         'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
     fi
 
-    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
+    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS $FEDORA_LIBHEIF_DEPS
     sudo dnf group install "C Development Tools and Libraries"
   else
     err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script." \
