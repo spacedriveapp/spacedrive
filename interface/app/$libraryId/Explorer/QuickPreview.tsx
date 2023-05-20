@@ -42,12 +42,12 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 	const transitions = useTransition(isOpen, {
 		from: {
 			opacity: 0,
-			transform: `translateY(20px)`,
-			transformOrigin: transformOrigin || 'bottom'
+			transform: `translateY(20px) scale(0.9)`,
+			transformOrigin: transformOrigin || 'center top'
 		},
-		enter: { opacity: 1, transform: `translateY(0px)` },
-		leave: { opacity: 0, transform: `translateY(20px)` },
-		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 }
+		enter: { opacity: 1, transform: `translateY(0px) scale(1)` },
+		leave: { opacity: 0, transform: `translateY(40px) scale(0.9)` },
+		config: { mass: 0.2, tension: 300, friction: 20, bounce: 0 }
 	});
 
 	return (

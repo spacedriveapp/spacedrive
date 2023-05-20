@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
-import { ExplorerItem, Ordering } from '@sd/client';
+import { ExplorerItem, FilePathSearchOrdering } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 type UnionKeys<T> = T extends any ? keyof T : never;
@@ -14,7 +14,7 @@ export enum ExplorerKind {
 
 export type CutCopyType = 'Cut' | 'Copy';
 
-export type ExplorerOrderByKeys = UnionKeys<Ordering> | 'none';
+export type ExplorerOrderByKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 
 export type ExplorerDirection = 'asc' | 'desc';
 
