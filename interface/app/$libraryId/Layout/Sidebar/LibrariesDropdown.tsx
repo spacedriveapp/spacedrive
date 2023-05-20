@@ -26,7 +26,7 @@ export default () => {
 			}
 			// we override the sidebar dropdown item's hover styles
 			// because the dark style clashes with the sidebar
-			className="data-[side=bottom]:slide-in-from-top-2 mt-1 shadow-none dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 			alignToTrigger
 		>
 			{libraries.data?.map((lib) => (
@@ -40,7 +40,7 @@ export default () => {
 			))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
-				label="	New Library"
+				label="New Library"
 				icon={Plus}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => dialogManager.create((dp) => <CreateDialog {...dp} />)}

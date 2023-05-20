@@ -1,4 +1,4 @@
-import { getIcon, iconNames } from '@sd/assets/icons/util';
+import { getIcon, iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
