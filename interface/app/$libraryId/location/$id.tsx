@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { useLibraryContext, useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
 import { Folder, dialogManager } from '@sd/ui';
 import {
 	getExplorerStore,
@@ -25,6 +25,8 @@ export const Component = () => {
 	const { id: location_id } = useZodRouteParams(PARAMS);
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
+
+	const { data: location } = useLibraryQuery(['locations.get', location_id]);
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -61,8 +63,7 @@ export const Component = () => {
 					<>
 						<Folder className="ml-3 mr-2 inline-block" />
 						<span className="mt-[1px] text-sm font-medium">
-							TODO
-							{/* {explorerStore.topBarActiveDirectory.name} */}
+							{path ? getLastSectionOfPath(path) : location?.name}
 						</span>
 					</>
 				}
@@ -123,3 +124,13 @@ const useItems = () => {
 
 	return { query, items };
 };
+
+
+function getLastSectionOfPath(path: string): string | undefined {
+	if (path.endsWith('/')) {
+		path = path.slice(0, -1);
+	}
+	const sections = path.split('/');
+	const lastSection = sections[sections.length - 1];
+	return lastSection;
+}

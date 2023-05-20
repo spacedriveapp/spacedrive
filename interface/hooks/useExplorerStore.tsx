@@ -45,7 +45,6 @@ const state = {
 	orderBy: 'dateCreated' as ExplorerOrderByKeys,
 	orderByDirection: 'desc' as ExplorerDirection,
 	groupBy: 'none',
-	topBarActiveDirectory: null as { name: string, path: string, kind: 'directory' | 'location' } | null,
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
