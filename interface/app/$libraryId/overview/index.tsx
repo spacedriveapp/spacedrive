@@ -86,12 +86,12 @@ export const Component = () => {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
-								kind: [5, 7].includes(kind)
-									? [kind]
-									: isFavoritesCategory
+							kind: [5, 7].includes(kind)
+								? [kind]
+								: isFavoritesCategory
 									? [5, 7]
 									: [5, 7, kind]
-						  }
+						}
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -140,7 +140,7 @@ export const Component = () => {
 				scrollRef={page?.ref}
 			>
 				<Statistics />
-				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
+				<div className="no-scrollbar sticky top-0 z-10 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
 						return (

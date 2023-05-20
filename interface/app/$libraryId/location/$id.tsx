@@ -61,8 +61,8 @@ export const Component = () => {
 			<TopBarPortal
 				left={
 					<>
-						<Folder className="ml-3 mr-2 inline-block" />
-						<span className="mt-[1px] text-sm font-medium">
+						<Folder size={22} className="ml-3 mr-2 -mt-[1px] inline-block" />
+						<span className="text-sm font-medium">
 							{path ? getLastSectionOfPath(path) : location?.name}
 						</span>
 					</>

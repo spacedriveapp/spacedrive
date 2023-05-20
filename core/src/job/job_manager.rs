@@ -168,9 +168,7 @@ impl JobManager {
 
 		for worker in self.running_workers.read().await.values() {
 			let report = worker.lock().await.report();
-			if !report.is_background {
-				ret.push(report);
-			}
+			ret.push(report);
 		}
 		ret
 	}

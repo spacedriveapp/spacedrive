@@ -28,8 +28,6 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	multiSelectIndexes: [] as number[],
-	contextMenuObjectId: null as number | null,
-	contextMenuActiveObject: null as object | null,
 	newThumbnails: {} as Record<string, boolean | undefined>,
 	cutCopyState: {
 		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)

@@ -170,8 +170,6 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
-
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
 /**
@@ -204,6 +202,8 @@ export type Ordering = { name: boolean } | { sizeInBytes: boolean } | { dateCrea
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
+
 export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
@@ -217,8 +217,6 @@ export type IdentifyUniqueFilesArgs = { id: number; path: string }
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
-
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
@@ -229,6 +227,8 @@ export type Statistics = { id: number; date_captured: string; total_object_count
  * TODO: P2P event for the frontend
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
+
+export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 

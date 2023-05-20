@@ -19,7 +19,7 @@ interface TopBarChildrenProps {
 	options?: ToolOption[][];
 }
 
-export const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
+export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
@@ -57,10 +57,10 @@ export default ({ options }: TopBarChildrenProps) => {
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-								? 'left'
-								: index === group.length - 1
-								? 'right'
-								: 'none';
+									? 'left'
+									: index === group.length - 1
+										? 'right'
+										: 'none';
 							return (
 								<div
 									data-tauri-drag-region
