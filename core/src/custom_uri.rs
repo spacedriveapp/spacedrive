@@ -265,10 +265,10 @@ async fn handle_file(
 		// PDF document
 		"pdf" => "application/pdf",
 
-		"heif" | "heifs" => "image/heif", //, image/heif-sequence
-
-		"heic" | "heics" => "image/heic", //, image/heic-sequence
-		// AVIF image
+		// HEIF/HEIC images
+		"heif" | "heifs" => "image/heif,image/heif-sequence",
+		"heic" | "heics" => "image/heic,image/heic-sequence",
+		// AVIF images
 		"avif" | "avci" | "avcs" => "image/avif",
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
