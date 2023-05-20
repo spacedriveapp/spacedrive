@@ -1,4 +1,4 @@
-import Info from '@sd/assets/svgs/info.svg';
+import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';

@@ -5,7 +5,7 @@
 		"build": "next build",
 		"start": "next start",
 		"prod": "next build && next start",
-		"lint": "eslint src --cache",
+		"lint": "next lint",
 		"typecheck": "contentlayer build && tsc -b"
 	},
 	"dependencies": {
