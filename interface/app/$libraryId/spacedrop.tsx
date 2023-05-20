@@ -1,8 +1,8 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
-import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
+import { Icon, User } from 'phosphor-react';
 import { tw } from '@sd/ui';
-import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
+import { SubtleButton, SubtleButtonContainer } from '~/components';
 import { OperatingSystem } from '~/util/Platform';
 import classes from './spacedrop.module.scss';
 
@@ -164,9 +164,7 @@ export const Component = () => {
 		<>
 			{/* <TemporarySpacedropDemo /> */}
 			<div className={classes.honeycombOuter}>
-				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-
-				</div>
+				<div className={clsx(classes.honeycombContainer, 'mt-8')}></div>
 			</div>
 		</>
 	);

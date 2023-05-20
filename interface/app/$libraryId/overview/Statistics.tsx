@@ -1,9 +1,9 @@
-import { Statistics, useLibraryContext, useLibraryQuery } from "@sd/client";
-import byteSize from "byte-size";
-import clsx from "clsx";
-import Skeleton from "react-loading-skeleton";
-import useCounter from '~/hooks/useCounter';
-import { usePlatform } from "~/util/Platform";
+import byteSize from 'byte-size';
+import clsx from 'clsx';
+import Skeleton from 'react-loading-skeleton';
+import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { useCounter } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;
@@ -29,7 +29,6 @@ const EMPTY_STATISTICS = {
 	total_bytes_used: '0',
 	total_unique_bytes: '0'
 };
-
 
 const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
@@ -77,7 +76,6 @@ const StatItem = (props: StatItemProps) => {
 	);
 };
 
-
 export default () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
@@ -87,7 +85,7 @@ export default () => {
 	});
 	mounted = true;
 	return (
-		<div className="flex w-full">
+		<div className="flex w-full px-5 pt-4">
 			{/* STAT CONTAINER */}
 			<div className="-mb-1 flex h-20 overflow-hidden">
 				{Object.entries(stats?.data || []).map(([key, value]) => {
@@ -103,5 +101,5 @@ export default () => {
 				})}
 			</div>
 		</div>
-	)
-}
+	);
+};

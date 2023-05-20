@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
 import { Info } from 'phosphor-react';
-import { ChangeEvent, Dispatch, SetStateAction, useId } from 'react';
+import { ChangeEvent, useId } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { RuleKind, UnionToTuple, extractInfoRSPCError, useLibraryMutation } from '@sd/client';
 import { IndexerRuleCreateArgs } from '@sd/client';
 import { Button, Card, Divider, Input, Select, SelectOption, Switch, Tooltip } from '@sd/ui';
-import { ErrorMessage, Form, useZodForm } from '~/../packages/ui/src/forms';
+import { ErrorMessage, Form, useZodForm } from '@sd/ui/src/forms';
 import { InputKinds, RuleInput, validateInput } from './RuleInput';
 
 const ruleKinds: UnionToTuple<RuleKind> = [
@@ -34,10 +34,10 @@ const schema = z.object({
 type formType = z.infer<typeof schema>;
 
 interface Props {
-	setToggleNewRule?: Dispatch<SetStateAction<boolean>>;
+	onSubmitted?: () => void;
 }
 
-const RulesForm = ({ setToggleNewRule }: Props) => {
+const RulesForm = ({ onSubmitted }: Props) => {
 	const selectValues = ['Name', 'Extension', 'Path', 'Advanced'];
 	const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
@@ -87,50 +87,44 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 		}
 	};
 
-	const addIndexerRules = useCallback(
-		async (data: formType, dryRun = false) => {
-			const formatData = {
-				kind: data.kind,
-				name: data.name,
-				dry_run: dryRun,
-				parameters: data.rules.flatMap(({ type, value }) => {
-					switch (type) {
-						case 'Name':
-							return `**/${value}`;
-						case 'Extension':
-							// .tar should work for .tar.gz, .tar.bz2, etc.
-							return [`**/*${value}`, `**/*${value}.*`];
-						default:
-							return value;
-					}
-				})
-			} as IndexerRuleCreateArgs;
-			try {
-				await createIndexerRules.mutateAsync(formatData);
-			} catch (error) {
-				const rspcErrorInfo = extractInfoRSPCError(error);
-				if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
+	const addIndexerRules = form.handleSubmit(async (data: formType) => {
+		const formatData = {
+			kind: data.kind,
+			name: data.name,
+			dry_run: false,
+			parameters: data.rules.flatMap(({ type, value }) => {
+				switch (type) {
+					case 'Name':
+						return `**/${value}`;
+					case 'Extension':
+						// .tar should work for .tar.gz, .tar.bz2, etc.
+						return [`**/*${value}`, `**/*${value}.*`];
+					default:
+						return value;
+				}
+			})
+		} as IndexerRuleCreateArgs;
 
-				const { message } = rspcErrorInfo;
+		try {
+			await createIndexerRules.mutateAsync(formatData);
+		} catch (error) {
+			const rspcErrorInfo = extractInfoRSPCError(error);
+			if (!rspcErrorInfo || rspcErrorInfo.code === 500) return false;
 
-				if (message)
-					form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
-			} finally {
-				setToggleNewRule?.(false);
-			}
-		},
-		[createIndexerRules, setToggleNewRule, form]
-	);
+			const { message } = rspcErrorInfo;
+
+			if (message)
+				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+		}
+	});
+
+	if (form.formState.isSubmitSuccessful) onSubmitted?.();
 
 	return (
 		// The portal is required for Form because this component can be nested inside another form element
 		<>
 			{createPortal(
-				<Form
-					id={formId}
-					form={form}
-					onSubmit={form.handleSubmit((data) => addIndexerRules(data))}
-				/>,
+				<Form id={formId} form={form} onSubmit={addIndexerRules} />,
 				document.body
 			)}
 			<FormProvider {...form}>
@@ -149,7 +143,7 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2 pb-0'
 					}
 				>
-					<div className="grid grid-cols-3 px-3 pt-4 mb-4 text-sm font-bold">
+					<div className="mb-4 grid grid-cols-3 px-3 pt-4 text-sm font-bold">
 						<h3 className="pl-2">Type</h3>
 						<h3 className="pl-2">Value</h3>
 					</div>
@@ -245,19 +239,19 @@ const RulesForm = ({ setToggleNewRule }: Props) => {
 										!border-app-line !bg-app-darkBox py-2 !font-bold
 										 hover:brightness-105"
 					>
-						+ New
+						+
 					</Button>
 				</div>
 				<Divider className="my-[25px]" />
-				<div className="flex justify-center w-full">
-					<div className="flex items-center gap-2 mb-5">
+				<div className="flex w-full justify-center">
+					<div className="mb-5 flex items-center gap-2">
 						<p className="text-sm text-ink-faint">Blacklist</p>
 						<Controller
 							name="kind"
 							render={({ field }) => (
 								<Switch
 									onCheckedChange={(checked) => {
-										// TODO: This rule kinds are broken right now in the backend and this UI doesn't make much sense for them
+										// TODO: These rule kinds are broken right now in the backend and this UI doesn't make much sense for them
 										// kind.AcceptIfChildrenDirectoriesArePresent
 										// kind.RejectIfChildrenDirectoriesArePresent
 										const kind = ruleKindEnum.enum;

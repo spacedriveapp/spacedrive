@@ -21,7 +21,6 @@
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",
 		"@headlessui/tailwindcss": "^0.1.1",
-		"@hookform/error-message": "^2.0.1",
 		"@hookform/resolvers": "^3.1.0",
 		"@radix-ui/react-checkbox": "^1.0.3",
 		"@radix-ui/react-context-menu": "^1.0.0",
@@ -32,6 +31,7 @@
 		"@radix-ui/react-select": "^1.1.2",
 		"@radix-ui/react-switch": "^1.0.1",
 		"@radix-ui/react-tabs": "^1.0.1",
+		"@react-spring/web": "9.6.0",
 		"@sd/assets": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",
 		"class-variance-authority": "^0.4.0",
@@ -42,7 +42,6 @@
 		"react-dom": "^18.2.0",
 		"react-loading-icons": "^1.1.0",
 		"react-router-dom": "6.9.0",
-		"@react-spring/web": "9.6.0",
 		"tailwindcss-radix": "^2.6.0",
 		"use-debounce": "^9.0.4",
 		"zod": "^3.21.4"

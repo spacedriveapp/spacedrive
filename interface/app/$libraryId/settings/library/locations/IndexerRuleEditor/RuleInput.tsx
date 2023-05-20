@@ -125,19 +125,19 @@ export const RuleInput = memo(
 							try {
 								const path = await openDirectoryPickerDialog(platform);
 								const event = {
-								  target: {
-									value: path
-								  }
+									target: {
+										value: path
+									}
 								} as ChangeEvent<HTMLInputElement>;
 								if (path) {
-								  props.onChange?.(event);
+									props.onChange?.(event);
 								}
-							  } catch (error) {
+							} catch (error) {
 								showAlertDialog({
-								  title: 'Error',
-								  value: String(error)
+									title: 'Error',
+									value: String(error)
 								});
-							  }
+							}
 						}}
 						{...props}
 					/>
