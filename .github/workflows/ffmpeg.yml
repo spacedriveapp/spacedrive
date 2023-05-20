@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euxo pipefail
           cd .github/scripts/ffmpeg-macos
-          docker build --build-arg FFMPEG_VERSION=$FFMPEG_VERSION -o . .
+          docker build --build-arg FFMPEG_VERSION=$FFMPEG_VERSION --build-arg APPLE_SIGNING_IDENTITY="${{ secrets.APPLE_SIGNING_IDENTITY }}" -o . .
           export XZ_OPT='-T0 -9'
           tar -cJf "ffmpeg-${FFMPEG_VERSION}-x86_64.tar.xz" -C ffmpeg/x86_64 .
           tar -cJf "ffmpeg-${FFMPEG_VERSION}-arm64.tar.xz" -C ffmpeg/aarch64 .
