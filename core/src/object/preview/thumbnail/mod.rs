@@ -14,7 +14,6 @@ use crate::{
 
 use std::{
 	error::Error,
-	ffi::OsStr,
 	ops::Deref,
 	path::{Path, PathBuf},
 };
@@ -36,7 +35,6 @@ use tokio::{
 use tracing::{error, info, trace, warn};
 use webp::Encoder;
 
-pub mod heif;
 pub mod shallow_thumbnailer_job;
 pub mod thumbnailer_job;
 
@@ -115,21 +113,30 @@ pub struct ThumbnailerJobStep {
 }
 
 // TOOD(brxken128): validate avci and avcs
+#[cfg(all(feature = "heif", any(target_os = "macos", target_os = "linux")))]
 const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
 
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	let ext = file_path.as_ref().extension().unwrap().to_ascii_lowercase();
-
 	// Webp creation has blocking code
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		let img = if HEIF_EXTENSIONS.iter().any(|e| ext == OsStr::new(e)) {
-			heif::heif_to_dynamic_image(file_path.as_ref())?
-		} else {
-			image::open(file_path)?
+		#[cfg(all(feature = "heif", any(target_os = "macos", target_os = "linux")))]
+		let img = {
+			let ext = file_path.as_ref().extension().unwrap().to_ascii_lowercase();
+			if HEIF_EXTENSIONS
+				.iter()
+				.any(|e| ext == std::ffi::OsStr::new(e))
+			{
+				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
+			} else {
+				image::open(file_path)?
+			}
 		};
+
+		#[cfg(not(all(feature = "heif", any(target_os = "macos", target_os = "linux"))))]
+		let img = image::open(file_path)?;
 
 		let (w, h) = img.dimensions();
 		// Optionally, resize the existing photo and convert back into DynamicImage
@@ -175,10 +182,17 @@ pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) 
 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
-	matches!(
+
+	#[cfg(all(feature = "heif", any(target_os = "macos", target_os = "linux")))]
+	let res = matches!(
 		image_extension,
 		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
-	)
+	);
+
+	#[cfg(not(all(feature = "heif", any(target_os = "macos", target_os = "linux"))))]
+	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif);
+
+	res
 }
 
 fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {
