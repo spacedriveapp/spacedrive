@@ -16,6 +16,7 @@ import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import Icon from '../Layout/Sidebar/Icon';
 import SidebarLink from '../Layout/Sidebar/Link';
+import { NavigationButtons } from '../TopBar/NavigationButtons';
 
 const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
 const Section = tw.div`space-y-0.5`;
@@ -26,10 +27,11 @@ export default () => {
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
 			{os !== 'browser' ? (
-				<div data-tauri-drag-region className="h-5 w-full" />
+				<div data-tauri-drag-region className="mb-3 h-3 w-full p-3 pl-[14px] pt-[10px]"><NavigationButtons /></div>
 			) : (
 				<div className="h-3" />
 			)}
+
 			<div className="space-y-6 px-4 py-3">
 				<Section>
 					<Heading>Client</Heading>
