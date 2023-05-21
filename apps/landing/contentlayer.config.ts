@@ -82,13 +82,13 @@ export const Document = defineDocumentType(() => ({
 			type: 'string',
 			resolve: (p) =>
 				p.title
-					? toTitleCase(p.title)
+					? toTitleCase(p.title).trim()
 					: toTitleCase(
 							p._raw.flattenedPath
 								.replace(/^.+?(\/)/, '')
 								.split('/')
 								.slice(-1)[0]
-					  )
+					  ).trim()
 		},
 		excerpt: {
 			type: 'string',
