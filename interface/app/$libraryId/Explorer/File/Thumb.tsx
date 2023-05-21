@@ -1,4 +1,4 @@
-import { getIcon, iconNames } from '@sd/assets/icons/util';
+import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, useLibraryContext } from '@sd/client';

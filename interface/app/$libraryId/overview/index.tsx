@@ -1,5 +1,4 @@
-import * as icons from '@sd/assets/icons';
-import { getIcon, iconNames } from '@sd/assets/icons/util';
+import { getIcon, iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -93,12 +92,12 @@ export const Component = () => {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
-							kind: [5, 7].includes(kind)
-								? [kind]
-								: isFavoritesCategory
+								kind: [5, 7].includes(kind)
+									? [kind]
+									: isFavoritesCategory
 									? [5, 7]
 									: [5, 7, kind]
-						}
+						  }
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
