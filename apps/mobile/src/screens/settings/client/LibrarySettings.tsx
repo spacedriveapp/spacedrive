@@ -70,7 +70,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	return (
-		<View style={tw`flex-1 py-4 px-3`}>
+		<View style={tw`flex-1 px-3 py-4`}>
 			<FlatList
 				data={libraries}
 				keyExtractor={(item) => item.uuid}

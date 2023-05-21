@@ -52,18 +52,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			title="Create New Library"
 			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			ctaLabel="Create"
-			ctaAction={() =>
-				createLibrary({
-					name: libName,
-					// TODO: Support password and secret on mobile
-					auth: {
-						type: 'Password',
-						value: ''
-					},
-					algorithm: 'XChaCha20Poly1305',
-					hashing_algorithm: { name: 'Argon2id', params: 'Standard' }
-				})
-			}
+			ctaAction={() => createLibrary({ name: libName })}
 			loading={createLibLoading}
 			ctaDisabled={libName.length === 0}
 			trigger={children}

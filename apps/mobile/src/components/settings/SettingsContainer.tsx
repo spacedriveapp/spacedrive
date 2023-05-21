@@ -19,5 +19,5 @@ export function SettingsContainer({ children, title, description }: SettingsCont
 	);
 }
 
-export const SettingsInputTitle = styled(Text, 'text-ink mb-1.5 ml-1 text-sm font-medium');
+export const SettingsTitle = styled(Text, 'text-ink mb-1.5 ml-1 text-sm font-medium');
 export const SettingsInputInfo = styled(Text, 'mt-2 text-xs text-ink-faint');

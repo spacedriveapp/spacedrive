@@ -1,5 +1,10 @@
-import { PropsWithChildren, useId } from 'react';
+import { PropsWithChildren, ReactNode, useId } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { Label } from '../Input';
+import { tw } from '../utils';
+import { ErrorMessage } from './Form';
+
+export const InfoText = tw.p`text-xs text-ink-faint`;
 
 export interface UseFormFieldProps extends PropsWithChildren {
 	name: string;
@@ -19,21 +24,22 @@ export const useFormField = <P extends UseFormFieldProps>(props: P) => {
 	};
 };
 
-interface FormFieldProps extends UseFormFieldProps {
+interface FormFieldProps extends Omit<UseFormFieldProps, 'label'> {
 	id: string;
-	error?: string;
+	name: string;
+	label?: string | ReactNode;
 }
 
 export const FormField = (props: FormFieldProps) => {
 	return (
 		<div className={props.className}>
 			{props.label && (
-				<label htmlFor={props.id} className="mb-1 flex text-sm font-medium">
+				<Label slug={props.id} className="mb-1 flex font-medium">
 					{props.label}
-				</label>
+				</Label>
 			)}
 			{props.children}
-			{props.error && <span className="mt-1 text-xs text-red-500">{props.error}</span>}
+			<ErrorMessage name={props.name} className="mt-1 w-full text-xs" />
 		</div>
 	);
 };

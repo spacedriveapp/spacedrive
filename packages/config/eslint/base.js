@@ -1,6 +1,5 @@
 const path = require('node:path');
 module.exports = {
-	root: true,
 	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		ecmaFeatures: {
@@ -16,7 +15,7 @@ module.exports = {
 		'plugin:@typescript-eslint/recommended',
 		'turbo',
 		'plugin:editorconfig/all',
-		'plugin:prettier/recommended'
+		'prettier'
 	],
 	plugins: ['react', 'editorconfig'],
 	rules: {

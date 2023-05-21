@@ -1,5 +1,6 @@
 import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
@@ -7,9 +8,24 @@ interface Props extends Radix.PopoverContentProps {
 }
 
 export const Popover = ({ trigger, children, disabled, className, ...props }: Props) => {
+	const triggerRef = useRef<HTMLButtonElement>(null);
+
+	const [open, setOpen] = useState(false);
+
+	useEffect(() => {
+		const onResize = () => {
+			if (triggerRef.current && triggerRef.current.offsetWidth === 0) setOpen(false);
+		};
+
+		window.addEventListener('resize', onResize);
+		return () => {
+			window.removeEventListener('resize', onResize);
+		};
+	}, []);
+
 	return (
-		<Radix.Root>
-			<Radix.Trigger disabled={disabled} asChild>
+		<Radix.Root open={open} onOpenChange={setOpen}>
+			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
 				{trigger}
 			</Radix.Trigger>
 

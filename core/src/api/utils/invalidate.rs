@@ -1,10 +1,11 @@
-use crate::api::{CoreEvent, Router, RouterBuilder};
+use crate::api::{CoreEvent, Ctx, Router, R};
 
 use async_stream::stream;
-use rspc::{internal::specta::DataType, Type};
+use rspc::alpha::AlphaRouter;
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
+use specta::{DataType, Type};
 use std::{
 	collections::HashMap,
 	sync::{
@@ -14,7 +15,7 @@ use std::{
 	time::Duration,
 };
 use tokio::sync::broadcast;
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[cfg(debug_assertions)]
 use std::sync::Mutex;
@@ -116,22 +117,22 @@ macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		#[cfg(debug_assertions)]
-		{
-			#[ctor::ctor]
-			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
-					.lock()
-					.unwrap()
-					.queries
-					.push(crate::api::utils::InvalidationRequest {
-						key: $key,
-						arg_ty: None,
-						result_ty: None,
-            			macro_src: concat!(file!(), ":", line!()),
-					})
-			}
-		}
+		// #[cfg(debug_assertions)]
+		// {
+		// 	#[ctor::ctor]
+		// 	fn invalidate() {
+		// 		crate::api::utils::INVALIDATION_REQUESTS
+		// 			.lock()
+		// 			.unwrap()
+		// 			.queries
+		// 			.push(crate::api::utils::InvalidationRequest {
+		// 				key: $key,
+		// 				arg_ty: None,
+		// 				result_ty: None,
+  //           			macro_src: concat!(file!(), ":", line!()),
+		// 			})
+		// 	}
+		// }
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
@@ -142,25 +143,25 @@ macro_rules! invalidate_query {
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		#[cfg(debug_assertions)]
-		{
-			#[ctor::ctor]
-			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
-					.lock()
-					.unwrap()
-					.queries
-					.push(crate::api::utils::InvalidationRequest {
-						key: $key,
-						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
-                            parent_inline: false,
-                            type_map: &mut rspc::internal::specta::TypeDefs::new(),
-                        }, &[])),
-						result_ty: None,
-                        macro_src: concat!(file!(), ":", line!()),
-					})
-			}
-		}
+		// #[cfg(debug_assertions)]
+		// {
+		// 	#[ctor::ctor]
+		// 	fn invalidate() {
+		// 		crate::api::utils::INVALIDATION_REQUESTS
+		// 			.lock()
+		// 			.unwrap()
+		// 			.queries
+		// 			.push(crate::api::utils::InvalidationRequest {
+		// 				key: $key,
+		// 				arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
+  //                           parent_inline: false,
+  //                           type_map: &mut rspc::internal::specta::TypeDefs::new(),
+  //                       }, &[])),
+		// 				result_ty: None,
+  //                       macro_src: concat!(file!(), ":", line!()),
+		// 			})
+		// 	}
+		// }
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
@@ -216,38 +217,50 @@ macro_rules! invalidate_query {
 	}};
 }
 
-pub fn mount_invalidate() -> RouterBuilder {
+pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let (tx, _) = broadcast::channel(100);
-	let manager_thread_active = AtomicBool::new(false);
+	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	RouterBuilder::new().subscription("listen", move |t| {
-		t(move |ctx, _: ()| {
+	R.router().procedure("listen", {
+		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
 			// Batching is important because when refetching data on the frontend rspc can fetch all invalidated queries in a single round trip.
 			if !manager_thread_active.swap(true, Ordering::Relaxed) {
 				let mut event_bus_rx = ctx.event_bus.0.subscribe();
 				let tx = tx.clone();
+				let manager_thread_active = manager_thread_active.clone();
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
 
-					tokio::select! {
-						event = event_bus_rx.recv() => {
-							if let Ok(event) = event {
-								if let CoreEvent::InvalidateOperation(op) = event {
-									// Newer data replaces older data in the buffer
-									buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+					loop {
+						tokio::select! {
+							event = event_bus_rx.recv() => {
+								if let Ok(event) = event {
+									if let CoreEvent::InvalidateOperation(op) = event {
+										// Newer data replaces older data in the buffer
+										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+									}
+								} else {
+									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
+									break;
 								}
-							} else {
-								warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
-							}
-						},
-						// Given human reaction time of ~250 milli this should be a good ballance.
-						_ = tokio::time::sleep(Duration::from_millis(200)) => {
-							match tx.send(buf.drain().map(|(_k, v)| v).collect::<Vec<_>>()) {
-								Ok(_) => {},
-								Err(_) => warn!("Error emitting invalidation manager events!"),
+							},
+							// Given human reaction time of ~250 milli this should be a good ballance.
+							_ = tokio::time::sleep(Duration::from_millis(200)) => {
+								let events = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
+								if !events.is_empty() {
+									match tx.send(events) {
+										Ok(_) => {},
+										// All receivers are shutdown means that all clients are disconnected.
+										Err(_) => {
+											debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
+											manager_thread_active.swap(false, Ordering::Relaxed);
+											break;
+										}
+									}
+								}
 							}
 						}
 					}

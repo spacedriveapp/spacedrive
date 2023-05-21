@@ -34,37 +34,34 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct Protected<T>
 where
-	T: Zeroize,
-{
-	data: T,
-}
+	T: Zeroize;
 
 impl<T> Protected<T>
 where
 	T: Zeroize,
 {
 	pub const fn new(value: T) -> Self {
-		Self { data: value }
+		Self(value)
 	}
 
 	pub const fn expose(&self) -> &T {
-		&self.data
+		&self.0
 	}
 
 	pub fn zeroize(mut self) {
-		self.data.zeroize();
+		self.0.zeroize();
 	}
 }
 
 impl From<Vec<u8>> for Protected<Vec<u8>> {
 	fn from(value: Vec<u8>) -> Self {
-		Self { data: value }
+		Self(value)
 	}
 }
 
 impl From<String> for Protected<String> {
 	fn from(value: String) -> Self {
-		Self { data: value }
+		Self(value)
 	}
 }
 
@@ -74,8 +71,17 @@ where
 {
 	pub fn into_inner(mut self) -> T {
 		let mut out = Default::default();
-		swap(&mut self.data, &mut out);
+		swap(&mut self.0, &mut out);
 		out
+	}
+}
+
+impl<T> Drop for Protected<T>
+where
+	T: Zeroize,
+{
+	fn drop(&mut self) {
+		self.0.zeroize();
 	}
 }
 

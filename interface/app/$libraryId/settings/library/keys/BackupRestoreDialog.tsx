@@ -1,9 +1,8 @@
 import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { forms } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { Button, Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 const { Input, useZodForm, z } = forms;
@@ -37,8 +36,6 @@ export default (props: UseDialogProps) => {
 		secretKey: false
 	});
 
-	const dialog = useDialog(props);
-
 	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
 
@@ -46,22 +43,21 @@ export default (props: UseDialogProps) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		if (data.filePath !== '') {
-			restoreKeystoreMutation.mutate({
-				password: data.masterPassword,
-				secret_key: data.secretKey,
-				path: data.filePath
-			});
-			form.reset();
-		}
-	});
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={(data) =>
+				data.filePath !== ''
+					? restoreKeystoreMutation
+							.mutateAsync({
+								password: data.masterPassword,
+								secret_key: data.secretKey,
+								path: data.filePath
+							})
+							.finally(() => form.reset())
+					: null
+			}
+			dialog={useDialog(props)}
 			title="Restore Keys"
 			description="Restore keys from a backup."
 			loading={restoreKeystoreMutation.isLoading}
@@ -70,7 +66,7 @@ export default (props: UseDialogProps) => {
 			<Input
 				placeholder="Master Password"
 				type={show.masterPassword ? 'text' : 'password'}
-				className="mt-3 mb-2"
+				className="mb-2 mt-3"
 				right={
 					<Button
 						onClick={() =>

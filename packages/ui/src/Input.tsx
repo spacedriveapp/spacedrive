@@ -14,10 +14,17 @@ export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 's
 
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
+export const inputSizes = {
+	sm: 'h-[30px]',
+	md: 'h-[34px]',
+	lg: 'h-[38px]'
+};
+
 export const inputStyles = cva(
 	[
 		'rounded-md border text-sm leading-7',
-		'shadow-sm outline-none transition-all focus-within:ring-2'
+		'shadow-sm outline-none transition-all focus-within:ring-2',
+		'text-ink'
 	],
 	{
 		variants: {
@@ -30,11 +37,7 @@ export const inputStyles = cva(
 			error: {
 				true: 'border-red-500 focus-within:border-red-500 focus-within:ring-red-400/30'
 			},
-			size: {
-				sm: 'h-[30px]',
-				md: 'h-[34px]',
-				lg: 'h-[38px]'
-			}
+			size: inputSizes
 		},
 		defaultVariants: {
 			variant: 'default',
@@ -61,7 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 					<div
 						className={clsx(
 							'flex h-full items-center',
-							iconPosition === 'left' ? 'pr-2 pl-[10px]' : 'pl-2 pr-[10px]'
+							iconPosition === 'left' ? 'pl-[10px] pr-2' : 'pl-2 pr-[10px]'
 						)}
 					>
 						{isValidElement(icon)
@@ -115,10 +118,14 @@ export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
 	);
 };
 
-export function Label(props: PropsWithChildren<{ slug?: string }>) {
+export interface LabelProps extends Omit<React.ComponentProps<'label'>, 'htmlFor'> {
+	slug?: string;
+}
+
+export function Label({ slug, children, className, ...props }: LabelProps) {
 	return (
-		<label className="text-sm font-bold" htmlFor={props.slug}>
-			{props.children}
+		<label htmlFor={slug} className={clsx('text-sm font-bold', className)} {...props}>
+			{children}
 		</label>
 	);
 }
@@ -139,11 +146,12 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 			ref={ref}
 			right={
 				<Button
+					tabIndex={0}
 					onClick={() => setShowPassword(!showPassword)}
 					size="icon"
 					className={clsx(props.buttonClassnames)}
 				>
-					<CurrentEyeIcon className="h-4 w-4" />
+					<CurrentEyeIcon className="!pointer-events-none h-4 w-4" />
 				</Button>
 			}
 		/>

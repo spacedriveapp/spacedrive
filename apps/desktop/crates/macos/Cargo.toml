@@ -1,12 +1,15 @@
 [package]
 name = "sd-desktop-macos"
 version = "0.1.0"
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-swift-rs.workspace = true
+swift-rs = { workspace = true, features = ["serde"] }
+serde = { version = "1.0" }
 
 [build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }

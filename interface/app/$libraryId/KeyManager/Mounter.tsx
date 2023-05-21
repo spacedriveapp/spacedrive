@@ -9,9 +9,9 @@ import {
 	SelectOption,
 	Slider,
 	Switch,
+	Tooltip,
 	tw
 } from '@sd/ui';
-import { Tooltip } from '@sd/ui';
 import { generatePassword } from '~/util';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
@@ -68,7 +68,7 @@ export default () => {
 				<span className="mt-2.5 text-sm font-medium">{sliderValue}</span>
 			</div>
 
-			<div className="mt-3 mb-1 flex flex-row items-center">
+			<div className="mb-1 mt-3 flex flex-row items-center">
 				<div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
@@ -85,7 +85,7 @@ export default () => {
 					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 				<div className="grow" />
-				<div className="space-x-2">
+				{/* <div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
 						size="sm"
@@ -99,13 +99,18 @@ export default () => {
 				<span className="ml-3 text-xs font-medium">Automount</span>
 				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
 					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
-				</Tooltip>
+				</Tooltip> */}
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
-					<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
+					<Select
+						size="lg"
+						value={encryptionAlgo}
+						onChange={setEncryptionAlgo}
+						className="mt-2"
+					>
 						<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
 						<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
 					</Select>
@@ -113,9 +118,10 @@ export default () => {
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Hashing</span>
 					<Select
-						className="mt-2"
-						onChange={(s) => setHashingAlgo(s as HashingAlgoSlug)}
+						size="lg"
 						value={hashingAlgo}
+						onChange={(s) => setHashingAlgo(s as HashingAlgoSlug)}
+						className="mt-2"
 					>
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>

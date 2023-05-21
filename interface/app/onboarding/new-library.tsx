@@ -13,7 +13,8 @@ import {
 import { useUnlockOnboardingScreen } from './Progress';
 
 const schema = z.object({
-	name: z.string()
+	// the regex here validates that the entire string isn't purely whitespace
+	name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 });
 
 export default function OnboardingNewLibrary() {
@@ -33,7 +34,7 @@ export default function OnboardingNewLibrary() {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		getOnboardingStore().newLibraryName = data.name;
-		navigate('/onboarding/master-password');
+		navigate('/onboarding/privacy', { replace: true });
 	});
 
 	const handleImport = () => {
@@ -71,13 +72,18 @@ export default function OnboardingNewLibrary() {
 						/>
 						<div className="flex grow" />
 						<div className="mt-7 space-x-2">
-							<Button type="submit" variant="accent" size="sm">
+							<Button
+								type="submit"
+								variant="accent"
+								disabled={!form.formState.isValid}
+								size="sm"
+							>
 								New library
 							</Button>
-							<span className="px-2 text-xs font-bold text-ink-faint">OR</span>
+							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>
 							<Button onClick={() => setImportMode(true)} variant="outline" size="sm">
 								Import library
-							</Button>
+							</Button> */}
 						</div>
 					</>
 				)}

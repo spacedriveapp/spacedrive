@@ -7,7 +7,7 @@ import {
 } from '@sd/client';
 import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { showAlertDialog } from '~/components';
 import { usePlatform } from '~/util/Platform';
 import { KeyListSelectOptions } from '../../KeyManager/List';
 
@@ -26,7 +26,6 @@ const schema = z.object({
 });
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
 	const platform = usePlatform();
 
 	const UpdateKey = (uuid: string) => {
@@ -64,29 +63,27 @@ export default (props: Props) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		encryptFile.mutateAsync({
-			algorithm: data.encryptionAlgo as Algorithm,
-			key_uuid: data.key,
-			location_id: props.location_id,
-			path_id: props.path_id,
-			metadata: data.metadata,
-			preview_media: data.previewMedia,
-			output_path: data.outputPath || null
-		})
-	);
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={(data) =>
+				encryptFile.mutateAsync({
+					algorithm: data.encryptionAlgo as Algorithm,
+					key_uuid: data.key,
+					location_id: props.location_id,
+					path_id: props.path_id,
+					metadata: data.metadata,
+					preview_media: data.previewMedia,
+					output_path: data.outputPath || null
+				})
+			}
+			dialog={useDialog(props)}
 			title="Encrypt a file"
 			description="Configure your encryption settings. Leave the output file blank for the default."
 			loading={encryptFile.isLoading}
 			ctaLabel="Encrypt"
 		>
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Key</span>
 					<Select
@@ -130,7 +127,7 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select
@@ -166,13 +163,13 @@ export default (props: Props) => {
 				</div>
 			</div>
 
-			<div className="mt-4 mb-3 grid w-full grid-cols-2 gap-4">
+			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Metadata</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Metadata</span>
 					<CheckBox {...form.register('metadata')} />
 				</div>
 				<div className="flex">
-					<span className="mr-3 ml-0.5 mt-0.5 text-sm font-bold">Preview Media</span>
+					<span className="ml-0.5 mr-3 mt-0.5 text-sm font-bold">Preview Media</span>
 					<CheckBox {...form.register('previewMedia')} />
 				</div>
 			</div>

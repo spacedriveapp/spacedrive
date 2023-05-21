@@ -2,7 +2,8 @@
 	"extends": "../../packages/config/base.tsconfig.json",
 	"compilerOptions": {
 		"rootDir": "src",
-		"declarationDir": "dist"
+		"declarationDir": "dist",
+		"types": ["vite/client"]
 	},
 	"include": ["src", "src/demoData.json"],
 	"references": [

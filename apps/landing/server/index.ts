@@ -1,6 +1,6 @@
 import compression from 'compression';
 import express from 'express';
-import { renderPage } from 'vite-plugin-ssr';
+import { renderPage } from 'vite-plugin-ssr/server';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const root = `${__dirname}/..`;
@@ -29,7 +29,7 @@ async function startServer() {
 	app.get('*', async (req, res, next) => {
 		const url = req.originalUrl;
 		const pageContextInit = {
-			url
+			urlOriginal: url
 		};
 		const pageContext = await renderPage(pageContextInit);
 		const { httpResponse } = pageContext;

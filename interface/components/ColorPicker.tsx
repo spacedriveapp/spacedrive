@@ -7,7 +7,7 @@ interface Props<T extends FieldValues> extends UseControllerProps<T> {
 	className?: string;
 }
 
-export default <T extends FieldValues>({ className, ...props }: Props<T>) => {
+export const ColorPicker = <T extends FieldValues>({ className, ...props }: Props<T>) => {
 	const { field } = useController({ name: props.name });
 
 	return (

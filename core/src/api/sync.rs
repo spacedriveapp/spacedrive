@@ -1,27 +1,28 @@
+use rspc::alpha::AlphaRouter;
+
 use crate::sync::SyncMessage;
 
-use super::{utils::LibraryRequest, RouterBuilder};
+use super::{utils::library, Ctx, R};
 
-pub fn mount() -> RouterBuilder {
-	RouterBuilder::new()
-		.library_subscription("newMessage", |t| {
-			t(|ctx, _: (), library_id| {
-				async_stream::stream! {
-					let Some(lib) = ctx.library_manager.get_ctx(library_id).await else {
-						return
-					};
-					let mut rx = lib.sync.tx.subscribe();
-					while let Ok(msg) = rx.recv().await {
-						let op = match msg {
-							SyncMessage::Ingested(op) => op,
-							SyncMessage::Created(op) => op
-						};
-						yield op;
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("newMessage", {
+			R.with2(library())
+				.subscription(|(_, library), _: ()| async move {
+					async_stream::stream! {
+						let mut rx = library.sync.tx.subscribe();
+						while let Ok(msg) = rx.recv().await {
+							let op = match msg {
+								SyncMessage::Ingested(op) => op,
+								SyncMessage::Created(op) => op
+							};
+							yield op;
+						}
 					}
-				}
-			})
+				})
 		})
-		.library_query("messages", |t| {
-			t(|_, _: (), library| async move { Ok(library.sync.get_ops().await?) })
+		.procedure("messages", {
+			R.with2(library())
+				.query(|(_, library), _: ()| async move { Ok(library.sync.get_ops().await?) })
 		})
 }

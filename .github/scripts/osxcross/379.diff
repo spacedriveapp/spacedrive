@@ -1,0 +1,15 @@
+diff --git a/tools/osxcross-macports b/tools/osxcross-macports
+index f008a8da7..3e87735b8 100755
+--- a/tools/osxcross-macports
++++ b/tools/osxcross-macports
+@@ -81,8 +81,9 @@ case $MACOSX_DEPLOYMENT_TARGET in
+   10.14* ) OSXVERSION="darwin_18" ;;
+   10.15* ) OSXVERSION="darwin_19" ;;
+   10.16* ) OSXVERSION="darwin_20" ;;
+-  11.*   ) OSXVERSION="darwin_21" ;;
++  11.*   ) OSXVERSION="darwin_20" ;;
+   12.*   ) OSXVERSION="darwin_21" ;;
++  13.*   ) OSXVERSION="darwin_22" ;;
+        * ) unsupportedDepTarget ;;
+ esac
+

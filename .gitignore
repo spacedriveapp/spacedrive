@@ -24,6 +24,8 @@ packages/*/node_modules
 packages/*/data
 apps/*/data
 apps/*/stats.html
+apps/releases/.vscode
+apps/desktop/src-tauri/tauri.conf.patch.json
 docs/public/*.st
 docs/public/*.toml
 dev.db
@@ -71,3 +73,8 @@ dev.db-journal
 .build/
 .swiftpm
 /core/migration_test
+sd_init.json
+
+spacedrive
+.cargo/config
+.github/scripts/deps

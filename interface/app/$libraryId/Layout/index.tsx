@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { z } from 'zod';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
@@ -8,7 +9,7 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { QuickPreview } from '../Explorer/QuickPreview';
 import Sidebar from './Sidebar';
@@ -16,19 +17,19 @@ import Toasts from './Toasts';
 
 const Layout = () => {
 	const { libraries, library } = useClientContext();
-
 	const os = useOperatingSystem();
 
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
+
 	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
-		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} />;
-		else return <Navigate to="/" />;
+		if (firstLibrary) return <Navigate to={`/${firstLibrary.uuid}/overview`} replace />;
+		else return <Navigate to="/" replace />;
 	}
 
 	return (
@@ -47,13 +48,13 @@ const Layout = () => {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full overflow-hidden">
+			<div className="relative flex w-full overflow-hidden bg-app">
 				{library ? (
 					<LibraryContextProvider library={library}>
 						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
 							<Outlet />
 						</Suspense>
-						<QuickPreview libraryUuid={library.uuid} />
+						<QuickPreview />
 					</LibraryContextProvider>
 				) : (
 					<h1 className="p-4 text-white">
@@ -66,8 +67,12 @@ const Layout = () => {
 	);
 };
 
+const PARAMS = z.object({
+	libraryId: z.string()
+});
+
 export const Component = () => {
-	const params = useParams<{ libraryId: string }>();
+	const params = useZodRouteParams(PARAMS);
 
 	return (
 		<ClientContextProvider currentLibraryId={params.libraryId ?? null}>

@@ -4,10 +4,11 @@ use crate::{
 	},
 	library::Library,
 	location::file_path_helper::{
-		ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, MaterializedPath,
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_for_file_identifier, IsolatedFilePathData,
 	},
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location, PrismaClient, SortOrder},
+	util::db::chain_optional_iter,
 };
 
 use std::{
@@ -15,13 +16,12 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::{
 	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
-	FileIdentifierReport, FilePathIdAndLocationIdCursor, CHUNK_SIZE,
+	FileIdentifierReport, CHUNK_SIZE,
 };
 
 pub struct FileIdentifierJob {}
@@ -48,9 +48,9 @@ impl Hash for FileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
-	cursor: FilePathIdAndLocationIdCursor,
+	cursor: i32,
 	report: FileIdentifierReport,
-	maybe_sub_materialized_path: Option<MaterializedPath<'static>>,
+	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
 }
 
 impl JobInitData for FileIdentifierJobInit {
@@ -77,7 +77,7 @@ impl StatefulJob for FileIdentifierJob {
 		let location_id = state.init.location.id;
 		let location_path = Path::new(&state.init.location.path);
 
-		let maybe_sub_materialized_path = if let Some(ref sub_path) = state.init.sub_path {
+		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 				.await
 				.map_err(FileIdentifierJobError::from)?;
@@ -85,16 +85,25 @@ impl StatefulJob for FileIdentifierJob {
 				.await
 				.map_err(FileIdentifierJobError::from)?;
 
-			Some(
-				MaterializedPath::new(location_id, location_path, &full_path, true)
-					.map_err(FileIdentifierJobError::from)?,
+			let sub_iso_file_path =
+				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+					.map_err(FileIdentifierJobError::from)?;
+
+			ensure_file_path_exists(
+				sub_path,
+				&sub_iso_file_path,
+				db,
+				FileIdentifierJobError::SubPathNotFound,
 			)
+			.await?;
+
+			Some(sub_iso_file_path)
 		} else {
 			None
 		};
 
 		let orphan_count =
-			count_orphan_file_paths(db, location_id, &maybe_sub_materialized_path).await?;
+			count_orphan_file_paths(db, location_id, &maybe_sub_iso_file_path).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
 		state.data = Some(FileIdentifierJobState {
@@ -103,14 +112,14 @@ impl StatefulJob for FileIdentifierJob {
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
-			cursor: FilePathIdAndLocationIdCursor {
-				file_path_id: -1,
-				location_id,
-			},
-			maybe_sub_materialized_path,
+			cursor: 0,
+			maybe_sub_iso_file_path,
 		});
 
-		let data = state.data.as_mut().unwrap(); // SAFETY: We just initialized it
+		let data = state
+			.data
+			.as_mut()
+			.expect("critical error: missing data on job state");
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
@@ -130,23 +139,21 @@ impl StatefulJob for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let first_path_id = db
+		let first_path = db
 			.file_path()
 			.find_first(orphan_path_filters(
 				location_id,
 				None,
-				&data.maybe_sub_materialized_path,
+				&data.maybe_sub_iso_file_path,
 			))
-			.order_by(file_path::id::order(Direction::Asc))
 			.select(file_path::select!({ id }))
 			.exec()
 			.await?
-			.map(|d| d.id)
 			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
 
-		data.cursor.file_path_id = first_path_id;
+		data.cursor = first_path.id;
 
-		state.steps = (0..task_count).map(|_| ()).collect();
+		state.steps.extend((0..task_count).map(|_| ()));
 
 		Ok(())
 	}
@@ -159,23 +166,29 @@ impl StatefulJob for FileIdentifierJob {
 		let FileIdentifierJobState {
 			ref mut cursor,
 			ref mut report,
-			ref maybe_sub_materialized_path,
+			ref maybe_sub_iso_file_path,
 		} = state
 			.data
 			.as_mut()
-			.expect("Critical error: missing data on job state");
+			.expect("critical error: missing data on job state");
 
+		let step_number = state.step_number;
 		let location = &state.init.location;
 
 		// get chunk of orphans to process
-		let file_paths =
-			get_orphan_file_paths(&ctx.library.db, cursor, maybe_sub_materialized_path).await?;
+		let file_paths = get_orphan_file_paths(
+			&ctx.library.db,
+			location.id,
+			*cursor,
+			maybe_sub_iso_file_path,
+		)
+		.await?;
 
 		process_identifier_file_paths(
 			<Self as StatefulJob>::NAME,
 			location,
 			&file_paths,
-			state.step_number,
+			step_number,
 			cursor,
 			report,
 			ctx,
@@ -198,31 +211,32 @@ impl StatefulJob for FileIdentifierJob {
 fn orphan_path_filters(
 	location_id: i32,
 	file_path_id: Option<i32>,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
-	let mut params = vec![
-		file_path::object_id::equals(None),
-		file_path::is_dir::equals(false),
-		file_path::location_id::equals(location_id),
-	];
-	// this is a workaround for the cursor not working properly
-	if let Some(file_path_id) = file_path_id {
-		params.push(file_path::id::gte(file_path_id));
-	}
-
-	if let Some(ref sub_materealized_path) = maybe_sub_materialized_path {
-		params.push(file_path::materialized_path::starts_with(
-			sub_materealized_path.into(),
-		));
-	}
-
-	params
+	chain_optional_iter(
+		[
+			file_path::object_id::equals(None),
+			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
+		],
+		[
+			// this is a workaround for the cursor not working properly
+			file_path_id.map(file_path::id::gte),
+			maybe_sub_iso_file_path.as_ref().map(|sub_iso_file_path| {
+				file_path::materialized_path::starts_with(
+					sub_iso_file_path
+						.materialized_path_for_children()
+						.expect("sub path iso_file_path must be a directory"),
+				)
+			}),
+		],
+	)
 }
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
 	location_id: i32,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
 		.count(orphan_path_filters(
@@ -237,21 +251,21 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	cursor: &FilePathIdAndLocationIdCursor,
-	maybe_sub_materialized_path: &Option<MaterializedPath<'_>>,
+	location_id: i32,
+	file_path_id: i32,
+	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"Querying {} orphan Paths at cursor: {:?}",
-		CHUNK_SIZE, cursor
+		CHUNK_SIZE, file_path_id
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(
-			cursor.location_id,
-			Some(cursor.file_path_id),
+			location_id,
+			Some(file_path_id),
 			maybe_sub_materialized_path,
 		))
-		.order_by(file_path::id::order(Direction::Asc))
-		// .cursor(cursor.into())
+		.order_by(file_path::id::order(SortOrder::Asc))
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)
 		.select(file_path_for_file_identifier::select())

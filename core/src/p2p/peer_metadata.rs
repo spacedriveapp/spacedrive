@@ -1,8 +1,8 @@
 use std::{collections::HashMap, env, str::FromStr};
 
-use rspc::Type;
 use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 #[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {

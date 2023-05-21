@@ -71,6 +71,36 @@ export const teamMembers: Array<TeamMemberProps> = [
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
 		}
+	},
+	{
+		name: 'Ameer Al Ashhab',
+		role: 'React Engineer & Designer',
+		image: teamImages['ameer.jpg']!,
+		socials: {
+			github: 'https://github.com/ameer2468'
+		}
+	},
+	{
+		name: 'Vítor Vasconcellos',
+		role: 'React Engineer & Designer',
+		image: teamImages['vitor.jpg']!,
+		socials: {
+			github: 'https://github.com/HeavenVolkoff'
+		}
+	},
+	{
+		name: 'Nik Elšnik',
+		role: 'React Engineer & Designer',
+		image: teamImages['nikec.jpg']!,
+		socials: {
+			github: 'https://github.com/niikeec',
+			twitter: 'https://twitter.com/nikec_'
+		}
+	},
+	{
+		name: 'Kryssa Lynn',
+		role: 'Personal Assistant',
+		image: teamImages['kryssa.jpg']!
 	}
 ];
 
@@ -239,7 +269,7 @@ function Page() {
 						</p>
 						<h2
 							id="investors"
-							className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 "
+							className="mb-2 mt-10 text-2xl leading-relaxed sm:mt-20 "
 						>
 							Our investors
 						</h2>

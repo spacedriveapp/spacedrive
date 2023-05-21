@@ -1,54 +1,82 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router';
-import { ExplorerData, rspc, useLibraryContext } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { Inspector } from '../Explorer/Inspector';
-import TopBar from '../TopBar';
+import clsx from 'clsx';
+import { ReactNode, useEffect, useMemo } from 'react';
+import { useKey } from 'rooks';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import ExplorerContextMenu from './ContextMenu';
+import { Inspector } from './Inspector';
 import View from './View';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
-	data?: ExplorerData;
+	// TODO: not using data since context isn't actually used
+	// and it's not exactly compatible with search
+	// data?: ExplorerData;
+	items?: ExplorerItem[];
+	onLoadMore?(): void;
+	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
+	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
+	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
-	const expStore = useExplorerStore();
-	const { library } = useLibraryContext();
-	const locationId = useParams().id as string;
+	const { selectedRowIndex, ...expStore } = useExplorerStore();
+	const [{ path }] = useExplorerSearchParams();
 
-	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
-
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
+	useLibrarySubscription(['jobs.newThumbnail'], {
+		onStarted: () => {
+			console.log('Started RSPC subscription new thumbnail');
+		},
+		onError: (err) => {
+			console.error('Error in RSPC subscription new thumbnail', err);
+		},
 		onData: (cas_id) => {
+			console.log({ cas_id });
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
 
-	const onScroll = useCallback((scrolled: boolean) => {
-		setSeparateTopBar(scrolled);
-	}, []);
-
 	useEffect(() => {
-		getExplorerStore().selectedRowIndex = -1;
-	}, [locationId]);
+		getExplorerStore().selectedRowIndex = null;
+	}, [path]);
+
+	const selectedItem = useMemo(() => {
+		if (selectedRowIndex === null) return null;
+
+		return props.items?.[selectedRowIndex] ?? null;
+	}, [selectedRowIndex, props.items]);
+
+	useKey('Space', (e) => {
+		e.preventDefault();
+
+		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
+	});
 
 	return (
 		<div className="flex h-screen w-full flex-col bg-app">
-			<TopBar />
-
 			<div className="flex flex-1">
-				<ExplorerContextMenu>
-					<div className="flex-1 overflow-hidden">
-						{props.data && <View data={props.data.items} onScroll={onScroll} />}
-					</div>
-				</ExplorerContextMenu>
-
-				{expStore.showInspector && props.data?.items[expStore.selectedRowIndex] && (
+				<div className={clsx('flex-1 overflow-hidden', props.explorerClassName)}>
+					{props.children}
+					<ExplorerContextMenu>
+						{props.items && (
+							<View
+								scrollRef={props.scrollRef}
+								data={props.items}
+								onLoadMore={props.onLoadMore}
+								hasNextPage={props.hasNextPage}
+								isFetchingNextPage={props.isFetchingNextPage}
+								viewClassName={props.viewClassName}
+							/>
+						)}
+					</ExplorerContextMenu>
+				</div>
+				{expStore.showInspector && (
 					<div className="w-[260px] shrink-0">
-						<Inspector
-							data={props.data?.items[expStore.selectedRowIndex]}
-							onScroll={onScroll}
-						/>
+						<Inspector className={props.inspectorClassName} data={selectedItem} />
 					</div>
 				)}
 			</div>

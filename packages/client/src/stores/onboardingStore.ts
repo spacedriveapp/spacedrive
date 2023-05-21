@@ -13,12 +13,8 @@ export enum UseCase {
 
 const onboardingStoreDefaults = {
 	newLibraryName: '',
-	unlockedScreens: ['start'],
+	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
-	shouldEncryptLibrary: false,
-	algorithm: 'XChaCha20Poly1305' as Algorithm,
-	hashingAlgorithm: 'Argon2id-s' as HashingAlgoSlug,
-	passwordSetToken: null as string | null,
 	shareTelemetry: true,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false

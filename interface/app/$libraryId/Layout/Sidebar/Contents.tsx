@@ -26,22 +26,18 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				<SidebarLink to="spaces">
+				{/* <SidebarLink disabled to="spaces">
 					<Icon component={CirclesFour} />
 					Spaces
-				</SidebarLink>
-				{/* <SidebarLink to="people">
-						<Icon component={UsersThree} />
-						People
-					</SidebarLink> */}
-				<SidebarLink to="media">
-					<Icon component={MonitorPlay} />
-					Media
-				</SidebarLink>
+				</SidebarLink> */}
 				<SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
+				{/* <SidebarLink disabled to="media">
+					<Icon component={MonitorPlay} />
+					Media
+				</SidebarLink> */}
 				<SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
@@ -49,19 +45,19 @@ export default () => {
 			</div>
 			{library && <LibrarySection />}
 			<Section name="Tools" actionArea={<SubtleButton />}>
-				<SidebarLink to="duplicate-finder">
+				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
 					Duplicate Finder
 				</SidebarLink>
-				<SidebarLink to="lost-and-found">
+				<SidebarLink disabled to="lost-and-found">
 					<Icon component={Crosshair} />
 					Find a File
 				</SidebarLink>
-				<SidebarLink to="cache-cleaner">
+				<SidebarLink disabled to="cache-cleaner">
 					<Icon component={Eraser} />
 					Cache Cleaner
 				</SidebarLink>
-				<SidebarLink to="media-encoder">
+				<SidebarLink disabled to="media-encoder">
 					<Icon component={FilmStrip} />
 					Media Encoder
 				</SidebarLink>

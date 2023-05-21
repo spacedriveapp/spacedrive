@@ -14,13 +14,21 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import { ExplorerItem, isObject, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	isObject,
+	useLibraryContext,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { useExplorerParams } from '~/app/$libraryId/location/$id';
-import { showAlertDialog } from '~/components/AlertDialog';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { showAlertDialog } from '~/components';
+import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { getItemFilePath, useExplorerSearchParams } from '../util';
+import OpenWith from './ContextMenu/OpenWith';
 import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
@@ -33,7 +41,7 @@ interface Props extends PropsWithChildren {
 
 export default ({ data, className, ...props }: Props) => {
 	const store = useExplorerStore();
-	const params = useExplorerParams();
+	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
 	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
@@ -42,16 +50,14 @@ export default ({ data, className, ...props }: Props) => {
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
+	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
+	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+	const fullRescan = useLibraryMutation('locations.fullRescan');
+
 	return (
 		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
-				<ContextMenu.Item label="Open" keybind="⌘O" />
-				<ContextMenu.Item
-					label="Quick view"
-					keybind="␣"
-					onClick={() => (getExplorerStore().quickViewObject = data)}
-				/>
-				<ContextMenu.Item label="Open with..." keybind="⌘^O" />
+				<OpenOrDownloadOptions data={data} />
 
 				<ContextMenu.Separator />
 
@@ -75,11 +81,23 @@ export default ({ data, className, ...props }: Props) => {
 					onClick={() => (getExplorerStore().isRenaming = true)}
 				/>
 
+				{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+					<ContextMenu.Item
+						label="Remove from recents"
+						onClick={() =>
+							data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						}
+					/>
+				)}
+
 				<ContextMenu.Item
 					label="Cut"
 					keybind="⌘X"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Cut',
@@ -93,7 +111,10 @@ export default ({ data, className, ...props }: Props) => {
 					label="Copy"
 					keybind="⌘C"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						getExplorerStore().cutCopyState = {
+							sourcePath: params.path,
 							sourceLocationId: store.locationId!,
 							sourcePathId: data.item.id,
 							actionType: 'Copy',
@@ -107,6 +128,8 @@ export default ({ data, className, ...props }: Props) => {
 					label="Duplicate"
 					keybind="⌘D"
 					onClick={() => {
+						if (params.path === undefined) return;
+
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
 							source_path_id: data.item.id,
@@ -207,8 +230,23 @@ export default ({ data, className, ...props }: Props) => {
 						<ContextMenu.Item label="PNG" />
 						<ContextMenu.Item label="WebP" />
 					</ContextMenu.SubMenu>
-					<ContextMenu.Item label="Rescan Directory" icon={Package} />
-					<ContextMenu.Item label="Regen Thumbnails" icon={Package} />
+					<ContextMenu.Item
+						onClick={() => {
+							fullRescan.mutate(getExplorerStore().locationId!);
+						}}
+						label="Rescan Directory"
+						icon={Package}
+					/>
+					<ContextMenu.Item
+						onClick={() => {
+							generateThumbnails.mutate({
+								id: getExplorerStore().locationId!,
+								path: '/'
+							});
+						}}
+						label="Regen Thumbnails"
+						icon={Package}
+					/>
 					<ContextMenu.Item
 						variant="danger"
 						label="Secure delete"
@@ -245,4 +283,42 @@ export default ({ data, className, ...props }: Props) => {
 			</ContextMenu.Root>
 		</div>
 	);
+};
+
+const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
+	const os = useOperatingSystem();
+	const { openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const filePath = getItemFilePath(props.data);
+
+	const { library } = useLibraryContext();
+
+	if (os === 'browser') return <ContextMenu.Item label="Download" />;
+	else
+		return (
+			<>
+				{filePath && (
+					<>
+						{openFilePath && (
+							<ContextMenu.Item
+								label="Open"
+								keybind="⌘O"
+								onClick={() => {
+									props.data.type === 'Path' &&
+										props.data.item.object_id &&
+										updateAccessTime.mutate(props.data.item.object_id);
+									openFilePath(library.uuid, filePath.id);
+								}}
+							/>
+						)}
+						<OpenWith filePath={filePath} />
+					</>
+				)}
+				<ContextMenu.Item
+					label="Quick view"
+					keybind="␣"
+					onClick={() => (getExplorerStore().quickViewObject = props.data)}
+				/>
+			</>
+		);
 };

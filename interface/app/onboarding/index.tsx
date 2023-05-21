@@ -1,6 +1,6 @@
 import { Navigate, RouteObject } from 'react-router';
+import Alpha from './alpha';
 import CreatingLibrary from './creating-library';
-import MasterPassword from './master-password';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
 import Start from './start';
@@ -8,8 +8,9 @@ import Start from './start';
 export default [
 	{
 		index: true,
-		element: <Navigate to="start" />
+		element: <Navigate to="alpha" replace />
 	},
+	{ path: 'alpha', element: <Alpha /> },
 	{
 		element: <Start />,
 		path: 'start'
@@ -17,10 +18,6 @@ export default [
 	{
 		element: <NewLibrary />,
 		path: 'new-library'
-	},
-	{
-		element: <MasterPassword />,
-		path: 'master-password'
 	},
 	{
 		element: <Privacy />,

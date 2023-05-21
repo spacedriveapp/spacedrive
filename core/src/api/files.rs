@@ -1,139 +1,187 @@
 use crate::{
+	api::utils::library,
 	invalidate_query,
-	library::Library,
-	location::{file_path_helper::MaterializedPath, find_location, LocationError},
+	location::{file_path_helper::IsolatedFilePathData, find_location, LocationError},
 	object::fs::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
-	prisma::{location, object},
+	prisma::{file_path, location, object, SortOrder},
 };
 
-use rspc::{ErrorCode, Type};
+use chrono::{FixedOffset, Utc};
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
+use specta::Type;
 use std::path::Path;
 use tokio::fs;
 
-use super::{utils::LibraryRequest, RouterBuilder};
+use super::{
+	locations::{file_path_with_object, ExplorerItem},
+	Ctx, R,
+};
 
-pub(crate) fn mount() -> RouterBuilder {
-	<RouterBuilder>::new()
-		.library_query("get", |t| {
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("get", {
 			#[derive(Type, Deserialize)]
 			pub struct GetArgs {
 				pub id: i32,
 			}
-			t(|_, args: GetArgs, library: Library| async move {
-				Ok(library
-					.db
-					.object()
-					.find_unique(object::id::equals(args.id))
-					.include(object::include!({ file_paths media_data }))
-					.exec()
-					.await?)
-			})
+			R.with2(library())
+				.query(|(_, library), args: GetArgs| async move {
+					Ok(library
+						.db
+						.object()
+						.find_unique(object::id::equals(args.id))
+						.include(object::include!({ file_paths media_data }))
+						.exec()
+						.await?)
+				})
 		})
-		.library_mutation("setNote", |t| {
+		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
 			pub struct SetNoteArgs {
 				pub id: i32,
 				pub note: Option<String>,
 			}
 
-			t(|_, args: SetNoteArgs, library: Library| async move {
-				library
-					.db
-					.object()
-					.update(
-						object::id::equals(args.id),
-						vec![object::note::set(args.note)],
-					)
-					.exec()
-					.await?;
+			R.with2(library())
+				.mutation(|(_, library), args: SetNoteArgs| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(args.id),
+							vec![object::note::set(args.note)],
+						)
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("setFavorite", |t| {
+		.procedure("setFavorite", {
 			#[derive(Type, Deserialize)]
 			pub struct SetFavoriteArgs {
 				pub id: i32,
 				pub favorite: bool,
 			}
 
-			t(|_, args: SetFavoriteArgs, library: Library| async move {
-				library
-					.db
-					.object()
-					.update(
-						object::id::equals(args.id),
-						vec![object::favorite::set(args.favorite)],
-					)
-					.exec()
-					.await?;
+			R.with2(library())
+				.mutation(|(_, library), args: SetFavoriteArgs| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(args.id),
+							vec![object::favorite::set(args.favorite)],
+						)
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
-		.library_mutation("delete", |t| {
-			t(|_, id: i32, library: Library| async move {
-				library
-					.db
-					.object()
-					.delete(object::id::equals(id))
-					.exec()
-					.await?;
+		.procedure("delete", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.delete(object::id::equals(id))
+						.exec()
+						.await?;
 
-				invalidate_query!(library, "locations.getExplorerData");
-				Ok(())
-			})
+					invalidate_query!(library, "search.paths");
+					Ok(())
+				})
 		})
-		.library_mutation("encryptFiles", |t| {
-			t(
-				|_, args: FileEncryptorJobInit, library: Library| async move {
+		.procedure("updateAccessTime", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(id),
+							vec![object::date_accessed::set(Some(
+								Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
+							))],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "search.paths");
+					Ok(())
+				})
+		})
+		.procedure("removeAccessTime", {
+			R.with2(library())
+				.mutation(|(_, library), id: i32| async move {
+					library
+						.db
+						.object()
+						.update(
+							object::id::equals(id),
+							vec![object::date_accessed::set(None)],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "search.paths");
+					Ok(())
+				})
+		})
+		.procedure("encryptFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileEncryptorJobInit| async move {
 					library.spawn_job(args).await.map_err(Into::into)
-				},
-			)
+				})
 		})
-		.library_mutation("decryptFiles", |t| {
-			t(
-				|_, args: FileDecryptorJobInit, library: Library| async move {
+		.procedure("decryptFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileDecryptorJobInit| async move {
 					library.spawn_job(args).await.map_err(Into::into)
-				},
-			)
+				})
 		})
-		.library_mutation("deleteFiles", |t| {
-			t(|_, args: FileDeleterJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(Into::into)
-			})
+		.procedure("deleteFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileDeleterJobInit| async move {
+					library.spawn_job(args).await.map_err(Into::into)
+				})
 		})
-		.library_mutation("eraseFiles", |t| {
-			t(|_, args: FileEraserJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(Into::into)
-			})
+		.procedure("eraseFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileEraserJobInit| async move {
+					library.spawn_job(args).await.map_err(Into::into)
+				})
 		})
-		.library_mutation("duplicateFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(Into::into)
-			})
+		.procedure("duplicateFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileCopierJobInit| async move {
+					library.spawn_job(args).await.map_err(Into::into)
+				})
 		})
-		.library_mutation("copyFiles", |t| {
-			t(|_, args: FileCopierJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(Into::into)
-			})
+		.procedure("copyFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileCopierJobInit| async move {
+					library.spawn_job(args).await.map_err(Into::into)
+				})
 		})
-		.library_mutation("cutFiles", |t| {
-			t(|_, args: FileCutterJobInit, library: Library| async move {
-				library.spawn_job(args).await.map_err(Into::into)
-			})
+		.procedure("cutFiles", {
+			R.with2(library())
+				.mutation(|(_, library), args: FileCutterJobInit| async move {
+					library.spawn_job(args).await.map_err(Into::into)
+				})
 		})
-		.library_mutation("renameFile", |t| {
+		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
 			pub struct RenameFileArgs {
 				pub location_id: i32,
@@ -141,14 +189,13 @@ pub(crate) fn mount() -> RouterBuilder {
 				pub new_file_name: String,
 			}
 
-			t(
-				|_,
+			R.with2(library()).mutation(
+				|(_, library),
 				 RenameFileArgs {
 				     location_id,
 				     file_name,
 				     new_file_name,
-				 }: RenameFileArgs,
-				 library: Library| async move {
+				 }: RenameFileArgs| async move {
 					let location = find_location(&library, location_id)
 						.select(location::select!({ path }))
 						.exec()
@@ -157,8 +204,14 @@ pub(crate) fn mount() -> RouterBuilder {
 
 					let location_path = Path::new(&location.path);
 					fs::rename(
-						location_path.join(&MaterializedPath::from((location_id, &file_name))),
-						location_path.join(&MaterializedPath::from((location_id, &new_file_name))),
+						location_path.join(IsolatedFilePathData::from_relative_str(
+							location_id,
+							&file_name,
+						)),
+						location_path.join(IsolatedFilePathData::from_relative_str(
+							location_id,
+							&new_file_name,
+						)),
 					)
 					.await
 					.map_err(|e| {
@@ -169,7 +222,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						)
 					})?;
 
-					invalidate_query!(library, "tags.getExplorerData");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				},

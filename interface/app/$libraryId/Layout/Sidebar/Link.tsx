@@ -20,15 +20,25 @@ const styles = cva(
 	}
 );
 
-export default (props: PropsWithChildren<NavLinkProps>) => {
+export default ({
+	className,
+	onClick,
+	disabled,
+	...props
+}: PropsWithChildren<NavLinkProps & { disabled?: boolean }>) => {
 	const os = useOperatingSystem();
 
 	return (
 		<NavLink
-			{...props}
+			onClick={(e) => (disabled ? e.preventDefault() : onClick?.(e))}
 			className={({ isActive }) =>
-				clsx(styles({ active: isActive, transparent: os === 'macOS' }), props.className)
+				clsx(
+					styles({ active: isActive, transparent: os === 'macOS' }),
+					disabled && 'pointer-events-none opacity-50',
+					className
+				)
 			}
+			{...props}
 		>
 			{props.children}
 		</NavLink>

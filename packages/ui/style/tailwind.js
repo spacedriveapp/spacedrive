@@ -11,9 +11,9 @@ function alpha(variableName) {
 module.exports = function (app, options) {
 	let config = {
 		content: [
-			!options?.ignorePackages && '../../packages/*/src/**/*.{ts,tsx,html}',
-			'../../interface/**/*.{ts,tsx,html}',
-			app ? `../../apps/${app}/src/**/*.{ts,tsx,html}` : `./src/**/*.{ts,tsx,html}`
+			`../../apps/${app}/src/**/*.{ts,tsx,html,stories.tsx}`,
+			'../../packages/*/src/**/*.{ts,tsx,html,stories.tsx}',
+			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
 		darkMode: app == 'landing' ? 'class' : 'media',
 		mode: 'jit',
@@ -64,6 +64,8 @@ module.exports = function (app, options) {
 					app: {
 						DEFAULT: alpha('--color-app'),
 						box: alpha('--color-app-box'),
+						darkBox: alpha('--color-app-dark-box'),
+						lightBox: alpha('--color-app-light-box'),
 						overlay: alpha('--color-app-overlay'),
 						input: alpha('--color-app-input'),
 						focus: alpha('--color-app-focus'),
@@ -71,6 +73,7 @@ module.exports = function (app, options) {
 						divider: alpha('--color-app-divider'),
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
+						selectedItem: alpha('--color-app-selected-item'),
 						hover: alpha('--color-app-hover'),
 						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),
@@ -158,10 +161,6 @@ module.exports = function (app, options) {
 		},
 		plugins: [
 			require('@tailwindcss/forms'),
-			// plugin(({ addVariant }) => {
-			// 	addVariant('open', '&[data-state="open"]');
-			// 	addVariant('closed', '&[data-state="closed"]');
-			// }),
 			require('tailwindcss-animate'),
 			require('@headlessui/tailwindcss'),
 			require('tailwindcss-radix')()

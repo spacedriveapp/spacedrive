@@ -1,6 +1,7 @@
 use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::{migrations::*, NewClientError};
 use thiserror::Error;
+use uuid::Uuid;
 
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
 #[derive(Error, Debug)]
@@ -82,4 +83,8 @@ pub fn chain_optional_iter<T>(
 		.chain(optional)
 		.flatten()
 		.collect()
+}
+
+pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
+	uuid.as_bytes().to_vec()
 }

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-	HASHING_ALGOS,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
@@ -36,7 +35,7 @@ export default function OnboardingCreatingLibrary() {
 			}
 
 			resetOnboardingStore();
-			navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
 		onError: () => {
 			resetOnboardingStore();
@@ -52,13 +51,7 @@ export default function OnboardingCreatingLibrary() {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
 
 		createLibrary.mutate({
-			name: obStore.newLibraryName,
-			auth: {
-				type: 'TokenizedPassword',
-				value: obStore.passwordSetToken || ''
-			},
-			algorithm: obStore.algorithm,
-			hashing_algorithm: HASHING_ALGOS[obStore.hashingAlgorithm]
+			name: obStore.newLibraryName
 		});
 
 		return;

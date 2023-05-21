@@ -10,6 +10,7 @@ export interface TopBarButtonProps {
 	className?: string;
 	onClick?: () => void;
 	checkIcon?: React.ReactNode;
+	disabled?: boolean;
 }
 
 const topBarButtonStyle = cva(
@@ -17,13 +18,13 @@ const topBarButtonStyle = cva(
 	{
 		variants: {
 			active: {
-				true: 'bg-app-selected',
+				true: '!bg-app-selected',
 				false: 'bg-transparent'
 			},
 			rounding: {
 				none: 'rounded-none',
 				left: 'rounded-l-md rounded-r-none',
-				right: 'rounded-r-md rounded-l-none',
+				right: 'rounded-l-none rounded-r-md',
 				both: 'rounded-md'
 			}
 		},
@@ -35,7 +36,7 @@ const topBarButtonStyle = cva(
 );
 
 export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
-	({ active, rounding, className, ...props }, ref) => {
+	({ active, rounding, className, checkIcon, ...props }, ref) => {
 		return (
 			<Button
 				{...props}
@@ -43,7 +44,7 @@ export default forwardRef<HTMLButtonElement, TopBarButtonProps>(
 				className={topBarButtonStyle({ active, rounding, className })}
 			>
 				{props.children}
-				{props.checkIcon && active && (
+				{checkIcon && active && (
 					<Check className="absolute right-2 m-0.5 h-5 w-5 text-ink-dull" />
 				)}
 			</Button>

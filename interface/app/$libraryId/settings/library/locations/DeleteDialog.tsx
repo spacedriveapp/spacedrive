@@ -1,7 +1,6 @@
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
-import { usePlatform } from '~/util/Platform';
 
 interface Props extends UseDialogProps {
 	onSuccess: () => void;
@@ -9,10 +8,7 @@ interface Props extends UseDialogProps {
 }
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
 	const submitPlausibleEvent = usePlausibleEvent();
-
-	const form = useZodForm();
 
 	const deleteLocation = useLibraryMutation('locations.delete', {
 		onSuccess: () => {
@@ -23,9 +19,9 @@ export default (props: Props) => {
 
 	return (
 		<Dialog
-			form={form}
-			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
-			dialog={dialog}
+			form={useZodForm()}
+			onSubmit={() => deleteLocation.mutateAsync(props.locationId)}
+			dialog={useDialog(props)}
 			title="Delete Location"
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 			ctaDanger

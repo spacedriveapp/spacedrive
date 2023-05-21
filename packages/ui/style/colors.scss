@@ -24,6 +24,8 @@
 	// main
 	--color-app: var(--dark-hue), 15%, 13%;
 	--color-app-box: var(--dark-hue), 15%, 18%;
+	--color-app-dark-box: var(--dark-hue), 15%, 15%;
+	--color-app-light-box: var(--dark-hue), 15%, 34%;
 	--color-app-overlay: var(--dark-hue), 15%, 17%;
 	--color-app-input: var(--dark-hue), 15%, 20%;
 	--color-app-focus: var(--dark-hue), 15%, 10%;
@@ -32,6 +34,7 @@
 	--color-app-button: var(--dark-hue), 15%, 23%;
 	--color-app-hover: var(--dark-hue), 15%, 25%;
 	--color-app-selected: var(--dark-hue), 15%, 26%;
+	--color-app-selected-item: var(--dark-hue), 15%, 18%;
 	--color-app-active: var(--dark-hue), 15%, 30%;
 	--color-app-shade: var(--dark-hue), 15%, 0%;
 	--color-app-frame: var(--dark-hue), 15%, 25%;
@@ -69,6 +72,8 @@
 		// main
 		--color-app: var(--light-hue), 5%, 100%;
 		--color-app-box: var(--light-hue), 5%, 98%;
+		--color-app-dark-box: var(--light-hue), 5%, 97%;
+		--color-app-light-box: var(--light-hue), 5%, 100%;
 		--color-app-overlay: var(--light-hue), 5%, 100%;
 		--color-app-input: var(--light-hue), 5%, 100%;
 		--color-app-focus: var(--light-hue), 5%, 98%;
@@ -76,6 +81,7 @@
 		--color-app-button: var(--light-hue), 5%, 100%;
 		--color-app-divider: var(--light-hue), 5%, 80%;
 		--color-app-selected: var(--light-hue), 5%, 93%;
+		--color-app-selected-item: var(--light-hue), 5%, 96%;
 		--color-app-hover: var(--light-hue), 5%, 97%;
 		--color-app-active: var(--light-hue), 5%, 87%;
 		--color-app-shade: var(--light-hue), 15%, 50%;

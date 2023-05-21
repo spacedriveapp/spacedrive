@@ -1,21 +1,40 @@
+import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
-import { ArrowsClockwise } from 'phosphor-react';
 import { Link, NavLink } from 'react-router-dom';
-import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
-import { Folder } from '@sd/ui';
+import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
+import { Button, Folder } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
-import Icon from './Icon';
 import SidebarLink from './Link';
 import Section from './Section';
 
 export const LibrarySection = () => {
+	const node = useBridgeQuery(['nodeState']);
+
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 
 	return (
 		<>
+			<Section
+				name="Nodes"
+				actionArea={
+					<Link to="settings/library/nodes">
+						<SubtleButton />
+					</Link>
+				}
+			>
+				<SidebarLink className="group relative w-full" to={`/`} disabled key={'jeff'}>
+					<img src={Laptop} className="mr-1 h-5 w-5" />
+					<span className="truncate">{node.data?.name}</span>
+				</SidebarLink>
+				{/* {(locations.data?.length || 0) < 4 && (
+					<Button variant="dotted" className="mt-1 w-full">
+						Connect Node
+					</Button>
+				)} */}
+			</Section>
 			<Section
 				name="Locations"
 				actionArea={
@@ -37,7 +56,7 @@ export const LibrarySection = () => {
 								<Folder size={18} />
 								<div
 									className={clsx(
-										'absolute right-0 bottom-0.5 h-1.5 w-1.5 rounded-full',
+										'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',
 										online ? 'bg-green-500' : 'bg-red-500'
 									)}
 								/>
@@ -58,7 +77,7 @@ export const LibrarySection = () => {
 						</NavLink>
 					}
 				>
-					<div className="mt-1 mb-2">
+					<div className="mb-2 mt-1">
 						{tags.data?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
@@ -71,12 +90,12 @@ export const LibrarySection = () => {
 					</div>
 				</Section>
 			)}
-			<Section name="Debug">
+			{/* <Section name="Debug">
 				<SidebarLink to="sync">
 					<Icon component={ArrowsClockwise} />
 					Sync
 				</SidebarLink>
-			</Section>
+			</Section> */}
 		</>
 	);
 };

@@ -3,7 +3,9 @@ name = "sd-p2p"
 version = "0.1.0"
 description = "Rust Peer to Peer Networking Library"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 [features]
 default = []
@@ -11,7 +13,13 @@ serde = []
 specta = []
 
 [dependencies]
-tokio = { workspace = true, features = ["macros", "sync", "time", "io-util"] }
+tokio = { workspace = true, features = [
+	"macros",
+	"sync",
+	"time",
+	"io-util",
+	"fs",
+] }
 libp2p = { version = "0.51.0", features = ["tokio", "quic", "serde"] }
 mdns-sd = "0.6.1"
 thiserror = "1.0.39"

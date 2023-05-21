@@ -1,13 +1,13 @@
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
-use sd_p2p::{spaceblock::TransferRequest, spacetime::SpaceTimeStream};
+use sd_p2p::{spaceblock::SpacedropRequest, spacetime::SpaceTimeStream};
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
 	Ping,
-	Spacedrop(TransferRequest),
+	Spacedrop(SpacedropRequest),
 	Sync(Uuid, u32),
 }
 
@@ -19,9 +19,9 @@ impl Header {
 
 		match discriminator {
 			0 => match stream {
-				SpaceTimeStream::Unicast(stream) => {
-					Ok(Self::Spacedrop(TransferRequest::from_stream(stream).await?))
-				}
+				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
+					SpacedropRequest::from_stream(stream).await?,
+				)),
 				_ => todo!(),
 			},
 			1 => Ok(Self::Ping),
@@ -52,7 +52,7 @@ impl Header {
 				bytes.extend_from_slice(uuid.as_bytes());
 
 				let len_buf = len.to_le_bytes();
-				debug_assert_eq!(len_buf.len(), 4);
+				debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
 				bytes.extend_from_slice(&len_buf);
 
 				bytes

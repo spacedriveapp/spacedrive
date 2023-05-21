@@ -1,16 +1,12 @@
 import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
-import { DeviceMobile, HardDrives, Icon, Laptop, User } from 'phosphor-react';
-import { useRef, useState } from 'react';
-import { Button, ScreenHeading, Select, SelectOption, forms, tw } from '@sd/ui';
-import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '~/../packages/client/src';
-import { SubtleButton, SubtleButtonContainer } from '~/components/SubtleButton';
+import { Icon, User } from 'phosphor-react';
+import { tw } from '@sd/ui';
+import { SubtleButton, SubtleButtonContainer } from '~/components';
 import { OperatingSystem } from '~/util/Platform';
-import SearchBar from './Explorer/SearchBar';
-import * as PageLayout from './PageLayout';
 import classes from './spacedrop.module.scss';
 
-const { Form, Input, useZodForm, z } = forms;
+// const { Form, Input, useZodForm, z } = forms;
 
 // TODO: move this to UI, copied from Inspector
 const Pill = tw.span`mt-1 inline border border-transparent px-0.5 text-[9px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded text-ink-dull`;
@@ -87,145 +83,88 @@ function DropItem(props: DropItemProps) {
 	);
 }
 
-const schema = z.object({
-	target_peer: z.string(),
-	file_path: z.string()
-});
+// const schema = z.object({
+// 	target_peer: z.string(),
+// 	file_path: z.string()
+// });
 
-// TODO: This will be removed and properly hooked up to the UI in the future
-function TemporarySpacedropDemo() {
-	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
-	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
+// // TODO: This will be removed and properly hooked up to the UI in the future
+// function TemporarySpacedropDemo() {
+// 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
+// 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
-	const form = useZodForm({
-		schema
-	});
+// 	const form = useZodForm({
+// 		schema
+// 	});
 
-	useBridgeSubscription(['p2p.events'], {
-		onData(data) {
-			if (data.type === 'DiscoveredPeer') {
-				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
-				// if (!form.getValues().target_peer) form.setValue('target_peer', data.peer_id);
-			}
-		}
-	});
+// 	useBridgeSubscription(['p2p.events'], {
+// 		onData(data) {
+// 			if (data.type === 'DiscoveredPeer') {
+// 				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
+// 				// if (!form.getValues().target_peer) form.setValue('target_peer', data.peer_id);
+// 			}
+// 		}
+// 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		doSpacedrop.mutate({
-			peer_id: data.target_peer,
-			file_path: data.file_path
-		});
-	});
+// 	const onSubmit = form.handleSubmit((data) => {
+// 		doSpacedrop.mutate({
+// 			peer_id: data.target_peer,
+// 			file_path: data.file_path
+// 		});
+// 	});
 
-	// TODO: Input select
-	return (
-		<Form onSubmit={onSubmit} form={form}>
-			<ScreenHeading>Spacedrop Demo</ScreenHeading>
-			<p className="text-xs text-ink-dull">
-				Note: Right now the file must be less than 255 bytes long and only contain UTF-8
-				chars. Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by
-				default)
-			</p>
-			<div className="mt-2 flex flex-row items-center space-x-4">
-				<Input
-					size="sm"
-					placeholder="/Users/oscar/Desktop/sd/demo.txt"
-					value="/Users/jamie/Desktop/Jeff.txt"
-					className="w-full"
-					{...form.register('file_path')}
-				/>
+// 	// TODO: Input select
+// 	return (
+// 		<Form onSubmit={onSubmit} form={form}>
+// 			<ScreenHeading>Spacedrop Demo</ScreenHeading>
+// 			<p className="text-xs text-ink-dull">
+// 				Note: Right now the file must be less than 255 bytes long and only contain UTF-8
+// 				chars. Create a txt file in Vscode to test (note macOS TextEdit cause that is rtf by
+// 				default)
+// 			</p>
+// 			<div className="mt-2 flex flex-row items-center space-x-4">
+// 				<Input
+// 					size="sm"
+// 					placeholder="/Users/oscar/Desktop/sd/demo.txt"
+// 					value="/Users/jamie/Desktop/Jeff.txt"
+// 					className="w-full"
+// 					{...form.register('file_path')}
+// 				/>
 
-				<Button className="block shrink-0" variant="gray">
-					Select File
-				</Button>
+// 				<Button className="block shrink-0" variant="gray">
+// 					Select File
+// 				</Button>
 
-				<Select
-					onChange={(e) => form.setValue('target_peer', e)}
-					value={form.watch('target_peer')}
-				>
-					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
-						<SelectOption default={index === 0} key={peerId} value={peerId}>
-							{metadata.name}
-						</SelectOption>
-					))}
-				</Select>
+// 				<Select
+// 					onChange={(e) => form.setValue('target_peer', e)}
+// 					value={form.watch('target_peer')}
+// 				>
+// 					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
+// 						<SelectOption default={index === 0} key={peerId} value={peerId}>
+// 							{metadata.name}
+// 						</SelectOption>
+// 					))}
+// 				</Select>
 
-				<Button
-					disabled={!form.getValues().target_peer}
-					className="block shrink-0"
-					variant="accent"
-					type="submit"
-				>
-					Send
-				</Button>
-			</div>
-		</Form>
-	);
-}
+// 				<Button
+// 					disabled={!form.getValues().target_peer}
+// 					className="block shrink-0"
+// 					variant="accent"
+// 					type="submit"
+// 				>
+// 					Send
+// 				</Button>
+// 			</div>
+// 		</Form>
+// 	);
+// }
 
 export const Component = () => {
 	return (
 		<>
-			<TemporarySpacedropDemo />
+			{/* <TemporarySpacedropDemo /> */}
 			<div className={classes.honeycombOuter}>
-				<div className={clsx(classes.honeycombContainer, 'mt-8')}>
-					<DropItem
-						name="Jamie's MacBook Pro"
-						receivingNodeOsType="macOS"
-						connectionType="lan"
-						icon={Laptop}
-					/>
-					<DropItem
-						name="Jamie's iPhone"
-						receivingNodeOsType="iOS"
-						connectionType="lan"
-						icon={DeviceMobile}
-					/>
-					<DropItem
-						name="Titan NAS"
-						receivingNodeOsType="linux"
-						connectionType="p2p"
-						icon={HardDrives}
-					/>
-					<DropItem
-						name="Jamie's iPad"
-						receivingNodeOsType="iOS"
-						connectionType="lan"
-						icon={DeviceMobile}
-					/>
-					<DropItem
-						name="Jamie's Google Drive"
-						brandIcon="google-drive"
-						connectionType="cloud"
-					/>
-					<DropItem name="Jamie's iCloud" brandIcon="icloud" connectionType="cloud" />
-					<DropItem name="Mega" brandIcon="mega" connectionType="cloud" />
-					<DropItem
-						name="maxichrome"
-						image="https://github.com/maxichrome.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Brendan Alan"
-						image="https://github.com/brendonovich.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Oscar Beaumont"
-						image="https://github.com/oscartbeaumont.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Polar"
-						image="https://github.com/polargh.png"
-						connectionType="p2p"
-					/>
-					<DropItem
-						name="Andrew Haskell"
-						image="https://github.com/andrewtechx.png"
-						connectionType="p2p"
-					/>
-				</div>
+				<div className={clsx(classes.honeycombContainer, 'mt-8')}></div>
 			</div>
 		</>
 	);

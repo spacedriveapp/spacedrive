@@ -5,18 +5,19 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_just_materialized_path_cas_id, get_existing_file_path_id, MaterializedPath,
+			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			file_path_for_thumbnailer, IsolatedFilePathData,
 		},
 		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient},
+	util::error::FileIOError,
 };
 
 use std::{
 	collections::VecDeque,
 	hash::Hash,
-	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
+	path::{Path, PathBuf},
 };
 
 use sd_file_ext::extensions::Extension;
@@ -60,6 +61,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 	type Step = ThumbnailerJobStep;
 
 	const NAME: &'static str = "shallow_thumbnailer";
+	const IS_BACKGROUND: bool = true;
 
 	fn new() -> Self {
 		Self {}
@@ -77,7 +79,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		let location_id = state.init.location.id;
 		let location_path = PathBuf::from(&state.init.location.path);
 
-		let sub_path_id = if state.init.sub_path != Path::new("") {
+		let (path, iso_file_path) = if state.init.sub_path != Path::new("") {
 			let full_path = ensure_sub_path_is_in_location(&location_path, &state.init.sub_path)
 				.await
 				.map_err(ThumbnailerError::from)?;
@@ -85,35 +87,42 @@ impl StatefulJob for ShallowThumbnailerJob {
 				.await
 				.map_err(ThumbnailerError::from)?;
 
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, &location_path, &full_path, true)
-					.map_err(ThumbnailerError::from)?,
+			let sub_iso_file_path =
+				IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+					.map_err(ThumbnailerError::from)?;
+
+			ensure_file_path_exists(
+				&state.init.sub_path,
+				&sub_iso_file_path,
 				db,
+				ThumbnailerError::SubPathNotFound,
 			)
-			.await
-			.map_err(ThumbnailerError::from)?
-			.expect("Sub path should already exist in the database")
+			.await?;
+
+			(full_path, sub_iso_file_path)
 		} else {
-			get_existing_file_path_id(
-				&MaterializedPath::new(location_id, &location_path, &location_path, true)
+			(
+				location_path.to_path_buf(),
+				IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
 					.map_err(ThumbnailerError::from)?,
-				db,
 			)
-			.await
-			.map_err(ThumbnailerError::from)?
-			.expect("Location root path should already exist in the database")
 		};
 
-		info!("Searching for images in location {location_id} at parent directory with id {sub_path_id}");
+		info!(
+			"Searching for images in location {location_id} at path {}",
+			path.display()
+		);
 
 		// create all necessary directories if they don't exist
-		fs::create_dir_all(&thumbnail_dir).await?;
+		fs::create_dir_all(&thumbnail_dir)
+			.await
+			.map_err(|e| FileIOError::from((&thumbnail_dir, e)))?;
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
 			db,
 			location_id,
-			sub_path_id,
+			&iso_file_path,
 			&FILTERED_IMAGE_EXTENSIONS,
 			ThumbnailerJobStepKind::Image,
 		)
@@ -126,7 +135,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 			let video_files = get_files_by_extensions(
 				db,
 				location_id,
-				sub_path_id,
+				&iso_file_path,
 				&FILTERED_VIDEO_EXTENSIONS,
 				ThumbnailerJobStepKind::Video,
 			)
@@ -151,16 +160,11 @@ impl StatefulJob for ShallowThumbnailerJob {
 			location_path,
 			report: ThumbnailerJobReport {
 				location_id,
-				materialized_path: if state.init.sub_path != Path::new("") {
-					// SAFETY: We know that the sub_path is a valid UTF-8 string because we validated it before
-					state.init.sub_path.to_str().unwrap().to_string()
-				} else {
-					MAIN_SEPARATOR_STR.to_string()
-				},
+				path,
 				thumbnails_created: 0,
 			},
 		});
-		state.steps = all_files;
+		state.steps.extend(all_files);
 
 		Ok(())
 	}
@@ -170,17 +174,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		process_step(
-			false, // On shallow thumbnailer, we want to show thumbnails ASAP
-			state.step_number,
-			&state.steps[0],
-			state
-				.data
-				.as_mut()
-				.expect("critical error: missing data on job state"),
-			ctx,
-		)
-		.await
+		process_step(state, ctx).await
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
@@ -197,7 +191,7 @@ impl StatefulJob for ShallowThumbnailerJob {
 async fn get_files_by_extensions(
 	db: &PrismaClient,
 	location_id: LocationId,
-	parent_id: i32,
+	parent_isolated_file_path_data: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
 ) -> Result<Vec<ThumbnailerJobStep>, JobError> {
@@ -206,9 +200,13 @@ async fn get_files_by_extensions(
 		.find_many(vec![
 			file_path::location_id::equals(location_id),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::parent_id::equals(Some(parent_id)),
+			file_path::materialized_path::equals(
+				parent_isolated_file_path_data
+					.materialized_path_for_children()
+					.expect("sub path iso_file_path must be a directory"),
+			),
 		])
-		.select(file_path_just_materialized_path_cas_id::select())
+		.select(file_path_for_thumbnailer::select())
 		.exec()
 		.await?
 		.into_iter()

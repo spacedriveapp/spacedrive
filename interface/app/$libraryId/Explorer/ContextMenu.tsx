@@ -2,10 +2,10 @@ import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosp
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
-import { useExplorerParams } from '~/app/$libraryId/location/$id';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+import { useExplorerSearchParams } from './util';
 
 export const OpenInNativeExplorer = () => {
 	const platform = usePlatform();
@@ -38,13 +38,20 @@ export const OpenInNativeExplorer = () => {
 
 export default (props: PropsWithChildren) => {
 	const store = useExplorerStore();
-	const params = useExplorerParams();
+	const [params] = useExplorerSearchParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.fullRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
+
+	const isPastable =
+		store.cutCopyState.sourceLocationId !== store.locationId
+			? true
+			: store.cutCopyState.sourcePath !== params.path
+			? true
+			: false;
 
 	return (
 		<CM.Root trigger={props.children}>
@@ -74,32 +81,36 @@ export default (props: PropsWithChildren) => {
 				icon={Repeat}
 			/>
 
-			<CM.Item
-				label="Paste"
-				keybind="⌘V"
-				hidden={!store.cutCopyState.active}
-				onClick={() => {
-					if (store.cutCopyState.actionType == 'Copy') {
-						store.locationId &&
-							copyFiles.mutate({
-								source_location_id: store.cutCopyState.sourceLocationId,
-								source_path_id: store.cutCopyState.sourcePathId,
-								target_location_id: store.locationId,
-								target_path: params.path,
-								target_file_name_suffix: null
-							});
-					} else {
-						store.locationId &&
-							cutFiles.mutate({
-								source_location_id: store.cutCopyState.sourceLocationId,
-								source_path_id: store.cutCopyState.sourcePathId,
-								target_location_id: store.locationId,
-								target_path: params.path
-							});
-					}
-				}}
-				icon={Clipboard}
-			/>
+			{isPastable && (
+				<CM.Item
+					label="Paste"
+					keybind="⌘V"
+					hidden={!store.cutCopyState.active}
+					onClick={() => {
+						if (store.cutCopyState.actionType == 'Copy') {
+							store.locationId &&
+								params.path &&
+								copyFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path,
+									target_file_name_suffix: null
+								});
+						} else {
+							store.locationId &&
+								params.path &&
+								cutFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path
+								});
+						}
+					}}
+					icon={Clipboard}
+				/>
+			)}
 
 			<CM.Item
 				label="Deselect"

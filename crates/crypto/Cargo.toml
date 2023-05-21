@@ -8,12 +8,13 @@ description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
 """
-license = "AGPL-3.0"
-edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.67.0"
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 
 [features]
-default = ["sys"]
+default = []
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
 bincode = ["dep:bincode"]
 sys = ["dep:linux-keyutils", "dep:security-framework"]
@@ -46,17 +47,19 @@ zeroize = { version = "1.6.0", features = ["derive", "aarch64"] }
 # error handling
 thiserror = "1.0.40"
 
-# generic serialization
+bincode = { version = "2.0.0-rc.3", optional = true }
+
 serde = { version = "1.0.158", features = ["derive"], optional = true }
 serde_json = { version = "1.0.94", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
-bincode = { version = "2.0.0-rc.3", optional = true }
 
-# for asynchronous crypto
+
+# for asynchronous cryptorspc = { workspace = true, features = [], optional = true }
+specta = { workspace = true, features = ["uuid"], optional = true }
 tokio = { workspace = true, features = [
-    "io-util",
-    "rt-multi-thread",
-    "macros",
+	"io-util",
+	"rt-multi-thread",
+	"macros",
 ], optional = true }
 
 # linux OS keyring
@@ -111,3 +114,7 @@ harness = false
 [[example]]
 name = "file_encryption"
 path = "examples/file_encryption.rs"
+tokio = { workspace = true, features = [
+	"fs",
+	"macros",
+] } # features needed for examples
