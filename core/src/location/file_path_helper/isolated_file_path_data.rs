@@ -33,23 +33,13 @@ impl IsolatedFilePathData<'static> {
 
 		let extension = (!is_dir)
 			.then(|| {
-				let extension = full_path
+				full_path
 					.extension()
 					.unwrap_or_default()
 					.to_str()
-					.unwrap_or_default();
-
-				#[cfg(debug_assertions)]
-				{
-					// In dev mode, we lowercase the extension as we don't use the SQL migration,
-					// and using prisma.schema directly we can't set `COLLATE NOCASE` in the
-					// `extension` column at `file_path` table
-					extension.to_lowercase()
-				}
-				#[cfg(not(debug_assertions))]
-				{
-					extension.to_string()
-				}
+					.unwrap_or_default()
+					// Coerce extension to lowercase to make it case-insensitive
+					.to_lowercase()
 			})
 			.unwrap_or_default();
 
