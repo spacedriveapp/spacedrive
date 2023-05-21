@@ -6,7 +6,6 @@ use prisma_client_rust::operator::or;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 use crate::{
 	api::{
@@ -73,35 +72,34 @@ impl FilePathSearchOrdering {
 	}
 }
 
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct FilePathSearchArgs {
+pub struct FilePathFilterArgs {
 	#[specta(optional)]
 	location_id: Option<i32>,
-	#[specta(optional)]
-	after_file_id: Option<Uuid>,
-	#[specta(optional)]
-	take: Option<i32>,
-	#[specta(optional)]
-	order: Option<FilePathSearchOrdering>,
 	#[serde(default)]
 	search: String,
 	#[specta(optional)]
 	extension: Option<String>,
 	#[serde(default)]
-	kind: BTreeSet<i32>,
-	#[serde(default)]
-	tags: Vec<i32>,
-	#[serde(default)]
 	created_at: OptionalRange<DateTime<Utc>>,
 	#[specta(optional)]
 	path: Option<String>,
 	#[specta(optional)]
+	object: Option<ObjectFilterArgs>,
+}
+
+#[derive(Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FilePathSearchArgs {
+	#[specta(optional)]
+	take: Option<i32>,
+	#[specta(optional)]
+	order: Option<FilePathSearchOrdering>,
+	#[specta(optional)]
 	cursor: Option<Vec<u8>>,
-	#[specta(optional)]
-	favorite: Option<bool>,
-	#[specta(optional)]
-	hidden: Option<bool>,
+	#[serde(default)]
+	filter: FilePathFilterArgs,
 }
 
 #[derive(Deserialize, Type, Debug, Clone)]
@@ -128,26 +126,64 @@ impl ObjectSearchOrdering {
 	}
 }
 
+#[derive(Deserialize, Type, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+struct ObjectFilterArgs {
+	#[specta(optional)]
+	favorite: Option<bool>,
+	#[specta(optional)]
+	hidden: Option<bool>,
+	#[serde(default)]
+	kind: BTreeSet<i32>,
+	#[serde(default)]
+	tags: Vec<i32>,
+}
+
+impl ObjectFilterArgs {
+	fn to_params(self) -> Vec<object::WhereParam> {
+		chain_optional_iter(
+			[],
+			[
+				self.favorite.map(object::favorite::equals),
+				self.hidden.map(object::hidden::equals),
+				(!self.kind.is_empty())
+					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
+				(!self.tags.is_empty()).then(|| {
+					let tags = self.tags.into_iter().map(tag::id::equals).collect();
+					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
+
+					object::tags::some(vec![tags_on_object])
+				}),
+			],
+		)
+	}
+}
+
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ObjectSearchArgs {
 	#[specta(optional)]
 	take: Option<i32>,
-	#[serde(default)]
-	#[specta(optional)]
-	tag_id: Option<i32>,
 	#[specta(optional)]
 	cursor: Option<Vec<u8>>,
+	#[serde(default)]
+	filter: ObjectFilterArgs,
 }
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("paths", {
-			R.with2(library())
-				.query(|(_, library), args: FilePathSearchArgs| async move {
+			R.with2(library()).query(
+				|(_, library),
+				 FilePathSearchArgs {
+				     take,
+				     cursor,
+				     filter,
+				     order,
+				 }| async move {
 					let Library { db, .. } = &library;
 
-					let location = if let Some(location_id) = args.location_id {
+					let location = if let Some(location_id) = filter.location_id {
 						Some(
 							find_location(&library, location_id)
 								.exec()
@@ -158,7 +194,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						None
 					};
 
-					let directory_materialized_path_str = match (args.path, location) {
+					let directory_materialized_path_str = match (filter.path, location) {
 						(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
 							let parent_iso_file_path =
 								IsolatedFilePathData::from_relative_str(location.id, &path);
@@ -177,56 +213,42 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						_ => None,
 					};
 
-					let object_params = chain_optional_iter(
-						[],
-						[
-							args.favorite.map(object::favorite::equals),
-							args.hidden.map(object::hidden::equals),
-							(!args.kind.is_empty())
-								.then(|| object::kind::in_vec(args.kind.into_iter().collect())),
-							(!args.tags.is_empty()).then(|| {
-								let tags = args.tags.into_iter().map(tag::id::equals).collect();
-								let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
-
-								object::tags::some(vec![tags_on_object])
-							}),
-						],
-					);
-
 					let params = chain_optional_iter(
-						args.search
+						filter
+							.search
 							.split(' ')
 							.map(str::to_string)
 							.map(file_path::name::contains),
 						[
-							args.location_id.map(file_path::location_id::equals),
-							args.extension.map(file_path::extension::equals),
-							args.created_at
+							filter.location_id.map(file_path::location_id::equals),
+							filter.extension.map(file_path::extension::equals),
+							filter
+								.created_at
 								.from
 								.map(|v| file_path::date_created::gte(v.into())),
-							args.created_at
+							filter
+								.created_at
 								.to
 								.map(|v| file_path::date_created::lte(v.into())),
 							directory_materialized_path_str
 								.map(file_path::materialized_path::equals),
-							(!object_params.is_empty())
-								.then(|| file_path::object::is(object_params)),
+							filter.object.and_then(|obj| {
+								let params = obj.to_params();
+
+								(!params.is_empty()).then(|| file_path::object::is(params))
+							}),
 						],
 					);
 
-					let take = args.take.unwrap_or(100);
+					let take = take.unwrap_or(100);
 
 					let mut query = db.file_path().find_many(params).take(take as i64 + 1);
 
-					if let Some(file_id) = args.after_file_id {
-						query = query.cursor(file_path::pub_id::equals(file_id.as_bytes().to_vec()))
-					}
-
-					if let Some(order) = args.order {
+					if let Some(order) = order {
 						query = query.order_by(order.to_param());
 					}
 
-					if let Some(cursor) = args.cursor {
+					if let Some(cursor) = cursor {
 						query = query.cursor(file_path::pub_id::equals(cursor));
 					}
 
@@ -263,7 +285,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					Ok(SearchData { items, cursor })
-				})
+				},
+			)
 		})
 		.procedure("objects", {
 			R.with2(library())
@@ -274,12 +297,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					let mut query = db
 						.object()
-						.find_many(chain_optional_iter(
-							[],
-							[args.tag_id.map(|id| {
-								object::tags::some(vec![tag_on_object::tag_id::equals(id)])
-							})],
-						))
+						.find_many(args.filter.to_params())
 						.take(take as i64 + 1);
 
 					if let Some(cursor) = args.cursor {

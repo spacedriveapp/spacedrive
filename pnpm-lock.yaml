@@ -758,6 +758,9 @@ importers:
       tailwindcss:
         specifier: ^3.1.8
         version: 3.1.8(postcss@8.4.23)
+      ts-deepmerge:
+        specifier: ^6.0.3
+        version: 6.0.3
       use-count-up:
         specifier: ^3.0.1
         version: 3.0.1(react@18.2.0)
@@ -6609,7 +6612,7 @@ packages:
       tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.1.8(postcss@8.4.17)
+      tailwindcss: 3.1.8(postcss@8.4.23)
     dev: false
 
   /@tailwindcss/line-clamp@0.4.2(tailwindcss@3.1.8):
@@ -18040,6 +18043,11 @@ packages:
   /ts-dedent@2.2.0:
     resolution: {integrity: sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==}
     engines: {node: '>=6.10'}
+
+  /ts-deepmerge@6.0.3:
+    resolution: {integrity: sha512-MBBJL0UK/mMnZRONMz4J1CRu5NsGtsh+gR1nkn8KLE9LXo/PCzeHhQduhNary8m5/m9ryOOyFwVKxq81cPlaow==}
+    engines: {node: '>=14.13.1'}
+    dev: false
 
   /ts-interface-checker@0.1.13:
     resolution: {integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==}

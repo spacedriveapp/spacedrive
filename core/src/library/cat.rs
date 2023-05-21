@@ -45,14 +45,14 @@ impl Category {
 }
 
 pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	let params = match category {
-		Category::Recents => vec![not![object::date_accessed::equals(None)]],
-		Category::Favorites => vec![object::favorite::equals(true)],
+	let param = match category {
+		Category::Recents => not![object::date_accessed::equals(None)],
+		Category::Favorites => object::favorite::equals(true),
 		Category::Photos
 		| Category::Videos
 		| Category::Music
 		| Category::Encrypted
-		| Category::Books => vec![object::kind::equals(category.to_object_kind() as i32)],
+		| Category::Books => object::kind::equals(category.to_object_kind() as i32),
 		Category::Downloads => {
 			// TODO: Fetch the actual count for the Downloads category.
 			return 0;
@@ -75,5 +75,5 @@ pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i
 		}
 	};
 
-	db.object().count(params).exec().await.unwrap_or(0) as i32
+	db.object().count(vec![param]).exec().await.unwrap_or(0) as i32
 }

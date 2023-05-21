@@ -1,7 +1,6 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import {
 	ExplorerDirection,
-	ExplorerOrderByKeys,
 	getExplorerConfigStore,
 	getExplorerStore,
 	useExplorerConfigStore,
@@ -11,7 +10,7 @@ import {
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-const sortOptions: Record<ExplorerOrderByKeys, string> = {
+const sortOptions: Record<SearchOrderByKeys, string> = {
 	none: 'None',
 	name: 'Name',
 	sizeInBytes: 'Size',

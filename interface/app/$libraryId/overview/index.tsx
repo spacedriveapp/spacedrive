@@ -1,10 +1,9 @@
-import * as icons from '@sd/assets/icons';
 import { getIcon, iconNames } from '@sd/assets/icons/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import {
-	ExplorerItem,
+	FilePathSearchArgs,
 	ObjectKind,
 	ObjectKindKey,
 	useLibraryContext,
@@ -14,12 +13,13 @@ import {
 import { z } from '@sd/ui/src/forms';
 import { useExplorerStore, useExplorerTopBarOptions, useIsDark } from '~/hooks';
 import Explorer from '../Explorer';
-import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
+import { SEARCH_PARAMS } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import CategoryButton from '../overview/CategoryButton';
 import Statistics from '../overview/Statistics';
+import deepMerge from "ts-deepmerge"
 
 // TODO: Replace left hand type with Category enum type (doesn't exist yet)
 const CategoryToIcon: Record<string, string> = {
@@ -55,77 +55,14 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 export const Component = () => {
 	const page = usePageLayout();
 	const isDark = useIsDark();
-	const explorerStore = useExplorerStore();
-	const ctx = useRspcLibraryContext();
-	const { library } = useLibraryContext();
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
-	// TODO: integrate this into search query
-	const recentFiles = useLibraryQuery([
-		'search.paths',
-		{
-			order: { object: { dateAccessed: false } },
-			take: 50
-		}
-	]);
-	// this should be redundant once above todo is complete
-	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
-
-	const kind = ObjectKind[SearchableCategories[selectedCategory] || 0] as number;
+	const { items, query } = useItems(selectedCategory);
 
 	const categories = useLibraryQuery(['categories.list']);
-
-	const isFavoritesCategory = selectedCategory === 'Favorites';
-
-	// TODO: Make a custom double click handler for directories to take users to the location explorer.
-	// For now it's not needed because folders shouldn't show.
-	const query = useInfiniteQuery({
-		enabled: canSearch,
-		queryKey: [
-			'search.paths',
-			{
-				library_id: library.uuid,
-				arg: {
-					order: useExplorerOrder(),
-					favorite: isFavoritesCategory ? true : undefined,
-					...(explorerStore.layoutMode === 'media'
-						? {
-							kind: [5, 7].includes(kind)
-								? [kind]
-								: isFavoritesCategory
-									? [5, 7]
-									: [5, 7, kind]
-						}
-						: { kind: isFavoritesCategory ? [] : [kind] })
-				}
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			ctx.client.query([
-				'search.paths',
-				{
-					...queryKey[1].arg,
-					cursor
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
-	});
-
-	const searchItems = useMemo(() => query.data?.pages?.flatMap((d) => d.items), [query.data]);
-
-	let items: ExplorerItem[] = [];
-	switch (selectedCategory) {
-		case 'Recents':
-			items = recentFiles.data?.items || [];
-			break;
-		default:
-			if (canSearch) {
-				items = searchItems || [];
-			}
-	}
 
 	return (
 		<>
@@ -166,3 +103,68 @@ export const Component = () => {
 		</>
 	);
 };
+
+function getCategorySearchArgs(category: string): FilePathSearchArgs {
+	if (category === 'Recents')
+		return {
+			order: { object: { dateAccessed: false } }
+		};
+
+	if (category === 'Favourites')
+		return {
+			filter: {
+				object: {
+					favorite: true
+				}
+			}
+		};
+
+	return {};
+}
+
+// this is a gross function so it's in a separate hook :)
+function useItems(selectedCategory: string) {
+	const explorerStore = useExplorerStore();
+	const ctx = useRspcLibraryContext();
+	const { library } = useLibraryContext();
+
+	const searchableCategory = SearchableCategories[selectedCategory];
+	const searchableCategoryKind =
+		searchableCategory !== undefined ? (ObjectKind[searchableCategory] as number) : undefined;
+
+	const kind = searchableCategoryKind ? [searchableCategoryKind] : undefined;
+	if (explorerStore.layoutMode === 'media') [5, 7].forEach((v) => kind?.push(v));
+
+	// TODO: Make a custom double click handler for directories to take users to the location explorer.
+	// For now it's not needed because folders shouldn't show.
+	const query = useInfiniteQuery({
+		queryKey: [
+			'search.paths',
+			{
+				library_id: library.uuid,
+				arg: deepMerge(
+					{
+						take: 50,
+						filter: {
+							object: { kind }
+						},
+					},
+					getCategorySearchArgs(selectedCategory)
+				)
+			}
+		] as const,
+		queryFn: ({ pageParam: cursor, queryKey }) =>
+			ctx.client.query([
+				'search.paths',
+				{
+					...queryKey[1].arg,
+					cursor
+				}
+			]),
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+	});
+
+	const items = useMemo(() => query.data?.pages?.flatMap((d) => d.items), [query.data]);
+
+	return { query, items }
+}
