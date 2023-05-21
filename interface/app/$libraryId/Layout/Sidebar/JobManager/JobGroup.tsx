@@ -77,7 +77,7 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 								</p>
 								<p className="my-[2px] text-ink-faint">
 									<b>{tasks.total} </b>
-									{tasks.total <= 1 ? 'item' : 'items'}
+									{tasks.total <= 1 ? 'task' : 'tasks'}
 									{' • '}
 									{date_started}
 									{!allJobsCompleted && totalGroupTime && ' • '}

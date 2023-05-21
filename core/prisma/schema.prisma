@@ -385,8 +385,10 @@ model Job {
 
     parent_id Bytes?
 
-    task_count           Int       @default(1)
-    completed_task_count Int       @default(0)
+    task_count                   Int @default(1)
+    completed_task_count         Int @default(0)
+    estimated_remaining_seconds  Int @default(0)// Estimated remaining time in seconds
+
     date_created         DateTime  @default(now())
     date_started         DateTime? @default(now()) // Started execution
     date_completed       DateTime? @default(now()) // Finished execution

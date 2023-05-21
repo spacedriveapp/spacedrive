@@ -9,7 +9,7 @@ export function useJobTimeText(job: JobReport): string | null {
 	const elapsedTimeText = useMemo(() => {
 		let newText: string;
 		if (job.status === 'Running') {
-			newText = `Elapsed in ${dayjs(job.started_at).fromNow(true)}`;
+			newText = `${dayjs(job.started_at).fromNow(true)} so far`;
 		} else if (job.completed_at) {
 			newText = `Took ${dayjs(job.started_at).from(job.completed_at, true)}`;
 		} else {

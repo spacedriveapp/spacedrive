@@ -17,11 +17,13 @@ import { JobReport } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import './Job.scss';
 import { useJobTimeText } from './useJobTimeText';
+import useEstimatedTimeRemaining from './useEstimatedTimeRemaining';
+import dayjs from 'dayjs';
 
 interface JobNiceData {
 	name: string;
 	icon: React.ForwardRefExoticComponent<any>;
-	filesDiscovered: string;
+	subtext: string;
 }
 
 const getNiceData = (
@@ -35,9 +37,9 @@ const getNiceData = (
 				? `Indexed paths at ${job.metadata?.location_path} `
 				: `Processing added location...`,
 		icon: Folder,
-		filesDiscovered: `${numberWithCommas(
+		subtext: `${numberWithCommas(
 			job.metadata?.total_paths || 0
-		)} ${JobCountTextCondition(job, 'path')}`
+		)} ${appendPlural(job, 'path')}`
 	},
 	thumbnailer: {
 		name: `${job.status === 'Running' || job.status === 'Queued'
@@ -45,12 +47,12 @@ const getNiceData = (
 			: 'Generated thumbnails'
 			}`,
 		icon: Camera,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
+		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(job.task_count)} ${appendPlural(job, 'thumbnail')}`
 	},
 	shallow_thumbnailer: {
 		name: `Generating thumbnails for current directory`,
 		icon: Camera,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'item')}`
 	},
 	file_identifier: {
 		name: `${job.status === 'Running' || job.status === 'Queued'
@@ -58,14 +60,14 @@ const getNiceData = (
 			: 'Extracted metadata'
 			}`,
 		icon: Eye,
-		filesDiscovered:
+		subtext:
 			job.message ||
-			`${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
+			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(job, 'file')}`
 	},
 	object_validator: {
 		name: `Generated full object hashes`,
 		icon: Fingerprint,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(
 			job,
 			'object'
 		)}`
@@ -73,44 +75,34 @@ const getNiceData = (
 	file_encryptor: {
 		name: `Encrypted`,
 		icon: LockSimple,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_decryptor: {
 		name: `Decrypted`,
 		icon: LockSimpleOpen,
-		filesDiscovered: `${numberWithCommas(job.task_count)}${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)}${appendPlural(job, 'file')}`
 	},
 	file_eraser: {
 		name: `Securely erased`,
 		icon: TrashSimple,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_deleter: {
 		name: `Deleted`,
 		icon: Trash,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_copier: {
 		name: `Copied`,
 		icon: Copy,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_cutter: {
 		name: `Moved`,
 		icon: Scissors,
-		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'file')}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	}
 });
-
-const StatusColors: Record<JobReport['status'], string> = {
-	Running: 'text-blue-500',
-	Failed: 'text-red-500',
-	Completed: 'text-green-500',
-	CompletedWithErrors: 'text-orange-500',
-	Queued: 'text-yellow-500',
-	Canceled: 'text-gray-500',
-	Paused: 'text-gray-500'
-};
 
 interface JobProps {
 	job: JobReport;
@@ -119,15 +111,29 @@ interface JobProps {
 	isGroup?: boolean;
 }
 
+function formatEstimatedRemainingTime(seconds: number) {
+	const duration = dayjs.duration(seconds * 1000);
+
+	if (duration.hours() > 0) {
+		return `${duration.hours()} hour${duration.hours() > 1 ? 's' : ''} remaining`;
+	} else if (duration.minutes() > 0) {
+		return `${duration.minutes()} minute${duration.minutes() > 1 ? 's' : ''} remaining`;
+	} else {
+		return `${duration.seconds()} second${duration.seconds() > 1 ? 's' : ''} remaining`;
+	}
+}
+
 function Job({ job, clearJob, className, isGroup }: JobProps) {
 	const niceData = getNiceData(job, isGroup)[job.name] || {
 		name: job.name,
 		icon: Question,
-		filesDiscovered: job.name
+		subtext: job.name
 	};
 	const isRunning = job.status === 'Running';
 
-	const time = useJobTimeText(job);
+	// dayjs from seconds to time
+	// @ts-expect-error
+	const time = isRunning ? formatEstimatedRemainingTime(job.estimated_remaining_seconds.secs) : "";
 
 	return (
 		<li
@@ -151,7 +157,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<span className="truncate font-semibold">{niceData.name}</span>
 							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
-								{niceData.filesDiscovered}
+								{niceData.subtext}
 								{time && ' • '}
 								<span className="truncate">{time}</span>
 							</p>
@@ -186,7 +192,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	);
 }
 
-function JobCountTextCondition(job: JobReport, word: string) {
+function appendPlural(job: JobReport, word: string) {
 	const addStoEnd = job.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
 	return addStoEnd;
 }

@@ -67,6 +67,7 @@ pub struct Worker {
 	report: JobReport,
 	worker_events_tx: UnboundedSender<WorkerEvent>,
 	worker_events_rx: Option<UnboundedReceiver<WorkerEvent>>,
+	start_time: Option<Instant>,
 }
 
 impl Worker {
@@ -78,6 +79,7 @@ impl Worker {
 			report,
 			worker_events_tx,
 			worker_events_rx: Some(worker_events_rx),
+			start_time: None,
 		}
 	}
 
@@ -110,6 +112,8 @@ impl Worker {
 		if worker.report.started_at.is_none() {
 			worker.report.started_at = Some(Utc::now());
 		}
+
+		worker.start_time = Some(Instant::now());
 
 		// If the report doesn't have a created_at date, it's a new report
 		if worker.report.created_at.is_none() {
@@ -216,6 +220,20 @@ impl Worker {
 								worker.report.message = message;
 							}
 						}
+					}
+					// Calculate elapsed time
+					if let Some(start_time) = worker.start_time {
+						let elapsed = Instant::now() - start_time;
+
+						// Calculate remaining time
+						let task_count = worker.report.task_count as usize;
+						let completed_task_count = worker.report.completed_task_count as usize;
+						let remaining_task_count = task_count.saturating_sub(completed_task_count);
+						let remaining_time_per_task = elapsed / (completed_task_count + 1) as u32; // Adding 1 to avoid division by zero
+						let remaining_time = remaining_time_per_task * remaining_task_count as u32;
+
+						// Update the report with estimated remaining time
+						worker.report.estimated_remaining_seconds = remaining_time;
 					}
 
 					invalidate_query!(library, "jobs.getRunning");

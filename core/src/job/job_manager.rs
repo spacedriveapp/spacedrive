@@ -331,6 +331,7 @@ pub struct JobReport {
 	pub completed_task_count: i32,
 
 	pub message: String,
+	pub estimated_remaining_seconds: Duration,
 	// pub percentage_complete: f64,
 }
 
@@ -373,6 +374,9 @@ impl From<job::Data> for JobReport {
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			message: String::new(),
+			estimated_remaining_seconds: Duration::from_secs(
+				data.estimated_remaining_seconds as u64,
+			),
 		}
 	}
 }
@@ -395,6 +399,7 @@ impl JobReport {
 			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
+			estimated_remaining_seconds: Duration::from_secs(0),
 		}
 	}
 
