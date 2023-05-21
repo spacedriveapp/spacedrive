@@ -65,6 +65,12 @@ export const Document = defineDocumentType(() => ({
 			type: 'string',
 			description: 'Title of the document, if nothing is provided file name will be used'
 		},
+		description: {
+			type: 'string',
+			description: 'Used for SEO and social media sharing',
+			required: false,
+			default: ''
+		},
 		index: {
 			type: 'number',
 			default: 100,
@@ -82,19 +88,13 @@ export const Document = defineDocumentType(() => ({
 			type: 'string',
 			resolve: (p) =>
 				p.title
-					? toTitleCase(p.title).trim()
+					? toTitleCase(p.title)
 					: toTitleCase(
 							p._raw.flattenedPath
 								.replace(/^.+?(\/)/, '')
 								.split('/')
 								.slice(-1)[0]
-					  ).trim()
-		},
-		excerpt: {
-			type: 'string',
-			description: "Used for SEO and Open Graph 'description'",
-			resolve: (p) =>
-				p.body.raw.slice(0, 160).replaceAll(/\n/g, ' ').replaceAll(/#/g, '').trim()
+					  )
 		},
 		section: {
 			type: 'string',

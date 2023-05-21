@@ -72,19 +72,11 @@ export default function DocPage({
 	return (
 		<PageWrapper>
 			<Head>
-				<title>{doc.title} - Spacedrive Documentation</title>
-				<meta name="description" content={doc.excerpt} />
+				<title>{`${doc.title} - Spacedrive Documentation`}</title>
+				<meta name="description" content={doc.description} />
 				<meta property="og:title" content={doc.title} />
-				<meta property="og:description" content={doc.excerpt} />
-				{/* <meta property="og:image" content={featured_image} /> */}
-				{/* <meta content="summary_large_image" name="twitter:card" /> */}
-				{/* <meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
-				<link
-					rel="stylesheet"
-					href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css"
-					integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI7mLTdk1wblIUnrIq35nqwEvC"
-					crossOrigin="anonymous"
-				/>
+				<meta property="og:description" content={doc.description} />
+				<meta name="author" content={'Spacedrive Technology Inc.'} />
 			</Head>
 
 			<DocsLayout docUrl={doc.url} navigation={navigation}>
