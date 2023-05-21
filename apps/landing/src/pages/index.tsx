@@ -2,6 +2,7 @@ import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import AppEmbed from '~/components/AppEmbed';
 import { Bubbles } from '~/components/Bubbles';
@@ -47,38 +48,38 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 export default function HomePage() {
 	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
 
+	const router = useRouter();
+
 	useEffect(() => {
 		if (!getWindow()) return;
+		const cuid = router.query.wunsub;
+		if (!cuid) return;
+		(async () => {
+			console.log('Unsubscribing from waitlist', process.env.NODE_ENV);
+			const prod = process.env.NODE_ENV === 'production';
+			const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
 
-		// TODO: FIX THIS
-		// const cuid = urlParsed.search?.['wunsub'];
-		// if (!cuid) return;
+			const req = await fetch(`${url}/api/waitlist?i=${cuid}`, {
+				method: 'DELETE'
+			});
 
-		// (async () => {
-		// 	const prod = process.env.NODE_ENV === 'production'
-		// 	const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
+			if (req.status === 200) {
+				setUnsubscribedFromWaitlist(true);
+				window.history.replaceState(
+					{},
+					'',
+					prod ? 'https://spacedrive.com' : 'http://localhost:8003'
+				);
 
-		// 	const req = await fetch(`${url}/api/waitlist?i=${cuid}`, {
-		// 		method: 'DELETE'
-		// 	});
+				setTimeout(() => {
+					setUnsubscribedFromWaitlist(false);
+				}, 5000);
+			} else if (req.status >= 400 && req.status < 500) {
+				alert('An error occurred while unsubscribing from waitlist');
+			}
+		})();
+	}, [router.query.wunsub]);
 
-		// 	if (req.status === 200) {
-		// 		setUnsubscribedFromWaitlist(true);
-		// 		window.history.replaceState(
-		// 			{},
-		// 			'',
-		// 			prod ? 'https://spacedrive.com' : 'http://localhost:8003'
-		// 		);
-
-		// 		setTimeout(() => {
-		// 			setUnsubscribedFromWaitlist(false);
-		// 		}, 5000);
-		// 	} else if (req.status >= 400 && req.status < 500) {
-		// 		alert('An error occurred while unsubscribing from waitlist');
-		// 	}
-		// })();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
 	return (
 		<PageWrapper>
 			<div className="flex w-full flex-col items-center px-4">
