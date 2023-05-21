@@ -2,9 +2,8 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks';
-import DeleteDialog from '../Explorer/File/DeleteDialog';
+import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -29,6 +28,13 @@ interface Props {
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
+	const selectedItem = useMemo(() => {
+		if (selectedRowIndex === null) return null;
+
+		return props.items?.[selectedRowIndex] ?? null;
+	}, [selectedRowIndex, props.items]);
+
+	useKeyDeleteFile(selectedItem, expStore.locationId);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
@@ -47,30 +53,10 @@ export default function Explorer(props: Props) {
 		getExplorerStore().selectedRowIndex = null;
 	}, [path]);
 
-	const selectedItem = useMemo(() => {
-		if (selectedRowIndex === null) return null;
-
-		return props.items?.[selectedRowIndex] ?? null;
-	}, [selectedRowIndex, props.items]);
-
 	useKey('Space', (e) => {
 		e.preventDefault();
 
 		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
-	});
-
-	useKey('Delete', (e) => {
-		e.preventDefault();
-
-		if (!selectedItem) return;
-
-		dialogManager.create((dp) => (
-			<DeleteDialog
-				{...dp}
-				location_id={selectedItem.item.location_id}
-				path_id={selectedItem.item.id}
-			/>
-		));
 	});
 
 	return (

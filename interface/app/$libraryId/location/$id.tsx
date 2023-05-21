@@ -2,12 +2,13 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import {
+	ExplorerItem,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Folder, dialogManager } from '@sd/ui';
+import { Folder } from '@sd/ui';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -18,6 +19,7 @@ import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
+import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -35,13 +37,15 @@ export const Component = () => {
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = getExplorerStore();
-
 	useEffect(() => {
 		explorerStore.locationId = location_id;
 		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
 	}, [explorerStore, location_id, path, quickRescan]);
 
 	const { query, items } = useItems();
+	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
+	useKeyDeleteFile(file as ExplorerItem, location_id)
+
 
 	return (
 		<>
@@ -60,7 +64,7 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex w-full flex-col">
+			<div className="relative flex flex-col w-full">
 				<Explorer
 					items={items}
 					onLoadMore={query.fetchNextPage}
