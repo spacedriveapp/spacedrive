@@ -40,7 +40,7 @@ export default () => {
 			))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
-				label="	New Library"
+				label="New Library"
 				icon={Plus}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => dialogManager.create((dp) => <CreateDialog {...dp} />)}

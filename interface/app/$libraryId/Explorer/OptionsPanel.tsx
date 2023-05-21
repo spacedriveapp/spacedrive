@@ -17,7 +17,8 @@ const sortOptions: Record<ExplorerOrderByKeys, string> = {
 	sizeInBytes: 'Size',
 	dateCreated: 'Date created',
 	dateModified: 'Date modified',
-	dateIndexed: 'Date indexed'
+	dateIndexed: 'Date indexed',
+	object: 'Object'
 };
 
 export default () => {
