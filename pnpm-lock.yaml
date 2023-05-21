@@ -32,8 +32,8 @@ importers:
         specifier: ^0.2.6
         version: 0.2.6(@trivago/prettier-plugin-sort-imports@4.1.1)(prettier@2.8.7)
       rimraf:
-        specifier: ^4.3
-        version: 4.3.0
+        specifier: ^4.3.1
+        version: 4.3.1
       turbo:
         specifier: ^1.9.3
         version: 1.9.3
@@ -3536,7 +3536,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@4.9.4)
       typescript: 4.9.4
-      vite: 4.2.0(@types/node@18.15.11)(sass@1.55.0)
+      vite: 4.2.0(less@4.1.3)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -5860,7 +5860,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.21.7
       typescript: 4.9.4
-      vite: 4.2.0(@types/node@18.15.11)(sass@1.55.0)
+      vite: 4.2.0(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -6321,7 +6321,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.2.0(@types/node@18.15.11)(sass@1.55.0)
+      vite: 4.2.0(less@4.1.3)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -6620,7 +6620,7 @@ packages:
       tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.1.8(postcss@8.4.17)
+      tailwindcss: 3.1.8(postcss@8.4.23)
     dev: false
 
   /@tailwindcss/line-clamp@0.4.2(tailwindcss@3.1.8):
@@ -16751,10 +16751,9 @@ packages:
     dependencies:
       glob: 7.2.3
 
-  /rimraf@4.3.0:
-    resolution: {integrity: sha512-5qVDXPbByA1qSJEWMv1qAwKsoS22vVpsL2QyxCKBw4gf6XiFo1K3uRLY6uSOOBFDwnqAZtnbILqWKKlzh8bkGg==}
+  /rimraf@4.3.1:
+    resolution: {integrity: sha512-GfHJHBzFQra23IxDzIdBqhOWfbtdgS1/dCHrDy+yvhpoJY5TdwdT28oWaHWfRpKFDLd3GZnGTx6Mlt4+anbsxQ==}
     engines: {node: '>=14'}
-    deprecated: Please upgrade to 4.3.1 or higher to fix a potentially damaging issue regarding symbolic link following. See https://github.com/isaacs/rimraf/issues/259 for details.
     hasBin: true
     dependencies:
       glob: 9.3.5
