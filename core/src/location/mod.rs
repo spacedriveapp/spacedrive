@@ -433,25 +433,26 @@ pub async fn light_scan_location(
 	}
 
 	let location_base_data = location::Data::from(&location);
-
+	// removed grouping for background jobs, they don't need to be grouped as only running ones are shown to the user
 	library
-		.spawn_job(
-			Job::new_with_action(
-				ShallowIndexerJobInit {
-					location,
-					sub_path: sub_path.clone(),
-				},
-				"light_scan_location",
-			)
-			.queue_next(ShallowFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: sub_path.clone(),
-			})
-			.queue_next(ShallowThumbnailerJobInit {
-				location: location_base_data,
-				sub_path,
-			}),
-		)
+		.spawn_job(ShallowIndexerJobInit {
+			location,
+			sub_path: sub_path.clone(),
+		})
+		.await
+		.unwrap_or(());
+	library
+		.spawn_job(ShallowFileIdentifierJobInit {
+			location: location_base_data.clone(),
+			sub_path: sub_path.clone(),
+		})
+		.await
+		.unwrap_or(());
+	library
+		.spawn_job(ShallowThumbnailerJobInit {
+			location: location_base_data.clone(),
+			sub_path: sub_path.clone(),
+		})
 		.await
 }
 

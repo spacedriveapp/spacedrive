@@ -81,14 +81,14 @@ export function JobsManager() {
 				</PopoverClose>
 			</div>
 			<div className="no-scrollbar h-full overflow-x-hidden">
+				{runningIndividualJobs?.map((job) => (
+					<Job key={job.id} job={job} />
+				))}
 				{groupedJobs.map((data) => (
 					<JobGroup key={data.id} data={data} clearJob={clearJobHandler} />
 				))}
 				{orphanJobs?.map((job) => (
 					<Job key={job?.id} job={job} />
-				))}
-				{runningIndividualJobs?.map((job) => (
-					<Job key={job.id} job={job} />
 				))}
 				{individualJobs?.map((job) => (
 					<Job clearJob={clearJobHandler} key={job.id} job={job} />

@@ -20,6 +20,7 @@ interface Props {
 	children?: ReactNode;
 	inspectorClassName?: string;
 	explorerClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -63,6 +64,7 @@ export default function Explorer(props: Props) {
 					<ExplorerContextMenu>
 						{props.items && (
 							<View
+								scrollRef={props.scrollRef}
 								data={props.items}
 								onLoadMore={props.onLoadMore}
 								hasNextPage={props.hasNextPage}

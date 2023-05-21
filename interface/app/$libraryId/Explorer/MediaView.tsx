@@ -32,8 +32,8 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 		>
 			<div
 				className={clsx(
-					'group relative flex aspect-square items-center justify-center hover:bg-app-selected/20',
-					selected && 'bg-app-selected/20'
+					'hover:bg-app-selectedItem group relative flex aspect-square items-center justify-center',
+					selected && 'bg-app-selectedItem'
 				)}
 			>
 				<FileThumb
@@ -82,7 +82,7 @@ export default () => {
 		measureElement: () => itemSize,
 		paddingStart: gridPadding,
 		paddingEnd: gridPadding,
-		overscan: !dismissibleNoticeStore.mediaView ? 2 : 1
+		overscan: !dismissibleNoticeStore.mediaView ? 8 : 4
 	});
 
 	const columnVirtualizer = useVirtualizer({

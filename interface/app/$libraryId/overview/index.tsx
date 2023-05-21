@@ -1,3 +1,4 @@
+import * as icons from '@sd/assets/icons';
 import { getIcon, iconNames } from '@sd/assets/icons/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -15,7 +16,8 @@ import { useExplorerStore, useExplorerTopBarOptions, useIsDark } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
-import TopBarChildren from '../TopBar/TopBarChildren';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import CategoryButton from '../overview/CategoryButton';
 import Statistics from '../overview/Statistics';
 
@@ -62,7 +64,13 @@ export const Component = () => {
 	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
 
 	// TODO: integrate this into search query
-	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
+	const recentFiles = useLibraryQuery([
+		'search.paths',
+		{
+			order: { object: { dateAccessed: false } },
+			take: 50
+		}
+	]);
 	// this should be redundant once above todo is complete
 	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
 
@@ -85,12 +93,12 @@ export const Component = () => {
 					favorite: isFavoritesCategory ? true : undefined,
 					...(explorerStore.layoutMode === 'media'
 						? {
-								kind: [5, 7].includes(kind)
-									? [kind]
-									: isFavoritesCategory
+							kind: [5, 7].includes(kind)
+								? [kind]
+								: isFavoritesCategory
 									? [5, 7]
 									: [5, 7, kind]
-						  }
+						}
 						: { kind: isFavoritesCategory ? [] : [kind] })
 				}
 			}
@@ -111,7 +119,7 @@ export const Component = () => {
 	let items: ExplorerItem[] = [];
 	switch (selectedCategory) {
 		case 'Recents':
-			items = recentFiles.data || [];
+			items = recentFiles.data?.items || [];
 			break;
 		default:
 			if (canSearch) {
@@ -121,19 +129,25 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren
-				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			<TopBarPortal
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
 			/>
 			<Explorer
-				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
+				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px]  !w-[260px]"
+				explorerClassName="!overflow-visible" // required to ensure categories are sticky, remove with caution
 				viewClassName="!pl-0 !pt-0 !h-auto"
 				items={items}
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
+				scrollRef={page?.ref}
 			>
 				<Statistics />
-				<div className="no-scrollbar sticky top-0 z-50 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
+				<div className="no-scrollbar sticky top-0 z-10 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
 						return (
