@@ -81,7 +81,7 @@ http-range = "0.1.5"
 mini-moka = "0.10.0"
 serde_with = "2.2.0"
 dashmap = { version = "5.4.0", features = ["serde"] }
-notify = { version = "5.0.0", default-features = false, features = [
+notify = { version = "5.2.0", default-features = false, features = [
 	"macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
