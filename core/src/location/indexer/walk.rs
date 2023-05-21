@@ -651,7 +651,7 @@ mod tests {
 	use globset::{Glob, GlobSetBuilder};
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
-	use tracing_test::traced_test;
+	// use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {
 		fn eq(&self, other: &Self) -> bool {
