@@ -140,6 +140,8 @@ export type FilePathSearchArgs = { locationId?: number | null; afterFileId?: str
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
+export type GetArgs = { id: number }
+
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 /**
@@ -161,8 +163,6 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
-
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
 /**
@@ -176,8 +176,6 @@ export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-export type SetFavoriteArgs = { id: number; favorite: boolean }
-
 /**
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
  * It contains the id of the location to be updated, possible a name to change the current location's name
@@ -187,6 +185,8 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
@@ -201,8 +201,6 @@ export type Salt = number[]
 
 export type ObjectSearchArgs = { take?: number | null; tagId?: number | null; cursor?: number[] | null }
 
-export type SetNoteArgs = { id: number; note: string | null }
-
 /**
  * TODO: P2P event for the frontend
  */
@@ -213,6 +211,8 @@ export type FilePathSearchOrdering = { name: boolean } | { sizeInBytes: boolean 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
+
+export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
@@ -228,6 +228,8 @@ export type IdentifyUniqueFilesArgs = { id: number; path: string }
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
 export type ObjectSearchOrdering = { dateAccessed: boolean }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
@@ -264,8 +266,6 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
 export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
-
-export type GetArgs = { id: number }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
