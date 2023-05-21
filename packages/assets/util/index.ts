@@ -1,4 +1,4 @@
-import * as icons from '.';
+import * as icons from '../icons';
 
 // Record is defined as follows inside TypeScript
 export type IconTypes<K = keyof typeof icons> = K extends `${string}_${string}` ? never : K;

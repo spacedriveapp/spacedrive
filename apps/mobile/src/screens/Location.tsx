@@ -29,7 +29,7 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 				title: location.data?.name ?? 'Location'
 			});
 		}
-	}, [data, navigation, path]);
+	}, [location.data?.name, navigation, path]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;

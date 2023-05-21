@@ -20,9 +20,10 @@ When a Location is added it is immediately scanned. The scan happens via several
 
 If any one of these jobs fail or the application is closed, the state is saved and it will resume when the app is relaunched.
 
-::: slot info
-If you wish to pause or cancel these jobs you can do so from the [Job Manager]()
-:::
+<Notice
+	type="info"
+	text="If you wish to pause or cancel these jobs you can do so from the [Job Manager]()"
+/>
 
 There is a button to trigger a full re-scan of this Location. Otherwise the location will keep watch for filesystem changes automatically.
 
@@ -30,10 +31,11 @@ Deleting a location will remove the data from the database permanently.
 
 ## Archiving
 
-::: slot warning
-This feature is WIP
-:::
-Locations can be archived, meaning the directory structure is extracted from the Spacedrive database and preserved as a standalone database file. This file can be opened by Spacedrive in the [Database]() view.
+<Notice type="warning" text="This feature is WIP" />
+
+Locations can be archived, meaning the directory structure is extracted from the Spacedrive database
+and preserved as a standalone database file. This file can be opened by Spacedrive in the [Database]()
+view.
 
 Archives are useful when files have been moved or deleted from a Location, but you want to keep a record of the directory structure of that Location without cluttering the Spacedrive interface. File metadata can optionally be included/excluded from the archive file.
 
