@@ -98,12 +98,12 @@ export default function DocPage({
 							</BottomCard>
 						</Link>
 						{nextDoc && (
-							<a href={nextDoc.url} className="w-full">
+							<Link href={nextDoc.url} className="w-full">
 								<BottomCard>
 									<CaretRight className="mr-3 w-5" />
 									Next article: {nextDoc.title}
 								</BottomCard>
-							</a>
+							</Link>
 						)}
 					</div>
 				</Markdown>

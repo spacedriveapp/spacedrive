@@ -137,16 +137,16 @@ export default function NavBar() {
 				</Dropdown.Root>
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
-					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
+					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<SiDiscord className="text-white" />
-					</a>
-					<a
+					</Link>
+					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
 						<SiGithub className="text-white" />
-					</a>
+					</Link>
 				</div>
 			</div>
 		</div>

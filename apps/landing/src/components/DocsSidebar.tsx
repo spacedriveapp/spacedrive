@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import Link from 'next/link';
 import { SearchInput } from '@sd/ui';
 import { DocsNavigation, iconConfig } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
@@ -28,7 +29,7 @@ export default function DocsSidebar(props: DocsSidebarProps) {
 					const isActive = section.slug === activeSection;
 					const Icon = iconConfig[section.slug];
 					return (
-						<a
+						<Link
 							// Use the first page in the section as the link
 							href={section.categories[0]?.docs[0]?.url}
 							key={section.slug}
@@ -46,7 +47,7 @@ export default function DocsSidebar(props: DocsSidebarProps) {
 								<Icon weight="bold" className="h-4 w-4 text-white opacity-80" />
 							</div>
 							{toTitleCase(section.slug)}
-						</a>
+						</Link>
 					);
 				})}
 			</div>
@@ -65,7 +66,7 @@ export default function DocsSidebar(props: DocsSidebarProps) {
 										)}
 										key={doc.title}
 									>
-										<a
+										<Link
 											href={doc.url}
 											className={clsx(
 												'w-full rounded px-3 py-1 text-[14px] font-normal text-gray-350 no-underline hover:text-gray-50',
@@ -73,7 +74,7 @@ export default function DocsSidebar(props: DocsSidebarProps) {
 											)}
 										>
 											{doc.title}
-										</a>
+										</Link>
 										{/* this fixes the links no joke */}
 										{active && <div />}
 									</li>

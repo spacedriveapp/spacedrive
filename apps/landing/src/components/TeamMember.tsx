@@ -1,6 +1,7 @@
 import { SiDribbble, SiGithub, SiTwitch, SiTwitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import Image from 'next/image';
+import NextLink from 'next/link';
 import { PropsWithChildren } from 'react';
 
 export interface TeamMemberProps {
@@ -31,14 +32,14 @@ interface LinkProps {
 
 function Link(props: PropsWithChildren<LinkProps>) {
 	return (
-		<a
+		<NextLink
 			className="duration-300 hover:scale-105 hover:opacity-80"
 			href={props.href}
 			rel="noreferrer"
 			target="_blank"
 		>
 			{props.children}
-		</a>
+		</NextLink>
 	);
 }
 

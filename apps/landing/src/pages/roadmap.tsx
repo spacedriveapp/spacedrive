@@ -200,7 +200,9 @@ export default function RoadmapPage() {
 					<h2 className="my-1">That's not all.</h2>
 					<p>
 						We're always open to ideas and feedback over{' '}
-						<a href="https://github.com/spacedriveapp/spacedrive/discussions">here</a>{' '}
+						<Link href="https://github.com/spacedriveapp/spacedrive/discussions">
+							here
+						</Link>{' '}
 						and we have a <Link href="/blog">blog</Link> where you can find the latest
 						news and updates.
 					</p>

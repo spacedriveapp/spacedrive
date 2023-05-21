@@ -1,8 +1,10 @@
+import Link from 'next/link';
 import { CaretRight, List, X } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { slide as Menu } from 'react-burger-menu';
 import { Button } from '@sd/ui';
 import { DocsNavigation } from '~/utils/contentlayer';
+import { toTitleCase } from '~/utils/util';
 import DocsSidebar from './DocsSidebar';
 
 type DocsLayoutProps = {
@@ -50,7 +52,7 @@ export default function DocsLayout(props: PropsWithChildren<DocsLayoutProps>) {
 						if (index === 2) return null;
 						return (
 							<div key={index} className="ml-2 flex flex-row items-center">
-								<a className="px-1 text-sm">{item}</a>
+								<span className="px-1 text-sm">{toTitleCase(item)}</span>
 								{index < 1 && <CaretRight className="-mr-2 ml-1 h-4 w-4" />}
 							</div>
 						);

@@ -258,14 +258,14 @@ export default function TeamPage() {
 							</div>
 							<p className="text-sm text-gray-400">
 								... and all the awesome{' '}
-								<a
+								<Link
 									href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 									target="_blank"
 									rel="noreferrer"
 									className="oss-credit-gradient duration-200 hover:opacity-75"
 								>
 									open source contributors
-								</a>{' '}
+								</Link>{' '}
 								on GitHub.
 							</p>
 							<h2
