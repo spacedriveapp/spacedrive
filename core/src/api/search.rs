@@ -119,7 +119,7 @@ impl ObjectSearchOrdering {
 		.unwrap_or(SortOrder::Desc)
 	}
 
-	fn to_param(self) -> object::OrderByWithRelationParam {
+	fn to_param(&self) -> object::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use object::*;
 		match self {
