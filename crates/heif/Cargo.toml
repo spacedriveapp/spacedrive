@@ -8,6 +8,5 @@ edition.workspace = true
 
 [dependencies]
 libheif-rs = "0.19.2"
-png = "0.17.8"
-thiserror = "1.0.40"
 image = "0.24.6"
+thiserror = "1.0.40"

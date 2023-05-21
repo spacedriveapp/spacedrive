@@ -6,7 +6,6 @@ use std::{
 
 use image::DynamicImage;
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
-use png::{BitDepth, ColorType};
 use thiserror::Error;
 
 type HeifResult<T> = Result<T, HeifError>;
@@ -20,12 +19,12 @@ const HEIF_MAXIMUM_FILE_SIZE: u64 = 1048576 * 20;
 pub enum HeifError {
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
-	#[error("error while encoding to png: {0}")]
-	PngEncode(#[from] png::EncodingError),
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),
 	#[error("io error: {0}")]
 	Io(#[from] std::io::Error),
+	#[error("there was an error while converting the image to an `RgbImage`")]
+	RgbImageConversion,
 	#[error("the image provided is unsupported")]
 	Unsupported,
 	#[error("the image provided is too large (over 20MiB)")]
@@ -53,6 +52,10 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 	// TODO(brxken128): add support for images with individual r/g/b channels
 	// i'm unable to find a sample to test with, but it should follow the same principles as this one
 	if let Some(i) = img.planes().interleaved {
+		if i.bits_per_pixel != 8 {
+			return Err(HeifError::InvalidBitDepth);
+		}
+
 		let data = i.data.to_vec();
 		let mut reader = Cursor::new(data);
 
@@ -70,19 +73,10 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 			}
 		}
 
-		let mut writer = Cursor::new(vec![]);
+		let rgb_img = image::RgbImage::from_raw(img.width(), img.height(), sequence)
+			.ok_or(HeifError::RgbImageConversion)?;
 
-		let mut png_encoder = png::Encoder::new(&mut writer, i.width, i.height);
-		png_encoder.set_color(ColorType::Rgb);
-		png_encoder
-			.set_depth(BitDepth::from_u8(i.bits_per_pixel).ok_or(HeifError::InvalidBitDepth)?);
-
-		let mut png_writer = png_encoder.write_header()?;
-		png_writer.write_image_data(&sequence)?;
-		png_writer.finish()?;
-
-		image::load_from_memory_with_format(&writer.into_inner(), image::ImageFormat::Png)
-			.map_err(HeifError::Image)
+		Ok(DynamicImage::ImageRgb8(rgb_img))
 	} else {
 		Err(HeifError::Unsupported)
 	}

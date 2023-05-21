@@ -1,3 +1,13 @@
+:root {
+	--border-color: rgba(50, 51, 67, 1);
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--border-color: rgba(50, 51, 67, 0.192); // Use lighter color for light mode
+	}
+}
+
 ul.groupedjob {
 	position: relative;
 	&::before {
@@ -6,7 +16,7 @@ ul.groupedjob {
 		top: 37px;
 		height: 48.75px;
 		width: 11px;
-		border-left: 1px solid rgba(50, 51, 67, 1);
+		border-left: 1px solid var(--border-color);
 		content: '';
 		left: 25px;
 	}
@@ -26,7 +36,7 @@ ul.groupedjob {
 			height: 37.5px;
 			top: 0;
 			width: 10px;
-			border-left: 1px solid rgba(50, 51, 67, 1);
+			border-left: 1px solid var(--border-color);
 			content: '';
 			left: 25px;
 		}
@@ -36,10 +46,10 @@ ul.groupedjob {
 		top: 23.5px;
 		height: 1em;
 		width: 10px;
-		border-bottom: 1px solid rgba(50, 51, 67, 1);
+		border-bottom: 1px solid var(--border-color);
 		content: '';
 		display: inline-block;
-		left: 10px;
+		left: -14px;
 	}
 	&::after {
 		position: absolute;
@@ -47,7 +57,7 @@ ul.groupedjob {
 		height: 100%;
 		top: 0;
 		width: 10px;
-		border-left: 1px solid rgba(50, 51, 67, 1);
+		border-left: 1px solid var(--border-color);
 		content: '';
 		left: 25px;
 	}

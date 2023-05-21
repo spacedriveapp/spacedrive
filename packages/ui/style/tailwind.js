@@ -70,6 +70,7 @@ module.exports = function (app, options) {
 						divider: alpha('--color-app-divider'),
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
+						selectedItem: alpha('--color-app-selected-item'),
 						hover: alpha('--color-app-hover'),
 						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),

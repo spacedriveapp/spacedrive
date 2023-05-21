@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { MacTrafficLights, NavigationButtons } from '~/components';
+import { MacTrafficLights } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import Contents from './Contents';
 import Footer from './Footer';
@@ -18,11 +18,7 @@ export default () => {
 			)}
 		>
 			{showControls && <MacTrafficLights className="absolute left-[13px] top-[13px] z-50" />}
-			{(os !== 'browser' || showControls) && (
-				<div className="mt-[-4px] flex justify-end">
-					<NavigationButtons />
-				</div>
-			)}
+			{os === 'macOS' && <div data-tauri-drag-region className="h-5 w-full" />}
 			<LibrariesDropdown />
 			<Contents />
 			<Footer />
