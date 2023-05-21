@@ -16,9 +16,9 @@
 	trivial_numeric_casts,
 	unused_allocation,
 	clippy::as_conversions,
-	clippy::dbg_macro,
-	unsafe_code
+	clippy::dbg_macro
 )]
+#![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 

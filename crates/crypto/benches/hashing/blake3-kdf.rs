@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use sd_crypto::{
 	hashing::Hasher,
 	types::{DerivationContext, Key, Salt},
@@ -11,11 +11,7 @@ fn bench(c: &mut Criterion) {
 	let key = Key::generate();
 	let salt = Salt::generate();
 	c.bench_function("blake3-kdf", |b| {
-		b.iter_batched(
-			|| (key.clone(), salt),
-			|(key, salt)| Hasher::derive_key(key, salt, CONTEXT),
-			BatchSize::LargeInput,
-		)
+		b.iter(|| Hasher::derive_key(&key, salt, CONTEXT))
 	});
 }
 

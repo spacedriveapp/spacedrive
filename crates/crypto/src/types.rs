@@ -446,6 +446,14 @@ impl Salt {
 	}
 }
 
+impl TryFrom<Vec<u8>> for Salt {
+	type Error = Error;
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		Ok(Self::new(value.to_array()?))
+	}
+}
+
 impl Display for HashingAlgorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
