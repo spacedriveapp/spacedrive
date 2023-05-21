@@ -1,6 +1,6 @@
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { SmileyXEyes } from 'phosphor-react';
-import { Helmet } from 'react-helmet';
 import { Button } from '@sd/ui';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
@@ -10,9 +10,9 @@ export default function Custom404Page() {
 	return (
 		<PageWrapper>
 			<Markdown classNames="flex w-full justify-center">
-				<Helmet>
+				<Head>
 					<title>Not Found - Spacedrive</title>
-				</Helmet>
+				</Head>
 				<div className="m-auto flex flex-col items-center ">
 					<div className="h-32" />
 					<SmileyXEyes className="mb-3 h-44 w-44" />

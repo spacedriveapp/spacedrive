@@ -1,8 +1,8 @@
 import { allPosts } from '@contentlayer/generated';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
+import Head from 'next/head';
 import Image from 'next/image';
-import { Helmet } from 'react-helmet';
 import { BlogTag } from '~/components/BlogTag';
 import PageWrapper from '~/components/PageWrapper';
 import { BlogMDXComponents } from '~/components/mdx';
@@ -39,7 +39,7 @@ export default function PostPage({ post }: InferGetStaticPropsType<typeof getSta
 
 	return (
 		<PageWrapper>
-			<Helmet>
+			<Head>
 				<title>{post.title} - Spacedrive Blog</title>
 				<meta name="description" content={description} />
 				<meta property="og:title" content={post.title} />
@@ -47,7 +47,7 @@ export default function PostPage({ post }: InferGetStaticPropsType<typeof getSta
 				<meta property="og:image" content={post.image} />
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post.author} />
-			</Helmet>
+			</Head>
 			<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 max-w-4xl p-4 pt-14">
 				<>
 					<figure>
@@ -75,17 +75,7 @@ export default function PostPage({ post }: InferGetStaticPropsType<typeof getSta
 							))}
 						</div>
 					</section>
-					<article
-						id="content"
-						className="text-lg"
-						// TODO: Replace all links with target="_blank" rel="noreferrer" (via plugin)
-						// dangerouslySetInnerHTML={{
-						// 	__html: post.html?.replaceAll(
-						// 		'<a href=',
-						// 		`<a target="_blank" rel="noreferrer" href=`
-						// 	) as string
-						// }}
-					>
+					<article id="content" className="text-lg">
 						<MDXContent components={BlogMDXComponents} />
 					</article>
 				</>

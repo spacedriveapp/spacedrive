@@ -1,10 +1,18 @@
 import { defineDocumentType, makeSource } from '@contentlayer/source-files';
 import readingTime from 'reading-time';
+// support for anchor links
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+// adds rel to external links
+import rehypeExternalLinks from 'rehype-external-links';
+// support for math
 import rehypeKatex from 'rehype-katex';
+// support for code syntax highlighting
 import rehypePrism from 'rehype-prism-plus';
+// adds slug to headings
 import rehypeSlug from 'rehype-slug';
+// support for github flavored markdown
 import remarkGfm from 'remark-gfm';
+// support for math
 import remarkMath from 'remark-math';
 
 // Blog
@@ -99,7 +107,13 @@ export default makeSource({
 	documentTypes: [Post, Document],
 	mdx: {
 		remarkPlugins: [remarkGfm, remarkMath],
-		rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings, rehypeKatex, rehypePrism]
+		rehypePlugins: [
+			rehypeSlug,
+			rehypeAutolinkHeadings,
+			rehypeKatex,
+			rehypePrism,
+			rehypeExternalLinks
+		]
 	}
 });
 

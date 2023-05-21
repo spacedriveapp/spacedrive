@@ -1,8 +1,8 @@
 import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
+import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import AppEmbed from '~/components/AppEmbed';
 import { Bubbles } from '~/components/Bubbles';
 import HomeCTA from '~/components/HomeCTA';
@@ -82,7 +82,7 @@ export default function HomePage() {
 	return (
 		<PageWrapper>
 			<div className="flex w-full flex-col items-center px-4">
-				<Helmet>
+				<Head>
 					<title>Spacedrive — A file manager from the future.</title>
 					<meta
 						name="description"
@@ -97,7 +97,7 @@ export default function HomePage() {
 						content="files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem"
 					/>
 					<meta name="author" content="Spacedrive Technology Inc." />
-				</Helmet>
+				</Head>
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-5" />
 				<NewBanner

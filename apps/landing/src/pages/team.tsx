@@ -1,6 +1,6 @@
+import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowRight } from 'phosphor-react';
-import { Helmet } from 'react-helmet';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
 import { TeamMember, TeamMemberProps } from '~/components/TeamMember';
@@ -217,10 +217,10 @@ export default function TeamPage() {
 	return (
 		<PageWrapper>
 			<Markdown articleClassNames="mx-auto mt-32 prose-a:text-white">
-				<Helmet>
+				<Head>
 					<title>Our Team - Spacedrive</title>
 					<meta name="description" content="Who's behind Spacedrive?" />
-				</Helmet>
+				</Head>
 				<div className="team-page relative mx-auto">
 					<div
 						className="bloom subtle egg-bloom-one -top-60 right-[-400px]"

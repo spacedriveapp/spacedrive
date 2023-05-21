@@ -1,7 +1,7 @@
 import clsx from 'clsx';
+import Head from 'next/head';
 import Link from 'next/link';
 import { Fragment } from 'react';
-import { Helmet } from 'react-helmet';
 import PageWrapper from '~/components/PageWrapper';
 
 const items = [
@@ -122,10 +122,10 @@ const items = [
 export default function RoadmapPage() {
 	return (
 		<PageWrapper>
-			<Helmet>
+			<Head>
 				<title>Roadmap - Spacedrive</title>
 				<meta name="description" content="What can Spacedrive do?" />
-			</Helmet>
+			</Head>
 			<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
 				<section className="flex flex-col items-center">
 					{/* ??? why img tag */}

@@ -164,9 +164,6 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
-      react-helmet:
-        specifier: ^6.1.0
-        version: 6.1.0(react@18.2.0)
       react-hook-form:
         specifier: ^7.43.9
         version: 7.43.9(react@18.2.0)
@@ -179,6 +176,9 @@ importers:
       rehype-autolink-headings:
         specifier: ^6.1.1
         version: 6.1.1
+      rehype-external-links:
+        specifier: ^2.1.0
+        version: 2.1.0
       rehype-katex:
         specifier: ^6.0.3
         version: 6.0.3
@@ -13164,6 +13164,11 @@ packages:
     resolution: {integrity: sha512-opmNIX7uFnS96NtPmhWQgQx6/NYFgsUXYMllcfzwWKUMwfo8kku1TvE6hkNcH+Q1ts5cMVrsY7j0bxXQDciu9Q==}
     engines: {node: '>=8'}
 
+  /is-absolute-url@4.0.1:
+    resolution: {integrity: sha512-/51/TKE88Lmm7Gc4/8btclNXWS+g50wXhYJq8HWIBAGUBnoAdRu1aXeh364t/O7wXDAcTJDP8PNuNKWUDWie+A==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    dev: false
+
   /is-accessor-descriptor@0.1.6:
     resolution: {integrity: sha512-e1BM1qnDbMRG3ll2U9dSK0UMHuWOs3pY3AtcFsmvwPtKL3MML/Q86i+GilLfvqEs4GW+ExB91tQ3Ig9noDIZ+A==}
     engines: {node: '>=0.10.0'}
@@ -17557,10 +17562,6 @@ packages:
       react: 18.2.0
     dev: false
 
-  /react-fast-compare@3.2.2:
-    resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
-    dev: false
-
   /react-freeze@1.0.3(react@18.2.0):
     resolution: {integrity: sha512-ZnXwLQnGzrDpHBHiC56TXFXvmolPeMjTn1UOm610M4EXGzbEDR7oOIyS2ZiItgbs6eZc4oU/a0hpk8PrcKvv5g==}
     engines: {node: '>=10'}
@@ -17568,18 +17569,6 @@ packages:
       react: '>=17.0.0'
     dependencies:
       react: 18.2.0
-    dev: false
-
-  /react-helmet@6.1.0(react@18.2.0):
-    resolution: {integrity: sha512-4uMzEY9nlDlgxr61NL3XbKRy1hEkXmKNXhjbAIOVw5vcFrsdYbH2FEwcNyWvWinl103nXgzYNlns9ca+8kFiWw==}
-    peerDependencies:
-      react: '>=16.3.0'
-    dependencies:
-      object-assign: 4.1.1
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-fast-compare: 3.2.2
-      react-side-effect: 2.1.2(react@18.2.0)
     dev: false
 
   /react-hook-form@7.43.9(react@18.2.0):
@@ -17957,14 +17946,6 @@ packages:
       react: 18.2.0
       react-is: 18.2.0
 
-  /react-side-effect@2.1.2(react@18.2.0):
-    resolution: {integrity: sha512-PVjOcvVOyIILrYoyGEpDN3vmYNLdy1CajSFNt4TDsVQC5KpTijDvWVoR+/7Rz2xT978D8/ZtFceXxzsPwZEDvw==}
-    peerDependencies:
-      react: ^16.3.0 || ^17.0.0 || ^18.0.0
-    dependencies:
-      react: 18.2.0
-    dev: false
-
   /react-style-singleton@2.2.1(@types/react@18.0.35)(react@18.2.0):
     resolution: {integrity: sha512-ZWj0fHEMyWkHzKYUr2Bs/4zU6XLmq9HsgBURm7g5pAVfyn49DgUiNgY2d4lXRlYSiCif9YBGpQleewkcqddc7g==}
     engines: {node: '>=10'}
@@ -18225,6 +18206,18 @@ packages:
       hast-util-has-property: 2.0.1
       hast-util-heading-rank: 2.1.1
       hast-util-is-element: 2.1.3
+      unified: 10.1.2
+      unist-util-visit: 4.1.2
+    dev: false
+
+  /rehype-external-links@2.1.0:
+    resolution: {integrity: sha512-2YMJZVM1hxZnwl9IPkbN5Pjn78kXkAX7lq9VEtlaGA29qIls25vZN+ucNIJdbQUe+9NNFck17BiOhGmsD6oLIg==}
+    dependencies:
+      '@types/hast': 2.3.4
+      extend: 3.0.2
+      hast-util-is-element: 2.1.3
+      is-absolute-url: 4.0.1
+      space-separated-tokens: 2.0.2
       unified: 10.1.2
       unist-util-visit: 4.1.2
     dev: false

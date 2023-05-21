@@ -2,10 +2,10 @@ import { allDocs } from '@contentlayer/generated';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
+import Head from 'next/head';
 import Link from 'next/link';
 import { CaretRight } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import { Helmet } from 'react-helmet';
 import DocsLayout from '~/components/DocsLayout';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
@@ -71,8 +71,8 @@ export default function DocPage({
 
 	return (
 		<PageWrapper>
-			<Helmet>
-				<title>{doc?.title} - Spacedrive Documentation</title>
+			<Head>
+				<title>{doc.title} - Spacedrive Documentation</title>
 				{/* TODO: DOCS SEO */}
 				{/* <meta name="description" content={description} />
 				<meta property="og:title" content={post?.title} />
@@ -80,14 +80,13 @@ export default function DocPage({
 				<meta property="og:image" content={featured_image} />
 				<meta content="summary_large_image" name="twitter:card" />
 			<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
-				{/* For Math styles */}
 				<link
 					rel="stylesheet"
 					href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css"
 					integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI7mLTdk1wblIUnrIq35nqwEvC"
 					crossOrigin="anonymous"
 				/>
-			</Helmet>
+			</Head>
 
 			<DocsLayout docUrl={doc.url} navigation={navigation}>
 				<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">

@@ -1,7 +1,7 @@
 import { allDocs } from '@contentlayer/generated';
 import { InferGetStaticPropsType } from 'next';
+import Head from 'next/head';
 import Link from 'next/link';
-import { Helmet } from 'react-helmet';
 import DocsLayout from '~/components/DocsLayout';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
@@ -16,10 +16,10 @@ export default function DocHomePage({
 }: InferGetStaticPropsType<typeof getStaticProps>) {
 	return (
 		<PageWrapper>
-			<Helmet>
+			<Head>
 				<title>Spacedrive Docs</title>
 				<meta name="description" content="Learn more about Spacedrive" />
-			</Helmet>
+			</Head>
 
 			<DocsLayout navigation={navigation}>
 				<Markdown>

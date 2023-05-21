@@ -1,8 +1,8 @@
 import { allPosts } from '@contentlayer/generated';
 import { InferGetStaticPropsType } from 'next';
+import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Helmet } from 'react-helmet';
 import { BlogTag } from '~/components/BlogTag';
 import PageWrapper from '~/components/PageWrapper';
 
@@ -14,10 +14,10 @@ export default function BlogPage({ posts }: InferGetStaticPropsType<typeof getSt
 	return (
 		<PageWrapper>
 			<div className="lg:prose-xs prose dark:prose-invert prose-a:no-underline container m-auto mb-20 flex max-w-4xl flex-col p-4 pt-32">
-				<Helmet>
+				<Head>
 					<title>Spacedrive Blog</title>
 					<meta name="description" content="Get the latest from Spacedrive." />
-				</Helmet>
+				</Head>
 				<section>
 					<h1 className="fade-in-heading m-0">Blog</h1>
 					<p className="fade-in-heading animation-delay-1">

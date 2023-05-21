@@ -1,3 +1,4 @@
+import Head from 'next/head';
 import {
 	Clock,
 	CurrencyDollar,
@@ -10,7 +11,6 @@ import {
 	TrendUp
 } from 'phosphor-react';
 import { useRef } from 'react';
-import { Helmet } from 'react-helmet';
 import { Button } from '@sd/ui';
 import PageWrapper from '~/components/PageWrapper';
 
@@ -92,13 +92,13 @@ export default function CareersPage() {
 
 	return (
 		<PageWrapper>
-			<Helmet>
+			<Head>
 				<title>Careers - Spacedrive</title>
 				<meta
 					name="description"
 					content="Work with us to build the future of file management."
 				/>
-			</Helmet>
+			</Head>
 			<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 				<div
 					className="bloom subtle egg-bloom-two -top-60 right-[-400px]"
