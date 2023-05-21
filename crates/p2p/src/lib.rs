@@ -1,5 +1,7 @@
 //! Rust Peer to Peer Networking Library
 
+#![allow(deprecated)]
+
 mod event;
 mod manager;
 mod manager_stream;

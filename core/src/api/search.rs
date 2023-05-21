@@ -59,7 +59,7 @@ impl FilePathSearchOrdering {
 		.unwrap_or(SortOrder::Desc)
 	}
 
-	fn to_param(self) -> file_path::OrderByWithRelationParam {
+	fn to_param(&self) -> file_path::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use file_path::*;
 		match self {
