@@ -3,8 +3,8 @@ import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { dialogManager } from '@sd/ui';
-import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { getExplorerStore, useExplorerStore } from '~/hooks';
+import DeleteDialog from '../Explorer/File/DeleteDialog';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -23,6 +23,7 @@ interface Props {
 	inspectorClassName?: string;
 	explorerClassName?: string;
 	listViewHeadersClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -80,6 +81,7 @@ export default function Explorer(props: Props) {
 					<ExplorerContextMenu>
 						{props.items && (
 							<View
+								scrollRef={props.scrollRef}
 								data={props.items}
 								onLoadMore={props.onLoadMore}
 								hasNextPage={props.hasNextPage}
