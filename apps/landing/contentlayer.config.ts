@@ -93,7 +93,8 @@ export const Document = defineDocumentType(() => ({
 		excerpt: {
 			type: 'string',
 			description: "Used for SEO and Open Graph 'description'",
-			resolve: (p) => p.body.raw.slice(0, 160).replaceAll(/\n/g, ' ').replaceAll(/#/g, '')
+			resolve: (p) =>
+				p.body.raw.slice(0, 160).replaceAll(/\n/g, ' ').replaceAll(/#/g, '').trim()
 		},
 		section: {
 			type: 'string',
