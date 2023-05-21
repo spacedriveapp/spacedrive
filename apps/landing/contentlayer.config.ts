@@ -90,6 +90,11 @@ export const Document = defineDocumentType(() => ({
 								.slice(-1)[0]
 					  )
 		},
+		excerpt: {
+			type: 'string',
+			description: "Used for SEO and Open Graph 'description'",
+			resolve: (p) => p.body.raw.slice(0, 160).replaceAll(/\n/g, ' ').replaceAll(/#/g, '')
+		},
 		section: {
 			type: 'string',
 			resolve: (p) => p._raw.flattenedPath.replace(/^.+?(\/)/, '').split('/')[0]
