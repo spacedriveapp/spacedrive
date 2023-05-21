@@ -788,7 +788,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_only_photos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -852,7 +852,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_git_repos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -925,7 +925,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn git_repos_without_deps_or_build_dirs() {
 		let root = prepare_location().await;
 		let root_path = root.path();
