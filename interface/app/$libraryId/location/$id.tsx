@@ -2,8 +2,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { z } from 'zod';
-import { useLibraryContext, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { dialogManager } from '@sd/ui';
+import { useLibraryContext, useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
+import { Folder, dialogManager } from '@sd/ui';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -13,7 +13,8 @@ import {
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
-import TopBarChildren from '../TopBar/TopBarChildren';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -24,6 +25,8 @@ export const Component = () => {
 	const { id: location_id } = useZodRouteParams(PARAMS);
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
+
+	const { data: location } = useLibraryQuery(['locations.get', location_id]);
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -55,8 +58,20 @@ export const Component = () => {
 
 	return (
 		<>
-			<TopBarChildren
-				toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+			<TopBarPortal
+				left={
+					<>
+						<Folder size={22} className="ml-3 mr-2 -mt-[1px] inline-block" />
+						<span className="text-sm font-medium">
+							{path ? getLastSectionOfPath(path) : location?.name}
+						</span>
+					</>
+				}
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
 			/>
 			<div className="relative flex w-full flex-col">
 				<Explorer
@@ -109,3 +124,13 @@ const useItems = () => {
 
 	return { query, items };
 };
+
+
+function getLastSectionOfPath(path: string): string | undefined {
+	if (path.endsWith('/')) {
+		path = path.slice(0, -1);
+	}
+	const sections = path.split('/');
+	const lastSection = sections[sections.length - 1];
+	return lastSection;
+}

@@ -32,28 +32,31 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-			? `Indexed paths at ${job.metadata?.location_path} `
-			: `Processing added location...`,
+				? `Indexed paths at ${job.metadata?.location_path} `
+				: `Processing added location...`,
 		icon: Folder,
 		filesDiscovered: `${numberWithCommas(
 			job.metadata?.total_paths || 0
 		)} ${JobCountTextCondition(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Generating thumbnails'
+			: 'Generated thumbnails'
+			}`,
+		icon: Camera,
+		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
+	},
+	shallow_thumbnailer: {
+		name: `Generating thumbnails for current directory`,
 		icon: Camera,
 		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	file_identifier: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Extracting metadata'
-				: 'Extracted metadata'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Extracting metadata'
+			: 'Extracted metadata'
+			}`,
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
@@ -134,7 +137,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 				isGroup ? `joblistitem pr-3 pt-0` : 'p-3'
 			)}
 		>
-			<div className="ml-7 flex">
+			<div className="flex">
 				<div>
 					<niceData.icon
 						className={clsx(

@@ -10,7 +10,8 @@ import {
 } from '~/hooks';
 import Explorer from './Explorer';
 import { getExplorerItemData } from './Explorer/util';
-import TopBarChildren from './TopBar/TopBarChildren';
+import { TopBarPortal } from './TopBar/Portal';
+import TopBarOptions from './TopBar/TopBarOptions';
 
 const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),
@@ -49,12 +50,16 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 		<>
 			{items && items.length > 0 ? (
 				<>
-					<TopBarChildren
-						toolOptions={[
-							explorerViewOptions,
-							explorerToolOptions,
-							explorerControlOptions
-						]}
+					<TopBarPortal
+						right={
+							<TopBarOptions
+								options={[
+									explorerViewOptions,
+									explorerToolOptions,
+									explorerControlOptions
+								]}
+							/>
+						}
 					/>
 					<Explorer items={items} />
 				</>
