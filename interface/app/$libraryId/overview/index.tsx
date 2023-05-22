@@ -135,17 +135,18 @@ export const Component = () => {
 					/>
 				}
 			/>
+			<Statistics />
 			<Explorer
-				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px]  !w-[260px]"
-				explorerClassName="!overflow-visible" // required to ensure categories are sticky, remove with caution
-				viewClassName="!pl-0 !pt-0 !h-auto"
+				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
+				viewClassName="!pl-0 !pt-[0] !h-auto !overflow-visible"
+				explorerClassName="!overflow-visible" //required to keep categories sticky, remove with caution
+				listViewHeadersClassName="!top-[65px] z-30"
 				items={items}
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
 				isFetchingNextPage={query.isFetchingNextPage}
 				scrollRef={page?.ref}
 			>
-				<Statistics />
 				<div className="no-scrollbar sticky top-0 z-10 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
@@ -156,7 +157,9 @@ export const Component = () => {
 								icon={getIcon(iconString, isDark)}
 								items={category.count}
 								selected={selectedCategory === category.name}
-								onClick={() => setSelectedCategory(category.name)}
+								onClick={() => {
+									setSelectedCategory(category.name);
+								}}
 							/>
 						);
 					})}
