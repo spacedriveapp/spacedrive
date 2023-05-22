@@ -84,6 +84,7 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	listViewHeadersClassName?: string;
 	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -118,7 +119,9 @@ export default memo((props: Props) => {
 				}}
 			>
 				{layoutMode === 'grid' && <GridView />}
-				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'rows' && (
+					<ListView listViewHeadersClassName={props.listViewHeadersClassName} />
+				)}
 				{layoutMode === 'media' && <MediaView />}
 			</ViewContext.Provider>
 		</div>
