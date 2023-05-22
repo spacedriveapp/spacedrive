@@ -114,7 +114,3 @@ harness = false
 [[example]]
 name = "file_encryption"
 path = "examples/file_encryption.rs"
-tokio = { workspace = true, features = [
-	"fs",
-	"macros",
-] } # features needed for examples
