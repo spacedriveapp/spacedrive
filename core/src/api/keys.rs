@@ -1,13 +1,13 @@
 use rspc::alpha::AlphaRouter;
-use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
-use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
-use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
-use sd_crypto::{Error, Protected};
-use serde::Deserialize;
-use specta::Type;
-use std::{path::PathBuf, str::FromStr};
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+// use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
+// use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
+// use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
+// use sd_crypto::{Error, Protected};
+// use serde::Deserialize;
+// use specta::Type;
+use std::path::PathBuf;
+// use tokio::fs::File;
+// use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 // use crate::util::db::write_storedkey_to_db;
@@ -71,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("setup", {
 			R.with2(library())
-				.mutation(|(_, library), config: OnboardingConfig| async move {
+				.mutation(|(_, library), config: ()| async move {
 					// let root_key = library.key_manager.onboarding(config, library.id).await?;
 					// write_storedkey_to_db(&library.db, &root_key).await?;
 					// library
@@ -165,7 +165,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("updateAutomountStatus", {
 			R.with2(library())
-				.mutation(|(_, library), args: AutomountUpdateArgs| async move {
+				.mutation(|(_, library), args: ()| async move {
 					// if !library.key_manager.is_memory_only(args.uuid).await? {
 					// 	library
 					// 		.key_manager
@@ -211,7 +211,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("unlockKeyManager", {
 			R.with2(library())
-				.mutation(|(_, library), args: UnlockKeyManagerArgs| async move {
+				.mutation(|(_, library), args: ()| async move {
 					// let secret_key =
 					// 	(!args.secret_key.expose().is_empty()).then_some(args.secret_key);
 
@@ -296,7 +296,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("add", {
 			// this also mounts the key
 			R.with2(library())
-				.mutation(|(_, library), args: KeyAddArgs| async move {
+				.mutation(|(_, library), args: ()| async move {
 					// // register the key with the keymanager
 					// let uuid = library
 					// 	.key_manager
@@ -361,7 +361,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("restoreKeystore", {
 			R.with2(library())
-				.mutation(|(_, library), args: RestoreBackupArgs| async move {
+				.mutation(|(_, library), args: ()| async move {
 					// let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
 
 					// let mut backup = Vec::new();
@@ -395,7 +395,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("changeMasterPassword", {
 			R.with2(library())
-				.mutation(|(_, library), args: MasterPasswordChangeArgs| async move {
+				.mutation(|(_, library), args: ()| async move {
 					// let verification_key = library
 					// 	.key_manager
 					// 	.change_master_password(

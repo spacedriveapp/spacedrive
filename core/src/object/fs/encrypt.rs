@@ -1,17 +1,16 @@
-use super::{context_menu_fs_info, FsInfo};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
-use crate::{invalidate_query, job::*, library::Library, util::error::FileIOError};
+use crate::{invalidate_query, job::*};
 
 use std::path::PathBuf;
 
 use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::{fs::File, io::AsyncReadExt};
-use tracing::{error, warn};
+// use tokio::{fs::File, io::AsyncReadExt};
+// use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
+use super::{context_menu_fs_info, FsInfo};
 
 pub struct FileEncryptorJob;
 
@@ -20,7 +19,7 @@ pub struct FileEncryptorJobInit {
 	pub location_id: i32,
 	pub path_id: i32,
 	pub key_uuid: Uuid,
-	pub algorithm: Algorithm,
+	// pub algorithm: Algorithm,
 	pub metadata: bool,
 	pub preview_media: bool,
 	pub output_path: Option<PathBuf>,
@@ -69,10 +68,10 @@ impl StatefulJob for FileEncryptorJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self>,
+		_ctx: WorkerContext,
+		_state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let info = &state.steps[0];
+		// let info = &state.steps[0];
 
 		// let Library {  .. } = &ctx.library;
 

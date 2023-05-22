@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
-use tokio::fs::File;
+// use tokio::fs::File;
 
 use crate::{
 	invalidate_query,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
-	util::error::FileIOError,
+	// util::error::FileIOError,
 };
 
 use super::{context_menu_fs_info, FsInfo};
@@ -64,11 +64,11 @@ impl StatefulJob for FileDecryptorJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self>,
+		_ctx: WorkerContext,
+		_state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let info = &&state.steps[0].fs_info;
-		let key_manager = &ctx.library.key_manager;
+		// let info = &&state.steps[0].fs_info;
+		// let key_manager = &ctx.library.key_manager;
 
 		// handle overwriting checks, and making sure there's enough available space
 		// let output_path = state.init.output_path.clone().map_or_else(
