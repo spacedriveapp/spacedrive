@@ -32,7 +32,7 @@ use std::{fmt::Debug, mem::swap};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
-pub struct Protected<T>
+pub struct Protected<T>(T)
 where
 	T: Zeroize;
 
@@ -73,15 +73,6 @@ where
 		let mut out = Default::default();
 		swap(&mut self.0, &mut out);
 		out
-	}
-}
-
-impl<T> Drop for Protected<T>
-where
-	T: Zeroize,
-{
-	fn drop(&mut self) {
-		self.0.zeroize();
 	}
 }
 
