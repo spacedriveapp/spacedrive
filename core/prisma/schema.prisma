@@ -225,17 +225,13 @@ model Key {
     id                Int       @id @default(autoincrement())
     uuid              Bytes     @unique
     date_created      DateTime? @default(now()) // nullable if concealed for security
-    version           Bytes // key version
-    key_type          Bytes // type of key
-    name              Bytes? // user-chosen name
+    version           Int // key version
+    key_type          Int // type of key
+    name              String? // user-chosen name
     algorithm         Bytes // encryption algorithm used to encrypt the key
-    hashing_algorithm Bytes // hashing algorithm used for hashing the key with the content salt
-    content_salt      Bytes // salt used with the above hashing algorithm to create a high-entropy digest (which unique keys are derived from)
-    master_key        Bytes // the *encrypted* master key (48 bytes)
-    master_key_nonce  Bytes // the nonce used for encrypting the master key
-    key_nonce         Bytes // the nonce used for encrypting the key
+    hashing_algorithm Bytes // hashing algorithm used for hashing the key with the salt
     key               Bytes // the *encrypted* key
-    salt              Bytes // the salt used for deriving the KEK (used for encrypting the master key) from the root key
+    salt              Bytes // the salt/encrypted word (which acts as a salt once decrypted + hashed)
 
     objects    Object[]
     file_paths FilePath[]
