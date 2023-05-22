@@ -1,8 +1,10 @@
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
-import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
+import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { useExplorerConfigStore } from '~/hooks';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { usePlatform } from '~/util/Platform';
 import { TOP_BAR_HEIGHT } from '../../TopBar';
 import DismissibleNotice from '../DismissibleNotice';
 import ContextMenu from '../File/ContextMenu';
@@ -28,14 +30,27 @@ export const ViewItem = ({
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
 
+	const { openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const filePath = getItemFilePath(data);
+
+	const explorerConfig = useExplorerConfigStore();
+
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({ path: data.item.materialized_path }).toString()
+				search: createSearchParams({
+					path: `${data.item.materialized_path}${data.item.name}/`
+				}).toString()
 			});
 
 			getExplorerStore().selectedRowIndex = null;
+		} else if (openFilePath && filePath && explorerConfig.openOnDoubleClick) {
+			data.type === 'Path' &&
+				data.item.object_id &&
+				updateAccessTime.mutate(data.item.object_id);
+			openFilePath(library.uuid, filePath.id);
 		} else {
 			const { kind } = getExplorerItemData(data);
 

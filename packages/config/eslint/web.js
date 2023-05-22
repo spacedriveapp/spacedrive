@@ -1,5 +1,5 @@
 module.exports = {
-	extends: [require.resolve('./tailwind.js')],
+	extends: [require.resolve('./base.js'), require.resolve('./tailwind.js')],
 	ignorePatterns: ['public', 'vite.config.ts'],
 	env: {
 		browser: true,

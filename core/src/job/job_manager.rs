@@ -17,7 +17,7 @@ use crate::{
 		},
 		validation::validator_job::ObjectValidatorJob,
 	},
-	prisma::{job, node},
+	prisma::{job, node, SortOrder},
 	util,
 };
 
@@ -30,7 +30,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -168,9 +167,7 @@ impl JobManager {
 
 		for worker in self.running_workers.read().await.values() {
 			let report = worker.lock().await.report();
-			if !report.is_background {
-				ret.push(report);
-			}
+			ret.push(report);
 		}
 		ret
 	}
@@ -180,7 +177,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running as i32)])
-			.order_by(job::date_created::order(Direction::Desc))
+			.order_by(job::date_created::order(SortOrder::Desc))
 			.take(100)
 			.exec()
 			.await?
@@ -249,7 +246,7 @@ impl JobManager {
 				.find_many(vec![job::parent_id::equals(Some(
 					root_paused_job_report.id.as_bytes().to_vec(),
 				))])
-				.order_by(job::action::order(Direction::Asc))
+				.order_by(job::action::order(SortOrder::Asc))
 				.exec()
 				.await?
 				.into_iter()
@@ -321,6 +318,7 @@ pub struct JobReport {
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
 	pub is_background: bool,
+	pub errors_text: Vec<String>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -361,6 +359,10 @@ impl From<job::Data> for JobReport {
 					None
 				})
 			}),
+			errors_text: data
+				.errors_text
+				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
+				.unwrap_or_default(),
 			created_at: Some(data.date_created.into()),
 			started_at: data.date_started.map(|d| d.into()),
 			completed_at: data.date_completed.map(|d| d.into()),
@@ -386,6 +388,7 @@ impl JobReport {
 			started_at: None,
 			completed_at: None,
 			status: JobStatus::Queued,
+			errors_text: vec![],
 			task_count: 0,
 			data: None,
 			metadata: None,
@@ -449,6 +452,9 @@ impl JobReport {
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
 					job::status::set(self.status as i32),
+					job::errors_text::set(
+						(!self.errors_text.is_empty()).then(|| self.errors_text.join("\n\n")),
+					),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
@@ -472,6 +478,7 @@ pub enum JobStatus {
 	Canceled = 3,
 	Failed = 4,
 	Paused = 5,
+	CompletedWithErrors = 6,
 }
 
 impl TryFrom<i32> for JobStatus {
@@ -485,6 +492,7 @@ impl TryFrom<i32> for JobStatus {
 			3 => Self::Canceled,
 			4 => Self::Failed,
 			5 => Self::Paused,
+			6 => Self::CompletedWithErrors,
 			_ => return Err(JobError::InvalidJobStatusInt(value)),
 		};
 

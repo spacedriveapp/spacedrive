@@ -2,7 +2,7 @@ import { Spinner } from 'phosphor-react';
 import { useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, PasswordInput } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { showAlertDialog } from '~/components';
 
 // TODO: Should be a form
 export default () => {
@@ -18,9 +18,6 @@ export default () => {
 	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 
 	const [masterPassword, setMasterPassword] = useState('');
-	const [secretKey, setSecretKey] = useState('');
-
-	const [enterSkManually, setEnterSkManually] = useState(keyringSk?.data === null);
 
 	const isUnlocking = unlockKeyManager.isLoading || isKeyManagerUnlocking.data == null;
 
@@ -31,52 +28,30 @@ export default () => {
 				value={masterPassword}
 				onChange={(e) => setMasterPassword(e.target.value)}
 				autoFocus
+				disabled={isUnlocking}
 			/>
-
-			{enterSkManually && (
-				<PasswordInput
-					placeholder="Secret Key"
-					value={secretKey}
-					onChange={(e) => setSecretKey(e.target.value)}
-					autoFocus
-				/>
-			)}
 
 			<Button
 				className="w-full"
 				variant="accent"
 				disabled={isUnlocking}
 				onClick={() => {
-					if (masterPassword !== '') {
-						setMasterPassword('');
-						setSecretKey('');
-
-						// TODO: Catch error
+					if (masterPassword !== '' && keyringSk.data) {
 						unlockKeyManager
 							.mutateAsync({
 								password: masterPassword,
-								secret_key: secretKey
+								secret_key: keyringSk.data
 							})
 							.then(() => isUnlocked.refetch());
 					}
 				}}
 			>
 				{isUnlocking ? (
-					<Spinner className="mx-auto h-6 w-6 animate-spin fill-white text-white text-opacity-40" />
+					<Spinner className="mx-auto h-5 w-5 animate-spin fill-white text-white text-opacity-40" />
 				) : (
 					'Unlock'
 				)}
 			</Button>
-
-			{!enterSkManually && (
-				<Button
-					href="#"
-					onClick={() => setEnterSkManually(true)}
-					className="!pointer-events-auto text-accent"
-				>
-					or enter secret key manually
-				</Button>
-			)}
 		</div>
 	);
 };

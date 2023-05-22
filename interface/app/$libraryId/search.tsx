@@ -2,12 +2,16 @@ import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
-import { useZodSearchParams } from '~/hooks';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useExplorerTopBarOptions,
+	useZodSearchParams
+} from '~/hooks';
 import Explorer from './Explorer';
 import { getExplorerItemData } from './Explorer/util';
-import TopBarChildren from './TopBar/TopBarChildren';
+import { TopBarPortal } from './TopBar/Portal';
+import TopBarOptions from './TopBar/TopBarOptions';
 
 const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),
@@ -19,17 +23,20 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
 
-	const query = useLibraryQuery(['search', props.args], {
+	const query = useLibraryQuery(['search.paths', props.args], {
 		suspense: true,
 		enabled: !!props.args.search
 	});
 
 	const items = useMemo(() => {
-		if (explorerStore.layoutMode !== 'media') return query.data;
+		const items = query.data?.items;
 
-		return query.data?.filter((item) => {
+		if (explorerStore.layoutMode !== 'media') return items;
+
+		return items?.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
@@ -43,7 +50,17 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 		<>
 			{items && items.length > 0 ? (
 				<>
-					<TopBarChildren toolOptions={[explorerViewOptions, explorerControlOptions]} />
+					<TopBarPortal
+						right={
+							<TopBarOptions
+								options={[
+									explorerViewOptions,
+									explorerToolOptions,
+									explorerControlOptions
+								]}
+							/>
+						}
+					/>
 					<Explorer items={items} />
 				</>
 			) : (

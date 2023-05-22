@@ -1,24 +1,25 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowClockwise, Key, Tag } from 'phosphor-react';
 import { useEffect, useMemo } from 'react';
-import { useKey } from 'rooks';
 import { z } from 'zod';
 import {
-	ExplorerData,
+	ExplorerItem,
 	useLibraryContext,
 	useLibraryMutation,
+	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { dialogManager } from '@sd/ui';
-import { useZodRouteParams } from '~/hooks';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useExplorerTopBarOptions } from '~/hooks/useExplorerTopBarOptions';
+import { Folder } from '@sd/ui';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useExplorerTopBarOptions,
+	useZodRouteParams
+} from '~/hooks';
+import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 import Explorer from '../Explorer';
-import DeleteDialog from '../Explorer/File/DeleteDialog';
-import { useExplorerSearchParams } from '../Explorer/util';
-import { KeyManager } from '../KeyManager';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar';
-import TopBarChildren from '../TopBar/TopBarChildren';
+import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -27,38 +28,41 @@ const PARAMS = z.object({
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: location_id } = useZodRouteParams(PARAMS);
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
+
+	const { data: location } = useLibraryQuery(['locations.get', location_id]);
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = getExplorerStore();
-
 	useEffect(() => {
 		explorerStore.locationId = location_id;
 		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
 	}, [explorerStore, location_id, path, quickRescan]);
 
 	const { query, items } = useItems();
-
-	useKey('Delete', (e) => {
-		e.preventDefault();
-
-		const explorerStore = getExplorerStore();
-
-		if (explorerStore.selectedRowIndex === null) return;
-
-		const file = items?.[explorerStore.selectedRowIndex];
-
-		if (!file) return;
-
-		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
-		));
-	});
+	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
+	useKeyDeleteFile(file as ExplorerItem, location_id);
 
 	return (
 		<>
-			<TopBarChildren toolOptions={useToolBarOptions()} />
+			<TopBarPortal
+				left={
+					<>
+						<Folder size={22} className="-mt-[1px] ml-3 mr-2 inline-block" />
+						<span className="text-sm font-medium">
+							{path ? getLastSectionOfPath(path) : location?.name}
+						</span>
+					</>
+				}
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
+			/>
 			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
@@ -71,47 +75,9 @@ export const Component = () => {
 	);
 };
 
-const useToolBarOptions = () => {
-	const store = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions } = useExplorerTopBarOptions();
-
-	return [
-		explorerViewOptions,
-		[
-			{
-				toolTipLabel: 'Key Manager',
-				icon: <Key className={TOP_BAR_ICON_STYLE} />,
-				popOverComponent: <KeyManager />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Tag Assign Mode',
-				icon: (
-					<Tag
-						weight={store.tagAssignMode ? 'fill' : 'regular'}
-						className={TOP_BAR_ICON_STYLE}
-					/>
-				),
-				onClick: () => (getExplorerStore().tagAssignMode = !store.tagAssignMode),
-				topBarActive: store.tagAssignMode,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			},
-			{
-				toolTipLabel: 'Regenerate thumbs (temp)',
-				icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
-				individual: true,
-				showAtResolution: 'xl:flex'
-			}
-		],
-		explorerControlOptions
-	] satisfies ToolOption[][];
-};
-
 const useItems = () => {
-	const { id: location_id } = useZodRouteParams(PARAMS);
-	const [{ path, limit }] = useExplorerSearchParams();
+	const { id: locationId } = useZodRouteParams(PARAMS);
+	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
@@ -120,23 +86,27 @@ const useItems = () => {
 
 	const query = useInfiniteQuery({
 		queryKey: [
-			'locations.getExplorerData',
+			'search.paths',
 			{
 				library_id: library.uuid,
 				arg: {
-					location_id,
-					path: explorerState.layoutMode === 'media' ? null : path,
-					limit,
-					kind: explorerState.layoutMode === 'media' ? [5, 7] : null
+					order: useExplorerOrder(),
+					locationId,
+					take,
+					...(explorerState.layoutMode === 'media'
+						? { kind: [5, 7] }
+						: { path: path ?? '' })
 				}
 			}
 		] as const,
-		queryFn: async ({ pageParam: cursor, queryKey }): Promise<ExplorerData> => {
-			const arg = queryKey[1];
-			(arg.arg as any).cursor = cursor;
-
-			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
-		},
+		queryFn: ({ pageParam: cursor, queryKey }) =>
+			ctx.client.query([
+				'search.paths',
+				{
+					...queryKey[1].arg,
+					cursor
+				}
+			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
 		keepPreviousData: true
 	});
@@ -145,3 +115,12 @@ const useItems = () => {
 
 	return { query, items };
 };
+
+function getLastSectionOfPath(path: string): string | undefined {
+	if (path.endsWith('/')) {
+		path = path.slice(0, -1);
+	}
+	const sections = path.split('/');
+	const lastSection = sections[sections.length - 1];
+	return lastSection;
+}

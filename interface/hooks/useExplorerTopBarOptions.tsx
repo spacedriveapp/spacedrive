@@ -1,18 +1,25 @@
 import clsx from 'clsx';
 import {
+	ArrowClockwise,
 	Columns,
+	Key,
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
-	SquaresFour
+	SquaresFour,
+	Tag
 } from 'phosphor-react';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar';
+import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
+import { KeyManager } from '../app/$libraryId/KeyManager';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
+import { useLibraryMutation } from '@sd/client';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
+
+	const reload = useLibraryMutation('locations.quickRescan');
 
 	const explorerViewOptions: ToolOption[] = [
 		{
@@ -68,5 +75,39 @@ export const useExplorerTopBarOptions = () => {
 		}
 	];
 
-	return { explorerViewOptions, explorerControlOptions };
+	const explorerToolOptions: ToolOption[] = [
+		{
+			toolTipLabel: 'Key Manager',
+			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			popOverComponent: <KeyManager />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
+			toolTipLabel: 'Tag Assign Mode',
+			icon: (
+				<Tag
+					weight={explorerStore.tagAssignMode ? 'fill' : 'regular'}
+					className={TOP_BAR_ICON_STYLE}
+				/>
+			),
+			onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			topBarActive: explorerStore.tagAssignMode,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
+			toolTipLabel: 'Reload',
+			onClick: () => {
+				if (explorerStore.locationId) {
+					reload.mutate({ location_id: explorerStore.locationId, sub_path: '' })
+				}
+			},
+			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		}
+	];
+
+	return { explorerViewOptions, explorerControlOptions, explorerToolOptions };
 };

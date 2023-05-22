@@ -1,21 +1,17 @@
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
-import ColorPicker from '~/components/ColorPicker';
+import { ColorPicker } from '~/components';
+
+const schema = z.object({
+	name: z.string(),
+	color: z.string()
+});
 
 export default (props: UseDialogProps & { assignToObject?: number }) => {
-	const dialog = useDialog(props);
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const form = useZodForm({
-		schema: z.object({
-			name: z.string(),
-			color: z.string()
-		}),
-		defaultValues: {
-			color: '#A717D9'
-		}
-	});
+	const form = useZodForm({ schema: schema, defaultValues: { color: '#A717D9' } });
 
 	const createTag = useLibraryMutation('tags.create', {
 		onSuccess: (tag) => {
@@ -41,8 +37,9 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 
 	return (
 		<Dialog
-			{...{ dialog, form }}
-			onSubmit={form.handleSubmit((data) => createTag.mutateAsync(data))}
+			form={form}
+			dialog={useDialog(props)}
+			onSubmit={(data) => createTag.mutateAsync(data)}
 			title="Create New Tag"
 			description="Choose a name and color."
 			ctaLabel="Create"

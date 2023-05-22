@@ -38,6 +38,7 @@ pub enum Event<TMetadata: Metadata> {
 
 #[derive(Debug)]
 pub struct PeerMessageEvent<TMetadata: Metadata> {
+	pub stream_id: u64,
 	pub peer_id: PeerId,
 	pub manager: Arc<Manager<TMetadata>>,
 	pub stream: SpaceTimeStream,

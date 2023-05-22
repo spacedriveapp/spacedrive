@@ -1,0 +1,65 @@
+name: Setup System and Rust
+description: Setup System and Rust
+inputs:
+  token:
+    description: Github token
+    required: false
+    default: ''
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
+  setup-arg:
+    description: Argument for the system setup script
+    required: false
+    default: ''
+  save-cache:
+    description: Whether to save the System cache
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Restore cached LLVM and Clang
+      if: ${{ runner.os == 'Windows' }}
+      id: cache-llvm-restore
+      uses: actions/cache/restore@v3
+      with:
+        key: llvm-15
+        path: C:/Program Files/LLVM
+
+    - name: Install LLVM and Clang
+      if: ${{ runner.os == 'Windows' }}
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        cached: ${{ steps.cache-llvm-restore.outputs.cache-hit }}
+        version: '15'
+
+    - name: Save LLVM and Clang
+      if: ${{ runner.os == 'Windows' && inputs.save-cache == 'true' }}
+      id: cache-llvm-save
+      uses: actions/cache/save@v3
+      with:
+        key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
+        path: C:/Program Files/LLVM
+
+    - name: Setup Rust and Dependencies
+      uses: ./.github/actions/setup-rust
+      with:
+        targets: ${{ inputs.targets }}
+        save-cache: ${{ inputs.save-cache }}
+
+    - name: Run 'setup-system.sh' script
+      shell: bash
+      if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
+      run: ./.github/scripts/setup-system.sh ${{ inputs.setup-arg }}
+      env:
+        TARGET: ${{ inputs.targets }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+
+    - name: Run 'setup-system.ps1' script
+      shell: powershell
+      if: ${{ runner.os == 'Windows' }}
+      run: ./.github/scripts/setup-system.ps1
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}

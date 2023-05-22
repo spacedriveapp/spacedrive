@@ -1,8 +1,8 @@
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import * as RDialog from '@radix-ui/react-dialog';
+import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
-import { FieldValues } from 'react-hook-form';
-import { animated, useTransition } from 'react-spring';
+import { FieldValues, SubmitHandler } from 'react-hook-form';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
@@ -103,27 +103,32 @@ export function Dialogs() {
 	);
 }
 
+const AnimatedDialogContent = animated(RDialog.Content);
+const AnimatedDialogOverlay = animated(RDialog.Overlay);
+
 export interface DialogProps<S extends FieldValues>
-	extends DialogPrimitive.DialogProps,
-		FormProps<S> {
+	extends RDialog.DialogProps,
+		Omit<FormProps<S>, 'onSubmit'> {
+	title?: string;
 	dialog: ReturnType<typeof useDialog>;
+	loading?: boolean;
 	trigger?: ReactNode;
 	ctaLabel?: string;
-	closeLabel?: string;
-	ctaDanger?: boolean;
-	title?: string;
-	description?: string;
+	onSubmit?: SubmitHandler<S>;
 	children?: ReactNode;
-	transformOrigin?: string;
-	loading?: boolean;
+	ctaDanger?: boolean;
+	closeLabel?: string;
+	description?: string;
+	onCancelled?: boolean | (() => void);
 	submitDisabled?: boolean;
-	onCancelled?: () => void;
+	transformOrigin?: string;
 }
 
 export function Dialog<S extends FieldValues>({
 	form,
-	onSubmit,
 	dialog,
+	onSubmit,
+	onCancelled = true,
 	...props
 }: DialogProps<S>) {
 	const stateSnap = useSnapshot(dialog.state);
@@ -142,79 +147,86 @@ export function Dialog<S extends FieldValues>({
 	const setOpen = (v: boolean) => (dialog.state.open = v);
 
 	return (
-		<DialogPrimitive.Root open={stateSnap.open} onOpenChange={setOpen}>
-			{props.trigger && (
-				<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
-			)}
+		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>
+			{props.trigger && <RDialog.Trigger asChild>{props.trigger}</RDialog.Trigger>}
 			{transitions((styles, show) =>
 				show ? (
-					<DialogPrimitive.Portal forceMount>
-						<DialogPrimitive.Overlay asChild forceMount>
-							<animated.div
-								className="z-49 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
-								style={{
-									opacity: styles.opacity
-								}}
-							/>
-						</DialogPrimitive.Overlay>
+					<RDialog.Portal forceMount>
+						<AnimatedDialogOverlay
+							className="z-49 fixed inset-0 m-[1px] grid place-items-center overflow-y-auto rounded-xl bg-app/50"
+							style={{
+								opacity: styles.opacity
+							}}
+						/>
 
-						<DialogPrimitive.Content asChild forceMount>
-							<animated.div
-								className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
-								style={styles}
+						<AnimatedDialogContent
+							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
+							style={styles}
+						>
+							<Form
+								form={form}
+								onSubmit={form.handleSubmit(async (...args) => {
+									await onSubmit?.(...args);
+									dialog.onSubmit?.();
+									setOpen(false);
+								})}
+								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>
-								<Form
-									form={form}
-									onSubmit={async (e) => {
-										await onSubmit?.(e);
-										dialog.onSubmit?.();
-										setOpen(false);
-									}}
-									className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
-								>
-									<div className="p-5">
-										<DialogPrimitive.Title className="mb-2 font-bold">
-											{props.title}
-										</DialogPrimitive.Title>
-										<DialogPrimitive.Description className="text-sm text-ink-dull">
+								<div className="p-5">
+									<RDialog.Title className="mb-2 font-bold">
+										{props.title}
+									</RDialog.Title>
+
+									{props.description && (
+										<RDialog.Description className="mb-2 text-sm text-ink-dull">
 											{props.description}
-										</DialogPrimitive.Description>
-										{props.children}
-									</div>
-									<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
-										{form.formState.isSubmitting && <Loader />}
-										<div className="grow" />
-										<DialogPrimitive.Close asChild>
+										</RDialog.Description>
+									)}
+
+									{props.children}
+								</div>
+								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
+									{form.formState.isSubmitting && <Loader />}
+
+									<div className="grow" />
+
+									{onCancelled && (
+										<RDialog.Close asChild>
 											<Button
 												disabled={props.loading}
 												size="sm"
 												variant="gray"
-												onClick={props.onCancelled}
+												onClick={
+													typeof onCancelled === 'function'
+														? onCancelled
+														: undefined
+												}
 											>
 												{props.closeLabel || 'Close'}
 											</Button>
-										</DialogPrimitive.Close>
-										<Button
-											type="submit"
-											size="sm"
-											disabled={
-												form.formState.isSubmitting || props.submitDisabled
-											}
-											variant={props.ctaDanger ? 'colored' : 'accent'}
-											className={clsx(
-												props.ctaDanger && 'border-red-500 bg-red-500'
-											)}
-										>
-											{props.ctaLabel}
-										</Button>
-									</div>
-								</Form>
-								<Remover id={dialog.id} />
-							</animated.div>
-						</DialogPrimitive.Content>
-					</DialogPrimitive.Portal>
+										</RDialog.Close>
+									)}
+
+									<Button
+										type="submit"
+										size="sm"
+										disabled={
+											form.formState.isSubmitting || props.submitDisabled
+										}
+										variant={props.ctaDanger ? 'colored' : 'accent'}
+										className={clsx(
+											props.ctaDanger && 'border-red-500 bg-red-500'
+										)}
+									>
+										{props.ctaLabel}
+									</Button>
+								</div>
+							</Form>
+							<Remover id={dialog.id} />
+						</AnimatedDialogContent>
+					</RDialog.Portal>
 				) : null
 			)}
-		</DialogPrimitive.Root>
+		</RDialog.Root>
 	);
 }

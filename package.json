@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"scripts": {
-		"prep": "pnpm gen:prisma && cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
+		"prep": "pnpm gen:prisma && pnpm codegen",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"gen:migrations": "cd core && cargo prisma migrate dev",
@@ -15,7 +15,6 @@
 		"ui": "pnpm --filter @sd/ui -- ",
 		"interface": "pnpm --filter @sd/interface -- ",
 		"assets": "pnpm --filter @sd/assets -- ",
-		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
@@ -23,7 +22,7 @@
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/dist/!(.gitignore)**\""
+		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/.contentlayer/\" \"**/dist/!(.gitignore)**\""
 	},
 	"pnpm": {
 		"overrides": {

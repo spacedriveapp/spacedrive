@@ -1,15 +1,16 @@
 import { Collection, Image, Video } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { FolderNotchOpen } from 'phosphor-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Selecto, { SelectoProps } from 'react-selecto';
 import { useKey } from 'rooks';
-import { ExplorerData, useLibrarySubscription } from '@sd/client';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import {
 	getExplorerStore,
 	useExplorerStore,
 	useSelectedExplorerItems
 } from '~/hooks/useExplorerStore';
+import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
@@ -21,11 +22,16 @@ interface Props {
 	// TODO: not using data since context isn't actually used
 	// and it's not exactly compatible with search
 	// data?: ExplorerData;
-	items: ExplorerData['items'] | null;
+	items: ExplorerItem[] | null;
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	children?: ReactNode;
+	inspectorClassName?: string;
+	explorerClassName?: string;
+	listViewHeadersClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
@@ -53,6 +59,8 @@ export default function Explorer(props: Props) {
 		() => props.items?.filter((item) => item.item.id === selectedItems[0])[0],
 		[selectedItems[0]]
 	);
+
+	useKeyDeleteFile(selectedItem || null, expStore.locationId);
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = null;
@@ -104,7 +112,7 @@ export default function Explorer(props: Props) {
 
 			{expStore.showInspector && (
 				<Inspector
-					item={selectedItem || undefined}
+					data={selectedItem || null}
 					className="custom-scroll inspector-scroll absolute bottom-0 right-0 top-0 w-[260px] pb-4 pl-1.5 pr-1"
 					style={{ paddingTop: TOP_BAR_HEIGHT + 16 }}
 				/>

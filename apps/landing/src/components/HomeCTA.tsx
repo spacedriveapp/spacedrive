@@ -1,7 +1,7 @@
 import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
 import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
-import { Github } from '@icons-pack/react-simple-icons';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -20,9 +20,10 @@ export function HomeCTA() {
 	const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
 	const [fire, setFire] = useState<boolean | number>(false);
 
-	const url = import.meta.env.PROD
-		? 'https://waitlist-api.spacedrive.com'
-		: 'http://localhost:3000';
+	const url =
+		process.env.NODE_ENV === 'production'
+			? 'https://waitlist-api.spacedrive.com'
+			: 'http://localhost:3000';
 
 	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
 		if (!email.trim().length) return;
@@ -97,7 +98,10 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
+							<SiGithub
+								className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5"
+								fill="white"
+							/>
 							Star on GitHub
 						</Button>
 					</>
@@ -180,7 +184,7 @@ export function HomeCTA() {
 			>
 				{showWaitlistInput ? (
 					<>
-						We'll keep your place in the queue for early access.
+						We&apos;ll keep your place in the queue for early access.
 						<br />
 						<br />
 					</>

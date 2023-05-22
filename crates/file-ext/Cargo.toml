@@ -1,11 +1,13 @@
 [package]
 name = "sd-file-ext"
 version = "0.0.0"
-edition = "2021"
 authors = [
-    "Brendan Allen <brendan@spacedrive.com>",
-    "Jamie Pine <jamie@spacedrive.com>",
+	"Brendan Allen <brendan@spacedrive.com>",
+	"Jamie Pine <jamie@spacedrive.com>",
 ]
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -14,7 +16,7 @@ serde_json = "1.0.85"
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
 tokio = { workspace = true, features = ["fs", "rt", "io-util"] }
-specta.workspace = true
+specta = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["fs", "rt", "macros"] }

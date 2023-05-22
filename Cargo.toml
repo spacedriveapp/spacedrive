@@ -1,36 +1,41 @@
 [workspace]
 resolver = "2"
 members = [
-  "core",
-  "crates/*",
-  # "crates/p2p/tunnel",
-  # "crates/p2p/tunnel/utils",
-  "apps/cli",
-  "apps/desktop/src-tauri",
-  "apps/desktop/crates/*",
-  "apps/mobile/crates/*",
-  "apps/server",
+	"core",
+	"crates/*",
+	# "crates/p2p/tunnel",
+	# "crates/p2p/tunnel/utils",
+	"apps/cli",
+	"apps/desktop/src-tauri",
+	"apps/desktop/crates/*",
+	"apps/mobile/crates/*",
+	"apps/server",
 ]
 
+[workspace.package]
+license = "AGPL-3.0-only"
+edition = "2021"
+repository = "https://github.com/spacedriveapp/spacedrive"
+
 [workspace.dependencies]
-prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
+prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ] }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ] }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "5d8029e0a0b590e1b8f674339ba880114a1becc8", features = [
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
   "sqlite",
 ] }
 
 rspc = { version = "0.1.4" }
-specta = { version = "1.0.3" }
+specta = { version = "1.0.4" }
 httpz = { version = "0.0.3" }
 
 swift-rs = { version = "1.0.5" }
@@ -47,3 +52,5 @@ mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9
 
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "799eec5df7533edf331f41d3f1be03de07e038d7" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
+
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }
