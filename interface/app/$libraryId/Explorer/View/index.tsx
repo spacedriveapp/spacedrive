@@ -2,15 +2,15 @@ import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { TOP_BAR_HEIGHT } from '../TopBar';
-import DismissibleNotice from './DismissibleNotice';
-import ContextMenu from './File/ContextMenu';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { TOP_BAR_HEIGHT } from '../../TopBar';
+import DismissibleNotice from '../DismissibleNotice';
+import ContextMenu from '../File/ContextMenu';
+import { ViewContext } from '../ViewContext';
+import { getExplorerItemData, getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
-import { ViewContext } from './ViewContext';
-import { getExplorerItemData, getItemFilePath } from './util';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -46,8 +46,8 @@ export const ViewItem = ({
 	};
 
 	const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
-		e.stopPropagation();
-		getExplorerStore().selectedRowIndex = index;
+		// e.stopPropagation();
+		// getExplorerStore().selectedRowIndex = index;
 	};
 
 	return (
@@ -65,47 +65,34 @@ export const ViewItem = ({
 };
 
 interface Props {
-	data: ExplorerItem[];
+	items: ExplorerItem[] | null;
+	layout: ExplorerLayoutMode;
+	scrollRef: React.RefObject<HTMLDivElement>;
 	onLoadMore?(): void;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
-	viewClassName?: string;
+	selectedItems?: number[];
+	onSelectedChange?(selectedItems: number[]): void;
+	overscan?: number;
 }
 
 export default memo((props: Props) => {
-	const explorerStore = useExplorerStore();
-	const layoutMode = explorerStore.layoutMode;
-
-	const scrollRef = useRef<HTMLDivElement>(null);
-
-	// Hide notice on overview page
-	const isOverview = useMatch('/:libraryId/overview');
-
 	return (
-		<div
-			ref={scrollRef}
-			className={clsx(
-				'custom-scroll explorer-scroll h-screen',
-				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
-				props.viewClassName
-			)}
-			style={{ paddingTop: TOP_BAR_HEIGHT }}
-			onClick={() => (getExplorerStore().selectedRowIndex = null)}
+		<ViewContext.Provider
+			value={{
+				data: props.items,
+				scrollRef: props.scrollRef,
+				onLoadMore: props.onLoadMore,
+				hasNextPage: props.hasNextPage,
+				isFetchingNextPage: props.isFetchingNextPage,
+				selectedItems: new Set(props.selectedItems),
+				onSelectedChange: (selected) => props.onSelectedChange?.([...selected]),
+				overscan: props.overscan
+			}}
 		>
-			{!isOverview && <DismissibleNotice />}
-			<ViewContext.Provider
-				value={{
-					data: props.data,
-					scrollRef,
-					onLoadMore: props.onLoadMore,
-					hasNextPage: props.hasNextPage,
-					isFetchingNextPage: props.isFetchingNextPage
-				}}
-			>
-				{layoutMode === 'grid' && <GridView />}
-				{layoutMode === 'rows' && <ListView />}
-				{layoutMode === 'media' && <MediaView />}
-			</ViewContext.Provider>
-		</div>
+			{props.layout === 'grid' && <GridView />}
+			{props.layout === 'rows' && <ListView />}
+			{props.layout === 'media' && <MediaView />}
+		</ViewContext.Provider>
 	);
 });

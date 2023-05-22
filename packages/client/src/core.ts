@@ -5,6 +5,7 @@ export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
+        { key: "files.getMultiple", input: LibraryArgs<number[]>, result: ({ id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null })[] } | 
         { key: "files.getRecent", input: LibraryArgs<number>, result: ExplorerItem[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
@@ -109,12 +110,16 @@ export type Ordering = { name: boolean }
  */
 export type StoredKeyVersion = "V1"
 
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+
 /**
  * This should be used for passing an encrypted key around.
  * 
  * This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
  */
 export type EncryptedKey = number[]
+
+export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type PeerId = string
 
@@ -140,8 +145,6 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
-
-export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -192,6 +195,8 @@ export type TagCreateArgs = { name: string; color: string }
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type GetArgs = { id: number }
 
@@ -262,8 +267,6 @@ export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
-export type SetNoteArgs = { id: number; note: string | null }
-
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 /**
@@ -279,8 +282,6 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type ExplorerContext = ({ type: "Location" } & Location) | ({ type: "Tag" } & Tag)
 

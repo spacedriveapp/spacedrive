@@ -66,7 +66,7 @@ export default () => {
 			}
 			icon={notice.icon}
 			description={notice.description}
-			className={clsx('m-5', layoutMode === 'grid' && 'ml-1')}
+			className="m-5"
 			storageKey={notice.key}
 		/>
 	);

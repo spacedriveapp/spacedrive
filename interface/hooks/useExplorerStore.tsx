@@ -1,4 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
+import { proxySet } from 'valtio/utils';
 import { ExplorerItem } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
@@ -35,7 +36,8 @@ const state = {
 	quickViewObject: null as ExplorerItem | null,
 	isRenaming: false,
 	mediaColumns: 8,
-	mediaAspectSquare: true
+	mediaAspectSquare: true,
+	selectedItems: new Set() as Set<number>
 };
 
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
@@ -69,3 +71,7 @@ export function useExplorerStore() {
 export function getExplorerStore() {
 	return explorerStore;
 }
+
+const selectedExplorerItems = proxySet<number>();
+export const useSelectedExplorerItems = () => useSnapshot(selectedExplorerItems);
+export const getSelectedExplorerItems = () => selectedExplorerItems;

@@ -54,7 +54,7 @@ export default ({ data, className, ...props }: Props) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
-		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
+		<div onClick={(e) => {}} className={clsx('flex', className)}>
 			<ContextMenu.Root trigger={props.children}>
 				<OpenOrDownloadOptions data={data} />
 

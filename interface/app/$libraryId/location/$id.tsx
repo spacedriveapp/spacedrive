@@ -137,10 +137,11 @@ const useItems = () => {
 
 			return await ctx.client.query(['locations.getExplorerData', arg.arg]);
 		},
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+		keepPreviousData: true
 	});
 
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items), [query.data]);
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
 	return { query, items };
 };

@@ -1,0 +1,131 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
+import clsx from 'clsx';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LazyLoad from 'react-lazy-load';
+import { useKey, useOnWindowResize } from 'rooks';
+import { ExplorerItem, formatBytes } from '@sd/client';
+import GridList from '~/components/GridList';
+import { DragSelectProvider } from '~/hooks/useDragSelect';
+import {
+	getExplorerStore,
+	getSelectedExplorerItems,
+	useExplorerStore,
+	useSelectedExplorerItems
+} from '~/hooks/useExplorerStore';
+import { ViewItem } from '.';
+import RenameTextBox from '../File/RenameTextBox';
+import Thumb from '../File/Thumb';
+import { useExplorerViewContext } from '../ViewContext';
+import { getItemFilePath } from '../util';
+
+interface GridViewItemProps {
+	data: ExplorerItem;
+	selected: boolean;
+	index: number;
+}
+
+const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProps) => {
+	const filePathData = data ? getItemFilePath(data) : null;
+	const explorerStore = useExplorerStore();
+
+	return (
+		<ViewItem data={data} index={index} className="h-full w-full" {...props}>
+			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selected/20')}>
+				<Thumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
+			</div>
+
+			<div className="flex flex-col justify-center">
+				{filePathData && (
+					<RenameTextBox
+						filePathData={filePathData}
+						selected={selected}
+						className={clsx(
+							'text-center font-medium',
+							selected && 'bg-accent text-white'
+						)}
+						style={{
+							maxHeight: explorerStore.gridItemSize / 3
+						}}
+					/>
+				)}
+				{explorerStore.showBytesInGridView &&
+					(!explorerStore.isRenaming || (explorerStore.isRenaming && !selected)) && (
+						<span
+							className={clsx(
+								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
+							)}
+						>
+							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+						</span>
+					)}
+			</div>
+		</ViewItem>
+	);
+});
+
+export default () => {
+	const explorerStore = useExplorerStore();
+	const {
+		data,
+		scrollRef,
+		onLoadMore,
+		hasNextPage,
+		isFetchingNextPage,
+		selectedItems,
+		onSelectedChange,
+		overscan
+	} = useExplorerViewContext();
+
+	const itemDetailsHeight =
+		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
+	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
+
+	// const selectedItems = useSelectedExplorerItems();
+
+	const fetchMore = () => {
+		if (hasNextPage && !isFetchingNextPage) {
+			onLoadMore?.();
+		}
+	};
+
+	return (
+		<GridList
+			scrollRef={scrollRef}
+			count={data?.length || 100}
+			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
+			padding={12}
+			selected={selectedItems}
+			onSelect={(index) => getSelectedExplorerItems().add(data?.[index]!.item.id!)}
+			onDeselect={(index) => getSelectedExplorerItems().delete(data?.[index]!.item.id!)}
+			onSelectedChange={(index) => onSelectedChange?.(index)}
+			selectable={!!data}
+			overscan={overscan}
+			onLastRow={fetchMore}
+		>
+			{({ index, item: Item }) => {
+				if (!data) {
+					return (
+						<Item className="p-px">
+							<div className="aspect-square animate-pulse rounded-md bg-app-box" />
+							<div className="mx-2 mt-3 h-2 animate-pulse rounded bg-app-box" />
+							{explorerStore.showBytesInGridView && (
+								<div className="mx-8 mt-2 h-1 animate-pulse rounded bg-app-box" />
+							)}
+						</Item>
+					);
+				}
+
+				const item = data[index];
+				if (!item) return null;
+
+				const isSelected = !!selectedItems?.has(item.item.id);
+
+				return (
+					<Item selectable selected={isSelected} index={index} id={item.item.id}>
+						<GridViewItem data={item} selected={isSelected} index={index} />
+					</Item>
+				);
+			}}
+		</GridList>
+	);
+};

@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerContext,
 	ExplorerItem,
@@ -33,17 +33,14 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
-	context?: ExplorerContext;
-	data?: ExplorerItem;
+interface DetailsProps {
+	item: ExplorerItem;
 }
+const ItemDetails = ({ item }: DetailsProps) => {
+	const objectData = getItemObject(item);
+	const filePathData = getItemFilePath(item);
 
-export const Inspector = ({ data, context, ...elementProps }: Props) => {
-	const objectData = data ? getItemObject(data) : null;
-	const filePathData = data ? getItemFilePath(data) : null;
-	const explorerStore = useExplorerStore();
-
-	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
+	const isDir = filePathData?.is_dir;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -52,185 +49,169 @@ export const Inspector = ({ data, context, ...elementProps }: Props) => {
 			setReadyToFetch(true);
 		}, 350);
 		return () => clearTimeout(timeout);
-	}, [data?.item.id]);
+	}, [item.item.id]);
 
-	// this is causing LAG
-	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
-		enabled: readyToFetch
+	const tags = useLibraryQuery(['tags.getForObject', objectData?.id!], {
+		enabled: !!objectData?.id && readyToFetch
 	});
 
-	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
-		enabled: readyToFetch && objectData?.id !== undefined
+	const { data: file } = useLibraryQuery(['files.get', { id: objectData?.id! }], {
+		enabled: !!objectData?.id && readyToFetch
 	});
 
-	const item = data?.item;
-
-	// map array of numbers into string
-	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
+	const pub_id = file?.pub_id.map((n: number) => n.toString(16)).join('');
 
 	return (
-		<div
-			{...elementProps}
-			className="custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1"
-			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
-		>
-			{data && (
-				<>
-					{explorerStore.layoutMode !== 'media' && (
-						<div
-							className={clsx(
-								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
-							)}
+		<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+				{filePathData?.name}
+				{filePathData?.extension && `.${filePathData.extension}`}
+			</h3>
+
+			{objectData && (
+				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
+					<Tooltip label="Favorite">
+						<FavoriteButton data={objectData} />
+					</Tooltip>
+
+					<Tooltip label="Encrypt">
+						<Button size="icon">
+							<Lock className="h-[18px] w-[18px]" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Share">
+						<Button size="icon">
+							<Link className="h-[18px] w-[18px]" />
+						</Button>
+					</Tooltip>
+				</div>
+			)}
+
+			<Divider />
+
+			<MetaContainer>
+				<div className="flex flex-wrap gap-1 overflow-hidden">
+					<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+					{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+					{tags?.data?.map((tag) => (
+						<Tooltip
+							key={tag.id}
+							label={tag.name || ''}
+							className="flex overflow-hidden"
 						>
-							<FileThumb loadOriginal size={240} data={data} />
+							<InfoPill
+								className="truncate !text-white"
+								style={{ backgroundColor: tag.color + 'CC' }}
+							>
+								{tag.name}
+							</InfoPill>
+						</Tooltip>
+					))}
+					{objectData?.id && (
+						<DropdownMenu.Root
+							trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+							side="left"
+							sideOffset={5}
+							alignOffset={-10}
+						>
+							<AssignTagMenuItems objectId={objectData.id} />
+						</DropdownMenu.Root>
+					)}
+				</div>
+			</MetaContainer>
+
+			<Divider />
+
+			<MetaContainer className="!flex-row space-x-2">
+				<MetaTextLine>
+					<InspectorIcon component={Cube} />
+					<span className="mr-1.5">Size</span>
+					<MetaValue>{formatBytes(Number(filePathData?.size_in_bytes || 0))}</MetaValue>
+				</MetaTextLine>
+				{file?.media_data?.duration_seconds && (
+					<MetaTextLine>
+						<InspectorIcon component={Clock} />
+						<span className="mr-1.5">Duration</span>
+						<MetaValue>{file.media_data.duration_seconds}</MetaValue>
+					</MetaTextLine>
+				)}
+			</MetaContainer>
+
+			<Divider />
+
+			<MetaContainer>
+				<Tooltip label={dayjs(file?.date_created).format('h:mm:ss a')}>
+					<MetaTextLine>
+						<InspectorIcon component={Clock} />
+						<MetaKeyName className="mr-1.5">Created</MetaKeyName>
+						<MetaValue>{dayjs(file?.date_created).format('MMM Do YYYY')}</MetaValue>
+					</MetaTextLine>
+				</Tooltip>
+				<Tooltip label={dayjs(file?.date_created).format('h:mm:ss a')}>
+					<MetaTextLine>
+						<InspectorIcon component={Barcode} />
+						<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
+						<MetaValue>
+							{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
+						</MetaValue>
+					</MetaTextLine>
+				</Tooltip>
+			</MetaContainer>
+
+			{!isDir && objectData && (
+				<>
+					<Note data={objectData} />
+					<Divider />
+					<MetaContainer>
+						<Tooltip label={filePathData?.cas_id || ''}>
+							<MetaTextLine>
+								<InspectorIcon component={Snowflake} />
+								<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
+								<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
+							</MetaTextLine>
+						</Tooltip>
+						{filePathData?.integrity_checksum && (
+							<Tooltip label={filePathData?.integrity_checksum || ''}>
+								<MetaTextLine>
+									<InspectorIcon component={CircleWavyCheck} />
+									<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
+									<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+								</MetaTextLine>
+							</Tooltip>
+						)}
+						{pub_id && (
+							<Tooltip label={pub_id || ''}>
+								<MetaTextLine>
+									<InspectorIcon component={Hash} />
+									<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+									<MetaValue>{pub_id}</MetaValue>
+								</MetaTextLine>
+							</Tooltip>
+						)}
+					</MetaContainer>
+				</>
+			)}
+		</div>
+	);
+};
+
+interface Props extends HTMLAttributes<HTMLDivElement> {
+	item?: ExplorerItem;
+	showThumbnail?: boolean;
+}
+
+export const Inspector = ({ item, showThumbnail = true, ...props }: Props) => {
+	return (
+		<div {...props}>
+			{item && (
+				<>
+					{showThumbnail && (
+						<div className="aspect-square">
+							<FileThumb loadOriginal size={null} data={item} className="mx-auto" />
 						</div>
 					)}
-					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
-							{filePathData?.name}
-							{filePathData?.extension && `.${filePathData.extension}`}
-						</h3>
-						{objectData && (
-							<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
-								<Tooltip label="Favorite">
-									<FavoriteButton data={objectData} />
-								</Tooltip>
 
-								<Tooltip label="Encrypt">
-									<Button size="icon">
-										<Lock className="h-[18px] w-[18px]" />
-									</Button>
-								</Tooltip>
-								<Tooltip label="Share">
-									<Button size="icon">
-										<Link className="h-[18px] w-[18px]" />
-									</Button>
-								</Tooltip>
-							</div>
-						)}
-
-						{context?.type == 'Location' && data?.type === 'Path' && (
-							<MetaContainer>
-								<MetaTitle>URI</MetaTitle>
-								<MetaValue>{`${context.path}/${data.item.materialized_path}`}</MetaValue>
-							</MetaContainer>
-						)}
-						<Divider />
-						<MetaContainer>
-							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>
-									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
-								</InfoPill>
-								{filePathData?.extension && (
-									<InfoPill>{filePathData.extension}</InfoPill>
-								)}
-								{tags?.data?.map((tag) => (
-									<Tooltip
-										key={tag.id}
-										label={tag.name || ''}
-										className="flex overflow-hidden"
-									>
-										<InfoPill
-											className="truncate !text-white"
-											style={{ backgroundColor: tag.color + 'CC' }}
-										>
-											{tag.name}
-										</InfoPill>
-									</Tooltip>
-								))}
-								{objectData?.id && (
-									<DropdownMenu.Root
-										trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-										side="left"
-										sideOffset={5}
-										alignOffset={-10}
-									>
-										<AssignTagMenuItems objectId={objectData.id} />
-									</DropdownMenu.Root>
-								)}
-							</div>
-						</MetaContainer>
-						<Divider />
-						<MetaContainer className="!flex-row space-x-2">
-							<MetaTextLine>
-								<InspectorIcon component={Cube} />
-								<span className="mr-1.5">Size</span>
-								<MetaValue>
-									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-								</MetaValue>
-							</MetaTextLine>
-							{fullObjectData.data?.media_data?.duration_seconds && (
-								<MetaTextLine>
-									<InspectorIcon component={Clock} />
-									<span className="mr-1.5">Duration</span>
-									<MetaValue>
-										{fullObjectData.data.media_data.duration_seconds}
-									</MetaValue>
-								</MetaTextLine>
-							)}
-						</MetaContainer>
-						<Divider />
-						<MetaContainer>
-							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Clock} />
-									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>
-										{dayjs(item?.date_created).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
-							<Tooltip label={dayjs(item?.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Barcode} />
-									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>
-										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
-						</MetaContainer>
-
-						{!isDir && objectData && (
-							<>
-								<Note data={objectData} />
-								<Divider />
-								<MetaContainer>
-									<Tooltip label={filePathData?.cas_id || ''}>
-										<MetaTextLine>
-											<InspectorIcon component={Snowflake} />
-											<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
-											<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
-										</MetaTextLine>
-									</Tooltip>
-									{filePathData?.integrity_checksum && (
-										<Tooltip label={filePathData?.integrity_checksum || ''}>
-											<MetaTextLine>
-												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">
-													Checksum
-												</MetaKeyName>
-												<MetaValue>
-													{filePathData?.integrity_checksum}
-												</MetaValue>
-											</MetaTextLine>
-										</Tooltip>
-									)}
-									{pub_id && (
-										<Tooltip label={pub_id || ''}>
-											<MetaTextLine>
-												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">
-													Object ID
-												</MetaKeyName>
-												<MetaValue>{pub_id}</MetaValue>
-											</MetaTextLine>
-										</Tooltip>
-									)}
-								</MetaContainer>
-							</>
-						)}
-					</div>
+					<ItemDetails item={item} />
 				</>
 			)}
 		</div>

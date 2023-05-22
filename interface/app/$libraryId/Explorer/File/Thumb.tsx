@@ -1,6 +1,7 @@
 import * as icons from '@sd/assets/icons';
 import clsx from 'clsx';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import LazyLoad from 'react-lazy-load';
 import { ExplorerItem, isKeyOf, useLibraryContext } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { useIsDark, usePlatform } from '~/util/Platform';
@@ -124,6 +125,7 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 							props.className
 						)}
 						playsInline
+						draggable={false}
 					/>
 				) : (
 					<>
@@ -149,11 +151,12 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 								kind === 'Video' ? 'rounded' : 'rounded-sm',
 								classes.checkers,
 								size &&
-								(kind === 'Video'
-									? 'border-x-0 border-black'
-									: size > 60 && 'border-2 border-app-line'),
+									(kind === 'Video'
+										? 'border-x-0 border-black'
+										: size > 60 && 'border-2 border-app-line'),
 								props.className
 							)}
+							draggable={false}
 						/>
 						{kind === 'Video' && (!size || size > 80) && (
 							<div
@@ -161,11 +164,11 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 									cover
 										? {}
 										: thumbSize
-											? {
+										? {
 												marginTop: Math.floor(thumbSize.height / 2) - 2,
 												marginLeft: Math.floor(thumbSize.width / 2) - 2
-											}
-											: { display: 'none' }
+										  }
+										: { display: 'none' }
 								}
 								className={clsx(
 									cover
@@ -185,6 +188,7 @@ function Thumb({ size, cover, ...props }: ThumbProps) {
 					src={getIcon(isDir, isDark, kind, extension)}
 					decoding="async"
 					className={clsx(childClassName, props.className)}
+					draggable={false}
 				/>
 			)}
 		</div>
