@@ -7049,6 +7049,7 @@ dependencies = [
  "enumflags2",
  "futures",
  "globset",
+ "hex",
  "hostname",
  "http-range",
  "httpz 0.0.3",

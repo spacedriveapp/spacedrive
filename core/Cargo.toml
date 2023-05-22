@@ -52,6 +52,7 @@ tokio = { workspace = true, features = [
 ] }
 
 
+hex = "0.4.3"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 base64 = "0.21.0"
 serde = { version = "1.0", features = ["derive"] }
