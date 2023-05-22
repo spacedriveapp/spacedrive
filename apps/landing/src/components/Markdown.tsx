@@ -1,9 +1,5 @@
 import clsx from 'clsx';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-rust';
-import 'prismjs/components/prism-typescript';
-import { PropsWithChildren, useEffect } from 'react';
-import '../atom-one.css';
+import { PropsWithChildren } from 'react';
 
 interface MarkdownPageProps {
 	classNames?: string;
@@ -11,10 +7,6 @@ interface MarkdownPageProps {
 }
 
 function MarkdownPage(props: PropsWithChildren<MarkdownPageProps>) {
-	useEffect(() => {
-		Prism.highlightAll();
-	}, []);
-
 	return (
 		<div className={clsx('mb-10 p-4', props.classNames)}>
 			<article

@@ -1,13 +1,28 @@
 {
-	"extends": "../../packages/config/app.tsconfig.json",
-	"include": ["src"],
-	"ts-node": {
-		"transpileOnly": true,
-		"compilerOptions": {}
-	},
-	"references": [
-		{
-			"path": "../../packages/ui"
+	"compilerOptions": {
+		"module": "ESNext",
+		"target": "ESNext",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"allowJs": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"noEmit": true,
+		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "preserve",
+		"incremental": true,
+		"baseUrl": ".",
+		"preserveWatchOutput": true,
+		"allowSyntheticDefaultImports": true,
+		"composite": true,
+		"paths": {
+			"~/*": ["./src/*"],
+			"@contentlayer/generated": ["./.contentlayer/generated"]
 		}
-	]
+	},
+	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+	"exclude": ["node_modules"]
 }

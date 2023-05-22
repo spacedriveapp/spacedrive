@@ -1,4 +1,3 @@
-/* eslint-disable tailwindcss/classnames-order */
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';

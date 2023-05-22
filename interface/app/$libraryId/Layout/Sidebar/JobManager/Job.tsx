@@ -34,18 +34,19 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-				? `Indexed paths at ${job.metadata?.location_path} `
-				: `Processing added location...`,
+			? `Indexed paths at ${job.metadata?.location_path} `
+			: `Processing added location...`,
 		icon: Folder,
 		subtext: `${numberWithCommas(
 			job.metadata?.total_paths || 0
 		)} ${appendPlural(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Generating thumbnails'
-			: 'Generated thumbnails'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Generating thumbnails'
+				: 'Generated thumbnails'
+		}`,
 		icon: Camera,
 		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(job.task_count)} ${appendPlural(job, 'thumbnail')}`
 	},
@@ -55,10 +56,11 @@ const getNiceData = (
 		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'item')}`
 	},
 	file_identifier: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Extracting metadata'
-			: 'Extracted metadata'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Extracting metadata'
+				: 'Extracted metadata'
+		}`,
 		icon: Eye,
 		subtext:
 			job.message ||
@@ -147,14 +149,15 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 				<div>
 					<niceData.icon
 						className={clsx(
-							'relative top-2 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
+							isGroup && 'ml-9 mr-3.5',
+							'relative top-2 z-20 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
 						)}
 					/>
 				</div>
-				<div className="flex w-full flex-col">
+				<div className="flex flex-col w-full">
 					<div className="flex items-center">
 						<div className="truncate">
-							<span className="truncate font-semibold">{niceData.name}</span>
+							<span className="font-semibold truncate">{niceData.name}</span>
 							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
@@ -164,7 +167,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<div className="flex gap-1 truncate text-ink-faint"></div>
 						</div>
 						<div className="grow" />
-						<div className="ml-7 flex flex-row space-x-2">
+						<div className="flex flex-row space-x-2 ml-7">
 							{/* {job.status === 'Running' && (
 						<Button size="icon">
 							<Tooltip label="Coming Soon">

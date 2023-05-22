@@ -1,9 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { useKey } from 'rooks';
 import { z } from 'zod';
-import { useLibraryContext, useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
-import { Folder, dialogManager } from '@sd/ui';
+import {
+	ExplorerItem,
+	useLibraryContext,
+	useLibraryMutation,
+	useLibraryQuery,
+	useRspcLibraryContext
+} from '@sd/client';
+import { Folder } from '@sd/ui';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -11,10 +16,10 @@ import {
 	useZodRouteParams
 } from '~/hooks';
 import Explorer from '../Explorer';
-import DeleteDialog from '../Explorer/File/DeleteDialog';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
+import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -32,36 +37,22 @@ export const Component = () => {
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = getExplorerStore();
-
 	useEffect(() => {
 		explorerStore.locationId = location_id;
 		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
 	}, [explorerStore, location_id, path, quickRescan]);
 
 	const { query, items } = useItems();
+	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
+	useKeyDeleteFile(file as ExplorerItem, location_id)
 
-	useKey('Delete', (e) => {
-		e.preventDefault();
-
-		const explorerStore = getExplorerStore();
-
-		if (explorerStore.selectedRowIndex === null) return;
-
-		const file = items?.[explorerStore.selectedRowIndex];
-
-		if (!file) return;
-
-		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} location_id={location_id} path_id={file.item.id} />
-		));
-	});
 
 	return (
 		<>
 			<TopBarPortal
 				left={
 					<>
-						<Folder size={22} className="ml-3 mr-2 -mt-[1px] inline-block" />
+						<Folder size={22} className="-mt-[1px] ml-3 mr-2 inline-block" />
 						<span className="text-sm font-medium">
 							{path ? getLastSectionOfPath(path) : location?.name}
 						</span>
@@ -73,7 +64,7 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex w-full flex-col">
+			<div className="relative flex flex-col w-full">
 				<Explorer
 					items={items}
 					onLoadMore={query.fetchNextPage}
@@ -124,7 +115,6 @@ const useItems = () => {
 
 	return { query, items };
 };
-
 
 function getLastSectionOfPath(path: string): string | undefined {
 	if (path.endsWith('/')) {

@@ -1,7 +1,6 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import { getWindow } from '../utils';
+import { getWindow } from '~/utils/util';
 
 const AppEmbed = () => {
 	const [showApp, setShowApp] = useState(false);
@@ -11,25 +10,18 @@ const AppEmbed = () => {
 	const iFrame = useRef<HTMLIFrameElement>(null);
 	const window = getWindow()!;
 
-	function handleResize() {
-		if (window.innerWidth < 1000) {
-			setForceImg(true);
-		} else if (forceImg) {
-			setForceImg(false);
-		}
-	}
-
 	useEffect(() => {
+		function handleResize() {
+			if (window.innerWidth < 1000) {
+				setForceImg(true);
+			} else if (forceImg) {
+				setForceImg(false);
+			}
+		}
 		window.addEventListener('resize', handleResize);
 		handleResize();
 		return () => window.removeEventListener('resize', handleResize);
-	}, []);
-
-	function handleEvent(e: any) {
-		if (e.data === 'spacedrive-hello') {
-			if (!iFrameAppReady) setIframeAppReady(true);
-		}
-	}
+	}, [forceImg, window]);
 
 	// after five minutes kill the live demo
 	useEffect(() => {
@@ -40,17 +32,22 @@ const AppEmbed = () => {
 	}, []);
 
 	useEffect(() => {
+		function handleEvent(e: any) {
+			if (e.data === 'spacedrive-hello') {
+				if (!iFrameAppReady) setIframeAppReady(true);
+			}
+		}
 		window.addEventListener('message', handleEvent, false);
 		setShowApp(true);
 
 		return () => window.removeEventListener('message', handleEvent);
-	}, []);
+	}, [iFrameAppReady, window]);
 
 	useEffect(() => {
 		setTimeout(() => {
 			if (!iFrameAppReady) setImageFallback(true);
 		}, 1500);
-	}, []);
+	}, [iFrameAppReady]);
 
 	const renderImage = (imgFallback && !iFrameAppReady) || forceImg;
 
@@ -78,13 +75,13 @@ const AppEmbed = () => {
 							ref={iFrame}
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
-								'shadow-iframe inset-center z-30  h-full w-full rounded-lg bg-gray-850',
+								'shadow-iframe inset-center z-30 h-full w-full rounded-lg bg-gray-850',
 								iFrameAppReady
 									? 'fade-in-app-embed opacity-100'
 									: 'ml-[-10000px] opacity-0'
 							)}
 							src={`${
-								import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
+								process.env.NEXT_PUBLIC_SDWEB_BASE_URL || 'http://localhost:8002'
 							}?showControls&library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
 						/>
 					)}
