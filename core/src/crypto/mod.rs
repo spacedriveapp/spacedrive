@@ -1,16 +1,23 @@
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::correctness)]
-#![warn(clippy::perf)]
-#![warn(clippy::style)]
-#![warn(clippy::suspicious)]
-#![warn(clippy::complexity)]
-#![warn(clippy::nursery)]
-#![warn(clippy::unwrap_used)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::module_name_repetitions)]
-#![warn(unused_qualifications)]
+#![warn(
+	clippy::all,
+	clippy::pedantic,
+	clippy::correctness,
+	clippy::perf,
+	clippy::style,
+	clippy::suspicious,
+	clippy::complexity,
+	clippy::nursery,
+	clippy::unwrap_used,
+	unused_qualifications,
+	clippy::expect_used,
+	trivial_casts,
+	trivial_numeric_casts,
+	unused_allocation,
+	clippy::as_conversions,
+	clippy::dbg_macro
+)]
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 use sd_crypto::types::{Algorithm, DerivationContext, HashingAlgorithm};
 
@@ -39,6 +46,18 @@ pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
 /// Defines the context string for BLAKE3-KDF in regards to file key derivation (for file encryption)
 pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
+
+/// Defines the context string for BLAKE3-KDF in regards to key derivation (for the key manager)
+pub const KEYMANAGER_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-04-12 14:34:07 key manager derivation");
+
+/// Defines the context string for BLAKE3-KDF in regards to key derivation (for encrypted words)
+pub const ENCRYPTED_WORD_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-05-22 18:01:02 encrypted word derivation");
+
+/// Defines the context string for BLAKE3-KDF in regards to key derivation (for test vectors)
+pub const TEST_VECTOR_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-05-22 14:37:16 test vector derivation");
 
 #[derive(Clone, serde::Deserialize)]
 pub struct OnboardingConfig {
