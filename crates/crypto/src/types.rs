@@ -325,8 +325,15 @@ impl SecretKey {
 impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 	type Error = Error;
 
-	fn try_from(v: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
-		Ok(Self::new(v.into_inner().to_array()?))
+	fn try_from(value: Protected<Vec<u8>>) -> Result<Self, Self::Error> {
+		let sk = match value.expose().len() {
+			// this won't fail as we check the size
+			SECRET_KEY_LEN => Self::Standard(value.into_inner().to_array()?),
+			0 => Self::Null,
+			_ => Self::Variable(value.into_inner()),
+		};
+
+		Ok(sk)
 	}
 }
 
