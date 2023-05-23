@@ -94,6 +94,8 @@ export type Procedures = {
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
 
+export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+
 export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 /**
@@ -102,8 +104,6 @@ export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm:
 export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
 export type CategoryItem = { name: string; count: number }
-
-export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
 
 /**
  * This denotes the `StoredKey` version.
@@ -119,11 +119,11 @@ export type EncryptedKey = number[]
 
 export type PeerId = string
 
+export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
+
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
-
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
 /**
  * These parameters define the password-hashing level.
@@ -150,7 +150,7 @@ export type FilePathSearchArgs = { locationId?: number | null; afterFileId?: str
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
-export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+export type GetArgs = { id: number }
 
 /**
  * This is a stored key, and can be freely written to the database.
@@ -173,6 +173,8 @@ export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
+
 /**
  * This should be used for providing a nonce to encrypt/decrypt functions.
  * 
@@ -184,7 +186,7 @@ export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Pr
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-export type SetFavoriteArgs = { id: number; favorite: boolean }
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
@@ -199,15 +201,13 @@ export type Salt = number[]
 
 export type ObjectSearchArgs = { take?: number | null; tagId?: number | null; cursor?: number[] | null }
 
-export type SetNoteArgs = { id: number; note: string | null }
-
 export type FilePathSearchOrdering = { name: boolean } | { sizeInBytes: boolean } | { dateCreated: boolean } | { dateModified: boolean } | { dateIndexed: boolean } | { object: ObjectSearchOrdering }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
-export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+export type SetFavoriteArgs = { id: number; favorite: boolean }
 
-export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
+export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type BuildInfo = { version: string; commit: string }
 
@@ -222,20 +222,22 @@ export type ObjectSearchOrdering = { dateAccessed: boolean }
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
-
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
-
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 /**
  * TODO: P2P event for the frontend
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
+
+export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
+
+export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
 
@@ -259,13 +261,13 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
  * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  * `parameters` field must be a vector of strings containing the names of the directories.
  */
-export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
+export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
-export type GetArgs = { id: number }
+export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
@@ -289,21 +291,19 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
-
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
+export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
 export type ObjectValidatorArgs = { id: number; path: string }
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type ChangeNodeNameArgs = { name: string }
-
-export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
 /**
  * This defines all available password hashing algorithms.

@@ -59,7 +59,7 @@ impl FilePathSearchOrdering {
 		.unwrap_or(SortOrder::Desc)
 	}
 
-	fn to_param(self) -> file_path::OrderByWithRelationParam {
+	fn into_param(self) -> file_path::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use file_path::*;
 		match self {
@@ -68,7 +68,7 @@ impl FilePathSearchOrdering {
 			Self::DateCreated(_) => date_created::order(dir),
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
-			Self::Object(v) => object::order(vec![v.to_param()]),
+			Self::Object(v) => object::order(vec![v.into_param()]),
 		}
 	}
 }
@@ -119,7 +119,7 @@ impl ObjectSearchOrdering {
 		.unwrap_or(SortOrder::Desc)
 	}
 
-	fn to_param(self) -> object::OrderByWithRelationParam {
+	fn into_param(self) -> object::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use object::*;
 		match self {
@@ -223,7 +223,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					if let Some(order) = args.order {
-						query = query.order_by(order.to_param());
+						query = query.order_by(order.into_param());
 					}
 
 					if let Some(cursor) = args.cursor {
