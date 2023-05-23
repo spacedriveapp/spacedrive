@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import dayjs from 'dayjs';
 import {
 	Camera,
 	Copy,
@@ -16,9 +17,6 @@ import { memo } from 'react';
 import { JobReport } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import './Job.scss';
-import { useJobTimeText } from './useJobTimeText';
-import useEstimatedTimeRemaining from './useEstimatedTimeRemaining';
-import dayjs from 'dayjs';
 
 interface JobNiceData {
 	name: string;
@@ -37,9 +35,7 @@ const getNiceData = (
 			? `Indexed paths at ${job.metadata?.location_path} `
 			: `Processing added location...`,
 		icon: Folder,
-		subtext: `${numberWithCommas(
-			job.metadata?.total_paths || 0
-		)} ${appendPlural(job, 'path')}`
+		subtext: `${numberWithCommas(job.metadata?.total_paths || 0)} ${appendPlural(job, 'path')}`
 	},
 	thumbnailer: {
 		name: `${
@@ -48,7 +44,9 @@ const getNiceData = (
 				: 'Generated thumbnails'
 		}`,
 		icon: Camera,
-		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(job.task_count)} ${appendPlural(job, 'thumbnail')}`
+		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(
+			job.task_count
+		)} ${appendPlural(job, 'thumbnail')}`
 	},
 	shallow_thumbnailer: {
 		name: `Generating thumbnails for current directory`,
@@ -69,10 +67,7 @@ const getNiceData = (
 	object_validator: {
 		name: `Generated full object hashes`,
 		icon: Fingerprint,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(
-			job,
-			'object'
-		)}`
+		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'object')}`
 	},
 	file_encryptor: {
 		name: `Encrypted`,
@@ -113,8 +108,8 @@ interface JobProps {
 	isGroup?: boolean;
 }
 
-function formatEstimatedRemainingTime(seconds: number) {
-	const duration = dayjs.duration(seconds * 1000);
+function formatEstimatedRemainingTime(end_date: string) {
+	const duration = dayjs.duration(new Date(end_date).getTime() - Date.now());
 
 	if (duration.hours() > 0) {
 		return `${duration.hours()} hour${duration.hours() > 1 ? 's' : ''} remaining`;
@@ -134,8 +129,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	const isRunning = job.status === 'Running';
 
 	// dayjs from seconds to time
-	// @ts-expect-error
-	const time = isRunning ? formatEstimatedRemainingTime(job.estimated_remaining_seconds.secs) : "";
+	const time = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : '';
 
 	return (
 		<li
@@ -154,10 +148,10 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						)}
 					/>
 				</div>
-				<div className="flex flex-col w-full">
+				<div className="flex w-full flex-col">
 					<div className="flex items-center">
 						<div className="truncate">
-							<span className="font-semibold truncate">{niceData.name}</span>
+							<span className="truncate font-semibold">{niceData.name}</span>
 							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
@@ -167,7 +161,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<div className="flex gap-1 truncate text-ink-faint"></div>
 						</div>
 						<div className="grow" />
-						<div className="flex flex-row space-x-2 ml-7">
+						<div className="ml-7 flex flex-row space-x-2">
 							{/* {job.status === 'Running' && (
 						<Button size="icon">
 							<Tooltip label="Coming Soon">
