@@ -24,7 +24,8 @@ export const env = createEnv({
 		AWS_SES_SECRET_KEY: process.env.AWS_SES_SECRET_KEY,
 		AWS_SES_REGION: process.env.AWS_SES_REGION,
 		MAILER_FROM: process.env.MAILER_FROM
-	}
-	// Can be used to skip env check
-	// skipValidation: true,
+	},
+	// In dev or in eslint disable checking.
+	// Kinda sucks for in dev but you don't need the whole setup to change the docs.
+	skipValidation: process.env.VERCEL !== '1'
 });
