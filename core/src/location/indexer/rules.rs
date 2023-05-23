@@ -58,10 +58,10 @@ impl From<IndexerRuleError> for rspc::Error {
 }
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
-/// Note that `parameters` field **MUST** be a JSON object serialized to bytes.
+/// Note that `rules` field is a vector of tuples of `RuleKind` and `parameters`.
 ///
 /// In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
-/// single string containing a glob pattern.
+/// vector of strings containing a glob patterns.
 ///
 /// In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
 /// `parameters` field must be a vector of strings containing the names of the directories.

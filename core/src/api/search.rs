@@ -342,7 +342,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.take(take as i64 + 1);
 
 					if let Some(order) = order {
-						query = query.order_by(order.to_param());
+						query = query.order_by(order.into_param());
 					}
 
 					if let Some(cursor) = cursor {
