@@ -87,6 +87,24 @@ impl EncryptedWord {
 		)
 		.map_err(CryptoError::Crypto)
 	}
+
+	pub fn encrypt_from(
+		root_key: &Key,
+		word: Protected<Vec<u8>>,
+		algorithm: Algorithm,
+	) -> Result<Self> {
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+		let bytes = Encryptor::encrypt_tiny(
+			&Hasher::derive_key(root_key, salt, ENCRYPTED_WORD_CONTEXT),
+			&nonce,
+			algorithm,
+			word.expose(),
+			Aad::Null,
+		)?;
+
+		Ok(Self(salt, nonce, bytes))
+	}
 }
 
 key::select!(key_with_user_info { uuid name });
@@ -109,7 +127,7 @@ fn word_to_salt(word: &Protected<Vec<u8>>) -> Result<Salt> {
 }
 
 impl UserKey {
-	pub async fn write_to_db(&self, db: &Arc<PrismaClient>) -> Result<()> {
+	pub async fn write_to_db(&self, db: &PrismaClient) -> Result<()> {
 		let kc: key::CreateUnchecked = self.try_into()?;
 		kc.to_query(db)
 			.exec()
@@ -194,11 +212,7 @@ impl KeyManager {
 	}
 
 	async fn get_root_key(&self) -> Result<Key> {
-		self.key
-			.lock()
-			.await
-			.clone()
-			.ok_or(CryptoError::Locked)
+		self.key.lock().await.clone().ok_or(CryptoError::Locked)
 	}
 
 	async fn ensure_unlocked(&self) -> Result<()> {
@@ -306,9 +320,6 @@ impl KeyManager {
 		let tv_nonce = Nonce::generate(algorithm);
 		let tv_salt = Salt::generate();
 
-		let ew_salt = Salt::generate();
-		let ew_nonce = Nonce::generate(algorithm);
-
 		let hashed_password = Hasher::hash_password(
 			hashing_algorithm,
 			&password.into_inner().into_bytes().into(),
@@ -324,15 +335,7 @@ impl KeyManager {
 			Aad::Null,
 		)?;
 
-		let ew_bytes = Encryptor::encrypt_tiny(
-			&Hasher::derive_key(&self.get_root_key().await?, ew_salt, ENCRYPTED_WORD_CONTEXT),
-			&ew_nonce,
-			algorithm,
-			word.expose(),
-			Aad::Null,
-		)?;
-
-		let ew = EncryptedWord(ew_salt, ew_nonce, ew_bytes);
+		let ew = EncryptedWord::encrypt_from(&self.get_root_key().await?, word, algorithm)?;
 
 		let uuid = Uuid::new_v4();
 
@@ -519,20 +522,9 @@ impl KeyManager {
 			.user_keys
 			.into_iter()
 			.map(|mut key| {
-				let nonce = Nonce::generate(key.algorithm);
-				let salt = Salt::generate();
-
 				let word = key.word.decrypt(&backup_rk, key.algorithm)?;
+				key.word = EncryptedWord::encrypt_from(&rk, word, key.algorithm)?;
 
-				let ew_bytes = Encryptor::encrypt_tiny(
-					&Hasher::derive_key(&rk, salt, ENCRYPTED_WORD_CONTEXT),
-					&nonce,
-					key.algorithm,
-					word.expose(),
-					Aad::Null,
-				)?;
-
-				key.word = EncryptedWord(salt, nonce, ew_bytes);
 				key.try_into()
 			})
 			.collect::<Result<Vec<key::CreateUnchecked>>>()?;
@@ -583,7 +575,7 @@ impl TryFrom<key::Data> for RootKey {
 }
 
 impl RootKey {
-	pub async fn write_to_db(&self, db: &Arc<PrismaClient>) -> Result<()> {
+	pub async fn write_to_db(&self, db: &PrismaClient) -> Result<()> {
 		let kc: key::CreateUnchecked = self.try_into()?;
 		kc.to_query(db)
 			.exec()
