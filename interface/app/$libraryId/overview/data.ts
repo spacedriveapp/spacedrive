@@ -1,7 +1,9 @@
+import { iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import deepMerge from 'ts-deepmerge';
 import {
-    Category,
+	Category,
 	FilePathSearchArgs,
 	ObjectKind,
 	ObjectKindKey,
@@ -10,8 +12,6 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { useExplorerStore } from '~/hooks';
-import deepMerge from "ts-deepmerge"
-import { iconNames } from '@sd/assets/icons/util';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
@@ -41,7 +41,7 @@ const SearchableCategories: Record<string, ObjectKindKey> = {
 	Books: 'Book'
 } satisfies Partial<Record<Category, ObjectKindKey>>;
 
-const OBJECT_CATEGORIES: Category[] = ["Recents", "Favorites"]
+const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
 
 // this is a gross function so it's in a separate hook :)
 export function useItems(selectedCategory: Category) {
@@ -71,7 +71,7 @@ export function useItems(selectedCategory: Category) {
 						take: 50,
 						filter: {
 							object: { kind }
-						},
+						}
 					},
 					categorySearchPathsArgs(selectedCategory)
 				)
@@ -88,7 +88,10 @@ export function useItems(selectedCategory: Category) {
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
 	});
 
-	const pathsItems = useMemo(() => pathsQuery.data?.pages?.flatMap((d) => d.items), [pathsQuery.data]);
+	const pathsItems = useMemo(
+		() => pathsQuery.data?.pages?.flatMap((d) => d.items),
+		[pathsQuery.data]
+	);
 
 	const objectsQuery = useInfiniteQuery({
 		enabled: isObjectQuery,
@@ -100,8 +103,8 @@ export function useItems(selectedCategory: Category) {
 					{
 						take: 50,
 						filter: {
-							kind 
-						},
+							kind
+						}
 					},
 					categorySearchObjectsArgs(selectedCategory)
 				)
@@ -116,19 +119,22 @@ export function useItems(selectedCategory: Category) {
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+	});
 
-	})
+	const objectsItems = useMemo(
+		() => objectsQuery.data?.pages?.flatMap((d) => d.items),
+		[objectsQuery.data]
+	);
 
-	const objectsItems = useMemo(() => objectsQuery.data?.pages?.flatMap((d) => d.items), [objectsQuery.data]);
-
-	return isObjectQuery ? {
-		items: objectsItems,
-		query: objectsQuery
-	} : {
-		items: pathsItems,
-		query: pathsQuery
-	}
-
+	return isObjectQuery
+		? {
+				items: objectsItems,
+				query: objectsQuery
+		  }
+		: {
+				items: pathsItems,
+				query: pathsQuery
+		  };
 }
 
 function categorySearchPathsArgs(_: string): FilePathSearchArgs {
@@ -138,8 +144,8 @@ function categorySearchPathsArgs(_: string): FilePathSearchArgs {
 function categorySearchObjectsArgs(category: string): ObjectSearchArgs {
 	if (category === 'Recents')
 		return {
-			order: { dateAccessed: "Desc" },
-			filter: { 
+			order: { dateAccessed: 'Desc' },
+			filter: {
 				dateAccessed: {
 					not: null
 				}
@@ -153,5 +159,5 @@ function categorySearchObjectsArgs(category: string): ObjectSearchArgs {
 			}
 		};
 
-	return {}
+	return {};
 }
