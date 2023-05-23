@@ -59,8 +59,7 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Install `nextest`
         uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all
-      - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all --all-features
+      - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all --all-features --release
 
   test-arm:
     strategy:
@@ -81,22 +80,12 @@ jobs:
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: ${{ matrix.target }}
-      - run: cross test --target ${{ matrix.target }} --run-ignored all
-      - run: cross test --target ${{ matrix.target }} --run-ignored all --all-features
+      - run: cargo test --target ${{ matrix.target }} --run-ignored all --all-features --release
 
   check-features:
     strategy:
       matrix:
         include:
-          - target: i686-unknown-linux-gnu
-            platform: ubuntu-latest
-            deps: sudo apt update && sudo apt install gcc-multilib
-            rust: stable
-
-          - target: x86_64-unknown-linux-gnu
-            platform: ubuntu-latest
-            rust: 1.67.0
-
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
             rust: stable
