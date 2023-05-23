@@ -125,6 +125,8 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
+export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+
 /**
  * These parameters define the password-hashing level.
  * 
@@ -173,8 +175,6 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
-
 /**
  * This should be used for providing a nonce to encrypt/decrypt functions.
  * 
@@ -205,8 +205,6 @@ export type Salt = number[]
  * Meow
  */
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
-
-export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
@@ -248,7 +246,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; active_item: string; estimated_completion: string }
 
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: boolean | null; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
 
@@ -259,8 +257,6 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
-
-export type FileDeleterJobInit = { location_id: number; path_id: number }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
@@ -296,9 +292,9 @@ export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePat
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
-
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
+
+export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
@@ -334,9 +330,13 @@ export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type CreateLibraryArgs = { name: string }
 
+export type FileDeleterJobInit = { location_id: number; path_id: number }
+
 export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type Protected<T> = T
+
+export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 

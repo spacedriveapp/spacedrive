@@ -72,7 +72,7 @@ impl StatefulJob for FileDeleterJob {
 
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(state.step_number + 1),
-			JobReportUpdate::ActiveItem(get_final_component(info.fs_path)),
+			JobReportUpdate::ActiveItem(get_final_component(&info.fs_path)),
 		]);
 
 		Ok(())
