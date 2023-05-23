@@ -62,7 +62,11 @@ const getNiceData = (
 		icon: Eye,
 		subtext:
 			job.message ||
-			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(job, 'file')}`
+			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(
+				job,
+				'file',
+				'file_identifier'
+			)}`
 	},
 	object_validator: {
 		name: `Generated full object hashes`,
@@ -148,10 +152,10 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						)}
 					/>
 				</div>
-				<div className="flex w-full flex-col">
+				<div className="flex flex-col w-full">
 					<div className="flex items-center">
 						<div className="truncate">
-							<span className="truncate font-semibold">{niceData.name}</span>
+							<span className="font-semibold truncate">{niceData.name}</span>
 							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
@@ -161,7 +165,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<div className="flex gap-1 truncate text-ink-faint"></div>
 						</div>
 						<div className="grow" />
-						<div className="ml-7 flex flex-row space-x-2">
+						<div className="flex flex-row space-x-2 ml-7">
 							{/* {job.status === 'Running' && (
 						<Button size="icon">
 							<Tooltip label="Coming Soon">
@@ -189,12 +193,18 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 	);
 }
 
-function appendPlural(job: JobReport, word: string) {
-	const addStoEnd = job.task_count > 1 || job?.task_count === 0 ? `${word}s` : `${word}`;
-	return addStoEnd;
+function appendPlural(job: JobReport, word: string, niceDataKey?: string) {
+	const condition = (condition: boolean) => (condition ? `${word}s` : `${word}`);
+	switch (niceDataKey) {
+		case 'file_identifier':
+			return condition(job.metadata?.total_orphan_paths > 1);
+		default:
+			return condition(job.task_count > 1);
+	}
 }
 
 function numberWithCommas(x: number) {
+	if (!x) return 0;
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
