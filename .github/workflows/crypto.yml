@@ -1,13 +1,14 @@
 name: Crypto
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - '.github/workflows/crypto.yml'
       - 'crates/crypto/**'
       - 'Cargo.*'
-  push:
-    branches: main
   workflow_dispatch:
 
 defaults:
