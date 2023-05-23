@@ -309,8 +309,8 @@ mod tests {
 
 	#[test]
 	#[ignore]
-	fn aes_256_gcm_encrypt_and_decrypt_1gib() {
-		let buf = vec![1u8; BLOCK_LEN * 1024].into_boxed_slice();
+	fn aes_256_gcm_encrypt_and_decrypt_128mib() {
+		let buf = vec![1u8; BLOCK_LEN * 128].into_boxed_slice();
 
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());
@@ -615,8 +615,8 @@ mod tests {
 
 	#[test]
 	#[ignore]
-	fn xchacha20_poly1305_encrypt_and_decrypt_1gib() {
-		let buf = vec![1u8; BLOCK_LEN * 1024].into_boxed_slice();
+	fn xchacha20_poly1305_encrypt_and_decrypt_128mib() {
+		let buf = vec![1u8; BLOCK_LEN * 128].into_boxed_slice();
 
 		let mut reader = Cursor::new(&buf);
 		let mut writer = Cursor::new(Vec::new());

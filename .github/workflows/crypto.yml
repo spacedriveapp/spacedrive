@@ -31,7 +31,6 @@ jobs:
         include:
           - target: i686-unknown-linux-gnu
             platform: ubuntu-latest
-            rust: stable
             deps: sudo apt update && sudo apt install gcc-multilib
 
           - target: x86_64-unknown-linux-gnu
@@ -40,15 +39,12 @@ jobs:
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
-            rust: stable
 
           - target: x86_64-apple-darwin
             platform: macos-latest
-            rust: stable
 
           - target: x86_64-pc-windows-msvc
             platform: windows-latest
-            rust: stable
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
@@ -67,9 +63,7 @@ jobs:
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
-            rust: stable
           - target: armv7-unknown-linux-gnueabi
-            rust: stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -91,7 +85,6 @@ jobs:
         include:
           - target: i686-unknown-linux-gnu
             platform: ubuntu-latest
-            rust: stable
             deps: sudo apt update && sudo apt install gcc-multilib
 
           - target: x86_64-unknown-linux-gnu
@@ -100,15 +93,12 @@ jobs:
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
-            rust: stable
 
           - target: x86_64-apple-darwin
             platform: macos-latest
-            rust: stable
 
           - target: x86_64-pc-windows-msvc
             platform: windows-latest
-            rust: stable
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
