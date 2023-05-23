@@ -1,0 +1,83 @@
+name: crypto
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/crypto.yml'
+      - 'crates/crypto/**'
+      - 'Cargo.*'
+  push:
+    branches: main
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: crates/crypto
+
+permissions:
+  contents: read
+
+env:
+  RUSTFLAGS: '-Dwarnings'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        include:
+          - target: i686-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: stable
+            deps: sudo apt update && sudo apt install gcc-multilib
+
+          - target: x86_64-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: 1.67.0
+
+          - target: x86_64-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: stable
+
+          - target: x86_64-apple-darwin
+            platform: macos-latest
+            rust: stable
+
+          - target: x86_64-pc-windows-msvc
+            platform: windows-latest
+            rust: stable
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target }}
+      - name: Install latest nextest release
+        uses: taiki-e/install-action@nextest
+      - run: ${{ matrix.deps }}
+      - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all
+      - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all --all-features
+
+  test-arm:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            rust: stable
+          - target: armv7-unknown-linux-gnueabi
+            rust: stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: ${{ matrix.deps }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target }}
+      - uses: houseabsolute/actions-rust-cross@v0
+      - run: cross test --target ${{ matrix.target }} --run-ignored all
+      - run: cross test --target ${{ matrix.target }} --run-ignored all --all-features
