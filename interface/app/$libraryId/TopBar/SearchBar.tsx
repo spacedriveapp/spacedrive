@@ -4,17 +4,11 @@ import { useLocation, useNavigate, useResolvedPath } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useKey, useKeys } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
-import { z } from 'zod';
 import { Input, Shortcut } from '@sd/ui';
 import { useZodSearchParams } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { getSearchStore } from '~/hooks/useSearchStore';
-
-export const SEARCH_PARAM_KEY = 'search';
-
-export const SEARCH_PARAMS = z.object({
-	search: z.string().default('')
-});
+import { SEARCH_PARAMS } from '../search';
 
 export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -33,7 +27,7 @@ export default () => {
 
 	const searchPath = useResolvedPath('search');
 
-	const [value, setValue] = useState(searchParams.search);
+	const [value, setValue] = useState(searchParams.search ?? "");
 
 	const updateParams = useDebouncedCallback((value: string) => {
 		startTransition(() =>

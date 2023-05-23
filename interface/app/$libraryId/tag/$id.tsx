@@ -13,7 +13,9 @@ export const Component = () => {
 	const explorerData = useLibraryQuery([
 		'search.objects',
 		{
-			tagId: id
+			filter: {
+				tags: [id]
+			}
 		}
 	]);
 
