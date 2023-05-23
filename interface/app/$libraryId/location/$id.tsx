@@ -64,7 +64,7 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex flex-col w-full">
+			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
 					onLoadMore={query.fetchNextPage}
