@@ -97,7 +97,7 @@ const getNiceData = (
 		}`,
 		icon: Trash,
 		subtext:
-			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+			job.active_item || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_copier: {
 		name: `${
@@ -107,7 +107,7 @@ const getNiceData = (
 		}`,
 		icon: Copy,
 		subtext:
-			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+			job.active_item || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_cutter: {
 		name: `${
@@ -117,7 +117,7 @@ const getNiceData = (
 		}`,
 		icon: Scissors,
 		subtext:
-			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+			job.active_item || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	}
 });
 
