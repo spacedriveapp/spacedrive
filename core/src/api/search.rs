@@ -39,11 +39,11 @@ enum SortOrder {
 	Desc,
 }
 
-impl Into<prisma::SortOrder> for SortOrder {
-	fn into(self) -> prisma::SortOrder {
-		match self {
-			Self::Asc => prisma::SortOrder::Asc,
-			Self::Desc => prisma::SortOrder::Desc,
+impl From<SortOrder> for prisma::SortOrder {
+	fn from(value: SortOrder) -> prisma::SortOrder {
+		match value {
+			SortOrder::Asc => prisma::SortOrder::Asc,
+			SortOrder::Desc => prisma::SortOrder::Desc,
 		}
 	}
 }
@@ -94,7 +94,7 @@ enum MaybeNot<T> {
 }
 
 impl<T> MaybeNot<T> {
-	fn to_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
+	fn into_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
 		match self {
 			Self::None(v) => param(v),
 			Self::Not { not } => prisma_client_rust::not![param(not)],
@@ -171,14 +171,14 @@ struct ObjectFilterArgs {
 }
 
 impl ObjectFilterArgs {
-	fn to_params(self) -> Vec<object::WhereParam> {
+	fn into_params(self) -> Vec<object::WhereParam> {
 		chain_optional_iter(
 			[],
 			[
 				self.favorite.map(object::favorite::equals),
 				self.hidden.map(object::hidden::equals),
 				self.date_accessed
-					.map(|date| date.to_prisma(object::date_accessed::equals)),
+					.map(|date| date.into_prisma(object::date_accessed::equals)),
 				(!self.kind.is_empty())
 					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
@@ -268,7 +268,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							directory_materialized_path_str
 								.map(file_path::materialized_path::equals),
 							filter.object.and_then(|obj| {
-								let params = obj.to_params();
+								let params = obj.into_params();
 
 								(!params.is_empty()).then(|| file_path::object::is(params))
 							}),
@@ -338,7 +338,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					let mut query = db
 						.object()
-						.find_many(filter.to_params())
+						.find_many(filter.into_params())
 						.take(take as i64 + 1);
 
 					if let Some(order) = order {
