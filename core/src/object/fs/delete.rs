@@ -69,9 +69,17 @@ impl StatefulJob for FileDeleterJob {
 		}
 		.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
 
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-			state.step_number + 1,
-		)]);
+		ctx.progress(vec![
+			JobReportUpdate::CompletedTaskCount(state.step_number + 1),
+			JobReportUpdate::Message(format!(
+				"Deleted {}",
+				info.fs_path
+					.components()
+					.last()
+					.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+			)),
+		]);
+
 		Ok(())
 	}
 
