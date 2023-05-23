@@ -1,7 +1,7 @@
 use crate::invalidate_query;
 use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::Library;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tokio::{
@@ -67,7 +67,7 @@ pub struct Worker {
 	report: JobReport,
 	worker_events_tx: UnboundedSender<WorkerEvent>,
 	worker_events_rx: Option<UnboundedReceiver<WorkerEvent>>,
-	start_time: Option<Instant>,
+	start_time: Option<DateTime<Utc>>,
 }
 
 impl Worker {
@@ -113,7 +113,7 @@ impl Worker {
 			worker.report.started_at = Some(Utc::now());
 		}
 
-		worker.start_time = Some(Instant::now());
+		worker.start_time = Some(Utc::now());
 
 		// If the report doesn't have a created_at date, it's a new report
 		if worker.report.created_at.is_none() {
@@ -223,17 +223,19 @@ impl Worker {
 					}
 					// Calculate elapsed time
 					if let Some(start_time) = worker.start_time {
-						let elapsed = Instant::now() - start_time;
+						let elapsed = Utc::now() - start_time;
 
 						// Calculate remaining time
 						let task_count = worker.report.task_count as usize;
 						let completed_task_count = worker.report.completed_task_count as usize;
 						let remaining_task_count = task_count.saturating_sub(completed_task_count);
-						let remaining_time_per_task = elapsed / (completed_task_count + 1) as u32; // Adding 1 to avoid division by zero
-						let remaining_time = remaining_time_per_task * remaining_task_count as u32;
+						let remaining_time_per_task = elapsed / (completed_task_count + 1) as i32; // Adding 1 to avoid division by zero
+						let remaining_time = remaining_time_per_task * remaining_task_count as i32;
 
 						// Update the report with estimated remaining time
-						worker.report.estimated_remaining_seconds = remaining_time;
+						worker.report.estimated_completion = Utc::now()
+							.checked_add_signed(remaining_time)
+							.unwrap_or(Utc::now());
 					}
 
 					invalidate_query!(library, "jobs.getRunning");

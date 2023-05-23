@@ -209,6 +209,8 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
+export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
+
 export type BuildInfo = { version: string; commit: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
@@ -235,9 +237,7 @@ export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_remaining_seconds: string }
-
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
 
