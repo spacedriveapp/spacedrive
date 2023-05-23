@@ -229,7 +229,7 @@ impl KeyManager {
 		secret_key: Protected<String>,
 	) -> Result<()> {
 		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
-		let secret_key: SecretKey = secret_key_from_string(secret_key);
+		let secret_key = secret_key_from_string(secret_key)?;
 
 		#[allow(clippy::as_conversions)]
 		let root_keys = self
@@ -514,7 +514,7 @@ impl KeyManager {
 		let backup: OnDiskBackup = encoding::decode(&bytes)?;
 
 		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
-		let secret_key: SecretKey = secret_key_from_string(secret_key);
+		let secret_key = secret_key_from_string(secret_key)?;
 
 		let backup_rk = backup
 			.root_keys
@@ -636,13 +636,14 @@ pub fn format_secret_key(sk: &SecretKey) -> Protected<String> {
 		.into()
 }
 
-pub fn secret_key_from_string(sk: Protected<String>) -> SecretKey {
+pub fn secret_key_from_string(sk: Protected<String>) -> Result<SecretKey> {
 	let mut s = sk.into_inner().to_lowercase();
 	s.retain(|c| c.is_ascii_hexdigit());
 
+	// shouldn't fail as `SecretKey::try_from` is (essentially) infallible
 	hex::decode(s)
 		.ok()
 		.map_or(Protected::new(vec![]), Protected::new)
 		.try_into()
-		.map_or(SecretKey::Null, |x| x)
+		.map_err(|_| CryptoError::Conversion)
 }
