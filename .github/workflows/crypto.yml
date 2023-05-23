@@ -1,4 +1,4 @@
-name: crypto
+name: Crypto
 
 on:
   pull_request:
