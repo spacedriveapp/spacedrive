@@ -1,5 +1,4 @@
 use crate::{
-	crypto::OnboardingConfig,
 	invalidate_query,
 	library::LibraryConfig,
 	prisma::statistics,

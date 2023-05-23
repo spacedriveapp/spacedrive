@@ -1,9 +1,9 @@
 use crate::{
-	crypto::OnboardingConfig,
+	crypto::KeyManager,
 	invalidate_query,
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
-	prisma::{node, PrismaClient},
+	prisma::node,
 	sync::{SyncManager, SyncMessage},
 	util::{
 		db::load_and_migrate,
@@ -73,54 +73,6 @@ impl From<LibraryManagerError> for rspc::Error {
 		)
 	}
 }
-
-// pub async fn seed_keymanager(
-// 	client: &PrismaClient,
-// 	km: &Arc<KeyManager>,
-// ) -> Result<(), LibraryManagerError> {
-// 	let mut default = None;
-
-// 	// collect and serialize the stored keys
-// 	let stored_keys: Vec<StoredKey> = client
-// 		.key()
-// 		.find_many(vec![])
-// 		.exec()
-// 		.await?
-// 		.iter()
-// 		.map(|key| {
-// 			let key = key.clone();
-// 			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
-
-// 			if key.default {
-// 				default = Some(uuid);
-// 			}
-
-// 			Ok(StoredKey {
-// 				uuid,
-// 				version: encoding::decode(&key.version)?,
-// 				key_type: encoding::decode(&key.key_type)?,
-// 				algorithm: encoding::decode(&key.algorithm)?,
-// 				content_salt: encoding::decode(&key.content_salt)?,
-// 				master_key: encoding::decode(&key.master_key)?,
-// 				master_key_nonce: encoding::decode(&key.master_key_nonce)?,
-// 				key_nonce: encoding::decode(&key.key_nonce)?,
-// 				key: encoding::decode(&key.key),
-// 				hashing_algorithm: encoding::decode(&key.hashing_algorithm)?,
-// 				salt: encoding::decode(&key.salt)?,
-// 				memory_only: false,
-// 			})
-// 		})
-// 		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
-// 		.unwrap();
-
-// 	// insert all keys from the DB into the keymanager's keystore
-// 	km.populate_keystore(stored_keys).await?;
-
-// 	// if any key had an associated default tag
-// 	default.map(|k| km.set_default(k));
-
-// 	Ok(())
-// }
 
 impl LibraryManager {
 	pub(crate) async fn new(
@@ -387,8 +339,7 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		// seed_keymanager(&db, &key_manager).await?;
+		let key_manager = Arc::new(KeyManager::new(db.clone()));
 
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
 
@@ -408,7 +359,7 @@ impl LibraryManager {
 			id,
 			local_id: node_data.id,
 			config,
-			// key_manager,
+			key_manager,
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
