@@ -12,8 +12,8 @@ pub enum CryptoError {
 
 	#[error("the key specified was not found")]
 	KeyNotFound,
-	#[error("the key manager is not unlocked")]
-	NotUnlocked,
+	#[error("the key manager is locked")]
+	Locked,
 	#[error("the key is already mounted")]
 	AlreadyMounted,
 

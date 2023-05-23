@@ -198,7 +198,7 @@ impl KeyManager {
 			.lock()
 			.await
 			.clone()
-			.ok_or(CryptoError::NotUnlocked)
+			.ok_or(CryptoError::Locked)
 	}
 
 	async fn ensure_unlocked(&self) -> Result<()> {
@@ -206,7 +206,7 @@ impl KeyManager {
 			.lock()
 			.await
 			.as_ref()
-			.map_or(Err(CryptoError::NotUnlocked), |_| Ok(()))
+			.map_or(Err(CryptoError::Locked), |_| Ok(()))
 	}
 
 	pub async fn unlock(
