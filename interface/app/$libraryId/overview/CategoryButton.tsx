@@ -17,7 +17,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 				selected && 'bg-app-selectedItem'
 			)}
 		>
-			<img src={icon} className="mr-3 h-12 w-12" />
+			<img src={icon} className="w-12 h-12 mr-3" />
 			<div className="pr-5">
 				<h2 className="text-sm font-medium">{category}</h2>
 				{items !== undefined && (
