@@ -89,19 +89,32 @@ const getNiceData = (
 		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_deleter: {
-		name: `Deleted`,
+		// TODO: make this logic a dedicated fn as it's heavily repeated
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? `Deleting ${appendPlural(job, 'file')}`
+				: `Deleted ${appendPlural(job, 'file')}`
+		}`,
 		icon: Trash,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_copier: {
-		name: `Copied`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? `Copying ${appendPlural(job, 'file')}`
+				: `Copied ${appendPlural(job, 'file')}`
+		}`,
 		icon: Copy,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_cutter: {
-		name: `Moved`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? `Cutting ${appendPlural(job, 'file')}`
+				: `Cut ${appendPlural(job, 'file')}`
+		}`,
 		icon: Scissors,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	}
 });
 
@@ -152,10 +165,10 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 						)}
 					/>
 				</div>
-				<div className="flex flex-col w-full">
+				<div className="flex w-full flex-col">
 					<div className="flex items-center">
 						<div className="truncate">
-							<span className="font-semibold truncate">{niceData.name}</span>
+							<span className="truncate font-semibold">{niceData.name}</span>
 							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
@@ -165,7 +178,7 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 							<div className="flex gap-1 truncate text-ink-faint"></div>
 						</div>
 						<div className="grow" />
-						<div className="flex flex-row space-x-2 ml-7">
+						<div className="ml-7 flex flex-row space-x-2">
 							{/* {job.status === 'Running' && (
 						<Button size="icon">
 							<Tooltip label="Coming Soon">
