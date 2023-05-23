@@ -113,7 +113,7 @@ impl StatefulJob for FileCutterJob {
 		);
 
 		ctx.progress(vec![JobReportUpdate::ActiveItem(get_final_component(
-			source_info.fs_path,
+			&source_info.fs_path,
 		))]);
 
 		fs::rename(&source_info.fs_path, &full_output)
