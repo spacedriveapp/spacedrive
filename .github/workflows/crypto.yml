@@ -56,7 +56,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
-      - name: Install latest nextest release
+      - name: Install `nextest`
         uses: taiki-e/install-action@nextest
       - run: ${{ matrix.deps }}
       - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all
@@ -78,6 +78,45 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
-      - uses: houseabsolute/actions-rust-cross@v0
+      - name: Install cross-compilation tools
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
       - run: cross test --target ${{ matrix.target }} --run-ignored all
       - run: cross test --target ${{ matrix.target }} --run-ignored all --all-features
+
+  check-features:
+    strategy:
+      matrix:
+        include:
+          - target: i686-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: stable
+            deps: sudo apt update && sudo apt install gcc-multilib
+
+          - target: x86_64-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: 1.67.0
+
+          - target: x86_64-unknown-linux-gnu
+            platform: ubuntu-latest
+            rust: stable
+
+          - target: x86_64-apple-darwin
+            platform: macos-latest
+            rust: stable
+
+          - target: x86_64-pc-windows-msvc
+            platform: windows-latest
+            rust: stable
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target }}
+      - name: Install `cargo-hack`
+        uses: taiki-e/install-action@cargo-hack
+      - run: ${{ matrix.deps }}
+      - run: cargo hack check --feature-powerset --target ${{ matrix.target }}
