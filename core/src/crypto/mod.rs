@@ -19,11 +19,13 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_crypto::types::{Algorithm, DerivationContext, HashingAlgorithm};
+use sd_crypto::types::{DerivationContext, MagicBytes};
 
-pub mod error;
-pub mod key_manager;
-pub use error::Result;
+pub(self) mod error;
+pub use error::{CryptoError, Result};
+
+pub(self) mod keymanager;
+pub use keymanager::{KeyManager, KeyType, KeyVersion, RootKey, UserKey};
 
 /// Used for OS keyrings to identify our items.
 pub const KEYRING_APP_IDENTIFIER: &str = "Spacedrive";
@@ -59,11 +61,6 @@ pub const ENCRYPTED_WORD_CONTEXT: DerivationContext =
 pub const TEST_VECTOR_CONTEXT: DerivationContext =
 	DerivationContext::new("spacedrive 2023-05-22 14:37:16 test vector derivation");
 
-#[derive(Clone, serde::Deserialize)]
-pub struct OnboardingConfig {
-	pub password: String,
-	pub algorithm: Algorithm,
-	pub hashing_algorithm: HashingAlgorithm,
-}
-
-// pub(crate) mod keymanager;
+/// Encrypted file magic bytes - "ballapp" and then a null byte.
+pub const FILE_MAGIC_BYTES: MagicBytes<8> =
+	MagicBytes::new([0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70, 0x00]);
