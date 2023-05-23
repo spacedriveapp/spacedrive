@@ -1,7 +1,7 @@
 use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePathData};
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::operator::or;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use crate::{
 	},
 	library::Library,
 	location::{find_location, LocationError},
-	prisma::*,
+	prisma::{self, file_path, object, tag, tag_on_object},
 	util::db::chain_optional_iter,
 };
 
@@ -26,36 +26,50 @@ struct SearchData<T> {
 	items: Vec<T>,
 }
 
-#[derive(Deserialize, Default, Type)]
+#[derive(Deserialize, Default, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 struct OptionalRange<T> {
 	from: Option<T>,
 	to: Option<T>,
 }
 
+#[derive(Deserialize, Type, Debug, Clone, Copy)]
+enum SortOrder {
+	Asc,
+	Desc,
+}
+
+impl Into<prisma::SortOrder> for SortOrder {
+	fn into(self) -> prisma::SortOrder {
+		match self {
+			Self::Asc => prisma::SortOrder::Asc,
+			Self::Desc => prisma::SortOrder::Desc,
+		}
+	}
+}
+
 #[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 enum FilePathSearchOrdering {
-	Name(bool),
-	SizeInBytes(bool),
-	DateCreated(bool),
-	DateModified(bool),
-	DateIndexed(bool),
+	Name(SortOrder),
+	SizeInBytes(SortOrder),
+	DateCreated(SortOrder),
+	DateModified(SortOrder),
+	DateIndexed(SortOrder),
 	Object(Box<ObjectSearchOrdering>),
 }
 
 impl FilePathSearchOrdering {
-	fn get_sort_order(&self) -> SortOrder {
-		match self {
+	fn get_sort_order(&self) -> prisma::SortOrder {
+		(*match self {
 			Self::Name(v) => v,
 			Self::SizeInBytes(v) => v,
 			Self::DateCreated(v) => v,
 			Self::DateModified(v) => v,
 			Self::DateIndexed(v) => v,
 			Self::Object(v) => return v.get_sort_order(),
-		}
-		.then_some(SortOrder::Asc)
-		.unwrap_or(SortOrder::Desc)
+		})
+		.into()
 	}
 
 	fn to_param(self) -> file_path::OrderByWithRelationParam {
@@ -72,9 +86,25 @@ impl FilePathSearchOrdering {
 	}
 }
 
-#[derive(Deserialize, Type, Default)]
+#[derive(Deserialize, Type, Debug)]
+#[serde(untagged)]
+enum MaybeNot<T> {
+	None(T),
+	Not { not: T },
+}
+
+impl<T> MaybeNot<T> {
+	fn to_prisma<R: From<prisma_client_rust::Operator<R>>>(self, param: fn(T) -> R) -> R {
+		match self {
+			Self::None(v) => param(v),
+			Self::Not { not } => prisma_client_rust::not![param(not)],
+		}
+	}
+}
+
+#[derive(Deserialize, Type, Default, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct FilePathFilterArgs {
+struct FilePathFilterArgs {
 	#[specta(optional)]
 	location_id: Option<i32>,
 	#[serde(default)]
@@ -89,9 +119,9 @@ pub struct FilePathFilterArgs {
 	object: Option<ObjectFilterArgs>,
 }
 
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct FilePathSearchArgs {
+struct FilePathSearchArgs {
 	#[specta(optional)]
 	take: Option<i32>,
 	#[specta(optional)]
@@ -104,17 +134,16 @@ pub struct FilePathSearchArgs {
 
 #[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum ObjectSearchOrdering {
-	DateAccessed(bool),
+enum ObjectSearchOrdering {
+	DateAccessed(SortOrder),
 }
 
 impl ObjectSearchOrdering {
-	fn get_sort_order(&self) -> SortOrder {
-		match self {
+	fn get_sort_order(&self) -> prisma::SortOrder {
+		(*match self {
 			Self::DateAccessed(v) => v,
-		}
-		.then_some(SortOrder::Asc)
-		.unwrap_or(SortOrder::Desc)
+		})
+		.into()
 	}
 
 	fn to_param(self) -> object::OrderByWithRelationParam {
@@ -133,6 +162,8 @@ struct ObjectFilterArgs {
 	favorite: Option<bool>,
 	#[specta(optional)]
 	hidden: Option<bool>,
+	#[specta(optional)]
+	date_accessed: Option<MaybeNot<Option<chrono::DateTime<FixedOffset>>>>,
 	#[serde(default)]
 	kind: BTreeSet<i32>,
 	#[serde(default)]
@@ -146,6 +177,8 @@ impl ObjectFilterArgs {
 			[
 				self.favorite.map(object::favorite::equals),
 				self.hidden.map(object::hidden::equals),
+				self.date_accessed
+					.map(|date| date.to_prisma(object::date_accessed::equals)),
 				(!self.kind.is_empty())
 					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
@@ -165,6 +198,8 @@ struct ObjectSearchArgs {
 	#[specta(optional)]
 	take: Option<i32>,
 	#[specta(optional)]
+	order: Option<ObjectSearchOrdering>,
+	#[specta(optional)]
 	cursor: Option<Vec<u8>>,
 	#[serde(default)]
 	filter: ObjectFilterArgs,
@@ -177,9 +212,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				|(_, library),
 				 FilePathSearchArgs {
 				     take,
+				     order,
 				     cursor,
 				     filter,
-				     order,
 				 }| async move {
 					let Library { db, .. } = &library;
 
@@ -289,18 +324,28 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("objects", {
-			R.with2(library())
-				.query(|(_, library), args: ObjectSearchArgs| async move {
+			R.with2(library()).query(
+				|(_, library),
+				 ObjectSearchArgs {
+				     take,
+				     order,
+				     cursor,
+				     filter,
+				 }| async move {
 					let Library { db, .. } = &library;
 
-					let take = args.take.unwrap_or(100);
+					let take = take.unwrap_or(100);
 
 					let mut query = db
 						.object()
-						.find_many(args.filter.to_params())
+						.find_many(filter.to_params())
 						.take(take as i64 + 1);
 
-					if let Some(cursor) = args.cursor {
+					if let Some(order) = order {
+						query = query.order_by(order.to_param());
+					}
+
+					if let Some(cursor) = cursor {
 						query = query.cursor(object::pub_id::equals(cursor));
 					}
 
@@ -346,6 +391,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					Ok(SearchData { items, cursor })
-				})
+				},
+			)
 		})
 }

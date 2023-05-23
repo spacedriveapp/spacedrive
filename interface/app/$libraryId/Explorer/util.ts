@@ -2,13 +2,6 @@ import { z } from 'zod';
 import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
 import { useZodSearchParams } from '~/hooks';
 
-// export function useExplorerOrder(): Ordering | undefined {
-// 	const explorerStore = useExplorerStore();
-
-// 	if (explorerStore.orderBy === 'none') return undefined;
-
-// 	return { [explorerStore.orderBy]: explorerStore.orderByDirection === 'asc' } as Ordering;
-// }
 
 export function getItemObject(data: ExplorerItem) {
 	return isObject(data) ? data.item : data.item.object;

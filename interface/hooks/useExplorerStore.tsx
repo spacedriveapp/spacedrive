@@ -49,6 +49,8 @@ const state = {
 	isRenaming: false,
 	mediaColumns: 8,
 	mediaAspectSquare: true,
+	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
+	orderByDirection: 'desc' as ExplorerDirection,
 	groupBy: 'none'
 };
 

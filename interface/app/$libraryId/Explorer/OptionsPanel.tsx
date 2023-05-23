@@ -1,6 +1,7 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import {
 	ExplorerDirection,
+	FilePathSearchOrderingKeys,
 	getExplorerConfigStore,
 	getExplorerStore,
 	useExplorerConfigStore,
@@ -10,13 +11,14 @@ import {
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-const sortOptions: Record<SearchOrderByKeys, string> = {
+const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
 	none: 'None',
 	name: 'Name',
 	sizeInBytes: 'Size',
 	dateCreated: 'Date created',
 	dateModified: 'Date modified',
-	dateIndexed: 'Date indexed'
+	dateIndexed: 'Date indexed',
+	"object.dateAccessed": "Date accessed"
 };
 
 export default () => {
@@ -58,7 +60,7 @@ export default () => {
 						size="sm"
 						className="w-full"
 						onChange={(value) =>
-							(getExplorerStore().orderBy = value as ExplorerOrderByKeys)
+							(getExplorerStore().orderBy = value as FilePathSearchOrderingKeys)
 						}
 					>
 						{Object.entries(sortOptions).map(([value, text]) => (
