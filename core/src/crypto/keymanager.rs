@@ -24,7 +24,7 @@ use crate::prisma::{key, PrismaClient};
 pub struct KeyManager {
 	key: Mutex<Option<Key>>,
 	inner: DashMap<Uuid, Key>,
-	queue: DashSet<Uuid>,
+	_queue: DashSet<Uuid>,
 	db: Arc<PrismaClient>,
 }
 
@@ -88,9 +88,9 @@ impl EncryptedWord {
 		.map_err(CryptoError::Crypto)
 	}
 
-	pub fn encrypt_from(
+	pub fn encrypt(
 		root_key: &Key,
-		word: Protected<Vec<u8>>,
+		word: &Protected<Vec<u8>>,
 		algorithm: Algorithm,
 	) -> Result<Self> {
 		let salt = Salt::generate();
@@ -202,7 +202,7 @@ impl KeyManager {
 		Self {
 			key: Mutex::new(None),
 			inner: DashMap::new(),
-			queue: DashSet::new(),
+			_queue: DashSet::new(),
 			db,
 		}
 	}
@@ -288,7 +288,7 @@ impl KeyManager {
 		rk.write_to_db(&self.db).await?;
 		*self.key.lock().await = Some(root_key);
 
-		Ok(format_secret_key(secret_key))
+		Ok(format_secret_key(&secret_key))
 	}
 
 	pub async fn update_key_name(&self, id: Uuid, name: String) -> Result<()> {
@@ -347,7 +347,7 @@ impl KeyManager {
 			Aad::Null,
 		)?;
 
-		let ew = EncryptedWord::encrypt_from(&self.get_root_key().await?, word, algorithm)?;
+		let ew = EncryptedWord::encrypt(&self.get_root_key().await?, &word, algorithm)?;
 
 		let uuid = Uuid::new_v4();
 
@@ -534,7 +534,7 @@ impl KeyManager {
 			.into_iter()
 			.map(|mut key| {
 				let word = key.word.decrypt(&backup_rk, key.algorithm)?;
-				key.word = EncryptedWord::encrypt_from(&rk, word, key.algorithm)?;
+				key.word = EncryptedWord::encrypt(&rk, &word, key.algorithm)?;
 
 				key.try_into()
 			})
@@ -620,7 +620,7 @@ impl TryFrom<RootKey> for key::CreateUnchecked {
 	}
 }
 
-pub fn format_secret_key(sk: SecretKey) -> Protected<String> {
+pub fn format_secret_key(sk: &SecretKey) -> Protected<String> {
 	let s = hex::encode(sk.expose()).to_uppercase();
 	let separator_distance = s.len() / 6;
 	s.chars()
