@@ -37,6 +37,7 @@ prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-
 rspc = { version = "0.1.4" }
 specta = { version = "1.0.4" }
 httpz = { version = "0.0.3" }
+tauri-specta = { version = "1.0.2" }
 
 swift-rs = { version = "1.0.5" }
 
@@ -50,7 +51,9 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d
 
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "799eec5df7533edf331f41d3f1be03de07e038d7" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
+specta = { git = "https://github.com/oscartbeaumont/specta", branch = "v2" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "specta-v2" }
+tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", branch = "specta-v2" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }
