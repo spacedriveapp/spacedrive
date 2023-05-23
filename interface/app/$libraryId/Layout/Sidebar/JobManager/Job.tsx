@@ -61,7 +61,7 @@ const getNiceData = (
 		}`,
 		icon: Eye,
 		subtext:
-			job.message ||
+			job.active_item ??
 			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(
 				job,
 				'file',
@@ -96,7 +96,8 @@ const getNiceData = (
 				: `Deleted ${appendPlural(job, 'file')}`
 		}`,
 		icon: Trash,
-		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext:
+			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_copier: {
 		name: `${
@@ -105,7 +106,8 @@ const getNiceData = (
 				: `Copied ${appendPlural(job, 'file')}`
 		}`,
 		icon: Copy,
-		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext:
+			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	},
 	file_cutter: {
 		name: `${
@@ -114,7 +116,8 @@ const getNiceData = (
 				: `Cut ${appendPlural(job, 'file')}`
 		}`,
 		icon: Scissors,
-		subtext: job.message || `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
+		subtext:
+			job.active_item ?? `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
 	}
 });
 
