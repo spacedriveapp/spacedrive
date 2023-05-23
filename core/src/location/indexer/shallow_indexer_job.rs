@@ -142,12 +142,12 @@ impl StatefulJob for ShallowIndexerJob {
 
 		ctx.library.orphan_remover.invoke().await;
 
-		IndexerJobData::on_scan_progress(
-			&mut ctx,
-			vec![ScanProgress::Message(format!(
-				"Saving {total_paths} files or directories"
-			))],
-		);
+		// IndexerJobData::on_scan_progress(
+		// 	&mut ctx,
+		// 	vec![ScanProgress::Message(format!(
+		// 		"Saving {total_paths} files or directories"
+		// 	))],
+		// );
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,

@@ -137,13 +137,13 @@ impl StatefulJob for IndexerJob {
 				.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
 		);
 
-		IndexerJobData::on_scan_progress(
-			&mut ctx,
-			vec![ScanProgress::Message(format!(
-				"Starting saving {total_paths} files or directories, \
-					there still {to_walk_count} directories to index",
-			))],
-		);
+		// IndexerJobData::on_scan_progress(
+		// 	&mut ctx,
+		// 	vec![ScanProgress::Message(format!(
+		// 		"Starting saving {total_paths} files or directories, \
+		// 			there still {to_walk_count} directories to index",
+		// 	))],
+		// );
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
@@ -236,14 +236,14 @@ impl StatefulJob for IndexerJob {
 						.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
 				);
 
-				IndexerJobData::on_scan_progress(
-					&mut ctx,
-					vec![ScanProgress::Message(format!(
-						"Scanned more {} files or directories; {} more directories to scan",
-						data.total_paths - old_total,
-						state.steps.len() as u64 - old_steps_count - data.total_paths
-					))],
-				);
+				// IndexerJobData::on_scan_progress(
+				// 	&mut ctx,
+				// 	vec![ScanProgress::Message(format!(
+				// 		"Scanned more {} files or directories; {} more directories to scan",
+				// 		data.total_paths - old_total,
+				// 		state.steps.len() as u64 - old_steps_count - data.total_paths
+				// 	))],
+				// );
 
 				if !errors.is_empty() {
 					return Err(JobError::StepCompletedWithErrors(
