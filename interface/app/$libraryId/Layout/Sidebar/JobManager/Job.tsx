@@ -32,18 +32,19 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-				? `Indexed paths at ${job.metadata?.location_path} `
-				: `Processing added location...`,
+			? `Indexed paths at ${job.metadata?.location_path} `
+			: `Processing added location...`,
 		icon: Folder,
 		filesDiscovered: `${numberWithCommas(
 			job.metadata?.total_paths || 0
 		)} ${JobCountTextCondition(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Generating thumbnails'
-			: 'Generated thumbnails'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Generating thumbnails'
+				: 'Generated thumbnails'
+		}`,
 		icon: Camera,
 		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
@@ -53,10 +54,11 @@ const getNiceData = (
 		filesDiscovered: `${numberWithCommas(job.task_count)} ${JobCountTextCondition(job, 'item')}`
 	},
 	file_identifier: {
-		name: `${job.status === 'Running' || job.status === 'Queued'
-			? 'Extracting metadata'
-			: 'Extracted metadata'
-			}`,
+		name: `${
+			job.status === 'Running' || job.status === 'Queued'
+				? 'Extracting metadata'
+				: 'Extracted metadata'
+		}`,
 		icon: Eye,
 		filesDiscovered:
 			job.message ||
@@ -141,7 +143,8 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 				<div>
 					<niceData.icon
 						className={clsx(
-							'relative top-2 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
+							isGroup && 'ml-9 mr-3.5',
+							'relative top-2 z-20 mr-3 h-6 w-6 rounded-full bg-app-button p-[5.5px]'
 						)}
 					/>
 				</div>

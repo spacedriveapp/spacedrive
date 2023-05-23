@@ -1,16 +1,16 @@
 import clsx from 'clsx';
-import { MagnifyingGlass } from 'phosphor-react';
-import { Input, SearchInput } from '@sd/ui';
-import { DocsNavigation } from '../pages/docs/api';
-import config from '../pages/docs/docs';
+import Link from 'next/link';
+import { SearchInput } from '@sd/ui';
+import { DocsNavigation, iconConfig } from '~/utils/contentlayer';
+import { toTitleCase } from '~/utils/util';
 
-interface Props {
+interface DocsSidebarProps {
 	navigation: DocsNavigation;
 	activePath?: string;
 }
 
-export default function DocsSidebar(props: Props) {
-	const activeSection = props.activePath?.split('/')[0] || props.navigation[0]?.slug;
+export default function DocsSidebar(props: DocsSidebarProps) {
+	const activeSection = props.activePath?.split('/')[2] || props.navigation[0]?.slug;
 
 	const activeSectionData = props.navigation.find((section) => section.slug === activeSection);
 
@@ -27,10 +27,11 @@ export default function DocsSidebar(props: Props) {
 			<div className="mb-6 flex flex-col">
 				{props.navigation.map((section) => {
 					const isActive = section.slug === activeSection;
-					const Icon = config.sections.find((s) => s.slug === section.slug)?.icon;
+					const Icon = iconConfig[section.slug];
 					return (
-						<a
-							href={`/docs/${section.section[0]?.category[0]?.url}`}
+						<Link
+							// Use the first page in the section as the link
+							href={section.categories[0]?.docs[0]?.url}
 							key={section.slug}
 							className={clsx(
 								`doc-sidebar-button flex items-center py-1.5 text-[14px] font-semibold`,
@@ -45,35 +46,35 @@ export default function DocsSidebar(props: Props) {
 							>
 								<Icon weight="bold" className="h-4 w-4 text-white opacity-80" />
 							</div>
-							{section.title}
-						</a>
+							{toTitleCase(section.slug)}
+						</Link>
 					);
 				})}
 			</div>
-			{activeSectionData?.section.map((category) => {
+			{activeSectionData?.categories.map((category) => {
 				return (
 					<div className="mb-5" key={category.title}>
 						<h2 className="font-semibold no-underline">{category.title}</h2>
 						<ul className="mt-3">
-							{category.category.map((page) => {
-								const active = props.activePath === page.url;
+							{category.docs.map((doc) => {
+								const active = props.activePath === doc.url;
 								return (
 									<li
 										className={clsx(
 											'flex border-l border-gray-600',
 											active && 'border-l-2 border-primary'
 										)}
-										key={page.title}
+										key={doc.title}
 									>
-										<a
-											href={`/docs/${page.url}`}
+										<Link
+											href={doc.url}
 											className={clsx(
 												'w-full rounded px-3 py-1 text-[14px] font-normal text-gray-350 no-underline hover:text-gray-50',
 												active && '!font-medium !text-white '
 											)}
 										>
-											{page.title}
-										</a>
+											{doc.title}
+										</Link>
 										{/* this fixes the links no joke */}
 										{active && <div />}
 									</li>
