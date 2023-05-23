@@ -80,7 +80,7 @@ jobs:
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }} --run-ignored all --all-features --release
+      - run: cargo test --target ${{ matrix.target }} --all-features --release -- --include-ignored
 
   check-features:
     strategy:
