@@ -216,8 +216,8 @@ impl Worker {
 							JobReportUpdate::CompletedTaskCount(completed_task_count) => {
 								worker.report.completed_task_count = completed_task_count as i32;
 							}
-							JobReportUpdate::Message(message) => {
-								worker.report.message = message;
+							JobReportUpdate::ActiveItem(item) => {
+								worker.report.active_item = item;
 							}
 						}
 					}

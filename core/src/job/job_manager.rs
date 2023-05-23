@@ -307,7 +307,7 @@ impl JobManager {
 pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
-	Message(String),
+	ActiveItem(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -330,7 +330,7 @@ pub struct JobReport {
 	pub task_count: i32,
 	pub completed_task_count: i32,
 
-	pub message: String,
+	pub active_item: String,
 	pub estimated_completion: DateTime<Utc>,
 	// pub percentage_complete: f64,
 }
@@ -373,7 +373,7 @@ impl From<job::Data> for JobReport {
 			status: JobStatus::try_from(data.status).expect("corrupted database"),
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
-			message: String::new(),
+			active_item: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
 				.map_or(Utc::now(), DateTime::into),
@@ -398,7 +398,7 @@ impl JobReport {
 			metadata: None,
 			parent_id: None,
 			completed_task_count: 0,
-			message: String::new(),
+			active_item: String::new(),
 			estimated_completion: Utc::now(),
 		}
 	}

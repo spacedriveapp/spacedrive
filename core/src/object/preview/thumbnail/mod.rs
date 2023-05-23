@@ -6,7 +6,9 @@ use crate::{
 	},
 	library::Library,
 	location::{
-		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
+		file_path_helper::{
+			file_path_for_thumbnailer, get_final_component, FilePathError, IsolatedFilePathData,
+		},
 		LocationId,
 	},
 	util::error::FileIOError,
@@ -219,11 +221,6 @@ where
 {
 	let step = &state.steps[0];
 
-	ctx.progress(vec![JobReportUpdate::Message(format!(
-		"Processing {}",
-		step.file_path.materialized_path
-	))]);
-
 	let step_result = inner_process_step(state, &ctx).await;
 
 	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
@@ -252,7 +249,11 @@ where
 		data.report.location_id,
 		file_path,
 	)));
+
 	trace!("image_file {:?}", file_path);
+	ctx.progress(vec![JobReportUpdate::ActiveItem(get_final_component(
+		&path,
+	))]);
 
 	// get cas_id, if none found skip
 	let Some(cas_id) = &file_path.cas_id else {

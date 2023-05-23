@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	location::file_path_helper::get_final_component,
 	util::error::FileIOError,
 };
 
@@ -113,12 +114,7 @@ impl StatefulJob for FileEraserJob {
 
 				trace!("Erasing file: {:?}", path);
 
-				ctx.progress(vec![JobReportUpdate::Message(format!(
-					"Erasing {}",
-					path.components()
-						.last()
-						.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
-				))]);
+				ctx.progress(vec![JobReportUpdate::ActiveItem(get_final_component(path))]);
 
 				tokio::fs::remove_file(path)
 					.await

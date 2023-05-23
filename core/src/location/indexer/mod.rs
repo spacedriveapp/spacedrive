@@ -22,7 +22,9 @@ use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
+	file_path_helper::{
+		file_path_just_pub_id, get_final_component, FilePathError, IsolatedFilePathData,
+	},
 	location_with_indexer_rules, LocationId,
 };
 
@@ -74,7 +76,7 @@ impl IndexerJobData {
 				.map(|p| match p.clone() {
 					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
 					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => JobReportUpdate::Message(m),
+					ScanProgress::ActiveItem(m) => JobReportUpdate::ActiveItem(m),
 				})
 				.collect(),
 		)
@@ -91,7 +93,7 @@ pub struct IndexerJobSaveStep {
 pub enum ScanProgress {
 	ChunkCount(usize),
 	SavedChunks(usize),
-	Message(String),
+	ActiveItem(String),
 }
 
 /// Error type for the indexer module
@@ -138,16 +140,7 @@ async fn execute_indexer_save_step(
 ) -> Result<(u64, Duration), IndexerError> {
 	let start_time = Instant::now();
 
-	IndexerJobData::on_scan_progress(
-		ctx,
-		vec![
-			ScanProgress::SavedChunks(save_step.chunk_idx),
-			ScanProgress::Message(format!(
-				"Writing {}/{} to db",
-				save_step.chunk_idx, data.total_save_steps
-			)),
-		],
-	);
+	IndexerJobData::on_scan_progress(ctx, vec![ScanProgress::SavedChunks(save_step.chunk_idx)]);
 	let Library { sync, db, .. } = &ctx.library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
@@ -255,7 +248,7 @@ fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
-				ScanProgress::Message(format!("Scanning {}", path.display())),
+				ScanProgress::ActiveItem(get_final_component(path)),
 				ScanProgress::ChunkCount(total_entries / batch_size),
 			],
 		);

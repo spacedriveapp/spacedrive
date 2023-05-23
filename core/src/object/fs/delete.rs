@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	location::file_path_helper::get_final_component,
 	util::error::FileIOError,
 };
 
@@ -71,13 +72,7 @@ impl StatefulJob for FileDeleterJob {
 
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(state.step_number + 1),
-			JobReportUpdate::Message(format!(
-				"Deleted {}",
-				info.fs_path
-					.components()
-					.last()
-					.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
-			)),
+			JobReportUpdate::ActiveItem(get_final_component(info.fs_path)),
 		]);
 
 		Ok(())

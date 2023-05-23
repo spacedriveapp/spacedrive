@@ -270,6 +270,14 @@ pub fn loose_find_existing_file_path_params(
 	]
 }
 
+pub fn get_final_component<P: AsRef<Path>>(path: P) -> String {
+	path.as_ref()
+		.components()
+		.last()
+		.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+		.to_string()
+}
+
 #[cfg(feature = "location-watcher")]
 pub async fn get_parent_dir(
 	materialized_path: &IsolatedFilePathData<'_>,

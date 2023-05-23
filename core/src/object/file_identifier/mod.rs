@@ -371,14 +371,7 @@ async fn process_identifier_file_paths(
 		*cursor = last_row.id;
 	}
 
-	ctx.progress(vec![
-		JobReportUpdate::CompletedTaskCount(step_number),
-		JobReportUpdate::Message(format!(
-			"Processed {} of {} orphan Paths",
-			step_number * CHUNK_SIZE,
-			report.total_orphan_paths
-		)),
-	]);
+	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number)]);
 
 	Ok(())
 }

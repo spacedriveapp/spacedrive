@@ -3,6 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	location::file_path_helper::get_final_component,
 	util::error::FileIOError,
 };
 
@@ -111,13 +112,8 @@ impl StatefulJob for FileCutterJob {
 			full_output.display()
 		);
 
-		ctx.progress(vec![JobReportUpdate::Message(format!(
-			"Cutting {}",
-			source_info
-				.fs_path
-				.components()
-				.last()
-				.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+		ctx.progress(vec![JobReportUpdate::ActiveItem(get_final_component(
+			source_info.fs_path,
 		))]);
 
 		fs::rename(&source_info.fs_path, &full_output)

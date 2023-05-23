@@ -139,10 +139,7 @@ impl StatefulJob for ThumbnailerJob {
 		#[cfg(not(feature = "ffmpeg"))]
 		let all_files = { image_files.into_iter().collect::<VecDeque<_>>() };
 
-		ctx.progress(vec![
-			JobReportUpdate::TaskCount(all_files.len()),
-			JobReportUpdate::Message(format!("Preparing to process {} files", all_files.len())),
-		]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(all_files.len())]);
 
 		state.data = Some(ThumbnailerJobState {
 			thumbnail_dir,
