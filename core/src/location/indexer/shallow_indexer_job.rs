@@ -20,9 +20,9 @@ use tokio::time::Instant;
 
 use super::{
 	execute_indexer_save_step, finalize_indexer, iso_file_path_factory,
-	location_with_indexer_rules, remove_non_existing_file_paths,
+	location_with_indexer_rules, remove_non_existing_file_paths, rules::IndexerRule,
 	update_notifier_fn, walk::walk_single_dir, IndexerError, IndexerJobData, IndexerJobSaveStep,
-	ScanProgress, rules::IndexerRule,
+	ScanProgress,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
