@@ -8,8 +8,20 @@ use std::{sync::Arc, vec};
 use strum_macros::{EnumString, EnumVariantNames};
 
 /// Meow
-#[derive(Serialize, Deserialize, Type, Debug, EnumVariantNames, EnumString)]
-#[serde(tag = "type")]
+#[derive(
+	Serialize,
+	Deserialize,
+	Type,
+	Debug,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	EnumVariantNames,
+	EnumString,
+	Clone,
+	Copy,
+)]
 pub enum Category {
 	Recents,
 	Favorites,
@@ -17,17 +29,16 @@ pub enum Category {
 	Videos,
 	Movies,
 	Music,
-	// Documents,
+	Documents,
 	Downloads,
 	Encrypted,
 	Projects,
-	// Applications,
-	// Archives,
-	// Databases
+	Applications,
+	Archives,
+	Databases,
 	Games,
 	Books,
-	// Contacts,
-	// Movies,
+	Contacts,
 	Trash,
 }
 
@@ -45,35 +56,16 @@ impl Category {
 }
 
 pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	let params = match category {
-		Category::Recents => vec![not![object::date_accessed::equals(None)]],
-		Category::Favorites => vec![object::favorite::equals(true)],
+	let param = match category {
+		Category::Recents => not![object::date_accessed::equals(None)],
+		Category::Favorites => object::favorite::equals(true),
 		Category::Photos
 		| Category::Videos
 		| Category::Music
 		| Category::Encrypted
-		| Category::Books => vec![object::kind::equals(category.to_object_kind() as i32)],
-		Category::Downloads => {
-			// TODO: Fetch the actual count for the Downloads category.
-			return 0;
-		}
-		Category::Projects => {
-			// TODO: Fetch the actual count for the Projects category.
-			return 0;
-		}
-		Category::Games => {
-			// TODO: Fetch the actual count for the Games category.
-			return 0;
-		}
-		Category::Movies => {
-			// TODO: Fetch the actual count for the Trash category.
-			return 0;
-		}
-		Category::Trash => {
-			// TODO: Fetch the actual count for the Trash category.
-			return 0;
-		}
+		| Category::Books => object::kind::equals(category.to_object_kind() as i32),
+		_ => return 0,
 	};
 
-	db.object().count(params).exec().await.unwrap_or(0) as i32
+	db.object().count(vec![param]).exec().await.unwrap_or(0) as i32
 }

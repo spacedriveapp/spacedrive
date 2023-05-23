@@ -28,7 +28,7 @@ percent-encoding = "2.2.0"
 http = "0.2.8"
 opener = "0.6.1"
 specta.workspace = true
-tauri-specta = { version = "1.0.0", features = ["typescript"] }
+tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { version = "1.1.2", features = ["serde"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

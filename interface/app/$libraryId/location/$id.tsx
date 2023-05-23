@@ -31,7 +31,7 @@ export const Component = () => {
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const { data: location } = useLibraryQuery(['locations.get', location_id]);
+	const location = useLibraryQuery(['locations.get', location_id]);
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -54,7 +54,7 @@ export const Component = () => {
 					<>
 						<Folder size={22} className="-mt-[1px] ml-3 mr-2 inline-block" />
 						<span className="text-sm font-medium">
-							{path ? getLastSectionOfPath(path) : location?.name}
+							{path ? getLastSectionOfPath(path) : location.data?.name}
 						</span>
 					</>
 				}
@@ -64,7 +64,7 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex flex-col w-full">
+			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
 					onLoadMore={query.fetchNextPage}
@@ -92,11 +92,13 @@ const useItems = () => {
 				library_id: library.uuid,
 				arg: {
 					order: useExplorerOrder(),
-					locationId,
+					filter: {
+						locationId,
+						...(explorerState.layoutMode === 'media'
+							? { object: { kind: [5, 7] } }
+							: { path: path ?? '' })
+					},
 					take,
-					...(explorerState.layoutMode === 'media'
-						? { kind: [5, 7] }
-						: { path: path ?? '' })
 				}
 			}
 		] as const,
