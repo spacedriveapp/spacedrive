@@ -205,7 +205,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 							case 'PDF':
 								return (
 									<ExternalObject
-										data={src}
+										src={src}
 										type="application/pdf"
 										onLoad={onLoad}
 										onError={onError}
