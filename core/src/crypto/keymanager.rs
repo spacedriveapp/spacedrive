@@ -1,988 +1,648 @@
-// //! This module contains Spacedrive's key manager implementation.
-// //!
-// //! The key manager is used for keeping track of keys within memory, and mounting them on demand.
-// //!
-// //! The key manager is initialised, and added to a global state so it is accessible everywhere.
-// //! It is also populated with all keys from the Prisma database.
-// //!
-// //! # Examples
-// //!
-// //! ```rust,ignore
-// //! use sd_crypto::keys::keymanager::KeyManager;
-// //! use sd_crypto::Protected;
-// //! use sd_crypto::crypto::stream::Algorithm;
-// //! use sd_crypto::keys::hashing::{HashingAlgorithm, Params};
-// //!
-// //! let master_password = Protected::new(b"password".to_vec());
-// //!
-// //! // Initialise a `Keymanager` with no stored keys and no master password
-// //! let mut key_manager = KeyManager::new(vec![], None);
-// //!
-// //! // Set the master password
-// //! key_manager.set_master_password(master_password);
-// //!
-// //! let new_password = Protected::new(b"super secure".to_vec());
-// //!
-// //! // Register the new key with the key manager
-// //! let added_key = key_manager.add_to_keystore(new_password, Algorithm::default(), HashingAlgorithm::default()).unwrap();
-// //!
-// //! // Write the stored key to the database here (with `KeyManager::access_keystore()`)
-// //!
-// //! // Mount the key we just added (with the returned UUID)
-// //! key_manager.mount(added_key);
-// //!
-// //! // Retrieve all currently mounted, hashed keys to pass to a decryption function.
-// //! let keys = key_manager.enumerate_hashed_keys();
-// //! ```
-
-// use std::sync::Arc;
-// use tokio::sync::Mutex;
-
-// use crate::{
-// 	crypto::{Decryptor, Encryptor},
-// 	keys::Hasher,
-// 	primitives::{
-// 		APP_IDENTIFIER, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
-// 		SECRET_KEY_IDENTIFIER, SECRET_KEY_LEN,
-// 	},
-// 	types::{
-// 		Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, OnboardingConfig, Salt,
-// 		SecretKey, SecretKeyString,
-// 	},
-// 	Error, Protected, Result,
-// };
-
-// use dashmap::{DashMap, DashSet};
-// use uuid::Uuid;
-
-// use super::keyring::{Identifier, KeyringInterface};
-
-// /// This is a stored key, and can be freely written to the database.
-// ///
-// /// It contains no sensitive information that is not encrypted.
-// #[derive(Clone)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-// #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-// pub struct StoredKey {
-// 	pub uuid: Uuid, // uuid for identification. shared with mounted keys
-// 	pub version: StoredKeyVersion,
-// 	pub key_type: StoredKeyType,
-// 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
-// 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
-// 	pub content_salt: Salt,
-// 	pub master_key: EncryptedKey, // this is for encrypting the `key`
-// 	pub key_nonce: Nonce,         // nonce used for encrypting the main key
-// 	pub key: Vec<u8>, // encrypted. the password stored in spacedrive (e.g. generated 64 char key)
-// 	pub salt: Salt,
-// 	pub memory_only: bool,
-// }
-
-// /// This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
-// #[derive(Clone, PartialEq, Eq)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-// #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-// pub enum StoredKeyType {
-// 	User,
-// 	Root,
-// }
-
-// /// This denotes the `StoredKey` version.
-// #[derive(Clone, PartialEq, Eq)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-// #[cfg_attr(feature = "rspc", derive(rspc::Type))]
-// pub enum StoredKeyVersion {
-// 	V1,
-// }
-
-// /// This is a mounted key, and needs to be kept somewhat hidden.
-// ///
-// /// This contains the plaintext key, and the same key hashed with the content salt.
-// #[derive(Clone)]
-// pub struct MountedKey {
-// 	pub uuid: Uuid,      // used for identification. shared with stored keys
-// 	pub hashed_key: Key, // this is hashed with the content salt, for instant access
-// }
-
-// /// This is the key manager itself.
-// ///
-// /// It contains the keystore, the keymount, the root key and a few other pieces of information.
-// ///
-// /// Use the associated functions to interact with it.
-// pub struct KeyManager {
-// 	root_key: Mutex<Option<Key>>, // the root key for the vault
-// 	verification_key: Mutex<Option<StoredKey>>,
-// 	keystore: DashMap<Uuid, StoredKey>,
-// 	keymount: DashMap<Uuid, MountedKey>,
-// 	default: Mutex<Option<Uuid>>,
-// 	mounting_queue: DashSet<Uuid>,
-// 	keyring: Option<Arc<Mutex<KeyringInterface>>>,
-// }
-// impl KeyManager {
-// 	/// Initialize the Key Manager with `StoredKeys` retrieved from the database.
-// 	pub async fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
-// 		let keyring = KeyringInterface::new()
-// 			.map(|k| Arc::new(Mutex::new(k)))
-// 			.ok();
-
-// 		let keymanager = Self {
-// 			root_key: Mutex::new(None),
-// 			verification_key: Mutex::new(None),
-// 			keystore: DashMap::new(),
-// 			keymount: DashMap::new(),
-// 			default: Mutex::new(None),
-// 			mounting_queue: DashSet::new(),
-// 			keyring,
-// 		};
-
-// 		keymanager.populate_keystore(stored_keys).await?;
-
-// 		Ok(keymanager)
-// 	}
-
-// 	/// This should be used for checking if the secret key contains an item.
-// 	///
-// 	/// A returned error here should be treated as `false`
-// 	pub async fn keyring_contains(&self, library_uuid: Uuid, usage: String) -> Result<()> {
-// 		self.get_keyring()?.lock().await.retrieve(Identifier {
-// 			application: APP_IDENTIFIER,
-// 			id: &library_uuid.to_string(),
-// 			usage: &usage,
-// 		})?;
-
-// 		Ok(())
-// 	}
-
-// 	/// This verifies that the key manager is unlocked before continuing the calling function.
-// 	pub async fn ensure_unlocked(&self) -> Result<()> {
-// 		self.is_unlocked()
-// 			.await
-// 			.then_some(())
-// 			.ok_or(Error::NotUnlocked)
-// 	}
-
-// 	/// This verifies that the target key is not already queued before continuing the operation.
-// 	pub fn ensure_not_queued(&self, uuid: Uuid) -> Result<()> {
-// 		(!self.is_queued(uuid))
-// 			.then_some(())
-// 			.ok_or(Error::KeyAlreadyMounted)
-// 	}
-
-// 	/// This verifies that the target key is not already mounted before continuing the operation.
-// 	pub fn ensure_not_mounted(&self, uuid: Uuid) -> Result<()> {
-// 		(!self.keymount.contains_key(&uuid))
-// 			.then_some(())
-// 			.ok_or(Error::KeyAlreadyMounted)
-// 	}
-
-// 	/// This is used to retrieve an item from OS keyrings
-// 	pub async fn keyring_retrieve(
-// 		&self,
-// 		library_uuid: Uuid,
-// 		usage: String,
-// 	) -> Result<Protected<String>> {
-// 		let value = self.get_keyring()?.lock().await.retrieve(Identifier {
-// 			application: APP_IDENTIFIER,
-// 			id: &library_uuid.to_string(),
-// 			usage: &usage,
-// 		})?;
-
-// 		Ok(Protected::new(String::from_utf8(value.expose().clone())?))
-// 	}
-
-// 	/// This checks to see if the keyring is active, and if the keyring has a valid secret key.
-// 	///
-// 	/// For a secret key to be considered valid, it must be 18 bytes encoded in hex. It can be separated with `-`.
-// 	///
-// 	/// We can use this to detect if a secret key is technically present in the keyring, but not valid/has been tampered with.
-// 	pub async fn keyring_contains_valid_secret_key(&self, library_uuid: Uuid) -> Result<()> {
-// 		let secret_key = self
-// 			.keyring_retrieve(library_uuid, SECRET_KEY_IDENTIFIER.to_string())
-// 			.await?;
-
-// 		let mut secret_key_sanitized = secret_key.into_inner();
-// 		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
-
-// 		if hex::decode(secret_key_sanitized)
-// 			.map_err(|_| Error::KeyringError)?
-// 			.len() != SECRET_KEY_LEN
-// 		{
-// 			return Err(Error::KeyringError);
-// 		}
-
-// 		Ok(())
-// 	}
-
-// 	/// This is used to insert an item into OS keyrings
-// 	async fn keyring_insert(
-// 		&self,
-// 		library_uuid: Uuid,
-// 		usage: String,
-// 		value: SecretKeyString,
-// 	) -> Result<()> {
-// 		self.get_keyring()?.lock().await.insert(
-// 			Identifier {
-// 				application: APP_IDENTIFIER,
-// 				id: &library_uuid.to_string(),
-// 				usage: &usage,
-// 			},
-// 			value,
-// 		)?;
-
-// 		Ok(())
-// 	}
-
-// 	fn get_keyring(&self) -> Result<Arc<Mutex<KeyringInterface>>> {
-// 		self.keyring
-// 			.as_ref()
-// 			.map_or(Err(Error::KeyringNotSupported), |k| Ok(k.clone()))
-// 	}
-
-// 	/// This should be used to generate everything for the user during onboarding.
-// 	///
-// 	/// This will create a secret key and attempt to store it in OS keyrings.
-// 	///
-// 	/// It will also generate a verification key, which should be written to the database.
-// 	#[allow(clippy::needless_pass_by_value)]
-// 	pub fn onboarding(config: OnboardingConfig, library_uuid: Uuid) -> Result<StoredKey> {
-// 		let content_salt = Salt::generate();
-// 		let secret_key = SecretKey::generate();
-
-// 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
-
-// 		let algorithm = config.algorithm;
-// 		let hashing_algorithm = config.hashing_algorithm;
-
-// 		// Hash the master password
-// 		let hashed_password = Hasher::hash_password(
-// 			hashing_algorithm,
-// 			config.password.into(),
-// 			content_salt,
-// 			Some(secret_key.clone()),
-// 		)?;
-
-// 		let salt = Salt::generate();
-
-// 		// Generate items we'll need for encryption
-// 		let master_key = Key::generate();
-// 		let master_key_nonce = Nonce::generate(algorithm);
-
-// 		let root_key = Key::generate();
-// 		let root_key_nonce = Nonce::generate(algorithm);
-
-// 		// Encrypt the master key with the hashed master password
-// 		let encrypted_master_key = Encryptor::encrypt_key(
-// 			Hasher::derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-// 			master_key_nonce,
-// 			algorithm,
-// 			master_key.clone(),
-// 			Aad::Null,
-// 		)?;
-
-// 		let encrypted_root_key = Encryptor::encrypt_bytes(
-// 			master_key,
-// 			root_key_nonce,
-// 			algorithm,
-// 			root_key.expose(),
-// 			Aad::Null,
-// 		)?;
-
-// 		// attempt to insert into the OS keyring
-// 		// can ignore false here as we want to silently error
-// 		if let Ok(keyring) = KeyringInterface::new() {
-// 			let identifier = Identifier {
-// 				application: APP_IDENTIFIER,
-// 				id: &library_uuid.to_string(),
-// 				usage: SECRET_KEY_IDENTIFIER,
-// 			};
-
-// 			keyring.insert(identifier, secret_key.into()).ok();
-// 		}
-
-// 		let verification_key = StoredKey {
-// 			uuid: Uuid::new_v4(),
-// 			version: LATEST_STORED_KEY,
-// 			key_type: StoredKeyType::Root,
-// 			algorithm,
-// 			hashing_algorithm,
-// 			content_salt, // salt used for hashing
-// 			master_key: encrypted_master_key,
-// 			key_nonce: root_key_nonce,
-// 			key: encrypted_root_key,
-// 			salt, // salt used for key derivation
-// 			memory_only: false,
-// 		};
-
-// 		Ok(verification_key)
-// 	}
-
-// 	/// This function should be used to populate the keystore with multiple stored keys at a time.
-// 	///
-// 	/// It's suitable for when you created the key manager without populating it.
-// 	///
-// 	/// This also detects any `Root` type keys, that are used for unlocking the key manager.
-// 	pub async fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
-// 		for key in stored_keys {
-// 			if self.keystore.contains_key(&key.uuid) {
-// 				continue;
-// 			}
-
-// 			if key.key_type == StoredKeyType::Root {
-// 				*self.verification_key.lock().await = Some(key);
-// 			} else {
-// 				self.keystore.insert(key.uuid, key);
-// 			}
-// 		}
-
-// 		Ok(())
-// 	}
-
-// 	/// This function removes a key from the keystore, keymount and from the default (if set).
-// 	pub async fn remove_key(&self, uuid: Uuid) -> Result<()> {
-// 		self.ensure_unlocked().await?;
-
-// 		if self.keystore.contains_key(&uuid) {
-// 			// if key is default, clear it
-// 			// do this manually to prevent deadlocks
-// 			let mut default = self.default.lock().await;
-// 			if *default == Some(uuid) {
-// 				*default = None;
-// 			}
-// 			drop(default);
-
-// 			// unmount if mounted
-// 			self.keymount
-// 				.contains_key(&uuid)
-// 				.then(|| self.keymount.remove(&uuid));
-
-// 			// remove from keystore
-// 			self.keystore.remove(&uuid);
-// 		}
-
-// 		Ok(())
-// 	}
-
-// 	/// This is used for changing a master password. It will re-generate a new secret key.
-// 	#[allow(clippy::needless_pass_by_value)]
-// 	pub async fn change_master_password(
-// 		&self,
-// 		master_password: Protected<String>,
-// 		algorithm: Algorithm,
-// 		hashing_algorithm: HashingAlgorithm,
-// 		library_uuid: Uuid,
-// 	) -> Result<StoredKey> {
-// 		self.ensure_unlocked().await?;
-
-// 		let secret_key = SecretKey::generate();
-// 		let content_salt = Salt::generate();
-
-// 		dbg!(SecretKeyString::from(secret_key.clone()).expose());
-
-// 		let hashed_password = Hasher::hash_password(
-// 			hashing_algorithm,
-// 			master_password.into(),
-// 			content_salt,
-// 			Some(secret_key.clone()),
-// 		)?;
-
-// 		// Generate items we'll need for encryption
-// 		let master_key = Key::generate();
-// 		let master_key_nonce = Nonce::generate(algorithm);
-
-// 		let root_key = self.get_root_key().await?;
-// 		let root_key_nonce = Nonce::generate(algorithm);
-
-// 		let salt = Salt::generate();
-
-// 		// Encrypt the master key with the hashed master password
-// 		let encrypted_master_key = Encryptor::encrypt_key(
-// 			Hasher::derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
-// 			master_key_nonce,
-// 			algorithm,
-// 			master_key.clone(),
-// 			Aad::Null,
-// 		)?;
-
-// 		// This is an artifact of how the DB schema is used for root keys
-// 		//
-// 		// This technically should be an `EncryptedKey`, but we can't define it
-// 		// as the associated column is for keys of any length (and `EncryptedKey` is fixed).
-// 		//
-// 		// we either need a key manager/root key config file, or a new DB table.
-// 		// the former would also help for library encryption.
-// 		let encrypted_root_key = Encryptor::encrypt_bytes(
-// 			master_key,
-// 			root_key_nonce,
-// 			algorithm,
-// 			root_key.expose(),
-// 			Aad::Null,
-// 		)?;
-
-// 		// will update if it's already present
-// 		self.keyring_insert(
-// 			library_uuid,
-// 			SECRET_KEY_IDENTIFIER.to_string(),
-// 			secret_key.into(),
-// 		)
-// 		.await
-// 		.ok();
-
-// 		let verification_key = StoredKey {
-// 			uuid: Uuid::new_v4(),
-// 			version: LATEST_STORED_KEY,
-// 			key_type: StoredKeyType::Root,
-// 			algorithm,
-// 			hashing_algorithm,
-// 			content_salt,
-// 			master_key: encrypted_master_key,
-// 			key_nonce: root_key_nonce,
-// 			key: encrypted_root_key,
-// 			salt,
-// 			memory_only: false,
-// 		};
-
-// 		*self.verification_key.lock().await = Some(verification_key.clone());
-
-// 		Ok(verification_key)
-// 	}
-
-// 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
-// 	///
-// 	/// It returns a `Vec<StoredKey>` so they can be written to the database.
-// 	#[allow(clippy::needless_pass_by_value)]
-// 	pub async fn import_keystore_backup(
-// 		&self,
-// 		master_password: Protected<String>, // at the time of the backup
-// 		secret_key: SecretKeyString,        // at the time of the backup
-// 		stored_keys: &[StoredKey],          // from the backup
-// 	) -> Result<Vec<StoredKey>> {
-// 		self.ensure_unlocked().await?;
-
-// 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
-// 		let secret_key = secret_key.into();
-
-// 		let mut old_verification_key = None;
-
-// 		let keys: Vec<StoredKey> = stored_keys
-// 			.iter()
-// 			.filter_map(|key| {
-// 				if key.key_type == StoredKeyType::Root {
-// 					old_verification_key = Some(key.clone());
-// 					None
-// 				} else {
-// 					Some(key.clone())
-// 				}
-// 			})
-// 			.collect();
-
-// 		let old_verification_key = old_verification_key.ok_or(Error::NoVerificationKey)?;
-
-// 		let old_root_key = match old_verification_key.version {
-// 			StoredKeyVersion::V1 => {
-// 				let hashed_password = Hasher::hash_password(
-// 					old_verification_key.hashing_algorithm,
-// 					master_password.into(),
-// 					old_verification_key.content_salt,
-// 					Some(secret_key),
-// 				)?;
-
-// 				// decrypt the root key's KEK
-// 				let master_key = Decryptor::decrypt_key(
-// 					Hasher::derive_key(
-// 						hashed_password,
-// 						old_verification_key.salt,
-// 						MASTER_PASSWORD_CONTEXT,
-// 					),
-// 					old_verification_key.algorithm,
-// 					old_verification_key.master_key,
-// 					Aad::Null,
-// 				)?;
-
-// 				// get the root key from the backup
-// 				Decryptor::decrypt_bytes(
-// 					master_key,
-// 					old_verification_key.key_nonce,
-// 					old_verification_key.algorithm,
-// 					&old_verification_key.key,
-// 					Aad::Null,
-// 				)
-// 				.map(Key::try_from)??
-// 			}
-// 		};
-
-// 		let mut reencrypted_keys = Vec::new();
-
-// 		for key in keys {
-// 			if self.keystore.contains_key(&key.uuid) {
-// 				continue;
-// 			}
-
-// 			match key.version {
-// 				StoredKeyVersion::V1 => {
-// 					// decrypt the key's master key
-// 					let master_key = Decryptor::decrypt_key(
-// 						Hasher::derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
-// 						key.algorithm,
-// 						key.master_key.clone(),
-// 						Aad::Null,
-// 					)
-// 					.map(Key::from)?;
-
-// 					// generate a new nonce
-// 					let master_key_nonce = Nonce::generate(key.algorithm);
-
-// 					let salt = Salt::generate();
-
-// 					// encrypt the master key with the current root key
-// 					let encrypted_master_key = Encryptor::encrypt_key(
-// 						Hasher::derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
-// 						master_key_nonce,
-// 						key.algorithm,
-// 						master_key,
-// 						Aad::Null,
-// 					)?;
-
-// 					let mut updated_key = key;
-// 					updated_key.master_key = encrypted_master_key;
-// 					updated_key.salt = salt;
-
-// 					reencrypted_keys.push(updated_key.clone());
-// 					self.keystore.insert(updated_key.uuid, updated_key);
-// 				}
-// 			}
-// 		}
-
-// 		Ok(reencrypted_keys)
-// 	}
-
-// 	/// This is used for unlocking the key manager, and requires both the master password and the secret key.
-// 	///
-// 	/// Only provide the secret key if it should not/can not be sourced from an OS keyring (e.g. web, OS keyrings not enabled/available, etc).
-// 	///
-// 	/// This minimizes the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
-// 	///
-// 	/// Both values need to be correct, otherwise this function will return a generic error.
-// 	///
-// 	/// The invalidate function is to handle query invalidation, so that the UI updates correctly. Leave it blank if this isn't required.
-// 	///
-// 	/// Note: The invalidation function is ran after updating the queue both times, so it isn't required externally.
-// 	#[allow(clippy::needless_pass_by_value)]
-// 	pub async fn unlock<F>(
-// 		&self,
-// 		master_password: Protected<String>,
-// 		provided_secret_key: Option<SecretKeyString>,
-// 		library_uuid: Uuid,
-// 		invalidate: F,
-// 	) -> Result<()>
-// 	where
-// 		F: Fn() + Send,
-// 	{
-// 		let verification_key = (*self.verification_key.lock().await)
-// 			.as_ref()
-// 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
-
-// 		self.ensure_not_queued(verification_key.uuid)?;
-
-// 		let secret_key = if let Some(secret_key) = provided_secret_key.clone() {
-// 			secret_key.into()
-// 		} else {
-// 			self.get_keyring()?
-// 				.lock()
-// 				.await
-// 				.retrieve(Identifier {
-// 					application: APP_IDENTIFIER,
-// 					id: &library_uuid.to_string(),
-// 					usage: SECRET_KEY_IDENTIFIER,
-// 				})
-// 				.map(SecretKey::try_from)?
-// 				.map(SecretKeyString::from)?
-// 				.into()
-// 		};
-
-// 		self.mounting_queue.insert(verification_key.uuid);
-// 		invalidate();
-
-// 		match verification_key.version {
-// 			StoredKeyVersion::V1 => {
-// 				let hashed_password = Hasher::hash_password(
-// 					verification_key.hashing_algorithm,
-// 					master_password.into(),
-// 					verification_key.content_salt,
-// 					Some(secret_key),
-// 				)?;
-
-// 				let master_key = Decryptor::decrypt_key(
-// 					Hasher::derive_key(
-// 						hashed_password,
-// 						verification_key.salt,
-// 						MASTER_PASSWORD_CONTEXT,
-// 					),
-// 					verification_key.algorithm,
-// 					verification_key.master_key,
-// 					Aad::Null,
-// 				)?;
-
-// 				let root_key = Decryptor::decrypt_bytes(
-// 					master_key,
-// 					verification_key.key_nonce,
-// 					verification_key.algorithm,
-// 					&verification_key.key,
-// 					Aad::Null,
-// 				)?
-// 				.try_into()?;
-
-// 				*self.root_key.lock().await = Some(root_key);
-
-// 				self.remove_from_queue(verification_key.uuid)
-// 			}
-// 		}
-// 		.map_err(|e| {
-// 			self.remove_from_queue(verification_key.uuid).ok();
-// 			e
-// 		})?;
-
-// 		if let Some(secret_key) = provided_secret_key {
-// 			// converting twice ensures it's formatted correctly
-// 			self.keyring_insert(
-// 				library_uuid,
-// 				SECRET_KEY_IDENTIFIER.to_string(),
-// 				SecretKeyString::from(SecretKey::from(secret_key)),
-// 			)
-// 			.await
-// 			.ok();
-// 		}
-
-// 		invalidate();
-
-// 		Ok(())
-// 	}
-
-// 	/// This function does not return a value by design.
-// 	///
-// 	/// This is to ensure that only functions which require access to the mounted key receive it.
-// 	pub async fn mount(&self, uuid: Uuid) -> Result<()> {
-// 		self.ensure_unlocked().await?;
-// 		self.ensure_not_mounted(uuid)?;
-// 		self.ensure_not_queued(uuid)?;
-
-// 		if let Some(stored_key) = self.keystore.get(&uuid) {
-// 			match stored_key.version {
-// 				StoredKeyVersion::V1 => {
-// 					self.mounting_queue.insert(uuid);
-
-// 					let master_key = Decryptor::decrypt_key(
-// 						Hasher::derive_key(
-// 							self.get_root_key().await?,
-// 							stored_key.salt,
-// 							ROOT_KEY_CONTEXT,
-// 						),
-// 						stored_key.algorithm,
-// 						stored_key.master_key.clone(),
-// 						Aad::Null,
-// 					)?;
-
-// 					// Decrypt the StoredKey using the decrypted master key
-// 					let key = Decryptor::decrypt_bytes(
-// 						master_key,
-// 						stored_key.key_nonce,
-// 						stored_key.algorithm,
-// 						&stored_key.key,
-// 						Aad::Null,
-// 					)?;
-
-// 					// Hash the key once with the parameters/algorithm the user selected during first mount
-// 					let hashed_key = Hasher::hash_password(
-// 						stored_key.hashing_algorithm,
-// 						key,
-// 						stored_key.content_salt,
-// 						None,
-// 					)?;
-
-// 					self.keymount.insert(
-// 						uuid,
-// 						MountedKey {
-// 							uuid: stored_key.uuid,
-// 							hashed_key,
-// 						},
-// 					);
-
-// 					self.remove_from_queue(uuid)
-// 				}
-// 			}
-// 			.map_err(|e| {
-// 				self.remove_from_queue(uuid).ok();
-// 				e
-// 			})?;
-
-// 			Ok(())
-// 		} else {
-// 			Err(Error::KeyNotFound)
-// 		}
-// 	}
-
-// 	/// This function is used for getting the key value itself, from a given UUID.
-// 	pub async fn get_key(&self, uuid: Uuid) -> Result<Protected<String>> {
-// 		self.ensure_unlocked().await?;
-
-// 		if let Some(stored_key) = self.keystore.get(&uuid) {
-// 			let master_key = Decryptor::decrypt_key(
-// 				Hasher::derive_key(
-// 					self.get_root_key().await?,
-// 					stored_key.salt,
-// 					ROOT_KEY_CONTEXT,
-// 				),
-// 				stored_key.algorithm,
-// 				stored_key.master_key.clone(),
-// 				Aad::Null,
-// 			)?;
-
-// 			// Decrypt the StoredKey using the decrypted master key
-// 			let key = Decryptor::decrypt_bytes(
-// 				master_key,
-// 				stored_key.key_nonce,
-// 				stored_key.algorithm,
-// 				&stored_key.key,
-// 				Aad::Null,
-// 			)?;
-
-// 			Ok(Protected::new(String::from_utf8(key.into_inner())?))
-// 		} else {
-// 			Err(Error::KeyNotFound)
-// 		}
-// 	}
-
-// 	/// This function is used to add a new key/password to the keystore.
-// 	///
-// 	/// You should use this when a new key is added, as it will generate salts/nonces/etc.
-// 	///
-// 	/// It does not mount the key, it just registers it.
-// 	///
-// 	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to the database.
-// 	///
-// 	/// You may use the returned UUID to identify this key.
-// 	///
-// 	/// You may optionally provide a content salt, if not one will be generated
-// 	#[allow(clippy::needless_pass_by_value)]
-// 	pub async fn add_to_keystore(
-// 		&self,
-// 		key: Protected<String>,
-// 		algorithm: Algorithm,
-// 		hashing_algorithm: HashingAlgorithm,
-// 		memory_only: bool,
-// 		content_salt: Option<Salt>,
-// 	) -> Result<Uuid> {
-// 		self.ensure_unlocked().await?;
-
-// 		let uuid = Uuid::new_v4();
-
-// 		// Generate items we'll need for encryption
-// 		let key_nonce = Nonce::generate(algorithm);
-// 		let master_key = Key::generate();
-// 		let master_key_nonce = Nonce::generate(algorithm);
-
-// 		let content_salt = content_salt.map_or_else(Salt::generate, |v| v);
-
-// 		// salt used for the kdf
-// 		let salt = Salt::generate();
-
-// 		// Encrypt the master key with a derived key (derived from the root key)
-// 		let encrypted_master_key = Encryptor::encrypt_key(
-// 			Hasher::derive_key(self.get_root_key().await?, salt, ROOT_KEY_CONTEXT),
-// 			master_key_nonce,
-// 			algorithm,
-// 			master_key.clone(),
-// 			Aad::Null,
-// 		)?;
-
-// 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
-// 		let encrypted_key = Encryptor::encrypt_bytes(
-// 			master_key,
-// 			key_nonce,
-// 			algorithm,
-// 			key.expose().as_bytes(),
-// 			Aad::Null,
-// 		)?;
-
-// 		// Insert it into the Keystore
-// 		self.keystore.insert(
-// 			uuid,
-// 			StoredKey {
-// 				uuid,
-// 				version: LATEST_STORED_KEY,
-// 				key_type: StoredKeyType::User,
-// 				algorithm,
-// 				hashing_algorithm,
-// 				content_salt,
-// 				master_key: encrypted_master_key,
-// 				key_nonce,
-// 				key: encrypted_key,
-// 				salt,
-// 				memory_only,
-// 			},
-// 		);
-
-// 		// Return the ID so it can be identified
-// 		Ok(uuid)
-// 	}
-
-// 	/// This function is for accessing the internal keymount.
-// 	///
-// 	/// We could add a log to this, so that the user can view accesses
-// 	pub async fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey> {
-// 		self.ensure_unlocked().await?;
-
-// 		self.keymount
-// 			.get(&uuid)
-// 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.clone()))
-// 	}
-
-// 	/// This function is for accessing a `StoredKey`.
-// 	pub async fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey> {
-// 		self.ensure_unlocked().await?;
-
-// 		self.keystore
-// 			.get(&uuid)
-// 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.clone()))
-// 	}
-
-// 	/// This allows you to set the default key
-// 	pub async fn set_default(&self, uuid: Uuid) -> Result<()> {
-// 		self.ensure_unlocked().await?;
-
-// 		if self.keystore.contains_key(&uuid) {
-// 			*self.default.lock().await = Some(uuid);
-// 			Ok(())
-// 		} else {
-// 			Err(Error::KeyNotFound)
-// 		}
-// 	}
-
-// 	/// This allows you to get the default key's UUID
-// 	pub async fn get_default(&self) -> Result<Uuid> {
-// 		self.ensure_unlocked().await?;
-
-// 		self.default.lock().await.ok_or(Error::NoDefaultKeySet)
-// 	}
-
-// 	/// This should ONLY be used internally, for accessing the root key.
-// 	async fn get_root_key(&self) -> Result<Key> {
-// 		self.root_key.lock().await.clone().ok_or(Error::NotUnlocked)
-// 	}
-
-// 	pub async fn get_verification_key(&self) -> Result<StoredKey> {
-// 		self.verification_key
-// 			.lock()
-// 			.await
-// 			.clone()
-// 			.ok_or(Error::NoVerificationKey)
-// 	}
-
-// 	/// This is used for checking if a key is memory only.
-// 	pub async fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
-// 		self.ensure_unlocked().await?;
-
-// 		self.keystore
-// 			.get(&uuid)
-// 			.map_or(Err(Error::KeyNotFound), |v| Ok(v.memory_only))
-// 	}
-
-// 	/// This function is for getting an entire collection of hashed keys.
-// 	///
-// 	/// These are ideal for passing over to decryption functions, as each decryption attempt is negligible, performance wise.
-// 	#[must_use]
-// 	pub fn enumerate_hashed_keys(&self) -> Vec<Key> {
-// 		self.keymount
-// 			.iter()
-// 			.map(|mounted_key| mounted_key.hashed_key.clone())
-// 			.collect::<Vec<Key>>()
-// 	}
-
-// 	/// This function is for converting a memory-only key to a saved key which syncs to the library.
-// 	///
-// 	/// The returned value needs to be written to the database.
-// 	pub async fn sync_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
-// 		if !self.is_memory_only(uuid).await? {
-// 			return Err(Error::KeyNotMemoryOnly);
-// 		}
-
-// 		let updated_key = self
-// 			.keystore
-// 			.get(&uuid)
-// 			.map_or(Err(Error::KeyNotFound), |v| {
-// 				let mut updated_key = v.clone();
-// 				updated_key.memory_only = false;
-// 				Ok(updated_key)
-// 			})?;
-
-// 		self.keystore.remove(&uuid);
-// 		self.keystore.insert(uuid, updated_key.clone());
-
-// 		Ok(updated_key)
-// 	}
-
-// 	/// This function is for locking the key manager
-// 	pub async fn clear_root_key(&self) -> Result<()> {
-// 		*self.root_key.lock().await = None;
-
-// 		Ok(())
-// 	}
-
-// 	/// This function is used for checking if the key manager is unlocked.
-// 	pub async fn is_unlocked(&self) -> bool {
-// 		self.root_key.lock().await.is_some()
-// 	}
-
-// 	/// This function is used for unmounting all keys at once.
-// 	pub fn empty_keymount(&self) {
-// 		// i'm unsure whether or not `.clear()` also calls drop
-// 		// if it doesn't, we're going to need to find another way to call drop on these values
-// 		// that way they will be zeroized and removed from memory fully
-// 		self.keymount.clear();
-// 	}
-
-// 	/// This function is for unmounting a key from the key manager
-// 	///
-// 	/// This does not remove the key from the key store
-// 	pub fn unmount(&self, uuid: Uuid) -> Result<()> {
-// 		self.keymount.remove(&uuid).ok_or(Error::KeyNotMounted)?;
-
-// 		Ok(())
-// 	}
-
-// 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
-// 	///
-// 	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
-// 	pub fn dump_keystore(&self) -> Vec<StoredKey> {
-// 		self.keystore.iter().map(|key| key.clone()).collect()
-// 	}
-
-// 	/// This function returns all mounted keys from the key manager
-// 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
-// 		self.keymount.iter().map(|key| key.uuid).collect()
-// 	}
-
-// 	/// This function gets the entire internal key manager queue
-// 	pub fn get_queue(&self) -> Vec<Uuid> {
-// 		self.mounting_queue.iter().map(|u| *u).collect()
-// 	}
-
-// 	/// This function checks to see if a key is queued
-// 	pub fn is_queued(&self, uuid: Uuid) -> bool {
-// 		self.mounting_queue.contains(&uuid)
-// 	}
-
-// 	/// This function checks to see if the key manager is unlocking
-// 	pub async fn is_unlocking(&self) -> Result<bool> {
-// 		Ok(self
-// 			.mounting_queue
-// 			.contains(&self.get_verification_key().await?.uuid))
-// 	}
-
-// 	/// This function removes a key from the mounting queue (if present)
-// 	pub fn remove_from_queue(&self, uuid: Uuid) -> Result<()> {
-// 		self.mounting_queue
-// 			.remove(&uuid)
-// 			.ok_or(Error::KeyNotQueued)?;
-
-// 		Ok(())
-// 	}
-// }
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use bincode::{Decode, Encode};
+use dashmap::{DashMap, DashSet};
+use sd_crypto::crypto::{Decryptor, Encryptor};
+use sd_crypto::hashing::Hasher;
+use sd_crypto::primitives::{BLOCK_LEN, SALT_LEN};
+use sd_crypto::types::{
+	Aad, Algorithm, EncryptedKey, HashingAlgorithm, Key, Nonce, Salt, SecretKey,
+};
+use sd_crypto::utils::generate_passphrase;
+use sd_crypto::{encoding, Protected};
+use tokio::fs::{self, File};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+use super::error::CryptoError;
+use super::{Result, KEYMANAGER_CONTEXT, TEST_VECTOR_CONTEXT};
+use crate::crypto::ENCRYPTED_WORD_CONTEXT;
+use crate::prisma::{key, PrismaClient};
+
+pub struct KeyManager {
+	key: Mutex<Option<Key>>,
+	inner: DashMap<Uuid, Key>,
+	queue: DashSet<Uuid>,
+	db: Arc<PrismaClient>,
+}
+
+#[derive(Clone, Encode, Decode)]
+pub struct OnDiskBackup {
+	root_keys: Vec<RootKey>,
+	user_keys: Vec<UserKey>,
+}
+
+#[derive(Clone, Encode, Decode)]
+pub struct TestVector(Salt, EncryptedKey);
+
+#[derive(Encode, Decode, PartialEq, Eq)]
+#[repr(i32)]
+pub enum KeyType {
+	Root = 0,
+	User = 1,
+}
+
+impl TryFrom<i32> for KeyType {
+	type Error = CryptoError;
+
+	fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+		match value {
+			0 => Ok(Self::Root),
+			1 => Ok(Self::User),
+			_ => Err(CryptoError::Conversion),
+		}
+	}
+}
+
+#[derive(Clone, Copy, Encode, Decode)]
+#[repr(i32)]
+pub enum KeyVersion {
+	V1 = 0,
+}
+
+impl TryFrom<i32> for KeyVersion {
+	type Error = CryptoError;
+
+	fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+		match value {
+			0 => Ok(Self::V1),
+			_ => Err(CryptoError::Conversion),
+		}
+	}
+}
+
+#[derive(Clone, Encode, Decode)]
+pub struct EncryptedWord(Salt, Nonce, Vec<u8>);
+
+impl EncryptedWord {
+	pub fn decrypt(&self, root_key: &Key, algorithm: Algorithm) -> Result<Protected<Vec<u8>>> {
+		Decryptor::decrypt_tiny(
+			&Hasher::derive_key(root_key, self.0, ENCRYPTED_WORD_CONTEXT),
+			&self.1,
+			algorithm,
+			&self.2,
+			Aad::Null,
+		)
+		.map_err(CryptoError::Crypto)
+	}
+
+	pub fn encrypt_from(
+		root_key: &Key,
+		word: Protected<Vec<u8>>,
+		algorithm: Algorithm,
+	) -> Result<Self> {
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+		let bytes = Encryptor::encrypt_tiny(
+			&Hasher::derive_key(root_key, salt, ENCRYPTED_WORD_CONTEXT),
+			&nonce,
+			algorithm,
+			word.expose(),
+			Aad::Null,
+		)?;
+
+		Ok(Self(salt, nonce, bytes))
+	}
+}
+
+key::select!(key_with_user_info { uuid name });
+key::select!(key_id { uuid });
+
+#[derive(Clone, Encode, Decode)]
+pub struct UserKey {
+	pub version: KeyVersion,
+	#[bincode(with_serde)]
+	pub uuid: Uuid,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+	pub word: EncryptedWord, // word (once hashed with b3) acts like a salt
+	pub tv: TestVector,
+}
+
+fn word_to_salt(word: &Protected<Vec<u8>>) -> Result<Salt> {
+	Salt::try_from(Hasher::blake3(word.expose()).expose()[..SALT_LEN].to_vec())
+		.map_err(CryptoError::Crypto)
+}
+
+impl UserKey {
+	pub async fn write_to_db(&self, db: &PrismaClient) -> Result<()> {
+		let kc: key::CreateUnchecked = self.try_into()?;
+		kc.to_query(db)
+			.exec()
+			.await
+			.map_or_else(|e| Err(CryptoError::Database(e)), |_| Ok(()))
+	}
+}
+
+impl TryFrom<&UserKey> for key::CreateUnchecked {
+	type Error = CryptoError;
+
+	fn try_from(value: &UserKey) -> std::result::Result<Self, Self::Error> {
+		#[allow(clippy::as_conversions)]
+		let s = Self {
+			uuid: encoding::encode(&value.uuid.to_bytes_le())?,
+			version: value.version as i32,
+			key_type: KeyType::User as i32,
+			algorithm: encoding::encode(&value.algorithm)?,
+			hashing_algorithm: encoding::encode(&value.hashing_algorithm)?,
+			key: encoding::encode(&value.tv)?,
+			salt: encoding::encode(&value.word)?,
+			_params: vec![],
+		};
+
+		Ok(s)
+	}
+}
+
+impl TryFrom<UserKey> for key::CreateUnchecked {
+	type Error = CryptoError;
+
+	fn try_from(value: UserKey) -> std::result::Result<Self, Self::Error> {
+		(&value).try_into()
+	}
+}
+
+impl TryFrom<key::Data> for UserKey {
+	type Error = CryptoError;
+
+	fn try_from(value: key::Data) -> std::result::Result<Self, Self::Error> {
+		if KeyType::try_from(value.key_type)? != KeyType::User {
+			return Err(CryptoError::Conversion);
+		}
+
+		let uk = Self {
+			version: KeyVersion::try_from(value.version)?,
+			uuid: Uuid::from_bytes_le(encoding::decode(&value.uuid)?),
+			algorithm: encoding::decode(&value.algorithm)?,
+			hashing_algorithm: encoding::decode(&value.hashing_algorithm)?,
+			word: encoding::decode(&value.salt)?,
+			tv: encoding::decode(&value.key)?,
+		};
+
+		Ok(uk)
+	}
+}
+
+impl TestVector {
+	pub fn validate(&self, algorithm: Algorithm, hashed_password: &Key) -> Result<()> {
+		Decryptor::decrypt_key(
+			&Hasher::derive_key(hashed_password, self.0, TEST_VECTOR_CONTEXT),
+			algorithm,
+			&self.1,
+			Aad::Null,
+		)
+		.map_or(Err(CryptoError::IncorrectPassword), |_| Ok(()))
+	}
+}
+
+impl KeyManager {
+	pub fn new(db: Arc<PrismaClient>) -> Self {
+		Self {
+			key: Mutex::new(None),
+			inner: DashMap::new(),
+			queue: DashSet::new(),
+			db,
+		}
+	}
+
+	pub async fn is_unlocked(&self) -> bool {
+		self.key.lock().await.is_some()
+	}
+
+	async fn get_root_key(&self) -> Result<Key> {
+		self.key.lock().await.clone().ok_or(CryptoError::Locked)
+	}
+
+	async fn ensure_unlocked(&self) -> Result<()> {
+		self.key
+			.lock()
+			.await
+			.as_ref()
+			.map_or(Err(CryptoError::Locked), |_| Ok(()))
+	}
+
+	pub async fn unlock(
+		&self,
+		password: Protected<String>,
+		secret_key: Protected<String>,
+	) -> Result<()> {
+		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
+		let secret_key: SecretKey = secret_key_from_string(secret_key);
+
+		#[allow(clippy::as_conversions)]
+		let root_keys = self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::Root as i32)])
+			.exec()
+			.await?;
+
+		let root_keys = root_keys
+			.into_iter()
+			.map(RootKey::try_from)
+			.collect::<Result<Vec<_>>>()?;
+
+		let rk = root_keys
+			.into_iter()
+			.find_map(|k| {
+				let pw = Hasher::hash_password(k.hashing_algorithm, &password, k.salt, &secret_key)
+					.ok()?;
+
+				Decryptor::decrypt_key(&pw, k.algorithm, &k.key, Aad::Null).ok()
+			})
+			.ok_or(CryptoError::Unlock)?;
+
+		*self.key.lock().await = Some(rk);
+		Ok(())
+	}
+
+	pub async fn initial_setup(
+		&self,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+		password: Protected<String>,
+	) -> Result<Protected<String>> {
+		let secret_key = SecretKey::generate();
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+		let password = password.into_inner().into_bytes().into();
+
+		let hashed_password =
+			Hasher::hash_password(hashing_algorithm, &password, salt, &secret_key)?;
+
+		let root_key = Key::generate();
+		let root_key_e =
+			Encryptor::encrypt_key(&hashed_password, &nonce, algorithm, &root_key, Aad::Null)?;
+
+		let rk = RootKey {
+			version: KeyVersion::V1,
+			uuid: Uuid::new_v4(),
+			algorithm,
+			hashing_algorithm,
+			salt,
+			key: root_key_e,
+		};
+
+		rk.write_to_db(&self.db).await?;
+		*self.key.lock().await = Some(root_key);
+
+		Ok(format_secret_key(secret_key))
+	}
+
+	pub async fn update_key_name(&self, id: Uuid, name: String) -> Result<()> {
+		self.db
+			.key()
+			.update(
+				key::uuid::equals(encoding::encode(&id.to_bytes_le())?),
+				vec![key::name::set(Some(name))],
+			)
+			.exec()
+			.await
+			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
+	}
+
+	pub async fn insert_new(
+		&self,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+		password: Protected<String>,
+		word: Option<Protected<String>>,
+	) -> Result<Uuid> {
+		self.ensure_unlocked().await?;
+
+		word.as_ref().map(|w| {
+			if w.expose().len() < 3 {
+				Err(CryptoError::WordTooShort)
+			} else {
+				Ok(())
+			}
+		});
+
+		let word: Protected<Vec<u8>> = word
+			.map_or(
+				generate_passphrase(1, '_').into_inner(),
+				Protected::into_inner,
+			)
+			.into_bytes()
+			.into();
+
+		let tv_key = Key::generate();
+		let tv_nonce = Nonce::generate(algorithm);
+		let tv_salt = Salt::generate();
+
+		let hashed_password = Hasher::hash_password(
+			hashing_algorithm,
+			&password.into_inner().into_bytes().into(),
+			word_to_salt(&word)?,
+			&SecretKey::Null,
+		)?;
+
+		let tv_key = Encryptor::encrypt_key(
+			&Hasher::derive_key(&hashed_password, tv_salt, TEST_VECTOR_CONTEXT),
+			&tv_nonce,
+			algorithm,
+			&tv_key,
+			Aad::Null,
+		)?;
+
+		let ew = EncryptedWord::encrypt_from(&self.get_root_key().await?, word, algorithm)?;
+
+		let uuid = Uuid::new_v4();
+
+		let key = UserKey {
+			version: KeyVersion::V1,
+			uuid,
+			algorithm,
+			hashing_algorithm,
+			tv: TestVector(tv_salt, tv_key),
+			word: ew,
+		};
+
+		key.write_to_db(&self.db).await?;
+
+		self.inner.insert(
+			uuid,
+			Hasher::derive_key_plain(&hashed_password, KEYMANAGER_CONTEXT),
+		);
+
+		Ok(uuid)
+	}
+
+	pub async fn mount(&self, id: Uuid, password: Protected<String>) -> Result<()> {
+		self.ensure_unlocked().await?;
+		// handle the queue
+
+		if self.inner.contains_key(&id) {
+			return Err(CryptoError::AlreadyMounted);
+		}
+
+		let key = self
+			.db
+			.key()
+			.find_unique(key::uuid::equals(id.to_bytes_le().to_vec()))
+			.exec()
+			.await?
+			.ok_or(CryptoError::KeyNotFound)?;
+
+		let key = UserKey::try_from(key)?;
+
+		let word = key
+			.word
+			.decrypt(&self.get_root_key().await?, key.algorithm)?;
+
+		let hashed_password = Hasher::hash_password(
+			key.hashing_algorithm,
+			&password.into_inner().into_bytes().into(),
+			word_to_salt(&word)?,
+			&SecretKey::Null,
+		)?;
+
+		key.tv.validate(key.algorithm, &hashed_password)?;
+
+		self.inner.insert(
+			id,
+			Hasher::derive_key_plain(&hashed_password, KEYMANAGER_CONTEXT),
+		);
+
+		Ok(())
+	}
+
+	pub async fn enumerate_user_keys(&self) -> Result<Vec<key_with_user_info::Data>> {
+		self.ensure_unlocked().await?;
+
+		#[allow(clippy::as_conversions)]
+		Ok(self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
+			.select(key_with_user_info::select())
+			.exec()
+			.await?)
+	}
+
+	pub async fn unmount(&self, id: Uuid) -> Result<()> {
+		self.ensure_unlocked().await?;
+
+		self.inner
+			.remove(&id)
+			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
+	}
+
+	pub async fn lock(&self) -> Result<()> {
+		self.ensure_unlocked().await?;
+		*self.key.lock().await = None;
+
+		Ok(())
+	}
+
+	pub async fn get_key(&self, id: Uuid) -> Result<Key> {
+		self.ensure_unlocked().await?;
+
+		self.inner
+			.get(&id)
+			.map_or(Err(CryptoError::KeyNotFound), |k| Ok(k.clone()))
+	}
+
+	pub async fn enumerate_hashed_keys(&self) -> Result<Vec<Key>> {
+		self.ensure_unlocked().await?;
+
+		let keys = self.inner.iter().map(|k| k.clone()).collect::<Vec<_>>();
+
+		Ok(keys)
+	}
+
+	pub async fn backup_to_file(&self, path: PathBuf) -> Result<()> {
+		if fs::metadata(&path).await.is_ok() {
+			return Err(CryptoError::FileAlreadyExists);
+		}
+
+		#[allow(clippy::as_conversions)]
+		let user_keys = self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
+			.exec()
+			.await?
+			.into_iter()
+			.map(UserKey::try_from)
+			.collect::<Result<Vec<_>>>()?;
+
+		#[allow(clippy::as_conversions)]
+		let root_keys = self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::Root as i32)])
+			.exec()
+			.await?
+			.into_iter()
+			.map(RootKey::try_from)
+			.collect::<Result<Vec<_>>>()?;
+
+		let backup = OnDiskBackup {
+			root_keys,
+			user_keys,
+		};
+
+		let mut file = File::create(&path).await?;
+		file.write_all(&encoding::encode(&backup)?).await?;
+
+		Ok(())
+	}
+
+	pub async fn restore_from_file(
+		&self,
+		path: PathBuf,
+		password: Protected<String>,
+		secret_key: Protected<String>,
+	) -> Result<i64> {
+		let file_len: usize = fs::metadata(&path)
+			.await
+			.map_or(Err(CryptoError::FileDoesntExist), |x| {
+				x.len().try_into().map_err(|_| CryptoError::Conversion)
+			})?;
+
+		if file_len > (BLOCK_LEN * 16) {
+			return Err(CryptoError::FileTooLarge);
+		}
+
+		let mut bytes = vec![0u8; file_len];
+		let mut file = File::open(&path).await?;
+		file.read_to_end(&mut bytes).await?;
+
+		let backup: OnDiskBackup = encoding::decode(&bytes)?;
+
+		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
+		let secret_key: SecretKey = secret_key_from_string(secret_key);
+
+		let backup_rk = backup
+			.root_keys
+			.into_iter()
+			.find_map(|k| {
+				let pw = Hasher::hash_password(k.hashing_algorithm, &password, k.salt, &secret_key)
+					.ok()?;
+
+				Decryptor::decrypt_key(&pw, k.algorithm, &k.key, Aad::Null).ok()
+			})
+			.ok_or(CryptoError::IncorrectPassword)?;
+
+		let rk = self.get_root_key().await?;
+
+		let user_keys = backup
+			.user_keys
+			.into_iter()
+			.map(|mut key| {
+				let word = key.word.decrypt(&backup_rk, key.algorithm)?;
+				key.word = EncryptedWord::encrypt_from(&rk, word, key.algorithm)?;
+
+				key.try_into()
+			})
+			.collect::<Result<Vec<key::CreateUnchecked>>>()?;
+
+		Ok(self
+			.db
+			.key()
+			.create_many(user_keys)
+			.skip_duplicates()
+			.exec()
+			.await?)
+	}
+}
+
+#[derive(Clone, Encode, Decode)]
+pub struct RootKey {
+	pub version: KeyVersion,
+	#[bincode(with_serde)]
+	pub uuid: Uuid,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+	pub salt: Salt,
+	pub key: EncryptedKey,
+}
+
+impl TryFrom<key::Data> for RootKey {
+	type Error = CryptoError;
+
+	fn try_from(value: key::Data) -> std::result::Result<Self, Self::Error> {
+		if KeyType::try_from(value.key_type)? != KeyType::User {
+			return Err(CryptoError::Conversion);
+		}
+
+		let rk = Self {
+			version: KeyVersion::try_from(value.version)?,
+			uuid: Uuid::from_bytes_le(encoding::decode(&value.uuid)?),
+			algorithm: encoding::decode(&value.algorithm)?,
+			hashing_algorithm: encoding::decode(&value.hashing_algorithm)?,
+			key: encoding::decode(&value.key)?,
+			salt: encoding::decode(&value.salt)?,
+		};
+
+		Ok(rk)
+	}
+}
+
+impl RootKey {
+	pub async fn write_to_db(&self, db: &PrismaClient) -> Result<()> {
+		let kc: key::CreateUnchecked = self.try_into()?;
+		kc.to_query(db)
+			.exec()
+			.await
+			.map_or_else(|e| Err(CryptoError::Database(e)), |_| Ok(()))
+	}
+}
+
+impl TryFrom<&RootKey> for key::CreateUnchecked {
+	type Error = CryptoError;
+
+	fn try_from(value: &RootKey) -> std::result::Result<Self, Self::Error> {
+		#[allow(clippy::as_conversions)]
+		let s = Self {
+			uuid: encoding::encode(&value.uuid.to_bytes_le())?,
+			version: value.version as i32,
+			key_type: KeyType::Root as i32,
+			algorithm: encoding::encode(&value.algorithm)?,
+			hashing_algorithm: encoding::encode(&value.hashing_algorithm)?,
+			key: encoding::encode(&value.key)?,
+			salt: encoding::encode(&value.salt)?,
+			_params: vec![],
+		};
+
+		Ok(s)
+	}
+}
+
+impl TryFrom<RootKey> for key::CreateUnchecked {
+	type Error = CryptoError;
+
+	fn try_from(value: RootKey) -> std::result::Result<Self, Self::Error> {
+		(&value).try_into()
+	}
+}
+
+pub fn format_secret_key(sk: SecretKey) -> Protected<String> {
+	let s = hex::encode(sk.expose()).to_uppercase();
+	let separator_distance = s.len() / 6;
+	s.chars()
+		.enumerate()
+		.map(|(i, c)| {
+			if (i + 1) % separator_distance == 0 && (i + 1) != s.len() {
+				c.to_string() + "-"
+			} else {
+				c.to_string()
+			}
+		})
+		.collect::<String>()
+		.into()
+}
+
+pub fn secret_key_from_string(sk: Protected<String>) -> SecretKey {
+	let mut s = sk.into_inner().to_lowercase();
+	s.retain(|c| c.is_ascii_hexdigit());
+
+	hex::decode(s)
+		.ok()
+		.map_or(Protected::new(vec![]), Protected::new)
+		.try_into()
+		.map_or(SecretKey::Null, |x| x)
+}
