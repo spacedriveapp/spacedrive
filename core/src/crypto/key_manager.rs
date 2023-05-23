@@ -291,6 +291,18 @@ impl KeyManager {
 		Ok(format_secret_key(secret_key))
 	}
 
+	pub async fn update_key_name(&self, id: Uuid, name: String) -> Result<()> {
+		self.db
+			.key()
+			.update(
+				key::uuid::equals(encoding::encode(&id.to_bytes_le())?),
+				vec![key::name::set(Some(name))],
+			)
+			.exec()
+			.await
+			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
+	}
+
 	pub async fn insert_new(
 		&self,
 		algorithm: Algorithm,
@@ -394,20 +406,20 @@ impl KeyManager {
 			Hasher::derive_key_plain(&hashed_password, KEYMANAGER_CONTEXT),
 		);
 
-		todo!()
+		Ok(())
 	}
 
 	pub async fn enumerate_user_keys(&self) -> Result<Vec<key_with_user_info::Data>> {
 		self.ensure_unlocked().await?;
 
 		#[allow(clippy::as_conversions)]
-		self.db
+		Ok(self
+			.db
 			.key()
 			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
 			.select(key_with_user_info::select())
 			.exec()
-			.await
-			.map_err(CryptoError::Database)
+			.await?)
 	}
 
 	pub async fn unmount(&self, id: Uuid) -> Result<()> {
@@ -420,7 +432,6 @@ impl KeyManager {
 
 	pub async fn lock(&self) -> Result<()> {
 		self.ensure_unlocked().await?;
-
 		*self.key.lock().await = None;
 
 		Ok(())
@@ -485,7 +496,7 @@ impl KeyManager {
 		path: PathBuf,
 		password: Protected<String>,
 		secret_key: Protected<String>,
-	) -> Result<usize> {
+	) -> Result<i64> {
 		let file_len: usize = fs::metadata(&path)
 			.await
 			.map_or(Err(CryptoError::FileDoesntExist), |x| {
@@ -529,16 +540,13 @@ impl KeyManager {
 			})
 			.collect::<Result<Vec<key::CreateUnchecked>>>()?;
 
-		self.db
+		Ok(self
+			.db
 			.key()
 			.create_many(user_keys)
 			.skip_duplicates()
 			.exec()
-			.await
-			.map_or_else(
-				|e| Err(CryptoError::Database(e)),
-				|x| x.try_into().map_err(|_| CryptoError::Conversion),
-			)
+			.await?)
 	}
 }
 
