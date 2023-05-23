@@ -32,6 +32,7 @@ jobs:
           - target: i686-unknown-linux-gnu
             platform: ubuntu-latest
             deps: sudo apt update && sudo apt install gcc-multilib
+            rust: stable
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
@@ -39,22 +40,25 @@ jobs:
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
+            rust: stable
 
           - target: x86_64-apple-darwin
             platform: macos-latest
+            rust: stable
 
           - target: x86_64-pc-windows-msvc
             platform: windows-latest
+            rust: stable
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
+      - run: ${{ matrix.deps }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
       - name: Install `nextest`
         uses: taiki-e/install-action@nextest
-      - run: ${{ matrix.deps }}
       - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all
       - run: cargo nextest run --target ${{ matrix.target }} --run-ignored all --all-features
 
@@ -63,11 +67,12 @@ jobs:
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
+            rust: stable
           - target: armv7-unknown-linux-gnueabi
+            rust: stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: ${{ matrix.deps }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -86,6 +91,7 @@ jobs:
           - target: i686-unknown-linux-gnu
             platform: ubuntu-latest
             deps: sudo apt update && sudo apt install gcc-multilib
+            rust: stable
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
@@ -93,20 +99,23 @@ jobs:
 
           - target: x86_64-unknown-linux-gnu
             platform: ubuntu-latest
+            rust: stable
 
           - target: x86_64-apple-darwin
             platform: macos-latest
+            rust: stable
 
           - target: x86_64-pc-windows-msvc
             platform: windows-latest
+            rust: stable
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
+      - run: ${{ matrix.deps }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
-      - run: ${{ matrix.deps }}
       - run: cargo hack check --feature-powerset --target ${{ matrix.target }}
