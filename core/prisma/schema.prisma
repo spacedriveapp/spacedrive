@@ -385,13 +385,13 @@ model Job {
 
     parent_id Bytes?
 
-    task_count                   Int @default(1)
-    completed_task_count         Int @default(0)
-    estimated_remaining_seconds  Int @default(0)// Estimated remaining time in seconds
+    task_count                Int       @default(1)
+    completed_task_count      Int       @default(0)
+    date_estimated_completion DateTime? // Estimated timestamp that the job will be complete at
 
-    date_created         DateTime  @default(now())
-    date_started         DateTime? @default(now()) // Started execution
-    date_completed       DateTime? @default(now()) // Finished execution
+    date_created   DateTime  @default(now())
+    date_started   DateTime? @default(now()) // Started execution
+    date_completed DateTime? @default(now()) // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
