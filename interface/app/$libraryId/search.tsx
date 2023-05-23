@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import {
 	getExplorerStore,
+	SortOrder,
 	useExplorerStore,
 	useExplorerTopBarOptions,
 	useZodSearchParams
@@ -12,8 +13,6 @@ import Explorer from './Explorer';
 import { getExplorerItemData } from './Explorer/util';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarOptions from './TopBar/TopBarOptions';
-
-const SortOrder = z.union([z.literal("Asc"), z.literal("Desc")])
 
 export const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),

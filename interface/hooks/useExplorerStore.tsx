@@ -1,6 +1,7 @@
 import { proxy, useSnapshot } from 'valtio';
 import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering } from '@sd/client';
-import { resetStore } from '@sd/client/src/stores/util';
+import { resetStore } from '@sd/client';
+import { z } from "zod"
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
@@ -25,7 +26,7 @@ export type CutCopyType = 'Cut' | 'Copy';
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 export type ObjectSearchOrderingKyes = UnionKeys<ObjectSearchOrdering> | 'none';
 
-export type ExplorerDirection = 'asc' | 'desc';
+export const SortOrder = z.union([z.literal("Asc"), z.literal("Desc")])
 
 const state = {
 	locationId: null as number | null,
@@ -50,7 +51,7 @@ const state = {
 	mediaColumns: 8,
 	mediaAspectSquare: true,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
-	orderByDirection: 'desc' as ExplorerDirection,
+	orderByDirection: 'Desc' as z.infer<typeof SortOrder>,
 	groupBy: 'none'
 };
 

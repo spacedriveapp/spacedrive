@@ -12,7 +12,7 @@ import {
 } from '~/hooks';
 import Explorer from '../Explorer';
 import DeleteDialog from '../Explorer/File/DeleteDialog';
-import {  useExplorerSearchParams } from '../Explorer/util';
+import {  useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 
@@ -100,7 +100,7 @@ const useItems = () => {
 			{
 				library_id: library.uuid,
 				arg: {
-					// order: useExplorerOrder(),
+					order: useExplorerOrder(),
 					filter: {
 						locationId,
 						...(explorerState.layoutMode === 'media'
