@@ -111,6 +111,15 @@ impl StatefulJob for FileCutterJob {
 			full_output.display()
 		);
 
+		ctx.progress(vec![JobReportUpdate::Message(format!(
+			"Cutting {}",
+			source_info
+				.fs_path
+				.components()
+				.last()
+				.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+		))]);
+
 		fs::rename(&source_info.fs_path, &full_output)
 			.await
 			.map_err(|e| FileIOError::from((&source_info.fs_path, e)))?;

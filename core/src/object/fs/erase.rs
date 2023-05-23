@@ -113,6 +113,13 @@ impl StatefulJob for FileEraserJob {
 
 				trace!("Erasing file: {:?}", path);
 
+				ctx.progress(vec![JobReportUpdate::Message(format!(
+					"Erasing {}",
+					path.components()
+						.last()
+						.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+				))]);
+
 				tokio::fs::remove_file(path)
 					.await
 					.map_err(|e| FileIOError::from((path, e)))?;

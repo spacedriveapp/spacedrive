@@ -167,6 +167,13 @@ impl StatefulJob for FileCopierJob {
 						target_path.display()
 					);
 
+					ctx.progress(vec![JobReportUpdate::Message(format!(
+						"Copying {}",
+						path.components()
+							.last()
+							.map_or("", |x| x.as_os_str().to_str().unwrap_or_default())
+					))]);
+
 					fs::copy(&path, &target_path)
 						.await
 						.map_err(|e| FileIOError::from((&target_path, e)))?;
