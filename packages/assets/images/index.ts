@@ -12,4 +12,4 @@ import GoogleDrive from './GoogleDrive.png';
 import Mega from './Mega.png';
 import iCloud from './iCloud.png';
 
-export { AppLogo, AlphaBg, Ball, BloomOne, BloomThree, BloomTwo, GoogleDrive, Mega, iCloud };
+export { AlphaBg, AppLogo, Ball, BloomOne, BloomThree, BloomTwo, GoogleDrive, Mega, iCloud };

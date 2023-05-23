@@ -1,0 +1,268 @@
+html {
+	@apply bg-black;
+	-ms-overflow-style: none; /* IE and Edge */
+	scrollbar-width: none; /* Firefox */
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+.title-gradient {
+	background: linear-gradient(94.79deg, #e86aff 33.64%, #53afff 68.78%), #ffffff;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.oss-credit-gradient {
+	background: linear-gradient(90.85deg, #ffffff 8.44%, #d1d1d1 21.35%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.landing-img {
+	background-image: url('/app.png');
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center top;
+}
+
+.fade-in-app-embed {
+	animation: fadeInUp 3s;
+	-webkit-animation: fadeInUp 3s;
+	-moz-animation: fadeInUp 3s;
+	-o-animation: fadeInUp 3s;
+	-ms-animation: fadeInUp 3s;
+}
+
+.fade-in-heading {
+	animation: fadeInDown 1s forwards;
+	opacity: 0;
+}
+
+.fade-in {
+	animation: fadeIn 1s forwards;
+	opacity: 0;
+}
+
+.fade-in-whats-new {
+	animation: fadeInDown 1s forwards;
+	animation-delay: 600ms;
+	opacity: 0;
+}
+
+.animation-delay-1 {
+	animation-delay: 200ms;
+}
+.animation-delay-2 {
+	animation-delay: 500ms;
+}
+.animation-delay-3 {
+	animation-delay: 700ms;
+}
+.animation-delay-4 {
+	animation-delay: 1000ms;
+}
+.animation-delay-5 {
+	animation-delay: 1200ms;
+}
+
+@keyframes fadeInDown {
+	from {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+	to {
+		transform: translateY(0px);
+		opacity: 1;
+	}
+}
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fadeInUp {
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+.bloom {
+	@apply absolute -mt-[320px] h-[1200px] w-[1200px];
+	will-change: opacity;
+	opacity: 0;
+	will-change: filter opacity;
+	animation-timing-function: ease-in-out;
+	animation-fill-mode: forwards;
+	animation-iteration-count: 1;
+	animation-direction: forwards;
+	&.burst {
+		animation-name: bloomBurst;
+		animation-duration: 1s;
+	}
+	&.subtle {
+		animation-name: bloomSubtle;
+		animation-duration: 3s;
+	}
+	&.bloom-one {
+		@apply left-0 -ml-[300px];
+		background: url('/bloom-one.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 300ms;
+	}
+	&.bloom-two {
+		@apply right-0 -mr-[300px];
+		background: url('/bloom-two.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 0ms;
+	}
+	&.bloom-three {
+		@apply invisible left-auto right-auto -mt-[250px] ml-24 md:visible;
+		background: url('/bloom-three.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 800ms;
+	}
+	&.egg-bloom-one {
+		background: url('/egg-bloom-one.png') no-repeat center center;
+		background-size: contain;
+	}
+	&.egg-bloom-two {
+		background: url('/egg-bloom-two.png') no-repeat center center;
+		background-size: contain;
+	}
+}
+
+@keyframes bloomBurst {
+	from {
+		opacity: 0;
+	}
+	40% {
+		opacity: 1;
+	}
+	to {
+		opacity: 0.8;
+	}
+}
+@keyframes bloomSubtle {
+	from {
+		opacity: 0;
+	}
+	40% {
+		opacity: 0.8;
+	}
+	to {
+		opacity: 0.6;
+	}
+}
+
+.shadow-iframe {
+	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
+}
+
+.doc-sidebar-button:hover,
+.doc-sidebar-button.nav-active {
+	&.product {
+		color: #459ee8;
+		div {
+			background-color: #459ee8;
+		}
+	}
+	&.developers {
+		color: #48bb78;
+		div {
+			background-color: #48bb78;
+		}
+	}
+	&.company {
+		color: #bb9247;
+		div {
+			background-color: #bb9247;
+		}
+	}
+	&.changelog {
+		color: #8a47bb;
+		div {
+			background-color: #8a47bb;
+		}
+	}
+}
+
+// Gradient colors
+// #3916BA
+// #7A1D77
+// #8E4CAB
+// #1D054B
+// #9A3F8C
+
+.custom-scroll {
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
+}
+
+.doc-sidebar-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 7px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply my-[10px] rounded-[6px] bg-[#00000006] dark:bg-[#00000030];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-app-selected;
+	}
+}
+
+// CODE HIGHIGHTING
+
+pre {
+	overflow-x: auto;
+}
+
+.code-highlight {
+	float: left; /* 1 */
+	min-width: 100%; /* 2 */
+}
+
+.code-line {
+	display: block;
+	padding-left: 16px;
+	padding-right: 16px;
+	margin-left: -16px;
+	margin-right: -16px;
+	border-left: 4px solid rgba(0, 0, 0, 0); /* Set placeholder for highlight accent border color to transparent */
+}
+
+.code-line.inserted {
+	background-color: rgba(16, 185, 129, 0.2); /* Set inserted line (+) color */
+}
+
+.code-line.deleted {
+	background-color: rgba(239, 68, 68, 0.2); /* Set deleted line (-) color */
+}
+
+.highlight-line {
+	margin-left: -16px;
+	margin-right: -16px;
+	background-color: rgba(55, 65, 81, 0.5); /* Set highlight bg color */
+	border-left: 4px solid rgb(59, 130, 246); /* Set highlight accent border color */
+}
+
+.line-number::before {
+	display: inline-block;
+	width: 1rem;
+	text-align: right;
+	margin-right: 16px;
+	margin-left: -8px;
+	color: rgb(156, 163, 175); /* Line number color */
+	content: attr(line);
+}

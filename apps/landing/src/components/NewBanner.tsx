@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export interface NewBannerProps {
 	headline: string;
 	href: string;
@@ -14,12 +16,12 @@ const NewBanner: React.FC<NewBannerProps> = (props) => {
 		>
 			<strong className="truncate font-semibold text-gray-350">{headline}</strong>
 			<div role="separator" className="h-22 mx-4 w-[1px] bg-gray-500" />
-			<a
+			<Link
 				href={href}
 				className="font-regular shrink-0 bg-gradient-to-r from-primary-400 to-blue-600 bg-clip-text text-transparent decoration-primary-600"
 			>
 				{link} <span aria-hidden="true">&rarr;</span>
-			</a>
+			</Link>
 		</aside>
 	);
 };

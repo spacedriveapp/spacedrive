@@ -1,9 +1,0 @@
-{
-	"compilerOptions": {
-		"esModuleInterop": true
-	},
-	"ts-node": {
-		"transpileOnly": true,
-		"compilerOptions": {}
-	}
-}

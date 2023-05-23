@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import { useExplorerStore } from '~/hooks';
 import deepMerge from "ts-deepmerge"
-import {  iconNames } from '@sd/assets/icons/util';
+import { iconNames } from '@sd/assets/icons/util';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { getIcon, iconNames } from '@sd/assets/util';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { z } from '@sd/ui/src/forms';
 import { useExplorerTopBarOptions } from '~/hooks';
@@ -32,10 +34,12 @@ export const Component = () => {
 					/>
 				}
 			/>
+			<Statistics />
 			<Explorer
 				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
-				explorerClassName="!overflow-visible" // required to ensure categories are sticky, remove with caution
-				viewClassName="!pl-0 !pt-0 !h-auto"
+				viewClassName="!pl-0 !pt-[0] !h-auto !overflow-visible"
+				explorerClassName="!overflow-visible" //required to keep categories sticky, remove with caution
+				listViewHeadersClassName="!top-[65px] z-30"
 				items={items}
 				onLoadMore={query.fetchNextPage}
 				hasNextPage={query.hasNextPage}
