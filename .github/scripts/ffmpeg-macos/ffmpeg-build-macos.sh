@@ -7,7 +7,11 @@
 #   https://github.com/arthenica/ffmpeg-kit/blob/47f85fa9ea3f8c34f3c817b87d8667b61b87d0bc/scripts/apple/ffmpeg.sh
 #   https://github.com/zimbatm/ffmpeg-static/blob/3206c0d74cd129c2ddfc3e928dcd3ea317d54857/build.sh
 
-set -euox pipefail
+set -e          # exit immediate if an error occurs in a pipeline
+set -E          # make commands inherit ERR trap
+set -u          # don't allow not set variables to be utilized
+set -o pipefail # trace ERR through pipes
+set -o errtrace # trace ERR through 'time command' and other functions
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <target-arch> <macos-version>" >&2
@@ -110,6 +114,7 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --pkg-config-flags="--static" \
   --extra-ldflags="-Bstatic -headerpad_max_install_names" \
   --extra-ldexeflags="-Bstatic" \
+  --extra-cflags=-DLIBTWOLAME_STATIC \
   --extra-cxxflags="-xc++-header" \
   --disable-alsa \
   --disable-cuda \
@@ -160,6 +165,7 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-cross-compile \
   --enable-fontconfig \
   --enable-gpl \
+  --enable-gray \
   --enable-iconv \
   --enable-inline-asm \
   --enable-libaom \
