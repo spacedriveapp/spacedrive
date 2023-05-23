@@ -35,9 +35,19 @@ impl Hasher {
 		blake3::hash(bytes).to_hex().to_string()
 	}
 
+	/// This can be used to derive a key with BLAKE3-KDF, with both a salt and a derivation context.
 	#[must_use]
 	pub fn derive_key(key: &Key, salt: Salt, context: DerivationContext) -> Key {
 		let k = blake3::derive_key(context.inner(), &[key.expose(), salt.inner()].concat());
+		Key::new(k)
+	}
+
+	/// This can be used to derive a key with BLAKE3-KDF, with purely a derivation context.
+	///
+	/// This has very specific uses. Most of the time you should use [`Hasher::derive_key()`].
+	#[must_use]
+	pub fn derive_key_plain(key: &Key, context: DerivationContext) -> Key {
+		let k = blake3::derive_key(context.inner(), key.expose());
 		Key::new(k)
 	}
 
