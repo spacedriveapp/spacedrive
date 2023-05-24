@@ -10,9 +10,11 @@ export interface ExternalObjectProps
 
 export const ExternalObject = memo(
 	({ data, onLoad, onError, crossOrigin, ...props }: ExternalObjectProps) => {
-		// Ignore empty src
+		// Ignore empty urls
 		const href = !data || data === '#' ? null : data;
 
+		// Use link preload as a hack to get access to an onLoad and onError events for the object tag
+		// as well as to normalize the URL
 		const link = useMemo(() => {
 			if (href == null) return null;
 
@@ -28,20 +30,25 @@ export const ExternalObject = memo(
 			return link;
 		}, [crossOrigin, href]);
 
-		// Use link preload as a hack to get access to an onLoad and onError events for the object tag
+		// The useLayoutEffect is used to ensure that the event listeners are added before the object is loaded
+		// The useLayoutEffect declaration order is important here
 		useLayoutEffect(() => {
 			if (!link) return;
 
 			if (onLoad) link.addEventListener('load', onLoad);
 			if (onError) link.addEventListener('error', onError);
 
-			document.head.appendChild(link);
 			return () => {
 				if (onLoad) link.removeEventListener('load', onLoad);
 				if (onError) link.removeEventListener('error', onError);
-				link.remove();
 			};
 		}, [link, onLoad, onError]);
+
+		useLayoutEffect(() => {
+			if (!link) return;
+			document.head.appendChild(link);
+			return () => link.remove();
+		}, [link]);
 
 		// Use link to normalize URL
 		return link ? <object data={link.href} {...props} /> : null;

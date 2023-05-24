@@ -311,10 +311,11 @@ async fn handle_file(
 		None
 	};
 
+	// NOTICE: macOS PDF renderer doesn't like range requests
+	let macos_pdf = cfg!(target_os = "macos") && mime_type == "application/pdf";
 	let mut status_code = 200;
 	let buf = match range {
-		// NOTICE: macOS PDF renderer doesn't like range requests
-		Some(range) if (cfg!(not(target_os = "macos")) || mime_type != "application/pdf") => {
+		Some(range) if !macos_pdf => {
 			let file_size = content_lenght;
 			content_lenght = range.length;
 
@@ -351,14 +352,23 @@ async fn handle_file(
 				.await
 				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		}
-		_ if method == Method::HEAD => vec![],
-		_ => read_file(file, content_lenght, None)
-			.await
-			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?,
+		_ if method == Method::HEAD => {
+			if !macos_pdf {
+				builder = builder
+					.header("Connection", "Keep-Alive")
+					.header("Accept-Ranges", "bytes");
+			}
+			vec![]
+		}
+		_ => {
+			builder = builder.header("Accept-Ranges", "none");
+			read_file(file, content_lenght, None)
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
+		}
 	};
 
 	Ok(builder
-		.header("Accept-Ranges", "bytes")
 		.header("Content-type", mime_type)
 		.header("Content-Length", content_lenght)
 		.status(status_code)
