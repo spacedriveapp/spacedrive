@@ -17,15 +17,50 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::error::CryptoError;
-use super::{Result, KEYMANAGER_CONTEXT, TEST_VECTOR_CONTEXT};
+use super::{Result, KEY_MOUNTING_CONTEXT, TEST_VECTOR_CONTEXT};
 use crate::crypto::ENCRYPTED_WORD_CONTEXT;
 use crate::prisma::{key, PrismaClient};
 
 pub struct KeyManager {
 	key: Mutex<Option<Key>>,
-	inner: DashMap<Uuid, Key>,
+	inner: DashMap<Uuid, MountedKey>,
 	_queue: DashSet<Uuid>,
 	db: Arc<PrismaClient>,
+}
+
+#[derive(Clone, Encode, Decode)]
+pub struct MountedKey(Algorithm, Salt, EncryptedKey);
+
+impl MountedKey {
+	pub fn encrypt(
+		root_key: &Key,
+		key: &Key,
+		algorithm: Algorithm,
+		word: &Protected<Vec<u8>>,
+	) -> Result<Self> {
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+
+		// TODO(brxken128): maybe give these separate contexts, or even remove the second derivation
+		let ek = Encryptor::encrypt_key(
+			&Hasher::derive_key(root_key, salt, KEY_MOUNTING_CONTEXT),
+			&nonce,
+			algorithm,
+			&Hasher::derive_key(&key, word_to_salt(&word)?, KEY_MOUNTING_CONTEXT),
+			Aad::Null,
+		)?;
+
+		Ok(Self(algorithm, salt, ek))
+	}
+
+	pub fn decrypt(&self, root_key: &Key) -> Result<Key> {
+		Ok(Decryptor::decrypt_key(
+			&Hasher::derive_key(root_key, self.1, KEY_MOUNTING_CONTEXT),
+			self.0,
+			&self.2,
+			Aad::Null,
+		)?)
+	}
 }
 
 #[derive(Clone, Encode, Decode)]
@@ -291,11 +326,11 @@ impl KeyManager {
 		Ok(secret_key.to_string().into())
 	}
 
-	pub async fn update_key_name(&self, id: Uuid, name: String) -> Result<()> {
+	pub async fn update_key_name(&self, uuid: Uuid, name: String) -> Result<()> {
 		self.db
 			.key()
 			.update(
-				key::uuid::equals(encoding::encode(&id.to_bytes_le())?),
+				key::uuid::equals(encoding::encode(&uuid.to_bytes_le())?),
 				vec![key::name::set(Some(name))],
 			)
 			.exec()
@@ -364,7 +399,12 @@ impl KeyManager {
 
 		self.inner.insert(
 			uuid,
-			Hasher::derive_key_plain(&hashed_password, KEYMANAGER_CONTEXT),
+			MountedKey::encrypt(
+				&self.get_root_key().await?,
+				&hashed_password,
+				algorithm,
+				&word,
+			)?,
 		);
 
 		Ok(uuid)
@@ -376,18 +416,18 @@ impl KeyManager {
 		Ok(self.inner.iter().map(|x| *x.key()).collect())
 	}
 
-	pub async fn mount(&self, id: Uuid, password: Protected<String>) -> Result<()> {
+	pub async fn mount(&self, uuid: Uuid, password: Protected<String>) -> Result<()> {
 		self.ensure_unlocked().await?;
 		// handle the queue
 
-		if self.inner.contains_key(&id) {
+		if self.inner.contains_key(&uuid) {
 			return Err(CryptoError::AlreadyMounted);
 		}
 
 		let key = self
 			.db
 			.key()
-			.find_unique(key::uuid::equals(id.to_bytes_le().to_vec()))
+			.find_unique(key::uuid::equals(uuid.to_bytes_le().to_vec()))
 			.exec()
 			.await?
 			.ok_or(CryptoError::KeyNotFound)?;
@@ -408,8 +448,13 @@ impl KeyManager {
 		key.tv.validate(key.algorithm, &hashed_password)?;
 
 		self.inner.insert(
-			id,
-			Hasher::derive_key_plain(&hashed_password, KEYMANAGER_CONTEXT),
+			uuid,
+			MountedKey::encrypt(
+				&self.get_root_key().await?,
+				&hashed_password,
+				key.algorithm,
+				&word,
+			)?,
 		);
 
 		Ok(())
@@ -428,9 +473,9 @@ impl KeyManager {
 			.await?)
 	}
 
-	pub fn unmount(&self, id: Uuid) -> Result<()> {
+	pub fn unmount(&self, uuid: Uuid) -> Result<()> {
 		self.inner
-			.remove(&id)
+			.remove(&uuid)
 			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
 	}
 
@@ -445,20 +490,19 @@ impl KeyManager {
 		Ok(())
 	}
 
-	pub async fn get_key(&self, id: Uuid) -> Result<Key> {
+	pub async fn get_key(&self, uuid: Uuid) -> Result<Key> {
 		self.ensure_unlocked().await?;
 
-		self.inner
-			.get(&id)
-			.map_or(Err(CryptoError::KeyNotFound), |k| Ok(k.clone()))
+		let key = self.inner.get(&uuid).ok_or(CryptoError::NotMounted)?;
+
+		key.decrypt(&self.get_root_key().await?)
 	}
 
 	pub async fn enumerate_hashed_keys(&self) -> Result<Vec<Key>> {
 		self.ensure_unlocked().await?;
 
-		let keys = self.inner.iter().map(|k| k.clone()).collect::<Vec<_>>();
-
-		Ok(keys)
+		let rk = self.get_root_key().await?;
+		self.inner.iter().map(|k| k.decrypt(&rk)).collect()
 	}
 
 	pub async fn backup_to_file(&self, path: PathBuf) -> Result<()> {
