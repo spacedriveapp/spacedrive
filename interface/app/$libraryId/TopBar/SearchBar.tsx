@@ -27,7 +27,7 @@ export default () => {
 
 	const searchPath = useResolvedPath('search');
 
-	const [value, setValue] = useState(searchParams.search ?? "");
+	const [value, setValue] = useState(searchParams.search ?? '');
 
 	const updateParams = useDebouncedCallback((value: string) => {
 		startTransition(() =>

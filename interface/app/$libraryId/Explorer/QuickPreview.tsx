@@ -1,12 +1,12 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
-import { X, XCircle } from 'phosphor-react';
+import { X } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
 import { ExplorerItem } from '@sd/client';
+import { Button } from '@sd/ui';
 import { getExplorerStore } from '~/hooks';
 import FileThumb from './File/Thumb';
-import { Button } from '@sd/ui';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
@@ -80,13 +80,19 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 								>
 									<div className="!pointer-events-auto flex h-5/6 max-h-screen w-11/12 flex-col rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
 										<nav className="flex w-full flex-row">
-											<Dialog.Close
-												className="m-2"
-												aria-label="Close"
-											>
-												<Button size="icon" variant="outline" className='flex flex-row'>
-													<X weight='bold' className=' h-3 w-3 text-ink-faint' />
-													<span className='ml-1 text-tiny font-medium text-ink-faint'>ESC</span>
+											<Dialog.Close className="m-2" aria-label="Close">
+												<Button
+													size="icon"
+													variant="outline"
+													className="flex flex-row"
+												>
+													<X
+														weight="bold"
+														className=" h-3 w-3 text-ink-faint"
+													/>
+													<span className="ml-1 text-tiny font-medium text-ink-faint">
+														ESC
+													</span>
 												</Button>
 											</Dialog.Close>
 											<Dialog.Title className="mx-auto my-1 font-bold">
