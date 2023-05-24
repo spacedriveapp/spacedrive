@@ -311,11 +311,9 @@ async fn handle_file(
 		None
 	};
 
-	// NOTICE: macOS PDF renderer doesn't like range requests
-	let macos_pdf = cfg!(target_os = "macos") && mime_type == "application/pdf";
 	let mut status_code = 200;
 	let buf = match range {
-		Some(range) if !macos_pdf => {
+		Some(range) => {
 			let file_size = content_lenght;
 			content_lenght = range.length;
 
@@ -324,7 +322,7 @@ async fn handle_file(
 			#[cfg(not(target_os = "linux"))]
 			// prevent max_length;
 			// specially on webview2
-			if range.length > file_size / 3 {
+			if mime_type != "application/pdf" && range.length > file_size / 3 {
 				// max size sent (400kb / request)
 				// as it's local file system we can afford to read more often
 				content_lenght = min(file_size - range.start, 1024 * 400);
@@ -353,11 +351,7 @@ async fn handle_file(
 				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		}
 		_ if method == Method::HEAD => {
-			if !macos_pdf {
-				builder = builder
-					.header("Connection", "Keep-Alive")
-					.header("Accept-Ranges", "bytes");
-			}
+			builder = builder.header("Accept-Ranges", "bytes");
 			vec![]
 		}
 		_ => {

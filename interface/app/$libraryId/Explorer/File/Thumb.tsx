@@ -2,7 +2,7 @@ import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, useLibraryContext } from '@sd/client';
-import { ExternalObject } from '~/components';
+import { PDFViewer } from '~/components';
 import {
 	useCallbackToWatchResize,
 	useExplorerItemData,
@@ -205,9 +205,8 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 						switch (extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind) {
 							case 'PDF':
 								return (
-									<ExternalObject
-										data={src}
-										type="application/pdf"
+									<PDFViewer
+										src={src}
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(

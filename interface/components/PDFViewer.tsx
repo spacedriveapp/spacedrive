@@ -1,17 +1,19 @@
 import { memo, useLayoutEffect, useMemo } from 'react';
+import { useOperatingSystem } from '~/hooks';
 
-export interface ExternalObjectProps
-	extends Omit<React.ComponentProps<'object'>, 'chidren' | 'onLoad' | 'onError'> {
-	data: string;
+export interface PDFViewerProps {
+	src: string;
 	onLoad?: (event: HTMLElementEventMap['load']) => void;
 	onError?: (event: HTMLElementEventMap['error']) => void;
+	className?: string;
 	crossOrigin?: React.ComponentProps<'link'>['crossOrigin'];
 }
 
-export const ExternalObject = memo(
-	({ data, onLoad, onError, crossOrigin, ...props }: ExternalObjectProps) => {
+export const PDFViewer = memo(
+	({ src, onLoad, onError, className, crossOrigin }: PDFViewerProps) => {
+		const os = useOperatingSystem(true);
 		// Ignore empty urls
-		const href = !data || data === '#' ? null : data;
+		const href = !src || src === '#' ? null : src;
 
 		// Use link preload as a hack to get access to an onLoad and onError events for the object tag
 		// as well as to normalize the URL
@@ -51,6 +53,13 @@ export const ExternalObject = memo(
 		}, [link]);
 
 		// Use link to normalize URL
-		return link ? <object data={link.href} {...props} /> : null;
+		return link ? (
+			os === 'macOS' ? (
+				// FIX-ME: Using <embed> isn't working in macOS for some reason
+				<iframe src={link.href} style={{ objectFit: 'unset' }} className={className} />
+			) : (
+				<embed src={link.href} type="application/pdf" className={className} />
+			)
+		) : null;
 	}
 );
