@@ -13,8 +13,8 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams,
-	useKeyDeleteFile
+	useKeyDeleteFile,
+	useZodRouteParams
 } from '~/hooks';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
@@ -44,8 +44,7 @@ export const Component = () => {
 
 	const { query, items } = useItems();
 	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
-	useKeyDeleteFile(file as ExplorerItem, location_id)
-
+	useKeyDeleteFile(file as ExplorerItem, location_id);
 
 	return (
 		<>
@@ -98,7 +97,7 @@ const useItems = () => {
 							? { object: { kind: [5, 7] } }
 							: { path: path ?? '' })
 					},
-					take,
+					take
 				}
 			}
 		] as const,

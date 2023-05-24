@@ -167,7 +167,15 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
-	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, explorerLocationId]);
+	}, [
+		props.data.item.id,
+		isDark,
+		library.uuid,
+		itemData,
+		platform,
+		thumbType,
+		explorerLocationId
+	]);
 
 	const onLoad = () => setLoaded(true);
 

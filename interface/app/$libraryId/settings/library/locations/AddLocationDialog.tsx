@@ -76,7 +76,10 @@ export const AddLocationDialog = ({
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
 		if (!form.formState.isDirty)
-			form.reset({ path, method: form.getValues().method, indexerRulesIds }, { keepErrors: true });
+			form.reset(
+				{ path, method: form.getValues().method, indexerRulesIds },
+				{ keepErrors: true }
+			);
 	}, [form, path, indexerRulesIds]);
 
 	const addLocation = useCallback(
