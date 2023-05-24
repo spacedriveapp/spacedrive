@@ -19,6 +19,7 @@ serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array"]
 bincode = ["dep:bincode"]
 sys = ["dep:linux-keyutils", "dep:security-framework"]
 async = ["dep:tokio"]
+specta = ["dep:specta"]
 
 [dependencies]
 # rng
@@ -53,9 +54,11 @@ serde = { version = "1.0.158", features = ["derive"], optional = true }
 serde_json = { version = "1.0.94", optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
 
+specta = { workspace = true, optional = true }
 
-# for asynchronous cryptorspc = { workspace = true, features = [], optional = true }
-specta = { workspace = true, features = ["uuid"], optional = true }
+hex = "0.4.3"
+
+# for asynchronous crypto
 tokio = { workspace = true, features = [
 	"io-util",
 	"rt-multi-thread",

@@ -32,6 +32,9 @@ use std::{fmt::Debug, mem::swap};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(all(feature = "specta", feature = "serde"), serde(transparent))]
 pub struct Protected<T>(T)
 where
 	T: Zeroize;

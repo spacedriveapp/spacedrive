@@ -2,7 +2,7 @@
 //! in an effort to add additional type safety.
 use aead::generic_array::{ArrayLength, GenericArray};
 use cmov::Cmov;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Write};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ct::{Choice, ConstantTimeEq, ConstantTimeEqNull};
@@ -52,6 +52,7 @@ impl DerivationContext {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -73,6 +74,7 @@ impl Params {
 	serde(tag = "name", content = "params")
 )]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 	Blake3Balloon(Params),
@@ -107,6 +109,7 @@ impl HashingAlgorithm {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Nonce {
 	Aes256Gcm([u8; AES_256_GCM_NONCE_LEN]),
 	Aes256GcmSiv([u8; AES_256_GCM_SIV_NONCE_LEN]),
@@ -189,6 +192,7 @@ where
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Algorithm {
 	Aes256Gcm,
 	Aes256GcmSiv,
@@ -337,6 +341,37 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 	}
 }
 
+impl TryFrom<Protected<String>> for SecretKey {
+	type Error = Error;
+
+	fn try_from(value: Protected<String>) -> Result<Self, Self::Error> {
+		let mut s = value.into_inner();
+		s.retain(|c| c.is_ascii_hexdigit());
+
+		// shouldn't fail as `SecretKey::try_from` is (essentially) infallible
+		hex::decode(s)
+			.ok()
+			.map_or(Protected::new(vec![]), Protected::new)
+			.try_into()
+			.map_err(|_| Error::Validity)
+	}
+}
+
+impl Display for SecretKey {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let s = hex::encode(self.expose()).to_uppercase();
+		let separator_distance = s.len() / 6;
+		s.chars().enumerate().try_for_each(|(i, c)| {
+			f.write_char(c)?;
+			if (i + 1) % separator_distance == 0 && (i + 1) != s.len() {
+				f.write_char('-')?;
+			}
+
+			Ok(())
+		})
+	}
+}
+
 /// This should be used for passing an encrypted key around.
 ///
 /// The length of the encrypted key is `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`).
@@ -345,6 +380,7 @@ impl TryFrom<Protected<Vec<u8>>> for SecretKey {
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct EncryptedKey(
 	#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
 	[u8; ENCRYPTED_KEY_LEN],
@@ -391,6 +427,7 @@ impl PartialEq for EncryptedKey {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Aad {
 	Standard([u8; AAD_LEN]),
 	Header(
@@ -434,6 +471,7 @@ impl PartialEq for Aad {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Salt([u8; SALT_LEN]);
 
 impl Salt {
