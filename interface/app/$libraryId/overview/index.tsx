@@ -1,5 +1,6 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import {
@@ -12,9 +13,11 @@ import {
 } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
 import { useExplorerStore, useExplorerTopBarOptions, useIsDark } from '~/hooks';
-import Explorer from '../Explorer';
+import { Inspector } from '../Explorer/Inspector';
+import View from '../Explorer/View';
 import { SEARCH_PARAMS, useExplorerOrder } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
+import { TOP_BAR_HEIGHT } from '../TopBar';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import CategoryButton from '../overview/CategoryButton';
@@ -115,16 +118,28 @@ export const Component = () => {
 
 	const searchItems = useMemo(() => query.data?.pages?.flatMap((d) => d.items), [query.data]);
 
-	let items: ExplorerItem[] = [];
+	let items: ExplorerItem[] | null = null;
 	switch (selectedCategory) {
 		case 'Recents':
-			items = recentFiles.data?.items || [];
+			items = recentFiles.data?.items || null;
 			break;
 		default:
 			if (canSearch) {
-				items = searchItems || [];
+				items = searchItems || null;
 			}
 	}
+
+	const [selectedItems, setSelectedItems] = useState<number[]>([]);
+
+	// TODO: Instead of filter fetch item in inspector?
+	const selectedItem = useMemo(
+		() => items?.filter((item) => item.item.id === selectedItems[0])[0],
+		[selectedItems[0]]
+	);
+
+	const loadMore = () => {
+		if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
+	};
 
 	return (
 		<>
@@ -135,19 +150,11 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<Statistics />
-			<Explorer
-				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
-				viewClassName="!pl-0 !pt-[0] !h-auto !overflow-visible"
-				explorerClassName="!overflow-visible" //required to keep categories sticky, remove with caution
-				listViewHeadersClassName="!top-[65px] z-30"
-				items={items}
-				onLoadMore={query.fetchNextPage}
-				hasNextPage={query.hasNextPage}
-				isFetchingNextPage={query.isFetchingNextPage}
-				scrollRef={page?.ref}
-			>
-				<div className="no-scrollbar sticky top-0 z-10 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
+
+			<div>
+				<Statistics />
+
+				<div className="no-scrollbar sticky top-0 z-20 mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur">
 					{categories.data?.map((category) => {
 						const iconString = CategoryToIcon[category.name] || 'Document';
 						return (
@@ -164,7 +171,27 @@ export const Component = () => {
 						);
 					})}
 				</div>
-			</Explorer>
+
+				<div className="flex">
+					<View
+						layout={explorerStore.layoutMode}
+						items={items}
+						scrollRef={page?.ref!}
+						onLoadMore={loadMore}
+						rowsBeforeLoadMore={5}
+						selectedItems={selectedItems}
+						onSelectedChange={setSelectedItems}
+						top={68}
+					/>
+					{explorerStore.showInspector && (
+						<Inspector
+							data={selectedItem}
+							showThumbnail={explorerStore.layoutMode !== 'media'}
+							className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] flex-shrink-0 bg-app pb-4 pl-1.5 pr-1"
+						/>
+					)}
+				</div>
+			</div>
 		</>
 	);
 };

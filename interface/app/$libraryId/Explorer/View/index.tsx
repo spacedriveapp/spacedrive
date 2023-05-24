@@ -1,12 +1,9 @@
-import clsx from 'clsx';
-import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
-import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
+import { HTMLAttributes, PropsWithChildren, memo } from 'react';
+import { createSearchParams, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { useExplorerConfigStore } from '~/hooks';
-import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerLayoutMode, getExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
-import { TOP_BAR_HEIGHT } from '../../TopBar';
-import DismissibleNotice from '../DismissibleNotice';
 import ContextMenu from '../File/ContextMenu';
 import { ViewContext } from '../ViewContext';
 import { getExplorerItemData, getItemFilePath } from '../util';
@@ -83,26 +80,27 @@ interface Props {
 	items: ExplorerItem[] | null;
 	layout: ExplorerLayoutMode;
 	scrollRef: React.RefObject<HTMLDivElement>;
-	onLoadMore?(): void;
-	hasNextPage?: boolean;
-	isFetchingNextPage?: boolean;
 	selectedItems?: number[];
 	onSelectedChange?(selectedItems: number[]): void;
 	overscan?: number;
+	className?: string;
+	top?: number;
+	onLoadMore?: () => void;
+	rowsBeforeLoadMore?: number;
 }
 
 export default memo((props: Props) => {
 	return (
 		<ViewContext.Provider
 			value={{
-				data: props.items,
+				items: props.items,
 				scrollRef: props.scrollRef,
 				onLoadMore: props.onLoadMore,
-				hasNextPage: props.hasNextPage,
-				isFetchingNextPage: props.isFetchingNextPage,
+				rowsBeforeLoadMore: props.rowsBeforeLoadMore,
 				selectedItems: new Set(props.selectedItems),
 				onSelectedChange: (selected) => props.onSelectedChange?.([...selected]),
-				overscan: props.overscan
+				overscan: props.overscan,
+				top: props.top
 			}}
 		>
 			{props.layout === 'grid' && <GridView />}

@@ -6,6 +6,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: CategoryItem[] } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
+        { key: "files.getMultiple", input: LibraryArgs<number[]>, result: ({ id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null })[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
@@ -184,8 +185,6 @@ export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Pr
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-export type SetFavoriteArgs = { id: number; favorite: boolean }
-
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
@@ -199,7 +198,7 @@ export type Salt = number[]
 
 export type ObjectSearchArgs = { take?: number | null; tagId?: number | null; cursor?: number[] | null }
 
-export type SetNoteArgs = { id: number; note: string | null }
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type FilePathSearchOrdering = { name: boolean } | { sizeInBytes: boolean } | { dateCreated: boolean } | { dateModified: boolean } | { dateIndexed: boolean } | { object: ObjectSearchOrdering }
 
@@ -234,8 +233,6 @@ export type IndexerRule = { id: number; kind: number; name: string; default: boo
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string }
 
@@ -295,6 +292,8 @@ export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
+export type SetFavoriteArgs = { id: number; favorite: boolean }
+
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type ObjectValidatorArgs = { id: number; path: string }
@@ -318,6 +317,8 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: 
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
 export type LibraryConfig = { name: string; description: string }
+
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type CreateLibraryArgs = { name: string }
 

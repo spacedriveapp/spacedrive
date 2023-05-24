@@ -11,11 +11,11 @@ import React, {
 } from 'react';
 import { RefObject, useEffect, useMemo, useState } from 'react';
 import Selecto, { SelectoProps } from 'react-selecto';
-import { useBoundingclientrect, useIntersectionObserverRef, useKey } from 'rooks';
+import { useBoundingclientrect, useIntersectionObserverRef, useKey, useKeys } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { TOP_BAR_HEIGHT } from '~/app/$libraryId/TopBar';
 
-interface Props {
+interface GridListDefaults {
 	count: number;
 	scrollRef: RefObject<HTMLElement>;
 	padding?: number | { x?: number; y?: number };
@@ -28,19 +28,20 @@ interface Props {
 	onSelectedChange?: (change: Set<number>) => void;
 	onSelect?: (index: number) => void;
 	onDeselect?: (index: number) => void;
-	selectable?: boolean;
 	overscan?: number;
-	onLastRow?: () => void;
+	top?: number;
+	onLoadMore?: () => void;
+	rowsBeforeLoadMore?: number;
 }
-interface WrapSizing extends Props {
+interface WrapProps extends GridListDefaults {
 	size: number | { width: number; height: number };
 }
 
-interface ResizeSizing extends Props {
+interface ResizeProps extends GridListDefaults {
 	columns: number;
 }
 
-export default ({ selectable = true, ...props }: WrapSizing | ResizeSizing) => {
+export default (props: WrapProps | ResizeProps) => {
 	const scrollBarWidth = 6;
 
 	const paddingX = (typeof props.padding === 'object' ? props.padding.x : props.padding) || 0;
@@ -65,7 +66,7 @@ export default ({ selectable = true, ...props }: WrapSizing | ResizeSizing) => {
 
 	const ref = useRef<HTMLDivElement>(null);
 	const { width = 0 } = useResizeObserver({ ref: ref });
-	const getBoundingClientRect = useBoundingclientrect(ref);
+	const rect = useBoundingclientrect(ref);
 
 	const selecto = useRef<Selecto>(null);
 
@@ -139,92 +140,131 @@ export default ({ selectable = true, ...props }: WrapSizing | ResizeSizing) => {
 
 	useEffect(() => {
 		setListOffset(ref.current?.offsetTop || 0);
-	}, [getBoundingClientRect]);
+	}, [rect]);
 
-	useEffect(() => {
-		const lastRow = virtualRows[virtualRows.length - 1];
-		if (lastRow?.index === amountOfRows - 1) props.onLastRow?.();
-	}, [virtualRows]);
+	// Handle key selection
+	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
+		e.preventDefault();
 
-	const handleArrowSelection = (nextIndex: number, add: boolean = true) => {
-		if (selecto.current) {
-			const selected = selecto.current.getSelectedTargets();
-			const lastItem = selected[selected.length - 1];
-			if (lastItem) {
-				const index = Number(lastItem.getAttribute('data-selectable-index'));
+		const selectedItems = selecto.current?.getSelectedTargets() || [
+			...document.querySelectorAll<HTMLDivElement>(`[data-selected="true"]`)
+		];
+		const lastItem = selectedItems[selectedItems.length - 1];
 
-				const next = document.querySelector<HTMLDivElement>(
-					`[data-selectable-index="${index + nextIndex}"]`
+		if (lastItem) {
+			const currentIndex = Number(lastItem.getAttribute('data-selectable-index'));
+			let newIndex = currentIndex;
+
+			switch (e.key) {
+				case 'ArrowUp':
+					newIndex += -amountOfColumns;
+					break;
+				case 'ArrowDown':
+					newIndex += amountOfColumns;
+					break;
+				case 'ArrowRight':
+					newIndex += 1;
+					break;
+				case 'ArrowLeft':
+					newIndex += -1;
+					break;
+			}
+
+			const newSelectedItem = document.querySelector<HTMLDivElement>(
+				`[data-selectable-index="${newIndex}"]`
+			);
+
+			if (newSelectedItem) {
+				const addToSelection = e.shiftKey;
+
+				selecto.current?.setSelectedTargets([
+					...(addToSelection ? selectedItems : []),
+					newSelectedItem
+				]);
+
+				props.onSelectedChange?.(
+					new Set(
+						[...(addToSelection ? selectedItems : []), newSelectedItem].map((el) =>
+							Number(el.getAttribute('data-selectable-id'))
+						)
+					)
 				);
 
-				if (next && props.scrollRef.current) {
-					const direction = nextIndex > 0 ? 'down' : 'up';
+				if (!addToSelection) {
+					document
+						.querySelectorAll('[data-selected="true"]')
+						.forEach((el) => el.setAttribute('data-selected', 'false'));
+				}
 
-					const eleBound = next.getBoundingClientRect();
-					const scrollBound = props.scrollRef.current.getBoundingClientRect();
+				newSelectedItem.setAttribute('data-selected', 'true');
+
+				if (props.scrollRef.current) {
+					const direction = newIndex > currentIndex ? 'down' : 'up';
+
+					const itemRect = newSelectedItem.getBoundingClientRect();
+					const scrollRect = props.scrollRef.current.getBoundingClientRect();
+
+					const paddingTop = parseInt(
+						getComputedStyle(props.scrollRef.current).paddingTop
+					);
+
+					const top = props.top ? paddingTop + props.top : paddingTop;
 
 					switch (direction) {
 						case 'up': {
-							if (eleBound.top < 0) {
-								const paddingTop = parseInt(
-									getComputedStyle(props.scrollRef.current).paddingTop
-								);
+							if (itemRect.top < top) {
 								props.scrollRef.current.scrollBy({
-									top: eleBound.top - paddingTop - (paddingY || 0),
+									top: itemRect.top - top - paddingY,
 									behavior: 'smooth'
 								});
 							}
 							break;
 						}
 						case 'down': {
-							if (eleBound.bottom > scrollBound.height) {
+							if (itemRect.bottom > scrollRect.height) {
 								props.scrollRef.current.scrollBy({
-									top: eleBound.bottom - scrollBound.height + (paddingY || 0),
+									top: itemRect.bottom - scrollRect.height + paddingY,
 									behavior: 'smooth'
 								});
 							}
 							break;
 						}
 					}
-
-					selecto.current.setSelectedTargets([...(add ? selected : []), next]);
-					props.onSelectedChange?.(
-						new Set(
-							[...(add ? selected : []), next].map((el) =>
-								Number(el.getAttribute('data-selectable-id'))
-							)
-						)
-					);
-
-					if (!add) {
-						document
-							.querySelectorAll('[data-selected="true"]')
-							.forEach((el) => el.setAttribute('data-selected', 'false'));
-					}
-					next.setAttribute('data-selected', 'true');
 				}
 			}
 		}
-	};
+	});
 
-	useKey('ArrowUp', (e) => {
-		e.preventDefault();
-		handleArrowSelection(-amountOfColumns, e.shiftKey);
-	});
-	useKey('ArrowDown', (e) => {
-		e.preventDefault();
-		handleArrowSelection(amountOfColumns, e.shiftKey);
-	});
-	useKey('ArrowRight', (e) => handleArrowSelection(1, e.shiftKey));
-	useKey('ArrowLeft', (e) => handleArrowSelection(-1, e.shiftKey));
+	useEffect(() => {
+		if (props.onLoadMore) {
+			const lastRow = virtualRows[virtualRows.length - 1];
+			if (lastRow) {
+				const rowsBeforeLoadMore = props.rowsBeforeLoadMore || 1;
+
+				const loadMoreOnIndex =
+					rowsBeforeLoadMore > amountOfRows ||
+					lastRow.index > amountOfRows - rowsBeforeLoadMore
+						? amountOfRows - 1
+						: amountOfRows - rowsBeforeLoadMore;
+
+				if (lastRow.index === loadMoreOnIndex) props.onLoadMore();
+			}
+		}
+	}, [virtualRows, amountOfRows, props.rowsBeforeLoadMore, props.onLoadMore]);
 
 	return (
 		<>
-			{selectable && (
+			<div
+				ref={ref}
+				className="relative w-full"
+				style={{
+					height: `${rowVirtualizer.getTotalSize()}px`
+				}}
+			>
 				<Selecto
 					ref={selecto}
-					dragContainer={props.scrollRef.current}
-					boundContainer={props.scrollRef.current}
+					dragContainer={ref.current}
+					boundContainer={ref.current}
 					selectableTargets={['[data-selectable]']}
 					toggleContinueSelect={'shift'}
 					hitRate={0}
@@ -265,15 +305,7 @@ export default ({ selectable = true, ...props }: WrapSizing | ResizeSizing) => {
 						props.onSelectedChange?.(set);
 					}}
 				/>
-			)}
 
-			<div
-				ref={ref}
-				className="relative w-full"
-				style={{
-					height: `${rowVirtualizer.getTotalSize()}px`
-				}}
-			>
 				{width !== 0 && (
 					<SelectoContext.Provider value={selecto}>
 						{virtualRows.map((virtualRow) => (

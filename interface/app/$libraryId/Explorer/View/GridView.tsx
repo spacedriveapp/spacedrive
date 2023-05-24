@@ -1,20 +1,11 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import LazyLoad from 'react-lazy-load';
-import { useKey, useOnWindowResize } from 'rooks';
+import { memo } from 'react';
 import { ExplorerItem, formatBytes } from '@sd/client';
 import GridList from '~/components/GridList';
-import { DragSelectProvider } from '~/hooks/useDragSelect';
-import {
-	getExplorerStore,
-	getSelectedExplorerItems,
-	useExplorerStore,
-	useSelectedExplorerItems
-} from '~/hooks/useExplorerStore';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { ViewItem } from '.';
 import RenameTextBox from '../File/RenameTextBox';
-import Thumb from '../File/Thumb';
+import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { getItemFilePath } from '../util';
 
@@ -30,8 +21,8 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 	return (
 		<ViewItem data={data} index={index} className="h-full w-full" {...props}>
-			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selected/20')}>
-				<Thumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
+			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
+				<FileThumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
 			</div>
 
 			<div className="flex flex-col justify-center">
@@ -65,45 +56,27 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 export default () => {
 	const explorerStore = useExplorerStore();
-	const {
-		data,
-		scrollRef,
-		onLoadMore,
-		hasNextPage,
-		isFetchingNextPage,
-		selectedItems,
-		onSelectedChange,
-		overscan
-	} = useExplorerViewContext();
+	const explorerView = useExplorerViewContext();
 
 	const itemDetailsHeight =
 		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
 	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
 
-	// const selectedItems = useSelectedExplorerItems();
-
-	const fetchMore = () => {
-		if (hasNextPage && !isFetchingNextPage) {
-			onLoadMore?.();
-		}
-	};
-
 	return (
 		<GridList
-			scrollRef={scrollRef}
-			count={data?.length || 100}
+			scrollRef={explorerView.scrollRef}
+			count={explorerView.items?.length || 100}
 			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
 			padding={12}
-			selected={selectedItems}
-			onSelect={(index) => getSelectedExplorerItems().add(data?.[index]!.item.id!)}
-			onDeselect={(index) => getSelectedExplorerItems().delete(data?.[index]!.item.id!)}
-			onSelectedChange={(index) => onSelectedChange?.(index)}
-			selectable={!!data}
-			overscan={overscan}
-			onLastRow={fetchMore}
+			selected={explorerView.selectedItems}
+			onSelectedChange={explorerView.onSelectedChange}
+			overscan={explorerView.overscan}
+			onLoadMore={explorerView.onLoadMore}
+			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
+			top={explorerView.top}
 		>
 			{({ index, item: Item }) => {
-				if (!data) {
+				if (!explorerView.items) {
 					return (
 						<Item className="p-px">
 							<div className="aspect-square animate-pulse rounded-md bg-app-box" />
@@ -115,10 +88,10 @@ export default () => {
 					);
 				}
 
-				const item = data[index];
+				const item = explorerView.items[index];
 				if (!item) return null;
 
-				const isSelected = !!selectedItems?.has(item.item.id);
+				const isSelected = !!explorerView.selectedItems?.has(item.item.id);
 
 				return (
 					<Item selectable selected={isSelected} index={index} id={item.item.id}>

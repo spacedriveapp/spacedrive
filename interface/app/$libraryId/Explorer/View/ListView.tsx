@@ -15,7 +15,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useKey, useOnWindowResize } from 'rooks';
+import { useBoundingclientrect, useKey, useOnWindowResize } from 'rooks';
 import useResizeObserver, { ObservedSize } from 'use-resize-observer';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
 import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
@@ -28,7 +28,7 @@ import {
 import { useScrolled } from '~/hooks/useScrolled';
 import { ViewItem } from '.';
 import RenameTextBox from '../File/RenameTextBox';
-import Thumb from '../File/Thumb';
+import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerItemData, getItemFilePath } from '../util';
@@ -79,19 +79,9 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 export default () => {
 	// const selectedExplorerItems = useSelectedExplorerItems();
 	const explorerStore = useExplorerStore();
+	const explorerView = useExplorerViewContext();
 
-	const {
-		data,
-		scrollRef,
-		onLoadMore,
-		hasNextPage,
-		isFetchingNextPage,
-		overscan,
-		selectedItems,
-		onSelectedChange
-	} = useExplorerViewContext();
-
-	const { isScrolled } = useScrolled(scrollRef, 5);
+	const { isScrolled } = useScrolled(explorerView.scrollRef, 5);
 
 	const [sized, setSized] = useState(false);
 	const [sorting, setSorting] = useState<SortingState>([]);
@@ -126,7 +116,7 @@ export default () => {
 					return (
 						<div className="relative flex items-center">
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
-								<Thumb data={file} size={35} />
+								<FileThumb data={file} size={35} />
 							</div>
 							{filePathData && (
 								<RenameTextBox
@@ -195,14 +185,14 @@ export default () => {
 			{
 				header: 'Content ID',
 				size: 180,
-				accessorFn: (file) => getExplorerItemData(file).cas_id
+				accessorFn: (file) => getExplorerItemData(file).casId
 			}
 		],
 		[explorerStore.selectedRowIndex, explorerStore.isRenaming, sorting]
 	);
 
 	const table = useReactTable({
-		data: data || [],
+		data: explorerView.items || [],
 		columns,
 		defaultColumn: { minSize: 100 },
 		state: { columnSizing, sorting, rowSelection },
@@ -215,14 +205,13 @@ export default () => {
 	});
 
 	const [listOffset, setListOffset] = useState(0);
-	console.log(listOffset);
 
 	const tableLength = table.getTotalSize();
 	const { rows } = table.getRowModel();
 
 	const rowVirtualizer = useVirtualizer({
-		count: data ? rows.length : 100,
-		getScrollElement: () => scrollRef.current,
+		count: explorerView.items ? rows.length : 100,
+		getScrollElement: () => explorerView.scrollRef.current,
 		estimateSize: () => 45,
 		paddingStart: 12,
 		paddingEnd: 12,
@@ -232,15 +221,24 @@ export default () => {
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
 	useEffect(() => {
-		const lastRow = virtualRows[virtualRows.length - 1];
-		if (lastRow?.index === rows.length - 1 && hasNextPage && !isFetchingNextPage) {
-			onLoadMore?.();
+		if (explorerView.onLoadMore) {
+			const lastRow = virtualRows[virtualRows.length - 1];
+			if (lastRow) {
+				const rowsBeforeLoadMore = explorerView.rowsBeforeLoadMore || 1;
+
+				const loadMoreOnIndex =
+					rowsBeforeLoadMore > rows.length ||
+					lastRow.index > rows.length - rowsBeforeLoadMore
+						? rows.length - 1
+						: rows.length - rowsBeforeLoadMore;
+
+				if (lastRow.index === loadMoreOnIndex) explorerView.onLoadMore();
+			}
 		}
-	}, [hasNextPage, onLoadMore, isFetchingNextPage, virtualRows, rows.length]);
+	}, [virtualRows, rows.length, explorerView.rowsBeforeLoadMore, explorerView.onLoadMore]);
 
 	function handleResize(size: ObservedSize) {
 		if (!size.width) return;
-		console.log(size);
 
 		if (locked && Object.keys(columnSizing).length > 0) {
 			table.setColumnSizing((sizing) => {
@@ -271,20 +269,15 @@ export default () => {
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableBodyRef = useRef<HTMLDivElement>(null);
-	const {} = useResizeObserver({ onResize: handleResize, ref: tableRef });
-	console.log('Table body offset', tableBodyRef.current?.getBoundingClientRect());
 
+	const rect = useBoundingclientrect(tableRef);
+
+	useResizeObserver({ onResize: handleResize, ref: tableRef });
+
+	// TODO: Improve this
 	useEffect(() => {
-		const update = () => {
-			setListOffset(tableBodyRef.current?.offsetTop ?? 0);
-		};
-		const observer = new ResizeObserver(update);
-		update();
-
-		return () => {
-			observer.disconnect();
-		};
-	}, [tableBodyRef.current]);
+		setListOffset(tableRef.current?.offsetTop || 0);
+	}, [rect]);
 
 	// Measure initial column widths
 	useEffect(() => {
@@ -302,13 +295,6 @@ export default () => {
 			setSized(true);
 		}
 	}, []);
-
-	// Force recalculate range
-	// https://github.com/TanStack/virtual/issues/485
-	useMemo(() => {
-		// @ts-ignore
-		rowVirtualizer.calculateRange();
-	}, [rows.length, rowVirtualizer]);
 
 	const [ranges, setRanges] = useState<[number, number][]>([[0, 0]]);
 
@@ -337,19 +323,19 @@ export default () => {
 				: [];
 			console.log(ids);
 
-			const updated = new Set(selectedItems);
+			const updated = new Set(explorerView.selectedItems);
 			if (isCurrentHigher) {
 				ids.forEach((id) => updated.add(Number(rows[id]?.original.item.id)));
 			} else {
 				ids.forEach((id) => updated.delete(Number(rows[id]?.original.item.id)));
 			}
 
-			onSelectedChange?.(updated);
+			explorerView.onSelectedChange?.(updated);
 			setRanges([...ranges.slice(0, ranges.length - 1), [rangeStart, currentRowId]]);
 		} else if (e.metaKey) {
 			setLastMouseSelectedId(Number(row.id));
 
-			const updated = new Set(selectedItems);
+			const updated = new Set(explorerView.selectedItems);
 			if (updated.has(itemId)) {
 				updated.delete(itemId);
 				setRanges(ranges.filter((range) => range[0] !== rowIndex));
@@ -359,15 +345,13 @@ export default () => {
 				setRanges([...ranges.slice(0, ranges.length - 1), [rowIndex, 0]]);
 			}
 
-			onSelectedChange?.(updated);
+			explorerView.onSelectedChange?.(updated);
 		} else if (e.button === 0) {
 			setLastMouseSelectedId(rowIndex);
-			onSelectedChange?.(new Set([itemId]));
+			explorerView.onSelectedChange?.(new Set([itemId]));
 			setRanges([[rowIndex, 0]]);
 		}
 	};
-
-	// console.log(ranges);
 
 	// Select item with arrow up key
 	useKey(
@@ -404,7 +388,11 @@ export default () => {
 			const selectedRows = table.getSelectedRowModel().flatRows;
 			const lastSelectedRow = selectedRows[selectedRows.length - 1];
 
-			if (lastSelectedRow && data && lastSelectedRow.index !== data.length - 1) {
+			if (
+				lastSelectedRow &&
+				explorerView.items &&
+				lastSelectedRow.index !== explorerView.items.length - 1
+			) {
 				const currentIndex = rows.findIndex((row) => row.index === lastSelectedRow.index);
 				const newIndex = rows[currentIndex + 1]?.id;
 
@@ -427,9 +415,10 @@ export default () => {
 					<div
 						onClick={(e) => e.stopPropagation()}
 						className={clsx(
-							'sticky top-0 z-20 table-header-group',
+							'sticky  z-20 table-header-group',
 							isScrolled && 'top-bar-blur !bg-app/90'
 						)}
+						style={{ top: explorerView.top || 0 }}
 					>
 						{table.getHeaderGroups().map((headerGroup) => (
 							<div
@@ -500,7 +489,7 @@ export default () => {
 							}}
 						>
 							{virtualRows.map((virtualRow) => {
-								if (!data) {
+								if (!explorerView.items) {
 									return (
 										<div
 											key={virtualRow.index}
@@ -521,16 +510,15 @@ export default () => {
 								const row = rows[virtualRow.index];
 								if (!row) return null;
 
-								const selected = !!selectedItems?.has(row.original.item.id);
-								const selectedPrior = selectedItems?.has(
+								const selected = !!explorerView.selectedItems?.has(
+									row.original.item.id
+								);
+								const selectedPrior = explorerView.selectedItems?.has(
 									rows[virtualRow.index - 1]?.original.item.id!
 								);
-								const selectedNext = selectedItems?.has(
+								const selectedNext = explorerView.selectedItems?.has(
 									rows[virtualRow.index + 1]?.original.item.id!
 								);
-
-								// console.log('before: ', selectedPrior);
-								// console.log('next: ', selectedNext);
 
 								return (
 									<div

@@ -1,21 +1,12 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { ArrowsOutSimple } from 'phosphor-react';
-import { memo, useEffect, useMemo, useState } from 'react';
-import React from 'react';
-import { useKey, useOnWindowResize } from 'rooks';
+import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import GridList from '~/components/GridList';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import {
-	getExplorerStore,
-	getSelectedExplorerItems,
-	useExplorerStore,
-	useSelectedExplorerItems
-} from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { ViewItem } from '.';
-import Thumb from '../File/Thumb';
+import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 
 interface MediaViewItemProps {
@@ -26,8 +17,6 @@ interface MediaViewItemProps {
 
 const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 	const explorerStore = useExplorerStore();
-
-	console.log('MediaViewItem', data, index, selected);
 
 	return (
 		<ViewItem
@@ -40,11 +29,11 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 		>
 			<div
 				className={clsx(
-					'group relative flex aspect-square items-center justify-center hover:bg-app-selected/20',
-					selected && 'bg-app-selected/20'
+					'group relative flex aspect-square items-center justify-center hover:bg-app-selectedItem',
+					selected && 'bg-app-selectedItem'
 				)}
 			>
-				<Thumb
+				<FileThumb
 					size={0}
 					data={data}
 					cover={explorerStore.mediaAspectSquare}
@@ -66,38 +55,22 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 
 export default () => {
 	const explorerStore = useExplorerStore();
-
-	const {
-		data,
-		scrollRef,
-		onLoadMore,
-		hasNextPage,
-		isFetchingNextPage,
-		selectedItems,
-		onSelectedChange,
-		overscan
-	} = useExplorerViewContext();
-
-	const fetchMore = () => {
-		if (hasNextPage && !isFetchingNextPage) {
-			onLoadMore?.();
-		}
-	};
+	const explorerView = useExplorerViewContext();
 
 	return (
 		<GridList
-			scrollRef={scrollRef}
-			count={data?.length || 100}
+			scrollRef={explorerView.scrollRef}
+			count={explorerView.items?.length || 100}
 			columns={explorerStore.mediaColumns}
-			onSelect={(index) => getSelectedExplorerItems().add(data?.[index]!.item.id!)}
-			onDeselect={(index) => getSelectedExplorerItems().delete(data?.[index]!.item.id!)}
-			selected={selectedItems}
-			onSelectedChange={onSelectedChange}
-			overscan={overscan}
-			onLastRow={fetchMore}
+			selected={explorerView.selectedItems}
+			onSelectedChange={explorerView.onSelectedChange}
+			overscan={explorerView.overscan}
+			onLoadMore={explorerView.onLoadMore}
+			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
+			top={explorerView.top}
 		>
 			{({ index, item: Item }) => {
-				if (!data) {
+				if (!explorerView.items) {
 					return (
 						<Item className="!p-px">
 							<div className="h-full animate-pulse bg-app-box" />
@@ -105,13 +78,13 @@ export default () => {
 					);
 				}
 
-				const item = data[index];
+				const item = explorerView.items[index];
 				if (!item) return null;
 
-				const selected = !!selectedItems?.has(item.item.id);
+				const selected = !!explorerView.selectedItems?.has(item.item.id);
 
 				return (
-					<Item selectable={true} selected={selected} index={index} id={item.item.id}>
+					<Item selectable selected={selected} index={index} id={item.item.id}>
 						<MediaViewItem data={item} index={index} selected={selected} />
 					</Item>
 				);
