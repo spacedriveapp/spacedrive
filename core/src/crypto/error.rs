@@ -22,6 +22,8 @@ pub enum CryptoError {
 	Locked,
 	#[error("the key is already mounted")]
 	AlreadyMounted,
+	#[error("key not mounted")]
+	NotMounted,
 
 	#[error("there was an error during a conversion")]
 	Conversion,
