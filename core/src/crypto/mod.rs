@@ -50,8 +50,8 @@ pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
 	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to key derivation (for the key manager)
-pub const KEYMANAGER_CONTEXT: DerivationContext =
-	DerivationContext::new("spacedrive 2023-04-12 14:34:07 key manager derivation");
+pub const KEY_MOUNTING_CONTEXT: DerivationContext =
+	DerivationContext::new("spacedrive 2023-05-24 11:43:07 key mounting derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to key derivation (for encrypted words)
 pub const ENCRYPTED_WORD_CONTEXT: DerivationContext =
