@@ -2,6 +2,12 @@ use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, CryptoError>;
 
+impl From<CryptoError> for rspc::Error {
+	fn from(value: CryptoError) -> Self {
+		Self::new(rspc::ErrorCode::InternalServerError, value.to_string())
+	}
+}
+
 #[derive(Debug, Error)]
 pub enum CryptoError {
 	#[error("crypto error: {0}")]
