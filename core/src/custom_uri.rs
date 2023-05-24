@@ -355,7 +355,6 @@ async fn handle_file(
 			vec![]
 		}
 		_ => {
-			builder = builder.header("Accept-Ranges", "none");
 			read_file(file, content_lenght, None)
 				.await
 				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?

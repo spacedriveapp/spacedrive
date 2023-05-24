@@ -119,7 +119,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	const { locationId } = useExplorerStore();
+	const { locationId: explorerLocationId } = useExplorerStore();
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -138,7 +138,8 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const { casId, kind, isDir, extension } = itemData;
+		const { casId, kind, isDir, extension, locationId: itemLocationId } = itemData;
+		const locationId = itemLocationId ?? explorerLocationId;
 		switch (thumbType) {
 			case ThumbType.Original:
 				if (locationId) {
@@ -166,18 +167,17 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
-	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, locationId]);
+	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, explorerLocationId]);
 
 	const onLoad = () => setLoaded(true);
 
 	const onError = () => {
 		setLoaded(false);
-		if (src !== '#')
-			setThumbType((prevThumbType) => {
-				return prevThumbType === ThumbType.Original && itemData.hasThumbnail
-					? ThumbType.Thumbnail
-					: ThumbType.Icon;
-			});
+		setThumbType((prevThumbType) => {
+			return prevThumbType === ThumbType.Original && itemData.hasThumbnail
+				? ThumbType.Thumbnail
+				: ThumbType.Icon;
+		});
 	};
 
 	const { kind, extension } = itemData;
