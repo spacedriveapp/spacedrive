@@ -6,6 +6,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
+        { key: "files.getMultiple", input: LibraryArgs<number[]>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null }[] } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
@@ -186,8 +187,6 @@ export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Pr
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-export type SetNoteArgs = { id: number; note: string | null }
-
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; cursor?: number[] | null; filter?: ObjectFilterArgs }
@@ -208,9 +207,9 @@ export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" 
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
-export type SetFavoriteArgs = { id: number; favorite: boolean }
-
 export type FilePathFilterArgs = { locationId?: number | null; search?: string; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
@@ -241,8 +240,6 @@ export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOpera
  * TODO: P2P event for the frontend
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type MaybeNot<T> = T | { not: T }
 
@@ -334,9 +331,13 @@ export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type CreateLibraryArgs = { name: string }
 
+export type SetFavoriteArgs = { id: number; favorite: boolean }
+
 export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type Protected<T> = T
+
+export type SetNoteArgs = { id: number; note: string | null }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
