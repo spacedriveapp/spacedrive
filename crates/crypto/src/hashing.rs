@@ -42,15 +42,6 @@ impl Hasher {
 		Key::new(k)
 	}
 
-	/// This can be used to derive a key with BLAKE3-KDF, with purely a derivation context.
-	///
-	/// This has very specific uses. Most of the time you should use [`Hasher::derive_key()`].
-	#[must_use]
-	pub fn derive_key_plain(key: &Key, context: DerivationContext) -> Key {
-		let k = blake3::derive_key(context.inner(), key.expose());
-		Key::new(k)
-	}
-
 	pub fn hash_password(
 		algorithm: HashingAlgorithm,
 		password: &Protected<Vec<u8>>,
