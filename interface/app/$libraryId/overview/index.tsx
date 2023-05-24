@@ -179,7 +179,7 @@ export const Component = () => {
 						scrollRef={page?.ref!}
 						onLoadMore={loadMore}
 						rowsBeforeLoadMore={5}
-						selectedItems={selectedItems}
+						selected={selectedItems}
 						onSelectedChange={setSelectedItems}
 						top={68}
 					/>

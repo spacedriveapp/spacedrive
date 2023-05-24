@@ -1,11 +1,11 @@
-import { HTMLAttributes, PropsWithChildren, memo } from 'react';
+import { HTMLAttributes, PropsWithChildren, ReactNode, memo } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { useExplorerConfigStore } from '~/hooks';
 import { ExplorerLayoutMode, getExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
 import ContextMenu from '../File/ContextMenu';
-import { ViewContext } from '../ViewContext';
+import { ExplorerViewContext, ExplorerViewSelection, ViewContext } from '../ViewContext';
 import { getExplorerItemData, getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -76,36 +76,16 @@ export const ViewItem = ({
 	);
 };
 
-interface Props {
-	items: ExplorerItem[] | null;
+interface Props<T extends ExplorerViewSelection> extends ExplorerViewContext<T> {
 	layout: ExplorerLayoutMode;
-	scrollRef: React.RefObject<HTMLDivElement>;
-	selectedItems?: number[];
-	onSelectedChange?(selectedItems: number[]): void;
-	overscan?: number;
-	className?: string;
-	top?: number;
-	onLoadMore?: () => void;
-	rowsBeforeLoadMore?: number;
 }
 
-export default memo((props: Props) => {
+export default memo(({ layout, ...contextProps }) => {
 	return (
-		<ViewContext.Provider
-			value={{
-				items: props.items,
-				scrollRef: props.scrollRef,
-				onLoadMore: props.onLoadMore,
-				rowsBeforeLoadMore: props.rowsBeforeLoadMore,
-				selectedItems: new Set(props.selectedItems),
-				onSelectedChange: (selected) => props.onSelectedChange?.([...selected]),
-				overscan: props.overscan,
-				top: props.top
-			}}
-		>
-			{props.layout === 'grid' && <GridView />}
-			{props.layout === 'rows' && <ListView />}
-			{props.layout === 'media' && <MediaView />}
+		<ViewContext.Provider value={contextProps as ExplorerViewContext}>
+			{layout === 'grid' && <GridView />}
+			{layout === 'rows' && <ListView />}
+			{layout === 'media' && <MediaView />}
 		</ViewContext.Provider>
 	);
-});
+}) as <T extends ExplorerViewSelection>(props: Props<T>) => JSX.Element;

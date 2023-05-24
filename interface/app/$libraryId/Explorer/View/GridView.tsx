@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { ExplorerItem, formatBytes } from '@sd/client';
 import GridList from '~/components/GridList';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
@@ -68,7 +68,8 @@ export default () => {
 			count={explorerView.items?.length || 100}
 			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
 			padding={12}
-			selected={explorerView.selectedItems}
+			selectable={!!explorerView.items}
+			selected={explorerView.selected}
 			onSelectedChange={explorerView.onSelectedChange}
 			overscan={explorerView.overscan}
 			onLoadMore={explorerView.onLoadMore}
@@ -91,10 +92,12 @@ export default () => {
 				const item = explorerView.items[index];
 				if (!item) return null;
 
-				const isSelected = !!explorerView.selectedItems?.has(item.item.id);
+				const isSelected = Array.isArray(explorerView.selected)
+					? explorerView.selected.includes(item.item.id)
+					: explorerView.selected === item.item.id;
 
 				return (
-					<Item selectable selected={isSelected} index={index} id={item.item.id}>
+					<Item selected={isSelected} id={item.item.id}>
 						<GridViewItem data={item} selected={isSelected} index={index} />
 					</Item>
 				);

@@ -1,18 +1,20 @@
 import { RefObject, createContext, useContext } from 'react';
 import { ExplorerItem } from '@sd/client';
 
-interface Context {
+export type ExplorerViewSelection = number | number[];
+
+export interface ExplorerViewContext<T = ExplorerViewSelection> {
 	items: ExplorerItem[] | null;
 	scrollRef: RefObject<HTMLDivElement>;
-	selectedItems: Set<number>;
-	onSelectedChange?(selectedItems: Set<number>): void;
+	selected?: T;
+	onSelectedChange?: (selected: T) => void;
 	overscan?: number;
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
 	top?: number;
 }
 
-export const ViewContext = createContext<Context | null>(null);
+export const ViewContext = createContext<ExplorerViewContext | null>(null);
 
 export const useExplorerViewContext = () => {
 	const ctx = useContext(ViewContext);

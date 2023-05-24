@@ -62,7 +62,7 @@ export default () => {
 			scrollRef={explorerView.scrollRef}
 			count={explorerView.items?.length || 100}
 			columns={explorerStore.mediaColumns}
-			selected={explorerView.selectedItems}
+			selected={explorerView.selected}
 			onSelectedChange={explorerView.onSelectedChange}
 			overscan={explorerView.overscan}
 			onLoadMore={explorerView.onLoadMore}
@@ -81,11 +81,13 @@ export default () => {
 				const item = explorerView.items[index];
 				if (!item) return null;
 
-				const selected = !!explorerView.selectedItems?.has(item.item.id);
+				const isSelected = Array.isArray(explorerView.selected)
+					? explorerView.selected.includes(item.item.id)
+					: explorerView.selected === item.item.id;
 
 				return (
-					<Item selectable selected={selected} index={index} id={item.item.id}>
-						<MediaViewItem data={item} index={index} selected={selected} />
+					<Item selectable selected={isSelected} index={index} id={item.item.id}>
+						<MediaViewItem data={item} index={index} selected={isSelected} />
 					</Item>
 				);
 			}}

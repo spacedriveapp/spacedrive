@@ -53,6 +53,7 @@ export default function Explorer(props: Props) {
 	});
 
 	const scrollRef = useRef<HTMLDivElement>(null);
+
 	const [selectedItems, setSelectedItems] = useState<number[]>([]);
 
 	const selectedItem = useMemo(
@@ -72,6 +73,12 @@ export default function Explorer(props: Props) {
 
 		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
 	});
+
+	const loadMore = () => {
+		if (props.hasNextPage && !props.isFetchingNextPage) {
+			props.onLoadMore?.();
+		}
+	};
 
 	return (
 		<>
@@ -94,10 +101,9 @@ export default function Explorer(props: Props) {
 								layout={layoutMode}
 								items={props.items}
 								scrollRef={scrollRef}
-								onLoadMore={props.onLoadMore}
-								hasNextPage={props.hasNextPage}
-								isFetchingNextPage={props.isFetchingNextPage}
-								selectedItems={selectedItems}
+								onLoadMore={loadMore}
+								rowsBeforeLoadMore={5}
+								selected={selectedItems}
 								onSelectedChange={setSelectedItems}
 							/>
 						) : (
@@ -112,7 +118,7 @@ export default function Explorer(props: Props) {
 
 			{expStore.showInspector && (
 				<Inspector
-					data={selectedItem || null}
+					data={selectedItem}
 					className="custom-scroll inspector-scroll absolute bottom-0 right-0 top-0 w-[260px] pb-4 pl-1.5 pr-1"
 					style={{ paddingTop: TOP_BAR_HEIGHT + 16 }}
 				/>
