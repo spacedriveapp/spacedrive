@@ -61,7 +61,7 @@ const getNiceData = (
 		}`,
 		icon: Eye,
 		subtext:
-			job.active_item ??
+			job.active_item ||
 			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(
 				job,
 				'file',
