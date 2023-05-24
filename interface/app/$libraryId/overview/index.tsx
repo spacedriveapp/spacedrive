@@ -1,8 +1,7 @@
-import { getIcon, iconNames } from '@sd/assets/util';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { z } from '@sd/ui/src/forms';
+import { Category } from '~/../packages/client/src';
 import { useExplorerTopBarOptions } from '~/hooks';
 import Explorer from '../Explorer';
 import { SEARCH_PARAMS } from '../Explorer/util';
@@ -11,8 +10,7 @@ import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
-import { useItems } from "./data"
-import { Category } from '~/../packages/client/src';
+import { useItems } from './data';
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -46,8 +44,7 @@ export const Component = () => {
 				isFetchingNextPage={query.isFetchingNextPage}
 				scrollRef={page?.ref}
 			>
-				<Statistics />
-				<Categories selected={selectedCategory} onSelectedChanged={setSelectedCategory}/>
+				<Categories selected={selectedCategory} onSelectedChanged={setSelectedCategory} />
 			</Explorer>
 		</>
 	);
