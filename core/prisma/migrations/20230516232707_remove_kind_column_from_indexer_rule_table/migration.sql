@@ -14,7 +14,6 @@ CREATE TABLE "new_indexer_rule" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO "new_indexer_rule" ("date_created", "date_modified", "default", "id", "name", "rules_per_kind") SELECT "date_created", "date_modified", "default", "id", "name", "parameters" FROM "indexer_rule";
 DROP TABLE "indexer_rule";
 ALTER TABLE "new_indexer_rule" RENAME TO "indexer_rule";
 PRAGMA foreign_key_check;
