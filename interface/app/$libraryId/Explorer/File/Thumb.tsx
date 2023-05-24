@@ -116,7 +116,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const platform = usePlatform();
 	const itemData = useExplorerItemData(props.data);
 	const { library } = useLibraryContext();
-	const [src, setSrc] = useState<string>('#');
+	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { locationId } = useExplorerStore();
@@ -125,7 +125,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	// thus avoiding improper thumb types changes
 	useLayoutEffect(() => {
 		// Reset src when item changes, to allow detection of yet not updated src
-		setSrc('#');
+		setSrc(null);
 		setLoaded(false);
 
 		if (props.loadOriginal) {
@@ -199,13 +199,14 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			)}
 		>
 			{(() => {
+				if (src == null) return null;
 				switch (thumbType) {
 					case ThumbType.Original:
 						switch (extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind) {
 							case 'PDF':
 								return (
 									<ExternalObject
-										src={src}
+										data={src}
 										type="application/pdf"
 										onLoad={onLoad}
 										onError={onError}

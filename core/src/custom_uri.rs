@@ -313,6 +313,7 @@ async fn handle_file(
 
 	let mut status_code = 200;
 	let buf = match range {
+		// NOTICE: macOS PDF renderer doesn't like range requests
 		Some(range) if (cfg!(not(target_os = "macos")) || mime_type != "application/pdf") => {
 			let file_size = content_lenght;
 			content_lenght = range.length;

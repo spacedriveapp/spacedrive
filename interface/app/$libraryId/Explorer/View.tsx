@@ -26,6 +26,7 @@ export const ViewItem = ({
 	contextMenuClassName,
 	...props
 }: ViewItemProps) => {
+	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
 
@@ -45,7 +46,12 @@ export const ViewItem = ({
 			});
 
 			getExplorerStore().selectedRowIndex = null;
-		} else if (openFilePath && filePath && explorerConfig.openOnDoubleClick) {
+		} else if (
+			openFilePath &&
+			filePath &&
+			explorerConfig.openOnDoubleClick &&
+			!explorerStore.isRenaming
+		) {
 			data.type === 'Path' &&
 				data.item.object_id &&
 				updateAccessTime.mutate(data.item.object_id);

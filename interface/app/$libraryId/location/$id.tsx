@@ -13,13 +13,13 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams
+	useZodRouteParams,
+	useKeyDeleteFile
 } from '~/hooks';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
