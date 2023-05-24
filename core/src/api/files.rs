@@ -6,7 +6,7 @@ use crate::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
-	prisma::{file_path, location, object, SortOrder},
+	prisma::{location, object},
 };
 
 use chrono::{FixedOffset, Utc};
@@ -16,10 +16,7 @@ use specta::Type;
 use std::path::Path;
 use tokio::fs;
 
-use super::{
-	locations::{file_path_with_object, ExplorerItem},
-	Ctx, R,
-};
+use super::{Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()

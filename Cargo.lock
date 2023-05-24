@@ -6483,7 +6483,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=799eec5df7533edf331f41d3f1be03de07e038d7#799eec5df7533edf331f41d3f1be03de07e038d7"
+source = "git+https://github.com/oscartbeaumont/rspc?branch=specta-v2#927e951fa7bae9d8ad87d2c084a508870f43e788"
 dependencies = [
  "futures",
  "futures-channel",
@@ -7529,8 +7529,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7230ab99f7b726fa49e350886816dbe5b5b151a5f4158470f92850246d5cae5e"
+source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "chrono",
  "document-features",
@@ -7551,8 +7550,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6252ed50d005e1dc2b77ed140f1c230299e0566492470eba40ba34e18cbcfa10"
+source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "Inflector",
  "itertools",
@@ -8170,9 +8168,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-specta"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23419889204476d5a70a04077d4628061a5bb667b18804a4572df2fe6ccb8ba5"
+version = "1.0.2"
+source = "git+https://github.com/oscartbeaumont/tauri-specta?branch=specta-v2#e381f3141d6e52b45caafb86c3f09ddcdba971b8"
 dependencies = [
  "heck 0.4.1",
  "indoc 2.0.1",
