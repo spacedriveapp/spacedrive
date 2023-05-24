@@ -229,7 +229,7 @@ impl KeyManager {
 		secret_key: Protected<String>,
 	) -> Result<()> {
 		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
-		let secret_key = secret_key_from_string(secret_key)?;
+		let secret_key = secret_key.try_into()?;
 
 		#[allow(clippy::as_conversions)]
 		let root_keys = self
@@ -288,7 +288,7 @@ impl KeyManager {
 		rk.write_to_db(&self.db).await?;
 		*self.key.lock().await = Some(root_key);
 
-		Ok(format_secret_key(&secret_key))
+		Ok(secret_key.to_string().into())
 	}
 
 	pub async fn update_key_name(&self, id: Uuid, name: String) -> Result<()> {
@@ -370,6 +370,12 @@ impl KeyManager {
 		Ok(uuid)
 	}
 
+	pub async fn list_mounted(&self) -> Result<Vec<Uuid>> {
+		self.ensure_unlocked().await?;
+
+		Ok(self.inner.iter().map(|x| *x.key()).collect())
+	}
+
 	pub async fn mount(&self, id: Uuid, password: Protected<String>) -> Result<()> {
 		self.ensure_unlocked().await?;
 		// handle the queue
@@ -422,12 +428,14 @@ impl KeyManager {
 			.await?)
 	}
 
-	pub async fn unmount(&self, id: Uuid) -> Result<()> {
-		self.ensure_unlocked().await?;
-
+	pub fn unmount(&self, id: Uuid) -> Result<()> {
 		self.inner
 			.remove(&id)
 			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
+	}
+
+	pub fn unmount_all(&self) {
+		self.inner.clear();
 	}
 
 	pub async fn lock(&self) -> Result<()> {
@@ -514,7 +522,7 @@ impl KeyManager {
 		let backup: OnDiskBackup = encoding::decode(&bytes)?;
 
 		let password: Protected<Vec<u8>> = password.into_inner().into_bytes().into();
-		let secret_key = secret_key_from_string(secret_key)?;
+		let secret_key = secret_key.try_into()?;
 
 		let backup_rk = backup
 			.root_keys
@@ -618,32 +626,4 @@ impl TryFrom<RootKey> for key::CreateUnchecked {
 	fn try_from(value: RootKey) -> std::result::Result<Self, Self::Error> {
 		(&value).try_into()
 	}
-}
-
-pub fn format_secret_key(sk: &SecretKey) -> Protected<String> {
-	let s = hex::encode(sk.expose()).to_uppercase();
-	let separator_distance = s.len() / 6;
-	s.chars()
-		.enumerate()
-		.map(|(i, c)| {
-			if (i + 1) % separator_distance == 0 && (i + 1) != s.len() {
-				c.to_string() + "-"
-			} else {
-				c.to_string()
-			}
-		})
-		.collect::<String>()
-		.into()
-}
-
-pub fn secret_key_from_string(sk: Protected<String>) -> Result<SecretKey> {
-	let mut s = sk.into_inner().to_lowercase();
-	s.retain(|c| c.is_ascii_hexdigit());
-
-	// shouldn't fail as `SecretKey::try_from` is (essentially) infallible
-	hex::decode(s)
-		.ok()
-		.map_or(Protected::new(vec![]), Protected::new)
-		.try_into()
-		.map_err(|_| CryptoError::Conversion)
 }

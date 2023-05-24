@@ -25,6 +25,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"serde",
 	"bincode",
 	"async",
+	"specta",
 ] }
 
 sd-file-ext = { path = "../crates/file-ext" }
