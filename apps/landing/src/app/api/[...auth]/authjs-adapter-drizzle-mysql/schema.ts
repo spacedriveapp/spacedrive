@@ -1,26 +1,10 @@
 import { ProviderType } from '@auth/core/providers';
-import { connect } from '@planetscale/database';
-import { int, mysqlTable, primaryKey, serial, timestamp, varchar } from 'drizzle-orm/mysql-core';
-import { drizzle } from 'drizzle-orm/planetscale-serverless';
-import { env } from '~/env';
+import { drizzle } from 'drizzle-orm/mysql2';
+import { int, mysqlTable, primaryKey, text, timestamp } from 'drizzle-orm/mysql-core';
 
-export { eq, and, or, type InferModel } from 'drizzle-orm';
+// import mysql from "mysql2/promise";
 
-const dbConnection = connect({
-	url: env.DATABASE_URL
-});
-
-export const db = drizzle(dbConnection);
-
-// AuthJS Schema
-
-// Planetscale moment
-const text = (name: string) =>
-	varchar(name, {
-		length: 255
-	});
-
-export const usersTable = mysqlTable('users', {
+export const users = mysqlTable('users', {
 	id: text('id').notNull().primaryKey(),
 	name: text('name'),
 	email: text('email').notNull(),
@@ -28,11 +12,12 @@ export const usersTable = mysqlTable('users', {
 	image: text('image')
 });
 
-export const accountsTable = mysqlTable(
+export const accounts = mysqlTable(
 	'accounts',
 	{
-		userId: text('userId').notNull(),
-		//   .references(() => users.id, { onDelete: "cascade" }),
+		userId: text('userId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
 		type: text('type').$type<ProviderType>().notNull(),
 		provider: text('provider').notNull(),
 		providerAccountId: text('providerAccountId').notNull(),
@@ -49,10 +34,11 @@ export const accountsTable = mysqlTable(
 	})
 );
 
-export const sessionsTable = mysqlTable('sessions', {
+export const sessions = mysqlTable('sessions', {
 	sessionToken: text('sessionToken').notNull().primaryKey(),
-	userId: text('userId').notNull(),
-	// .references(() => users.id, { onDelete: "cascade" }),
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
 	expires: timestamp('expires', { mode: 'date' }).notNull()
 });
 
@@ -68,15 +54,13 @@ export const verificationTokens = mysqlTable(
 	})
 );
 
-// Spacedrive Schema
+export const db = drizzle(undefined as any); // We just want the types
 
-export const waitlistTable = mysqlTable('waitlist', {
-	id: serial('id').primaryKey(),
-	cuid: varchar('cuid', {
-		length: 26
-	}).notNull(),
-	email: varchar('email', {
-		length: 255
-	}).notNull(),
-	created_at: timestamp('created_at').notNull()
-});
+export type DbClient = typeof db;
+
+export type Schema = {
+	users: typeof users;
+	accounts: typeof accounts;
+	sessions: typeof sessions;
+	verificationTokens: typeof verificationTokens;
+};
