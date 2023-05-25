@@ -11,6 +11,7 @@ export * from './useExplorerTopBarOptions';
 export * from './useFocusState';
 export * from './useInputState';
 export * from './useIsDark';
+export * from './useKeyDeleteFile';
 export * from './useKeyboardHandler';
 export * from './useOperatingSystem';
 export * from './useScrolled';

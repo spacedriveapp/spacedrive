@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Controller, get } from 'react-hook-form';
+import { useDebouncedCallback } from 'use-debounce';
 import {
 	UnionToTuple,
 	extractInfoRSPCError,
@@ -76,8 +77,11 @@ export const AddLocationDialog = ({
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
 		if (!form.formState.isDirty)
-			form.reset({ path, method, indexerRulesIds }, { keepErrors: true });
-	}, [form, path, method, indexerRulesIds]);
+			form.reset(
+				{ path, method: form.getValues().method, indexerRulesIds },
+				{ keepErrors: true }
+			);
+	}, [form, path, indexerRulesIds]);
 
 	const addLocation = useCallback(
 		async ({ path, method, indexerRulesIds }: SchemaType, dryRun = false) => {
@@ -144,7 +148,7 @@ export const AddLocationDialog = ({
 	);
 
 	useCallbackToWatchForm(
-		async (values, { name }) => {
+		useDebouncedCallback(async (values, { name }) => {
 			if (name === 'path') {
 				// Remote errors should only be cleared when path changes,
 				// as the previous error is used to notify the user of this change
@@ -161,11 +165,11 @@ export const AddLocationDialog = ({
 			} catch (error) {
 				handleAddError(error);
 			}
-		},
+		}, 200),
 		[form, method, addLocation, handleAddError]
 	);
 
-	const onSubmit: Parameters<typeof form.handleSubmit>[0] = async (values) => {
+	const onSubmit = form.handleSubmit(async (values) => {
 		try {
 			await addLocation(values);
 		} catch (error) {
@@ -185,7 +189,7 @@ export const AddLocationDialog = ({
 		}
 
 		await listLocations.refetch();
-	};
+	});
 
 	return (
 		<Dialog

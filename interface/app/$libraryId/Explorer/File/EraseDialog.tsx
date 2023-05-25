@@ -27,13 +27,13 @@ export default (props: Props) => {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={(data) =>
+			onSubmit={form.handleSubmit((data) =>
 				eraseFile.mutateAsync({
 					location_id: props.location_id,
 					path_id: props.path_id,
 					passes: data.passes.toString()
 				})
-			}
+			)}
 			dialog={useDialog(props)}
 			title="Erase a file"
 			description="Configure your erasure settings."

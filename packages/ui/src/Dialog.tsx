@@ -2,7 +2,7 @@ import * as RDialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
-import { FieldValues, SubmitHandler } from 'react-hook-form';
+import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
@@ -114,7 +114,7 @@ export interface DialogProps<S extends FieldValues>
 	loading?: boolean;
 	trigger?: ReactNode;
 	ctaLabel?: string;
-	onSubmit?: SubmitHandler<S>;
+	onSubmit?: ReturnType<UseFormHandleSubmit<S>>;
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
@@ -165,11 +165,11 @@ export function Dialog<S extends FieldValues>({
 						>
 							<Form
 								form={form}
-								onSubmit={form.handleSubmit(async (...args) => {
-									await onSubmit?.(...args);
+								onSubmit={async (e) => {
+									await onSubmit?.(e);
 									dialog.onSubmit?.();
 									setOpen(false);
-								})}
+								}}
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>
 								<div className="p-5">

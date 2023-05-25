@@ -57,10 +57,10 @@ export default ({ options }: TopBarChildrenProps) => {
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-									? 'left'
-									: index === group.length - 1
-										? 'right'
-										: 'none';
+								? 'left'
+								: index === group.length - 1
+								? 'right'
+								: 'none';
 							return (
 								<div
 									data-tauri-drag-region
