@@ -17,10 +17,12 @@ export default (props: Props) => {
 		}
 	});
 
+	const form = useZodForm();
+
 	return (
 		<Dialog
-			form={useZodForm()}
-			onSubmit={() => deleteLocation.mutateAsync(props.locationId)}
+			form={form}
+			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
 			dialog={useDialog(props)}
 			title="Delete Location"
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
