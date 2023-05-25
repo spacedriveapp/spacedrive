@@ -1,0 +1,1829 @@
+--- libmp3lame/fft.c.orig	2017-09-07 04:33:36.000000000 +0900
++++ libmp3lame/fft.c	2017-10-14 12:03:44.000000000 +0900
+@@ -331,7 +331,7 @@ init_fft(lame_internal_flags * const gfc
+     }
+ #else
+ #ifdef HAVE_XMMINTRIN_H
+-#ifdef MIN_ARCH_SSE
++#if defined(MIN_ARCH_SSE) || defined(__x86_64__)
+     gfc->fft_fht = fht_SSE2;
+ #endif
+ #endif
+--- libmp3lame/gain_analysis.c.orig	2017-10-11 04:08:39.000000000 +0900
++++ libmp3lame/gain_analysis.c	2017-10-14 12:06:19.000000000 +0900
+@@ -95,6 +95,9 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ #include "lame.h"
+ #include "machine.h"
+@@ -109,6 +112,67 @@
+ 
+ 
+ /*lint -save -e736 loss of precision */
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++static const Float_t ABYule[9][2 * YULE_ORDER + 1 + 3] __attribute__ ((aligned (16))) = {
++    {0.03857599435200, -3.84664617118067, -0.02160367184185, 7.81501653005538, -0.00123395316851,
++     -11.34170355132042, -0.00009291677959, 13.05504219327545, -0.01655260341619,
++     -12.28759895145294, 0.02161526843274, 9.48293806319790, -0.02074045215285, -5.87257861775999,
++     0.00594298065125, 2.75465861874613, 0.00306428023191, -0.86984376593551, 0.00012025322027,
++     0.13919314567432, 0.00288463683916, 0.0, 0.0, 0.0},
++    {0.05418656406430, -3.47845948550071, -0.02911007808948, 6.36317777566148, -0.00848709379851,
++     -8.54751527471874, -0.00851165645469, 9.47693607801280, -0.00834990904936, -8.81498681370155,
++     0.02245293253339, 6.85401540936998, -0.02596338512915, -4.39470996079559, 0.01624864962975,
++     2.19611684890774, -0.00240879051584, -0.75104302451432, 0.00674613682247, 0.13149317958808,
++     -0.00187763777362, 0.0, 0.0, 0.0},
++    {0.15457299681924, -2.37898834973084, -0.09331049056315, 2.84868151156327, -0.06247880153653,
++     -2.64577170229825, 0.02163541888798, 2.23697657451713, -0.05588393329856, -1.67148153367602,
++     0.04781476674921, 1.00595954808547, 0.00222312597743, -0.45953458054983, 0.03174092540049,
++     0.16378164858596, -0.01390589421898, -0.05032077717131, 0.00651420667831, 0.02347897407020,
++     -0.00881362733839, 0.0, 0.0, 0.0},
++    {0.30296907319327, -1.61273165137247, -0.22613988682123, 1.07977492259970, -0.08587323730772,
++     -0.25656257754070, 0.03282930172664, -0.16276719120440, -0.00915702933434, -0.22638893773906,
++     -0.02364141202522, 0.39120800788284, -0.00584456039913, -0.22138138954925, 0.06276101321749,
++     0.04500235387352, -0.00000828086748, 0.02005851806501, 0.00205861885564, 0.00302439095741,
++     -0.02950134983287, 0.0, 0.0, 0.0},
++    {0.33642304856132, -1.49858979367799, -0.25572241425570, 0.87350271418188, -0.11828570177555,
++     0.12205022308084, 0.11921148675203, -0.80774944671438, -0.07834489609479, 0.47854794562326,
++     -0.00469977914380, -0.12453458140019, -0.00589500224440, -0.04067510197014, 0.05724228140351,
++     0.08333755284107, 0.00832043980773, -0.04237348025746, -0.01635381384540, 0.02977207319925,
++     -0.01760176568150, 0.0, 0.0, 0.0},
++    {0.44915256608450, -0.62820619233671, -0.14351757464547, 0.29661783706366, -0.22784394429749,
++     -0.37256372942400, -0.01419140100551, 0.00213767857124, 0.04078262797139, -0.42029820170918,
++     -0.12398163381748, 0.22199650564824, 0.04097565135648, 0.00613424350682, 0.10478503600251,
++     0.06747620744683, -0.01863887810927, 0.05784820375801, -0.03193428438915, 0.03222754072173,
++     0.00541907748707, 0.0, 0.0, 0.0},
++    {0.56619470757641, -1.04800335126349, -0.75464456939302, 0.29156311971249, 0.16242137742230,
++     -0.26806001042947, 0.16744243493672, 0.00819999645858, -0.18901604199609, 0.45054734505008,
++     0.30931782841830, -0.33032403314006, -0.27562961986224, 0.06739368333110, 0.00647310677246,
++     -0.04784254229033, 0.08647503780351, 0.01639907836189, -0.03788984554840, 0.01807364323573,
++     -0.00588215443421, 0.0, 0.0, 0.0},
++    {0.58100494960553, -0.51035327095184, -0.53174909058578, -0.31863563325245, -0.14289799034253,
++     -0.20256413484477, 0.17520704835522, 0.14728154134330, 0.02377945217615, 0.38952639978999,
++     0.15558449135573, -0.23313271880868, -0.25344790059353, -0.05246019024463, 0.01628462406333,
++     -0.02505961724053, 0.06920467763959, 0.02442357316099, -0.03721611395801, 0.01818801111503,
++     -0.00749618797172, 0.0, 0.0, 0.0},
++    {0.53648789255105, -0.25049871956020, -0.42163034350696, -0.43193942311114, -0.00275953611929,
++     -0.03424681017675, 0.04267842219415, -0.04678328784242, -0.10214864179676, 0.26408300200955,
++     0.14590772289388, 0.15113130533216, -0.02459864859345, -0.17556493366449, -0.11202315195388,
++     -0.18823009262115, -0.04060034127000, 0.05477720428674, 0.04788665548180, 0.04704409688120,
++     -0.02217936801134, 0.0, 0.0, 0.0}
++};
++
++static const Float_t ABButter[9][2 * BUTTER_ORDER + 1 + 3] __attribute__ ((aligned (16))) = {
++    {0.98621192462708, -1.97223372919527, -1.97242384925416, 0.97261396931306, 0.98621192462708, 0.0, 0.0, 0.0},
++    {0.98500175787242, -1.96977855582618, -1.97000351574484, 0.97022847566350, 0.98500175787242, 0.0, 0.0, 0.0},
++    {0.97938932735214, -1.95835380975398, -1.95877865470428, 0.95920349965459, 0.97938932735214, 0.0, 0.0, 0.0},
++    {0.97531843204928, -1.95002759149878, -1.95063686409857, 0.95124613669835, 0.97531843204928, 0.0, 0.0, 0.0},
++    {0.97316523498161, -1.94561023566527, -1.94633046996323, 0.94705070426118, 0.97316523498161, 0.0, 0.0, 0.0},
++    {0.96454515552826, -1.92783286977036, -1.92909031105652, 0.93034775234268, 0.96454515552826, 0.0, 0.0, 0.0},
++    {0.96009142950541, -1.91858953033784, -1.92018285901082, 0.92177618768381, 0.96009142950541, 0.0, 0.0, 0.0},
++    {0.95856916599601, -1.91542108074780, -1.91713833199203, 0.91885558323625, 0.95856916599601, 0.0, 0.0, 0.0},
++    {0.94597685600279, -1.88903307939452, -1.89195371200558, 0.89487434461664, 0.94597685600279, 0.0, 0.0, 0.0}
++};
++#else
+ static const Float_t ABYule[9][multiple_of(4, 2 * YULE_ORDER + 1)] = {
+     /* 20                 18                 16                 14                 12                 10                 8                  6                  4                  2                 0                 19                 17                 15                 13                 11                 9                  7                  5                  3                  1              */
+     { 0.00288463683916,  0.00012025322027,  0.00306428023191,  0.00594298065125, -0.02074045215285,  0.02161526843274, -0.01655260341619, -0.00009291677959, -0.00123395316851, -0.02160367184185, 0.03857599435200, 0.13919314567432, -0.86984376593551,  2.75465861874613, -5.87257861775999,  9.48293806319790,-12.28759895145294, 13.05504219327545,-11.34170355132042,  7.81501653005538, -3.84664617118067},
+@@ -133,7 +197,8 @@ static const Float_t ABButter[9][multipl
+     {0.96009142950541, 0.92177618768381, -1.92018285901082, -1.91858953033784, 0.96009142950541},
+     {0.95856916599601, 0.91885558323625, -1.91713833199203, -1.91542108074780, 0.95856916599601},
+     {0.94597685600279, 0.89487434461664, -1.89195371200558, -1.88903307939452, 0.94597685600279}
+-};
++		};
++#endif
+ 
+ /*lint -restore */
+ 
+@@ -143,6 +208,128 @@ static const Float_t ABButter[9][multipl
+ 
+ /* When calling this procedure, make sure that ip[-order] and op[-order] point to real data! */
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++static void
++filterYule(const Float_t * input, Float_t * output, size_t nSamples, const Float_t * const kernel)
++{
++    __m128 v1, v2, v3, v4, v5, v6, v7, v8;
++    __asm__ __volatile__ (
++        "movups		-12(%8), %0		\n\t"
++        "movups		-28(%8), %1		\n\t"
++        "movlps		-36(%8), %2		\n\t"
++        "movups		-16(%9), %3		\n\t"
++        "movups		-32(%9), %4		\n\t"
++        "movlps		-40(%9), %5		\n\t"
++        "movaps		%0, %6			\n\t"
++        "movaps		%1, %7			\n\t"
++        "unpckhps	%3, %0			\n\t"
++        "unpckhps	%4, %1			\n\t"
++        "shufps		$0x4e, %0, %0	\n\t"
++        "shufps		$0x4e, %1, %1	\n\t"
++        "unpcklps	%3, %6			\n\t"
++        "unpcklps	%4, %7			\n\t"
++        "shufps		$0x4e, %6, %6	\n\t"
++        "shufps		$0x4e, %7, %7	\n\t"
++        "unpcklps	%5, %2			\n\t"
++        "shufps		$0x4e, %2, %2	\n\t"
++        "movss		-40(%8), %3		\n\t"
++        "jmp		2f				\n\t"
++        "1:							\n\t"
++        "movhlps	%2, %3			\n\t"
++        "movaps		%7, %5			\n\t"
++        "shufps		$0x4e, %2, %5	\n\t"
++        "movaps		%5, %2			\n\t"
++        "movaps		%1, %5			\n\t"
++        "shufps		$0x4e, %7, %5	\n\t"
++        "movaps		%5, %7			\n\t"
++        "movaps		%6, %5			\n\t"
++        "shufps		$0x4e, %1, %5	\n\t"
++        "movaps		%5, %1			\n\t"
++        "movaps		%0, %5			\n\t"
++        "shufps		$0x4e, %6, %5	\n\t"
++        "movaps		%5, %6			\n\t"
++        "movss		(%8), %5		\n\t"
++        "shufps		$0x00, %5, %4	\n\t"
++        "shufps		$0x42, %0, %4	\n\t"
++        "movaps		%4, %0			\n\t"
++        "2:							\n\t"
++        "movaps		%0, %4			\n\t"
++        "movaps		%6, %5			\n\t"
++        "mulps		(%11), %4		\n\t"
++        "mulps		16(%11), %5		\n\t"
++        "addps		%5, %4			\n\t"
++        "movaps		%1, %5			\n\t"
++        "mulps		32(%11), %5		\n\t"
++        "addps		%5, %4			\n\t"
++        "movaps		%7, %5			\n\t"
++        "mulps		48(%11), %5		\n\t"
++        "addps		%5, %4			\n\t"
++        "movaps		%2, %5			\n\t"
++        "mulps		64(%11), %5		\n\t"
++        "addps		%5, %4			\n\t"
++        "mulps		80(%11), %3		\n\t"
++        "addps		%3, %4			\n\t"
++        "movhlps	%4, %5			\n\t"
++        "addps		%5, %4			\n\t"
++#if defined(__SSE3__)
++        "hsubps		%4, %4			\n\t"
++#else
++        "movaps		%4, %5			\n\t"
++        "shufps		$0x01, %5, %5	\n\t"
++        "subps		%5, %4			\n\t"
++#endif
++        "movss		%4, (%9)		\n\t"
++        "add		$4, %8			\n\t"
++        "add		$4, %9			\n\t"
++        "dec		%10				\n\t"
++        "jnz		1b				\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6), "=x" (v7), "=x" (v8),
++          "+r" (input), "+r" (output), "+r" (nSamples)
++        : "r" (kernel)
++    );
++}
++
++static void
++filterButter(const Float_t * input, Float_t * output, size_t nSamples, const Float_t * const kernel)
++{
++    __m128 v1, v2, v3, v4, v5;
++    __asm__ __volatile__ (
++        "movlps		-4(%5), %0		\n\t"
++        "movlps		-8(%6), %2		\n\t"
++        "unpcklps	%2, %0			\n\t"
++        "shufps		$0x4e, %0, %0	\n\t"
++        "movss		-8(%5), %4		\n\t"
++        "movaps		%0, %1			\n\t"
++        "jmp		2f				\n\t"
++        "1:							\n\t"
++        "movhlps	%0, %4			\n\t"
++        "movss		(%5), %2		\n\t"
++        "shufps		$0x00, %2, %1	\n\t"
++        "shufps		$0x42, %0, %1	\n\t"
++        "movaps		%1, %0			\n\t"
++        "2:							\n\t"
++        "mulps		(%8), %1		\n\t"
++        "mulps		16(%8), %4		\n\t"
++        "addps		%4, %1			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "addps		%2, %1			\n\t"
++#if defined(__SSE3__)
++        "hsubps		%1, %1			\n\t"
++#else
++        "movaps		%1, %2			\n\t"
++        "shufps		$0x01, %2, %2	\n\t"
++        "subps		%2, %1			\n\t"
++#endif
++        "movss		%1, (%6)		\n\t"
++        "add		$4, %5			\n\t"
++        "add		$4, %6			\n\t"
++        "dec		%7				\n\t"
++        "jnz		1b				\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "+r" (input), "+r" (output), "+r" (nSamples)
++        : "r" (kernel)
++    );
++}
++#else
+ static void
+ filterYule(const Float_t * input, Float_t * output, size_t nSamples, const Float_t * const kernel)
+ {
+@@ -188,6 +375,7 @@ filterButter(const Float_t * input, Floa
+         ++input;
+     }
+ }
++#endif
+ 
+ 
+ 
+--- libmp3lame/l3side.h.orig	2012-02-07 22:36:35.000000000 +0900
++++ libmp3lame/l3side.h	2017-10-14 12:03:44.000000000 +0900
+@@ -46,7 +46,7 @@ typedef struct {
+ 
+ typedef struct {
+     FLOAT   xr[576];
+-    int     l3_enc[576];
++    int     l3_enc[576] __attribute__ ((aligned (16)));
+     int     scalefac[SFBMAX];
+     FLOAT   xrpow_max;
+ 
+@@ -84,7 +84,7 @@ typedef struct {
+ } gr_info;
+ 
+ typedef struct {
+-    gr_info tt[2][2];
++    gr_info tt[2][2] __attribute__ ((aligned (16)));
+     int     main_data_begin;
+     int     private_bits;
+     int     resvDrain_pre;
+--- libmp3lame/lame.c.orig	2017-10-11 04:08:39.000000000 +0900
++++ libmp3lame/lame.c	2017-10-14 12:03:44.000000000 +0900
+@@ -2364,7 +2364,7 @@ lame_init_internal_flags(lame_internal_f
+     gfc->ov_rpg.noclipGainChange = 0;
+     gfc->ov_rpg.noclipScale = -1.0;
+ 
+-    gfc->ATH = lame_calloc(ATH_t, 1);
++    gfc->ATH = calloc_aligned16(1, sizeof(ATH_t));
+     if (NULL == gfc->ATH)
+         return -2;      /* maybe error codes should be enumerated in lame.h ?? */
+ 
+@@ -2455,7 +2455,7 @@ lame_init_old(lame_global_flags * gfp)
+     gfp->report.errorf = &lame_report_def;
+     gfp->report.msgf = &lame_report_def;
+ 
+-    gfp->internal_flags = lame_calloc(lame_internal_flags, 1);
++    gfp->internal_flags = calloc_aligned16(1, sizeof(lame_internal_flags));
+ 
+     if (lame_init_internal_flags(gfp->internal_flags) < 0) {
+         freegfc(gfp->internal_flags);
+--- libmp3lame/newmdct.c.orig	2011-05-08 01:05:17.000000000 +0900
++++ libmp3lame/newmdct.c	2017-10-14 12:03:44.000000000 +0900
+@@ -36,10 +36,13 @@
+ #include "util.h"
+ #include "newmdct.h"
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ 
+ #ifndef USE_GOGO_SUBBAND
+-static const FLOAT enwindow[] = {
++static const FLOAT enwindow[] __attribute__ ((aligned (16))) = {
+     -4.77e-07 * 0.740951125354959 / 2.384e-06, 1.03951e-04 * 0.740951125354959 / 2.384e-06,
+     9.53674e-04 * 0.740951125354959 / 2.384e-06, 2.841473e-03 * 0.740951125354959 / 2.384e-06,
+     3.5758972e-02 * 0.740951125354959 / 2.384e-06, 3.401756e-03 * 0.740951125354959 / 2.384e-06, 9.83715e-04 * 0.740951125354959 / 2.384e-06, 9.9182e-05 * 0.740951125354959 / 2.384e-06, /* 15 */
+@@ -435,6 +438,241 @@ window_subband(const sample_t * x1, FLOA
+ 
+     const sample_t *x2 = &x1[238 - 14 - 286];
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3, v4, v5, v6, v7, v8;
++    i=4;
++    __asm__ __volatile__ (
++        "1:							\n\t"
++        "movaps		-40(%12), %0	\n\t"
++        "movups		32(%12), %1		\n\t"
++        "movaps		104(%12), %2	\n\t"
++        "movups		176(%12), %3	\n\t"
++        "movaps		%0, %4			\n\t"
++        "movaps		%2, %5			\n\t"
++        "unpcklps	%1, %0			\n\t"
++        "unpcklps	%3, %2			\n\t"
++        "unpckhps	%1, %4			\n\t"
++        "unpckhps	%3, %5			\n\t"
++        "movaps		%0, %1			\n\t"
++        "movlhps	%2, %0			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "movaps		%4, %1			\n\t"
++        "movlhps	%5, %1			\n\t"
++        "movhlps	%4, %5			\n\t"
++        "movaps		%5, %3			\n\t"
++        "movups		884(%9), %6		\n\t"
++        "movups		-896(%10), %7	\n\t"
++        "shufps		$0x1b, %6, %6	\n\t"
++        "mulps		%0, %6			\n\t"
++        "mulps		%0, %7			\n\t"
++        "movups		628(%9), %4		\n\t"
++        "movups		-640(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%2, %4			\n\t"
++        "mulps		%2, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        "movups		372(%9), %4		\n\t"
++        "movups		-384(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%1, %4			\n\t"
++        "mulps		%1, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        "movups		116(%9), %4		\n\t"
++        "movups		-128(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%3, %4			\n\t"
++        "mulps		%3, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        
++        "movaps		-24(%12), %0	\n\t"
++        "movups		48(%12), %1		\n\t"
++        "movaps		120(%12), %2	\n\t"
++        "movups		192(%12), %3	\n\t"
++        "movaps		%0, %4			\n\t"
++        "movaps		%2, %5			\n\t"
++        "unpcklps	%1, %0			\n\t"
++        "unpcklps	%3, %2			\n\t"
++        "unpckhps	%1, %4			\n\t"
++        "unpckhps	%3, %5			\n\t"
++        "movaps		%0, %1			\n\t"
++        "movlhps	%2, %0			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "movaps		%4, %1			\n\t"
++        "movlhps	%5, %1			\n\t"
++        "movhlps	%4, %5			\n\t"
++        "movaps		%5, %3			\n\t"
++        "movups		-140(%9), %4	\n\t"
++        "movups		128(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%0, %4			\n\t"
++        "mulps		%0, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        "movups		-396(%9), %4	\n\t"
++        "movups		384(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%2, %4			\n\t"
++        "mulps		%2, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        "movups		-652(%9), %4	\n\t"
++        "movups		640(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%1, %4			\n\t"
++        "mulps		%1, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        "movups		-908(%9), %4	\n\t"
++        "movups		896(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%3, %4			\n\t"
++        "mulps		%3, %5			\n\t"
++        "addps		%4, %6			\n\t"
++        "addps		%5, %7			\n\t"
++        
++        "movaps		-8(%12), %0		\n\t"
++        "movups		64(%12), %1		\n\t"
++        "movaps		136(%12), %2	\n\t"
++        "movups		208(%12), %3	\n\t"
++        "movaps		%0, %4			\n\t"
++        "movaps		%2, %5			\n\t"
++        "unpcklps	%1, %0			\n\t"
++        "unpcklps	%3, %2			\n\t"
++        "unpckhps	%1, %4			\n\t"
++        "unpckhps	%3, %5			\n\t"
++        "movaps		%0, %1			\n\t"
++        "movlhps	%2, %0			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "movaps		%4, %1			\n\t"
++        "movlhps	%5, %1			\n\t"
++        "movhlps	%4, %5			\n\t"
++        "movaps		%5, %3			\n\t"
++        "movups		-1036(%9), %4	\n\t"
++        "movups		1024(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%0, %4			\n\t"
++        "mulps		%0, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		-780(%9), %4	\n\t"
++        "movups		768(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%2, %4			\n\t"
++        "mulps		%2, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		-524(%9), %4	\n\t"
++        "movups		512(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%1, %4			\n\t"
++        "mulps		%1, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		-268(%9), %4	\n\t"
++        "movups		256(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%3, %4			\n\t"
++        "mulps		%3, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        
++        "movaps		8(%12), %0		\n\t"
++        "movups		80(%12), %1		\n\t"
++        "movaps		152(%12), %2	\n\t"
++        "movups		224(%12), %3	\n\t"
++        "movaps		%0, %4			\n\t"
++        "movaps		%2, %5			\n\t"
++        "unpcklps	%1, %0			\n\t"
++        "unpcklps	%3, %2			\n\t"
++        "unpckhps	%1, %4			\n\t"
++        "unpckhps	%3, %5			\n\t"
++        "movaps		%0, %1			\n\t"
++        "movlhps	%2, %0			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "movaps		%4, %1			\n\t"
++        "movlhps	%5, %1			\n\t"
++        "movhlps	%4, %5			\n\t"
++        "movaps		%5, %3			\n\t"
++        "movups		-12(%9), %4		\n\t"
++        "movups		(%10), %5		\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%0, %4			\n\t"
++        "mulps		%0, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		244(%9), %4		\n\t"
++        "movups		-256(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%2, %4			\n\t"
++        "mulps		%2, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		500(%9), %4		\n\t"
++        "movups		-512(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%1, %4			\n\t"
++        "mulps		%1, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        "movups		756(%9), %4		\n\t"
++        "movups		-768(%10), %5	\n\t"
++        "shufps		$0x1b, %4, %4	\n\t"
++        "mulps		%3, %4			\n\t"
++        "mulps		%3, %5			\n\t"
++        "addps		%4, %7			\n\t"
++        "subps		%5, %6			\n\t"
++        
++        "movlps		24(%12), %0		\n\t"
++        "movlps		96(%12), %1		\n\t"
++        "movlps		168(%12), %2	\n\t"
++        "movlps		240(%12), %3	\n\t"
++        "unpcklps	%1, %0			\n\t"
++        "unpcklps	%3, %2			\n\t"
++        "movaps		%0, %1			\n\t"
++        "movlhps	%2, %0			\n\t"
++        "movhlps	%1, %2			\n\t"
++        "mulps		%0, %7			\n\t"
++        "movaps		%6, %4			\n\t"
++        "subps		%7, %4			\n\t"
++        "addps		%7, %6			\n\t"
++        "mulps		%2, %4			\n\t"
++        "movaps		%6, %5			\n\t"
++        "unpcklps	%4, %6			\n\t"
++        "unpckhps	%4, %5			\n\t"
++        "movups		%6, (%11)		\n\t"
++        "movups		%5, 16(%11)		\n\t"
++                
++#if defined(__x86_64__)
++        "subq		$16, %9			\n\t"
++        "addq		$16, %10		\n\t"
++        "addq		$288, %12		\n\t"
++        "addq		$32, %11		\n\t"
++        "decl		%8				\n\t"
++        "jnz		1b				\n\t"
++        "addq		$4, %9			\n\t"
++        "subq		$4, %10			\n\t"
++        "subq		$128, %11		\n\t"
++#else
++        "subl		$16, %9			\n\t"
++        "addl		$16, %10		\n\t"
++        "addl		$288, %12		\n\t"
++        "addl		$32, %11		\n\t"
++        "decl		%8				\n\t"
++        "jnz		1b				\n\t"
++        "addl		$4, %9			\n\t"
++        "subl		$4, %10			\n\t"
++        "subl		$128, %11		\n\t"
++#endif
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6), "=x" (v7), "=x" (v8),
++          "+r" (i), "+r" (x1), "+r" (x2), "+r" (a)
++        : "r" (wp)
++        : "memory"
++    );
++    wp = enwindow + 280;
++#else
+     for (i = -15; i < 0; i++) {
+         FLOAT   w, s, t;
+ 
+@@ -501,6 +739,7 @@ window_subband(const sample_t * x1, FLOA
+         x1--;
+         x2++;
+     }
++#endif
+     {
+         FLOAT   s, t, u, v;
+         t = x1[-16] * wp[-10];
+--- libmp3lame/psymodel.c.orig	2017-09-07 04:38:23.000000000 +0900
++++ libmp3lame/psymodel.c	2017-10-14 12:03:44.000000000 +0900
+@@ -155,6 +155,9 @@ blocktype_d[2]        block type to use 
+ #include "fft.h"
+ #include "lame-analysis.h"
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ #define NSFIRLEN 21
+ 
+@@ -218,10 +221,58 @@ psycho_loudness_approx(FLOAT const *ener
+     int     i;
+     FLOAT   loudness_power;
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3, v4, v5, v6, v7, v8;
++    i = 32;
++    __asm__ __volatile__ (
++        "xorps		%0, %0				\n\t"
++        "xorps		%1, %1				\n\t"
++        "xorps		%2, %2				\n\t"
++        "xorps		%3, %3				\n\t"
++        "1:								\n\t"
++        "movaps		(%9), %4			\n\t"
++        "movaps		16(%9), %5			\n\t"
++        "movaps		32(%9), %6			\n\t"
++        "movaps		48(%9), %7			\n\t"
++        "mulps		(%10), %4			\n\t"
++        "mulps		16(%10), %5			\n\t"
++        "mulps		32(%10), %6			\n\t"
++        "mulps		48(%10), %7			\n\t"
++        "addps		%4, %0				\n\t"
++        "addps		%5, %1				\n\t"
++        "addps		%6, %2				\n\t"
++        "addps		%7, %3				\n\t"
++#if defined(__x86_64__)
++        "addq		$64, %9				\n\t"
++        "addq		$64, %10			\n\t"
++#else
++        "addl		$64, %9				\n\t"
++        "addl		$64, %10			\n\t"
++#endif
++        "decl		%8					\n\t"
++        "jnz		1b					\n\t"
++        "addps		%1, %0				\n\t"
++        "addps		%3, %2				\n\t"
++        "addps		%2, %0				\n\t"
++        "movhlps	%0, %1				\n\t"
++        "addps		%1, %0				\n\t"
++#if defined(__SSE3__)
++        "haddps		%0, %0				\n\t"
++#else
++        "movaps		%0, %1				\n\t"
++        "shufps		$0x01, %1, %1		\n\t"
++        "addps		%1, %0				\n\t"
++#endif
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6), "=x" (v7), "=x" (v8),
++          "+r" (i), "+r" (eql_w), "+r" (energy)
++    );
++    _mm_store_ss(&loudness_power, v1);
++#else
+     loudness_power = 0.0;
+     /* apply weights to power in freq. bands */
+     for (i = 0; i < BLKSIZE / 2; ++i)
+         loudness_power += energy[i] * eql_w[i];
++#endif
+     loudness_power *= VO_SCALE;
+ 
+     return loudness_power;
+@@ -666,6 +717,9 @@ static void
+ vbrpsy_compute_fft_l(lame_internal_flags * gfc, const sample_t * const buffer[2], int chn,
+                      int gr_out, FLOAT fftenergy[HBLKSIZE], FLOAT(*wsamp_l)[BLKSIZE])
+ {
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3, v4, v5, v6, v7;
++#endif
+     SessionConfig_t const *const cfg = &gfc->cfg;
+     PsyStateVar_t *psv = &gfc->sv_psy;
+     plotting_data *plt = cfg->analysis ? gfc->pinfo : 0;
+@@ -676,6 +730,47 @@ vbrpsy_compute_fft_l(lame_internal_flags
+     }
+     else if (chn == 2) {
+         FLOAT const sqrt2_half = SQRT2 * 0.5f;
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++        FLOAT *wsamp_lp1 = *wsamp_l;
++        FLOAT *wsamp_lp2 = *wsamp_l+1024;
++        j = 128;
++        __asm__ __volatile__ (
++            "movss		(%10), %6			\n\t"
++            "shufps		$0x00, %6, %6		\n\t"
++            "1:								\n\t"
++            "movaps		(%8), %0			\n\t"
++            "movaps		16(%8), %1			\n\t"
++            "movaps		(%9), %2			\n\t"
++            "movaps		16(%9), %3			\n\t"
++            "movaps		%0, %4				\n\t"
++            "movaps		%1, %5				\n\t"
++            "addps		%2, %0				\n\t"
++            "addps		%3, %1				\n\t"
++            "subps		%2, %4				\n\t"
++            "subps		%3, %5				\n\t"
++            "mulps		%6, %0				\n\t"
++            "mulps		%6, %1				\n\t"
++            "mulps		%6, %4				\n\t"
++            "mulps		%6, %5				\n\t"
++            "movaps		%0, (%8)			\n\t"
++            "movaps		%1, 16(%8)			\n\t"
++            "movaps		%4, 0(%9)			\n\t"
++            "movaps		%5, 16(%9)			\n\t"
++#if defined(__x86_64__)
++            "addq		$32, %8				\n\t"
++            "addq		$32, %9				\n\t"
++#else
++            "addl		$32, %8				\n\t"
++            "addl		$32, %9				\n\t"
++#endif
++            "decl		%7					\n\t"
++            "jnz		1b					\n\t"
++            : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6), "=x" (v7),
++              "+r" (j), "+r" (wsamp_lp1), "+r" (wsamp_lp2)
++            : "r" (&sqrt2_half)
++            : "memory"
++        );
++#else
+         /* FFT data for mid and side channel is derived from L & R */
+         for (j = BLKSIZE - 1; j >= 0; --j) {
+             FLOAT const l = wsamp_l[0][j];
+@@ -683,6 +778,7 @@ vbrpsy_compute_fft_l(lame_internal_flags
+             wsamp_l[0][j] = (l + r) * sqrt2_half;
+             wsamp_l[1][j] = (l - r) * sqrt2_half;
+         }
++#endif
+     }
+ 
+     /*********************************************************************
+@@ -691,6 +787,73 @@ vbrpsy_compute_fft_l(lame_internal_flags
+     fftenergy[0] = wsamp_l[0][0];
+     fftenergy[0] *= fftenergy[0];
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    FLOAT *wsamp_lp1 = *wsamp_l+1;
++    FLOAT *wsamp_lp2 = *wsamp_l+1020;
++    FLOAT *fftenergyp = fftenergy+1;
++    j = 64;
++    __asm__ __volatile__ (
++        "pcmpeqd	%4, %4				\n\t"
++        "psrld		$26, %4				\n\t"
++        "pslld		$24, %4				\n\t"
++        "xorps		%5, %5				\n\t"
++        "1:								\n\t"
++        "movups		(%7), %0			\n\t"
++        "movups		16(%7), %1			\n\t"
++        "movaps		(%8), %2			\n\t"
++        "movaps		-16(%8), %3			\n\t"
++        "shufps		$0x1b, %2, %2		\n\t"
++        "shufps		$0x1b, %3, %3		\n\t"
++        "mulps		%0, %0				\n\t"
++        "mulps		%2, %2				\n\t"
++        "mulps		%1, %1				\n\t"
++        "mulps		%3, %3				\n\t"
++        "addps		%2, %0				\n\t"
++        "addps		%3, %1				\n\t"
++        "mulps		%4, %0				\n\t"
++        "mulps		%4, %1				\n\t"
++        "movups		%0, (%9)			\n\t"
++        "movups		%1, 16(%9)			\n\t"
++        "addps		%1, %0				\n\t"
++        "addps		%0, %5				\n\t"
++#if defined(__x86_64__)
++        "addq		$32, %7				\n\t"
++        "subq		$32, %8				\n\t"
++        "addq		$32, %9				\n\t"
++        "decl		%6					\n\t"
++        "jnz		1b					\n\t"
++        "subq		$2048, %9			\n\t"
++#else
++        "addl		$32, %7				\n\t"
++        "subl		$32, %8				\n\t"
++        "addl		$32, %9				\n\t"
++        "decl		%6					\n\t"
++        "jnz		1b					\n\t"
++        "subl		$2048, %9			\n\t"
++#endif
++        "movups		(%9), %0			\n\t"
++        "movups		16(%9), %1			\n\t"
++        "xorps		%2, %2				\n\t"
++        "movlps		32(%9), %2			\n\t"
++        "addps		%1, %0				\n\t"
++        "addps		%2, %0				\n\t"
++        "subps		%0, %5				\n\t"
++        "movhlps	%5, %0				\n\t"
++        "addps		%5, %0				\n\t"
++#if defined(__SSE3__)
++        "haddps		%0, %0				\n\t"
++#else
++        "movaps		%0, %1				\n\t"
++        "shufps		$0x01, %1, %1		\n\t"
++        "addps		%1, %0				\n\t"
++#endif
++        "movss		%0, (%10)			\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6),
++        "+r" (j), "+r" (wsamp_lp1), "+r" (wsamp_lp2), "+r" (fftenergyp)
++        : "r" (&psv->tot_ener[chn])
++        : "memory"
++    );
++#else
+     for (j = BLKSIZE / 2 - 1; j >= 0; --j) {
+         FLOAT const re = (*wsamp_l)[BLKSIZE / 2 - j];
+         FLOAT const im = (*wsamp_l)[BLKSIZE / 2 + j];
+@@ -704,6 +867,7 @@ vbrpsy_compute_fft_l(lame_internal_flags
+ 
+         psv->tot_ener[chn] = totalenergy;
+     }
++#endif
+ 
+     if (plt) {
+         for (j = 0; j < HBLKSIZE; j++) {
+@@ -772,7 +936,7 @@ vbrpsy_attack_detection(lame_internal_fl
+                         FLOAT energy[4], FLOAT sub_short_factor[4][3], int ns_attacks[4][4],
+                         int uselongblock[2])
+ {
+-    FLOAT   ns_hpfsmpl[2][576];
++    FLOAT   ns_hpfsmpl[2][576] __attribute__ ((aligned (16)));
+     SessionConfig_t const *const cfg = &gfc->cfg;
+     PsyStateVar_t *const psv = &gfc->sv_psy;
+     plotting_data *plt = cfg->analysis ? gfc->pinfo : 0;
+@@ -785,14 +949,170 @@ vbrpsy_attack_detection(lame_internal_fl
+     /* Don't copy the input buffer into a temporary buffer */
+     /* unroll the loop 2 times */
+     for (chn = 0; chn < n_chn_out; chn++) {
+-        static const FLOAT fircoef[] = {
++        static const FLOAT fircoef[] __attribute__ ((aligned (16))) = {
+             -8.65163e-18 * 2, -0.00851586 * 2, -6.74764e-18 * 2, 0.0209036 * 2,
+             -3.36639e-17 * 2, -0.0438162 * 2, -1.54175e-17 * 2, 0.0931738 * 2,
+-            -5.52212e-17 * 2, -0.313819 * 2
++            -5.52212e-17 * 2, -0.313819 * 2, 0, 0
+         };
+         /* apply high pass filter of fs/4 */
+         const sample_t *const firbuf = &buffer[chn][576 - 350 - NSFIRLEN + 192];
+-        assert(dimension_of(fircoef) == ((NSFIRLEN - 1) / 2));
++        //assert(dimension_of(fircoef) == ((NSFIRLEN - 1) / 2));
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++        __m128 v1, v2, v3, v4, v5, v6, v7;
++        float *firbufp = (float *)firbuf;
++        float *ns_hpfsmplp = &ns_hpfsmpl[chn][0];
++        i = 144;
++        __asm__ __volatile__ (
++            "1:							\n\t"
++            "movups		40(%8), %0		\n\t"
++            "xorps		%1, %1			\n\t"
++            "movaps		%0, %2			\n\t"
++            "unpcklps	%1, %0			\n\t"
++            "unpckhps	%1, %2			\n\t"
++            "movaps		%2, %1			\n\t"
++        
++            "movaps		(%10), %2		\n\t"
++            "movups		(%8), %3		\n\t"
++            "movups		72(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %2			\n\t"
++            "movaps		16(%10), %5		\n\t"
++            "movups		16(%8), %3		\n\t"
++            "movups		56(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movaps		32(%10), %5		\n\t"
++            "movups		32(%8), %3		\n\t"
++            "movups		40(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movhlps	%2, %6			\n\t"
++            "addps		%2, %6			\n\t"
++#if defined(__x86_64__)
++            "addq		$4, %8			\n\t"
++#else
++            "addl		$4, %8			\n\t"
++#endif
++            
++            "movaps		(%10), %2		\n\t"
++            "movups		(%8), %3		\n\t"
++            "movups		72(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %2			\n\t"
++            "movaps		16(%10), %5		\n\t"
++            "movups		16(%8), %3		\n\t"
++            "movups		56(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movaps		32(%10), %5		\n\t"
++            "movups		32(%8), %3		\n\t"
++            "movups		40(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movhlps	%2, %3			\n\t"
++            "addps		%3, %2			\n\t"
++            "movlhps	%2, %6			\n\t"
++            "addps		%6, %0			\n\t"
++#if defined(__x86_64__)
++            "addq		$4, %8			\n\t"
++#else
++            "addl		$4, %8			\n\t"
++#endif
++            
++            "movaps		(%10), %2		\n\t"
++            "movups		(%8), %3		\n\t"
++            "movups		72(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %2			\n\t"
++            "movaps		16(%10), %5		\n\t"
++            "movups		16(%8), %3		\n\t"
++            "movups		56(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movaps		32(%10), %5		\n\t"
++            "movups		32(%8), %3		\n\t"
++            "movups		40(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movhlps	%2, %6			\n\t"
++            "addps		%2, %6			\n\t"
++#if defined(__x86_64__)
++            "addq		$4, %8			\n\t"
++#else
++            "addl		$4, %8			\n\t"
++#endif
++            
++            "movaps		(%10), %2		\n\t"
++            "movups		(%8), %3		\n\t"
++            "movups		72(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %2			\n\t"
++            "movaps		16(%10), %5		\n\t"
++            "movups		16(%8), %3		\n\t"
++            "movups		56(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movaps		32(%10), %5		\n\t"
++            "movups		32(%8), %3		\n\t"
++            "movups		40(%8), %4		\n\t"
++            "shufps		$0x1b, %4, %4	\n\t"
++            "addps		%4, %3			\n\t"
++            "mulps		%3, %5			\n\t"
++            "addps		%5, %2			\n\t"
++            "movhlps	%2, %3			\n\t"
++            "addps		%3, %2			\n\t"
++            "movlhps	%2, %6			\n\t"
++            "addps		%6, %1			\n\t"
++#if defined(__x86_64__)
++            "addq		$4, %8			\n\t"
++#else
++            "addl		$4, %8			\n\t"
++#endif
++            
++#if defined(__SSE3__)
++            "haddps		%1, %0			\n\t"
++#else
++            "movaps		%0, %2			\n\t"
++            "movaps		%1, %3			\n\t"
++            "shufps		$0x31, %2, %2	\n\t"
++            "shufps		$0x31, %3, %3	\n\t"
++            "addps		%2, %0			\n\t"
++            "addps		%3, %1			\n\t"
++            "shufps		$0x88, %1, %0	\n\t"
++#endif
++            "movaps		%0, (%9)		\n\t"
++            
++#if defined(__x86_64__)
++            "addq		$16, %9			\n\t"
++#else
++            "addl		$16, %9			\n\t"
++#endif
++            "decl		%7				\n\t"
++            "jnz		1b				\n\t"
++            : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "=x" (v6), "=x" (v7),
++              "+r" (i), "+r" (firbufp), "+r" (ns_hpfsmplp)
++            : "r" (fircoef)
++            : "memory"
++        );
++#else
+         for (i = 0; i < 576; i++) {
+             FLOAT   sum1, sum2;
+             sum1 = firbuf[i + 10];
+@@ -803,6 +1123,7 @@ vbrpsy_attack_detection(lame_internal_fl
+             }
+             ns_hpfsmpl[chn][i] = sum1 + sum2;
+         }
++#endif
+         masking_ratio[gr_out][chn].en = psv->en[chn];
+         masking_ratio[gr_out][chn].thm = psv->thm[chn];
+         if (n_chn_psy > 2) {
+@@ -1423,10 +1744,10 @@ L3psycho_anal_vbr(lame_internal_flags * 
+     /* fft and energy calculation   */
+     FLOAT(*wsamp_l)[BLKSIZE];
+     FLOAT(*wsamp_s)[3][BLKSIZE_s];
+-    FLOAT   fftenergy[HBLKSIZE];
+-    FLOAT   fftenergy_s[3][HBLKSIZE_s];
+-    FLOAT   wsamp_L[2][BLKSIZE];
+-    FLOAT   wsamp_S[2][3][BLKSIZE_s];
++    FLOAT   fftenergy[HBLKSIZE] __attribute__ ((aligned (16)));
++    FLOAT   fftenergy_s[3][HBLKSIZE_s] __attribute__ ((aligned (16)));
++    FLOAT   wsamp_L[2][BLKSIZE] __attribute__ ((aligned (16)));
++    FLOAT   wsamp_S[2][3][BLKSIZE_s] __attribute__ ((aligned (16)));
+     FLOAT   eb[4][CBANDS], thr[4][CBANDS];
+ 
+     FLOAT   sub_short_factor[4][3];
+--- libmp3lame/quantize.c.orig	2017-08-15 22:40:45.000000000 +0900
++++ libmp3lame/quantize.c	2017-10-14 12:03:44.000000000 +0900
+@@ -99,7 +99,7 @@ init_xrpow_core_init(lame_internal_flags
+         gfc->init_xrpow_core = init_xrpow_core_sse;
+ #endif
+ #ifndef HAVE_NASM
+-#ifdef MIN_ARCH_SSE
++#if defined(MIN_ARCH_SSE) || defined(__x86_64__)
+     gfc->init_xrpow_core = init_xrpow_core_sse;
+ #endif
+ #endif
+@@ -1495,7 +1495,7 @@ VBR_old_iteration_loop(lame_internal_fla
+     EncResult_t *const eov = &gfc->ov_enc;
+     FLOAT   l3_xmin[2][2][SFBMAX];
+ 
+-    FLOAT   xrpow[576];
++    FLOAT   xrpow[576] __attribute__ ((aligned (16)));
+     int     bands[2][2];
+     int     frameBits[15];
+     int     used_bits;
+@@ -1904,7 +1904,7 @@ ABR_iteration_loop(lame_internal_flags *
+     SessionConfig_t const *const cfg = &gfc->cfg;
+     EncResult_t *const eov = &gfc->ov_enc;
+     FLOAT   l3_xmin[SFBMAX];
+-    FLOAT   xrpow[576];
++    FLOAT   xrpow[576] __attribute__ ((aligned (16)));
+     int     targ_bits[2][2];
+     int     mean_bits, max_frame_bits;
+     int     ch, gr, ath_over;
+@@ -1991,7 +1991,7 @@ CBR_iteration_loop(lame_internal_flags *
+ {
+     SessionConfig_t const *const cfg = &gfc->cfg;
+     FLOAT   l3_xmin[SFBMAX];
+-    FLOAT   xrpow[576];
++    FLOAT   xrpow[576] __attribute__ ((aligned (16)));
+     int     targ_bits[2];
+     int     mean_bits, max_bits;
+     int     gr, ch;
+--- libmp3lame/quantize_pvt.c.orig	2017-09-07 04:33:36.000000000 +0900
++++ libmp3lame/quantize_pvt.c	2017-10-14 12:03:44.000000000 +0900
+@@ -27,6 +27,7 @@
+ # include <config.h>
+ #endif
+ 
++#undef TAKEHIRO_IEEE754_HACK
+ 
+ #include "lame.h"
+ #include "machine.h"
+@@ -37,6 +38,9 @@
+ #include "lame-analysis.h"
+ #include <float.h>
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ #define NSATHSCALE 100  /* Assuming dynamic range=96dB, this value should be 92 */
+ 
+@@ -767,6 +771,70 @@ calc_noise_core_c(const gr_info * const 
+         }
+     }
+     else if (j > cod_info->big_values) {
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++        __m128 v1, v2, v3, v4, v5;
++        int remaining = l & 1;
++        l = l >> 1;
++        const int *ixp = ix+j;
++        const FLOAT *xrp = cod_info->xr+j;
++        j += 4*l;
++        v5 = _mm_set_ss(step);
++        __asm__ __volatile__ (
++            "xorps		%3, %3				\n\t"
++            "testl		%5, %5				\n\t"
++            "jz			2f					\n\t"
++            "shufps		$0x00, %4, %4		\n\t"
++            "pcmpeqd	%1, %1				\n\t"
++            "psrld		$1, %1				\n\t"
++
++            "1:								\n\t"
++            "pxor		%0, %0				\n\t"
++            "movups		(%6), %2			\n\t"
++            "pcmpeqd	%0, %2				\n\t"
++            "pandn		%4, %2				\n\t"
++            
++            "movups		(%7), %0			\n\t"
++            "andps		%1, %0				\n\t"
++            "subps		%2, %0				\n\t"
++            "mulps		%0, %0				\n\t"
++            "addps		%0, %3				\n\t"
++            
++#if defined(__x86_64__)
++            "addq		$16, %6				\n\t"
++            "addq		$16, %7				\n\t"
++#else
++            "addl		$16, %6				\n\t"
++            "addl		$16, %7				\n\t"
++#endif
++            "decl		%5					\n\t"
++            "jnz		1b					\n\t"
++            "movhlps	%3, %0				\n\t"
++            "addps		%0, %3				\n\t"
++#if defined(__SSE3__)
++            "haddps		%3, %3				\n\t"
++#else
++            "movaps		%3, %0				\n\t"
++            "shufps		$0x01, %0, %0		\n\t"
++            "addps		%0, %3				\n\t"
++#endif
++            "2:								\n\t"
++            : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "+x" (v5),
++              "+r" (l), "+r" (ixp), "+r" (xrp)
++        );
++        _mm_store_ss(&noise, v4);
++        if (remaining) {
++            FLOAT   ix01[2];
++            ix01[0] = 0;
++            ix01[1] = step;
++            FLOAT   temp;
++            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
++            j++;
++            noise += temp * temp;
++            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
++            j++;
++            noise += temp * temp;
++        }
++#else
+         FLOAT   ix01[2];
+         ix01[0] = 0;
+         ix01[1] = step;
+@@ -779,8 +847,95 @@ calc_noise_core_c(const gr_info * const 
+             j++;
+             noise += temp * temp;
+         }
++#endif
+     }
+     else {
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++        __m128 v1, v2, v3, v4, v5, v6;
++        int remaining = l & 1;
++        l = l >> 1;
++#if defined(_WIN64)
++        long long tmp;
++#else
++        long tmp;
++#endif
++        const int *ixp = ix+j;
++        const FLOAT *xrp = cod_info->xr+j;
++        j += 4*l;
++        v5 = _mm_set_ss(step);
++        __asm__ __volatile__ (
++            "xorps		%5, %5				\n\t"
++            "testl		%6, %6				\n\t"
++            "jz			2f					\n\t"
++            "shufps		$0x00, %4, %4		\n\t"
++            "1:								\n\t"
++            
++#if defined(__x86_64__)
++            "movslq		(%7), %9			\n\t"
++            "movss		(%10,%9,4), %2		\n\t"
++            "movslq		4(%7), %9			\n\t"
++            "movss		(%10,%9,4), %1		\n\t"
++            "movslq		8(%7), %9			\n\t"
++            "movss		(%10,%9,4), %0		\n\t"
++            "movslq		12(%7), %9			\n\t"
++            "movss		(%10,%9,4), %3		\n\t"
++#else
++            "movl		(%7), %9			\n\t"
++            "movss		(%10,%9,4), %2		\n\t"
++            "movl		4(%7), %9			\n\t"
++            "movss		(%10,%9,4), %1		\n\t"
++            "movl		8(%7), %9			\n\t"
++            "movss		(%10,%9,4), %0		\n\t"
++            "movl		12(%7), %9			\n\t"
++            "movss		(%10,%9,4), %3		\n\t"
++#endif
++            "movlhps	%1, %2				\n\t"
++            "movlhps	%3, %0				\n\t"
++            "shufps		$0x88, %0, %2		\n\t"
++            "mulps		%4, %2				\n\t"
++            
++            "movups		(%8), %0			\n\t"
++            "xorps		%1, %1				\n\t"
++            "subps		%0, %1				\n\t"
++            "maxps		%1, %0				\n\t"
++            "subps		%2, %0				\n\t"
++            "mulps		%0, %0				\n\t"
++            "addps		%0, %5				\n\t"
++            
++#if defined(__x86_64__)
++            "addq		$16, %7				\n\t"
++            "addq		$16, %8				\n\t"
++#else
++            "addl		$16, %7				\n\t"
++            "addl		$16, %8				\n\t"
++#endif
++            "decl		%6					\n\t"
++            "jnz		1b					\n\t"
++            "movhlps	%5, %0				\n\t"
++            "addps		%0, %5				\n\t"
++#if defined(__SSE3__)
++            "haddps		%5, %5				\n\t"
++#else
++            "movaps		%5, %0				\n\t"
++            "shufps		$0x01, %0, %0		\n\t"
++            "addps		%0, %5				\n\t"
++#endif
++            "2:								\n\t"
++            : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "+x" (v5), "=x" (v6),
++              "+r" (l), "+r" (ixp), "+r" (xrp), "=&r" (tmp)
++            : "r" (pow43)
++        );
++        _mm_store_ss(&noise, v6);
++        if (remaining) {
++            FLOAT   temp;
++            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
++            j++;
++            noise += temp * temp;
++            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
++            j++;
++            noise += temp * temp;
++        }
++#else
+         while (l--) {
+             FLOAT   temp;
+             temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
+@@ -790,6 +945,7 @@ calc_noise_core_c(const gr_info * const 
+             j++;
+             noise += temp * temp;
+         }
++#endif
+     }
+ 
+     *startline = j;
+--- libmp3lame/takehiro.c.orig	2017-09-07 04:33:36.000000000 +0900
++++ libmp3lame/takehiro.c	2017-10-14 12:03:44.000000000 +0900
+@@ -26,6 +26,7 @@
+ # include <config.h>
+ #endif
+ 
++#undef TAKEHIRO_IEEE754_HACK
+ 
+ #include "lame.h"
+ #include "machine.h"
+@@ -34,6 +35,9 @@
+ #include "quantize_pvt.h"
+ #include "tables.h"
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ static const struct {
+     const int region0_count;
+@@ -229,6 +233,57 @@ quantize_lines_xrpow(unsigned int l, FLO
+     l = l >> 1;
+     remaining = l % 2;
+     l = l >> 1;
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3, v4, v5, v6;
++    v6 = _mm_set_ss(istep);
++#if defined(_WIN64)
++    long long tmp;
++#else
++    long tmp;
++#endif
++    __asm__ __volatile__ (
++        "testl		%6, %6				\n\t"
++        "jz			2f					\n\t"
++        "shufps		$0x00, %5, %5		\n\t"
++        "1:								\n\t"
++        "movups		(%7), %0			\n\t"
++        "mulps		%5, %0				\n\t"
++        
++        "cvttss2si	%0, %9				\n\t"
++        "movaps		%0, %1				\n\t"
++        "shufps		$0xe5, %1, %1		\n\t"
++        "movss		(%10,%9,4), %2		\n\t"
++        "cvttss2si	%1, %9				\n\t"
++        "movhlps	%1, %1				\n\t"
++        "movss		(%10,%9,4), %3		\n\t"
++        "cvttss2si	%1, %9				\n\t"
++        "shufps		$0x55, %1, %1		\n\t"
++        "movss		(%10,%9,4), %4		\n\t"
++        "cvttss2si	%1, %9				\n\t"
++        "movlhps	%3, %2				\n\t"
++        "movss		(%10,%9,4), %3		\n\t"
++        "movlhps	%3, %4				\n\t"
++        "shufps		$0x88, %4, %2		\n\t"
++        "addps		%2, %0				\n\t"
++        "cvttps2dq	%0, %0				\n\t"
++        "movups		%0, (%8)			\n\t"
++                
++#if defined(__x86_64__)
++        "addq		$16, %7				\n\t"
++        "addq		$16, %8				\n\t"
++#else
++        "addl		$16, %7				\n\t"
++        "addl		$16, %8				\n\t"
++#endif
++        "decl		%6					\n\t"
++        "jnz		1b					\n\t"
++        "2:								\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "+x" (v6),
++          "+r" (l), "+r" (xr), "+r" (ix), "=&r" (tmp)
++        : "r" (adj43)
++        : "memory"
++    );
++#else
+     while (l--) {
+         FLOAT   x0, x1, x2, x3;
+         int     rx0, rx1, rx2, rx3;
+@@ -250,6 +305,7 @@ quantize_lines_xrpow(unsigned int l, FLO
+         XRPOW_FTOI(x2, *ix++);
+         XRPOW_FTOI(x3, *ix++);
+     };
++#endif
+     if (remaining) {
+         FLOAT   x0, x1;
+         int     rx0, rx1;
+@@ -423,6 +479,80 @@ quantize_xrpow(const FLOAT * xp, int *pi
+ static int
+ ix_max(const int *ix, const int *end)
+ {
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3;
++    int max;
++    __asm__ __volatile__ (
++        "pxor		%2, %2			\n\t"
++#if defined(__x86_64__)
++        "subq		$8, %4			\n\t"
++        "cmpq		%4, %3			\n\t"
++#else
++        "subl		$8, %4			\n\t"
++        "cmpl		%4, %3			\n\t"
++#endif
++        "je			2f				\n\t"
++        "1:							\n\t"
++        "movups		(%3), %0		\n\t"
++#if defined(__SSE4_1__)
++        "pmaxud		%0, %2			\n\t"
++#else
++        "movdqa		%2, %1			\n\t"
++        "pcmpgtd	%0, %2			\n\t"
++        "pand		%2, %1			\n\t"
++        "pandn		%0, %2			\n\t"
++        "por		%1, %2			\n\t"
++#endif
++#if defined(__x86_64__)
++        "addq		$16, %3			\n\t"
++        "cmpq		%4, %3			\n\t"
++#else
++        "addl		$16, %3			\n\t"
++        "cmpl		%4, %3			\n\t"
++#endif
++        "jl			1b				\n\t"
++        "jne		3f				\n\t"
++        "2:							\n\t"
++        "movq		(%3), %0		\n\t"
++#if defined(__SSE4_1__)
++        "pmaxud		%0, %2			\n\t"
++#else
++        "movdqa		%2, %1			\n\t"
++        "pcmpgtd	%0, %2			\n\t"
++        "pand		%2, %1			\n\t"
++        "pandn		%0, %2			\n\t"
++        "por		%1, %2			\n\t"
++#endif
++        "3:							\n\t"
++#if defined(__SSE4_1__)
++        "movdqa		%2, %0			\n\t"
++        "psrldq		$8, %2			\n\t"
++        "pmaxud		%0, %2			\n\t"
++        "movdqa		%2, %0			\n\t"
++        "psrldq		$4, %2			\n\t"
++        "pmaxud		%2, %0			\n\t"
++#else
++        "movdqa		%2, %0			\n\t"
++        "movdqa		%2, %1			\n\t"
++        "psrldq		$8, %2			\n\t"
++        "pcmpgtd	%2, %0			\n\t"
++        "pand		%0, %1			\n\t"
++        "pandn		%2, %0			\n\t"
++        "por		%1, %0			\n\t"
++        "movdqa		%0, %2			\n\t"
++        "movdqa		%0, %1			\n\t"
++        "psrldq		$4, %2			\n\t"
++        "pcmpgtd	%2, %0			\n\t"
++        "pand		%0, %1			\n\t"
++        "pandn		%2, %0			\n\t"
++        "por		%1, %0			\n\t"
++#endif
++        "movd		%0, %5			\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3),
++          "+r" (ix), "+r" (end), "=r" (max)
++    );
++    return max;
++#else
+     int     max1 = 0, max2 = 0;
+ 
+     do {
+@@ -437,6 +567,7 @@ ix_max(const int *ix, const int *end)
+     if (max1 < max2)
+         max1 = max2;
+     return max1;
++#endif
+ }
+ 
+ 
+@@ -447,12 +578,74 @@ ix_max(const int *ix, const int *end)
+ 
+ 
+ static int
+-count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigned int *const s)
++count_bit_ESC(const int *ix, const int *end, int t1, const int t2, unsigned int *const s)
+ {
+     /* ESC-table is used */
+     unsigned int const linbits = ht[t1].xlen * 65536u + ht[t2].xlen;
+     unsigned int sum = 0, sum2;
+ 
++#if defined(__GNUC__) && (defined(__x86_64__))
++    unsigned int tmp;
++    static short mult[8] __attribute__ ((aligned (16))) = {16, 1, 16, 1, 16, 1, 16, 1};
++    __asm__ __volatile__ (
++        "movaps		(%6), %%xmm4			\n\t"
++        "pcmpeqd	%%xmm2, %%xmm2			\n\t"
++        "movdqa		%%xmm2, %%xmm3			\n\t"
++        "psrlw		$13, %%xmm2				\n\t"
++        "psllw		$4, %%xmm3				\n\t"
++        "psllw		$1, %%xmm2				\n\t"
++        "pxor		%%xmm5, %%xmm5			\n\t"
++        "subq		$8, %3					\n\t"
++        "cmpq		%3, %0					\n\t"
++        "je			2f						\n\t"
++        
++        "1:									\n\t"
++        "movups		(%0), %%xmm0			\n\t"
++        "packssdw	%%xmm0, %%xmm0			\n\t"
++        "movdqa		%%xmm0, %%xmm1			\n\t"
++        "paddusw	%%xmm3, %%xmm1			\n\t"
++        "pcmpgtw	%%xmm2, %%xmm0			\n\t"
++        "psubw		%%xmm0, %%xmm5			\n\t"
++        "pmaddwd	%%xmm4, %%xmm1			\n\t"
++        "movd		%%xmm1, %2				\n\t"
++        "psrlq		$32, %%xmm1				\n\t"
++        "cltq								\n\t"
++        "addl		1088(%5,%%rax,4), %1	\n\t"
++        "movd		%%xmm1, %2				\n\t"
++        "cltq								\n\t"
++        "addl		1088(%5,%%rax,4), %1	\n\t"
++        "addq		$16, %0					\n\t"
++        "cmpq		%3, %0					\n\t"
++        "jl			1b						\n\t"
++        "movdqa		%%xmm5, %%xmm0			\n\t"
++        "psrlq		$32, %%xmm0				\n\t"
++        "paddw		%%xmm0, %%xmm5			\n\t"
++        "jne		3f						\n\t"
++        
++        "2:									\n\t"
++        "movq		(%0), %%xmm0			\n\t"
++        "packssdw	%%xmm0, %%xmm0			\n\t"
++        "movdqa		%%xmm0, %%xmm1			\n\t"
++        "paddusw	%%xmm3, %%xmm1			\n\t"
++        "pcmpgtw	%%xmm2, %%xmm0			\n\t"
++        "psubw		%%xmm0, %%xmm5			\n\t"
++        "pmaddwd	%%xmm4, %%xmm1			\n\t"
++        "movd		%%xmm1, %2				\n\t"
++        "cltq								\n\t"
++        "addl		1088(%5,%%rax,4), %1	\n\t"
++        
++        "3:									\n\t"
++        "movdqa		%%xmm5, %%xmm0			\n\t"
++        "psrld		$16, %%xmm0				\n\t"
++        "paddw		%%xmm5, %%xmm0			\n\t"
++        "pextrw		$0, %%xmm0, %2			\n\t"
++        "imull		%4, %2					\n\t"
++        "addl		%2, %1					\n\t"
++        : "+r" (ix), "+r" (sum), "=&a" (tmp), "+r" (end)
++        : "r" (linbits), "r" (largetbl), "r" (mult)
++        : "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"
++    );
++#else
+     do {
+         unsigned int x = *ix++;
+         unsigned int y = *ix++;
+@@ -469,6 +662,7 @@ count_bit_ESC(const int *ix, const int *
+         x += y;
+         sum += largetbl[x];
+     } while (ix < end);
++#endif
+ 
+     sum2 = sum & 0xffffu;
+     sum >>= 16u;
+@@ -790,10 +984,178 @@ count_bits(lame_internal_flags const *co
+                 j += width;
+             }
+             else {
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++                __m128 v1, v2, v3, v4, v5;
++#if defined(__x86_64__)
++#if defined(_WIN64)
++                long long k = j;
++#else
++                long k = j;
++#endif
++                j += width;
++#if defined(_WIN64)
++                long long l = j;
++#else
++                long l = j;
++#endif
++                v1 = _mm_set_ss(roundfac);
++                __asm__ __volatile__ (
++                    "shufps		$0x00, %0, %0	\n\t"
++                    
++                    "testq		$0x3, %5		\n\t"
++                    "jz			7f				\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    "8:							\n\t"
++                    "movss		(%7,%5,4), %1	\n\t"
++                    "cmpnltss	%0, %1			\n\t"
++                    "movss		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movss		%1, (%8,%5,4)	\n\t"
++                    "incq		%5				\n\t"
++                    "testq		$0x3, %5		\n\t"
++                    "jz			7f				\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jne		8b				\n\t"
++                    "7:							\n\t"
++                    
++                    "subq		$8, %6			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jg			2f				\n\t"
++                    "1:							\n\t"
++                    "movaps		(%7,%5,4), %1	\n\t"
++                    "movaps		16(%7,%5,4), %2	\n\t"
++                    "cmpnltps	%0, %1			\n\t"
++                    "cmpnltps	%0, %2			\n\t"
++                    "movaps		(%8,%5,4), %3	\n\t"
++                    "movaps		16(%8,%5,4), %4	\n\t"
++                    "andps		%3, %1			\n\t"
++                    "andps		%4, %2			\n\t"
++                    "movaps		%1, (%8,%5,4)	\n\t"
++                    "movaps		%2, 16(%8,%5,4)	\n\t"
++                    "addq		$8, %5			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jle		1b				\n\t"
++                    "2:							\n\t"
++                    "addq		$8, %6			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    
++                    "subq		$4, %6			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jg			4f				\n\t"
++                    "3:							\n\t"
++                    "movaps		(%7,%5,4), %1	\n\t"
++                    "cmpnltps	%0, %1			\n\t"
++                    "movaps		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movaps		%1, (%8,%5,4)	\n\t"
++                    "addq		$4, %5			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jle		3b				\n\t"
++                    "4:							\n\t"
++                    "addq		$4, %6			\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    
++                    "5:							\n\t"
++                    "movss		(%7,%5,4), %1	\n\t"
++                    "cmpnltss	%0, %1			\n\t"
++                    "movss		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movss		%1, (%8,%5,4)	\n\t"
++                    "incq		%5				\n\t"
++                    "cmpq		%6, %5			\n\t"
++                    "jne		5b				\n\t"
++                    "6:							\n\t"
++                    : "+x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5),
++                      "+r" (k), "+r" (l)
++                    : "r" (xr), "r" (ix)
++                );
++#else
++                int k = j;
++                j += width;
++                v1 = _mm_set_ss(roundfac);
++                __asm__ __volatile__ (
++                    "shufps		$0x00, %0, %0	\n\t"
++                    
++                    "testl		$0x3, %5		\n\t"
++                    "jz			7f				\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    "8:							\n\t"
++                    "movss		(%7,%5,4), %1	\n\t"
++                    "cmpnltss	%0, %1			\n\t"
++                    "movss		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movss		%1, (%8,%5,4)	\n\t"
++                    "incl		%5				\n\t"
++                    "testl		$0x3, %5		\n\t"
++                    "jz			7f				\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jne		8b				\n\t"
++                    "7:							\n\t"
++                    
++                    "subl		$8, %6			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jg			2f				\n\t"
++                    "1:							\n\t"
++                    "movaps		(%7,%5,4), %1	\n\t"
++                    "movaps		16(%7,%5,4), %2	\n\t"
++                    "cmpnltps	%0, %1			\n\t"
++                    "cmpnltps	%0, %2			\n\t"
++                    "movaps		(%8,%5,4), %3	\n\t"
++                    "movaps		16(%8,%5,4), %4	\n\t"
++                    "andps		%3, %1			\n\t"
++                    "andps		%4, %2			\n\t"
++                    "movaps		%1, (%8,%5,4)	\n\t"
++                    "movaps		%2, 16(%8,%5,4)	\n\t"
++                    "addl		$8, %5			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jle		1b				\n\t"
++                    "2:							\n\t"
++                    "addl		$8, %6			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    
++                    "subl		$4, %6			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jg			4f				\n\t"
++                    "3:							\n\t"
++                    "movaps		(%7,%5,4), %1	\n\t"
++                    "cmpnltps	%0, %1			\n\t"
++                    "movaps		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movaps		%1, (%8,%5,4)	\n\t"
++                    "addl		$4, %5			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jle		3b				\n\t"
++                    "4:							\n\t"
++                    "addl		$4, %6			\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "je			6f				\n\t"
++                    
++                    "5:							\n\t"
++                    "movss		(%7,%5,4), %1	\n\t"
++                    "cmpnltss	%0, %1			\n\t"
++                    "movss		(%8,%5,4), %2	\n\t"
++                    "andps		%2, %1			\n\t"
++                    "movss		%1, (%8,%5,4)	\n\t"
++                    "incl		%5				\n\t"
++                    "cmpl		%6, %5			\n\t"
++                    "jne		5b				\n\t"
++                    "6:							\n\t"
++                    : "+x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5),
++                      "+r" (k), "+r" (j)
++                    : "r" (xr), "r" (ix)
++                );
++#endif
++#else
+                 int     k;
+                 for (k = j, j += width; k < j; ++k) {
+                     ix[k] = (xr[k] >= roundfac) ? ix[k] : 0;
+                 }
++#endif
+             }
+         }
+     }
+--- libmp3lame/util.c.orig	2017-09-07 04:33:36.000000000 +0900
++++ libmp3lame/util.c	2017-10-14 12:03:44.000000000 +0900
+@@ -140,7 +140,7 @@ freegfc(lame_internal_flags * const gfc)
+         gfc->VBR_seek_table.size = 0;
+     }
+     if (gfc->ATH) {
+-        free(gfc->ATH);
++        free_aligned16(gfc->ATH);
+     }
+     if (gfc->sv_rpg.rgdata) {
+         free(gfc->sv_rpg.rgdata);
+@@ -162,7 +162,7 @@ freegfc(lame_internal_flags * const gfc)
+ 
+     free_global_data(gfc);
+ 
+-    free(gfc);
++    free_aligned16(gfc);
+ }
+ 
+ void
+--- libmp3lame/util.h.orig	2017-09-07 04:33:36.000000000 +0900
++++ libmp3lame/util.h	2017-10-14 12:03:44.000000000 +0900
+@@ -116,6 +116,36 @@ extern  "C" {
+     typedef struct plotting_data plotting_data;
+ #endif
+ 
++#if defined(__APPLE__)
++#define malloc_aligned16(size) malloc(size)
++#define calloc_aligned16(n, size) calloc(n, size)
++#define free_aligned16(ptr) free(ptr)
++#elif defined(__MINGW32__) || defined(__MINGW64__) || defined(_MSC_VER)
++#define malloc_aligned16(size) _aligned_malloc(size, 16)
++static inline void * calloc_aligned16(size_t n, size_t size)
++{
++    void *ptr = _aligned_malloc(n * size, 16);
++    if(ptr) memset(ptr, 0, n * size);
++    return ptr;
++}
++#define free_aligned16(ptr) _aligned_free(ptr)
++#else
++static inline void * malloc_aligned16(size_t size)
++{
++    void *ptr;
++    int ret = posix_memalign(&ptr, 16, size);
++    return ret == 0 ? ptr : NULL;
++}
++static inline void * calloc_aligned16(size_t n, size_t size)
++{
++    void *ptr;
++    int ret = posix_memalign(&ptr, 16, n * size);
++    if(!ret) memset(ptr, 0, n * size);
++    return ret == 0 ? ptr : NULL;
++}
++#define free_aligned16(ptr) free(ptr)
++#endif
++
+ /***********************************************************************
+ *
+ *  Global Type Definitions
+@@ -178,7 +208,7 @@ extern  "C" {
+         FLOAT   psfb12[PSFB12]; /* ATH for partitionned sfb12 in short blocks */
+         FLOAT   cb_l[CBANDS]; /* ATH for long block convolution bands */
+         FLOAT   cb_s[CBANDS]; /* ATH for short block convolution bands */
+-        FLOAT   eql_w[BLKSIZE / 2]; /* equal loudness weights (based on ATH) */
++        FLOAT   eql_w[BLKSIZE / 2] __attribute__ ((aligned (16))); /* equal loudness weights (based on ATH) */
+     } ATH_t;
+ 
+     /**
+@@ -492,7 +522,7 @@ extern  "C" {
+ 
+         /* variables used by lame.c */
+         Bit_stream_struc bs;
+-        III_side_info_t l3_side;
++        III_side_info_t l3_side __attribute__ ((aligned (16)));
+ 
+         scalefac_struct scalefac_band;
+ 
+--- libmp3lame/vbrquantize.c.orig	2012-02-07 22:36:35.000000000 +0900
++++ libmp3lame/vbrquantize.c	2017-10-14 12:03:44.000000000 +0900
+@@ -26,6 +26,7 @@
+ #  include <config.h>
+ #endif
+ 
++#undef TAKEHIRO_IEEE754_HACK
+ 
+ #include "lame.h"
+ #include "machine.h"
+@@ -34,7 +35,9 @@
+ #include "vbrquantize.h"
+ #include "quantize_pvt.h"
+ 
+-
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++#include <xmmintrin.h>
++#endif
+ 
+ 
+ struct algo_s;
+@@ -226,6 +229,81 @@ calc_sfb_noise_x34(const FLOAT * xr, con
+     unsigned int i = bw >> 2u;
+     unsigned int const remaining = (bw & 0x03u);
+ 
++#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
++    __m128 v1, v2, v3, v4, v5, v6, v7, v8;
++#if defined(_WIN64)
++    long long tmp;
++#else
++    long tmp;
++#endif
++    v6 = _mm_set_ss(sfpow34);
++    v7 = _mm_set_ss(sfpow);
++    __asm__ __volatile__ (
++        "xorps		%7, %7				\n\t"
++        "testl		%8, %8				\n\t"
++        "jz			2f					\n\t"
++        "shufps		$0x00, %5, %5		\n\t"
++        "shufps		$0x00, %6, %6		\n\t"
++        "pcmpeqd	%4, %4				\n\t"
++        "psrld		$1, %4				\n\t"
++        
++        "1:								\n\t"
++        "movups		(%10), %1			\n\t"
++        "mulps		%5, %1				\n\t"
++        "cvttss2si	%1, %11				\n\t"
++        "shufps		$0xe5, %1, %1		\n\t"
++        "movlps		(%12,%11,4), %2		\n\t"
++        "cvttss2si	%1, %11				\n\t"
++        "movhlps	%1, %1				\n\t"
++        "movhps		(%12,%11,4), %2		\n\t"
++        "cvttss2si	%1, %11				\n\t"
++        "shufps		$0x55, %1, %1		\n\t"
++        "movlps		(%12,%11,4), %3		\n\t"
++        "cvttss2si	%1, %11				\n\t"
++        "movups		(%9), %1			\n\t"
++        "movhps		(%12,%11,4), %3		\n\t"
++        "mulps		%6, %2				\n\t"
++        "mulps		%6, %3				\n\t"
++        "movaps		%2, %0				\n\t"
++        "shufps		$0x88, %3, %0		\n\t"
++        "shufps		$0xdd, %3, %2		\n\t"
++        
++        "andps		%4, %1				\n\t"
++        "subps		%1, %2				\n\t"
++        "subps		%0, %1				\n\t"
++        "movaps		%1, %0				\n\t"
++        "cmpltps	%2, %1				\n\t"
++        "andps		%1, %0				\n\t"
++        "andnps		%2, %1				\n\t"
++        "orps		%1, %0				\n\t"
++        "mulps		%0, %0				\n\t"
++        "addps		%0, %7				\n\t"
++        
++#if defined(__x86_64__)
++        "addq		$16, %9				\n\t"
++        "addq		$16, %10			\n\t"
++#else
++        "addl		$16, %9				\n\t"
++        "addl		$16, %10			\n\t"
++#endif
++        "decl		%8					\n\t"
++        "jnz		1b					\n\t"
++        "movhlps	%7, %0				\n\t"
++        "addps		%0, %7				\n\t"
++#if defined(__SSE3__)
++        "haddps		%7, %7				\n\t"
++#else
++        "movaps		%7, %0				\n\t"
++        "shufps		$0x01, %0, %0		\n\t"
++        "addps		%0, %7				\n\t"
++#endif
++        "2:								\n\t"
++        : "=x" (v1), "=x" (v2), "=x" (v3), "=x" (v4), "=x" (v5), "+x" (v6), "+x" (v7), "=x" (v8),
++          "+r" (i), "+r" (xr), "+r" (xr34), "=&r" (tmp)
++        : "r" (pow43)
++    );
++    _mm_store_ss(&xfsf, v8);
++#else
+     while (i-- > 0) {
+         x[0] = sfpow34 * xr34[0];
+         x[1] = sfpow34 * xr34[1];
+@@ -243,6 +321,7 @@ calc_sfb_noise_x34(const FLOAT * xr, con
+         xr += 4;
+         xr34 += 4;
+     }
++#endif
+     if (remaining) {
+         x[0] = x[1] = x[2] = x[3] = 0;
+         switch( remaining ) {

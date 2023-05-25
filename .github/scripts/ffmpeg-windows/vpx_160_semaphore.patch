@@ -1,0 +1,12 @@
+diff --git a/vp8/common/threading.h b/vp8/common/threading.h
+index ece64f3..2a00a4e 100644
+--- a/vp8/common/threading.h
++++ b/vp8/common/threading.h
+@@ -73,6 +73,7 @@ extern "C" {
+ #include <unistd.h>
+ 
+ #else
++#include <sys/types.h>
+ #include <semaphore.h>
+ #endif
+ 

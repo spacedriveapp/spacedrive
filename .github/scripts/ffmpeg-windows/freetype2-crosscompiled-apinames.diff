@@ -1,0 +1,11 @@
+--- builds/unix/unix-def.in.orig	2020-03-22 15:24:22.000000000 -0400
++++ builds/unix/unix-def.in	2023-02-13 18:36:43.976259800 -0500
+@@ -14,8 +14,6 @@
+ 
+ SHELL := @SHELL@
+ 
+-TOP_DIR := $(shell cd $(TOP_DIR); pwd)
+-
+ DELETE := rm -f
+ DELDIR := rm -rf
+ CAT    := cat

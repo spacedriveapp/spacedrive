@@ -1,0 +1,33 @@
+diff -u bzlib.h.bak bzlib.h
+--- bzlib.h.bak	2010-09-11 01:08:42.000000000 +0200
++++ bzlib.h	2013-02-06 04:03:34.782383139 +0100
+@@ -82,7 +82,7 @@
+ #      undef small
+ #   endif
+ #   ifdef BZ_EXPORT
+-#   define BZ_API(func) WINAPI func
++#   define BZ_API(func) func
+ #   define BZ_EXTERN extern
+ #   else
+    /* import windows dll dynamically */
+diff -u Makefile.bak Makefile
+--- Makefile.bak	2010-09-11 00:46:02.000000000 +0200
++++ Makefile	2013-02-06 04:04:07.210382474 +0100
+@@ -15,13 +15,13 @@
+ SHELL=/bin/sh
+ 
+ # To assist in cross-compiling
+-CC=gcc
+-AR=ar
+-RANLIB=ranlib
++CC?=gcc
++AR?=ar
++RANLIB?=ranlib
+ LDFLAGS=
+ 
+ BIGFILES=-D_FILE_OFFSET_BITS=64
+-CFLAGS=-Wall -Winline -O2 -g $(BIGFILES)
++CFLAGS:=-Wall -Winline -O2 -g $(BIGFILES) $(CFLAGS)
+ 
+ # Where you want it installed when you do 'make install'
+ PREFIX=/usr/local

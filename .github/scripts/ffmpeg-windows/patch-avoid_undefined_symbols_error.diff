@@ -1,0 +1,8 @@
+--- include/libmp3lame.sym.orig	2017-11-07 07:47:29.000000000 -0500
++++ include/libmp3lame.sym	2017-11-07 07:47:48.000000000 -0500
+@@ -1,5 +1,4 @@
+ lame_init
+-lame_init_old
+ lame_set_num_samples
+ lame_get_num_samples
+ lame_set_in_samplerate
