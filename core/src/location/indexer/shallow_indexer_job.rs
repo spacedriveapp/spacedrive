@@ -20,7 +20,7 @@ use tokio::time::Instant;
 
 use super::{
 	execute_indexer_save_step, finalize_indexer, iso_file_path_factory,
-	location_with_indexer_rules, remove_non_existing_file_paths, rules::aggregate_rules_by_kind,
+	location_with_indexer_rules, remove_non_existing_file_paths, rules::IndexerRule,
 	update_notifier_fn, walk::walk_single_dir, IndexerError, IndexerJobData, IndexerJobSaveStep,
 	ScanProgress,
 };
@@ -77,7 +77,13 @@ impl StatefulJob for ShallowIndexerJob {
 
 		let db = Arc::clone(&ctx.library.db);
 
-		let rules_by_kind = aggregate_rules_by_kind(state.init.location.indexer_rules.iter())
+		let indexer_rules = state
+			.init
+			.location
+			.indexer_rules
+			.iter()
+			.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
+			.collect::<Result<Vec<_>, _>>()
 			.map_err(IndexerError::from)?;
 
 		let (add_root, to_walk_path) = if state.init.sub_path != Path::new("") {
@@ -106,7 +112,7 @@ impl StatefulJob for ShallowIndexerJob {
 			let ctx = &mut ctx;
 			walk_single_dir(
 				&to_walk_path,
-				&rules_by_kind,
+				&indexer_rules,
 				update_notifier_fn(BATCH_SIZE, ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
@@ -151,7 +157,7 @@ impl StatefulJob for ShallowIndexerJob {
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
-			rules_by_kind,
+			indexer_rules,
 			db_write_time: db_delete_time,
 			scan_read_time: scan_start.elapsed(),
 			total_paths: *total_paths,

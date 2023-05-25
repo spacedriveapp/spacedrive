@@ -89,18 +89,17 @@ const RulesForm = ({ onSubmitted }: Props) => {
 
 	const addIndexerRules = form.handleSubmit(async (data: formType) => {
 		const formatData = {
-			kind: data.kind,
 			name: data.name,
 			dry_run: false,
-			parameters: data.rules.flatMap(({ type, value }) => {
+			rules: data.rules.map(({ type, value }) => {
 				switch (type) {
 					case 'Name':
-						return `**/${value}`;
+						return [data.kind, [`**/${value}`]];
 					case 'Extension':
 						// .tar should work for .tar.gz, .tar.bz2, etc.
-						return [`**/*${value}`, `**/*${value}.*`];
+						return [data.kind, [`**/*${value}`, `**/*${value}.*`]];
 					default:
-						return value;
+						return [data.kind, [value]];
 				}
 			})
 		} as IndexerRuleCreateArgs;
