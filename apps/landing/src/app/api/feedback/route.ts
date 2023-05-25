@@ -28,20 +28,18 @@ export async function POST(req: NextRequest) {
 		);
 	}
 	try {
-		const { feedback, emoji } = result.data;
-		const slackWebhook = env.SLACK_FEEDBACK_URL;
 		const slackMessage = {
 			blocks: [
 				{
 					type: 'section',
 					text: {
 						type: 'mrkdwn',
-						text: `${feedback} ${emoji}`
+						text: `${result.data.feedback} ${result.data.emoji}`
 					}
 				}
 			]
 		};
-		await fetch(slackWebhook, {
+		await fetch(env.SLACK_FEEDBACK_URL, {
 			method: 'POST',
 			body: JSON.stringify(slackMessage)
 		});
@@ -49,7 +47,7 @@ export async function POST(req: NextRequest) {
 			status: 204
 		});
 	} catch (error) {
-		console.log(error)
+		console.error(error);
 		return new Response(
 			JSON.stringify({
 				message: "Something went wrong. Please try again."

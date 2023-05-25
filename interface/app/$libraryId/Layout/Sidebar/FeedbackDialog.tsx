@@ -8,23 +8,21 @@ const schema = z.object({
 	feedback: z.string().min(1),
 	emoji: z.string().max(1)
 });
-
-type formType = z.infer<typeof schema>;
+const EMOJIS = ['🤩', '😀', '🙁', '😭'];
+const FEEDBACK_URL = 'https://spacedrive.com/api/feedback';
 
 export default function FeedbackDialog(props: UseDialogProps) {
-	const form = useZodForm({ schema: schema });
-	const emojis = ['🤩', '😀', '🙁', '😭'];
+	const form = useZodForm({ schema });
 	const [emojiSelected, setEmojiSelected] = useState<string | undefined>(undefined);
-	const feedback_url = 'https://spacedrive.com/api/feedback';
 
 	const emojiSelectHandler = (index: number) => {
-		setEmojiSelected(emojis[index]);
-		form.setValue('emoji', emojis[index] as string);
+		setEmojiSelected(EMOJIS[index]);
+		form.setValue('emoji', EMOJIS[index] as string);
 	};
 
-	const formSubmit = async (data: formType) => {
+	const formSubmit = form.handleSubmit(async (data) => {
 		try {
-			await fetch(feedback_url, {
+			await fetch(FEEDBACK_URL, {
 				method: 'POST',
 				body: JSON.stringify(data)
 			});
@@ -34,7 +32,8 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				value: 'There was an error submitting your feedback. Please try again.'
 			});
 		}
-	};
+	});
+
 	const watchForm = form.watch();
 
 	return (
@@ -42,13 +41,13 @@ export default function FeedbackDialog(props: UseDialogProps) {
 			title="Feedback"
 			dialog={useDialog(props)}
 			form={form}
-			onSubmit={form.handleSubmit(formSubmit)}
+			onSubmit={formSubmit}
 			submitDisabled={form.formState.isSubmitting || !watchForm.feedback || !watchForm.emoji}
 			ctaLabel="Submit"
 			closeLabel="Cancel"
 			buttonsSideContent={
 				<div className="flex w-full items-center justify-center gap-1">
-					{emojis.map((emoji, i) => (
+					{EMOJIS.map((emoji, i) => (
 						<div
 							onClick={() => emojiSelectHandler(i)}
 							key={i.toString()}
