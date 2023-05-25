@@ -218,8 +218,6 @@ model FileConflict {
     @@map("file_conflict")
 }
 
-// keys allow us to know exactly which files can be decrypted with a given key
-// they can be "mounted" to a client, and then used to decrypt files automatically
 /// @shared(id: uuid)
 model Key {
     id                Int       @id @default(autoincrement())
@@ -233,10 +231,26 @@ model Key {
     key               Bytes // the *encrypted* key
     salt              Bytes // the salt/encrypted word (which acts as a salt once decrypted + hashed)
 
-    objects    Object[]
-    file_paths FilePath[]
+    objects     Object[]
+    file_paths  FilePath[]
+    mounted_key MountedKey?
 
     @@map("key")
+}
+
+// mounted keys are separate and local as they should really stay on-device
+/// @local
+model MountedKey {
+    id        Int   @id @default(autoincrement())
+    uuid      Bytes @unique
+    version   Int // key version
+    algorithm Bytes // encryption algorithm used to encrypt the key
+    key       Bytes // the *encrypted* key
+    salt      Bytes // the salt/encrypted word (which acts as a salt once decrypted + hashed)
+
+    associated_key Key @relation(fields: [uuid], references: [uuid], onDelete: Cascade, onUpdate: NoAction)
+
+    @@map("mounted_key")
 }
 
 model MediaData {

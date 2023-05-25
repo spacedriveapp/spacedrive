@@ -51,4 +51,7 @@ pub enum CryptoError {
 
 	#[error("async IO error: {0}")]
 	IoAsync(#[from] tokio::io::Error),
+
+	#[error("error while converting a UUID: {0}")]
+	Uuid(#[from] uuid::Error),
 }
