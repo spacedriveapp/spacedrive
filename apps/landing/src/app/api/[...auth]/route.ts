@@ -40,7 +40,7 @@ export type TSession = {
 // 	};
 // }
 
-export function gravatarUrl(email: string) {
+function gravatarUrl(email: string) {
 	return `https://www.gravatar.com/avatar/${md5(email.trim().toLowerCase())}?d=404&r=pg`;
 }
 
