@@ -39,14 +39,12 @@ export default (props: UseDialogProps) => {
 	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
 
-	const form = useZodForm({
-		schema
-	});
+	const form = useZodForm({ schema });
 
 	return (
 		<Dialog
 			form={form}
-			onSubmit={(data) =>
+			onSubmit={form.handleSubmit((data) =>
 				data.filePath !== ''
 					? restoreKeystoreMutation
 							.mutateAsync({
@@ -56,7 +54,7 @@ export default (props: UseDialogProps) => {
 							})
 							.finally(() => form.reset())
 					: null
-			}
+			)}
 			dialog={useDialog(props)}
 			title="Restore Keys"
 			description="Restore keys from a backup."

@@ -39,7 +39,7 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 		<Dialog
 			form={form}
 			dialog={useDialog(props)}
-			onSubmit={(data) => createTag.mutateAsync(data)}
+			onSubmit={form.handleSubmit((data) => createTag.mutateAsync(data))}
 			title="Create New Tag"
 			description="Choose a name and color."
 			ctaLabel="Create"

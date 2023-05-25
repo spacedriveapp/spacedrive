@@ -2,7 +2,7 @@ import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { Link, NavLink } from 'react-router-dom';
 import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
-import { Button, Folder } from '@sd/ui';
+import { Folder } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { SubtleButton } from '~/components/SubtleButton';
 import SidebarLink from './Link';

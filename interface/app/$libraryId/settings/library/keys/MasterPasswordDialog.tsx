@@ -54,7 +54,7 @@ export default (props: UseDialogProps) => {
 		}
 	});
 
-	const onSubmit: Parameters<typeof form.handleSubmit>[0] = (data) => {
+	const onSubmit = form.handleSubmit((data) => {
 		if (data.masterPassword !== data.masterPassword2) {
 			showAlertDialog({
 				title: 'Error',
@@ -69,7 +69,7 @@ export default (props: UseDialogProps) => {
 				password: data.masterPassword
 			});
 		}
-	};
+	});
 
 	return (
 		<Dialog
