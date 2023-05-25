@@ -51,7 +51,7 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 					size="icon"
 				>
 					<Tooltip label="Remove">
-						<X className="w-4 h-4 cursor-pointer" />
+						<X className="h-4 w-4 cursor-pointer" />
 					</Tooltip>
 				</Button>
 			)}
@@ -67,10 +67,10 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 						src={Folder}
 						className={clsx('relative left-[-2px] top-2 z-10 mr-3 h-6 w-6')}
 					/>
-					<div className="flex flex-col w-full">
+					<div className="flex w-full flex-col">
 						<div className="flex items-center">
 							<div className="truncate">
-								<p className="font-semibold truncate">
+								<p className="truncate font-semibold">
 									{allJobsCompleted
 										? `Added location "${
 												data.metadata.init.location.name || ''
