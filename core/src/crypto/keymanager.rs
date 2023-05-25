@@ -196,7 +196,13 @@ impl EncryptedWord {
 	}
 }
 
-key::select!(key_with_user_info { uuid name });
+key::select!(key_info {
+	uuid
+	name
+	algorithm
+	hashing_algorithm
+	mounted_key: select { id }
+});
 
 #[derive(Clone, Encode, Decode)]
 pub struct UserKey {
@@ -485,30 +491,17 @@ impl KeyManager {
 		Ok(uuid)
 	}
 
-	pub async fn list(&self) -> Result<Vec<UserKey>> {
-		#[allow(clippy::as_conversions)]
-		self.db
-			.key()
-			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
-			.exec()
-			.await?
-			.into_iter()
-			.map(UserKey::try_from)
-			.collect()
-	}
-
-	pub async fn list_mounted(&self) -> Result<Vec<Uuid>> {
+	pub async fn list(&self) -> Result<Vec<key_info::Data>> {
 		self.ensure_unlocked().await?;
 
-		self.db
-			.mounted_key()
-			.find_many(vec![])
+		#[allow(clippy::as_conversions)]
+		Ok(self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
+			.select(key_info::select())
 			.exec()
-			.await?
-			.iter()
-			.map(|x| Uuid::from_slice(&x.uuid))
-			.collect::<std::result::Result<_, _>>()
-			.map_err(|_| CryptoError::Conversion)
+			.await?)
 	}
 
 	pub async fn mount(&self, uuid: Uuid, password: Protected<String>) -> Result<()> {
@@ -575,19 +568,6 @@ impl KeyManager {
 			.await?;
 
 		Ok(())
-	}
-
-	pub async fn enumerate_user_keys(&self) -> Result<Vec<key_with_user_info::Data>> {
-		self.ensure_unlocked().await?;
-
-		#[allow(clippy::as_conversions)]
-		Ok(self
-			.db
-			.key()
-			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
-			.select(key_with_user_info::select())
-			.exec()
-			.await?)
 	}
 
 	pub async fn unmount(&self, uuid: Uuid) -> Result<()> {

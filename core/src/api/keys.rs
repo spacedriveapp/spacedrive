@@ -1,427 +1,220 @@
-use rspc::alpha::AlphaRouter;
-// use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
-// use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
-// use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
-// use sd_crypto::{Error, Protected};
-// use serde::Deserialize;
-// use specta::Type;
+use super::{utils::library, Ctx, R};
+use crate::invalidate_query;
+use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_crypto::{
+	types::{Algorithm, HashingAlgorithm},
+	Protected,
+};
+use serde::Deserialize;
+use specta::Type;
 use std::path::PathBuf;
-// use tokio::fs::File;
-// use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
-// use crate::util::db::write_storedkey_to_db;
-// use crate::{invalidate_query, prisma::key};
+#[derive(Type, Deserialize)]
+struct SetupArgs {
+	algorithm: Algorithm,
+	hashing_algorithm: HashingAlgorithm,
+	password: Protected<String>,
+}
 
-use super::utils::library;
-use super::{Ctx, R};
+#[derive(Type, Deserialize)]
+struct UnlockArgs {
+	password: Protected<String>,
+	secret_key: Option<Protected<String>>,
+}
 
-// #[derive(Type, Deserialize)]
-// pub struct KeyAddArgs {
-// 	algorithm: Algorithm,
-// 	hashing_algorithm: HashingAlgorithm,
-// 	key: String,
-// 	library_sync: bool,
-// 	automount: bool,
-// }
+#[derive(Type, Deserialize)]
+struct MountArgs {
+	uuid: Uuid,
+	password: Protected<String>,
+}
 
-// #[derive(Type, Deserialize)]
-// pub struct UnlockKeyManagerArgs {
-// 	password: String,
-// 	secret_key: String,
-// }
+#[derive(Type, Deserialize)]
+struct UpdateNameArgs {
+	uuid: Uuid,
+	name: String,
+}
 
-// #[derive(Type, Deserialize)]
-// pub struct RestoreBackupArgs {
-// 	password: String,
-// 	secret_key: String,
-// 	path: PathBuf,
-// }
+#[derive(Type, Deserialize)]
+struct RestoreArgs {
+	password: Protected<String>,
+	secret_key: Protected<String>,
+	path: PathBuf,
+}
 
-// #[derive(Type, Deserialize)]
-// pub struct MasterPasswordChangeArgs {
-// 	password: String,
-// 	algorithm: Algorithm,
-// 	hashing_algorithm: HashingAlgorithm,
-// }
-
-// #[derive(Type, Deserialize)]
-// pub struct AutomountUpdateArgs {
-// 	uuid: Uuid,
-// 	status: bool,
-// }
+#[derive(Type, Deserialize)]
+struct AddArgs {
+	algorithm: Algorithm,
+	hashing_algorithm: HashingAlgorithm,
+	password: Protected<String>,
+	word: Option<Protected<String>>,
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				// Ok(library.key_manager.dump_keystore())
-			})
+			R.with2(library())
+				.query(|(_, library), _: ()| async move { Ok(library.key_manager.list().await?) })
 		})
-		// do not unlock the key manager until this route returns true
 		.procedure("isUnlocked", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				// Ok(library.key_manager.is_unlocked().await)
+				Ok(library.key_manager.is_unlocked().await)
 			})
 		})
 		.procedure("isSetup", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				// Ok(!library.db.key().find_many(vec![]).exec().await?.is_empty())
+				Ok(!library.db.key().find_many(vec![]).exec().await?.is_empty())
 			})
 		})
 		.procedure("setup", {
 			R.with2(library())
-				.mutation(|(_, library), config: ()| async move {
-					// let root_key = library.key_manager.onboarding(config, library.id).await?;
-					// write_storedkey_to_db(&library.db, &root_key).await?;
-					// library
-					// 	.key_manager
-					// 	.populate_keystore(vec![root_key])
-					// 	.await?;
+				.mutation(|(_, library), args: SetupArgs| async move {
+					let sk = library
+						.key_manager
+						.initial_setup(args.algorithm, args.hashing_algorithm, args.password)
+						.await?;
 
-					// invalidate_query!(library, "keys.isSetup");
-					// invalidate_query!(library, "keys.isUnlocked");
+					invalidate_query!(library, "keys.isSetup");
+					invalidate_query!(library, "keys.isUnlocked");
 
-					// Ok(())
-				})
-		})
-		// this is so we can show the key as mounted in the UI
-		.procedure("listMounted", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				// Ok(library.key_manager.get_mounted_uuids())
-			})
-		})
-		.procedure("getKey", {
-			R.with2(library())
-				.query(|(_, library), key_uuid: Uuid| async move {
-					// Ok(library
-					// 	.key_manager
-					// 	.get_key(key_uuid)
-					// 	.await?
-					// 	.expose()
-					// 	.clone())
+					Ok(sk)
 				})
 		})
 		.procedure("mount", {
 			R.with2(library())
-				.mutation(|(_, library), key_uuid: Uuid| async move {
-					// library.key_manager.mount(key_uuid).await?;
-					// // we also need to dispatch jobs that automatically decrypt preview media and metadata here
-					// invalidate_query!(library, "keys.listMounted");
-					// Ok(())
+				.mutation(|(_, library), args: MountArgs| async move {
+					library.key_manager.mount(args.uuid, args.password).await?;
+
+					// we also need to dispatch jobs that automatically decrypt preview media and metadata here
+
+					invalidate_query!(library, "keys.list");
+					Ok(())
 				})
-		})
-		.procedure("getSecretKey", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				// if library
-				// 	.key_manager
-				// 	.keyring_contains_valid_secret_key(library.id)
-				// 	.await
-				// 	.is_ok()
-				// {
-				// 	Ok(Some(
-				// 		library
-				// 			.key_manager
-				// 			.keyring_retrieve(library.id, SECRET_KEY_IDENTIFIER.to_string())
-				// 			.await?
-				// 			.expose()
-				// 			.clone(),
-				// 	))
-				// } else {
-				// 	Ok(None)
-				// }
-			})
 		})
 		.procedure("unmount", {
 			R.with2(library())
-				.mutation(|(_, library), key_uuid: Uuid| async move {
-					// library.key_manager.unmount(key_uuid)?;
-					// // we also need to delete all in-memory decrypted data associated with this key
-					// invalidate_query!(library, "keys.listMounted");
-					// Ok(())
+				.mutation(|(_, library), uuid: Uuid| async move {
+					library.key_manager.unmount(uuid).await?;
+					// we also need to delete all in-memory decrypted data associated with this key
+
+					invalidate_query!(library, "keys.list");
+					Ok(())
 				})
 		})
-		.procedure("clearMasterPassword", {
+		.procedure("lock", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
-					// // This technically clears the root key, but it means the same thing to the frontend
-					// library.key_manager.clear_root_key().await?;
+					library.key_manager.lock().await?;
 
-					// invalidate_query!(library, "keys.isUnlocked");
-					// Ok(())
+					invalidate_query!(library, "keys.isUnlocked");
+					Ok(())
 				})
 		})
-		.procedure("syncKeyToLibrary", {
+		.procedure("delete", {
 			R.with2(library())
-				.mutation(|(_, library), key_uuid: Uuid| async move {
-					// let key = library.key_manager.sync_to_database(key_uuid).await?;
+				.mutation(|(_, library), uuid: Uuid| async move {
+					library.key_manager.delete(uuid).await?;
 
-					// // does not check that the key doesn't exist before writing
-					// write_storedkey_to_db(&library.db, &key).await?;
+					// we also need to delete all in-memory decrypted data associated with this key
 
-					// invalidate_query!(library, "keys.list");
-					// Ok(())
+					invalidate_query!(library, "keys.list");
+					Ok(())
 				})
 		})
-		.procedure("updateAutomountStatus", {
+		.procedure("unlock", {
 			R.with2(library())
-				.mutation(|(_, library), args: ()| async move {
-					// if !library.key_manager.is_memory_only(args.uuid).await? {
-					// 	library
-					// 		.key_manager
-					// 		.change_automount_status(args.uuid, args.status)
-					// 		.await?;
+				.mutation(|(_, library), args: UnlockArgs| async move {
+					library
+						.key_manager
+						.unlock(args.password, args.secret_key)
+						.await?;
 
-					// 	library
-					// 		.db
-					// 		.key()
-					// 		.update(
-					// 			key::uuid::equals(args.uuid.to_string()),
-					// 			vec![key::automount::set(args.status)],
-					// 		)
-					// 		.exec()
-					// 		.await?;
+					invalidate_query!(library, "keys.isUnlocked");
 
-					// 	invalidate_query!(library, "keys.list");
-					// }
-
-					// Ok(())
+					Ok(())
 				})
 		})
-		.procedure("deleteFromLibrary", {
+		.procedure("updateName", {
 			R.with2(library())
-				.mutation(|(_, library), key_uuid: Uuid| async move {
-					// if !library.key_manager.is_memory_only(key_uuid).await? {
-					// 	library
-					// 		.db
-					// 		.key()
-					// 		.delete(key::uuid::equals(key_uuid.to_string()))
-					// 		.exec()
-					// 		.await?;
-					// }
+				.mutation(|(_, library), args: UpdateNameArgs| async move {
+					library
+						.key_manager
+						.update_key_name(args.uuid, args.name)
+						.await?;
 
-					// library.key_manager.remove_key(key_uuid).await?;
+					invalidate_query!(library, "keys.list");
 
-					// // we also need to delete all in-memory decrypted data associated with this key
-					// invalidate_query!(library, "keys.list");
-					// invalidate_query!(library, "keys.listMounted");
-					// invalidate_query!(library, "keys.getDefault");
-					// Ok(())
+					Ok(())
 				})
-		})
-		.procedure("unlockKeyManager", {
-			R.with2(library())
-				.mutation(|(_, library), args: ()| async move {
-					// let secret_key =
-					// 	(!args.secret_key.expose().is_empty()).then_some(args.secret_key);
-
-					// library
-					// 	.key_manager
-					// 	.unlock(
-					// 		args.password,
-					// 		secret_key.map(SecretKeyString),
-					// 		library.id,
-					// 		|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
-					// 	)
-					// 	.await?;
-
-					// invalidate_query!(library, "keys.isUnlocked");
-
-					// let automount = library
-					// 	.db
-					// 	.key()
-					// 	.find_many(vec![key::automount::equals(true)])
-					// 	.exec()
-					// 	.await?;
-
-					// for key in automount {
-					// 	library
-					// 		.key_manager
-					// 		.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)
-					// 		.await?;
-
-					// 	invalidate_query!(library, "keys.listMounted");
-					// }
-
-					// Ok(())
-				})
-		})
-		.procedure("setDefault", {
-			R.with2(library())
-				.mutation(|(_, library), key_uuid: Uuid| async move {
-					// library.key_manager.set_default(key_uuid).await?;
-
-					// library
-					// 	.db
-					// 	.key()
-					// 	.update_many(
-					// 		vec![key::default::equals(true)],
-					// 		vec![key::default::set(false)],
-					// 	)
-					// 	.exec()
-					// 	.await?;
-
-					// library
-					// 	.db
-					// 	.key()
-					// 	.update(
-					// 		key::uuid::equals(key_uuid.to_string()),
-					// 		vec![key::default::set(true)],
-					// 	)
-					// 	.exec()
-					// 	.await?;
-
-					// invalidate_query!(library, "keys.getDefault");
-					// Ok(())
-				})
-		})
-		.procedure("getDefault", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				// library.key_manager.get_default().await.ok()
-			})
-		})
-		.procedure("isKeyManagerUnlocking", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				// library.key_manager.is_unlocking().await.ok()
-			})
 		})
 		.procedure("unmountAll", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
-					// library.key_manager.empty_keymount();
-					// invalidate_query!(library, "keys.listMounted");
-					// Ok(())
+					let amount: u32 = library
+						.key_manager
+						.unmount_all()
+						.await?
+						.try_into()
+						.map_err(|_| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Unable to convert updated key amount from i64 -> u32".to_string(),
+							)
+						})?;
+
+					invalidate_query!(library, "keys.list");
+
+					Ok(amount)
 				})
 		})
 		.procedure("add", {
-			// this also mounts the key
 			R.with2(library())
-				.mutation(|(_, library), args: ()| async move {
-					// // register the key with the keymanager
-					// let uuid = library
-					// 	.key_manager
-					// 	.add_to_keystore(
-					// 		args.key,
-					// 		args.algorithm,
-					// 		args.hashing_algorithm,
-					// 		!args.library_sync,
-					// 		args.automount,
-					// 		None,
-					// 	)
-					// 	.await?;
+				.mutation(|(_, library), args: AddArgs| async move {
+					library
+						.key_manager
+						.insert_new(
+							args.algorithm,
+							args.hashing_algorithm,
+							args.password,
+							args.word,
+						)
+						.await?;
 
-					// if args.library_sync {
-					// 	write_storedkey_to_db(
-					// 		&library.db,
-					// 		&library.key_manager.access_keystore(uuid).await?,
-					// 	)
-					// 	.await?;
+					invalidate_query!(library, "keys.list");
 
-					// 	if args.automount {
-					// 		library
-					// 			.db
-					// 			.key()
-					// 			.update(
-					// 				key::uuid::equals(uuid.to_string()),
-					// 				vec![key::automount::set(true)],
-					// 			)
-					// 			.exec()
-					// 			.await?;
-					// 	}
-					// }
-
-					// library.key_manager.mount(uuid).await?;
-
-					// invalidate_query!(library, "keys.list");
-					// invalidate_query!(library, "keys.listMounted");
-					// Ok(())
+					Ok(())
 				})
 		})
 		.procedure("backupKeystore", {
 			R.with2(library())
 				.mutation(|(_, library), path: PathBuf| async move {
-					// // dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
-					// let mut stored_keys = library.key_manager.dump_keystore();
+					library.key_manager.backup_to_file(path).await?;
 
-					// // include the verification key at the time of backup
-					// stored_keys.push(library.key_manager.get_verification_key().await?);
-
-					// // exclude all memory-only keys
-					// stored_keys.retain(|k| !k.memory_only);
-
-					// let mut output_file = File::create(path).await.map_err(Error::Io)?;
-					// output_file
-					// 	.write_all(
-					// 		&serde_json::to_vec(&stored_keys).map_err(|_| Error::Serialization)?,
-					// 	)
-					// 	.await
-					// 	.map_err(Error::Io)?;
-					// Ok(())
+					Ok(())
 				})
 		})
 		.procedure("restoreKeystore", {
 			R.with2(library())
-				.mutation(|(_, library), args: ()| async move {
-					// let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
+				.mutation(|(_, library), args: RestoreArgs| async move {
+					let amount: u32 = library
+						.key_manager
+						.restore_from_file(args.path, args.password, args.secret_key)
+						.await?
+						.try_into()
+						.map_err(|_| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Unable to convert updated key amount from i64 -> u32".to_string(),
+							)
+						})?;
 
-					// let mut backup = Vec::new();
+					invalidate_query!(library, "keys.list");
 
-					// input_file
-					// 	.read_to_end(&mut backup)
-					// 	.await
-					// 	.map_err(Error::Io)?;
-
-					// let stored_keys: Vec<StoredKey> =
-					// 	serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
-
-					// let updated_keys = library
-					// 	.key_manager
-					// 	.import_keystore_backup(
-					// 		args.password,
-					// 		SecretKeyString(args.secret_key),
-					// 		&stored_keys,
-					// 	)
-					// 	.await?;
-
-					// for key in &updated_keys {
-					// 	write_storedkey_to_db(&library.db, key).await?;
-					// }
-
-					// invalidate_query!(library, "keys.list");
-					// invalidate_query!(library, "keys.listMounted");
-
-					// Ok(TryInto::<u32>::try_into(updated_keys.len()).unwrap()) // We convert from `usize` (bigint type) to `u32` (number type) because rspc doesn't support bigints.
+					Ok(())
 				})
 		})
 		.procedure("changeMasterPassword", {
 			R.with2(library())
-				.mutation(|(_, library), args: ()| async move {
-					// let verification_key = library
-					// 	.key_manager
-					// 	.change_master_password(
-					// 		args.password,
-					// 		args.algorithm,
-					// 		args.hashing_algorithm,
-					// 		library.id,
-					// 	)
-					// 	.await?;
-
-					// invalidate_query!(library, "keys.getSecretKey");
-
-					// // remove old root key if present
-					// library
-					// 	.db
-					// 	.key()
-					// 	.delete_many(vec![key::key_type::equals(
-					// 		serde_json::to_string(&StoredKeyType::Root).unwrap(),
-					// 	)])
-					// 	.exec()
-					// 	.await?;
-
-					// // write the new verification key
-					// write_storedkey_to_db(&library.db, &verification_key).await?;
-
-					Ok(())
-				})
+				.mutation(|(_, library), args: SetupArgs| async move { todo!() })
 		})
 }
