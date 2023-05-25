@@ -322,7 +322,7 @@ async fn handle_file(
 			#[cfg(not(target_os = "linux"))]
 			// prevent max_length;
 			// specially on webview2
-			if range.length > file_size / 3 {
+			if mime_type != "application/pdf" && range.length > file_size / 3 {
 				// max size sent (400kb / request)
 				// as it's local file system we can afford to read more often
 				content_lenght = min(file_size - range.start, 1024 * 400);
@@ -350,14 +350,16 @@ async fn handle_file(
 				.await
 				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		}
-		_ if method == Method::HEAD => vec![],
+		_ if method == Method::HEAD => {
+			builder = builder.header("Accept-Ranges", "bytes");
+			vec![]
+		}
 		_ => read_file(file, content_lenght, None)
 			.await
 			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?,
 	};
 
 	Ok(builder
-		.header("Accept-Ranges", "bytes")
 		.header("Content-type", mime_type)
 		.header("Content-Length", content_lenght)
 		.status(status_code)

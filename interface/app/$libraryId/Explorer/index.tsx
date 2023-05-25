@@ -1,16 +1,10 @@
-import { Collection, Image, Video } from '@sd/assets/icons';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import clsx from 'clsx';
 import { FolderNotchOpen } from 'phosphor-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import Selecto, { SelectoProps } from 'react-selecto';
 import { useKey } from 'rooks';
-import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useSelectedExplorerItems
-} from '~/hooks/useExplorerStore';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
+
+import { getExplorerStore, useExplorerStore, useKeyDeleteFile, useSelectedExplorerItems } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
@@ -71,7 +65,13 @@ export default function Explorer(props: Props) {
 	useKey('Space', (e) => {
 		e.preventDefault();
 
-		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
+		if (selectedItem) {
+			if (expStore.quickViewObject?.item.id === selectedItem.item.id) {
+				getExplorerStore().quickViewObject = null;
+			} else {
+				getExplorerStore().quickViewObject = selectedItem;
+			}
+		}
 	});
 
 	const loadMore = () => {

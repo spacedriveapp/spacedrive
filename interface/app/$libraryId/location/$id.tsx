@@ -13,9 +13,9 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
+	useKeyDeleteFile,
 	useZodRouteParams
 } from '~/hooks';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -97,7 +97,7 @@ const useItems = () => {
 							? { object: { kind: [5, 7] } }
 							: { path: path ?? '' })
 					},
-					take,
+					take
 				}
 			}
 		] as const,
