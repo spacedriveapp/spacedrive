@@ -13,6 +13,7 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
+	useKeyDeleteFile,
 	useZodRouteParams
 } from '~/hooks';
 import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';

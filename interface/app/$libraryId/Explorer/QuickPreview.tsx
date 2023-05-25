@@ -35,6 +35,8 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				if (quickViewObject != null) {
 					setIsOpen(true);
 					explorerItem.current = quickViewObject;
+				} else {
+					setIsOpen(false);
 				}
 			}),
 		[explorerStore]
@@ -79,8 +81,12 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 									className="!pointer-events-none absolute inset-0 z-50 grid h-screen place-items-center"
 								>
 									<div className="!pointer-events-auto flex h-5/6 max-h-screen w-11/12 flex-col rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
-										<nav className="flex w-full flex-row">
-											<Dialog.Close className="m-2" aria-label="Close">
+										<nav className="relative flex w-full flex-row">
+											<Dialog.Close
+												asChild
+												className="absolute m-2"
+												aria-label="Close"
+											>
 												<Button
 													size="icon"
 													variant="outline"
@@ -95,7 +101,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 													</span>
 												</Button>
 											</Dialog.Close>
-											<Dialog.Title className="mx-auto my-1 font-bold">
+											<Dialog.Title className="mx-auto my-2 font-bold">
 												Preview -{' '}
 												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
 													{'name' in item && item.name

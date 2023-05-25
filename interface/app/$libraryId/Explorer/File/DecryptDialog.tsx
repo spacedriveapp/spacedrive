@@ -66,7 +66,7 @@ export default (props: Props) => {
 		<Dialog
 			form={form}
 			dialog={useDialog(props)}
-			onSubmit={(data) =>
+			onSubmit={form.handleSubmit((data) =>
 				decryptFile.mutateAsync({
 					location_id: props.location_id,
 					path_id: props.path_id,
@@ -75,7 +75,7 @@ export default (props: Props) => {
 					password: data.type === 'password' ? data.password : null,
 					save_to_library: data.type === 'password' ? data.saveToKeyManager : null
 				})
-			}
+			)}
 			title="Decrypt a file"
 			description="Leave the output file blank for the default."
 			loading={decryptFile.isLoading}
