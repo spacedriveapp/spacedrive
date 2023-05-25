@@ -20,7 +20,6 @@
 		"composite": true,
 		"paths": {
 			"~/*": ["./src/*"],
-			"~/env": ["./src/env.mjs"],
 			"@contentlayer/generated": ["./.contentlayer/generated"]
 		},
 		"plugins": [
@@ -33,7 +32,6 @@
 		"next-env.d.ts",
 		"**/*.ts",
 		"**/*.tsx",
-		"src/env.mjs",
 		"src/drizzle.config.ts",
 		".next/types/**/*.ts"
 	],

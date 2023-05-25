@@ -1,11 +1,3 @@
-// @ts-check
-//
-// Has to be `.mjs` so it can be imported in `next.config.mjs`.
-// Next.js are so cringe for not having support for Typescript config files.
-//
-// Using `.mjs` with Drizzle Kit is seemingly impossible without `.ts` so we resort to `.js`.
-// Why does JS make this shit so hard, I just wanna import the file.
-//
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
