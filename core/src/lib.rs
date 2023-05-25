@@ -23,6 +23,7 @@ pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod sync;
+pub(crate) mod tag;
 pub(crate) mod util;
 pub(crate) mod volume;
 

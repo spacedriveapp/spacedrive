@@ -266,8 +266,7 @@ impl LocationUpdateArgs {
 								sync::location::SyncId {
 									pub_id: location.pub_id.clone(),
 								},
-								p.0,
-								p.1,
+								p,
 							)
 						})
 						.collect(),
@@ -476,8 +475,7 @@ pub async fn relink_location(
 			sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
-			location::path::NAME,
-			json!(path),
+			(location::path::NAME, json!(path)),
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id),

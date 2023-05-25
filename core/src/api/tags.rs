@@ -1,4 +1,4 @@
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 
@@ -10,6 +10,8 @@ use crate::{
 	library::Library,
 	prisma::{object, tag, tag_on_object},
 	sync,
+	tag::system::{generate_non_system_id, is_system_id},
+	util::db::uuid_to_bytes,
 };
 
 use super::{utils::library, Ctx, R};
@@ -69,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), args: TagCreateArgs| async move {
 					let Library { db, sync, .. } = &library;
 
-					let pub_id = Uuid::new_v4().as_bytes().to_vec();
+					let pub_id = uuid_to_bytes(generate_non_system_id());
 
 					let created_tag = sync
 						.write_op(
@@ -134,56 +136,59 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("update", {
-			#[derive(Type, Deserialize)]
-			pub struct TagUpdateArgs {
-				pub id: i32,
-				pub name: Option<String>,
-				pub color: Option<String>,
-			}
+			tag::partial_unchecked!(TagUpdateArgs { name color });
 
-			R.with2(library())
-				.mutation(|(_, library), args: TagUpdateArgs| async move {
+			R.with2(library()).mutation(
+				|(_, library), (id, data): (i32, TagUpdateArgs)| async move {
 					let Library { sync, db, .. } = &library;
 
 					let tag = db
 						.tag()
-						.find_unique(tag::id::equals(args.id))
-						.select(tag::select!({ pub_id }))
+						.find_unique(tag::id::equals(id))
+						.select(tag::select!({ pub_id name }))
 						.exec()
 						.await?
 						.unwrap();
 
+					if is_system_id(Uuid::from_slice(&tag.pub_id).unwrap()) {
+						return Err(rspc::Error::new(
+							ErrorCode::BadRequest,
+							format!("Tag {:?} is a system tag and cannot be modified", tag.name),
+						));
+					}
+
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+						data.name
+							.map(|v| ((tag::name::NAME, json!(&v)), tag::name::set(v))),
+						data.color
+							.map(|v| ((tag::color::NAME, json!(&v)), tag::color::set(v))),
+					]
+					.into_iter()
+					.flatten()
+					.map(|(sync_data, db)| {
+						(
+							sync.shared_update(
+								sync::tag::SyncId {
+									pub_id: tag.pub_id.clone(),
+								},
+								sync_data,
+							),
+							db,
+						)
+					})
+					.unzip();
+
 					sync.write_ops(
 						db,
-						(
-							[
-								args.name.as_ref().map(|v| (tag::name::NAME, json!(v))),
-								args.color.as_ref().map(|v| (tag::color::NAME, json!(v))),
-							]
-							.into_iter()
-							.flatten()
-							.map(|(k, v)| {
-								sync.shared_update(
-									sync::tag::SyncId {
-										pub_id: tag.pub_id.clone(),
-									},
-									k,
-									v,
-								)
-							})
-							.collect(),
-							db.tag().update(
-								tag::id::equals(args.id),
-								vec![tag::name::set(args.name), tag::color::set(args.color)],
-							),
-						),
+						(sync_params, db.tag().update(tag::id::equals(id), db_params)),
 					)
 					.await?;
 
 					invalidate_query!(library, "tags.list");
 
 					Ok(())
-				})
+				},
+			)
 		})
 		.procedure(
 			"delete",

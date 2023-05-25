@@ -477,8 +477,7 @@ impl SyncManager {
 	>(
 		&self,
 		id: TSyncId,
-		field: &str,
-		value: Value,
+		(field, value): (&str, Value),
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
 			model: TModel::MODEL.to_string(),

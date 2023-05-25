@@ -142,8 +142,7 @@ async fn identifier_job_step(
 						sync::file_path::SyncId {
 							pub_id: uuid_to_bytes(*pub_id),
 						},
-						file_path::cas_id::NAME,
-						json!(&meta.cas_id),
+						(file_path::cas_id::NAME, json!(&meta.cas_id)),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
@@ -246,7 +245,7 @@ async fn identifier_job_step(
 									(object::kind::NAME, json!(kind)),
 								]
 								.into_iter()
-								.map(|(f, v)| sync.shared_update(sync_id(), f, v)),
+								.map(|p| sync.shared_update(sync_id(), p)),
 							)
 							.collect::<Vec<_>>(),
 						object::create_unchecked(
@@ -322,10 +321,12 @@ fn file_path_object_connect_ops<'db>(
 			sync::file_path::SyncId {
 				pub_id: uuid_to_bytes(file_path_id),
 			},
-			file_path::object::NAME,
-			json!(sync::object::SyncId {
-				pub_id: vec_id.clone()
-			}),
+			(
+				file_path::object::NAME,
+				json!(sync::object::SyncId {
+					pub_id: vec_id.clone()
+				}),
+			),
 		),
 		db.file_path().update(
 			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),

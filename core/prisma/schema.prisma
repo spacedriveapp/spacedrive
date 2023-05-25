@@ -179,7 +179,6 @@ model Object {
     key_id            Int?
     // handy ways to mark an object
     hidden            Boolean   @default(false)
-    favorite          Boolean   @default(false)
     important         Boolean   @default(false)
     // if we have generated preview media for this object on at least one Node
     has_thumbnail     Boolean   @default(false)

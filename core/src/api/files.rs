@@ -6,7 +6,9 @@ use crate::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
 	},
-	prisma::{location, object},
+	prisma::{location, object, tag, tag_on_object},
+	tag::system::FAVORITES_TAG,
+	util::db::uuid_to_bytes,
 };
 
 use chrono::{FixedOffset, Utc};
@@ -15,6 +17,7 @@ use serde::Deserialize;
 use specta::Type;
 use std::path::Path;
 use tokio::fs;
+use uuid::Uuid;
 
 use super::{Ctx, R};
 
@@ -70,15 +73,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: SetFavoriteArgs| async move {
-					library
+					// TEMPORARY until runtime map is available
+					let favorites_tag = library
 						.db
-						.object()
-						.update(
-							object::id::equals(args.id),
-							vec![object::favorite::set(args.favorite)],
-						)
+						.tag()
+						.find_unique(tag::pub_id::equals(uuid_to_bytes(Uuid::from_u128(
+							FAVORITES_TAG.pub_id as u128,
+						))))
 						.exec()
-						.await?;
+						.await?
+						.unwrap();
+
+					if args.favorite {
+						library
+							.db
+							.tag_on_object()
+							.create(
+								tag::id::equals(favorites_tag.id),
+								object::id::equals(args.id),
+								vec![],
+							)
+							.exec()
+							.await?;
+					} else {
+						library
+							.db
+							.tag_on_object()
+							.delete(tag_on_object::tag_id_object_id(favorites_tag.id, args.id))
+							.exec()
+							.await?;
+					}
 
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");

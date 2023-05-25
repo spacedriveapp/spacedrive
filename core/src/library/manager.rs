@@ -1,14 +1,15 @@
 use crate::{
 	invalidate_query,
+	location::indexer,
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
+	tag,
 	util::{
 		db::load_and_migrate,
 		error::{FileIOError, NonUtf8PathError},
 		migrator::MigratorError,
-		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
 };
@@ -31,6 +32,8 @@ use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
+
+pub const SDLIBRARY_EXT: &str = "sdlibrary";
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -56,8 +59,10 @@ pub enum LibraryManagerError {
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
-	#[error("failed to run seeder")]
-	Seeder(#[from] SeederError),
+	#[error("failed to run indexer seeder")]
+	IndexerSeeder(#[from] indexer::rules::SeedError),
+	#[error("failed to run tag seeder")]
+	TagSeeder(#[from] tag::system::SeedError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations")]
@@ -219,7 +224,7 @@ impl LibraryManager {
 		}
 
 		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
+			Path::new(&self.libraries_dir).join(format!("{id}.{SDLIBRARY_EXT}")),
 			&config,
 		)?;
 
@@ -232,7 +237,8 @@ impl LibraryManager {
 		.await?;
 
 		// Run seeders
-		indexer_rules_seeder(&library.db).await?;
+		indexer::rules::seed(&library.db).await?;
+		tag::system::seed(&library.db).await?;
 
 		invalidate_query!(library, "library.list");
 
@@ -270,12 +276,8 @@ impl LibraryManager {
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
-		if let Some(name) = name {
-			library.config.name = name;
-		}
-		if let Some(description) = description {
-			library.config.description = description;
-		}
+		name.map(|n| library.config.name = n);
+		description.map(|d| library.config.description = d);
 
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),

@@ -1,4 +1,8 @@
-use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePathData};
+use crate::{
+	location::file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+	tag::system::FAVORITES_TAG,
+	util::db::uuid_to_bytes,
+};
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset, Utc};
@@ -6,6 +10,7 @@ use prisma_client_rust::operator::or;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
 use crate::{
 	api::{
@@ -175,14 +180,27 @@ impl ObjectFilterArgs {
 		chain_optional_iter(
 			[],
 			[
-				self.favorite.map(object::favorite::equals),
 				self.hidden.map(object::hidden::equals),
 				self.date_accessed
 					.map(|date| date.to_prisma(object::date_accessed::equals)),
 				(!self.kind.is_empty())
 					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
-				(!self.tags.is_empty()).then(|| {
-					let tags = self.tags.into_iter().map(tag::id::equals).collect();
+				(!self.tags.is_empty() || self.favorite.is_some()).then(|| {
+					let tags = self
+						.tags
+						.into_iter()
+						.map(tag::id::equals)
+						.chain(self.favorite.map(|fav| {
+							let pub_id =
+								uuid_to_bytes(Uuid::from_u128(FAVORITES_TAG.pub_id as u128));
+
+							if fav {
+								tag::pub_id::equals(pub_id)
+							} else {
+								tag::pub_id::not(pub_id)
+							}
+						}))
+						.collect();
 					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
 
 					object::tags::some(vec![tags_on_object])

@@ -1,9 +1,14 @@
-use crate::prisma::{object, PrismaClient};
+use crate::{
+	prisma::{object, tag, tag_on_object, PrismaClient},
+	tag::system::FAVORITES_TAG,
+	util::db::uuid_to_bytes,
+};
 use prisma_client_rust::not;
 use sd_file_ext::kind::ObjectKind;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{sync::Arc, vec};
+use uuid::Uuid;
 
 use strum_macros::{EnumString, EnumVariantNames};
 
@@ -58,7 +63,11 @@ impl Category {
 pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
 	let param = match category {
 		Category::Recents => not![object::date_accessed::equals(None)],
-		Category::Favorites => object::favorite::equals(true),
+		Category::Favorites => {
+			object::tags::some(vec![tag_on_object::tag::is(vec![tag::pub_id::equals(
+				uuid_to_bytes(Uuid::from_u128(FAVORITES_TAG.pub_id as u128)),
+			)])])
+		}
 		Category::Photos
 		| Category::Videos
 		| Category::Music

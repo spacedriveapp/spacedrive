@@ -35,7 +35,7 @@ pub struct Metadata {
 	pub path_id: i32,
 	pub name: String,
 	pub hidden: bool,
-	pub favorite: bool,
+	// pub favorite: bool,
 	pub important: bool,
 	pub note: Option<String>,
 	pub date_created: chrono::DateTime<FixedOffset>,
@@ -168,7 +168,8 @@ impl StatefulJob for FileEncryptorJob {
 							path_id: state.init.path_id,
 							name: info.path_data.materialized_path.clone(),
 							hidden: object.hidden,
-							favorite: object.favorite,
+							// TODO: Figure out how to handle this
+							// favorite: object.favorite,
 							important: object.important,
 							note: object.note.clone(),
 							date_created: object.date_created,
