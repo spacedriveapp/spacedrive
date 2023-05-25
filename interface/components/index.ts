@@ -3,7 +3,7 @@ export * from './Codeblock';
 export * from './ColorPicker';
 export * from './DismissibleNotice';
 export * from './DragRegion';
-export * from './ExternalObject';
+export * from './PDFViewer';
 export * from './PasswordMeter';
 export * from './SubtleButton';
 export * from './TrafficLights';

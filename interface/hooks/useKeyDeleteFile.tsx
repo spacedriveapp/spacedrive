@@ -1,9 +1,9 @@
 import { useKey } from 'rooks';
 import { ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
-import DeleteDialog from '../app/$libraryId/Explorer/File/DeleteDialog';
+import DeleteDialog from '~/app/$libraryId/Explorer/File/DeleteDialog';
 
-const useKeyDeleteFile = (selectedItem: ExplorerItem | null, location_id: number | null) => {
+export const useKeyDeleteFile = (selectedItem: ExplorerItem | null, location_id: number | null) => {
 	return useKey('Delete', (e) => {
 		e.preventDefault();
 
@@ -14,5 +14,3 @@ const useKeyDeleteFile = (selectedItem: ExplorerItem | null, location_id: number
 		));
 	});
 };
-
-export default useKeyDeleteFile;
