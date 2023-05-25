@@ -16,7 +16,6 @@ import {
 	useKeyDeleteFile,
 	useZodRouteParams
 } from '~/hooks';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
