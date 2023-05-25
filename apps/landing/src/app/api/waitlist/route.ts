@@ -41,7 +41,10 @@ export async function POST(req: NextRequest) {
 	const { email } = result.data;
 
 	try {
-		const emailExist = await db.select({ email: waitlistTable.email }).from(waitlistTable);
+		const emailExist = await db
+			.select({ email: waitlistTable.email })
+			.from(waitlistTable)
+			.where(eq(waitlistTable.email, email));
 		if (emailExist.length > 0) {
 			return new Response(undefined, {
 				status: 204
