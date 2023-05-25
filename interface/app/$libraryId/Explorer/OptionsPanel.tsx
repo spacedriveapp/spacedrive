@@ -1,10 +1,10 @@
-import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { z } from 'zod';
+import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import {
 	FilePathSearchOrderingKeys,
+	SortOrder,
 	getExplorerConfigStore,
 	getExplorerStore,
-	SortOrder,
 	useExplorerConfigStore,
 	useExplorerStore
 } from '~/hooks';
@@ -13,13 +13,13 @@ const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
-	none: 'None',
-	name: 'Name',
-	sizeInBytes: 'Size',
-	dateCreated: 'Date created',
-	dateModified: 'Date modified',
-	dateIndexed: 'Date indexed',
-	"object.dateAccessed": "Date accessed"
+	'none': 'None',
+	'name': 'Name',
+	'sizeInBytes': 'Size',
+	'dateCreated': 'Date created',
+	'dateModified': 'Date modified',
+	'dateIndexed': 'Date indexed',
+	'object.dateAccessed': 'Date accessed'
 };
 
 export default () => {
@@ -78,11 +78,15 @@ export default () => {
 						size="sm"
 						className="w-full"
 						onChange={(value) =>
-							(getExplorerStore().orderByDirection = value as z.infer<typeof SortOrder>)
+							(getExplorerStore().orderByDirection = value as z.infer<
+								typeof SortOrder
+							>)
 						}
 					>
-						{SortOrder.options.map(o => (
-							<SelectOption key={o.value} value={o.value}>{o.value}</SelectOption>
+						{SortOrder.options.map((o) => (
+							<SelectOption key={o.value} value={o.value}>
+								{o.value}
+							</SelectOption>
 						))}
 					</Select>
 				</div>
