@@ -12,6 +12,9 @@ import { z } from 'zod';
 export const env = createEnv({
 	server: {
 		DATABASE_URL: z.string().url(),
+		AUTH_SECRET: z.string(),
+		GITHUB_CLIENT_ID: z.string(),
+		GITHUB_SECRET: z.string(),
 		AWS_SES_ACCESS_KEY: z.string(),
 		AWS_SES_SECRET_KEY: z.string(),
 		AWS_SES_REGION: z.string(),
@@ -20,6 +23,9 @@ export const env = createEnv({
 	client: {},
 	runtimeEnv: {
 		DATABASE_URL: process.env.DATABASE_URL,
+		AUTH_SECRET: process.env.AUTH_SECRET,
+		GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+		GITHUB_SECRET: process.env.GITHUB_SECRET,
 		AWS_SES_ACCESS_KEY: process.env.AWS_SES_ACCESS_KEY,
 		AWS_SES_SECRET_KEY: process.env.AWS_SES_SECRET_KEY,
 		AWS_SES_REGION: process.env.AWS_SES_REGION,
