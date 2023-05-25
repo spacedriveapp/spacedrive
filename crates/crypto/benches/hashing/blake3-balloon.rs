@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use sd_crypto::{
-	keys::Hasher,
-	types::{HashingAlgorithm, Params, Salt},
+	hashing::Hasher,
+	types::{HashingAlgorithm, Params, Salt, SecretKey},
 	utils::generate_fixed,
 	Protected,
 };
@@ -22,7 +22,7 @@ fn bench(c: &mut Criterion) {
 				b.iter_batched(
 					|| (password.clone(), salt),
 					|(password, salt)| {
-						Hasher::hash_password(hashing_algorithm, password, salt, None)
+						Hasher::hash_password(hashing_algorithm, &password, salt, &SecretKey::Null)
 					},
 					BatchSize::LargeInput,
 				)
