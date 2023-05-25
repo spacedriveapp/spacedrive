@@ -2,7 +2,7 @@ import { HTMLAttributes, PropsWithChildren, ReactNode, memo } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { useExplorerConfigStore } from '~/hooks';
-import { ExplorerLayoutMode, getExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import ContextMenu from '../File/ContextMenu';
 import { ExplorerViewContext, ExplorerViewSelection, ViewContext } from '../ViewContext';
