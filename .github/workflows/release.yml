@@ -82,9 +82,6 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
 
-      - name: Docker Publish
-        uses: ./.github/actions/publish-server-action
-
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
