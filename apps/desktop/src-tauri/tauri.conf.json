@@ -53,7 +53,7 @@
 			"active": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
 			"endpoints": [
-				"https://releases-6oxwxxryr-spacedrive.vercel.app/{{target}}/{{arch}}/{{current_version}}"
+				"https://spacedrive.com/api/releases/{{target}}/{{arch}}/{{current_version}}"
 			]
 		},
 		"allowlist": {

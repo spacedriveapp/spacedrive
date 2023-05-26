@@ -156,10 +156,6 @@ model FilePath {
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
-    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    // children FilePath[] @relation("directory_file_paths")
-
     key Key? @relation(fields: [key_id], references: [id])
 
     @@unique([location_id, materialized_path, name, extension])
@@ -385,11 +381,13 @@ model Job {
 
     parent_id Bytes?
 
-    task_count           Int       @default(1)
-    completed_task_count Int       @default(0)
-    date_created         DateTime  @default(now())
-    date_started         DateTime? @default(now()) // Started execution
-    date_completed       DateTime? @default(now()) // Finished execution
+    task_count                Int       @default(1)
+    completed_task_count      Int       @default(0)
+    date_estimated_completion DateTime? // Estimated timestamp that the job will be complete at
+
+    date_created   DateTime  @default(now())
+    date_started   DateTime? @default(now()) // Started execution
+    date_completed DateTime? @default(now()) // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -446,14 +444,12 @@ model Comment {
 //// Indexer Rules ////
 
 model IndexerRule {
-    id            Int      @id @default(autoincrement())
-    // Enum: sd_core::location::indexer::rules::RuleKind
-    kind          Int
-    name          String
-    default       Boolean  @default(false)
-    parameters    Bytes
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
+    id             Int      @id @default(autoincrement())
+    name           String
+    default        Boolean  @default(false)
+    rules_per_kind Bytes
+    date_created   DateTime @default(now())
+    date_modified  DateTime @default(now())
 
     locations IndexerRulesInLocation[]
 

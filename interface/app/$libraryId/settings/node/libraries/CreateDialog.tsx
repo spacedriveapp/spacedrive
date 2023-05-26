@@ -37,7 +37,7 @@ export default (props: UseDialogProps) => {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={(data) => createLibrary.mutateAsync({ name: data.name })}
+			onSubmit={form.handleSubmit((data) => createLibrary.mutateAsync({ name: data.name }))}
 			dialog={useDialog(props)}
 			submitDisabled={!form.formState.isValid}
 			title="Create New Library"

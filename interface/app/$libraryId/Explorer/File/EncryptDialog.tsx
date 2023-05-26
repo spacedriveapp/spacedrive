@@ -66,7 +66,7 @@ export default (props: Props) => {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={(data) =>
+			onSubmit={form.handleSubmit((data) =>
 				encryptFile.mutateAsync({
 					algorithm: data.encryptionAlgo as Algorithm,
 					key_uuid: data.key,
@@ -76,7 +76,7 @@ export default (props: Props) => {
 					preview_media: data.previewMedia,
 					output_path: data.outputPath || null
 				})
-			}
+			)}
 			dialog={useDialog(props)}
 			title="Encrypt a file"
 			description="Configure your encryption settings. Leave the output file blank for the default."

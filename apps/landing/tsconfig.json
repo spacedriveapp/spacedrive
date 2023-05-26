@@ -21,8 +21,19 @@
 		"paths": {
 			"~/*": ["./src/*"],
 			"@contentlayer/generated": ["./.contentlayer/generated"]
-		}
+		},
+		"plugins": [
+			{
+				"name": "next"
+			}
+		]
 	},
-	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+	"include": [
+		"next-env.d.ts",
+		"**/*.ts",
+		"**/*.tsx",
+		"src/drizzle.config.ts",
+		".next/types/**/*.ts"
+	],
 	"exclude": ["node_modules"]
 }

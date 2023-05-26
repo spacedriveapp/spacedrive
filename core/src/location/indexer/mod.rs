@@ -8,7 +8,6 @@ use crate::{
 };
 
 use std::{
-	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	time::Duration,
@@ -57,7 +56,7 @@ impl Hash for IndexerJobInit {
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
 	indexed_path: PathBuf,
-	rules_by_kind: HashMap<rules::RuleKind, Vec<rules::IndexerRule>>,
+	indexer_rules: Vec<rules::IndexerRule>,
 	db_write_time: Duration,
 	scan_read_time: Duration,
 	total_paths: u64,

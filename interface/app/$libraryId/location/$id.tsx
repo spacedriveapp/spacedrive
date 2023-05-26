@@ -8,18 +8,18 @@ import {
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Folder } from '@sd/ui';
+import { Folder } from '~/components/Folder';
 import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
+	useKeyDeleteFile,
 	useZodRouteParams
 } from '~/hooks';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -31,7 +31,7 @@ export const Component = () => {
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const { data: location } = useLibraryQuery(['locations.get', location_id]);
+	const location = useLibraryQuery(['locations.get', location_id]);
 
 	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
@@ -44,17 +44,16 @@ export const Component = () => {
 
 	const { query, items } = useItems();
 	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
-	useKeyDeleteFile(file as ExplorerItem, location_id)
-
+	useKeyDeleteFile(file as ExplorerItem, location_id);
 
 	return (
 		<>
 			<TopBarPortal
 				left={
 					<>
-						<Folder size={22} className="-mt-[1px] ml-3 mr-2 inline-block" />
+						<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 						<span className="text-sm font-medium">
-							{path ? getLastSectionOfPath(path) : location?.name}
+							{path ? getLastSectionOfPath(path) : location.data?.name}
 						</span>
 					</>
 				}
@@ -64,7 +63,7 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex flex-col w-full">
+			<div className="relative flex w-full flex-col">
 				<Explorer
 					items={items}
 					onLoadMore={query.fetchNextPage}
@@ -92,11 +91,13 @@ const useItems = () => {
 				library_id: library.uuid,
 				arg: {
 					order: useExplorerOrder(),
-					locationId,
-					take,
-					...(explorerState.layoutMode === 'media'
-						? { kind: [5, 7] }
-						: { path: path ?? '' })
+					filter: {
+						locationId,
+						...(explorerState.layoutMode === 'media'
+							? { object: { kind: [5, 7] } }
+							: { path: path ?? '' })
+					},
+					take
 				}
 			}
 		] as const,

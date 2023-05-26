@@ -8,9 +8,8 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, SelectOption, forms } from '@sd/ui';
-import { Form } from '~/../packages/ui/src/forms';
 
-const { z, useZodForm, PasswordInput, Select } = forms;
+const { z, useZodForm, PasswordInput, Select, Form } = forms;
 
 const schema = z
 	.object({
