@@ -1,11 +1,6 @@
 use std::{env, net::SocketAddr, path::Path};
 
-use axum::{
-	body::{self, Empty, Full},
-	response::Response,
-	routing::get,
-};
-use http::{header, HeaderValue, StatusCode};
+use axum::routing::get;
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
 use tracing::info;
 
@@ -53,6 +48,12 @@ async fn main() {
 		.route(
 			"/",
 			get(|| async move {
+				use axum::{
+					body::{self, Full},
+					response::Response,
+				};
+				use http::{header, HeaderValue, StatusCode};
+
 				match ASSETS_DIR.get_file("index.html") {
 					Some(file) => Response::builder()
 						.status(StatusCode::OK)
@@ -64,7 +65,7 @@ async fn main() {
 						.unwrap(),
 					None => Response::builder()
 						.status(StatusCode::NOT_FOUND)
-						.body(body::boxed(Empty::new()))
+						.body(body::boxed(axum::body::Empty::new()))
 						.unwrap(),
 				}
 			}),
@@ -73,6 +74,12 @@ async fn main() {
 			"/*id",
 			get(
 				|axum::extract::Path(path): axum::extract::Path<String>| async move {
+					use axum::{
+						body::{self, Empty, Full},
+						response::Response,
+					};
+					use http::{header, HeaderValue, StatusCode};
+
 					let path = path.trim_start_matches('/');
 					match ASSETS_DIR.get_file(path) {
 						Some(file) => Response::builder()
