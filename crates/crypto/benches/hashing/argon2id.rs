@@ -10,6 +10,7 @@ const PARAMS: [Params; 3] = [Params::Standard, Params::Hardened, Params::Paranoi
 
 fn bench(c: &mut Criterion) {
 	let mut group = c.benchmark_group("argon2id");
+	group.sample_size(10);
 
 	for param in PARAMS {
 		let password = Protected::new(generate_fixed::<64>().to_vec());
