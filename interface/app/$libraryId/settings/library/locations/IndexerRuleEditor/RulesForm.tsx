@@ -56,7 +56,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 				{
 					type: selectValues[0],
 					value: '',
-					kind: 'RejectFilesByGlob'
+					kind: modeOptions[0]?.value
 				}
 			]
 		}
