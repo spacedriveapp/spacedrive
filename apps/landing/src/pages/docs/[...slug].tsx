@@ -1,5 +1,5 @@
+import { Github } from '@sd/assets/svgs/brands';
 import { allDocs } from '@contentlayer/generated';
-import { SiGithub } from '@icons-pack/react-simple-icons';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Head from 'next/head';
@@ -93,7 +93,7 @@ export default function DocPage({
 							className="w-full"
 						>
 							<BottomCard>
-								<SiGithub className="mr-3 w-5" />
+								<Github className="mr-3 w-5" />
 								Edit this page on GitHub
 							</BottomCard>
 						</Link>
