@@ -1,12 +1,12 @@
 import { AppLogo } from '@sd/assets/images';
 import {
-	SiDiscord,
-	SiGithub,
-	SiInstagram,
-	SiOpencollective,
-	SiTwitch,
-	SiTwitter
-} from '@icons-pack/react-simple-icons';
+	Discord,
+	Github,
+	Instagram,
+	Opencollective,
+	Twitch,
+	Twitter
+} from '@sd/assets/svgs/brands';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
@@ -37,22 +37,22 @@ export function Footer() {
 					</p>
 					<div className="mb-10 mt-6 flex flex-row space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
-							<SiTwitter />
+							<Twitter className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://discord.gg/gTaF2Z44f5">
-							<SiDiscord />
+							<Discord className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://instagram.com/spacedriveapp">
-							<SiInstagram />
+							<Instagram className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://github.com/spacedriveapp">
-							<SiGithub />
+							<Github className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://opencollective.com/spacedrive">
-							<SiOpencollective />
+							<Opencollective className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://twitch.tv/jamiepinelive">
-							<SiTwitch />
+							<Twitch className="h-6 w-6" />
 						</FooterLink>
 					</div>
 				</div>

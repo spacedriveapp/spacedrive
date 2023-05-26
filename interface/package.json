@@ -60,8 +60,7 @@
 		"ts-deepmerge": "^6.0.3",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^8.0.4",
-		"valtio": "^1.7.4",
-		"@icons-pack/react-simple-icons": "^7.2.0"
+		"valtio": "^1.7.4"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

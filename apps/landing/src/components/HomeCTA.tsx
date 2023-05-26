@@ -1,7 +1,7 @@
 import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
+import { Github } from '@sd/assets/svgs/brands';
 import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
-import { SiGithub } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -93,10 +93,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<SiGithub
-								className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5"
-								fill="white"
-							/>
+							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>
