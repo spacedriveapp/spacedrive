@@ -9,32 +9,48 @@ const feedbackSchema = z.object({
 		required_error: 'Feedback is required',
 		invalid_type_error: 'Feedback must be a string'
 	}),
-	emoji: z.string({
-		required_error: 'Emoji is required',
-		invalid_type_error: 'Emoji must be a string'
-	})
+	emoji: z
+		.string({
+			required_error: 'Emoji is required',
+			invalid_type_error: 'Emoji must be a string'
+		})
+		.emoji()
+		.max(2)
+		.optional()
 });
+
+const CORS_HEADERS = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'POST, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
 
 export async function POST(req: NextRequest) {
 	const result = feedbackSchema.safeParse(await req.json());
-	if (!result.success) {
+
+	if (!result.success)
 		return new Response(
 			JSON.stringify({
 				message: result.error.toString()
 			}),
 			{
-				status: 400
+				status: 400,
+				headers: {
+					...CORS_HEADERS
+				}
 			}
 		);
-	}
+
 	try {
+		const { emoji, feedback } = result.data;
+
 		const slackMessage = {
 			blocks: [
 				{
 					type: 'section',
 					text: {
 						type: 'mrkdwn',
-						text: `${result.data.feedback} ${result.data.emoji}`
+						text: `${feedback}${emoji !== undefined && `\n\n${result.data.emoji}`}`
 					}
 				}
 			]
@@ -43,22 +59,37 @@ export async function POST(req: NextRequest) {
 			method: 'POST',
 			body: JSON.stringify(slackMessage)
 		});
+
 		return new Response(undefined, {
-			status: 204
+			status: 204,
+			headers: {
+				...CORS_HEADERS
+			}
 		});
 	} catch (error) {
 		console.error(error);
 		return new Response(
 			JSON.stringify({
-				message: "Something went wrong. Please try again."
+				message: 'Something went wrong. Please try again.'
 			}),
 			{
 				status: 500,
 				headers: {
-					'Content-Type': 'application/json'
+					'Content-Type': 'application/json',
+					...CORS_HEADERS
 				}
 			}
 		);
 	}
+}
 
+export async function OPTIONS() {
+	return new Response('', {
+		status: 200,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'POST, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+		}
+	});
 }
