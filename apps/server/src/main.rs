@@ -1,10 +1,19 @@
 use std::{env, net::SocketAddr, path::Path};
 
-use axum::routing::get;
+use axum::{
+	body::{self, Empty, Full},
+	response::Response,
+	routing::get,
+};
+use http::{header, HeaderValue, StatusCode};
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
 use tracing::info;
 
 mod utils;
+
+#[cfg(feature = "assets")]
+static ASSETS_DIR: include_dir::Dir<'static> =
+	include_dir::include_dir!("$CARGO_MANIFEST_DIR/../web/dist");
 
 #[tokio::main]
 async fn main() {
@@ -32,13 +41,73 @@ async fn main() {
 	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()
-		.route("/", get(|| async { "Spacedrive Server!" }))
 		.route("/health", get(|| async { "OK" }))
 		.nest(
 			"/spacedrive",
 			create_custom_uri_endpoint(node.clone()).axum(),
 		)
-		.nest("/rspc", router.endpoint(move || node.clone()).axum())
+		.nest("/rspc", router.endpoint(move || node.clone()).axum());
+
+	#[cfg(feature = "assets")]
+	let app = app
+		.route(
+			"/",
+			get(|| async move {
+				match ASSETS_DIR.get_file("index.html") {
+					Some(file) => Response::builder()
+						.status(StatusCode::OK)
+						.header(
+							header::CONTENT_TYPE,
+							HeaderValue::from_str("text/html").unwrap(),
+						)
+						.body(body::boxed(Full::from(file.contents())))
+						.unwrap(),
+					None => Response::builder()
+						.status(StatusCode::NOT_FOUND)
+						.body(body::boxed(Empty::new()))
+						.unwrap(),
+				}
+			}),
+		)
+		.route(
+			"/*id",
+			get(
+				|axum::extract::Path(path): axum::extract::Path<String>| async move {
+					let path = path.trim_start_matches('/');
+					match ASSETS_DIR.get_file(path) {
+						Some(file) => Response::builder()
+							.status(StatusCode::OK)
+							.header(
+								header::CONTENT_TYPE,
+								HeaderValue::from_str(
+									mime_guess::from_path(path).first_or_text_plain().as_ref(),
+								)
+								.unwrap(),
+							)
+							.body(body::boxed(Full::from(file.contents())))
+							.unwrap(),
+						None => match ASSETS_DIR.get_file("index.html") {
+							Some(file) => Response::builder()
+								.status(StatusCode::OK)
+								.header(
+									header::CONTENT_TYPE,
+									HeaderValue::from_str("text/html").unwrap(),
+								)
+								.body(body::boxed(Full::from(file.contents())))
+								.unwrap(),
+							None => Response::builder()
+								.status(StatusCode::NOT_FOUND)
+								.body(body::boxed(Empty::new()))
+								.unwrap(),
+						},
+					}
+				},
+			),
+		);
+
+	#[cfg(not(feature = "assets"))]
+	let app = app
+		.route("/", get(|| async { "Spacedrive Server!" }))
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
