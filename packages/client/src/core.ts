@@ -117,6 +117,8 @@ export type EncryptedKey = number[]
 
 export type PeerId = string
 
+export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
+
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
@@ -143,8 +145,6 @@ export type LocationUpdateArgs = { id: number; name: string | null; generate_pre
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
-
-export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 /**
  * This is a stored key, and can be freely written to the database.
@@ -213,6 +213,8 @@ export type Location = { id: number; pub_id: number[]; node_id: number; name: st
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
+export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
 export type BuildInfo = { version: string; commit: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
@@ -233,8 +235,6 @@ export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: Peer
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
-
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
@@ -251,15 +251,15 @@ export type FileDeleterJobInit = { location_id: number; path_id: number }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
- * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
+ * Note that `rules` field is a vector of tuples of `RuleKind` and `parameters`.
  * 
  * In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
- * single string containing a glob pattern.
+ * vector of strings containing a glob patterns.
  * 
  * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  * `parameters` field must be a vector of strings containing the names of the directories.
  */
-export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
+export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 

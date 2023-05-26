@@ -404,13 +404,12 @@ async fn inner_update_file(
 				(
 					sync_params
 						.into_iter()
-						.map(|(field, value)| {
+						.map(|p| {
 							sync.shared_update(
 								sync::file_path::SyncId {
 									pub_id: file_path.pub_id.clone(),
 								},
-								field,
-								value,
+								p,
 							)
 						})
 						.collect(),
@@ -443,8 +442,7 @@ async fn inner_update_file(
 							sync::object::SyncId {
 								pub_id: object.pub_id.clone(),
 							},
-							object::kind::NAME,
-							json!(int_kind),
+							(object::kind::NAME, json!(int_kind)),
 						),
 						db.object().update(
 							object::id::equals(object.id),
