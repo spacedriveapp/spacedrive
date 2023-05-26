@@ -12,7 +12,6 @@
 	"dependencies": {
 		"@auth/core": "^0.7.1",
 		"@aws-sdk/client-ses": "^3.337.0",
-		"@icons-pack/react-simple-icons": "^7.2.0",
 		"@planetscale/database": "^1.7.0",
 		"@sd/assets": "workspace:*",
 		"@sd/ui": "workspace:*",
