@@ -138,14 +138,14 @@ export default function NavBar() {
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<Discord className="text-white" fontSize={24} />
+						<Discord className="h-6 w-6 text-white" />
 					</Link>
 					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="text-white" fontSize={24} />
+						<Github className="h-6 w-6 text-white" />
 					</Link>
 				</div>
 			</div>

@@ -37,22 +37,22 @@ export function Footer() {
 					</p>
 					<div className="mb-10 mt-6 flex flex-row space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
-							<Twitter fontSize={24} />
+							<Twitter className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://discord.gg/gTaF2Z44f5">
-							<Discord fontSize={24} />
+							<Discord className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://instagram.com/spacedriveapp">
-							<Instagram fontSize={24} />
+							<Instagram className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://github.com/spacedriveapp">
-							<Github fontSize={24} />
+							<Github className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://opencollective.com/spacedrive">
-							<Opencollective fontSize={24} />
+							<Opencollective className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://twitch.tv/jamiepinelive">
-							<Twitch fontSize={24} />
+							<Twitch className="h-6 w-6" />
 						</FooterLink>
 					</div>
 				</div>
