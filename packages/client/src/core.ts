@@ -13,6 +13,7 @@ export type Procedures = {
         { key: "keys.isUnlocking", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: DisplayKey[] } | 
         { key: "keys.listRoot", input: LibraryArgs<null>, result: DisplayKey[] } | 
+        { key: "keys.reset", input: LibraryArgs<null>, result: null } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -49,7 +50,7 @@ export type Procedures = {
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<AddArgs>, result: null } | 
-        { key: "keys.addRootKey", input: LibraryArgs<SetupArgs>, result: null } | 
+        { key: "keys.addRootKey", input: LibraryArgs<SetupArgs>, result: Protected<string> } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
         { key: "keys.delete", input: LibraryArgs<string>, result: null } | 
         { key: "keys.lock", input: LibraryArgs<null>, result: null } | 
@@ -135,8 +136,6 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type GetArgs = { id: number }
 
-export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
-
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
 
 export type TagCreateArgs = { name: string; color: string }
@@ -150,6 +149,8 @@ export type FileEraserJobInit = { location_id: number; path_id: number; passes: 
 export type UpdateNameArgs = { uuid: string; name: string }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+
+export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
 
 export type SetNoteArgs = { id: number; note: string | null }
 
@@ -182,6 +183,8 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
 export type FilePathFilterArgs = { locationId?: number | null; search?: string; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
@@ -232,23 +235,21 @@ export type FileEncryptorJobInit = { location_id: number; path_id: number; key_u
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
- * Note that `parameters` field **MUST** be a JSON object serialized to bytes.
+ * Note that `rules` field is a vector of tuples of `RuleKind` and `parameters`.
  * 
  * In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
- * single string containing a glob pattern.
+ * vector of strings containing a glob patterns.
  * 
  * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  * `parameters` field must be a vector of strings containing the names of the directories.
  */
-export type IndexerRuleCreateArgs = { kind: RuleKind; name: string; dry_run: boolean; parameters: string[] }
+export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
-
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.

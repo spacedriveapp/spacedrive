@@ -1,8 +1,12 @@
 import 'dotenv/config';
 import { Config } from 'drizzle-kit';
-import { env } from './src/env';
+
+// TODO: Using t3 env is too damn hard, thanks JS bs
+if (!process.env.DATABASE_URL) {
+	throw new Error('DATABASE_URL is not set');
+}
 
 export default {
 	schema: ['./src/server/db.ts'],
-	connectionString: env.DATABASE_URL
+	connectionString: process.env.DATABASE_URL
 } satisfies Config;

@@ -2,8 +2,7 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks';
-import useKeyDeleteFile from '~/hooks/useKeyDeleteFile';
+import { getExplorerStore, useExplorerStore, useKeyDeleteFile } from '~/hooks';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -56,7 +55,13 @@ export default function Explorer(props: Props) {
 	useKey('Space', (e) => {
 		e.preventDefault();
 
-		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
+		if (selectedItem) {
+			if (expStore.quickViewObject?.item.id === selectedItem.item.id) {
+				getExplorerStore().quickViewObject = null;
+			} else {
+				getExplorerStore().quickViewObject = selectedItem;
+			}
+		}
 	});
 
 	return (

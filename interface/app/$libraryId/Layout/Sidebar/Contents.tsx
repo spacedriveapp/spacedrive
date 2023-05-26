@@ -1,12 +1,10 @@
 import {
 	ArchiveBox,
 	Broadcast,
-	CirclesFour,
 	CopySimple,
 	Crosshair,
 	Eraser,
 	FilmStrip,
-	MonitorPlay,
 	Planet
 } from 'phosphor-react';
 import { useClientContext } from '@sd/client';

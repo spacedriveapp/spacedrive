@@ -32,6 +32,7 @@ on:
       - '.gitattributes'
       - 'cspell.config.yaml'
   workflow_dispatch:
+  merge_group:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends

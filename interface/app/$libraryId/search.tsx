@@ -3,8 +3,8 @@ import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import {
-	getExplorerStore,
 	SortOrder,
+	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
 	useZodSearchParams
@@ -17,7 +17,7 @@ import TopBarOptions from './TopBar/TopBarOptions';
 export const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),
 	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional(),
+	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
 });
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
@@ -30,12 +30,15 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const { search, ...args } = props.args;
 
 	const query = useLibraryQuery(
-		['search.paths', {
-			...args,
-			filter: {
-				search
-			},
-		}],
+		[
+			'search.paths',
+			{
+				...args,
+				filter: {
+					search
+				}
+			}
+		],
 		{
 			suspense: true,
 			enabled: !!search
@@ -80,9 +83,7 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 						<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
 					)}
 					<p className="text-xs text-ink-faint">
-						{search
-							? `No results found for "${search}"`
-							: 'Search for files...'}
+						{search ? `No results found for "${search}"` : 'Search for files...'}
 					</p>
 				</div>
 			)}

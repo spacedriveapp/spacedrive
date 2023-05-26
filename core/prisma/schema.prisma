@@ -156,10 +156,6 @@ model FilePath {
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
-    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    // children FilePath[] @relation("directory_file_paths")
-
     key Key? @relation(fields: [key_id], references: [id])
 
     @@unique([location_id, materialized_path, name, extension])
@@ -441,14 +437,12 @@ model Comment {
 //// Indexer Rules ////
 
 model IndexerRule {
-    id            Int      @id @default(autoincrement())
-    // Enum: sd_core::location::indexer::rules::RuleKind
-    kind          Int
-    name          String
-    default       Boolean  @default(false)
-    parameters    Bytes
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
+    id             Int      @id @default(autoincrement())
+    name           String
+    default        Boolean  @default(false)
+    rules_per_kind Bytes
+    date_created   DateTime @default(now())
+    date_modified  DateTime @default(now())
 
     locations IndexerRulesInLocation[]
 

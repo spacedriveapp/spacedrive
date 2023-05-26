@@ -32,7 +32,6 @@
 		"next-env.d.ts",
 		"**/*.ts",
 		"**/*.tsx",
-		"src/env.js",
 		"src/drizzle.config.ts",
 		".next/types/**/*.ts"
 	],

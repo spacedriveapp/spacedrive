@@ -17,11 +17,13 @@ export default (props: Props) => {
 		}
 	});
 
+	const form = useZodForm();
+
 	return (
 		<Dialog
-			form={useZodForm()}
+			form={form}
 			dialog={useDialog(props)}
-			onSubmit={() => deleteTag.mutateAsync(props.tagId)}
+			onSubmit={form.handleSubmit(() => deleteTag.mutateAsync(props.tagId))}
 			title="Delete Tag"
 			description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 			ctaDanger
