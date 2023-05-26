@@ -25,7 +25,8 @@ export default function FeedbackDialog(props: UseDialogProps) {
 		try {
 			await fetch(FEEDBACK_URL, {
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(data),
+				mode: 'no-cors'
 			});
 		} catch (error) {
 			showAlertDialog({
