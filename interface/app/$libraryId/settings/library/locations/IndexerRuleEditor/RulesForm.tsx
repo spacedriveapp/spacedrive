@@ -42,6 +42,10 @@ const RulesForm = ({ onSubmitted }: Props) => {
 	const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const formId = useId();
+	const modeOptions: { value: RuleKind; label: string }[] = [
+		{ value: 'RejectFilesByGlob', label: 'Reject files by glob' },
+		{ value: 'AcceptFilesByGlob', label: 'Accept files by glob' }
+	];
 	const form = useZodForm({
 		schema,
 		mode: 'onBlur',
@@ -146,8 +150,8 @@ const RulesForm = ({ onSubmitted }: Props) => {
 						<h3>Type</h3>
 						<h3>Value</h3>
 						<h3 className="flex items-center justify-center gap-1">
-							Allow
-							<Tooltip label="By default, an indexer rule functions as a blacklist, resulting in the exclusion of any files that match its criteria. Enabling this option will transform it into a whitelist, allowing the location to solely index files that meet its specified rules.">
+							Mode
+							<Tooltip label="By default, an indexer rule functions as a Reject, resulting in the exclusion of any files that match its criteria. Enabling this option will transform it into a Allow, allowing the location to solely index files that meet its specified rules.">
 								<Info />
 							</Tooltip>
 						</h3>
@@ -217,30 +221,25 @@ const RulesForm = ({ onSubmitted }: Props) => {
 										);
 									}}
 								/>
-								<Card className="flex !h-[30px] w-fit items-center justify-center gap-2 border-app-line bg-app-input !px-3 !py-0">
-									<p className="text-[11px] text-ink-faint">Blacklist</p>
-									<Controller
-										name={`rules.${index}.kind` as const}
-										render={({ field }) => (
-											<Switch
-												onCheckedChange={(checked) => {
-													// TODO: These rule kinds are broken right now in the backend and this UI doesn't make much sense for them
-													// kind.AcceptIfChildrenDirectoriesArePresent
-													// kind.RejectIfChildrenDirectoriesArePresent
-													const kind = ruleKindEnum.enum;
-													field.onChange(
-														checked
-															? kind.AcceptFilesByGlob
-															: kind.RejectFilesByGlob
-													);
-												}}
-												size="sm"
-											/>
-										)}
-										control={form.control}
-									/>
-									<p className="text-[11px] text-ink-faint">Whitelist</p>
-								</Card>
+								<Controller
+									name={`rules.${index}.kind` as const}
+									render={({ field }) => (
+										<Select
+											{...field}
+											className="!h-[30px] w-full"
+											onChange={(value) => {
+												field.onChange(value);
+											}}
+										>
+											{modeOptions.map(({ label, value }) => (
+												<SelectOption key={value} value={value}>
+													{label}
+												</SelectOption>
+											))}
+										</Select>
+									)}
+									control={form.control}
+								/>
 								{index !== 0 && (
 									<Button
 										className="flex h-[32px] w-[32px] items-center justify-self-end"
