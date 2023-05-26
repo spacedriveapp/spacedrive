@@ -5,52 +5,72 @@ set -E          # make commands inherit ERR trap
 set -u          # don't allow not set variables to be utilized
 set -o pipefail # trace ERR through pipes
 set -o errtrace # trace ERR through 'time command' and other functions
-set -x
+set -x          # print to stderr each command before executing it
 
 #---------------------------------- Constants ---------------------------------/
-host_target='x86_64-w64-mingw32'
-mingw_bin_path="/srv/mingw-w64-x86_64/bin"
-
 script_path="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
-cross_prefix="${mingw_bin_path}/x86_64-w64-mingw32-"
-mingw_w64_x86_64_prefix="/srv/mingw-w64-x86_64/${host_target}"
 
-export PATH="${mingw_bin_path}:${PATH}"
+export TRIPLE='x86_64-w64-mingw32'
+export PREFIX="/srv/${TRIPLE}"
 
-export AR="${host_target}-ar"
-export LD="${host_target}-ld"
-export CC="${host_target}-gcc"
-export CXX="${host_target}-g++"
-export STRIP="${host_target}-strip"
-export RANLIB="${host_target}-ranlib"
+cross_prefix="$(dirname "$(command -v x86_64-w64-mingw32-gcc)")/${TRIPLE}-"
+
+# Link system pkg-config to the cross one, meson requires it
+ln -sfv "$(command -v pkg-config)" "${cross_prefix}pkg-config"
+
+# Link dlltool to the cross one, libgit requires it
+ln -sfv "${cross_prefix}dlltool" /usr/local/bin/dlltool
+
+export AR="${cross_prefix}ar"
+export LD="${cross_prefix}ld"
+export CC="${cross_prefix}gcc"
+export CXX="${cross_prefix}g++"
+export STRIP="${cross_prefix}strip"
+export RANLIB="${cross_prefix}ranlib"
 # high compatible by default, see #219, some other good options are listed below, or you could use -march=native to target your local box:
-export CFLAGS='-mtune=generic -O3'
-export PREFIX="$mingw_w64_x86_64_prefix"
+export CFLAGS="-mtune=generic -O3 -I${PREFIX}/include"
+export LDFLAGS="-L${PREFIX}/lib"
 # Needed for mingw-w64 7 as FORTIFY_SOURCE is now partially implemented, but not actually working
-export CPPFLAGS='-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0'
-export PKG_CONFIG_PATH="${mingw_w64_x86_64_prefix}/lib/pkgconfig"
+export CPPFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -I${PREFIX}/include"
+export CXXFLAGS="$CPPFLAGS"
+export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
 # disable pkg-config from finding [and using] normal linux system installed libs [yikes]
 export PKG_CONFIG_LIBDIR=
 
+export XZ_OPT='-T0 -9'
+
 #---------------------------------- Functions ---------------------------------/
+meson() {
+  command meson setup \
+    --strip \
+    --prefix="${PREFIX}" \
+    --libdir="${PREFIX}/lib" \
+    --buildtype=release \
+    --cross-file='/srv/meson-cross.mingw.txt' \
+    --default-library=static \
+    "$@" --unity=off
+}
+
 cmake() {
   local dir="$1"
   shift
   command cmake "$dir" \
-    -DCMAKE_RANLIB="${host_target}-ranlib" \
-    -DCMAKE_C_COMPILER="${host_target}-gcc" \
-    -DBUILD_SHARED_LIBS=0 \
+    -G"Unix Makefiles" \
+    -DCMAKE_RANLIB="${cross_prefix}ranlib" \
+    -DCMAKE_LINKER="${cross_prefix}ld" \
+    -DCMAKE_C_COMPILER="${cross_prefix}gcc" \
+    -DBUILD_SHARED_LIBS="${SHARED:-0}" \
     -DCMAKE_SYSTEM_NAME=Windows \
-    -DCMAKE_RC_COMPILER="${host_target}-windres" \
-    -DCMAKE_CXX_COMPILER="${host_target}-g++" \
-    -DCMAKE_INSTALL_PREFIX="$mingw_w64_x86_64_prefix" \
-    -DCMAKE_FIND_ROOT_PATH="$mingw_w64_x86_64_prefix" \
+    -DCMAKE_PREFIX_PATH="$PREFIX" \
+    -DCMAKE_RC_COMPILER="${cross_prefix}windres" \
+    -DCMAKE_CXX_COMPILER="${cross_prefix}g++" \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+    -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
     -DENABLE_STATIC_RUNTIME=1 \
     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
     -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
     -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-    "$@" \
-    -G"Unix Makefiles"
+    "$@"
 }
 
 configure() {
@@ -64,28 +84,23 @@ configure() {
 
   chmod +x ./configure
   ./configure \
-    --host="$host_target" --prefix="$mingw_w64_x86_64_prefix" --disable-shared --enable-static "$@"
+    --host="$TRIPLE" \
+    --prefix="$PREFIX" \
+    --with-sysroot="$(dirname "$(dirname "$cross_prefix")")" \
+    --enable-static \
+    --disable-shared \
+    "$@"
+}
+
+fix_la() {
+  find /srv/x86_64-w64-mingw32/lib -name '*.la' -exec sed -i 's@ =/@ /@g' {} +
 }
 
 make_install() {
+  fix_la
   make "$@" -j"$(nproc)"
   make install "$@" -j"$(nproc)"
-}
-
-gen_ld_script() {
-  if [ $# -lt 3 ]; then
-    echo "gen_ld_script: Invalid arguments" >&2
-    return 1
-  fi
-
-  local lib="${mingw_w64_x86_64_prefix}/lib/${1}"
-  local lib_s="$2"
-
-  if ! [ -f "${mingw_w64_x86_64_prefix}/lib/lib${lib_s}.a" ]; then
-    echo "Generating linker script ${lib}: $2 $3"
-    mv -f "$lib" "${mingw_w64_x86_64_prefix}/lib/lib${lib_s}.a"
-    echo "GROUP ( -l${lib_s} $3 )" >"$lib"
-  fi
+  fix_la
 }
 
 download_and_unpack_file() {
@@ -94,21 +109,47 @@ download_and_unpack_file() {
     return 1
   fi
 
+  local url="$2"
+
   mkdir "$1"
   cd "$1"
 
-  curl -sSfL "$2" \
-    | bsdtar -xf- --strip-components=1
+  if [ "${3:-}" != 'false' ]; then
+    set -- --strip-components=1
+  else
+    set --
+  fi
+
+  curl -sSfL "$url" \
+    | bsdtar -xf- "$@"
 }
 
 #------------------------------------ Main ------------------------------------/
-mkdir -p "$mingw_w64_x86_64_prefix"
+mkdir -p "${PREFIX}/"{bin,include,lib,share}
 
 CDPATH='' cd -- /srv
 
+cat <<EOF >meson-cross.mingw.txt
+[binaries]
+c = '${cross_prefix}gcc'
+cpp = '${cross_prefix}g++'
+ld = '${cross_prefix}ld'
+ar = '${cross_prefix}ar'
+strip = '${cross_prefix}strip'
+pkgconfig = '${cross_prefix}pkg-config'
+nm = '${cross_prefix}nm'
+windres = '${cross_prefix}windres'
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+EOF
+
 (# build mingw-std-threads
   download_and_unpack_file mingw-std-threads https://github.com/meganz/mingw-std-threads/archive/6c2061b.zip
-  cp -av -- *.h "${mingw_w64_x86_64_prefix}/include"
+  cp -av -- *.h "${PREFIX}/include"
 )
 
 (# Build dlfcn
@@ -118,24 +159,48 @@ CDPATH='' cd -- /srv
   sed -i "s/-O3/-O2/" Makefile
 
   chmod +x ./configure
-  ./configure --prefix="$mingw_w64_x86_64_prefix" --cross-prefix="${host_target}-"
+  ./configure --prefix="$PREFIX" --cross-prefix="${TRIPLE}-"
 
   make_install
 
   # dlfcn-win32's 'README.md': "If you are linking to the static 'dl.lib' or 'libdl.a',
   # then you would need to explicitly add 'psapi.lib' or '-lpsapi' to your linking command,
   # depending on if MinGW is used."
-  gen_ld_script libdl.a dl_s -lpsapi
+  mv "${PREFIX}/lib/libdl.a" "${PREFIX}/lib/libdl_s.a"
+  echo "GROUP ( -ldl_s -lpsapi )" >"${PREFIX}/lib/libdl.la"
+)
+
+(# build OpenCL Headers
+  download_and_unpack_file opencl https://github.com/KhronosGroup/OpenCL-Headers/archive/refs/tags/v2023.04.17.tar.gz
+
+  mkdir build
+  cd build
+
+  cmake ..
+
+  make_install
+)
+
+(# build OpenCL icd
+  download_and_unpack_file opencl-icd \
+    https://github.com/KhronosGroup/OpenCL-ICD-Loader/archive/refs/tags/v2023.04.17.tar.gz
+
+  mkdir build
+  cd build
+
+  cmake ..
+
+  make_install
 )
 
 (# build zlib
   download_and_unpack_file zlib https://github.com/madler/zlib/releases/download/v1.2.13/zlib-1.2.13.tar.xz
 
-  export CHOST="$host_target"
+  export CHOST="$TRIPLE"
   export ARFLAGS=rcs
 
   chmod +x ./configure
-  ./configure --prefix="$mingw_w64_x86_64_prefix" --static
+  ./configure --prefix="$PREFIX" --static
 
   make_install ARFLAGS="$ARFLAGS"
 )
@@ -147,8 +212,8 @@ CDPATH='' cd -- /srv
 
   make CC="$CC" AR="$AR" PREFIX="$PREFIX" RANLIB="$RANLIB" LD="$LD" STRIP="$STRIP" CXX="$CXX" libbz2.a -j"$(nproc)"
 
-  install -m644 bzlib.h "${mingw_w64_x86_64_prefix}/include/bzlib.h"
-  install -m644 libbz2.a "${mingw_w64_x86_64_prefix}/lib/libbz2.a"
+  install -m644 bzlib.h "${PREFIX}/include/bzlib.h"
+  install -m644 libbz2.a "${PREFIX}/lib/libbz2.a"
 )
 
 (# build liblzma, depends: dlfcn
@@ -160,6 +225,17 @@ CDPATH='' cd -- /srv
     --disable-scripts \
     --disable-xz \
     --disable-xzdec
+
+  make_install
+)
+
+(# build brotli
+  download_and_unpack_file brotli https://github.com/google/brotli/archive/refs/tags/v1.0.9.tar.gz
+
+  mkdir out
+  cd out
+
+  cmake .. -DBROTLI_DISABLE_TESTS=1 -DCMAKE_BUILD_TYPE=Release
 
   make_install
 )
@@ -183,7 +259,10 @@ CDPATH='' cd -- /srv
 (# build libopenjpeg
   download_and_unpack_file libopenjpeg https://github.com/uclouvain/openjpeg/archive/refs/tags/v2.5.0.tar.gz
 
-  cmake . -DBUILD_CODEC=0
+  mkdir build
+  cd build
+
+  cmake .. -DBUILD_CODEC=0 -DCMAKE_BUILD_TYPE=Release
 
   make_install
 )
@@ -198,9 +277,11 @@ CDPATH='' cd -- /srv
 
 (# build libwebp, depends: dlfcn
   # Version 1.3.0
-  download_and_unpack_file libwebp https://chromium.googlesource.com/webm/libwebp.git/+archive/b557776962a3dcc985d83bd4ed94e1e2e50d0fa2.tar.gz
+  download_and_unpack_file libwebp \
+    https://chromium.googlesource.com/webm/libwebp.git/+archive/b557776962a3dcc985d83bd4ed94e1e2e50d0fa2.tar.gz \
+    false
 
-  export LIBPNG_CONFIG="${mingw_w64_x86_64_prefix}/bin/libpng-config --static" # LibPNG somehow doesn't get autodetected.
+  export LIBPNG_CONFIG="${PREFIX}/bin/libpng-config --static" # LibPNG somehow doesn't get autodetected.
 
   configure --disable-wic
 
@@ -208,12 +289,12 @@ CDPATH='' cd -- /srv
 )
 
 (# build freetype, depends: bzip2
-  download_and_unpack_file freetype https://sourceforge.net/projects/freetype/files/freetype2/2.13.0/freetype-2.13.0.tar.xz
+  download_and_unpack_file freetype \
+    https://sourceforge.net/projects/freetype/files/freetype2/2.13.0/freetype-2.13.0.tar.xz
 
   # src/tools/apinames.c gets crosscompiled and makes the compilation fail
   patch -p0 <"${script_path}/freetype2-crosscompiled-apinames.diff"
 
-  # harfbuzz autodetect :|
   configure --with-bzip2 --without-harfbuzz
 
   make_install
@@ -222,44 +303,46 @@ CDPATH='' cd -- /srv
 (# build harfbuzz, depends: zlib, freetype, and libpng.
   download_and_unpack_file harfbuzz https://github.com/harfbuzz/harfbuzz/releases/download/7.3.0/harfbuzz-7.3.0.tar.xz
 
-  export LDFLAGS=-lpthread
-  # no fontconfig, don't want another circular what? icu is #372
-  configure --with-freetype=yes --with-fontconfig=no --with-icu=no
+  mkdir build
 
-  make_install
+  meson \
+    -Dgdi=enabled \
+    -Dicu=disabled \
+    -Ddocs=disabled \
+    -Dglib=disabled \
+    -Dtests=disabled \
+    -Dcairo=disabled \
+    -Dtests=disabled \
+    -Dgobject=disabled \
+    -Dfreetype=enabled \
+    -Dutilities=disabled \
+    -Ddirectwrite=enabled \
+    -Dintrospection=disabled \
+    . build
 
-  # Rebuild freetype with harfbuzz
-  unset LDFLAGS
-  (
-    cd /srv/freetype
-    configure --with-bzip2
-    make -j"$(nproc)"
-    make install -j"$(nproc)"
-  )
-
-  # for some reason it lists harfbuzz as Requires.private only??
-  sed -i 's/-lfreetype.*/-lfreetype -lharfbuzz -lpthread/' "$PKG_CONFIG_PATH/freetype2.pc"
-  # does anything even use this?
-  sed -i 's/-lharfbuzz.*/-lharfbuzz -lfreetype/' "$PKG_CONFIG_PATH/harfbuzz.pc"
-  # XXX what the..needed?
-  sed -i 's/libfreetype.la -lbz2/libfreetype.la -lharfbuzz -lbz2/' "${mingw_w64_x86_64_prefix}/lib/libfreetype.la"
-  sed -i 's/libfreetype.la -lbz2/libfreetype.la -lharfbuzz -lbz2/' "${mingw_w64_x86_64_prefix}/lib/libharfbuzz.la"
+  ninja -C build install
 )
 
-(# build libxml2, depends: zlib, liblzma, iconv and dlfcn
-  download_and_unpack_file libxml2 http://xmlsoft.org/sources/libxml2-2.9.12.tar.gz
+(# rebuild freetype with harfbuzz support
+  cd /srv/freetype
 
-  configure --with-ftp=no --with-http=no --with-python=no
+  configure --with-bzip2 --with-harfbuzz
 
   make_install
 )
 
-(# build fontconfig, depends freetype, libxml >= 2.6, iconv and dlfcn.
+(# build fontconfig, depends freetype, iconv and dlfcn.
   download_and_unpack_file fontconfig https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.14.2.tar.xz
 
-  configure "--enable-iconv --enable-libxml2 --disable-docs --with-libiconv" # Use Libxml2 instead of Expat.
+  meson \
+    -Ddoc=disabled \
+    -Dnls=disabled \
+    -Dtests=disabled \
+    -Dtools=disabled \
+    -Dcache-build=disabled \
+    . build
 
-  make_install
+  ninja -C build install
 )
 
 (# build libogg, depends: dlfcn
@@ -291,24 +374,22 @@ CDPATH='' cd -- /srv
 
   patch -p0 <"${script_path}/libtheora-1.1.1-libpng16.patch"
 
-  cd theora_git
-
   # disable asm: avoid [theora @ 0x1043144a0]error in unpack_block_qpis in 64 bit... [OK OS X 64 bit tho...]
   configure --disable-doc --disable-spec --disable-oggtest --disable-vorbistest --disable-examples --disable-asm
 
   make_install
 )
 
-(# build libsndfile, depends: libogg >= 1.1.3, libvorbis >= 1.2.3 for external support [disabled]. Uses dlfcn. 'build_libsndfile "install-libgsm"' to install the included LibGSM 6.10.
-  download_and_unpack_file libsndfile https://github.com/libsndfile/libsndfile/releases/download/1.2.0/libsndfile-1.2.0.tar.xz
+(# build libsndfile, depends: dlfcn
+  download_and_unpack_file libsndfile https://github.com/libsndfile/libsndfile/archive/refs/tags/1.2.0.tar.gz
 
   # TODO: Enable external libs (will required building dlls for FLAC, Ogg and Vorbis)
   configure --disable-alsa --disable-sqlite --disable-external-libs --disable-full-suite
 
   make_install
 
-  install -m644 src/GSM610/gsm.h $mingw_w64_x86_64_prefix/include/gsm.h || exit 1
-  install -m644 src/GSM610/.libs/libgsm.a $mingw_w64_x86_64_prefix/lib/libgsm.a || exit 1
+  install -m644 'src/GSM610/gsm.h' "${PREFIX}/include/gsm.h" || exit 1
+  install -m644 'src/GSM610/.libs/libgsm.a' "${PREFIX}/lib/libgsm.a" || exit 1
 )
 
 (# build lame, depends: dlfcn
@@ -320,7 +401,7 @@ CDPATH='' cd -- /srv
   patch -p0 <"${script_path}/lame-3.100-sse-20171014.diff"
   patch -p0 <"${script_path}/patch-avoid_undefined_symbols_error.diff"
 
-  configure --enable-nasm --disable-gtktest
+  configure --enable-nasm --disable-gtktest --disable-frontend
 
   make_install
 )
@@ -337,7 +418,7 @@ CDPATH='' cd -- /srv
 )
 
 (# build libsoxr
-  download_and_unpack_file https://downloads.sourceforge.net/project/soxr/soxr-0.1.3-Source.tar.xz
+  download_and_unpack_file soxr https://downloads.sourceforge.net/project/soxr/soxr-0.1.3-Source.tar.xz
 
   cmake . -DHAVE_WORDS_BIGENDIAN_EXITCODE=0 -DWITH_OPENMP=0 -DBUILD_TESTS=0 -DBUILD_EXAMPLES=0
 
@@ -370,23 +451,21 @@ CDPATH='' cd -- /srv
   # no static option...
   patch -p0 <"${script_path}/xvidcore-1.3.7_static-lib.patch"
 
-  configure --host=$host_target --prefix=$mingw_w64_x86_64_prefix
+  ./configure --host="$TRIPLE" --prefix="$PREFIX"
 
-  make install
+  make_install
 )
 
 (# build libvpx
-  download_and_unpack_file libvpx https://chromium.googlesource.com/webm/libvpx/+archive/d6eb9696aa72473c1a11d34d928d35a3acc0c9a9.tar.gz
+  # v1.13.0
+  download_and_unpack_file libvpx \
+    https://chromium.googlesource.com/webm/libvpx/+archive/d6eb9696aa72473c1a11d34d928d35a3acc0c9a9.tar.gz false
 
-  # perhaps someday can remove this after 1.6.0 or mingw fixes it LOL
-  patch -p1 <"${script_path}/vpx_160_semaphore.patch"
-
-  export CHOST="$host_target"
-  export CROSS="${host_target}-"
+  export CHOST="$TRIPLE"
+  export CROSS="${TRIPLE}-"
   # VP8 encoder *requires* sse3 support
   # fno for Error: invalid register for .seh_savexmm
-  configure \
-    --cpu=x86_64 \
+  ./configure \
     --target=x86_64-win64-gcc \
     --enable-ssse3 \
     --disable-examples \
@@ -396,6 +475,26 @@ CDPATH='' cd -- /srv
     --enable-vp9-highbitdepth \
     --extra-cflags=-fno-asynchronous-unwind-tables \
     --extra-cflags=-mstackrealign
+
+  make_install
+)
+
+(# build libx264
+  # Stable
+  download_and_unpack_file x264 \
+    https://code.videolan.org/videolan/x264/-/archive/baee400fa9ced6f5481a728138fed6e867b0ff7f/x264-baee400fa9ced6f5481a728138fed6e867b0ff7f.tar.gz
+
+  # Change CFLAGS.
+  sed -i "s/O3 -/O2 -/" configure
+
+  # --enable-win32thread --enable-debug is another useful option here?
+  set -- --host="$TRIPLE" --enable-static --cross-prefix="$cross_prefix" --prefix="$PREFIX" --enable-strip --disable-lavf --bit-depth=all
+  for i in $CFLAGS; do
+    # needs it this way seemingly :|
+    set -- "$@" --extra-cflags="$i"
+  done
+
+  ./configure "$@"
 
   make_install
 )
@@ -422,7 +521,7 @@ CDPATH='' cd -- /srv
   # Build 10bit (main10)
   cd ../10bit
 
-  do_cmake_from_build_dir ../source \
+  cmake ../source \
     -DENABLE_CLI=0 \
     -DEXPORT_C_API=0 \
     -DENABLE_SHARED=0 \
@@ -437,7 +536,7 @@ CDPATH='' cd -- /srv
 
   cmake ../source \
     -DEXTRA_LIB='x265_main10.a;x265_main12.a' \
-    -DENABLE_CLI=1 \
+    -DENABLE_CLI=0 \
     -DENABLE_SHARED=0 \
     -DLINKED_10BIT=TRUE \
     -DLINKED_12BIT=TRUE \
@@ -448,7 +547,7 @@ CDPATH='' cd -- /srv
 
   mv libx265.a libx265_main.a
 
-  "${host_target}-ar" -M <<EOF
+  "${TRIPLE}-ar" -M <<EOF
 CREATE libx265.a
 ADDLIB libx265_main.a
 ADDLIB libx265_main10.a
@@ -474,27 +573,50 @@ EOF
   make_install
 )
 
-(# build libx264
-  download_and_unpack_file x264 https://code.videolan.org/videolan/x264/-/archive/baee400fa9ced6f5481a728138fed6e867b0ff7f/x264-baee400fa9ced6f5481a728138fed6e867b0ff7f.tar.gz
+(# build rav1e
+  download_and_unpack_file rav1e https://github.com/xiph/rav1e/archive/refs/tags/v0.6.6.tar.gz
 
-  # Change CFLAGS.
-  sed -i "s/O3 -/O2 -/" configure
+  export CC="gcc"
+  export CXX="g++"
+  export TARGET_CC="${cross_prefix}gcc"
+  export TARGET_CXX="${cross_prefix}g++"
+  export CROSS_COMPILE=1
+  export TARGET_CFLAGS="$CFLAGS"
+  export TARGET_CXXFLAGS="$CFLAGS"
+  unset CFLAGS
+  unset CXXFLAGS
 
-  # --enable-win32thread --enable-debug is another useful option here?
-  set -- --cross-prefix="$cross_prefix" --enable-strip --disable-lavf --bit-depth=all
-  for i in $CFLAGS; do
-    # needs it this way seemingly :|
-    set -- "$@" --extra-cflags="$i"
-  done
+  cat <<EOF >/root/.cargo/config.toml
+[target.x86_64-pc-windows-gnu]
+linker = "${LD}"
+ar = "${AR}"
+EOF
 
-  configure "$@"
+  cargo cinstall -v \
+    --prefix="$PREFIX" \
+    --target=x86_64-pc-windows-gnu \
+    --dlltool="${cross_prefix}dlltool" \
+    --crt-static \
+    --library-type=staticlib \
+    --release
 
-  make_install
+  rm /root/.cargo/config.toml
 )
 
-# TODO rav1e
-# TODO libheif
-# TODO OpenCL
+(# build libheif
+  download_and_unpack_file libheif https://github.com/strukturag/libheif/releases/download/v1.16.2/libheif-1.16.2.tar.gz
+
+  sed -i 's/#include <mutex>/#include "mingw.mutex.h"/g' libheif/file.h
+
+  mkdir build
+
+  cd build
+
+  export SHARED=1
+  cmake ..
+
+  make
+)
 
 (
   download_and_unpack_file ffmpeg https://ffmpeg.org/releases/ffmpeg-6.0.tar.xz
@@ -502,9 +624,10 @@ EOF
   ./configure \
     --cpu="x86_64" \
     --arch='x86_64' \
-    --prefix="$mingw_w64_x86_64_prefix" \
+    --prefix="$PREFIX" \
+    --sysroot="$(dirname "$(dirname "$cross_prefix")")" \
     --target-os=mingw32 \
-    --cross-prefix=$cross_prefix \
+    --cross-prefix="$cross_prefix" \
     --pkg-config=pkg-config \
     --pkg-config-flags=--static \
     --extra-libs='-lmpg123' \
@@ -578,7 +701,6 @@ EOF
     --enable-libwebp \
     --enable-libx264 \
     --enable-libx265 \
-    --enable-libxml2 \
     --enable-libxvid \
     --enable-libzimg \
     --enable-lto \
