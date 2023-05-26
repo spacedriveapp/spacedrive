@@ -147,7 +147,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 						<h3>Value</h3>
 						<h3 className="flex items-center justify-center gap-1">
 							Allow
-							<Tooltip label="By default, an indexer rule acts as a deny list, causing a location to ignore any file that match its rules. Enabling this will make it act as an allow list, and the location will only display files that match its rules.">
+							<Tooltip label="By default, an indexer rule functions as a blacklist, resulting in the exclusion of any files that match its criteria. Enabling this option will transform it into a whitelist, allowing the location to solely index files that meet its specified rules.">
 								<Info />
 							</Tooltip>
 						</h3>
