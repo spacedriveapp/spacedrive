@@ -8,14 +8,11 @@ export type Procedures = {
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "keys.getDefault", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.getKey", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.getSecretKey", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.isSetup", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.isUnlocked", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.list", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.listMounted", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.isSetup", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.isUnlocking", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.list", input: LibraryArgs<null>, result: DisplayKey[] } | 
+        { key: "keys.listRoot", input: LibraryArgs<null>, result: DisplayKey[] } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -51,20 +48,18 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
-        { key: "keys.add", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.add", input: LibraryArgs<AddArgs>, result: null } | 
+        { key: "keys.addRootKey", input: LibraryArgs<SetupArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.changeMasterPassword", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.restoreKeystore", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setup", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.unlockKeyManager", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.delete", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.lock", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.mount", input: LibraryArgs<MountArgs>, result: null } | 
+        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreArgs>, result: number } | 
+        { key: "keys.setup", input: LibraryArgs<SetupArgs>, result: Protected<string> } | 
+        { key: "keys.unlock", input: LibraryArgs<UnlockArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.updateAutomountStatus", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.unmountAll", input: LibraryArgs<null>, result: number } | 
+        { key: "keys.updateName", input: LibraryArgs<UpdateNameArgs>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -101,7 +96,16 @@ export type PeerMetadata = { name: string; operating_system: OperatingSystem | n
  */
 export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
+export type DisplayKey = { version: KeyVersion; uuid: string; name: string | null; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; mounted: boolean }
+
 export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
+
+export type SetupArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; password: Protected<string> }
+
+/**
+ * This defines all available password hashing algorithms.
+ */
+export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "Blake3Balloon"; params: Params }
 
 export type PeerId = string
 
@@ -143,6 +147,8 @@ export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
 
+export type UpdateNameArgs = { uuid: string; name: string }
+
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type SetNoteArgs = { id: number; note: string | null }
@@ -153,10 +159,21 @@ export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrder
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
 
+export type AddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; password: Protected<string>; word: Protected<string> | null }
+
 /**
  * Meow
  */
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
+
+/**
+ * These parameters define the password-hashing level.
+ * 
+ * The greater the parameter, the longer the password will take to hash.
+ */
+export type Params = "Standard" | "Hardened" | "Paranoid"
+
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -173,6 +190,8 @@ export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOr
 export type BuildInfo = { version: string; commit: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type RestoreArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
@@ -193,9 +212,13 @@ export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
+export type KeyVersion = "V1"
+
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: boolean | null; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
 
 export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
+
+export type Protected<T> = T
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[] }
 
@@ -223,6 +246,10 @@ export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
+export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+
+export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
+
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
  * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -237,19 +264,13 @@ export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePat
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
-
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
-
-export type IndexerRule = { id: number; kind: number; name: string; default: boolean; parameters: number[]; date_created: string; date_modified: string }
 
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -272,8 +293,17 @@ export type LibraryConfig = { name: string; description: string }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
+/**
+ * These are all possible algorithms that can be used for encryption and decryption
+ */
+export type Algorithm = "Aes256Gcm" | "Aes256GcmSiv" | "XChaCha20Poly1305"
+
 export type CreateLibraryArgs = { name: string }
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
 
+export type UnlockArgs = { password: Protected<string>; secret_key: Protected<string> | null }
+
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
+
+export type MountArgs = { uuid: string; password: Protected<string> }

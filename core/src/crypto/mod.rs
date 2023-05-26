@@ -22,32 +22,28 @@
 use sd_crypto::types::{DerivationContext, MagicBytes};
 
 pub(self) mod error;
-pub use error::{CryptoError, Result};
+pub use error::{KeyManagerError, Result};
 
 pub(self) mod keymanager;
-pub use keymanager::{KeyManager, KeyType, KeyVersion, RootKey, UserKey};
+pub use keymanager::{DisplayKey, KeyManager, KeyType, KeyVersion, RootKey, UserKey};
 
 /// Used for OS keyrings to identify our items.
-pub const KEYRING_APP_IDENTIFIER: &str = "Spacedrive";
+// pub const KEYRING_APP_IDENTIFIER: &str = "Spacedrive";
 
 /// Used for OS keyrings to identify our items.
-pub const SECRET_KEY_IDENTIFIER: &str = "Secret key";
-
-// /// Defines the latest `StoredKeyVersion`
-// pub const LATEST_STORED_KEY: crate::keys::keymanager::StoredKeyVersion =
-// 	crate::keys::keymanager::StoredKeyVersion::V1;
+// pub const SECRET_KEY_IDENTIFIER: &str = "Secret key";
 
 /// Defines the context string for BLAKE3-KDF in regards to root key derivation
-pub const ROOT_KEY_CONTEXT: DerivationContext =
-	DerivationContext::new("spacedrive 2022-12-14 12:53:54 root key derivation");
+// pub const ROOT_KEY_CONTEXT: DerivationContext =
+// 	DerivationContext::new("spacedrive 2022-12-14 12:53:54 root key derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to master password hash derivation
-pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
-	DerivationContext::new("spacedrive 2022-12-14 15:35:41 master password hash derivation");
+// pub const MASTER_PASSWORD_CONTEXT: DerivationContext =
+// 	DerivationContext::new("spacedrive 2022-12-14 15:35:41 master password hash derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to file key derivation (for file encryption)
-pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
-	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
+// pub const FILE_KEYSLOT_CONTEXT: DerivationContext =
+// 	DerivationContext::new("spacedrive 2022-12-14 12:54:12 file key derivation");
 
 /// Defines the context string for BLAKE3-KDF in regards to key derivation (for the key manager)
 pub const KEY_MOUNTING_CONTEXT: DerivationContext =

@@ -1,20 +1,19 @@
+use std::num::TryFromIntError;
+
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, CryptoError>;
+pub type Result<T> = std::result::Result<T, KeyManagerError>;
 
-impl From<CryptoError> for rspc::Error {
-	fn from(value: CryptoError) -> Self {
+impl From<KeyManagerError> for rspc::Error {
+	fn from(value: KeyManagerError) -> Self {
 		Self::new(rspc::ErrorCode::InternalServerError, value.to_string())
 	}
 }
 
 #[derive(Debug, Error)]
-pub enum CryptoError {
+pub enum KeyManagerError {
 	#[error("crypto error: {0}")]
 	Crypto(#[from] sd_crypto::Error),
-
-	#[error("generic key manager error")]
-	KeyManager,
 
 	#[error("the key specified was not found")]
 	KeyNotFound,
@@ -24,9 +23,13 @@ pub enum CryptoError {
 	AlreadyMounted,
 	#[error("key not mounted")]
 	NotMounted,
+	#[error("the key is already queued")]
+	AlreadyQueued,
 
 	#[error("there was an error during a conversion")]
 	Conversion,
+	#[error("there was an error converting ints")]
+	IntConversion(#[from] TryFromIntError),
 
 	#[error("the test vector failed (password is likely incorrect)")]
 	IncorrectPassword,
@@ -45,6 +48,9 @@ pub enum CryptoError {
 	FileDoesntExist,
 	#[error("the specified file is too large")]
 	FileTooLarge,
+
+	#[error("this action would delete the last root key (and make the key manager unusable)")]
+	LastRootKey,
 
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),

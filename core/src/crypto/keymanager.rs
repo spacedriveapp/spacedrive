@@ -11,19 +11,21 @@ use sd_crypto::types::{
 };
 use sd_crypto::utils::generate_passphrase;
 use sd_crypto::{encoding, Protected};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::fs::{self, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use super::error::CryptoError;
+use super::error::KeyManagerError;
 use super::{Result, KEY_MOUNTING_CONTEXT, TEST_VECTOR_CONTEXT};
 use crate::crypto::ENCRYPTED_WORD_CONTEXT;
 use crate::prisma::{key, mounted_key, PrismaClient};
 
 pub struct KeyManager {
 	key: Mutex<Option<Key>>, // the root key
-	_queue: DashSet<Uuid>,
+	queue: DashSet<Uuid>,
 	db: Arc<PrismaClient>,
 }
 
@@ -76,7 +78,7 @@ impl MountedKey {
 }
 
 impl TryFrom<&MountedKey> for mounted_key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: &MountedKey) -> std::result::Result<Self, Self::Error> {
 		#[allow(clippy::as_conversions)]
@@ -94,7 +96,7 @@ impl TryFrom<&MountedKey> for mounted_key::CreateUnchecked {
 }
 
 impl TryFrom<MountedKey> for mounted_key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: MountedKey) -> std::result::Result<Self, Self::Error> {
 		(&value).try_into()
@@ -102,7 +104,7 @@ impl TryFrom<MountedKey> for mounted_key::CreateUnchecked {
 }
 
 impl TryFrom<mounted_key::Data> for MountedKey {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: mounted_key::Data) -> std::result::Result<Self, Self::Error> {
 		let mk = Self {
@@ -118,7 +120,7 @@ impl TryFrom<mounted_key::Data> for MountedKey {
 }
 
 #[derive(Clone, Encode, Decode)]
-pub struct OnDiskBackup {
+struct OnDiskBackup {
 	root_keys: Vec<RootKey>,
 	user_keys: Vec<UserKey>,
 }
@@ -126,7 +128,7 @@ pub struct OnDiskBackup {
 #[derive(Clone, Encode, Decode)]
 pub struct TestVector(Salt, EncryptedKey);
 
-#[derive(Encode, Decode, PartialEq, Eq)]
+#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum KeyType {
 	Root = 0,
@@ -134,30 +136,30 @@ pub enum KeyType {
 }
 
 impl TryFrom<i32> for KeyType {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
 		match value {
 			0 => Ok(Self::Root),
 			1 => Ok(Self::User),
-			_ => Err(CryptoError::Conversion),
+			_ => Err(KeyManagerError::Conversion),
 		}
 	}
 }
 
-#[derive(Clone, Copy, Encode, Decode)]
+#[derive(Clone, Copy, Encode, Decode, Serialize, Deserialize, Type)]
 #[repr(i32)]
 pub enum KeyVersion {
 	V1 = 0,
 }
 
 impl TryFrom<i32> for KeyVersion {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
 		match value {
 			0 => Ok(Self::V1),
-			_ => Err(CryptoError::Conversion),
+			_ => Err(KeyManagerError::Conversion),
 		}
 	}
 }
@@ -174,7 +176,7 @@ impl EncryptedWord {
 			&self.2,
 			Aad::Null,
 		)
-		.map_err(CryptoError::Crypto)
+		.map_err(KeyManagerError::Crypto)
 	}
 
 	pub fn encrypt(
@@ -197,12 +199,40 @@ impl EncryptedWord {
 }
 
 key::select!(key_info {
+	version
 	uuid
 	name
 	algorithm
 	hashing_algorithm
 	mounted_key: select { id }
 });
+
+#[derive(Serialize, Deserialize, Type, Clone)]
+pub struct DisplayKey {
+	pub version: KeyVersion,
+	pub uuid: Uuid,
+	pub name: Option<String>,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+	pub mounted: bool,
+}
+
+impl TryFrom<key_info::Data> for DisplayKey {
+	type Error = KeyManagerError;
+
+	fn try_from(value: key_info::Data) -> std::result::Result<Self, Self::Error> {
+		let dk = Self {
+			version: KeyVersion::try_from(value.version)?,
+			uuid: Uuid::from_slice(&value.uuid)?,
+			name: value.name,
+			algorithm: encoding::decode(&value.algorithm)?,
+			hashing_algorithm: encoding::decode(&value.hashing_algorithm)?,
+			mounted: value.mounted_key.is_some(),
+		};
+
+		Ok(dk)
+	}
+}
 
 #[derive(Clone, Encode, Decode)]
 pub struct UserKey {
@@ -216,12 +246,13 @@ pub struct UserKey {
 }
 
 fn word_to_salt(word: &Protected<Vec<u8>>) -> Result<Salt> {
-	Salt::try_from(Hasher::blake3(word.expose()).expose()[..SALT_LEN].to_vec())
-		.map_err(CryptoError::Crypto)
+	Ok(Salt::try_from(
+		Hasher::blake3(word.expose()).expose()[..SALT_LEN].to_vec(),
+	)?)
 }
 
 impl TryFrom<&UserKey> for key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: &UserKey) -> std::result::Result<Self, Self::Error> {
 		#[allow(clippy::as_conversions)]
@@ -241,7 +272,7 @@ impl TryFrom<&UserKey> for key::CreateUnchecked {
 }
 
 impl TryFrom<UserKey> for key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: UserKey) -> std::result::Result<Self, Self::Error> {
 		(&value).try_into()
@@ -249,11 +280,11 @@ impl TryFrom<UserKey> for key::CreateUnchecked {
 }
 
 impl TryFrom<key::Data> for UserKey {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: key::Data) -> std::result::Result<Self, Self::Error> {
 		if KeyType::try_from(value.key_type)? != KeyType::User {
-			return Err(CryptoError::Conversion);
+			return Err(KeyManagerError::Conversion);
 		}
 
 		let uk = Self {
@@ -277,7 +308,7 @@ impl TestVector {
 			&self.1,
 			Aad::Null,
 		)
-		.map_or(Err(CryptoError::IncorrectPassword), |_| Ok(()))
+		.map_or(Err(KeyManagerError::IncorrectPassword), |_| Ok(()))
 	}
 }
 
@@ -285,7 +316,7 @@ impl KeyManager {
 	pub fn new(db: Arc<PrismaClient>) -> Self {
 		Self {
 			key: Mutex::new(None),
-			_queue: DashSet::new(),
+			queue: DashSet::new(),
 			db,
 		}
 	}
@@ -295,7 +326,7 @@ impl KeyManager {
 	}
 
 	async fn get_root_key(&self) -> Result<Key> {
-		self.key.lock().await.clone().ok_or(CryptoError::Locked)
+		self.key.lock().await.clone().ok_or(KeyManagerError::Locked)
 	}
 
 	async fn ensure_unlocked(&self) -> Result<()> {
@@ -303,7 +334,26 @@ impl KeyManager {
 			.lock()
 			.await
 			.as_ref()
-			.map_or(Err(CryptoError::Locked), |_| Ok(()))
+			.map_or(Err(KeyManagerError::Locked), |_| Ok(()))
+	}
+
+	fn ensure_not_queued(&self, uuid: Uuid) -> Result<()> {
+		(!self.queue.contains(&uuid))
+			.then_some(())
+			.ok_or(KeyManagerError::AlreadyQueued)
+	}
+
+	pub async fn is_unlocking(&self) -> Result<bool> {
+		#[allow(clippy::as_conversions)]
+		Ok(self
+			.db
+			.key()
+			.find_many(vec![key::key_type::equals(KeyType::Root as i32)])
+			.exec()
+			.await?
+			.into_iter()
+			.flat_map(|x| Uuid::from_slice(&x.uuid).map_err(KeyManagerError::Uuid))
+			.any(|x| self.queue.contains(&x)))
 	}
 
 	pub async fn unlock(
@@ -336,12 +386,20 @@ impl KeyManager {
 		let rk = root_keys
 			.into_iter()
 			.find_map(|k| {
-				let pw = Hasher::hash_password(k.hashing_algorithm, &password, k.salt, &secret_key)
-					.ok()?;
+				self.ensure_not_queued(k.uuid).ok()?;
+
+				self.queue.insert(k.uuid);
+
+				let res =
+					Hasher::hash_password(k.hashing_algorithm, &password, k.salt, &secret_key);
+
+				self.queue.remove(&k.uuid);
+
+				let pw = res.ok()?;
 
 				Decryptor::decrypt_key(&pw, k.algorithm, &k.key, Aad::Null).ok()
 			})
-			.ok_or(CryptoError::Unlock)?;
+			.ok_or(KeyManagerError::Unlock)?;
 
 		*self.key.lock().await = Some(rk);
 		Ok(())
@@ -382,13 +440,98 @@ impl KeyManager {
 		Ok(secret_key.to_string().into())
 	}
 
+	// This will become `add_root_key` at some point, and we'll have dedicated management for them
+	pub async fn add_root_key(
+		&self,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+		password: Protected<String>,
+	) -> Result<Protected<String>> {
+		self.ensure_unlocked().await?;
+
+		let secret_key = SecretKey::generate();
+		let salt = Salt::generate();
+		let nonce = Nonce::generate(algorithm);
+		let password = password.into_inner().into_bytes().into();
+
+		let hashed_password =
+			Hasher::hash_password(hashing_algorithm, &password, salt, &secret_key)?;
+
+		let root_key = self.get_root_key().await?;
+		let root_key_e =
+			Encryptor::encrypt_key(&hashed_password, &nonce, algorithm, &root_key, Aad::Null)?;
+
+		let rk: key::CreateUnchecked = RootKey {
+			version: KeyVersion::V1,
+			uuid: Uuid::new_v4(),
+			algorithm,
+			hashing_algorithm,
+			salt,
+			key: root_key_e,
+		}
+		.try_into()?;
+
+		rk.to_query(&self.db).exec().await?;
+
+		*self.key.lock().await = Some(root_key);
+
+		Ok(secret_key.to_string().into())
+	}
+
 	pub async fn delete(&self, uuid: Uuid) -> Result<()> {
+		let key = self
+			.db
+			.key()
+			.find_unique(key::uuid::equals(uuid.as_bytes().to_vec()))
+			.exec()
+			.await?
+			.ok_or(KeyManagerError::KeyNotFound)?;
+
+		#[allow(clippy::as_conversions)]
+		if KeyType::try_from(key.key_type)? == KeyType::Root
+			&& self
+				.db
+				.key()
+				.find_many(vec![key::key_type::equals(KeyType::Root as i32)])
+				.select(key::select!({ id }))
+				.exec()
+				.await?
+				.len() == 1
+		{
+			return Err(KeyManagerError::LastRootKey);
+		}
+
 		self.db
 			.key()
 			.delete(key::uuid::equals(uuid.as_bytes().to_vec()))
 			.exec()
 			.await
-			.map_err(|_| CryptoError::KeyNotFound)?;
+			.map_err(|_| KeyManagerError::KeyNotFound)?;
+
+		Ok(())
+	}
+
+	pub async fn reset(&self) -> Result<()> {
+		// this is for the sync system, it'll be used when we have sync delete
+		// let _key_uuids = self
+		// 	.db
+		// 	.key()
+		// 	.find_many(vec![])
+		// 	.select(key::select!({ uuid }))
+		// 	.exec()
+		// 	.await?
+		// 	.into_iter()
+		// 	.map(|x| x.uuid)
+		// 	.collect::<Vec<_>>();
+
+		self.db
+			._batch((
+				self.db.key().delete_many(vec![]),
+				self.db.mounted_key().delete_many(vec![]),
+			))
+			.await?;
+
+		*self.key.lock().await = None;
 
 		Ok(())
 	}
@@ -402,7 +545,7 @@ impl KeyManager {
 			)
 			.exec()
 			.await
-			.map_or(Err(CryptoError::KeyNotFound), |_| Ok(()))
+			.map_or(Err(KeyManagerError::KeyNotFound), |_| Ok(()))
 	}
 
 	pub async fn insert_new(
@@ -416,7 +559,7 @@ impl KeyManager {
 
 		word.as_ref().map(|w| {
 			if w.expose().len() < 3 {
-				Err(CryptoError::WordTooShort)
+				Err(KeyManagerError::WordTooShort)
 			} else {
 				Ok(())
 			}
@@ -430,6 +573,7 @@ impl KeyManager {
 			.into_bytes()
 			.into();
 
+		let uuid = Uuid::new_v4();
 		let tv_key = Key::generate();
 		let tv_nonce = Nonce::generate(algorithm);
 		let tv_salt = Salt::generate();
@@ -450,8 +594,6 @@ impl KeyManager {
 		)?;
 
 		let ew = EncryptedWord::encrypt(&self.get_root_key().await?, &word, algorithm)?;
-
-		let uuid = Uuid::new_v4();
 
 		let key: key::CreateUnchecked = UserKey {
 			version: KeyVersion::V1,
@@ -491,22 +633,23 @@ impl KeyManager {
 		Ok(uuid)
 	}
 
-	pub async fn list(&self) -> Result<Vec<key_info::Data>> {
+	pub async fn list(&self, key_type: KeyType) -> Result<Vec<DisplayKey>> {
 		self.ensure_unlocked().await?;
 
 		#[allow(clippy::as_conversions)]
-		Ok(self
-			.db
+		self.db
 			.key()
-			.find_many(vec![key::key_type::equals(KeyType::User as i32)])
+			.find_many(vec![key::key_type::equals(key_type as i32)])
 			.select(key_info::select())
 			.exec()
-			.await?)
+			.await?
+			.into_iter()
+			.map(DisplayKey::try_from)
+			.collect()
 	}
 
 	pub async fn mount(&self, uuid: Uuid, password: Protected<String>) -> Result<()> {
 		self.ensure_unlocked().await?;
-		// handle the queue
 
 		self.db
 			.key()
@@ -514,9 +657,9 @@ impl KeyManager {
 			.select(key::select!({ mounted_key }))
 			.exec()
 			.await?
-			.ok_or(CryptoError::KeyNotFound)?
+			.ok_or(KeyManagerError::KeyNotFound)?
 			.mounted_key
-			.map_or(Ok(()), |_| Err(CryptoError::AlreadyMounted))?;
+			.map_or(Ok(()), |_| Err(KeyManagerError::AlreadyMounted))?;
 
 		let key = self
 			.db
@@ -524,7 +667,7 @@ impl KeyManager {
 			.find_unique(key::uuid::equals(uuid.as_bytes().to_vec()))
 			.exec()
 			.await?
-			.ok_or(CryptoError::KeyNotFound)?;
+			.ok_or(KeyManagerError::KeyNotFound)?;
 
 		let key = UserKey::try_from(key)?;
 
@@ -551,10 +694,7 @@ impl KeyManager {
 		let mkc: mounted_key::CreateUnchecked = mk.try_into()?;
 		let mk_uuid = mkc.uuid.clone();
 
-		mkc.to_query(&self.db)
-			// .with()
-			.exec()
-			.await?;
+		mkc.to_query(&self.db).exec().await?;
 
 		self.db
 			.mounted_key()
@@ -582,12 +722,18 @@ impl KeyManager {
 		{
 			Ok(())
 		} else {
-			Err(CryptoError::KeyNotFound)
+			Err(KeyManagerError::KeyNotFound)
 		}
 	}
 
-	pub async fn unmount_all(&self) -> Result<i64> {
-		Ok(self.db.mounted_key().delete_many(vec![]).exec().await?)
+	pub async fn unmount_all(&self) -> Result<usize> {
+		Ok(self
+			.db
+			.mounted_key()
+			.delete_many(vec![])
+			.exec()
+			.await?
+			.try_into()?)
 	}
 
 	pub async fn lock(&self) -> Result<()> {
@@ -607,9 +753,9 @@ impl KeyManager {
 			.select(key::select!({ mounted_key }))
 			.exec()
 			.await?
-			.ok_or(CryptoError::KeyNotFound)?
+			.ok_or(KeyManagerError::KeyNotFound)?
 			.mounted_key
-			.map_or(Err(CryptoError::NotMounted), MountedKey::try_from)?;
+			.map_or(Err(KeyManagerError::NotMounted), MountedKey::try_from)?;
 
 		key.decrypt(&self.get_root_key().await?)
 	}
@@ -630,9 +776,9 @@ impl KeyManager {
 			.collect()
 	}
 
-	pub async fn backup_to_file(&self, path: PathBuf) -> Result<()> {
+	pub async fn backup_to_file(&self, path: PathBuf) -> Result<usize> {
 		if fs::metadata(&path).await.is_ok() {
-			return Err(CryptoError::FileAlreadyExists);
+			return Err(KeyManagerError::FileAlreadyExists);
 		}
 
 		#[allow(clippy::as_conversions)]
@@ -657,6 +803,8 @@ impl KeyManager {
 			.map(RootKey::try_from)
 			.collect::<Result<Vec<_>>>()?;
 
+		let count = user_keys.len() + root_keys.len();
+
 		let backup = OnDiskBackup {
 			root_keys,
 			user_keys,
@@ -665,7 +813,7 @@ impl KeyManager {
 		let mut file = File::create(&path).await?;
 		file.write_all(&encoding::encode(&backup)?).await?;
 
-		Ok(())
+		Ok(count)
 	}
 
 	pub async fn restore_from_file(
@@ -673,15 +821,14 @@ impl KeyManager {
 		path: PathBuf,
 		password: Protected<String>,
 		secret_key: Protected<String>,
-	) -> Result<i64> {
-		let file_len: usize = fs::metadata(&path)
-			.await
-			.map_or(Err(CryptoError::FileDoesntExist), |x| {
-				x.len().try_into().map_err(|_| CryptoError::Conversion)
-			})?;
+	) -> Result<usize> {
+		let file_len: usize = fs::metadata(&path).await.map_or(
+			Err(KeyManagerError::FileDoesntExist),
+			|x: std::fs::Metadata| x.len().try_into().map_err(KeyManagerError::IntConversion),
+		)?;
 
 		if file_len > (BLOCK_LEN * 16) {
-			return Err(CryptoError::FileTooLarge);
+			return Err(KeyManagerError::FileTooLarge);
 		}
 
 		let mut bytes = vec![0u8; file_len];
@@ -702,7 +849,7 @@ impl KeyManager {
 
 				Decryptor::decrypt_key(&pw, k.algorithm, &k.key, Aad::Null).ok()
 			})
-			.ok_or(CryptoError::IncorrectPassword)?;
+			.ok_or(KeyManagerError::IncorrectPassword)?;
 
 		let rk = self.get_root_key().await?;
 
@@ -723,7 +870,8 @@ impl KeyManager {
 			.create_many(user_keys)
 			.skip_duplicates()
 			.exec()
-			.await?)
+			.await?
+			.try_into()?)
 	}
 }
 
@@ -739,11 +887,11 @@ pub struct RootKey {
 }
 
 impl TryFrom<key::Data> for RootKey {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: key::Data) -> std::result::Result<Self, Self::Error> {
-		if KeyType::try_from(value.key_type)? != KeyType::User {
-			return Err(CryptoError::Conversion);
+		if KeyType::try_from(value.key_type)? != KeyType::Root {
+			return Err(KeyManagerError::Conversion);
 		}
 
 		let rk = Self {
@@ -760,7 +908,7 @@ impl TryFrom<key::Data> for RootKey {
 }
 
 impl TryFrom<&RootKey> for key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: &RootKey) -> std::result::Result<Self, Self::Error> {
 		#[allow(clippy::as_conversions)]
@@ -780,7 +928,7 @@ impl TryFrom<&RootKey> for key::CreateUnchecked {
 }
 
 impl TryFrom<RootKey> for key::CreateUnchecked {
-	type Error = CryptoError;
+	type Error = KeyManagerError;
 
 	fn try_from(value: RootKey) -> std::result::Result<Self, Self::Error> {
 		(&value).try_into()
