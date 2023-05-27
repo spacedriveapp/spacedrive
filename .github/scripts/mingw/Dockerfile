@@ -50,7 +50,7 @@ ENV PATH="/opt/mingw-w64-x86_64/bin:/root/.cargo/bin:$PATH"
 
 LABEL org.opencontainers.image.title="mingw" \
 	# Version is GCC version + MinGW version
-	org.opencontainers.image.version="10.2_9.0-1" \
+	org.opencontainers.image.version="10.2_9.0" \
 	org.opencontainers.image.authors="Vítor Vasconcellos <vasconcellos.dev@gmail.com>, Spacedrive <support@spacedrive.com>" \
 	org.opencontainers.image.revision="1" \
 	org.opencontainers.image.licenses="GPL-2.0" \

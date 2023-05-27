@@ -606,16 +606,34 @@ EOF
 (# build libheif
   download_and_unpack_file libheif https://github.com/strukturag/libheif/releases/download/v1.16.2/libheif-1.16.2.tar.gz
 
-  sed -i 's/#include <mutex>/#include "mingw.mutex.h"/g' libheif/file.h
+  while IFS= read -r -d '' file; do
+    sed -i 's/#include <condition_variable>/#include "mingw.condition_variable.h"/g' "$file"
+    sed -i 's/#include <future>/#include "mingw.future.h"/g' "$file"
+    sed -i 's/#include <mutex>/#include "mingw.mutex.h"/g' "$file"
+    sed -i 's/#include <shared_mutex>/#include "mingw.shared_mutex.h"/g' "$file"
+    sed -i 's/#include <thread>/#include "mingw.thread.h"/g' "$file"
+  done < <(find libheif -type f \( -name '*.cc' -o -name '*.h' \) -print0)
 
   mkdir build
 
   cd build
 
   export SHARED=1
-  cmake ..
+  cmake .. \
+    -DBUILD_TESTING=OFF \
+    -DWITH_EXAMPLES=OFF \
+    -DWITH_FUZZERS=OFF \
+    -DWITH_REDUCED_VISIBILITY=ON \
+    -DWITH_DEFLATE_HEADER_COMPRESSION=ON \
+    -DWITH_AOM_DECODER_PLUGIN=OFF \
+    -DWITH_AOM_ENCODER_PLUGIN=OFF \
+    -DWITH_DAV1D_PLUGIN=OFF \
+    -DWITH_LIBDE265_PLUGIN=OFF \
+    -DWITH_RAV1E_PLUGIN=OFF \
+    -DWITH_SvtEnc_PLUGIN=OFF \
+    -DWITH_X265_PLUGIN=OFF
 
-  make
+  make_install
 )
 
 (
