@@ -1,4 +1,4 @@
-name: Build ffmpeg
+name: Build ffmpeg windows
 
 on:
   push:
