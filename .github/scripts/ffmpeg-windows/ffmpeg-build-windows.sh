@@ -111,7 +111,8 @@ download_and_unpack_file() {
 
   local url="$2"
 
-  mkdir "$1"
+  mkdir -p "$1"
+
   cd "$1"
 
   if [ "${3:-}" != 'false' ]; then
@@ -166,14 +167,15 @@ EOF
   # dlfcn-win32's 'README.md': "If you are linking to the static 'dl.lib' or 'libdl.a',
   # then you would need to explicitly add 'psapi.lib' or '-lpsapi' to your linking command,
   # depending on if MinGW is used."
-  mv "${PREFIX}/lib/libdl.a" "${PREFIX}/lib/libdl_s.a"
-  echo "GROUP ( -ldl_s -lpsapi )" >"${PREFIX}/lib/libdl.la"
+  mv -f "${PREFIX}/lib/libdl.a" "${PREFIX}/lib/libdl_s.a"
+  echo "GROUP ( -ldl_s -lpsapi )" >"${PREFIX}/lib/libdl.a"
 )
 
 (# build OpenCL Headers
   download_and_unpack_file opencl https://github.com/KhronosGroup/OpenCL-Headers/archive/refs/tags/v2023.04.17.tar.gz
 
-  mkdir build
+  mkdir -p build
+
   cd build
 
   cmake ..
@@ -185,7 +187,8 @@ EOF
   download_and_unpack_file opencl-icd \
     https://github.com/KhronosGroup/OpenCL-ICD-Loader/archive/refs/tags/v2023.04.17.tar.gz
 
-  mkdir build
+  mkdir -p build
+
   cd build
 
   cmake ..
@@ -232,7 +235,8 @@ EOF
 (# build brotli
   download_and_unpack_file brotli https://github.com/google/brotli/archive/refs/tags/v1.0.9.tar.gz
 
-  mkdir out
+  mkdir -p out
+
   cd out
 
   cmake .. -DBROTLI_DISABLE_TESTS=1 -DCMAKE_BUILD_TYPE=Release
@@ -259,7 +263,8 @@ EOF
 (# build libopenjpeg
   download_and_unpack_file libopenjpeg https://github.com/uclouvain/openjpeg/archive/refs/tags/v2.5.0.tar.gz
 
-  mkdir build
+  mkdir -p build
+
   cd build
 
   cmake .. -DBUILD_CODEC=0 -DCMAKE_BUILD_TYPE=Release
@@ -303,7 +308,7 @@ EOF
 (# build harfbuzz, depends: zlib, freetype, and libpng.
   download_and_unpack_file harfbuzz https://github.com/harfbuzz/harfbuzz/releases/download/7.3.0/harfbuzz-7.3.0.tar.xz
 
-  mkdir build
+  mkdir -p build
 
   meson \
     -Dgdi=enabled \
@@ -461,6 +466,8 @@ EOF
   download_and_unpack_file libvpx \
     https://chromium.googlesource.com/webm/libvpx/+archive/d6eb9696aa72473c1a11d34d928d35a3acc0c9a9.tar.gz false
 
+  patch -p1 <"${script_path}/vpx_160_semaphore.patch"
+
   export CHOST="$TRIPLE"
   export CROSS="${TRIPLE}-"
   # VP8 encoder *requires* sse3 support
@@ -576,15 +583,12 @@ EOF
 (# build rav1e
   download_and_unpack_file rav1e https://github.com/xiph/rav1e/archive/refs/tags/v0.6.6.tar.gz
 
-  export CC="gcc"
-  export CXX="g++"
+  export TARGET="x86_64-pc-windows-gnu"
   export TARGET_CC="${cross_prefix}gcc"
   export TARGET_CXX="${cross_prefix}g++"
   export CROSS_COMPILE=1
   export TARGET_CFLAGS="$CFLAGS"
-  export TARGET_CXXFLAGS="$CFLAGS"
-  unset CFLAGS
-  unset CXXFLAGS
+  export TARGET_CXXFLAGS="$CXXFLAGS"
 
   cat <<EOF >/root/.cargo/config.toml
 [target.x86_64-pc-windows-gnu]
@@ -595,10 +599,10 @@ EOF
   cargo cinstall -v \
     --prefix="$PREFIX" \
     --target=x86_64-pc-windows-gnu \
+    --release \
     --dlltool="${cross_prefix}dlltool" \
     --crt-static \
-    --library-type=staticlib \
-    --release
+    --library-type=staticlib
 
   rm /root/.cargo/config.toml
 )
@@ -614,7 +618,7 @@ EOF
     sed -i 's/#include <thread>/#include "mingw.thread.h"/g' "$file"
   done < <(find libheif -type f \( -name '*.cc' -o -name '*.h' \) -print0)
 
-  mkdir build
+  mkdir -p build
 
   cd build
 
