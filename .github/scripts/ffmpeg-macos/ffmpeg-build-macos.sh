@@ -349,3 +349,6 @@ cp -av "${_macports_root}/include/libheif" "/${_framework}/Headers/"
 
 # Copy all FFMPEG headers to framework
 cp -av "${TARGET_DIR}/include/"* "/${_framework}/Headers/"
+
+# Strip all libraries
+"${TRIPLE}-strip" -S "/${_framework}/Libraries/"*.dylib
