@@ -35,7 +35,9 @@ export default ({
 				clsx(
 					styles({ active: isActive, transparent: os === 'macOS' }),
 					disabled && 'pointer-events-none opacity-50',
-					className
+					className,
+					os === 'browser' &&
+						'!ring-1 !ring-inset ring-transparent focus:ring-accent focus:!ring-offset-0'
 				)
 			}
 			{...props}
