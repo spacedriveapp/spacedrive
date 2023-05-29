@@ -600,6 +600,9 @@ importers:
       '@headlessui/react':
         specifier: ^1.7.3
         version: 1.7.3(react-dom@18.2.0)(react@18.2.0)
+      '@icons-pack/react-simple-icons':
+        specifier: ^7.2.0
+        version: 7.2.0(react@18.2.0)
       '@radix-ui/react-progress':
         specifier: ^1.0.1
         version: 1.0.1(react-dom@18.2.0)(react@18.2.0)
@@ -4723,6 +4726,14 @@ packages:
   /@iarna/toml@2.2.5:
     resolution: {integrity: sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==}
     dev: true
+
+  /@icons-pack/react-simple-icons@7.2.0(react@18.2.0):
+    resolution: {integrity: sha512-XmyAiE+cDWDoCQGboie4se79ph2xAj/lQV+YVmLlX0nAFf92lci2ciVxWSN28f4MWZojskRWsu9S9BoH8UCQgg==}
+    peerDependencies:
+      react: ^16.13 || ^17 || ^18
+    dependencies:
+      react: 18.2.0
+    dev: false
 
   /@istanbuljs/load-nyc-config@1.1.0:
     resolution: {integrity: sha512-VjeHSlIzpv/NyD3N0YuHfXOPDIixcA1q2ZV98wsMqcYlPmv2n3Yb2lYP9XMElnaFVXg5A7YLTeLu6V84uQDjmQ==}
@@ -22325,6 +22336,7 @@ packages:
       rollup: 3.23.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite@4.3.8(less@4.1.3):
     resolution: {integrity: sha512-uYB8PwN7hbMrf4j1xzGDk/lqjsZvCDbt/JC5dyfxc19Pg8kRm14LinK/uq+HSLNswZEoKmweGdtpbnxRtrAXiQ==}
