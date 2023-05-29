@@ -53,7 +53,7 @@ export const Component = () => {
 				left={
 					<div className='group flex flex-row items-center space-x-2'>
 						<span>
-							<Folder size={22} className="mt-[-1px] ml-3 mr-2 inline-block" />
+							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="text-sm font-medium">
 								{path ? getLastSectionOfPath(path) : location.data?.name}
 							</span>
