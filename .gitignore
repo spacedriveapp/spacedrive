@@ -2,6 +2,7 @@ node_modules
 .next
 dist
 !apps/desktop/dist
+!apps/web/dist
 *.tsbuildinfo
 package-lock.json
 .eslintcache

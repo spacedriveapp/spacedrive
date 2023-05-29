@@ -43,8 +43,8 @@ const RulesForm = ({ onSubmitted }: Props) => {
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const formId = useId();
 	const modeOptions: { value: RuleKind; label: string }[] = [
-		{ value: 'RejectFilesByGlob', label: 'Reject files by glob' },
-		{ value: 'AcceptFilesByGlob', label: 'Accept files by glob' }
+		{ value: 'RejectFilesByGlob', label: 'Reject files' },
+		{ value: 'AcceptFilesByGlob', label: 'Accept files' }
 	];
 	const form = useZodForm({
 		schema,
@@ -151,7 +151,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 						<h3>Value</h3>
 						<h3 className="flex items-center justify-center gap-1">
 							Mode
-							<Tooltip label="By default, an indexer rule functions as a Reject, resulting in the exclusion of any files that match its criteria. Enabling this option will transform it into a Allow, allowing the location to solely index files that meet its specified rules.">
+							<Tooltip label="By default, an indexer rule functions as a Reject list, resulting in the exclusion of any files that match its criteria. Enabling this option will transform it into a Allow list, allowing the location to solely index files that meet its specified rules.">
 								<Info />
 							</Tooltip>
 						</h3>
@@ -187,7 +187,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 									control={form.control}
 									render={({ field }) => {
 										return (
-											<div className="flex w-full flex-col">
+											<div className="flex flex-col w-full">
 												<RuleInput
 													className={clsx(
 														'!h-[30px]',
