@@ -37,7 +37,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region className="flex w-full flex-row justify-end">
+		<div data-tauri-drag-region className="flex flex-row justify-end w-full">
 			<div data-tauri-drag-region className={`flex gap-0`}>
 				{options?.map((group, groupIndex) => {
 					return group.map(
@@ -71,7 +71,7 @@ export default ({ options }: TopBarChildrenProps) => {
 										`hidden items-center`
 									)}
 								>
-									<Tooltip label={toolTipLabel}>
+									<>
 										{popOverComponent ? (
 											<Popover
 												className="focus:outline-none"
@@ -81,7 +81,9 @@ export default ({ options }: TopBarChildrenProps) => {
 														active={topBarActive}
 														onClick={onClick}
 													>
-														{icon}
+														<Tooltip label={toolTipLabel}>
+															{icon}
+														</Tooltip>
 													</TopBarButton>
 												}
 											>
@@ -95,10 +97,10 @@ export default ({ options }: TopBarChildrenProps) => {
 												active={topBarActive}
 												onClick={onClick ?? undefined}
 											>
-												{icon}
+												<Tooltip label={toolTipLabel}>{icon}</Tooltip>
 											</TopBarButton>
 										)}
-									</Tooltip>
+									</>
 									{index + 1 === group.length &&
 										groupIndex + 1 !== groupCount && (
 											<div
