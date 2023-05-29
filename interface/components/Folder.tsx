@@ -1,5 +1,4 @@
-import folderWhiteSvg from '@sd/assets/svgs/folder-white.svg';
-import folderSvg from '@sd/assets/svgs/folder.svg';
+import { Folder as Folder_Dark, Folder_Light } from '@sd/assets/icons';
 
 interface FolderProps {
 	/**
@@ -26,7 +25,7 @@ export function Folder(props: FolderProps) {
 			className={props.className}
 			width={size}
 			height={size}
-			src={props.white ? folderWhiteSvg : folderSvg}
+			src={props.white ? Folder_Light : Folder_Dark}
 			alt="Folder icon"
 		/>
 	);

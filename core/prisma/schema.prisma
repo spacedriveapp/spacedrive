@@ -4,13 +4,14 @@ datasource db {
 }
 
 generator client {
-    provider = "cargo prisma"
-    output   = "../src/prisma.rs"
+    provider    = "cargo prisma"
+    output      = "../../crates/prisma/src/prisma.rs"
+    module_path = "crate::prisma"
 }
 
 generator sync {
     provider = "cargo prisma-sync"
-    output   = "../src/prisma_sync.rs"
+    output   = "../../crates/prisma/src/prisma_sync.rs"
 }
 
 //// Sync ////

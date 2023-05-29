@@ -34,7 +34,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 
-	const deleteRule: MouseEventHandler<HTMLButtonElement> = (e) => {
+	const deleteRule: MouseEventHandler<HTMLButtonElement> = () => {
 		if (!selectedRule) return;
 
 		showAlertDialog({
@@ -43,7 +43,6 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 			label: 'Confirm',
 			onSubmit: async () => {
 				setIsDeleting(true);
-
 				try {
 					await deleteIndexerRule.mutateAsync(selectedRule.id);
 				} catch (error) {
