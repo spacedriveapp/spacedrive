@@ -110,17 +110,22 @@ export default function App() {
 		};
 	}, []);
 
-	if (startupError) {
-		return <ErrorPage message={startupError} />;
-	}
-
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<SpacedriveInterface router={router} />
+					<AppInner />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
 	);
+}
+
+// This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
+function AppInner() {
+	if (startupError) {
+		return <ErrorPage message={startupError} />;
+	}
+
+	return <SpacedriveInterface router={router} />;
 }

@@ -228,7 +228,7 @@ impl Node {
 pub enum NodeError {
 	#[error("failed to initialize config")]
 	FailedToInitializeConfig(util::migrator::MigratorError),
-	#[error("failed to initialize library manager")]
+	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),

@@ -40,7 +40,8 @@ impl<'de> Deserialize<'de> for Keypair {
 	{
 		let mut bytes = Vec::<u8>::deserialize(deserializer)?;
 		Ok(Self(libp2p::identity::Keypair::Ed25519(
-			ed25519::Keypair::decode(bytes.as_mut_slice()).map_err(serde::de::Error::custom)?,
+			ed25519::Keypair::try_from_bytes(bytes.as_mut_slice())
+				.map_err(serde::de::Error::custom)?,
 		)))
 	}
 }
