@@ -1,5 +1,4 @@
-import { ReactComponent as folderWhiteSvg } from '@sd/assets/svgs/folder-white.svg';
-import { ReactComponent as folderSvg } from '@sd/assets/svgs/folder.svg';
+import { Folder as Folder_Dark, Folder_Light } from '@sd/assets/icons';
 
 interface FolderProps {
 	/**
@@ -21,7 +20,13 @@ interface FolderProps {
 export function Folder(props: FolderProps) {
 	const { size = 24 } = props;
 
-	const Icon = props.white ? folderWhiteSvg : folderSvg;
-
-	return <Icon className={props.className} width={size} height={size} />;
+	return (
+		<img
+			className={props.className}
+			width={size}
+			height={size}
+			src={props.white ? Folder_Light : Folder_Dark}
+			alt="Folder icon"
+		/>
+	);
 }

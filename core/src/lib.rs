@@ -7,6 +7,8 @@ use crate::{
 	p2p::P2PManager,
 };
 
+pub use sd_prisma::*;
+
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
@@ -25,10 +27,6 @@ pub(crate) mod p2p;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
-
-#[allow(warnings, unused)]
-mod prisma;
-pub(crate) mod prisma_sync;
 
 #[derive(Clone)]
 pub struct NodeContext {

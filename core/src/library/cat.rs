@@ -43,7 +43,7 @@ pub enum Category {
 }
 
 impl Category {
-	fn to_object_kind(&self) -> ObjectKind {
+	fn to_object_kind(self) -> ObjectKind {
 		match self {
 			Category::Photos => ObjectKind::Image,
 			Category::Videos => ObjectKind::Video,

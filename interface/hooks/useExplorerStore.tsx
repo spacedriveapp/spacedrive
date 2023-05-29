@@ -1,5 +1,8 @@
 import { proxy, useSnapshot } from 'valtio';
+<<<<<<< HEAD
 import { proxySet } from 'valtio/utils';
+=======
+>>>>>>> main
 import { z } from 'zod';
 import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering } from '@sd/client';
 import { resetStore } from '@sd/client';

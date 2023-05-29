@@ -26,7 +26,7 @@ const metroConfig = makeMetroConfig({
 		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
-		disableHierarchicalLookup: true,
+		disableHierarchicalLookup: false,
 		nodeModulesPaths: [
 			path.resolve(projectRoot, 'node_modules'),
 			path.resolve(workspaceRoot, 'node_modules')

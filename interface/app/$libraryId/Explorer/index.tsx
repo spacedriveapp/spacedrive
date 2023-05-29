@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { FolderNotchOpen } from 'phosphor-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey } from 'rooks';
-
 import { getExplorerStore, useExplorerStore, useKeyDeleteFile, useSelectedExplorerItems } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';

@@ -5,6 +5,9 @@ license.workspace = true
 repository.workspace = true
 edition.workspace = true
 
+[features]
+assets = []
+
 [dependencies]
 sd-core = { path = "../../core", features = ["ffmpeg"] }
 rspc = { workspace = true, features = ["axum"] }
@@ -14,4 +17,6 @@ tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = "0.1.36"
 ctrlc = "3.2.3"
 http = "0.2.8"
-hyper = "0.14.23"
+tower-http = { version = "0.4.0", features = ["fs"] }
+include_dir = "0.7.3"
+mime_guess = "2.0.4"

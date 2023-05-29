@@ -108,7 +108,7 @@ const AnimatedDialogOverlay = animated(RDialog.Overlay);
 
 export interface DialogProps<S extends FieldValues>
 	extends RDialog.DialogProps,
-		Omit<FormProps<S>, 'onSubmit'> {
+	Omit<FormProps<S>, 'onSubmit'> {
 	title?: string;
 	dialog: ReturnType<typeof useDialog>;
 	loading?: boolean;
@@ -122,6 +122,7 @@ export interface DialogProps<S extends FieldValues>
 	onCancelled?: boolean | (() => void);
 	submitDisabled?: boolean;
 	transformOrigin?: string;
+	buttonsSideContent?: ReactNode;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -166,6 +167,7 @@ export function Dialog<S extends FieldValues>({
 							<Form
 								form={form}
 								onSubmit={async (e) => {
+									e?.preventDefault();
 									await onSubmit?.(e);
 									dialog.onSubmit?.();
 									setOpen(false);
@@ -187,9 +189,10 @@ export function Dialog<S extends FieldValues>({
 								</div>
 								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 									{form.formState.isSubmitting && <Loader />}
-
+									{props.buttonsSideContent && (
+										<div>{props.buttonsSideContent}</div>
+									)}
 									<div className="grow" />
-
 									{onCancelled && (
 										<RDialog.Close asChild>
 											<Button
