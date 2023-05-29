@@ -55,7 +55,7 @@ pub async fn get_file_path_open_with_apps(
         return Err(())
     };
 
-	let Ok(Some(path)) = library
+	let Ok(Some(_path)) = library
         .get_file_path(id)
         .await
         else {
@@ -64,7 +64,7 @@ pub async fn get_file_path_open_with_apps(
 
 	#[cfg(target_os = "macos")]
 	return Ok(unsafe {
-		sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into())
+		sd_desktop_macos::get_open_with_applications(&_path.to_str().unwrap().into())
 	}
 	.as_slice()
 	.iter()
@@ -83,14 +83,14 @@ pub async fn get_file_path_open_with_apps(
 pub async fn open_file_path_with(
 	library: uuid::Uuid,
 	id: i32,
-	with_url: String,
+	_with_url: String,
 	node: tauri::State<'_, Arc<Node>>,
 ) -> Result<(), ()> {
 	let Some(library) = node.library_manager.get_library(library).await else {
         return Err(())
     };
 
-	let Ok(Some(path)) = library
+	let Ok(Some(_path)) = library
         .get_file_path(id)
         .await
         else {
@@ -100,8 +100,8 @@ pub async fn open_file_path_with(
 	#[cfg(target_os = "macos")]
 	unsafe {
 		sd_desktop_macos::open_file_path_with(
-			&path.to_str().unwrap().into(),
-			&with_url.as_str().into(),
+			&_path.to_str().unwrap().into(),
+			&_with_url.as_str().into(),
 		)
 	};
 

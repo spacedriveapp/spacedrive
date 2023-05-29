@@ -3,7 +3,11 @@ description: Builds the server and publishes its Docker image
 runs:
   using: 'composite'
   steps:
-    - name: Copy binary to Docker context
+    - name: Build web
+      shell: bash
+      run: pnpm web build
+
+    - name: Build binary & move into Docker context
       shell: bash
       run: |
         cargo build -p server --release
