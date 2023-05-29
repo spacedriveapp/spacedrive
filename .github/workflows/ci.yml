@@ -80,8 +80,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Rust and Prisma
-        uses: ./.github/actions/setup-rust
+      - name: Install Rust
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt
+
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
