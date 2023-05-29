@@ -35,7 +35,8 @@ export default ({
 				clsx(
 					styles({ active: isActive, transparent: os === 'macOS' }),
 					disabled && 'pointer-events-none opacity-50',
-					className
+					className,
+					os === 'browser' && 'border border-transparent !ring-0 focus:border-accent '
 				)
 			}
 			{...props}
