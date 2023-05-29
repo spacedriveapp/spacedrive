@@ -88,7 +88,7 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		.iter()
 		.filter_map(|disk| {
 			let mut total_capacity = disk.total_space();
-			let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
+			let mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
 			let available_capacity = disk.available_space();
 			let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
 			let is_removable = disk.is_removable();
@@ -101,13 +101,6 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				sysinfo::DiskType::HDD => "HDD".to_string(),
 				_ => "Removable Disk".to_string(),
 			};
-
-			if cfg!(target_os = "macos") && mount_point == "/"
-				|| mount_point == "/System/Volumes/Data"
-			{
-				name = "Macintosh HD".to_string();
-				mount_point = "/".to_string();
-			}
 
 			if total_capacity < available_capacity && cfg!(target_os = "windows") {
 				let mut caption = mount_point.clone();

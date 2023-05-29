@@ -44,7 +44,7 @@ const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
 };
 
 const OverviewStats = () => {
-	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics'], {
+	const { data: libraryStatistics } = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 

@@ -24,7 +24,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await },
 			)
 		})
-		.procedure("getStatistics", {
+		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				let _statistics = library
 					.db
@@ -39,6 +39,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut available_capacity: u64 = 0;
 				let mut total_capacity: u64 = 0;
+
 				if let Ok(volumes) = volumes {
 					for volume in volumes {
 						total_capacity += volume.total_capacity;
