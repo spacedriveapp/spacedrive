@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { useKey } from 'rooks';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks';
+import { getExplorerStore, useExplorerStore, useKeyDeleteFile } from '~/hooks';
 import ExplorerContextMenu from './ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
@@ -20,12 +20,20 @@ interface Props {
 	children?: ReactNode;
 	inspectorClassName?: string;
 	explorerClassName?: string;
+	listViewHeadersClassName?: string;
 	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, ...expStore } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
+	const selectedItem = useMemo(() => {
+		if (selectedRowIndex === null) return null;
+
+		return props.items?.[selectedRowIndex] ?? null;
+	}, [selectedRowIndex, props.items]);
+
+	useKeyDeleteFile(selectedItem, expStore.locationId);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
@@ -44,16 +52,16 @@ export default function Explorer(props: Props) {
 		getExplorerStore().selectedRowIndex = null;
 	}, [path]);
 
-	const selectedItem = useMemo(() => {
-		if (selectedRowIndex === null) return null;
-
-		return props.items?.[selectedRowIndex] ?? null;
-	}, [selectedRowIndex, props.items]);
-
 	useKey('Space', (e) => {
 		e.preventDefault();
 
-		if (selectedItem) getExplorerStore().quickViewObject = selectedItem;
+		if (selectedItem) {
+			if (expStore.quickViewObject?.item.id === selectedItem.item.id) {
+				getExplorerStore().quickViewObject = null;
+			} else {
+				getExplorerStore().quickViewObject = selectedItem;
+			}
+		}
 	});
 
 	return (
@@ -68,6 +76,7 @@ export default function Explorer(props: Props) {
 								data={props.items}
 								onLoadMore={props.onLoadMore}
 								hasNextPage={props.hasNextPage}
+								listViewHeadersClassName={props.listViewHeadersClassName}
 								isFetchingNextPage={props.isFetchingNextPage}
 								viewClassName={props.viewClassName}
 							/>

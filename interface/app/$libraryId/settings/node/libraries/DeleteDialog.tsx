@@ -29,7 +29,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={() => deleteLib.mutateAsync(props.libraryUuid)}
+			onSubmit={form.handleSubmit(() => deleteLib.mutateAsync(props.libraryUuid))}
 			dialog={useDialog(props)}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."

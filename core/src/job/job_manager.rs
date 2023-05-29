@@ -331,6 +331,7 @@ pub struct JobReport {
 	pub completed_task_count: i32,
 
 	pub message: String,
+	pub estimated_completion: DateTime<Utc>,
 	// pub percentage_complete: f64,
 }
 
@@ -364,8 +365,8 @@ impl From<job::Data> for JobReport {
 				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
 				.unwrap_or_default(),
 			created_at: Some(data.date_created.into()),
-			started_at: data.date_started.map(|d| d.into()),
-			completed_at: data.date_completed.map(|d| d.into()),
+			started_at: data.date_started.map(DateTime::into),
+			completed_at: data.date_completed.map(DateTime::into),
 			parent_id: data
 				.parent_id
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
@@ -373,6 +374,9 @@ impl From<job::Data> for JobReport {
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			message: String::new(),
+			estimated_completion: data
+				.date_estimated_completion
+				.map_or(Utc::now(), DateTime::into),
 		}
 	}
 }
@@ -395,6 +399,7 @@ impl JobReport {
 			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
+			estimated_completion: Utc::now(),
 		}
 	}
 

@@ -82,6 +82,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 						(right || (icon && iconPosition === 'right')) && 'pr-0',
 						icon && iconPosition === 'left' && 'pl-0'
 					)}
+					onKeyDown={(e) => {
+						e.stopPropagation();
+					}}
 					ref={ref}
 					{...props}
 				/>
@@ -105,18 +108,24 @@ export const SearchInput = forwardRef<HTMLInputElement, InputProps>((props, ref)
 	<Input {...props} ref={ref} icon={MagnifyingGlass} />
 ));
 
-export const TextArea = ({ size, variant, error, ...props }: TextareaProps) => {
-	return (
-		<textarea
-			{...props}
-			className={clsx(
-				'h-auto px-3 py-2',
-				inputStyles({ size, variant, error }),
-				props.className
-			)}
-		/>
-	);
-};
+export const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+	({ size, variant, error, ...props }, ref) => {
+		return (
+			<textarea
+				{...props}
+				ref={ref}
+				onKeyDown={(e) => {
+					e.stopPropagation();
+				}}
+				className={clsx(
+					'h-auto px-3 py-2',
+					inputStyles({ size, variant, error }),
+					props.className
+				)}
+			/>
+		);
+	}
+);
 
 export interface LabelProps extends Omit<React.ComponentProps<'label'>, 'htmlFor'> {
 	slug?: string;
@@ -144,6 +153,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((p
 			{...props}
 			type={showPassword ? 'text' : 'password'}
 			ref={ref}
+			onKeyDown={(e) => {
+				e.stopPropagation();
+			}}
 			right={
 				<Button
 					tabIndex={0}

@@ -1,5 +1,4 @@
-import { Folder } from '@sd/assets/icons';
-import FolderWhite from '@sd/assets/svgs/folder-white.svg';
+import { Folder, Folder_Light } from '@sd/assets/icons';
 import { Image } from 'react-native';
 
 type FolderProps = {
@@ -15,11 +14,7 @@ type FolderProps = {
 };
 
 const FolderIcon: React.FC<FolderProps> = ({ size = 24, isWhite }) => {
-	return isWhite ? (
-		<FolderWhite width={size} height={size} />
-	) : (
-		<Image source={Folder} style={{ width: size, height: size }} />
-	);
+	return <Image source={isWhite ? Folder_Light : Folder} style={{ width: size, height: size }} />;
 };
 
 export default FolderIcon;

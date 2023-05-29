@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { z } from 'zod';
 import {
 	ExplorerItem,
@@ -12,11 +13,22 @@ import { useExplorerStore, useZodSearchParams } from '~/hooks';
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 	const explorerStore = useExplorerStore();
 
-	if (explorerStore.orderBy === 'none') return undefined;
+	const ordering = useMemo(() => {
+		if (explorerStore.orderBy === 'none') return undefined;
 
-	return {
-		[explorerStore.orderBy]: explorerStore.orderByDirection === 'asc'
-	} as FilePathSearchOrdering;
+		const obj = {};
+
+		explorerStore.orderBy.split('.').reduce((acc, next, i, all) => {
+			if (all.length - 1 === i) acc[next] = explorerStore.orderByDirection;
+			else acc[next] = {};
+
+			return acc[next];
+		}, obj as any);
+
+		return obj as FilePathSearchOrdering;
+	}, [explorerStore.orderBy, explorerStore.orderByDirection]);
+
+	return ordering;
 }
 
 export function getItemObject(data: ExplorerItem) {
@@ -36,6 +48,7 @@ export function getExplorerItemData(data: ExplorerItem) {
 		casId: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		extension: filePath?.extension || null,
+		locationId: filePath?.location_id || null,
 		hasThumbnail: data.has_thumbnail
 	};
 }

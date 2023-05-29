@@ -10,11 +10,11 @@ import {
 	SquaresFour,
 	Tag
 } from 'phosphor-react';
+import { useLibraryMutation } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { KeyManager } from '../app/$libraryId/KeyManager';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
-import { useLibraryMutation } from '@sd/client';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
@@ -100,7 +100,7 @@ export const useExplorerTopBarOptions = () => {
 			toolTipLabel: 'Reload',
 			onClick: () => {
 				if (explorerStore.locationId) {
-					reload.mutate({ location_id: explorerStore.locationId, sub_path: '' })
+					reload.mutate({ location_id: explorerStore.locationId, sub_path: '' });
 				}
 			},
 			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,

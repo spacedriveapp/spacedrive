@@ -6621,7 +6621,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=799eec5df7533edf331f41d3f1be03de07e038d7#799eec5df7533edf331f41d3f1be03de07e038d7"
+source = "git+https://github.com/oscartbeaumont/rspc?branch=specta-v2#927e951fa7bae9d8ad87d2c084a508870f43e788"
 dependencies = [
  "futures",
  "futures-channel",
@@ -6948,6 +6948,7 @@ dependencies = [
  "sd-file-ext",
  "sd-heif",
  "sd-p2p",
+ "sd-prisma",
  "sd-sync",
  "serde",
  "serde-hashkey",
@@ -7097,6 +7098,16 @@ dependencies = [
  "tokio-util",
  "tracing 0.1.37",
  "tracing-subscriber 0.3.17",
+]
+
+[[package]]
+name = "sd-prisma"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-sync",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -7656,8 +7667,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7230ab99f7b726fa49e350886816dbe5b5b151a5f4158470f92850246d5cae5e"
+source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "chrono",
  "document-features",
@@ -7678,8 +7688,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6252ed50d005e1dc2b77ed140f1c230299e0566492470eba40ba34e18cbcfa10"
+source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "Inflector",
  "itertools",
@@ -8305,8 +8314,7 @@ dependencies = [
 [[package]]
 name = "tauri-specta"
 version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa034c38b7bdfeccc606eca0b030a1e67a20b78e7642edef09816b7e1ff9a9de"
+source = "git+https://github.com/oscartbeaumont/tauri-specta?branch=specta-v2#e381f3141d6e52b45caafb86c3f09ddcdba971b8"
 dependencies = [
  "heck 0.4.1",
  "indoc 2.0.1",

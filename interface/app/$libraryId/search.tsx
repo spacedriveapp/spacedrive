@@ -3,6 +3,7 @@ import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import {
+	SortOrder,
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
@@ -13,10 +14,10 @@ import { getExplorerItemData } from './Explorer/util';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarOptions from './TopBar/TopBarOptions';
 
-const SEARCH_PARAMS = z.object({
+export const SEARCH_PARAMS = z.object({
 	search: z.string().optional(),
 	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: z.boolean() }), z.object({ name: z.boolean() })]).optional()
+	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
 });
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
@@ -26,10 +27,23 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const query = useLibraryQuery(['search.paths', props.args], {
-		suspense: true,
-		enabled: !!props.args.search
-	});
+	const { search, ...args } = props.args;
+
+	const query = useLibraryQuery(
+		[
+			'search.paths',
+			{
+				...args,
+				filter: {
+					search
+				}
+			}
+		],
+		{
+			suspense: true,
+			enabled: !!search
+		}
+	);
 
 	const items = useMemo(() => {
 		const items = query.data?.items;
@@ -44,7 +58,7 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 
 	useEffect(() => {
 		getExplorerStore().selectedRowIndex = null;
-	}, [props.args.search]);
+	}, [search]);
 
 	return (
 		<>
@@ -65,13 +79,11 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 				</>
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center">
-					{!props.args.search && (
+					{!search && (
 						<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
 					)}
 					<p className="text-xs text-ink-faint">
-						{props.args.search
-							? `No results found for "${props.args.search}"`
-							: 'Search for files...'}
+						{search ? `No results found for "${search}"` : 'Search for files...'}
 					</p>
 				</div>
 			)}

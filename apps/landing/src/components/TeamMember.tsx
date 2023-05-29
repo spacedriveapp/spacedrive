@@ -1,4 +1,4 @@
-import { SiDribbble, SiGithub, SiTwitch, SiTwitter } from '@icons-pack/react-simple-icons';
+import { Dribbble, Github, Twitch, Twitter } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import NextLink from 'next/link';
@@ -73,22 +73,22 @@ export function TeamMember(props: TeamMemberProps) {
 			<div className="mt-auto flex flex-row space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<SiTwitter className="h-[20px] w-[20px]" />
+						<Twitter className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<SiGithub className="h-[20px] w-[20px]" />
+						<Github className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<SiTwitch className="h-[20px] w-[20px]" />
+						<Twitch className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.dribbble && (
 					<Link href={props.socials.dribbble}>
-						<SiDribbble className="h-[20px] w-[20px]" />
+						<Dribbble className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 			</div>

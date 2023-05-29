@@ -207,7 +207,7 @@ export const Component = () => {
 							field={field}
 							label="Indexer rules"
 							editable={true}
-							infoText="Indexer rules allow you to specify paths to ignore using RegEx."
+							infoText="Indexer rules allow you to specify paths to ignore using globs."
 							className="flex flex-col rounded-md border border-app-line bg-app-overlay p-5"
 						/>
 					)}

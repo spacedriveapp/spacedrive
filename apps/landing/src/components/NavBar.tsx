@@ -1,5 +1,5 @@
 import { AppLogo } from '@sd/assets/images';
-import { SiAcademia, SiDiscord, SiGithub } from '@icons-pack/react-simple-icons';
+import { Academia, Discord, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -97,13 +97,13 @@ export default function NavBar() {
 				>
 					<Dropdown.Section>
 						<Dropdown.Item
-							icon={SiGithub}
+							icon={Github}
 							onClick={redirect('https://github.com/spacedriveapp/spacedrive')}
 						>
 							Repository
 						</Dropdown.Item>
 						<Dropdown.Item
-							icon={SiDiscord}
+							icon={Discord}
 							onClick={redirect('https://discord.gg/gTaF2Z44f5')}
 						>
 							Join Discord
@@ -125,7 +125,7 @@ export default function NavBar() {
 						<Dropdown.Item icon={Chat} {...link('/blog', router)}>
 							Blog
 						</Dropdown.Item>
-						<Dropdown.Item icon={SiAcademia} {...link('/careers', router)}>
+						<Dropdown.Item icon={Academia} {...link('/careers', router)}>
 							Careers
 							{positions.length > 0 ? (
 								<span className="ml-2 rounded-md bg-primary px-[5px] py-px text-xs">
@@ -138,14 +138,14 @@ export default function NavBar() {
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<SiDiscord className="text-white" />
+						<Discord className="h-6 w-6 text-white" />
 					</Link>
 					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<SiGithub className="text-white" />
+						<Github className="h-6 w-6 text-white" />
 					</Link>
 				</div>
 			</div>

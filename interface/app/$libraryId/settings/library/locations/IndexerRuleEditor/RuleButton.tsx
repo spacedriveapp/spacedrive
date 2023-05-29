@@ -51,13 +51,13 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 							})
 						}
 						className={clsx(
-							'hover:brightness-125',
-							ruleEnabled ? '!text-green-500' : 'text-red-500'
+							'px-2 hover:brightness-110',
+							ruleEnabled ? '!bg-accent !text-white' : 'text-ink'
 						)}
 					>
 						{ruleEnabled ? 'Enabled' : 'Disabled'}
 					</InfoPill>
-					{rule.default && <InfoPill className="text-ink-faint">System</InfoPill>}
+					{rule.default && <InfoPill className="px-2 text-ink-faint">System</InfoPill>}
 				</div>
 			</div>
 		</div>

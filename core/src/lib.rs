@@ -9,6 +9,8 @@ use crate::{
 	p2p::P2PManager,
 };
 
+pub use sd_prisma::*;
+
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -34,11 +36,6 @@ pub(crate) mod p2p;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
-
-#[allow(warnings, unused, clippy::unwrap_used, clippy::panic)]
-mod prisma;
-#[allow(clippy::unwrap_used, clippy::panic)]
-pub(crate) mod prisma_sync;
 
 #[derive(Clone)]
 pub struct NodeContext {

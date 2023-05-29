@@ -1,5 +1,5 @@
 import { AlphaBg, AppLogo } from '@sd/assets/images';
-import { SiDiscord } from '@icons-pack/react-simple-icons';
+import { Discord } from '@sd/assets/svgs/brands';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
@@ -33,7 +33,7 @@ export default function OnboardingAlpha() {
 						className="flex gap-2"
 						variant="gray"
 					>
-						<SiDiscord className="h-5 w-5" />
+						<Discord className="h-5 w-5 fill-white" />
 						Join Discord
 					</Button>
 					<Button

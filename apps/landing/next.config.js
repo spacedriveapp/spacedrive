@@ -1,5 +1,8 @@
 const { withContentlayer } = require('next-contentlayer');
 
+// Validate env on build // TODO: I wish we could do this so Vercel can warn us when we are wrong but it's too hard.
+// import './src/env.mjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	reactStrictMode: true,
@@ -24,7 +27,12 @@ const nextConfig = {
 				use: [
 					{
 						loader: '@svgr/webpack',
-						options: { icon: true, exportType: 'named', typescript: true }
+						options: {
+							icon: true,
+							exportType: 'named',
+							typescript: true,
+							svgProps: { fill: 'currentColor' }
+						}
 					}
 				]
 			}

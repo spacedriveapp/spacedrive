@@ -43,13 +43,13 @@ ul.groupedjob {
 	}
 	&::before {
 		position: relative;
-		top: 23.5px;
+		top: 24.5px;
 		height: 1em;
-		width: 10px;
+		width: 13px;
 		border-bottom: 1px solid var(--border-color);
 		content: '';
 		display: inline-block;
-		left: -14px;
+		left: 9px;
 	}
 	&::after {
 		position: absolute;
