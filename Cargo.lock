@@ -6814,6 +6814,7 @@ dependencies = [
  "sd-file-ext",
  "sd-heif",
  "sd-p2p",
+ "sd-prisma",
  "sd-sync",
  "serde",
  "serde-hashkey",
@@ -6962,6 +6963,16 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "sd-prisma"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-sync",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
