@@ -6,15 +6,13 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	util::debug_initializer::AbortOnDrop,
 };
 
-use std::path::PathBuf;
-
-use futures::{pin_mut, Future};
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::task::JoinHandle;
+use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -163,32 +161,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let handle =
 						tokio::spawn(light_scan_location(library, location, args.sub_path));
 
-					struct Aborter<T>(JoinHandle<T>);
-
-					impl<T> Drop for Aborter<T> {
-						fn drop(&mut self) {
-							self.0.abort()
-						}
-					}
-
-					impl<T> Future for Aborter<T> {
-						type Output = Result<T, tokio::task::JoinError>;
-
-						fn poll(
-							mut self: std::pin::Pin<&mut Self>,
-							cx: &mut std::task::Context<'_>,
-						) -> std::task::Poll<Self::Output> {
-							let handle = &mut self.0;
-
-							pin_mut!(handle);
-
-							handle.poll(cx)
-						}
-					}
-
-					Ok(async_stream::stream! {
-						Aborter(handle).await.ok();
-					})
+					Ok(AbortOnDrop(handle))
 				})
 		})
 		.procedure(
