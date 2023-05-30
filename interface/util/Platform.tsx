@@ -21,6 +21,7 @@ export type Platform = {
 	saveFilePickerDialog?(): Promise<string | null>;
 	showDevtools?(): void;
 	openPath?(path: string): void;
+	openLogsDir?(): void;
 	// Opens a file path with a given ID
 	openFilePath?(library: string, id: number): any;
 	getFilePathOpenWithApps?(library: string, id: number): any;

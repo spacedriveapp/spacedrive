@@ -6,8 +6,10 @@
 use std::{
 	marker::PhantomData,
 	path::{Path, PathBuf},
+	string::FromUtf8Error,
 };
 
+use thiserror::Error;
 use tokio::{
 	fs::File,
 	io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
@@ -42,22 +44,38 @@ pub struct SpacedropRequest {
 	pub block_size: BlockSize,
 }
 
+#[derive(Debug, Error)]
+pub enum SpacedropRequestError {
+	#[error("io error reading name len: {0}")]
+	NameLenIoError(std::io::Error),
+	#[error("io error reading name: {0}")]
+	NameIoError(std::io::Error),
+	#[error("error utf-8 decoding name: {0}")]
+	NameFormatError(FromUtf8Error),
+	#[error("io error reading file size: {0}")]
+	SizeIoError(std::io::Error),
+}
+
 impl SpacedropRequest {
-	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> Result<Self, ()> {
-		let mut name_len = [0; 2];
-		stream.read_exact(&mut name_len).await.map_err(|_| ())?; // TODO: Error handling
-		let name_len = u16::from_le_bytes(name_len);
-
+	pub async fn from_stream(
+		stream: &mut (impl AsyncRead + Unpin),
+	) -> Result<Self, SpacedropRequestError> {
+		let name_len = stream
+			.read_u16_le()
+			.await
+			.map_err(SpacedropRequestError::NameLenIoError)?;
 		let mut name = vec![0u8; name_len as usize];
-		stream.read_exact(&mut name).await.map_err(|_| ())?; // TODO: Error handling
-		let name = String::from_utf8(name).map_err(|_| ())?; // TODO: Error handling
+		stream
+			.read_exact(&mut name)
+			.await
+			.map_err(SpacedropRequestError::NameIoError)?;
+		let name = String::from_utf8(name).map_err(SpacedropRequestError::NameFormatError)?;
 
-		let mut size = [0; 8];
-		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
-		let size = u64::from_le_bytes(size);
-
-		// TODO: If we change `BlockSize` and both clients are running a different version this will not match up and everything will explode
-		let block_size = BlockSize::from_size(size); // TODO: Error handling
+		let size = stream
+			.read_u64_le()
+			.await
+			.map_err(SpacedropRequestError::SizeIoError)?;
+		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
 			name,

@@ -9,7 +9,7 @@ use crate::{
 	prisma::{location, object},
 };
 
-use chrono::{FixedOffset, Utc};
+use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
@@ -108,9 +108,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(id),
-							vec![object::date_accessed::set(Some(
-								Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
-							))],
+							vec![object::date_accessed::set(Some(Utc::now().into()))],
 						)
 						.exec()
 						.await?;

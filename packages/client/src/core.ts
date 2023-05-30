@@ -76,7 +76,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: NodeConfig } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
@@ -95,8 +95,6 @@ export type Procedures = {
 export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; cursor?: number[] | null; filter?: FilePathFilterArgs }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
-
-export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
@@ -124,6 +122,16 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string }
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 /**
+ * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
+ * It contains the id of the location to be updated, possible a name to change the current location's name
+ * and a vector of indexer rules ids to add or remove from the location.
+ * 
+ * It is important to note that only the indexer rule ids in this vector will be used from now on.
+ * Old rules that aren't in this vector will be purged.
+ */
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+
+/**
  * These parameters define the password-hashing level.
  * 
  * The greater the parameter, the longer the password will take to hash.
@@ -133,6 +141,8 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
 export type SortOrder = "Asc" | "Desc"
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+
+export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -166,9 +176,9 @@ export type FileEraserJobInit = { location_id: number; path_id: number; passes: 
  */
 export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
-export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
-
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
+export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -197,26 +207,21 @@ export type Salt = number[]
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
 
 /**
- * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
- * It contains the id of the location to be updated, possible a name to change the current location's name
- * and a vector of indexer rules ids to add or remove from the location.
- * 
- * It is important to note that only the indexer rule ids in this vector will be used from now on.
- * Old rules that aren't in this vector will be purged.
+ * TODO: P2P event for the frontend
  */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
+
+export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type FilePathFilterArgs = { locationId?: number | null; search?: string; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
-
-export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }
 
 export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
 
@@ -240,13 +245,6 @@ export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 export type ObjectSearchOrdering = { dateAccessed: SortOrder }
 
 export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
-
-/**
- * TODO: P2P event for the frontend
- */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
-
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type MaybeNot<T> = T | { not: T }
 
@@ -282,8 +280,6 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
 
-export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
-
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
@@ -295,6 +291,8 @@ export type FileEncryptorJobInit = { location_id: number; path_id: number; key_u
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
+export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
+
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
 export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
@@ -305,7 +303,11 @@ export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMa
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
 
+export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }
+
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -314,8 +316,6 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
-
-export type ChangeNodeNameArgs = { name: string }
 
 /**
  * This defines all available password hashing algorithms.
@@ -336,11 +336,11 @@ export type LibraryConfig = { name: string; description: string }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
-export type AutomountUpdateArgs = { uuid: string; status: boolean }
-
 export type Protected<T> = T
 
-export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
+export type ChangeNodeNameArgs = { name: string }
+
+export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
 

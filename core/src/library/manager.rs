@@ -5,7 +5,7 @@ use crate::{
 	prisma::{node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db::load_and_migrate,
+		db::{load_and_migrate, MigrationError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::MigratorError,
 		seeder::{indexer_rules_seeder, SeederError},
@@ -62,6 +62,8 @@ pub enum LibraryManagerError {
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations")]
 	MigratorError(#[from] MigratorError),
+	#[error("error migrating the library: {0}")]
+	MigrationError(#[from] MigrationError),
 	#[error("invalid library configuration: {0}")]
 	InvalidConfig(String),
 	#[error(transparent)]
@@ -93,7 +95,7 @@ pub async fn seed_keymanager(
 		.iter()
 		.map(|key| {
 			let key = key.clone();
-			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
+			let uuid = uuid::Uuid::from_str(&key.uuid).expect("invalid key id in the DB");
 
 			if key.default {
 				default = Some(uuid);
@@ -119,8 +121,7 @@ pub async fn seed_keymanager(
 				automount: key.automount,
 			})
 		})
-		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
-		.unwrap();
+		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()?;
 
 	// insert all keys from the DB into the keymanager's keystore
 	km.populate_keystore(stored_keys).await?;
@@ -368,8 +369,7 @@ impl LibraryManager {
 					LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 				})?
 			))
-			.await
-			.unwrap(),
+			.await?,
 		);
 
 		let node_config = node_context.config.get().await;

@@ -121,7 +121,11 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
 		#[cfg(all(feature = "heif", target_os = "macos"))]
 		let img = {
-			let ext = file_path.as_ref().extension().unwrap().to_ascii_lowercase();
+			let ext = file_path
+				.as_ref()
+				.extension()
+				.unwrap_or_default()
+				.to_ascii_lowercase();
 			if HEIF_EXTENSIONS
 				.iter()
 				.any(|e| ext == std::ffi::OsStr::new(e))
