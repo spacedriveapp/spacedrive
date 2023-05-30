@@ -9,23 +9,7 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
-tauri = { version = "1.3.0", features = [
-	"clipboard-all",
-	"dialog-all",
-	"fs-all",
-	"global-shortcut-all",
-	"http-all",
-	#   "notification-all", # This is causing issues
-	"os-all",
-	"path-all",
-	"process-all",
-	"protocol-all",
-	"shell-all",
-	"window-all",
-	"app-all",
-	"linux-protocol-headers",
-	"macos-private-api",
-] }
+tauri = { version = "1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all"] }
 rspc = { workspace = true, features = ["tauri"] }
 httpz = { workspace = true, features = [
 	"axum",
