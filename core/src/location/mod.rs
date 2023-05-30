@@ -5,10 +5,10 @@ use crate::{
 	object::{
 		file_identifier::{
 			file_identifier_job::FileIdentifierJobInit,
-			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
+			shallow_file_identifier_job::shallow_identify,
 		},
 		preview::{
-			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
+			shallow_thumbnailer_job::shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
@@ -38,9 +38,11 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
-use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
+use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
+
+use self::indexer::shallow_indexer_job::shallow_index;
 
 pub type LocationId = i32;
 
@@ -429,27 +431,12 @@ pub async fn light_scan_location(
 	}
 
 	let location_base_data = location::Data::from(&location);
-	// removed grouping for background jobs, they don't need to be grouped as only running ones are shown to the user
-	library
-		.spawn_job_ephemeral(ShallowIndexerJobInit {
-			location,
-			sub_path: sub_path.clone(),
-		})
-		.await
-		.unwrap_or(());
-	library
-		.spawn_job_ephemeral(ShallowFileIdentifierJobInit {
-			location: location_base_data.clone(),
-			sub_path: sub_path.clone(),
-		})
-		.await
-		.unwrap_or(());
-	library
-		.spawn_job_ephemeral(ShallowThumbnailerJobInit {
-			location: location_base_data.clone(),
-			sub_path: sub_path.clone(),
-		})
-		.await
+
+	shallow_index(&location, &sub_path, &library).await?;
+	shallow_identify(&location_base_data, &sub_path, &library).await?;
+	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
+
+	Ok(())
 }
 
 pub async fn relink_location(

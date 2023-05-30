@@ -130,16 +130,6 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
  */
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-/**
- * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
- * It contains the id of the location to be updated, possible a name to change the current location's name
- * and a vector of indexer rules ids to add or remove from the location.
- * 
- * It is important to note that only the indexer rule ids in this vector will be used from now on.
- * Old rules that aren't in this vector will be purged.
- */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
-
 export type SortOrder = "Asc" | "Desc"
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
@@ -186,8 +176,6 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type SetNoteArgs = { id: number; note: string | null }
 
-export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
-
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; cursor?: number[] | null; filter?: ObjectFilterArgs }
@@ -207,6 +195,16 @@ export type Salt = number[]
  * Meow
  */
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
+
+/**
+ * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
+ * It contains the id of the location to be updated, possible a name to change the current location's name
+ * and a vector of indexer rules ids to add or remove from the location.
+ * 
+ * It is important to note that only the indexer rule ids in this vector will be used from now on.
+ * Old rules that aren't in this vector will be purged.
+ */
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -232,6 +230,8 @@ export type IdentifyUniqueFilesArgs = { id: number; path: string }
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
 export type LightScanArgs = { location_id: number; sub_path: string }
+
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
 
@@ -288,16 +288,7 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
-
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
-
-/**
- * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
- * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
- * between the location and indexer rules.
- */
-export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
@@ -318,6 +309,10 @@ export type TagUpdateArgs = { id: number; name: string | null; color: string | n
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: { indexer_rule: IndexerRule }[] }
+
+export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
+
 export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
 
 export type ChangeNodeNameArgs = { name: string }
@@ -327,7 +322,12 @@ export type ChangeNodeNameArgs = { name: string }
  */
 export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: { indexer_rule: IndexerRule }[] }
+/**
+ * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
+ * It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
+ * between the location and indexer rules.
+ */
+export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.

@@ -184,12 +184,25 @@ impl StatefulJob for IndexerJob {
 
 		match &state.steps[0] {
 			IndexerJobStepInput::Save(step) => {
-				execute_indexer_save_step(&state.init.location, step, data, &mut ctx)
-					.await
-					.map(|(indexed_count, elapsed_time)| {
-						data.indexed_count += indexed_count;
-						data.db_write_time += elapsed_time;
-					})?
+				let start_time = Instant::now();
+
+				IndexerJobData::on_scan_progress(
+					&mut ctx,
+					vec![
+						ScanProgress::SavedChunks(step.chunk_idx),
+						ScanProgress::Message(format!(
+							"Writing {}/{} to db",
+							step.chunk_idx, data.total_save_steps
+						)),
+					],
+				);
+
+				let count =
+					execute_indexer_save_step(&state.init.location, step, &ctx.library.clone())
+						.await?;
+
+				data.indexed_count += count as u64;
+				data.db_write_time += start_time.elapsed();
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;

@@ -20,13 +20,6 @@ import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 
-	const quickRescanSubscription = useRef<() => void | undefined>();
-
-	// gotta clean up any rescan subscriptions if the exist
-	useEffect(() => () => quickRescanSubscription.current?.(), []);
-
-	const { client } = useRspcLibraryContext();
-
 	const explorerViewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
@@ -80,6 +73,14 @@ export const useExplorerTopBarOptions = () => {
 			topBarActive: explorerStore.showInspector
 		}
 	];
+
+	// subscription so that we can cancel it if in progress
+	const quickRescanSubscription = useRef<() => void | undefined>();
+
+	// gotta clean up any rescan subscriptions if the exist
+	useEffect(() => () => quickRescanSubscription.current?.(), []);
+
+	const { client } = useRspcLibraryContext();
 
 	const explorerToolOptions: ToolOption[] = [
 		{

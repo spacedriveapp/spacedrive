@@ -187,7 +187,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					Ok(async_stream::stream! {
-						Aborter(handle).await;
+						Aborter(handle).await.ok();
 					})
 				})
 		})

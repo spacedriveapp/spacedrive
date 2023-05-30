@@ -185,7 +185,7 @@ where
 	SJob: StatefulJob<Init = Init> + 'static,
 	Init: JobInitData<Job = SJob>,
 {
-	fn new(init: Init) -> Box<Self> {
+	pub fn new(init: Init) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
 			id,

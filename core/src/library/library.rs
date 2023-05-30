@@ -76,21 +76,6 @@ impl Library {
 			.await
 	}
 
-	pub(crate) async fn spawn_job_ephemeral<SJob, Init>(
-		&self,
-		jobable: impl IntoJob<SJob>,
-	) -> Result<(), JobManagerError>
-	where
-		SJob: StatefulJob<Init = Init> + 'static,
-		Init: JobInitData + 'static,
-	{
-		self.node_context
-			.jobs
-			.clone()
-			.ingest(self, jobable.into_job(), true)
-			.await
-	}
-
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.node_context.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");

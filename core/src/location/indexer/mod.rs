@@ -17,7 +17,6 @@ use rspc::ErrorCode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tokio::time::Instant;
 use tracing::info;
 
 use super::{
@@ -132,22 +131,9 @@ impl From<IndexerError> for rspc::Error {
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
 	save_step: &IndexerJobSaveStep,
-	data: &IndexerJobData,
-	ctx: &mut WorkerContext,
-) -> Result<(u64, Duration), IndexerError> {
-	let start_time = Instant::now();
-
-	IndexerJobData::on_scan_progress(
-		ctx,
-		vec![
-			ScanProgress::SavedChunks(save_step.chunk_idx),
-			ScanProgress::Message(format!(
-				"Writing {}/{} to db",
-				save_step.chunk_idx, data.total_save_steps
-			)),
-		],
-	);
-	let Library { sync, db, .. } = &ctx.library;
+	library: &Library,
+) -> Result<i64, IndexerError> {
+	let Library { sync, db, .. } = &library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
 		.walked
@@ -214,7 +200,7 @@ async fn execute_indexer_save_step(
 
 	info!("Inserted {count} records");
 
-	Ok((count as u64, start_time.elapsed()))
+	Ok(count)
 }
 
 fn finalize_indexer<SJob, Init, Step>(
