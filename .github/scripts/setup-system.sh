@@ -144,7 +144,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf"
 
     # FFmpeg dependencies
-    DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
+    DEBIAN_FFMPEG_DEPS="libheif-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
 
     # Webkit2gtk requires gstreamer plugins for video playback to work
     DEBIAN_VIDEO_DEPS="gstreamer1.0-libav gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly"
@@ -168,7 +168,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     ARCH_VIDEO_DEPS="gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
 
     # FFmpeg dependencies
-    ARCH_FFMPEG_DEPS="ffmpeg"
+    ARCH_FFMPEG_DEPS="libheif ffmpeg"
 
     # Bindgen dependencies - it's used by a dependency of Spacedrive
     ARCH_BINDGEN_DEPS="clang"
@@ -196,7 +196,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     FEDORA_OPENSSL_SYS_DEPS="perl-FindBin perl-File-Compare perl-IPC-Cmd perl-File-Copy"
 
     # FFmpeg dependencies
-    FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
+    FEDORA_FFMPEG_DEPS="libheif-devel ffmpeg ffmpeg-devel"
 
     # Webkit2gtk requires gstreamer plugins for video playback to work
     FEDORA_VIDEO_DEPS="gstreamer1-plugin-libav gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-good-extras gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-extras gstreamer1-plugins-ugly-free"
