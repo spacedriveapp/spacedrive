@@ -109,9 +109,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.update(
 							object::id::equals(id),
 							vec![object::date_accessed::set(Some(
-								Utc::now().with_timezone(&FixedOffset::east_opt(0).expect(
-									"'0' can't possibly overflow the 'FixedOffset' bounds",
-								)),
+								Utc::now().with_timezone(&FixedOffset::east_opt(0).into()),
 							))],
 						)
 						.exec()
