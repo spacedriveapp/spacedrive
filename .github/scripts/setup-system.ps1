@@ -313,51 +313,55 @@ if ($LASTEXITCODE -ne 0) {
     Exit-WithError 'Failed to get ffmpeg-sys-next version'
 }
 
-$filename = $null
-$downloadUri = $null
-$releasesUri = 'https://api.github.com/repos/GyanD/codexffmpeg/releases'
-$filenamePattern = '*-full_build-shared.zip'
+Write-Output "Download ffmpeg build..."
 
-# Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
-$releases = Invoke-RestMethodGithub -Uri $releasesUri
-$version = $ffmpegVersion
-while (-not ($filename -and $downloadUri) -and $version) {
-    for ($i = 0; $i -lt $releases.Count; $i++) {
-        $release = $releases[$i]
-        if ($release.tag_name -eq $version) {
-            foreach ($asset in $release.assets) {
-                if ($asset.name -like $filenamePattern) {
-                    $filename = $asset.name
-                    $downloadUri = $asset.browser_download_url
-                    $i = $releases.Count
-                    break
+$page = 1
+while ($page -gt 0) {
+    $success = Invoke-RestMethodGithub -Uri "https://github.com/spacedriveapp/spacedrive/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" |
+        ForEach-Object {
+            $_.workflow_runs |
+                ForEach-Object {
+                    $_.artifacts_url |
+                        ForEach-Object {
+                            $artifactsUrl = $_
+                            $artifactPath = (Invoke-RestMethod -Uri $artifactsUrl -Method Get) |
+                                Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
+                                ForEach-Object {
+                                    "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
+                                } |
+                                Select-Object -First 1
+
+                            if ($artifactPath) {
+                                # Download and extract the artifact
+                                $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
+                                $tempFile = [System.IO.Path]::GetTempFileName()
+                                Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
+                                Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
+                                Remove-Item -Path $tempFile -Force
+
+                                Write-Output "yes"
+                                exit
+                            }
+                            else {
+                                Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
+                                Start-Sleep -Seconds 1
+                            }
+                        }
                 }
-            }
         }
+
+    if ($success -eq "yes") {
+        break
     }
-    $version = $version -replace '\.?\d+$'
+
+    $page++
+    Write-Output "ffmpeg artifact not found, trying again in 1sec..."
+    Start-Sleep -Seconds 1
 }
 
-if (-not ($filename -and $downloadUri)) {
-    Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
+if ($success -ne "yes") {
+    Exit-WithError 'Failed to download ffmpeg files'
 }
-
-Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
-Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
-
-Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
-# FFmpeg zip contains a subdirectory with the same name as the zip file
-Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
-Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
-
-$ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-$proc = Start-Process -PassThru -Wait -FilePath 'Robocopy.exe' -Verb RunAs -ArgumentList `
-    "`"$ffmpegDir`" `"$projectRoot\target\Frameworks`" /E /NS /NC /NFL /NDL /NP /NJH /NJS"
-# https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy#exit-return-codes
-if ($proc.ExitCode -ge 8) {
-    Exit-WithError 'Failed to copy ffmpeg files'
-}
-Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
     '[env]',
