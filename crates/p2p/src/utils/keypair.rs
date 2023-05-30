@@ -1,20 +1,22 @@
-use libp2p::identity::PublicKey;
+use libp2p::identity::ed25519::{self};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
-pub struct Keypair(libp2p::identity::Keypair);
+pub struct Keypair(ed25519::Keypair);
 
 impl Keypair {
 	pub fn generate() -> Self {
-		Self(libp2p::identity::Keypair::generate_ed25519())
+		Self(ed25519::Keypair::generate())
 	}
 
-	pub fn public(&self) -> PublicKey {
-		self.0.public()
+	pub fn peer_id(&self) -> libp2p::PeerId {
+		let pk: libp2p::identity::PublicKey = self.0.public().into();
+
+		libp2p::PeerId::from_public_key(&pk)
 	}
 
-	pub fn inner(&self) -> &libp2p::identity::Keypair {
-		&self.0
+	pub fn inner(&self) -> libp2p::identity::Keypair {
+		self.0.clone().into()
 	}
 }
 
@@ -23,14 +25,7 @@ impl Serialize for Keypair {
 	where
 		S: serde::Serializer,
 	{
-		serializer.serialize_bytes(
-			&self
-				.0
-				.clone()
-				.try_into_ed25519()
-				.expect("Certificate is not a 'ed25519' cert")
-				.to_bytes(),
-		)
+		serializer.serialize_bytes(&self.0.to_bytes())
 	}
 }
 
@@ -41,7 +36,7 @@ impl<'de> Deserialize<'de> for Keypair {
 	{
 		let mut bytes = Vec::<u8>::deserialize(deserializer)?;
 		Ok(Self(
-			libp2p::identity::Keypair::ed25519_from_bytes(bytes.as_mut_slice())
+			ed25519::Keypair::try_from_bytes(bytes.as_mut_slice())
 				.map_err(serde::de::Error::custom)?,
 		))
 	}

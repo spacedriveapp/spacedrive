@@ -184,7 +184,7 @@ impl Node {
 									.expect("Error invalid tracing directive!"),
 							)
 							.add_directive(
-								"desktop=debug"
+								"spacedrive=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
 							),
@@ -226,17 +226,17 @@ impl Node {
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
 pub enum NodeError {
-	#[error("failed to initialize config")]
+	#[error("failed to initialize config: {0}")]
 	FailedToInitializeConfig(util::migrator::MigratorError),
 	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),
-	#[error("failed to initialize p2p manager")]
+	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(#[from] sd_p2p::ManagerError),
 	#[error("invalid platform integer")]
 	InvalidPlatformInt(i32),
 	#[cfg(debug_assertions)]
-	#[error("Init config error")]
+	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 }

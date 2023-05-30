@@ -35,15 +35,20 @@ export default ({ error, resetErrorBoundary }: FallbackProps) => (
 export function ErrorPage({
 	reloadBtn,
 	sendReportBtn,
-	message
+	message,
+	submessage
 }: {
 	reloadBtn?: () => void;
 	sendReportBtn?: () => void;
 	message: string;
+	submessage?: string;
 }) {
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
+
+	if (!submessage && debug.enabled)
+		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
 	return (
 		<div
@@ -57,11 +62,7 @@ export function ErrorPage({
 			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
 			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
 			<pre className="m-2 text-ink">{message}</pre>
-			{debug.enabled && (
-				<pre className="m-2 text-sm text-ink-dull">
-					Check the console (CMD/CTRL + OPTION + i) for stack trace.
-				</pre>
-			)}
+			{submessage && <pre className="m-2 text-sm text-ink-dull">{submessage}</pre>}
 			<div className="flex flex-row space-x-2 text-ink">
 				{reloadBtn && (
 					<Button variant="accent" className="mt-2" onClick={reloadBtn}>

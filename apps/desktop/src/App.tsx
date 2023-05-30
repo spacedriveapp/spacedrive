@@ -124,7 +124,12 @@ export default function App() {
 // This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
 function AppInner() {
 	if (startupError) {
-		return <ErrorPage message={startupError} />;
+		return (
+			<ErrorPage
+				message={startupError}
+				submessage="Error occurred starting up the Spacedrive core"
+			/>
+		);
 	}
 
 	return <SpacedriveInterface router={router} />;
