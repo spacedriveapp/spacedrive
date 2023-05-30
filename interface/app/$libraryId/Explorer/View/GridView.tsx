@@ -21,7 +21,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 	return (
 		<ViewItem data={data} index={index} className="h-full w-full" {...props}>
-			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
+			<div className={clsx('mb-1 rounded-lg', selected && 'bg-app-selectedItem')}>
 				<FileThumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
 			</div>
 
