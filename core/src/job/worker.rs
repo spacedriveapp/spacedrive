@@ -91,6 +91,7 @@ impl Worker {
 		job_manager: Arc<JobManager>,
 		worker_mutex: Arc<Mutex<Self>>,
 		library: Library,
+		ephemeral: bool,
 	) -> Result<(), JobError> {
 		let mut worker = worker_mutex.lock().await;
 		// we capture the worker receiver channel so state can be updated from inside the worker
@@ -115,13 +116,16 @@ impl Worker {
 
 		worker.start_time = Some(Utc::now());
 
-		// If the report doesn't have a created_at date, it's a new report
-		if worker.report.created_at.is_none() {
-			worker.report.create(&library).await?;
-		} else {
-			// Otherwise it can be a job being resumed or a children job that was already been created
-			worker.report.update(&library).await?;
+		if !ephemeral {
+			// If the report doesn't have a created_at date, it's a new report
+			if worker.report.created_at.is_none() {
+				worker.report.create(&library).await?;
+			} else {
+				// Otherwise it can be a job being resumed or a children job that was already been created
+				worker.report.update(&library).await?;
+			}
 		}
+
 		drop(worker);
 
 		job.register_children(&library).await?;

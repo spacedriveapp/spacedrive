@@ -10,9 +10,11 @@ use crate::{
 
 use std::path::PathBuf;
 
+use futures::{pin_mut, Future};
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tokio::task::JoinHandle;
 
 use super::{utils::library, Ctx, R};
 
@@ -151,19 +153,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: LightScanArgs| async move {
-					// light rescan location
-					light_scan_location(
-						&library,
-						find_location(&library, args.location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(args.location_id))?,
-						&args.sub_path,
-					)
-					.await
-					.map_err(Into::into)
+				.subscription(|(_, library), args: LightScanArgs| async move {
+					let location = find_location(&library, args.location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+					let handle =
+						tokio::spawn(light_scan_location(library, location, args.sub_path));
+
+					struct Aborter<T>(JoinHandle<T>);
+
+					impl<T> Drop for Aborter<T> {
+						fn drop(&mut self) {
+							self.0.abort()
+						}
+					}
+
+					impl<T> Future for Aborter<T> {
+						type Output = Result<T, tokio::task::JoinError>;
+
+						fn poll(
+							mut self: std::pin::Pin<&mut Self>,
+							cx: &mut std::task::Context<'_>,
+						) -> std::task::Poll<Self::Output> {
+							let handle = &mut self.0;
+
+							pin_mut!(handle);
+
+							handle.poll(cx)
+						}
+					}
+
+					Ok(async_stream::stream! {
+						Aborter(handle).await;
+					})
 				})
 		})
 		.procedure(

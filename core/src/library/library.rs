@@ -72,7 +72,22 @@ impl Library {
 		self.node_context
 			.jobs
 			.clone()
-			.ingest(self, jobable.into_job())
+			.ingest(self, jobable.into_job(), false)
+			.await
+	}
+
+	pub(crate) async fn spawn_job_ephemeral<SJob, Init>(
+		&self,
+		jobable: impl IntoJob<SJob>,
+	) -> Result<(), JobManagerError>
+	where
+		SJob: StatefulJob<Init = Init> + 'static,
+		Init: JobInitData + 'static,
+	{
+		self.node_context
+			.jobs
+			.clone()
+			.ingest(self, jobable.into_job(), true)
 			.await
 	}
 

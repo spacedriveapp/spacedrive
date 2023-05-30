@@ -385,7 +385,11 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			);
 			next_job.set_next_jobs(next_jobs);
 
-			if let Err(e) = job_manager.clone().ingest(&ctx.library, next_job).await {
+			if let Err(e) = job_manager
+				.clone()
+				.ingest(&ctx.library, next_job, false)
+				.await
+			{
 				error!("Failed to ingest next job: {e}");
 			}
 		}

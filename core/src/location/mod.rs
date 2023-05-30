@@ -418,11 +418,12 @@ pub async fn scan_location_sub_path(
 }
 
 pub async fn light_scan_location(
-	library: &Library,
+	library: Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
+
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
@@ -430,21 +431,21 @@ pub async fn light_scan_location(
 	let location_base_data = location::Data::from(&location);
 	// removed grouping for background jobs, they don't need to be grouped as only running ones are shown to the user
 	library
-		.spawn_job(ShallowIndexerJobInit {
+		.spawn_job_ephemeral(ShallowIndexerJobInit {
 			location,
 			sub_path: sub_path.clone(),
 		})
 		.await
 		.unwrap_or(());
 	library
-		.spawn_job(ShallowFileIdentifierJobInit {
+		.spawn_job_ephemeral(ShallowFileIdentifierJobInit {
 			location: location_base_data.clone(),
 			sub_path: sub_path.clone(),
 		})
 		.await
 		.unwrap_or(());
 	library
-		.spawn_job(ShallowThumbnailerJobInit {
+		.spawn_job_ephemeral(ShallowThumbnailerJobInit {
 			location: location_base_data.clone(),
 			sub_path: sub_path.clone(),
 		})

@@ -110,7 +110,7 @@ impl JobManager {
 			while let Some(event) = internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
-						this2.clone().dispatch_job(&library, job).await
+						this2.clone().dispatch_job(&library, job, false).await
 					}
 				}
 			}
@@ -125,6 +125,7 @@ impl JobManager {
 		self: Arc<Self>,
 		library: &Library,
 		job: Box<dyn DynJob>,
+		ephemeral: bool,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
@@ -142,7 +143,7 @@ impl JobManager {
 		);
 
 		self.current_jobs_hashes.write().await.insert(job_hash);
-		self.dispatch_job(library, job).await;
+		self.dispatch_job(library, job, ephemeral).await;
 		Ok(())
 	}
 
@@ -257,6 +258,7 @@ impl JobManager {
 				.dispatch_job(
 					library,
 					get_resumable_job(root_paused_job_report, children_jobs)?,
+					false,
 				)
 				.await;
 		}
@@ -264,7 +266,12 @@ impl JobManager {
 		Ok(())
 	}
 
-	async fn dispatch_job(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
+	async fn dispatch_job(
+		self: Arc<Self>,
+		library: &Library,
+		mut job: Box<dyn DynJob>,
+		ephemeral: bool,
+	) {
 		// create worker to process job
 		let mut running_workers = self.running_workers.write().await;
 		if running_workers.len() < MAX_WORKERS {
@@ -282,9 +289,10 @@ impl JobManager {
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
 			if let Err(e) = Worker::spawn(
-				Arc::clone(&self),
+				self.clone(),
 				Arc::clone(&wrapped_worker),
 				library.clone(),
+				ephemeral,
 			)
 			.await
 			{
