@@ -14,6 +14,10 @@ export function appReady() {
     return invoke()<null>("app_ready")
 }
 
+export function resetSpacedrive() {
+    return invoke()<null>("reset_spacedrive")
+}
+
 export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
