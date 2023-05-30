@@ -74,6 +74,28 @@ export function ErrorPage({
 						Send report
 					</Button>
 				)}
+				{message === 'failed to initialize config' && (
+					<div className="flex flex-col items-center pt-12">
+						<p className="text-center">
+							We detected you may have created your library with an older version of
+							<br />
+							Spacedrive. Please reset it to continue using the app!
+							<br />
+							YOU WILL LOSE ANY EXISTING SPACEDRIVE DATA!
+						</p>
+						<Button
+							variant="colored"
+							className="mt-2 max-w-xs bg-red-500"
+							onClick={() => {
+								console.log('A'); // TODO
+								// @ts-expect-error
+								window.__TAURI_INVOKE__('reset_spacedrive');
+							}}
+						>
+							Reset Library
+						</Button>
+					</div>
+				)}
 			</div>
 		</div>
 	);
