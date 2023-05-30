@@ -43,9 +43,10 @@ ffbuild_dockerbuild() {
 
   ln -s ../10bit/libx265.a 8bit/libx265_main10.a
   ln -s ../12bit/libx265.a 8bit/libx265_main12.a
+
   ninja -C 8bit
 
-  ninja install
+  ninja -C 8bit install
 
   mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
 
