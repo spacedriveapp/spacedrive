@@ -6634,7 +6634,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?branch=specta-v2#927e951fa7bae9d8ad87d2c084a508870f43e788"
+source = "git+https://github.com/oscartbeaumont/rspc?branch=specta-v2#2aec493e6f9259e67f04866e250e1690f073def9"
 dependencies = [
  "futures",
  "futures-channel",

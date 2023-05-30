@@ -6,13 +6,13 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	util::debug_initializer::AbortOnDrop,
 };
-
-use std::path::PathBuf;
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -151,19 +151,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: LightScanArgs| async move {
-					// light rescan location
-					light_scan_location(
-						&library,
-						find_location(&library, args.location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(args.location_id))?,
-						&args.sub_path,
-					)
-					.await
-					.map_err(Into::into)
+				.subscription(|(_, library), args: LightScanArgs| async move {
+					let location = find_location(&library, args.location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+					let handle =
+						tokio::spawn(light_scan_location(library, location, args.sub_path));
+
+					Ok(AbortOnDrop(handle))
 				})
 		})
 		.procedure(
