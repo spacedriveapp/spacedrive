@@ -57,7 +57,7 @@ export function ErrorPage({
 							<br />
 							Spacedrive. Please reset it to continue using the app!
 							<br />
-							YOU WILL LOOSE ANY EXISTING SPACEDRIVE DATA!
+							YOU WILL LOSE ANY EXISTING SPACEDRIVE DATA!
 						</p>
 						<Button
 							variant="colored"
