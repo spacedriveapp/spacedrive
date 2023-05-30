@@ -60,7 +60,7 @@ pub async fn shallow(
 		(false, location_path.to_path_buf())
 	};
 
-	let (walked, to_remove, _) = {
+	let (walked, to_remove, errors) = {
 		walk_single_dir(
 			&to_walk_path,
 			&indexer_rules,
@@ -72,6 +72,12 @@ pub async fn shallow(
 		)
 		.await?
 	};
+
+	if !errors.is_empty() {
+		return Err(JobError::StepCompletedWithErrors(
+			errors.into_iter().map(|e| format!("{e}")).collect(),
+		));
+	}
 
 	// TODO pass these uuids to sync system
 	remove_non_existing_file_paths(to_remove, &db).await?;
