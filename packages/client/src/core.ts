@@ -16,8 +16,8 @@ export type Procedures = {
         { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: StoredKey[] } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
-        { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
+        { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
         { key: "locations.getWithRules", input: LibraryArgs<number>, result: LocationWithIndexerRules | null } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
@@ -151,11 +151,7 @@ export type OnboardingConfig = { password: Protected<string>; algorithm: Algorit
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
 
-export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: string | null; file_system: string | null; is_root_filesystem: boolean }
-
 export type TagCreateArgs = { name: string; color: string }
-
-export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -181,6 +177,8 @@ export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+
+export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
 export type SetNoteArgs = { id: number; note: string | null }
 
@@ -209,6 +207,8 @@ export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: Peer
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
+export type DiskType = "SSD" | "HDD" | "Removable"
+
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
@@ -216,6 +216,8 @@ export type SetFavoriteArgs = { id: number; favorite: boolean }
 export type FilePathFilterArgs = { locationId?: number | null; search?: string; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
@@ -259,6 +261,8 @@ export type SharedOperation = { record_id: any; model: string; data: SharedOpera
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
 
 export type FileDeleterJobInit = { location_id: number; path_id: number }
+
+export type CreateLibraryArgs = { name: string }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
@@ -327,8 +331,6 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: 
 export type LibraryConfig = { name: string; description: string }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
-
-export type CreateLibraryArgs = { name: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
