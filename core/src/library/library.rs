@@ -72,7 +72,7 @@ impl Library {
 		self.node_context
 			.jobs
 			.clone()
-			.ingest(self, jobable.into_job(), false)
+			.ingest(self, jobable.into_job())
 			.await
 	}
 
