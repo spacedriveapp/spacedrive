@@ -12,7 +12,7 @@ ffbuild_dockerbuild() {
   local myconf=(
     --prefix="$FFBUILD_PREFIX"
     --buildtype=release
-    --default-library=static
+    --default-library=shared
   )
 
   if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -27,4 +27,6 @@ ffbuild_dockerbuild() {
   meson "${myconf[@]}" ..
   ninja -j$(nproc)
   ninja install
+
+  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
 }

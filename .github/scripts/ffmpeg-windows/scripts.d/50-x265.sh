@@ -12,50 +12,42 @@ ffbuild_dockerbuild() {
     -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
     -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
     -DCMAKE_BUILD_TYPE=Release
-    -DENABLE_SHARED=OFF
     -DENABLE_CLI=OFF
     -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
   )
 
-  if [[ $TARGET != *32 ]]; then
-    mkdir 8bit 10bit 12bit
-    cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S source -B 12bit &
-    cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S source -B 10bit &
-    cmake "${common_config[@]}" -DEXTRA_LIB="x265_main10.a;x265_main12.a" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON -S source -B 8bit &
-    wait
+  mkdir 8bit 10bit 12bit
+  cmake -S source -B 12bit -G Ninja \
+    "${common_config[@]}" \
+    -DHIGH_BIT_DEPTH=ON \
+    -DEXPORT_C_API=OFF \
+    -DENABLE_SHARED=OFF \
+    -DMAIN12=ON
+  ninja -C 12bit
 
-    cat >Makefile <<"EOF"
-all: 12bit/libx265.a 10bit/libx265.a 8bit/libx265.a
+  cmake -S source -B 10bit -G Ninja \
+    "${common_config[@]}" \
+    -DHIGH_BIT_DEPTH=ON \
+    -DEXPORT_C_API=OFF \
+    -DENABLE_SHARED=OFF
+  ninja -C 10bit
 
-%/libx265.a:
-	$(MAKE) -C $(subst /libx265.a,,$@)
+  cmake -S source -B 8bit -G Ninja \
+    "${common_config[@]}" \
+    -DEXTRA_LIB="x265_main10.a;x265_main12.a" \
+    -DENABLE_HDRDENABLE_HDR10_PLUS=ON \
+    -DEXTRA_LINK_FLAGS=-L. \
+    -DENABLE_SHARED=ON \
+    -DLINKED_10BIT=ON \
+    -DLINKED_12BIT=ON
 
-.PHONY: all
-EOF
+  ln -s 10bit/libx265.a 8bit/libx265_main10.a
+  ln -s 12bit/libx265.a 8bit/libx265_main12.a
+  ninja -C 8bit
 
-    make -j$(nproc)
+  ninja install
 
-    cd 8bit
-    mv ../12bit/libx265.a ../8bit/libx265_main12.a
-    mv ../10bit/libx265.a ../8bit/libx265_main10.a
-    mv libx265.a libx265_main.a
-
-    ${FFBUILD_CROSS_PREFIX}ar -M <<EOF
-CREATE libx265.a
-ADDLIB libx265_main.a
-ADDLIB libx265_main10.a
-ADDLIB libx265_main12.a
-SAVE
-END
-EOF
-  else
-    mkdir 8bit
-    cd 8bit
-    cmake "${common_config[@]}" ../source
-    make -j$(nproc)
-  fi
-
-  make install
+  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
 
   echo "Libs.private: -lstdc++" >>"$FFBUILD_PREFIX"/lib/pkgconfig/x265.pc
 }
