@@ -15,7 +15,7 @@ diff -u Makefile.bak Makefile
 +++ Makefile	2013-02-06 04:04:07.210382474 +0100
 @@ -15,13 +15,13 @@
  SHELL=/bin/sh
- 
+
  # To assist in cross-compiling
 -CC=gcc
 -AR=ar
@@ -24,10 +24,10 @@ diff -u Makefile.bak Makefile
 +AR?=ar
 +RANLIB?=ranlib
  LDFLAGS=
- 
+
  BIGFILES=-D_FILE_OFFSET_BITS=64
 -CFLAGS=-Wall -Winline -O2 -g $(BIGFILES)
 +CFLAGS:=-Wall -Winline -O2 -g $(BIGFILES) $(CFLAGS)
- 
+
  # Where you want it installed when you do 'make install'
  PREFIX=/usr/local
