@@ -70,10 +70,6 @@ FROM layer-45 AS layer-50-amf
 
 RUN --mount=src=scripts.d/50-amf.sh,dst=/stage.sh run_stage /stage.sh
 
-FROM layer-45 AS layer-50-aom
-
-RUN --mount=src=scripts.d/50-aom.sh,dst=/stage.sh --mount=src=patches/aom,dst=/patches run_stage /stage.sh
-
 FROM layer-45 AS layer-50-dav1d
 
 RUN --mount=src=scripts.d/50-dav1d.sh,dst=/stage.sh run_stage /stage.sh
@@ -132,10 +128,6 @@ FROM layer-45 AS layer-50-soxr
 
 RUN --mount=src=scripts.d/50-soxr.sh,dst=/stage.sh run_stage /stage.sh
 
-FROM layer-45 AS layer-50-svtav1
-
-RUN --mount=src=scripts.d/50-svtav1.sh,dst=/stage.sh run_stage /stage.sh
-
 FROM layer-45 AS layer-50-twolame
 
 RUN --mount=src=scripts.d/50-twolame.sh,dst=/stage.sh run_stage /stage.sh
@@ -168,8 +160,6 @@ FROM layer-45 AS layer-50
 
 COPY --from=layer-50-amf $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
-COPY --from=layer-50-aom $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
 COPY --from=layer-50-dav1d $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-ffnvcodec $FFBUILD_PREFIX/. $FFBUILD_PREFIX
@@ -197,8 +187,6 @@ COPY --from=layer-50-openjpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 COPY --from=layer-50-rav1e $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-soxr $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-COPY --from=layer-50-svtav1 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-twolame $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
