@@ -33,7 +33,6 @@ export const Component = () => {
 
 	const location = useLibraryQuery(['locations.get', location_id]);
 
-	// we destructure this since `mutate` is a stable reference but the object it's in is not
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
@@ -49,7 +48,6 @@ export const Component = () => {
 
 	useEffect(() => {
 		explorerStore.locationId = location_id;
-		// if (location_id !== null) quickRescan();
 	}, [explorerStore, location_id, path]);
 
 	const { query, items } = useItems();
