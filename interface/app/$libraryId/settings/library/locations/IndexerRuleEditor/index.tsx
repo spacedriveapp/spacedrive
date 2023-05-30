@@ -68,8 +68,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	return (
 		<div className={props.className} onClick={() => setSelectedRule(undefined)}>
 			<div className={'flex items-start justify-between'}>
-				<div className="grow">
-					<Label className="mb-2">{props.label || 'Indexer rules'}</Label>
+				<div className="mb-1 grow">
+					<Label>{props.label || 'Indexer rules'}</Label>
 					{infoText && <InfoText className="mb-4">{infoText}</InfoText>}
 				</div>
 				{editable && (
