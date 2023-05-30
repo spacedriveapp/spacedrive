@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{path::PathBuf, time::Duration};
+use std::{fs, path::PathBuf, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -26,6 +26,21 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn reset_spacedrive(app_handle: tauri::AppHandle) {
+	let data_dir = path::data_dir()
+		.unwrap_or_else(|| PathBuf::from("./"))
+		.join("spacedrive");
+
+	#[cfg(debug_assertions)]
+	let data_dir = data_dir.join("dev");
+
+	fs::remove_dir_all(data_dir).unwrap();
+
+	app_handle.restart();
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
@@ -130,6 +145,7 @@ async fn main() -> tauri::Result<()> {
 		.menu(menu::get_menu())
 		.invoke_handler(tauri_handlers![
 			app_ready,
+			reset_spacedrive,
 			file::open_file_path,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with

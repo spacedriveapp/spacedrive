@@ -98,8 +98,6 @@ export type PeerMetadata = { name: string; operating_system: OperatingSystem | n
 
 export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
-
 /**
  * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
  */
@@ -140,9 +138,9 @@ export type Params = "Standard" | "Hardened" | "Paranoid"
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type SortOrder = "Asc" | "Desc"
+export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+export type SortOrder = "Asc" | "Desc"
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -162,8 +160,6 @@ export type StoredKey = { uuid: string; version: StoredKeyVersion; key_type: Sto
 export type OnboardingConfig = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
-
-export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
 export type TagCreateArgs = { name: string; color: string }
 
@@ -216,7 +212,11 @@ export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChil
 
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }
 
+export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+
 export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
+
+export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
 
 export type BuildInfo = { version: string; commit: string }
 
@@ -227,7 +227,7 @@ export type IdentifyUniqueFilesArgs = { id: number; path: string }
  */
 export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
 
-export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type OwnedOperationItem = { id: any; data: OwnedOperationData }
 
@@ -245,10 +245,6 @@ export type RenameFileArgs = { location_id: number; file_name: string; new_file_
 export type MaybeNot<T> = T | { not: T }
 
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
-
-export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
-
-export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
@@ -284,8 +280,6 @@ export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgor
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
-
 export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
 
 /**
@@ -304,11 +298,11 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
-
 export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
 
 export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
+
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
@@ -336,11 +330,17 @@ export type LibraryConfig = { name: string; description: string }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
+export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
+
 export type AutomountUpdateArgs = { uuid: string; status: boolean }
+
+export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
 export type Protected<T> = T
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
+
+export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
 
