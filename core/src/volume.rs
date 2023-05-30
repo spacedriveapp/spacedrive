@@ -11,6 +11,7 @@ use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum DiskType {
 	SSD,
 	HDD,

@@ -156,7 +156,10 @@ impl LocationCreateArgs {
 		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
 				// SAFETY: This unwrap is ok as we checked that we have this library_id
-				old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
+				old_path: metadata
+					.location_path(library.id)
+					.expect("This unwrap is ok as we checked that we have this library_id")
+					.to_path_buf(),
 				new_path: self.path,
 			});
 		}
@@ -281,7 +284,9 @@ impl LocationUpdateArgs {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(&location.path).await?
 				{
-					metadata.update(library.id, self.name.unwrap()).await?;
+					metadata
+						.update(library.id, self.name.expect("TODO"))
+						.await?;
 				}
 			}
 		}

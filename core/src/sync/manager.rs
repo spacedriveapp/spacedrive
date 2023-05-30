@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
+
 use crate::prisma::*;
 
 use std::{collections::HashMap, sync::Arc};

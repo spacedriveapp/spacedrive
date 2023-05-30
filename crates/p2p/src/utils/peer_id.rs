@@ -10,6 +10,7 @@ pub struct PeerId(
 );
 
 impl FromStr for PeerId {
+	#[allow(deprecated)]
 	type Err = libp2p::core::ParseError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {

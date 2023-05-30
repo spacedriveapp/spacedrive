@@ -18,20 +18,16 @@ pub struct LibraryNode {
 	pub last_seen: DateTime<Utc>,
 }
 
-impl From<node::Data> for LibraryNode {
-	fn from(data: node::Data) -> Self {
-		Self {
-			uuid: Uuid::from_slice(&data.pub_id).unwrap(),
-			name: data.name,
-			platform: Platform::try_from(data.platform).unwrap(),
-			last_seen: data.last_seen.into(),
-		}
-	}
-}
+impl TryFrom<node::Data> for LibraryNode {
+	type Error = String;
 
-impl From<Box<node::Data>> for LibraryNode {
-	fn from(data: Box<node::Data>) -> Self {
-		Self::from(*data)
+	fn try_from(data: node::Data) -> Result<Self, Self::Error> {
+		Ok(Self {
+			uuid: Uuid::from_slice(&data.pub_id).map_err(|_| "Invalid node pub_id")?,
+			name: data.name,
+			platform: Platform::try_from(data.platform).map_err(|_| "Invalid platform_id")?,
+			last_seen: data.last_seen.into(),
+		})
 	}
 }
 

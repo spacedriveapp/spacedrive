@@ -109,7 +109,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					ctx.library_manager
 						.get_library(new_library.uuid)
 						.await
-						.unwrap(),
+						.expect("We just created the library. Where do it be?"),
 					"library.getStatistics"
 				);
 
