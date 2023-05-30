@@ -34,15 +34,15 @@ ffbuild_dockerbuild() {
 
   cmake -S source -B 8bit -G Ninja \
     "${common_config[@]}" \
-    -DEXTRA_LIB="x265_main10.a;x265_main12.a" \
+    -DEXTRA_LIB='x265_main10.a;x265_main12.a' \
     -DENABLE_HDRDENABLE_HDR10_PLUS=ON \
     -DEXTRA_LINK_FLAGS=-L. \
     -DENABLE_SHARED=ON \
     -DLINKED_10BIT=ON \
     -DLINKED_12BIT=ON
 
-  ln -s 10bit/libx265.a 8bit/libx265_main10.a
-  ln -s 12bit/libx265.a 8bit/libx265_main12.a
+  ln -s ../10bit/libx265.a 8bit/libx265_main10.a
+  ln -s ../12bit/libx265.a 8bit/libx265_main12.a
   ninja -C 8bit
 
   ninja install
