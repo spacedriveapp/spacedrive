@@ -18,20 +18,20 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-prisma-client-rust =  { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
-  "rspc",
-  "sqlite-create-many",
-  "migrations",
-  "sqlite",
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
+	"rspc",
+	"sqlite-create-many",
+	"migrations",
+	"sqlite",
 ] }
 prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
-  "rspc",
-  "sqlite-create-many",
-  "migrations",
-  "sqlite",
+	"rspc",
+	"sqlite-create-many",
+	"migrations",
+	"sqlite",
 ] }
 prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "3b805c459ec1d52f163ecdc527b0d82e6556a022", features = [
-  "sqlite",
+	"sqlite",
 ] }
 
 rspc = { version = "0.1.4" }
@@ -47,7 +47,7 @@ tokio = { version = "1.28.2" }
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 # We patch this so that it can be built for IOS - The `main` branch uses macOS specific APIs
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "410e8e1d2d0730f1441df1c29294fec4c3c04193" }
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "47bac595e71b5ff21a9dbd257a081b03fb6b8fbc" }
 
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 

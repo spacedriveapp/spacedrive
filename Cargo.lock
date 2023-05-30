@@ -3291,8 +3291,7 @@ dependencies = [
 [[package]]
 name = "if-watch"
 version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9465340214b296cd17a0009acdb890d6160010b8adf8f78a00d0d7ab270f79f"
+source = "git+https://github.com/oscartbeaumont/if-watch?rev=47bac595e71b5ff21a9dbd257a081b03fb6b8fbc#47bac595e71b5ff21a9dbd257a081b03fb6b8fbc"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -10159,11 +10158,6 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[patch.unused]]
-name = "if-watch"
-version = "3.0.0"
-source = "git+https://github.com/oscartbeaumont/if-watch?rev=410e8e1d2d0730f1441df1c29294fec4c3c04193#410e8e1d2d0730f1441df1c29294fec4c3c04193"
 
 [[patch.unused]]
 name = "openssl-sys"
