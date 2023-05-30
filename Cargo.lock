@@ -3352,8 +3352,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "3.0.0"
-source = "git+https://github.com/oscartbeaumont/if-watch?rev=410e8e1d2d0730f1441df1c29294fec4c3c04193#410e8e1d2d0730f1441df1c29294fec4c3c04193"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9465340214b296cd17a0009acdb890d6160010b8adf8f78a00d0d7ab270f79f"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -5140,9 +5141,9 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.52"
+version = "0.10.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01b8574602df80f7b85fdfc5392fa884a4e3b3f4f35402c070ab34c3d3f78d56"
+checksum = "12df40a956736488b7b44fe79fe12d4f245bb5b3f5a1f6095e499760015be392"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -5181,9 +5182,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.87"
+version = "0.9.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e17f59264b2809d77ae94f0e1ebabc434773f370d6ca667bd223ea10e06cc7e"
+checksum = "c2ce0f250f34a308dcfdbb351f511359857d4ed2134ba715a4eadd46e1ffd617"
 dependencies = [
  "cc",
  "libc",
@@ -7100,7 +7101,9 @@ version = "0.1.0"
 dependencies = [
  "arc-swap",
  "flume",
+ "if-watch",
  "libp2p",
+ "libp2p-quic",
  "mdns-sd",
  "rmp-serde",
  "serde",
@@ -10451,6 +10454,11 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[patch.unused]]
+name = "if-watch"
+version = "3.0.0"
+source = "git+https://github.com/oscartbeaumont/if-watch?rev=410e8e1d2d0730f1441df1c29294fec4c3c04193#410e8e1d2d0730f1441df1c29294fec4c3c04193"
 
 [[patch.unused]]
 name = "openssl-sys"
