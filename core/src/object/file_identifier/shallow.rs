@@ -23,7 +23,7 @@ pub struct ShallowFileIdentifierJobState {
 	sub_iso_file_path: IsolatedFilePathData<'static>,
 }
 
-pub async fn shallow_identify(
+pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library: &Library,

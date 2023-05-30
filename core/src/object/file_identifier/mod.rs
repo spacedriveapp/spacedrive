@@ -27,7 +27,9 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 pub mod file_identifier_job;
-pub mod shallow_file_identifier_job;
+mod shallow;
+
+pub use shallow::*;
 
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;

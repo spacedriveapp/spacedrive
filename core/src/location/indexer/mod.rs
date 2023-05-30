@@ -26,11 +26,13 @@ use super::{
 
 pub mod indexer_job;
 pub mod rules;
-pub mod shallow_indexer_job;
+mod shallow;
 mod walk;
 
 use rules::IndexerRuleError;
 use walk::WalkedEntry;
+
+pub use shallow::*;
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when

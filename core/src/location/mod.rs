@@ -3,13 +3,8 @@ use crate::{
 	job::{Job, JobManagerError},
 	library::Library,
 	object::{
-		file_identifier::{
-			file_identifier_job::FileIdentifierJobInit,
-			shallow_file_identifier_job::shallow_identify,
-		},
-		preview::{
-			shallow_thumbnailer_job::shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
-		},
+		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
+		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
@@ -41,8 +36,6 @@ pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
-
-use self::indexer::shallow_indexer_job::shallow_index;
 
 pub type LocationId = i32;
 
@@ -437,8 +430,8 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	shallow_index(&location, &sub_path, &library).await?;
-	shallow_identify(&location_base_data, &sub_path, &library).await?;
+	indexer::shallow(&location, &sub_path, &library).await?;
+	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
 	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
 
 	Ok(())

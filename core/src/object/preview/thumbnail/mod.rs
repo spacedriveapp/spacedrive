@@ -32,8 +32,10 @@ use webp::Encoder;
 
 use self::thumbnailer_job::ThumbnailerJob;
 
-pub mod shallow_thumbnailer_job;
+mod shallow;
 pub mod thumbnailer_job;
+
+pub use shallow::*;
 
 const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 const THUMBNAIL_QUALITY: f32 = 30.0;

@@ -22,7 +22,7 @@ use super::{
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
 
-pub async fn shallow_index(
+pub async fn shallow(
 	location: &location_with_indexer_rules::Data,
 	sub_path: &PathBuf,
 	library: &Library,
