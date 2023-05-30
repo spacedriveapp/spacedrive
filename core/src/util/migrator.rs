@@ -49,7 +49,7 @@ where
 	// }
 
 	pub fn load(&self, path: &Path) -> Result<T, MigratorError> {
-		match path.try_exists().unwrap() {
+		match path.try_exists()? {
 			true => {
 				let mut file = File::options().read(true).write(true).open(path)?;
 				let mut cfg: BaseConfig = serde_json::from_reader(BufReader::new(&mut file))?;
@@ -89,10 +89,7 @@ where
 			other: match serde_json::to_value(content)? {
 				Value::Object(map) => map,
 				_ => {
-					panic!(
-						"Type '{}' as generic `Migrator::T` must be serialiable to a Serde object!",
-						type_name::<T>()
-					);
+					return Err(MigratorError::InvalidType(type_name::<T>()));
 				}
 			},
 		};
@@ -113,6 +110,8 @@ pub enum MigratorError {
 		"the config file is for a newer version of the app. Please update to the latest version to load it!"
 	)]
 	YourAppIsOutdated,
+	#[error("Type '{0}' as generic `Migrator::T` must be serialiable to a Serde object!")]
+	InvalidType(&'static str),
 	#[error("custom migration error: {0}")]
 	Custom(String),
 }

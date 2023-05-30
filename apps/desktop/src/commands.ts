@@ -14,6 +14,10 @@ export function appReady() {
     return invoke()<null>("app_ready")
 }
 
+export function openLogsDir() {
+    return invoke()<null>("open_logs_dir")
+}
+
 export function openFilePath(library: string, id: number) {
     return invoke()<OpenFilePathResult>("open_file_path", { library,id })
 }

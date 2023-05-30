@@ -194,7 +194,12 @@ impl StatefulJob for FileEncryptorJob {
 						.config()
 						.data_directory()
 						.join("thumbnails")
-						.join(info.path_data.cas_id.as_ref().unwrap())
+						.join(
+							info.path_data
+								.cas_id
+								.as_ref()
+								.ok_or(JobError::MissingCasId)?,
+						)
 						.with_extension("wepb");
 
 					if tokio::fs::metadata(&pvm_path).await.is_ok() {

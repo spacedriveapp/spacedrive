@@ -41,7 +41,7 @@ tauri-specta = { version = "1.0.2" }
 
 swift-rs = { version = "1.0.5" }
 
-tokio = { version = "1.25.0" }
+tokio = { version = "1.28.2" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1

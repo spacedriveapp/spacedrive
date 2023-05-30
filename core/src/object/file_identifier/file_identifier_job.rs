@@ -149,7 +149,7 @@ impl StatefulJob for FileIdentifierJob {
 			.select(file_path::select!({ id }))
 			.exec()
 			.await?
-			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
+			.expect("We already validated before that there are orphans `file_path`s"); // SAFETY: We already validated before that there are orphans `file_path`s
 
 		data.cursor = first_path.id;
 
