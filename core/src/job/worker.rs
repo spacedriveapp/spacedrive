@@ -122,6 +122,7 @@ impl Worker {
 			// Otherwise it can be a job being resumed or a children job that was already been created
 			worker.report.update(&library).await?;
 		}
+
 		drop(worker);
 
 		job.register_children(&library).await?;

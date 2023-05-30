@@ -14,6 +14,7 @@ use crate::{
 	},
 	prisma::location,
 };
+use futures::{pin_mut, Future, Stream};
 use prisma_client_rust::QueryError;
 use serde::Deserialize;
 use thiserror::Error;
@@ -182,10 +183,40 @@ impl InitConfig {
 	}
 }
 
-pub struct AbortOnDrop<T>(tokio::task::JoinHandle<T>);
+pub struct AbortOnDrop<T>(pub tokio::task::JoinHandle<T>);
 
 impl<T> Drop for AbortOnDrop<T> {
 	fn drop(&mut self) {
-		self.0.abort();
+		self.0.abort()
+	}
+}
+
+impl<T> Future for AbortOnDrop<T> {
+	type Output = Result<T, tokio::task::JoinError>;
+
+	fn poll(
+		mut self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Self::Output> {
+		let handle = &mut self.0;
+
+		pin_mut!(handle);
+
+		handle.poll(cx)
+	}
+}
+
+impl<T> Stream for AbortOnDrop<T> {
+	type Item = ();
+
+	fn poll_next(
+		mut self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Option<Self::Item>> {
+		let handle = &mut self.0;
+
+		pin_mut!(handle);
+
+		handle.poll(cx).map(|_| None)
 	}
 }

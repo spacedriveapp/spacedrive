@@ -10,7 +10,8 @@ import {
 	SquaresFour,
 	Tag
 } from 'phosphor-react';
-import { useLibraryMutation } from '@sd/client';
+import { useEffect, useRef } from 'react';
+import { useRspcLibraryContext } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { KeyManager } from '../app/$libraryId/KeyManager';
@@ -18,8 +19,6 @@ import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
-
-	const reload = useLibraryMutation('locations.quickRescan');
 
 	const explorerViewOptions: ToolOption[] = [
 		{
@@ -75,6 +74,14 @@ export const useExplorerTopBarOptions = () => {
 		}
 	];
 
+	// subscription so that we can cancel it if in progress
+	const quickRescanSubscription = useRef<() => void | undefined>();
+
+	// gotta clean up any rescan subscriptions if the exist
+	useEffect(() => () => quickRescanSubscription.current?.(), []);
+
+	const { client } = useRspcLibraryContext();
+
 	const explorerToolOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Key Manager',
@@ -100,7 +107,17 @@ export const useExplorerTopBarOptions = () => {
 			toolTipLabel: 'Reload',
 			onClick: () => {
 				if (explorerStore.locationId) {
-					reload.mutate({ location_id: explorerStore.locationId, sub_path: '' });
+					quickRescanSubscription.current?.();
+					quickRescanSubscription.current = client.addSubscription(
+						[
+							'locations.quickRescan',
+							{
+								location_id: explorerStore.locationId,
+								sub_path: ''
+							}
+						],
+						{ onData() {} }
+					);
 				}
 			},
 			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,

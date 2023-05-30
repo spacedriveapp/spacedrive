@@ -1,14 +1,13 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
-	},
+	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
 	library::Library,
 	location::{
 		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 		LocationId,
 	},
+	prisma::location,
 	util::error::FileIOError,
 };
 
@@ -27,16 +26,16 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{
-	fs::{self},
-	io::{self},
-	task::block_in_place,
-};
+use tokio::{fs, io, task::block_in_place};
 use tracing::{error, info, trace, warn};
 use webp::Encoder;
 
-pub mod shallow_thumbnailer_job;
+use self::thumbnailer_job::ThumbnailerJob;
+
+mod shallow;
 pub mod thumbnailer_job;
+
+pub use shallow::*;
 
 const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 const THUMBNAIL_QUALITY: f32 = 30.0;
@@ -213,14 +212,10 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 	Ok(Some(serde_json::to_value(&data.report)?))
 }
 
-async fn process_step<SJob, Init>(
-	state: &mut JobState<SJob>,
+async fn process_step(
+	state: &mut JobState<ThumbnailerJob>,
 	ctx: WorkerContext,
-) -> Result<(), JobError>
-where
-	SJob: StatefulJob<Init = Init, Data = ThumbnailerJobState, Step = ThumbnailerJobStep>,
-	Init: JobInitData<Job = SJob>,
-{
+) -> Result<(), JobError> {
 	let step = &state.steps[0];
 
 	ctx.progress(vec![JobReportUpdate::Message(format!(
@@ -228,7 +223,21 @@ where
 		step.file_path.materialized_path
 	))]);
 
-	let step_result = inner_process_step(state, &ctx).await;
+	let data = state
+		.data
+		.as_mut()
+		.expect("critical error: missing data on job state");
+
+	let step_result = inner_process_step(
+		&step,
+		&data.location_path,
+		&data.thumbnail_dir,
+		&state.init.location,
+		&ctx.library,
+	)
+	.await;
+
+	data.report.thumbnails_created += 1;
 
 	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 		state.step_number + 1,
@@ -237,25 +246,17 @@ where
 	step_result
 }
 
-async fn inner_process_step<SJob, Init>(
-	state: &mut JobState<SJob>,
-	ctx: &WorkerContext,
-) -> Result<(), JobError>
-where
-	SJob: StatefulJob<Init = Init, Data = ThumbnailerJobState, Step = ThumbnailerJobStep>,
-	Init: JobInitData<Job = SJob>,
-{
-	let ThumbnailerJobStep { file_path, kind } = &state.steps[0];
-	let data = state
-		.data
-		.as_ref()
-		.expect("critical error: missing data on job state");
+pub async fn inner_process_step(
+	step: &ThumbnailerJobStep,
+	location_path: &PathBuf,
+	thumbnail_dir: &PathBuf,
+	location: &location::Data,
+	library: &Library,
+) -> Result<(), JobError> {
+	let ThumbnailerJobStep { file_path, kind } = step;
 
 	// assemble the file path
-	let path = data.location_path.join(IsolatedFilePathData::from((
-		data.report.location_id,
-		file_path,
-	)));
+	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));
 	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
@@ -269,7 +270,7 @@ where
 	};
 
 	// Define and write the WebP-encoded file to a given path
-	let output_path = data.thumbnail_dir.join(format!("{cas_id}.webp"));
+	let output_path = thumbnail_dir.join(format!("{cas_id}.webp"));
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
@@ -293,16 +294,9 @@ where
 			}
 
 			println!("emitting new thumbnail event");
-			ctx.library.emit(CoreEvent::NewThumbnail {
+			library.emit(CoreEvent::NewThumbnail {
 				cas_id: cas_id.clone(),
 			});
-
-			state
-				.data
-				.as_mut()
-				.expect("critical error: missing data on job state")
-				.report
-				.thumbnails_created += 1;
 		}
 		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
