@@ -81,7 +81,7 @@ export default () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
 
-	const stats = useLibraryQuery(['library.getStatistics'], {
+	const stats = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 	mounted = true;
