@@ -20,11 +20,15 @@ export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
 	infoText?: string;
 	editable?: boolean;
 	className?: string;
+	ruleButtonClass?: string;
+	rulesContainerClass?: string;
 }
 
 export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	infoText,
 	editable,
+	ruleButtonClass,
+	rulesContainerClass,
 	...props
 }: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
@@ -95,7 +99,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 				)}
 			</div>
 
-			<div className="flex flex-wrap justify-center gap-1">
+			<div className={clsx(rulesContainerClass, 'flex flex-wrap gap-1')}>
 				{indexRules ? (
 					indexRules.map((rule) => (
 						<RuleButton
@@ -116,7 +120,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 							className={clsx(
 								!(editable && rule.default) && 'cursor-pointer',
 								editable || 'select-none',
-								selectedRule?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input'
+								selectedRule?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input',
+								ruleButtonClass
 							)}
 						/>
 					))
