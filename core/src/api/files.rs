@@ -108,9 +108,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(id),
-							vec![object::date_accessed::set(Some(
-								Utc::now().with_timezone(&FixedOffset::east_opt(0).into()),
-							))],
+							vec![object::date_accessed::set(Some(Utc::now().into()))],
 						)
 						.exec()
 						.await?;
