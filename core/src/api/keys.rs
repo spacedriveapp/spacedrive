@@ -1,4 +1,5 @@
 use rspc::alpha::AlphaRouter;
+use rspc::ErrorCode;
 use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
@@ -389,38 +390,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "keys.list");
 					invalidate_query!(library, "keys.listMounted");
 
-					Ok(TryInto::<u32>::try_into(updated_keys.len()).unwrap()) // We convert from `usize` (bigint type) to `u32` (number type) because rspc doesn't support bigints.
+					TryInto::<u32>::try_into(updated_keys.len()).map_err(|_| {
+						rspc::Error::new(ErrorCode::InternalServerError, "integer overflow".into())
+					}) // We convert from `usize` (bigint type) to `u32` (number type) because rspc doesn't support bigints.
 				})
 		})
-		.procedure("changeMasterPassword", {
-			R.with2(library())
-				.mutation(|(_, library), args: MasterPasswordChangeArgs| async move {
-					let verification_key = library
-						.key_manager
-						.change_master_password(
-							args.password,
-							args.algorithm,
-							args.hashing_algorithm,
-							library.id,
-						)
-						.await?;
+		.procedure(
+			"changeMasterPassword",
+			#[allow(clippy::unwrap_used)] // TODO: Jake is fixing this in a Crypto PR
+			{
+				R.with2(library()).mutation(
+					|(_, library), args: MasterPasswordChangeArgs| async move {
+						let verification_key = library
+							.key_manager
+							.change_master_password(
+								args.password,
+								args.algorithm,
+								args.hashing_algorithm,
+								library.id,
+							)
+							.await?;
 
-					invalidate_query!(library, "keys.getSecretKey");
+						invalidate_query!(library, "keys.getSecretKey");
 
-					// remove old root key if present
-					library
-						.db
-						.key()
-						.delete_many(vec![key::key_type::equals(
-							serde_json::to_string(&StoredKeyType::Root).unwrap(),
-						)])
-						.exec()
-						.await?;
+						// remove old root key if present
+						library
+							.db
+							.key()
+							.delete_many(vec![key::key_type::equals(
+								serde_json::to_string(&StoredKeyType::Root).unwrap(),
+							)])
+							.exec()
+							.await?;
 
-					// write the new verification key
-					write_storedkey_to_db(&library.db, &verification_key).await?;
+						// write the new verification key
+						write_storedkey_to_db(&library.db, &verification_key).await?;
 
-					Ok(())
-				})
-		})
+						Ok(())
+					},
+				)
+			},
+		)
 }

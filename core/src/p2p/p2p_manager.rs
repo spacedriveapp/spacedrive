@@ -1,4 +1,7 @@
+#![allow(clippy::unwrap_used)] // TODO: Remove once this is fully stablised
+
 use std::{
+	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
 	sync::Arc,
@@ -8,7 +11,7 @@ use std::{
 use sd_p2p::{
 	spaceblock::{self, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
-	Event, Manager, MetadataManager, PeerId,
+	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
 use serde::Serialize;
@@ -58,7 +61,7 @@ pub struct P2PManager {
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-	) -> (Arc<Self>, broadcast::Receiver<(Uuid, Vec<CRDTOperation>)>) {
+	) -> Result<(Arc<Self>, broadcast::Receiver<(Uuid, Vec<CRDTOperation>)>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(Self::config_to_metadata(&config), config.keypair)
@@ -67,9 +70,7 @@ impl P2PManager {
 		let metadata_manager = MetadataManager::new(config);
 
 		let (manager, mut stream) =
-			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone())
-				.await
-				.unwrap();
+			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -226,41 +227,7 @@ impl P2PManager {
 			}
 		});
 
-		// TODO(@Oscar): Remove this in the future once i'm done using it for testing
-		if std::env::var("SPACEDROP_DEMO").is_ok() {
-			// tokio::spawn({
-			// 	let this = this.clone();
-			// 	async move {
-			// 		tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-			// 		let mut connected = this
-			// 			.manager
-			// 			.get_connected_peers()
-			// 			.await
-			// 			.unwrap()
-			// 			.into_iter();
-			// 		if let Some(peer_id) = connected.next() {
-			// 			info!("Starting Spacedrop to peer '{}'", peer_id);
-			// 			this.broadcast_sync_events(
-			// 				Uuid::from_str("e4372586-d028-48f8-8be6-b4ff781a7dc2").unwrap(),
-			// 				vec![CRDTOperation {
-			// 					node: Uuid::new_v4(),
-			// 					timestamp: NTP64(1),
-			// 					id: Uuid::new_v4(),
-			// 					typ: CRDTOperationType::Owned(OwnedOperation {
-			// 						model: "TODO".to_owned(),
-			// 						items: Vec::new(),
-			// 					}),
-			// 				}],
-			// 			)
-			// 			.await;
-			// 		} else {
-			// 			info!("No clients found so skipping Spacedrop demo!");
-			// 		}
-			// 	}
-			// });
-		}
-
-		(this, rx2)
+		Ok((this, rx2))
 	}
 
 	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
@@ -296,7 +263,13 @@ impl P2PManager {
 
 	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
 	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
-		let mut buf = rmp_serde::to_vec_named(&event).unwrap(); // TODO: Error handling
+		let mut buf = match rmp_serde::to_vec_named(&event) {
+			Ok(buf) => buf,
+			Err(e) => {
+				error!("Failed to serialize sync event: {:?}", e);
+				return;
+			}
+		};
 		let mut head_buf = Header::Sync(library_id, buf.len() as u32).to_bytes(); // Max Sync payload is like 4GB
 		head_buf.append(&mut buf);
 
@@ -309,26 +282,31 @@ impl P2PManager {
 		self.manager.broadcast(Header::Ping.to_bytes()).await;
 	}
 
-	pub async fn big_bad_spacedrop(&self, peer_id: PeerId, path: PathBuf) {
-		let mut stream = self.manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
+	// TODO: Proper error handling
+	pub async fn big_bad_spacedrop(&self, peer_id: PeerId, path: PathBuf) -> Result<(), ()> {
+		let mut stream = self.manager.stream(peer_id).await.map_err(|_| ())?; // TODO: handle providing incorrect peer id
 
-		let file = File::open(&path).await.unwrap();
-		let metadata = file.metadata().await.unwrap();
+		let file = File::open(&path).await.map_err(|_| ())?;
+		let metadata = file.metadata().await.map_err(|_| ())?;
 
 		let header = Header::Spacedrop(SpacedropRequest {
-			name: path.file_name().unwrap().to_str().unwrap().to_string(), // TODO: Encode this as bytes instead
+			name: path
+				.file_name()
+				.map(|v| v.to_string_lossy())
+				.unwrap_or(Cow::Borrowed(""))
+				.to_string(),
 			size: metadata.len(),
 			block_size: BlockSize::from_size(metadata.len()), // TODO: This should be dynamic
 		});
-		stream.write_all(&header.to_bytes()).await.unwrap();
+		stream.write_all(&header.to_bytes()).await.map_err(|_| ())?;
 
 		debug!("Waiting for Spacedrop to be accepted from peer '{peer_id}'");
 		let mut buf = [0; 1];
 		// TODO: Add timeout so the connection is dropped if they never response
-		stream.read_exact(&mut buf).await.unwrap();
+		stream.read_exact(&mut buf).await.map_err(|_| ())?;
 		if buf[0] != 1 {
 			debug!("Spacedrop was rejected from peer '{peer_id}'");
-			return;
+			return Ok(());
 		}
 
 		debug!("Starting Spacedrop to peer '{peer_id}'");
@@ -349,6 +327,8 @@ impl P2PManager {
 			"Finished Spacedrop to peer '{peer_id}' after '{:?}",
 			i.elapsed()
 		);
+
+		Ok(())
 	}
 
 	pub async fn shutdown(&self) {

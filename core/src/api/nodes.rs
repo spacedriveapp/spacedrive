@@ -1,6 +1,7 @@
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
+use tracing::error;
 
 use crate::api::R;
 
@@ -20,9 +21,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					config.name = args.name;
 				})
 				.await
-				.unwrap();
-
-			Ok(())
+				.map_err(|err| {
+					error!("Failed to write config: {}", err);
+					rspc::Error::new(
+						ErrorCode::InternalServerError,
+						"error updating config".into(),
+					)
+				})
 		})
 	})
 }

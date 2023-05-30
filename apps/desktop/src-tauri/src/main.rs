@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -43,6 +43,13 @@ async fn reset_spacedrive(app_handle: tauri::AppHandle) {
 	app_handle.restart();
 }
 
+#[tauri::command(async)]
+#[specta::specta]
+async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
+	opener::open(node.data_dir.join("logs")).ok();
+	Ok(())
+}
+
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(r#"window.__SD_ERROR__ = "{err}";"#))
@@ -70,6 +77,8 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
+	let _guard = Node::init_logger(&data_dir);
+
 	let result = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default();
@@ -91,7 +100,10 @@ async fn main() -> tauri::Result<()> {
 
 			(Some(node), app)
 		}
-		Err(err) => (None, app.plugin(tauri_error_plugin(err))),
+		Err(err) => {
+			tracing::error!("Error starting up the node: {err}");
+			(None, app.plugin(tauri_error_plugin(err)))
+		}
 	};
 
 	let app = app
@@ -146,6 +158,7 @@ async fn main() -> tauri::Result<()> {
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,
+			open_logs_dir,
 			file::open_file_path,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with

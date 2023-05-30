@@ -65,11 +65,13 @@ impl InvalidRequests {
 		}
 	}
 
-	#[allow(unused_variables)]
+	#[allow(unused_variables, clippy::panic)]
 	pub(crate) fn validate(r: Arc<Router>) {
 		#[cfg(debug_assertions)]
 		{
-			let invalidate_requests = INVALIDATION_REQUESTS.lock().unwrap();
+			let invalidate_requests = INVALIDATION_REQUESTS
+				.lock()
+				.expect("Failed to lock the mutex for invalidation requests");
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
@@ -240,7 +242,15 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 								if let Ok(event) = event {
 									if let CoreEvent::InvalidateOperation(op) = event {
 										// Newer data replaces older data in the buffer
-										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+										match to_key(&(op.key, &op.arg)) {
+											Ok(key) => {
+												buf.insert(key, op);
+											},
+											Err(err) => {
+												warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+											},
+										}
+
 									}
 								} else {
 									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
