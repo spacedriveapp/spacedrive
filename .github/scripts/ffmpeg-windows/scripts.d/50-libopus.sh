@@ -26,6 +26,6 @@ ffbuild_dockerbuild() {
   fi
 
   ./configure "${myconf[@]}"
-  make -j$(nproc)
+  make -j"$(nproc)"
   make install
 }

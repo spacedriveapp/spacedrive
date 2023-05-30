@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
   fi
 
   ./configure "${myconf[@]}"
-  make -j$(nproc)
+  make -j"$(nproc)"
   make install
 
   sed -i 's/Cflags:/Cflags: -DLIBTWOLAME_STATIC/' "$FFBUILD_PREFIX"/lib/pkgconfig/twolame.pc

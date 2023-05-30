@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
   fi
 
   ./configure "${myconf[@]}"
-  make -j$(nproc)
+  make -j"$(nproc)"
   make install
 
   echo "Cflags.private: -DKVZ_STATIC_LIB" >>"$FFBUILD_PREFIX"/lib/pkgconfig/kvazaar.pc

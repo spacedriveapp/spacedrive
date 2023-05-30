@@ -47,7 +47,6 @@ ffbuild_dockerbuild() {
     --enable-gpl \
     --enable-gray \
     --enable-inline-asm \
-    --enable-libaom \
     --enable-libdav1d \
     --enable-libjxl \
     --enable-libkvazaar \
@@ -57,7 +56,6 @@ ffbuild_dockerbuild() {
     --enable-librav1e \
     --enable-libshaderc \
     --enable-libsoxr \
-    --enable-libsvtav1 \
     --enable-libtheora \
     --enable-libtwolame \
     --enable-libvmaf \

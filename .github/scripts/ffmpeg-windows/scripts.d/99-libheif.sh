@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
     -DWITH_X265_PLUGIN=OFF \
     ..
 
-  ninja -j$(nproc)
+  ninja -j"$(nproc)"
   ninja install
 
   mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"

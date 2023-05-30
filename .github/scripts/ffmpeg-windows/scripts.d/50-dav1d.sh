@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
   fi
 
   meson "${myconf[@]}" ..
-  ninja -j$(nproc)
+  ninja -j"$(nproc)"
   ninja install
 
   mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"

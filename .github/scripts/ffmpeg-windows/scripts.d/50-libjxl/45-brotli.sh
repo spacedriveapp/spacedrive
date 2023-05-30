@@ -11,6 +11,6 @@ ffbuild_dockerbuild() {
 
   cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF ..
-  ninja -j$(nproc)
+  ninja -j"$(nproc)"
   ninja install
 }

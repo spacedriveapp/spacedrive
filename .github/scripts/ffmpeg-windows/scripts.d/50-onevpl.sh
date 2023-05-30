@@ -15,7 +15,7 @@ ffbuild_dockerbuild() {
     -DBUILD_PREVIEW=OFF -DBUILD_TOOLS=OFF -DBUILD_TOOLS_ONEVPL_EXPERIMENTAL=OFF -DINSTALL_EXAMPLE_CODE=OFF \
     -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTS=OFF ..
 
-  ninja -j$(nproc)
+  ninja -j"$(nproc)"
   ninja install
 
   rm -rf "$FFBUILD_PREFIX"/{etc,share}

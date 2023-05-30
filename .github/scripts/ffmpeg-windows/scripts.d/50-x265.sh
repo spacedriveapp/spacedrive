@@ -22,15 +22,17 @@ ffbuild_dockerbuild() {
     -DHIGH_BIT_DEPTH=ON \
     -DEXPORT_C_API=OFF \
     -DENABLE_SHARED=OFF \
+    -DENABLE_STATIC=ON \
     -DMAIN12=ON
-  ninja -C 12bit
+  ninja -C 12bit -j"$(nproc)"
 
   cmake -S source -B 10bit -G Ninja \
     "${common_config[@]}" \
     -DHIGH_BIT_DEPTH=ON \
     -DEXPORT_C_API=OFF \
-    -DENABLE_SHARED=OFF
-  ninja -C 10bit
+    -DENABLE_SHARED=OFF \
+    -DENABLE_STATIC=ON
+  ninja -C 10bit -j"$(nproc)"
 
   cmake -S source -B 8bit -G Ninja \
     "${common_config[@]}" \
@@ -38,13 +40,14 @@ ffbuild_dockerbuild() {
     -DENABLE_HDRDENABLE_HDR10_PLUS=ON \
     -DEXTRA_LINK_FLAGS=-L. \
     -DENABLE_SHARED=ON \
+    -DENABLE_STATIC=OFF \
     -DLINKED_10BIT=ON \
     -DLINKED_12BIT=ON
 
   ln -s ../10bit/libx265.a 8bit/libx265_main10.a
   ln -s ../12bit/libx265.a 8bit/libx265_main12.a
 
-  ninja -C 8bit
+  ninja -C 8bit -j"$(nproc)"
 
   ninja -C 8bit install
 

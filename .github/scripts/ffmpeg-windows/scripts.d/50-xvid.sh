@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
   fi
 
   ./configure "${myconf[@]}"
-  make -j$(nproc)
+  make -j"$(nproc)"
   make install
 
   if [[ $TARGET == win* ]]; then
