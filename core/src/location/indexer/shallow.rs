@@ -8,6 +8,7 @@ use crate::{
 	},
 	to_remove_db_fetcher_fn,
 };
+use tracing::error;
 
 use std::path::{Path, PathBuf};
 
@@ -73,11 +74,7 @@ pub async fn shallow(
 		.await?
 	};
 
-	if !errors.is_empty() {
-		return Err(JobError::StepCompletedWithErrors(
-			errors.into_iter().map(|e| format!("{e}")).collect(),
-		));
-	}
+	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system
 	remove_non_existing_file_paths(to_remove, &db).await?;
