@@ -93,7 +93,7 @@ export function JobsManager() {
 					<Job clearJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
-					<div className="flex h-32 items-center justify-center text-ink-dull">
+					<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 						No jobs.
 					</div>
 				)}
