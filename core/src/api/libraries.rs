@@ -110,7 +110,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.get_library(new_library.uuid)
 						.await
 						.expect("We just created the library. Where do it be?"),
-					"library.getStatistics"
+					"library.statistics"
 				);
 
 				Ok(new_library)

@@ -1,8 +1,9 @@
 use crate::{
 	invalidate_query,
+	location::LocationManagerError,
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
-	prisma::{node, PrismaClient},
+	prisma::{location, node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
 		db::{load_and_migrate, MigrationError},
@@ -68,6 +69,8 @@ pub enum LibraryManagerError {
 	InvalidConfig(String),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
+	#[error("failed to watch locations: {0}")]
+	LocationWatcher(#[from] LocationManagerError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -424,6 +427,20 @@ impl LibraryManager {
 			node_local_id: node_data.id,
 			node_context,
 		};
+
+		for location in library
+			.db
+			.location()
+			.find_many(vec![location::node_id::equals(node_data.id)])
+			.exec()
+			.await?
+		{
+			library
+				.node_context
+				.location_manager
+				.add(location.id, library.clone())
+				.await?;
+		}
 
 		if let Err(e) = library
 			.node_context
