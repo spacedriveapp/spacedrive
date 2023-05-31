@@ -3,4 +3,3 @@ pub mod db;
 pub mod debug_initializer;
 pub mod error;
 pub mod migrator;
-pub mod seeder;

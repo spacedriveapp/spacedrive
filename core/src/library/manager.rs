@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	location::LocationManagerError,
+	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node, PrismaClient},
@@ -9,7 +9,6 @@ use crate::{
 		db::{load_and_migrate, MigrationError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::MigratorError,
-		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
 };
@@ -57,8 +56,8 @@ pub enum LibraryManagerError {
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
-	#[error("failed to run seeder")]
-	Seeder(#[from] SeederError),
+	#[error("failed to run indexer rules seeder")]
+	IndexerRulesSeeder(#[from] rules::SeederError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations")]
@@ -236,7 +235,7 @@ impl LibraryManager {
 		.await?;
 
 		// Run seeders
-		indexer_rules_seeder(&library.db).await?;
+		rules::seeder(&library.db).await?;
 
 		invalidate_query!(library, "library.list");
 
