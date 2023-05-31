@@ -3291,7 +3291,7 @@ dependencies = [
 [[package]]
 name = "if-watch"
 version = "3.0.1"
-source = "git+https://github.com/oscartbeaumont/if-watch?rev=47bac595e71b5ff21a9dbd257a081b03fb6b8fbc#47bac595e71b5ff21a9dbd257a081b03fb6b8fbc"
+source = "git+https://github.com/oscartbeaumont/if-watch?rev=782eb7b27627c544e789a6fcf9db7bdcd93da7df#782eb7b27627c544e789a6fcf9db7bdcd93da7df"
 dependencies = [
  "async-io",
  "core-foundation",
