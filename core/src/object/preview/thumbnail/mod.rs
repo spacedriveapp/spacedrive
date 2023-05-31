@@ -1,14 +1,14 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, WorkerContext},
+	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
 	library::Library,
 	location::{
-		file_path_helper::{
-			file_path_just_materialized_path_cas_id, FilePathError, MaterializedPath,
-		},
+		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 		LocationId,
 	},
+	prisma::location,
+	util::error::FileIOError,
 };
 
 use std::{
@@ -30,8 +30,12 @@ use tokio::{fs, io, task::block_in_place};
 use tracing::{error, info, trace, warn};
 use webp::Encoder;
 
-pub mod shallow_thumbnailer_job;
+use self::thumbnailer_job::ThumbnailerJob;
+
+mod shallow;
 pub mod thumbnailer_job;
+
+pub use shallow::*;
 
 const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 const THUMBNAIL_QUALITY: f32 = 30.0;
@@ -75,16 +79,22 @@ pub struct ThumbnailerJobState {
 
 #[derive(Error, Debug)]
 pub enum ThumbnailerError {
-	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
-	#[error("IO error (error: {0})")]
-	IOError(#[from] io::Error),
+	#[error("sub path not found: <path='{}'>", .0.display())]
+	SubPathNotFound(Box<Path>),
+
+	// Internal errors
+	#[error("database error")]
+	Database(#[from] prisma_client_rust::QueryError),
+	#[error(transparent)]
+	FilePath(#[from] FilePathError),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobReport {
 	location_id: LocationId,
-	materialized_path: String,
+	path: PathBuf,
 	thumbnails_created: u32,
 }
 
@@ -97,9 +107,13 @@ enum ThumbnailerJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobStep {
-	file_path: file_path_just_materialized_path_cas_id::Data,
+	file_path: file_path_for_thumbnailer::Data,
 	kind: ThumbnailerJobStepKind,
 }
+
+// TOOD(brxken128): validate avci and avcs
+#[cfg(all(feature = "heif", target_os = "macos"))]
+const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
 
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
@@ -107,8 +121,26 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 ) -> Result<(), Box<dyn Error>> {
 	// Webp creation has blocking code
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		// Using `image` crate, open the included .jpg file
+		#[cfg(all(feature = "heif", target_os = "macos"))]
+		let img = {
+			let ext = file_path
+				.as_ref()
+				.extension()
+				.unwrap_or_default()
+				.to_ascii_lowercase();
+			if HEIF_EXTENSIONS
+				.iter()
+				.any(|e| ext == std::ffi::OsStr::new(e))
+			{
+				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
+			} else {
+				image::open(file_path)?
+			}
+		};
+
+		#[cfg(not(all(feature = "heif", target_os = "macos")))]
 		let img = image::open(file_path)?;
+
 		let (w, h) = img.dimensions();
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let img = DynamicImage::ImageRgba8(imageops::resize(
@@ -148,77 +180,97 @@ pub async fn generate_video_thumbnail<P: AsRef<Path>>(
 pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
 	use VideoExtension::*;
 	// File extensions that are specifically not supported by the thumbnailer
-	!matches!(video_extension, Mpg | Swf | M2v | Hevc)
+	!matches!(video_extension, Mpg | Swf | M2v | Hevc | M2ts | Mts | Ts)
 }
 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
-	matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif)
+
+	#[cfg(all(feature = "heif", target_os = "macos"))]
+	let res = matches!(
+		image_extension,
+		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
+	);
+
+	#[cfg(not(all(feature = "heif", target_os = "macos")))]
+	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif);
+
+	res
 }
 
 fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {
 	info!(
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
-		data.location_path
-			.join(&MaterializedPath::from((
-				data.report.location_id,
-				&data.report.materialized_path
-			)))
-			.display()
+		data.report.path.display()
 	);
 
 	if data.report.thumbnails_created > 0 {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 	}
 
 	Ok(Some(serde_json::to_value(&data.report)?))
 }
 
 async fn process_step(
-	is_background: bool,
-	step_number: usize,
-	step: &ThumbnailerJobStep,
-	data: &mut ThumbnailerJobState,
+	state: &mut JobState<ThumbnailerJob>,
 	ctx: WorkerContext,
 ) -> Result<(), JobError> {
+	let step = &state.steps[0];
+
 	ctx.progress(vec![JobReportUpdate::Message(format!(
 		"Processing {}",
 		step.file_path.materialized_path
 	))]);
 
-	let step_result = inner_process_step(is_background, step, data, &ctx).await;
+	let data = state
+		.data
+		.as_mut()
+		.expect("critical error: missing data on job state");
 
-	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
+	let step_result = inner_process_step(
+		&step,
+		&data.location_path,
+		&data.thumbnail_dir,
+		&state.init.location,
+		&ctx.library,
+	)
+	.await;
+
+	data.report.thumbnails_created += 1;
+
+	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+		state.step_number + 1,
+	)]);
 
 	step_result
 }
 
-async fn inner_process_step(
-	is_background: bool,
+pub async fn inner_process_step(
 	step: &ThumbnailerJobStep,
-	data: &mut ThumbnailerJobState,
-	ctx: &WorkerContext,
+	location_path: &PathBuf,
+	thumbnail_dir: &PathBuf,
+	location: &location::Data,
+	library: &Library,
 ) -> Result<(), JobError> {
+	let ThumbnailerJobStep { file_path, kind } = step;
+
 	// assemble the file path
-	let path = data.location_path.join(&MaterializedPath::from((
-		data.report.location_id,
-		&step.file_path.materialized_path,
-	)));
-	trace!("image_file {:?}", step);
+	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));
+	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
-	let Some(cas_id) = &step.file_path.cas_id else {
+	let Some(cas_id) = &file_path.cas_id else {
 		warn!(
 			"skipping thumbnail generation for {}",
-			step.file_path.materialized_path
+			file_path.materialized_path
 		);
 
 		return Ok(());
 	};
 
 	// Define and write the WebP-encoded file to a given path
-	let output_path = data.thumbnail_dir.join(format!("{cas_id}.webp"));
+	let output_path = thumbnail_dir.join(format!("{cas_id}.webp"));
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
@@ -227,7 +279,7 @@ async fn inner_process_step(
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			info!("Writing {:?} to {:?}", path, output_path);
 
-			match step.kind {
+			match kind {
 				ThumbnailerJobStepKind::Image => {
 					if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 						error!("Error generating thumb for image {:#?}", e);
@@ -242,13 +294,11 @@ async fn inner_process_step(
 			}
 
 			println!("emitting new thumbnail event");
-			ctx.library.emit(CoreEvent::NewThumbnail {
+			library.emit(CoreEvent::NewThumbnail {
 				cas_id: cas_id.clone(),
 			});
-
-			data.report.thumbnails_created += 1;
 		}
-		Err(e) => return Err(ThumbnailerError::from(e).into()),
+		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
 
 	Ok(())

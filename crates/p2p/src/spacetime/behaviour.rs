@@ -8,8 +8,8 @@ use libp2p::{
 	core::{ConnectedPoint, Endpoint},
 	swarm::{
 		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
-		ConnectionClosed, ConnectionDenied, ConnectionHandler, NetworkBehaviour,
-		NetworkBehaviourAction, PollParameters, THandler, THandlerInEvent,
+		ConnectionClosed, ConnectionDenied, ConnectionHandler, NetworkBehaviour, PollParameters,
+		THandler, THandlerInEvent, ToSwarm,
 	},
 	Multiaddr,
 };
@@ -34,9 +34,8 @@ pub enum OutboundFailure {}
 /// This protocol sits under the application to abstract many complexities of 2 way connections and deals with authentication, chucking, etc.
 pub struct SpaceTime<TMetadata: Metadata> {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
-	pub(crate) pending_events: VecDeque<
-		NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, THandlerInEvent<Self>>,
-	>,
+	pub(crate) pending_events:
+		VecDeque<ToSwarm<<Self as NetworkBehaviour>::OutEvent, THandlerInEvent<Self>>>,
 	// For future me's sake, DON't try and refactor this to use shared state (for the nth time), it doesn't fit into libp2p's synchronous trait and polling model!!!
 	// pub(crate) connected_peers: HashMap<PeerId, ConnectedPeer>,
 }
@@ -116,12 +115,11 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 				{
 					debug!("sending establishment request to peer '{}'", peer_id);
 					if other_established == 0 {
-						self.pending_events
-							.push_back(NetworkBehaviourAction::GenerateEvent(
-								ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
-									peer_id,
-								})),
-							));
+						self.pending_events.push_back(ToSwarm::GenerateEvent(
+							ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
+								peer_id,
+							})),
+						));
 					}
 				}
 			}
@@ -133,10 +131,9 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 				let peer_id = PeerId(peer_id);
 				if remaining_established == 0 {
 					debug!("Disconnected from peer '{}'", peer_id);
-					self.pending_events
-						.push_back(NetworkBehaviourAction::GenerateEvent(
-							ManagerStreamAction::Event(Event::PeerDisconnected(peer_id)),
-						));
+					self.pending_events.push_back(ToSwarm::GenerateEvent(
+						ManagerStreamAction::Event(Event::PeerDisconnected(peer_id)),
+					));
 				}
 			}
 			FromSwarm::AddressChange(event) => {
@@ -187,15 +184,14 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 		_connection: ConnectionId,
 		event: <SpaceTimeConnection<TMetadata> as ConnectionHandler>::OutEvent,
 	) {
-		self.pending_events
-			.push_back(NetworkBehaviourAction::GenerateEvent(event));
+		self.pending_events.push_back(ToSwarm::GenerateEvent(event));
 	}
 
 	fn poll(
 		&mut self,
 		_: &mut Context<'_>,
 		_: &mut impl PollParameters,
-	) -> Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(ev);
 		} else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {

@@ -60,7 +60,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.spawn_job(ThumbnailerJobInit {
 							location,
 							sub_path: Some(args.path),
-							background: false,
 						})
 						.await
 						.map_err(Into::into)

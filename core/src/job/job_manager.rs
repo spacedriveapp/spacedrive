@@ -2,22 +2,17 @@ use crate::{
 	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError, StatefulJob},
 	library::Library,
-	location::indexer::{indexer_job::IndexerJob, shallow_indexer_job::ShallowIndexerJob},
+	location::indexer::indexer_job::IndexerJob,
 	object::{
-		file_identifier::{
-			file_identifier_job::FileIdentifierJob,
-			shallow_file_identifier_job::ShallowFileIdentifierJob,
-		},
+		file_identifier::file_identifier_job::FileIdentifierJob,
 		fs::{
 			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
 			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
 		},
-		preview::{
-			shallow_thumbnailer_job::ShallowThumbnailerJob, thumbnailer_job::ThumbnailerJob,
-		},
+		preview::thumbnailer_job::ThumbnailerJob,
 		validation::validator_job::ObjectValidatorJob,
 	},
-	prisma::{job, node},
+	prisma::{job, node, SortOrder},
 	util,
 };
 
@@ -30,7 +25,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -168,9 +162,7 @@ impl JobManager {
 
 		for worker in self.running_workers.read().await.values() {
 			let report = worker.lock().await.report();
-			if !report.is_background {
-				ret.push(report);
-			}
+			ret.push(report);
 		}
 		ret
 	}
@@ -180,7 +172,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running as i32)])
-			.order_by(job::date_created::order(Direction::Desc))
+			.order_by(job::date_created::order(SortOrder::Desc))
 			.take(100)
 			.exec()
 			.await?
@@ -249,7 +241,7 @@ impl JobManager {
 				.find_many(vec![job::parent_id::equals(Some(
 					root_paused_job_report.id.as_bytes().to_vec(),
 				))])
-				.order_by(job::action::order(Direction::Asc))
+				.order_by(job::action::order(SortOrder::Asc))
 				.exec()
 				.await?
 				.into_iter()
@@ -284,12 +276,8 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			if let Err(e) = Worker::spawn(
-				Arc::clone(&self),
-				Arc::clone(&wrapped_worker),
-				library.clone(),
-			)
-			.await
+			if let Err(e) =
+				Worker::spawn(self.clone(), Arc::clone(&wrapped_worker), library.clone()).await
 			{
 				error!("Error spawning worker: {:?}", e);
 			} else {
@@ -321,6 +309,7 @@ pub struct JobReport {
 	pub data: Option<Vec<u8>>,
 	pub metadata: Option<serde_json::Value>,
 	pub is_background: bool,
+	pub errors_text: Vec<String>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -333,6 +322,7 @@ pub struct JobReport {
 	pub completed_task_count: i32,
 
 	pub message: String,
+	pub estimated_completion: DateTime<Utc>,
 	// pub percentage_complete: f64,
 }
 
@@ -361,9 +351,13 @@ impl From<job::Data> for JobReport {
 					None
 				})
 			}),
+			errors_text: data
+				.errors_text
+				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
+				.unwrap_or_default(),
 			created_at: Some(data.date_created.into()),
-			started_at: data.date_started.map(|d| d.into()),
-			completed_at: data.date_completed.map(|d| d.into()),
+			started_at: data.date_started.map(DateTime::into),
+			completed_at: data.date_completed.map(DateTime::into),
 			parent_id: data
 				.parent_id
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
@@ -371,6 +365,9 @@ impl From<job::Data> for JobReport {
 			task_count: data.task_count,
 			completed_task_count: data.completed_task_count,
 			message: String::new(),
+			estimated_completion: data
+				.date_estimated_completion
+				.map_or(Utc::now(), DateTime::into),
 		}
 	}
 }
@@ -386,12 +383,14 @@ impl JobReport {
 			started_at: None,
 			completed_at: None,
 			status: JobStatus::Queued,
+			errors_text: vec![],
 			task_count: 0,
 			data: None,
 			metadata: None,
 			parent_id: None,
 			completed_task_count: 0,
 			message: String::new(),
+			estimated_completion: Utc::now(),
 		}
 	}
 
@@ -449,6 +448,9 @@ impl JobReport {
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
 					job::status::set(self.status as i32),
+					job::errors_text::set(
+						(!self.errors_text.is_empty()).then(|| self.errors_text.join("\n\n")),
+					),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
@@ -472,6 +474,7 @@ pub enum JobStatus {
 	Canceled = 3,
 	Failed = 4,
 	Paused = 5,
+	CompletedWithErrors = 6,
 }
 
 impl TryFrom<i32> for JobStatus {
@@ -485,6 +488,7 @@ impl TryFrom<i32> for JobStatus {
 			3 => Self::Canceled,
 			4 => Self::Failed,
 			5 => Self::Paused,
+			6 => Self::CompletedWithErrors,
 			_ => return Err(JobError::InvalidJobStatusInt(value)),
 		};
 
@@ -519,11 +523,8 @@ fn get_background_info_by_job_name(name: &str) -> bool {
 		},
 		jobs = [
 			ThumbnailerJob,
-			ShallowThumbnailerJob,
 			IndexerJob,
-			ShallowIndexerJob,
 			FileIdentifierJob,
-			ShallowFileIdentifierJob,
 			ObjectValidatorJob,
 			FileCutterJob,
 			FileCopierJob,
@@ -551,11 +552,8 @@ fn get_resumable_job(
 		},
 		jobs = [
 			ThumbnailerJob,
-			ShallowThumbnailerJob,
 			IndexerJob,
-			ShallowIndexerJob,
 			FileIdentifierJob,
-			ShallowFileIdentifierJob,
 			ObjectValidatorJob,
 			FileCutterJob,
 			FileCopierJob,

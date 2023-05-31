@@ -4,7 +4,7 @@ import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useDebounce, useDebouncedCallback } from 'use-debounce';
+import { useDebouncedCallback } from 'use-debounce';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
@@ -51,7 +51,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 		return { label: ratings[result.score]!, score: result.score };
 	}
 
-	useEffect(() => updateStrength(), [props.password]);
+	useEffect(() => updateStrength(), [props.password, updateStrength]);
 
 	return (
 		<div className="flex grow items-center justify-end">

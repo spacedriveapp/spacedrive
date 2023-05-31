@@ -33,7 +33,13 @@ type UseCounterProps = {
 	saveState?: boolean;
 };
 
-const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: UseCounterProps) => {
+export const useCounter = ({
+	name,
+	start = 0,
+	end,
+	duration = 2,
+	saveState = true
+}: UseCounterProps) => {
 	const { lastValue, setLastValue } = useCounterState(name);
 
 	if (saveState && lastValue) {
@@ -60,5 +66,3 @@ const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: Us
 
 	return value;
 };
-
-export default useCounter;

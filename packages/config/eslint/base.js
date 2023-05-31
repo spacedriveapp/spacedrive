@@ -14,10 +14,9 @@ module.exports = {
 		'plugin:react-hooks/recommended',
 		'plugin:@typescript-eslint/recommended',
 		'turbo',
-		'plugin:editorconfig/all',
 		'prettier'
 	],
-	plugins: ['react', 'editorconfig'],
+	plugins: ['react'],
 	rules: {
 		'react/display-name': 'off',
 		'react/prop-types': 'off',
@@ -35,7 +34,6 @@ module.exports = {
 		'@typescript-eslint/no-empty-function': 'off',
 		'no-control-regex': 'off',
 		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs'],
-		'editorconfig/indent': 'off',
 		'turbo/no-undeclared-env-vars': [
 			'error',
 			{

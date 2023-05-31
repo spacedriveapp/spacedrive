@@ -8,8 +8,8 @@ const { Input, z, useZodForm } = forms;
 const schema = z.object({
 	name: z.string().min(1)
 });
+
 export default (props: UseDialogProps) => {
-	const dialog = useDialog(props);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
@@ -32,21 +32,13 @@ export default (props: UseDialogProps) => {
 		onError: (err) => console.log(err)
 	});
 
-	const form = useZodForm({
-		schema: schema
-	});
-
-	const onSubmit = form.handleSubmit(async (data) => {
-		await createLibrary.mutateAsync({
-			name: data.name
-		});
-	});
+	const form = useZodForm({ schema: schema });
 
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={form.handleSubmit((data) => createLibrary.mutateAsync({ name: data.name }))}
+			dialog={useDialog(props)}
 			submitDisabled={!form.formState.isValid}
 			title="Create New Library"
 			description="Libraries are a secure, on-device database. Your files remain where they are, the Library catalogs them and stores all Spacedrive related data."

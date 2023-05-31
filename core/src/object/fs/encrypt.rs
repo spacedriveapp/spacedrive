@@ -1,4 +1,4 @@
-use crate::{invalidate_query, job::*, library::Library};
+use crate::{invalidate_query, job::*, library::Library, util::error::FileIOError};
 
 use std::path::PathBuf;
 
@@ -18,9 +18,6 @@ use uuid::Uuid;
 use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
 
 pub struct FileEncryptorJob;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileEncryptorJobState {}
 
 #[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
@@ -51,7 +48,7 @@ impl JobInitData for FileEncryptorJobInit {
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
 	type Init = FileEncryptorJobInit;
-	type Data = FileEncryptorJobState;
+	type Data = ();
 	type Step = FsInfo;
 
 	const NAME: &'static str = "file_encryptor";
@@ -61,14 +58,13 @@ impl StatefulJob for FileEncryptorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let step =
+		state.steps.push_back(
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await
 				.map_err(|_| JobError::MissingData {
 					value: String::from("file_path that matches both location id and path id"),
-				})?;
-
-		state.steps = [step].into_iter().collect();
+				})?,
+		);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -139,8 +135,12 @@ impl StatefulJob for FileEncryptorJob {
 					Some,
 				);
 
-			let mut reader = File::open(&info.fs_path).await?;
-			let mut writer = File::create(output_path).await?;
+			let mut reader = File::open(&info.fs_path)
+				.await
+				.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+			let mut writer = File::create(&output_path)
+				.await
+				.map_err(|e| FileIOError::from((output_path, e)))?;
 
 			let master_key = Key::generate();
 
@@ -194,13 +194,23 @@ impl StatefulJob for FileEncryptorJob {
 						.config()
 						.data_directory()
 						.join("thumbnails")
-						.join(info.path_data.cas_id.as_ref().unwrap())
+						.join(
+							info.path_data
+								.cas_id
+								.as_ref()
+								.ok_or(JobError::MissingCasId)?,
+						)
 						.with_extension("wepb");
 
 					if tokio::fs::metadata(&pvm_path).await.is_ok() {
 						let mut pvm_bytes = Vec::new();
-						let mut pvm_file = File::open(pvm_path).await?;
-						pvm_file.read_to_end(&mut pvm_bytes).await?;
+						let mut pvm_file = File::open(&pvm_path)
+							.await
+							.map_err(|e| FileIOError::from((&pvm_path, e)))?;
+						pvm_file
+							.read_to_end(&mut pvm_bytes)
+							.await
+							.map_err(|e| FileIOError::from((pvm_path, e)))?;
 
 						header
 							.add_preview_media(
@@ -239,7 +249,7 @@ impl StatefulJob for FileEncryptorJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		invalidate_query!(ctx.library, "locations.getExplorerData");
+		invalidate_query!(ctx.library, "search.paths");
 
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))

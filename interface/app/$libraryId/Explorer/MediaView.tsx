@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { ArrowsOutSimple } from 'phosphor-react';
@@ -6,9 +7,8 @@ import React from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import Thumb from './File/Thumb';
+import { getExplorerStore, useDismissibleNoticeStore, useExplorerStore } from '~/hooks';
+import FileThumb from './File/Thumb';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
 
@@ -32,11 +32,11 @@ const MediaViewItem = memo(({ data, index }: MediaViewItemProps) => {
 		>
 			<div
 				className={clsx(
-					'group relative flex aspect-square items-center justify-center hover:bg-app-selected/20',
-					selected && 'bg-app-selected/20'
+					'group relative flex aspect-square items-center justify-center hover:bg-app-selectedItem',
+					selected && 'bg-app-selectedItem'
 				)}
 			>
-				<Thumb
+				<FileThumb
 					size={0}
 					data={data}
 					cover={explorerStore.mediaAspectSquare}
@@ -82,7 +82,7 @@ export default () => {
 		measureElement: () => itemSize,
 		paddingStart: gridPadding,
 		paddingEnd: gridPadding,
-		overscan: !dismissibleNoticeStore.mediaView ? 2 : 1
+		overscan: !dismissibleNoticeStore.mediaView ? 8 : 4
 	});
 
 	const columnVirtualizer = useVirtualizer({

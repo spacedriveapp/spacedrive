@@ -7,14 +7,15 @@ import { getExplorerStore } from '~/stores/explorerStore';
 export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
 	const { id, path } = route.params;
 
+	const location = useLibraryQuery(['locations.get', route.params.id]);
+
 	const { data } = useLibraryQuery([
-		'locations.getExplorerData',
+		'search.paths',
 		{
-			location_id: id,
-			path: path ?? '',
-			limit: 100,
-			cursor: null,
-			kind: null
+			filter: {
+				locationId: id,
+				path: path ?? ''
+			}
 		}
 	]);
 
@@ -27,15 +28,15 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			});
 		} else {
 			navigation.setOptions({
-				title: data?.context.name ?? 'Location'
+				title: location.data?.name ?? 'Location'
 			});
 		}
-	}, [data, navigation, path]);
+	}, [location.data?.name, navigation, path]);
 
 	useEffect(() => {
 		getExplorerStore().locationId = id;
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer data={data} />;
+	return <Explorer items={data?.items} />;
 }

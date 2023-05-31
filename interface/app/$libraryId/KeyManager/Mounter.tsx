@@ -85,7 +85,7 @@ export default () => {
 					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
 				</Tooltip>
 				<div className="grow" />
-				<div className="space-x-2">
+				{/* <div className="space-x-2">
 					<Switch
 						className="bg-app-selected"
 						size="sm"
@@ -99,7 +99,7 @@ export default () => {
 				<span className="ml-3 text-xs font-medium">Automount</span>
 				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
 					<Info className="ml-1.5 h-4 w-4 text-ink-faint" />
-				</Tooltip>
+				</Tooltip> */}
 			</div>
 
 			<div className="mb-3 mt-4 grid w-full grid-cols-2 gap-4">

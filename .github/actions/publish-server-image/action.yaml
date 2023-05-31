@@ -3,7 +3,11 @@ description: Builds the server and publishes its Docker image
 runs:
   using: 'composite'
   steps:
-    - name: Copy binary to Docker context
+    - name: Build web
+      shell: bash
+      run: pnpm web build
+
+    - name: Build binary & move into Docker context
       shell: bash
       run: |
         cargo build -p server --release
@@ -34,14 +38,14 @@ runs:
         docker push $IMAGE_NAME:$IMAGE_TAG
 
     - name: Tag & push image as latest staging image
-      if: github.event_name != 'release'
+      if: ${{ github.event_name != 'release' }}
       shell: bash
       run: |
         docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
         docker push $IMAGE_NAME:staging
 
     - name: Tag & push image as latest production image
-      if: github.event_name == 'release'
+      if: ${{ github.event_name == 'release' }}
       shell: bash
       run: |
         docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:production

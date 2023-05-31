@@ -2,6 +2,7 @@ use crate::{
 	library::Library,
 	location::indexer::IndexerError,
 	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -17,7 +18,7 @@ use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod job_manager;
@@ -29,10 +30,8 @@ pub use worker::*;
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
-	#[error("Database error: {0}")]
+	#[error("database error")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("I/O error: {0}")]
-	IOError(#[from] std::io::Error),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
 	JoinTaskError(#[from] tokio::task::JoinError),
 	#[error("Job state encode error: {0}")]
@@ -57,6 +56,8 @@ pub enum JobError {
 	Path,
 	#[error("invalid job status integer")]
 	InvalidJobStatusInt(i32),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]
@@ -71,18 +72,25 @@ pub enum JobError {
 	MatchingSrcDest(PathBuf),
 	#[error("action would overwrite another file: {}", .0.display())]
 	WouldOverwrite(PathBuf),
+	#[error("item of type '{0}' with id '{1}' is missing from the db")]
+	MissingFromDb(&'static str, String),
+	#[error("the cas id is not set on the path data")]
+	MissingCasId,
 
 	// Not errors
-	#[error("Job had a early finish: <name='{name}', reason='{reason}'>")]
+	#[error("step completed with errors")]
+	StepCompletedWithErrors(JobRunErrors),
+	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
-	#[error("Data needed for job execution not found: job <name='{0}'>")]
+	#[error("data needed for job execution not found: job <name='{0}'>")]
 	JobDataNotFound(String),
-	#[error("Job paused")]
+	#[error("job paused")]
 	Paused(Vec<u8>),
 }
 
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
+pub type JobRunErrors = Vec<String>;
 
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
@@ -131,7 +139,11 @@ pub trait DynJob: Send + Sync {
 	fn report(&self) -> &Option<JobReport>;
 	fn report_mut(&mut self) -> &mut Option<JobReport>;
 	fn name(&self) -> &'static str;
-	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult;
+	async fn run(
+		&mut self,
+		job_manager: Arc<JobManager>,
+		ctx: WorkerContext,
+	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
@@ -287,7 +299,10 @@ pub struct JobState<Job: StatefulJob> {
 impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	fn id(&self) -> Uuid {
 		// SAFETY: This method is using during queueing, so we still have a report
-		self.report().as_ref().unwrap().id
+		self.report()
+			.as_ref()
+			.expect("This method is using during queueing, so we still have a report")
+			.id
 	}
 
 	fn parent_id(&self) -> Option<Uuid> {
@@ -306,17 +321,25 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		<SJob as StatefulJob>::NAME
 	}
 
-	async fn run(&mut self, job_manager: Arc<JobManager>, ctx: WorkerContext) -> JobResult {
+	async fn run(
+		&mut self,
+		job_manager: Arc<JobManager>,
+		ctx: WorkerContext,
+	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
+
+		let mut errors = vec![];
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
 			if let Err(e) = self.stateful_job.init(ctx.clone(), &mut self.state).await {
-				if matches!(e, JobError::EarlyFinish { .. }) {
-					info!("{e}");
-					job_should_run = false;
-				} else {
-					return Err(e);
+				match e {
+					JobError::EarlyFinish { .. } => {
+						info!("{e}");
+						job_should_run = false;
+					}
+					JobError::StepCompletedWithErrors(errors_text) => errors.extend(errors_text),
+					other => return Err(other),
 				}
 			}
 		}
@@ -329,12 +352,20 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 					ctx.clone(),
 					&mut self.state,
 				) => {
-					if matches!(step_result, Err(JobError::EarlyFinish { .. })) {
-						info!("{}", step_result.unwrap_err());
-						break;
-					} else {
-						step_result?;
-					};
+					match step_result {
+						Err(JobError::EarlyFinish { .. }) => {
+							step_result.map_err(|err| {
+								warn!("{}", err);
+							}).ok();
+							break;
+						},
+						Err(JobError::StepCompletedWithErrors(errors_text)) => {
+							warn!("Job<id='{}'> had a step with errors", self.id);
+							errors.extend(errors_text);
+						},
+						maybe_err => maybe_err?
+					}
+
 					self.state.steps.pop_front();
 				}
 				_ = shutdown_rx.recv() => {
@@ -368,7 +399,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
-		Ok(metadata)
+		Ok((metadata, errors))
 	}
 
 	fn hash(&self) -> u64 {

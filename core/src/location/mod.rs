@@ -3,17 +3,12 @@ use crate::{
 	job::{Job, JobManagerError},
 	library::Library,
 	object::{
-		file_identifier::{
-			file_identifier_job::FileIdentifierJobInit,
-			shallow_file_identifier_job::ShallowFileIdentifierJobInit,
-		},
-		preview::{
-			shallow_thumbnailer_job::ShallowThumbnailerJobInit, thumbnailer_job::ThumbnailerJobInit,
-		},
+		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
+		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::db::uuid_to_bytes,
+	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
 use std::{
@@ -38,7 +33,7 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
-use indexer::{shallow_indexer_job::ShallowIndexerJobInit, IndexerJobInit};
+use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -71,7 +66,7 @@ impl LocationCreateArgs {
 			}
 			Err(e) => {
 				return Err(LocationError::LocationPathFilesystemMetadataAccess(
-					e, self.path,
+					FileIOError::from((self.path, e)),
 				));
 			}
 		};
@@ -156,7 +151,10 @@ impl LocationCreateArgs {
 		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
 				// SAFETY: This unwrap is ok as we checked that we have this library_id
-				old_path: metadata.location_path(library.id).unwrap().to_path_buf(),
+				old_path: metadata
+					.location_path(library.id)
+					.expect("This unwrap is ok as we checked that we have this library_id")
+					.to_path_buf(),
 				new_path: self.path,
 			});
 		}
@@ -281,7 +279,9 @@ impl LocationUpdateArgs {
 				if let Some(mut metadata) =
 					SpacedriveLocationMetadataFile::try_load(&location.path).await?
 				{
-					metadata.update(library.id, self.name.unwrap()).await?;
+					metadata
+						.update(library.id, self.name.expect("TODO"))
+						.await?;
 				}
 			}
 		}
@@ -378,7 +378,6 @@ pub async fn scan_location(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: None,
-				background: true,
 			}),
 		)
 		.await
@@ -413,43 +412,29 @@ pub async fn scan_location_sub_path(
 			.queue_next(ThumbnailerJobInit {
 				location: location_base_data,
 				sub_path: Some(sub_path),
-				background: true,
 			}),
 		)
 		.await
 }
 
 pub async fn light_scan_location(
-	library: &Library,
+	library: Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
+
 	if location.node_id != library.node_local_id {
 		return Ok(());
 	}
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				ShallowIndexerJobInit {
-					location,
-					sub_path: sub_path.clone(),
-				},
-				"light_scan_location",
-			)
-			.queue_next(ShallowFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: sub_path.clone(),
-			})
-			.queue_next(ShallowThumbnailerJobInit {
-				location: location_base_data,
-				sub_path,
-			}),
-		)
-		.await
+	indexer::shallow(&location, &sub_path, &library).await?;
+	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
+	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
+
+	Ok(())
 }
 
 pub async fn relink_location(
@@ -645,6 +630,8 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 		}
 	}
 
+	library.orphan_remover.invoke().await;
+
 	info!("Location {} deleted", location_id);
 	invalidate_query!(library, "locations.list");
 
@@ -658,6 +645,8 @@ pub async fn delete_directory(
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
+	let Library { db, .. } = library;
+
 	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
 		vec![
 			file_path::location_id::equals(location_id),
@@ -668,8 +657,7 @@ pub async fn delete_directory(
 	};
 
 	// Fetching all object_ids from all children file_paths
-	let object_ids = library
-		.db
+	let object_ids = db
 		.file_path()
 		.find_many(children_params.clone())
 		.select(file_path::select!({ object_id }))
@@ -681,17 +669,10 @@ pub async fn delete_directory(
 
 	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
-	library
-		.db
-		.file_path()
-		.delete_many(children_params)
-		.exec()
-		.await?;
+	db.file_path().delete_many(children_params).exec().await?;
 
 	// delete all children objects
-	library
-		.db
-		.object()
+	db.object()
 		.delete_many(vec![
 			object::id::in_vec(object_ids),
 			// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
@@ -700,7 +681,7 @@ pub async fn delete_directory(
 		.exec()
 		.await?;
 
-	invalidate_query!(library, "locations.getExplorerData");
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
@@ -779,24 +760,3 @@ async fn check_nested_location(
 
 	Ok(parents_count > 0 || children_count > 0)
 }
-
-// check if a path exists in our database at that location
-// pub async fn check_virtual_path_exists(
-// 	library: &Library,
-// 	location_id: i32,
-// 	subpath: impl AsRef<Path>,
-// ) -> Result<bool, LocationError> {
-// 	let path = subpath.as_ref().to_str().unwrap().to_string();
-
-// 	let file_path = library
-// 		.db
-// 		.file_path()
-// 		.find_first(vec![
-// 			file_path::location_id::equals(location_id),
-// 			file_path::materialized_path::equals(path),
-// 		])
-// 		.exec()
-// 		.await?;
-
-// 	Ok(file_path.is_some())
-// }

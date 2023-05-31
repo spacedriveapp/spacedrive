@@ -1,8 +1,9 @@
 import clsx from 'clsx';
 import { HTMLAttributes, PropsWithChildren, memo, useRef } from 'react';
 import { createSearchParams, useMatch, useNavigate } from 'react-router-dom';
-import { ExplorerItem, isPath, useLibraryContext } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { getExplorerStore, useExplorerConfigStore, useExplorerStore } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
@@ -25,17 +26,36 @@ export const ViewItem = ({
 	contextMenuClassName,
 	...props
 }: ViewItemProps) => {
+	const explorerStore = useExplorerStore();
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
+
+	const { openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const filePath = getItemFilePath(data);
+
+	const explorerConfig = useExplorerConfigStore();
 
 	const onDoubleClick = () => {
 		if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({ path: data.item.materialized_path }).toString()
+				search: createSearchParams({
+					path: `${data.item.materialized_path}${data.item.name}/`
+				}).toString()
 			});
 
 			getExplorerStore().selectedRowIndex = null;
+		} else if (
+			openFilePath &&
+			filePath &&
+			explorerConfig.openOnDoubleClick &&
+			!explorerStore.isRenaming
+		) {
+			data.type === 'Path' &&
+				data.item.object_id &&
+				updateAccessTime.mutate(data.item.object_id);
+			openFilePath(library.uuid, filePath.id);
 		} else {
 			const { kind } = getExplorerItemData(data);
 
@@ -70,6 +90,8 @@ interface Props {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	viewClassName?: string;
+	listViewHeadersClassName?: string;
+	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default memo((props: Props) => {
@@ -83,10 +105,10 @@ export default memo((props: Props) => {
 
 	return (
 		<div
-			ref={scrollRef}
+			ref={props.scrollRef || scrollRef}
 			className={clsx(
 				'custom-scroll explorer-scroll h-screen',
-				layoutMode === 'grid' && 'overflow-x-hidden pl-4',
+				layoutMode === 'grid' && 'overflow-x-hidden',
 				props.viewClassName
 			)}
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
@@ -96,14 +118,16 @@ export default memo((props: Props) => {
 			<ViewContext.Provider
 				value={{
 					data: props.data,
-					scrollRef,
+					scrollRef: props.scrollRef || scrollRef,
 					onLoadMore: props.onLoadMore,
 					hasNextPage: props.hasNextPage,
 					isFetchingNextPage: props.isFetchingNextPage
 				}}
 			>
 				{layoutMode === 'grid' && <GridView />}
-				{layoutMode === 'rows' && <ListView />}
+				{layoutMode === 'rows' && (
+					<ListView listViewHeadersClassName={props.listViewHeadersClassName} />
+				)}
 				{layoutMode === 'media' && <MediaView />}
 			</ViewContext.Provider>
 		</div>

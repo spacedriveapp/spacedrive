@@ -6,12 +6,30 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::process::Command;
+use std::{fmt::Display, process::Command};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum DiskType {
+	SSD,
+	HDD,
+	Removable,
+}
+
+impl Display for DiskType {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(match self {
+			Self::SSD => "SSD",
+			Self::HDD => "HDD",
+			Self::Removable => "Removable",
+		})
+	}
+}
+
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,
@@ -22,7 +40,7 @@ pub struct Volume {
 	#[serde_as(as = "DisplayFromStr")]
 	pub available_capacity: u64,
 	pub is_removable: bool,
-	pub disk_type: Option<String>,
+	pub disk_type: Option<DiskType>,
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
 }
@@ -46,6 +64,13 @@ pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 
 	// enter all volumes associate with this client add to db
 	for volume in volumes {
+		let params = vec![
+			disk_type::set(volume.disk_type.map(|t| t.to_string())),
+			filesystem::set(volume.file_system.clone()),
+			total_bytes_capacity::set(volume.total_capacity.to_string()),
+			total_bytes_available::set(volume.available_capacity.to_string()),
+		];
+
 		library
 			.db
 			.volume()
@@ -59,19 +84,9 @@ pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 					library.node_local_id,
 					volume.name,
 					volume.mount_point,
-					vec![
-						disk_type::set(volume.disk_type.clone()),
-						filesystem::set(volume.file_system.clone()),
-						total_bytes_capacity::set(volume.total_capacity.to_string()),
-						total_bytes_available::set(volume.available_capacity.to_string()),
-					],
+					params.clone(),
 				),
-				vec![
-					disk_type::set(volume.disk_type),
-					filesystem::set(volume.file_system),
-					total_bytes_capacity::set(volume.total_capacity.to_string()),
-					total_bytes_available::set(volume.available_capacity.to_string()),
-				],
+				params,
 			)
 			.exec()
 			.await?;
@@ -88,26 +103,19 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		.iter()
 		.filter_map(|disk| {
 			let mut total_capacity = disk.total_space();
-			let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
+			let mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
 			let available_capacity = disk.available_space();
-			let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
+			let name = disk.name().to_str().unwrap_or("Volume").to_string();
 			let is_removable = disk.is_removable();
 
 			let file_system = String::from_utf8(disk.file_system().to_vec())
 				.unwrap_or_else(|_| "Err".to_string());
 
 			let disk_type = match disk.type_() {
-				sysinfo::DiskType::SSD => "SSD".to_string(),
-				sysinfo::DiskType::HDD => "HDD".to_string(),
-				_ => "Removable Disk".to_string(),
+				sysinfo::DiskType::SSD => DiskType::SSD,
+				sysinfo::DiskType::HDD => DiskType::HDD,
+				_ => DiskType::Removable,
 			};
-
-			if cfg!(target_os = "macos") && mount_point == "/"
-				|| mount_point == "/System/Volumes/Data"
-			{
-				name = "Macintosh HD".to_string();
-				mount_point = "/".to_string();
-			}
 
 			if total_capacity < available_capacity && cfg!(target_os = "windows") {
 				let mut caption = mount_point.clone();

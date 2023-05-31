@@ -1,4 +1,4 @@
-use crate::{job::JobManagerError, library::Library};
+use crate::{job::JobManagerError, library::Library, util::error::FileIOError};
 
 use std::{
 	collections::BTreeSet,
@@ -8,12 +8,9 @@ use std::{
 
 use futures::executor::block_on;
 use thiserror::Error;
-use tokio::{
-	io,
-	sync::{
-		broadcast::{self, Receiver},
-		oneshot, RwLock,
-	},
+use tokio::sync::{
+	broadcast::{self, Receiver},
+	oneshot, RwLock,
 };
 use tracing::{debug, error};
 
@@ -92,18 +89,27 @@ pub enum LocationManagerError {
 	#[error("Non local location: <id='{0}'>")]
 	NonLocalLocation(LocationId),
 
+	#[error("failed to move file '{}' for reason: {reason}", .path.display())]
+	MoveError { path: Box<Path>, reason: String },
+
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
 	#[error("Database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("I/O error: {0}")]
-	IOError(#[from] io::Error),
 	#[error("File path related error (error: {0})")]
 	FilePathError(#[from] FilePathError),
 	#[error("Corrupted location pub_id on database: (error: {0})")]
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
 	JobManager(#[from] JobManagerError),
+
+	#[error("invalid inode")]
+	InvalidInode,
+	#[error("invalid device")]
+	InvalidDevice,
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
@@ -553,10 +559,10 @@ impl Drop for StopWatcherGuard<'_> {
 	fn drop(&mut self) {
 		if cfg!(feature = "location-watcher") {
 			// FIXME: change this Drop to async drop in the future
-			if let Err(e) = block_on(
-				self.manager
-					.reinit_watcher(self.location_id, self.library.take().unwrap()),
-			) {
+			if let Err(e) = block_on(self.manager.reinit_watcher(
+				self.location_id,
+				self.library.take().expect("library should be set"),
+			)) {
 				error!("Failed to reinit watcher on stop watcher guard drop: {e}");
 			}
 		}
@@ -577,9 +583,9 @@ impl Drop for IgnoreEventsForPathGuard<'_> {
 			// FIXME: change this Drop to async drop in the future
 			if let Err(e) = block_on(self.manager.watcher_management_message(
 				self.location_id,
-				self.library.take().unwrap(),
+				self.library.take().expect("library should be set"),
 				WatcherManagementMessageAction::IgnoreEventsForPath {
-					path: self.path.take().unwrap(),
+					path: self.path.take().expect("path should be set"),
 					ignore: false,
 				},
 			)) {

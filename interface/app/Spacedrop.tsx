@@ -40,7 +40,6 @@ export function SpacedropUI() {
 
 function SpacedropDialog(props: UseDialogProps) {
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
-	const dialog = useDialog(props);
 	const form = useZodForm({
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
@@ -57,22 +56,21 @@ function SpacedropDialog(props: UseDialogProps) {
 	});
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
-	const onSubmit = form.handleSubmit((data) =>
-		doSpacedrop.mutate({
-			file_path: getSpacedropState().droppedFiles,
-			peer_id: data.target_peer
-		})
-	);
 
 	return (
 		<Dialog
 			form={form}
-			dialog={dialog}
+			dialog={useDialog(props)}
 			title="Spacedrop a File"
 			loading={doSpacedrop.isLoading}
 			ctaLabel="Send"
 			closeLabel="Cancel"
-			onSubmit={onSubmit}
+			onSubmit={form.handleSubmit((data) =>
+				doSpacedrop.mutateAsync({
+					file_path: getSpacedropState().droppedFiles,
+					peer_id: data.target_peer
+				})
+			)}
 		>
 			<div className="space-y-2 py-2">
 				<Select
@@ -93,7 +91,6 @@ function SpacedropDialog(props: UseDialogProps) {
 function SpacedropRequestDialog(
 	props: { dropId: string; name: string; peerId: string } & UseDialogProps
 ) {
-	const dialog = useDialog(props);
 	const form = useZodForm({
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
@@ -102,21 +99,20 @@ function SpacedropRequestDialog(
 	});
 
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
-	const onSubmit = form.handleSubmit((data) =>
-		acceptSpacedrop.mutate([props.dropId, data.file_path])
-	);
 
 	// TODO: Automatically close this after 60 seconds cause the Spacedrop would have expired
 
 	return (
 		<Dialog
 			form={form}
-			dialog={dialog}
+			dialog={useDialog(props)}
 			title="Received Spacedrop"
 			loading={acceptSpacedrop.isLoading}
 			ctaLabel="Send"
 			closeLabel="Cancel"
-			onSubmit={onSubmit}
+			onSubmit={form.handleSubmit((data) =>
+				acceptSpacedrop.mutateAsync([props.dropId, data.file_path])
+			)}
 			onCancelled={() => acceptSpacedrop.mutate([props.dropId, null])}
 		>
 			<div className="space-y-2 py-2">

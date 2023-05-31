@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import {
 	ColumnDef,
 	ColumnSizingState,
@@ -16,11 +17,14 @@ import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
+import {
+	getExplorerStore,
+	useDismissibleNoticeStore,
+	useExplorerStore,
+	useScrolled
+} from '~/hooks';
 import RenameTextBox from './File/RenameTextBox';
-import Thumb from './File/Thumb';
+import FileThumb from './File/Thumb';
 import { InfoPill } from './Inspector';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
@@ -68,7 +72,11 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 	);
 });
 
-export default () => {
+interface Props {
+	listViewHeadersClassName?: string;
+}
+
+export default (props: Props) => {
 	const explorerStore = useExplorerStore();
 	const dismissibleNoticeStore = useDismissibleNoticeStore();
 	const { data, scrollRef, onLoadMore, hasNextPage, isFetchingNextPage } =
@@ -104,7 +112,7 @@ export default () => {
 					return (
 						<div className="relative flex items-center">
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
-								<Thumb data={file} size={35} />
+								<FileThumb data={file} size={35} />
 							</div>
 							{filePathData && (
 								<RenameTextBox
@@ -173,7 +181,7 @@ export default () => {
 			{
 				header: 'Content ID',
 				size: 180,
-				accessorFn: (file) => getExplorerItemData(file).cas_id
+				accessorFn: (file) => getExplorerItemData(file).casId
 			}
 		],
 		[explorerStore.selectedRowIndex, explorerStore.isRenaming, sorting]
@@ -267,7 +275,6 @@ export default () => {
 	// Resize view on item selection/deselection
 	useEffect(() => {
 		const { selectedRowIndex } = explorerStore;
-
 		if (
 			explorerStore.showInspector &&
 			typeof lastSelectedIndex.current !== typeof selectedRowIndex
@@ -336,7 +343,8 @@ export default () => {
 				onClick={(e) => e.stopPropagation()}
 				className={clsx(
 					'sticky top-0 z-20 table-header-group',
-					isScrolled && 'top-bar-blur !bg-app/90'
+					isScrolled && 'top-bar-blur !bg-app/90',
+					props.listViewHeadersClassName
 				)}
 			>
 				{table.getHeaderGroups().map((headerGroup) => (

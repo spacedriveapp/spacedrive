@@ -1,19 +1,34 @@
+import { useMemo } from 'react';
 import { z } from 'zod';
-import { ExplorerItem, ObjectKind, ObjectKindKey, isObject, isPath } from '@sd/client';
-import { useZodSearchParams } from '~/hooks';
+import {
+	ExplorerItem,
+	FilePathSearchOrdering,
+	ObjectKind,
+	ObjectKindKey,
+	isObject,
+	isPath
+} from '@sd/client';
+import { useExplorerStore, useZodSearchParams } from '~/hooks';
 
-export function getExplorerItemData(data: ExplorerItem, newThumbnails?: Record<string, boolean>) {
-	const objectData = getItemObject(data);
-	const filePath = getItemFilePath(data);
+export function useExplorerOrder(): FilePathSearchOrdering | undefined {
+	const explorerStore = useExplorerStore();
 
-	return {
-		cas_id: filePath?.cas_id || null,
-		isDir: isPath(data) && data.item.is_dir,
-		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		newThumb :!!newThumbnails?.[filePath?.cas_id || ''],
-		hasThumbnail: data.has_thumbnail || !!newThumbnails?.[filePath?.cas_id || ''] || false,
-		extension: filePath?.extension || null
-	};
+	const ordering = useMemo(() => {
+		if (explorerStore.orderBy === 'none') return undefined;
+
+		const obj = {};
+
+		explorerStore.orderBy.split('.').reduce((acc, next, i, all) => {
+			if (all.length - 1 === i) acc[next] = explorerStore.orderByDirection;
+			else acc[next] = {};
+
+			return acc[next];
+		}, obj as any);
+
+		return obj as FilePathSearchOrdering;
+	}, [explorerStore.orderBy, explorerStore.orderByDirection]);
+
+	return ordering;
 }
 
 export function getItemObject(data: ExplorerItem) {
@@ -24,9 +39,23 @@ export function getItemFilePath(data: ExplorerItem) {
 	return isObject(data) ? data.item.file_paths[0] : data.item;
 }
 
+export function getExplorerItemData(data: ExplorerItem) {
+	const filePath = getItemFilePath(data);
+	const objectData = getItemObject(data);
+
+	return {
+		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
+		casId: filePath?.cas_id || null,
+		isDir: isPath(data) && data.item.is_dir,
+		extension: filePath?.extension || null,
+		locationId: filePath?.location_id || null,
+		hasThumbnail: data.has_thumbnail
+	};
+}
+
 export const SEARCH_PARAMS = z.object({
-	path: z.string().default(''),
-	limit: z.coerce.number().default(100)
+	path: z.string().optional(),
+	take: z.coerce.number().default(100)
 });
 
 export function useExplorerSearchParams() {

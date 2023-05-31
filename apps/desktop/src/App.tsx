@@ -17,7 +17,13 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import { appReady, getFilePathOpenWithApps, openFilePath, openFilePathWith } from './commands';
+import {
+	appReady,
+	getFilePathOpenWithApps,
+	openFilePath,
+	openFilePathWith,
+	openLogsDir
+} from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -50,22 +56,20 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 	customUriServerUrl += '/';
 }
 
-function getCustomUriURL(path: string): string {
-	if (customUriServerUrl) {
-		const queryParams = customUriAuthToken
-			? `?token=${encodeURIComponent(customUriAuthToken)}`
-			: '';
-		return `${customUriServerUrl}spacedrive/${path}${queryParams}`;
-	} else {
-		return convertFileSrc(path, 'spacedrive');
-	}
-}
-
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => getCustomUriURL(`thumbnail/${casId}`),
-	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		getCustomUriURL(`file/${libraryId}/${locationLocalId}/${filePathId}`),
+	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
+	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
+		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
+		if (_linux_workaround && customUriServerUrl) {
+			const queryParams = customUriAuthToken
+				? `?token=${encodeURIComponent(customUriAuthToken)}`
+				: '';
+			return `${customUriServerUrl}spacedrive/${path}${queryParams}`;
+		} else {
+			return convertFileSrc(path, 'spacedrive');
+		}
+	},
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
@@ -73,6 +77,7 @@ const platform: Platform = {
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
 	openPath: (path) => shell.open(path),
+	openLogsDir,
 	openFilePath,
 	getFilePathOpenWithApps,
 	openFilePathWith
@@ -105,17 +110,27 @@ export default function App() {
 		};
 	}, []);
 
-	if (startupError) {
-		return <ErrorPage message={startupError} />;
-	}
-
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<SpacedriveInterface router={router} />
+					<AppInner />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
 	);
+}
+
+// This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
+function AppInner() {
+	if (startupError) {
+		return (
+			<ErrorPage
+				message={startupError}
+				submessage="Error occurred starting up the Spacedrive core"
+			/>
+		);
+	}
+
+	return <SpacedriveInterface router={router} />;
 }

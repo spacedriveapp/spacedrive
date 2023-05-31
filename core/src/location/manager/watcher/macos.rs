@@ -13,10 +13,11 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		file_path_helper::{check_existing_file_path, get_inode_and_device, MaterializedPath},
+		file_path_helper::{check_existing_file_path, get_inode_and_device, IsolatedFilePathData},
 		manager::LocationManagerError,
 		LocationId,
 	},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -81,8 +82,9 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 
 		match kind {
 			EventKind::Create(CreateKind::Folder) => {
-				if let Some(latest_created_dir) = self.latest_created_dir.take() {
-					if paths[0] == latest_created_dir {
+				let path = &paths[0];
+				if let Some(ref latest_created_dir) = self.latest_created_dir.take() {
+					if path == latest_created_dir {
 						// NOTE: This is a MacOS specific event that happens when a folder is created
 						// trough Finder. It creates a folder but 2 events are triggered in
 						// FSEvents. So we store and check the latest created folder to avoid
@@ -93,18 +95,23 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 
 				create_dir(
 					self.location_id,
-					&paths[0],
-					&fs::metadata(&paths[0]).await?,
+					path,
+					&fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?,
 					self.library,
 				)
 				.await?;
 				self.latest_created_dir = Some(paths.remove(0));
 			}
 			EventKind::Create(CreateKind::File) => {
+				let path = &paths[0];
 				create_file(
 					self.location_id,
-					&paths[0],
-					&fs::metadata(&paths[0]).await?,
+					path,
+					&fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?,
 					self.library,
 				)
 				.await?;
@@ -122,7 +129,6 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				self.handle_single_rename_event(paths.remove(0)).await?;
 			}
-
 			EventKind::Remove(_) => {
 				remove(self.location_id, &paths[0], self.library).await?;
 			}
@@ -161,7 +167,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to create file_path on MacOS : {e}");
 				} else {
 					trace!("Created file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer
@@ -184,7 +190,7 @@ impl MacOsEventHandler<'_> {
 					error!("Failed to remove file_path: {e}");
 				} else {
 					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "locations.getExplorerData");
+					invalidate_query!(self.library, "search.paths");
 				}
 			} else {
 				self.paths_map_buffer
@@ -210,7 +216,12 @@ impl MacOsEventHandler<'_> {
 				let location_path = extract_location_path(self.location_id, self.library).await?;
 
 				if !check_existing_file_path(
-					&MaterializedPath::new(self.location_id, &location_path, &path, meta.is_dir())?,
+					&IsolatedFilePathData::new(
+						self.location_id,
+						&location_path,
+						&path,
+						meta.is_dir(),
+					)?,
 					&self.library.db,
 				)
 				.await?
@@ -262,7 +273,7 @@ impl MacOsEventHandler<'_> {
 						.insert(inode_and_device, (Instant::now(), path));
 				}
 			}
-			Err(e) => return Err(e.into()),
+			Err(e) => return Err(FileIOError::from((path, e)).into()),
 		}
 
 		Ok(())

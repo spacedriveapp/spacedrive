@@ -65,11 +65,13 @@ impl InvalidRequests {
 		}
 	}
 
-	#[allow(unused_variables)]
+	#[allow(unused_variables, clippy::panic)]
 	pub(crate) fn validate(r: Arc<Router>) {
 		#[cfg(debug_assertions)]
 		{
-			let invalidate_requests = INVALIDATION_REQUESTS.lock().unwrap();
+			let invalidate_requests = INVALIDATION_REQUESTS
+				.lock()
+				.expect("Failed to lock the mutex for invalidation requests");
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
@@ -222,7 +224,27 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	R.router().procedure("listen", {
+	let mut r = R.router();
+
+	#[cfg(debug_assertions)]
+	{
+		let count = Arc::new(std::sync::atomic::AtomicU16::new(0));
+
+		r = r
+			.procedure(
+				"test-invalidate",
+				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+			)
+			.procedure(
+				"test-invalidate-mutation",
+				R.with2(super::library()).mutation(|(_, library), _: ()| {
+					invalidate_query!(library, "invalidation.test-invalidate");
+					Ok(())
+				}),
+			);
+	}
+
+	r.procedure("listen", {
 		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
@@ -240,7 +262,15 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 								if let Ok(event) = event {
 									if let CoreEvent::InvalidateOperation(op) = event {
 										// Newer data replaces older data in the buffer
-										buf.insert(to_key(&(op.key, &op.arg)).unwrap(), op);
+										match to_key(&(op.key, &op.arg)) {
+											Ok(key) => {
+												buf.insert(key, op);
+											},
+											Err(err) => {
+												warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+											},
+										}
+
 									}
 								} else {
 									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");

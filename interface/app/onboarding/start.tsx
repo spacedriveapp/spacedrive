@@ -1,8 +1,10 @@
 import { AppLogo } from '@sd/assets/images';
 import { ButtonLink } from '@sd/ui';
 import { OnboardingContainer, OnboardingDescription, OnboardingImg } from './Layout';
+import { useUnlockOnboardingScreen } from './Progress';
 
 export default function OnboardingStart() {
+	useUnlockOnboardingScreen();
 	return (
 		<OnboardingContainer>
 			<OnboardingImg src={AppLogo} className="mb-8 h-36 w-36 shrink-0" />

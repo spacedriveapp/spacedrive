@@ -3,7 +3,8 @@ import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
+import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
+import { Folder } from '~/components/Folder';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {

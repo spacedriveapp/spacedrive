@@ -1,11 +1,12 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerItem, formatBytes } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import RenameTextBox from './File/RenameTextBox';
-import Thumb from './File/Thumb';
+import FileThumb from './File/Thumb';
 import { ViewItem } from './View';
 import { useExplorerViewContext } from './ViewContext';
 import { getItemFilePath } from './util';
@@ -36,11 +37,11 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 				className={clsx(
 					'mb-1 flex items-center justify-center justify-items-center rounded-lg border-2 border-transparent text-center active:translate-y-[1px]',
 					{
-						'bg-app-selected/20': selected
+						'bg-app-selectedItem': selected
 					}
 				)}
 			>
-				<Thumb data={data} size={explorerStore.gridItemSize} />
+				<FileThumb data={data} size={explorerStore.gridItemSize} />
 			</div>
 			<div className="flex flex-col justify-center">
 				{filePathData && (
@@ -70,6 +71,8 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 		</ViewItem>
 	);
 });
+
+const LEFT_PADDING = 14;
 
 export default () => {
 	const explorerStore = useExplorerStore();
@@ -107,7 +110,7 @@ export default () => {
 
 	function handleWindowResize() {
 		if (scrollRef.current) {
-			setWidth(scrollRef.current.offsetWidth);
+			setWidth(scrollRef.current.offsetWidth - LEFT_PADDING);
 		}
 	}
 
@@ -186,7 +189,8 @@ export default () => {
 		<div
 			className="relative"
 			style={{
-				height: `${rowVirtualizer.getTotalSize()}px`
+				height: `${rowVirtualizer.getTotalSize()}px`,
+				marginLeft: `${LEFT_PADDING - 4}px`
 			}}
 		>
 			{virtualRows.map((virtualRow) => (

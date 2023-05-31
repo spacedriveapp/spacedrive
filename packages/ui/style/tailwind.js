@@ -1,5 +1,3 @@
-// const colors = require('tailwindcss/colors');
-const plugin = require('tailwindcss/plugin');
 const defaultTheme = require('tailwindcss/defaultTheme');
 
 function alpha(variableName) {
@@ -16,7 +14,6 @@ module.exports = function (app, options) {
 			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
 		darkMode: app == 'landing' ? 'class' : 'media',
-		mode: 'jit',
 		theme: {
 			screens: {
 				xs: '475px',
@@ -65,6 +62,7 @@ module.exports = function (app, options) {
 						DEFAULT: alpha('--color-app'),
 						box: alpha('--color-app-box'),
 						darkBox: alpha('--color-app-dark-box'),
+						lightBox: alpha('--color-app-light-box'),
 						overlay: alpha('--color-app-overlay'),
 						input: alpha('--color-app-input'),
 						focus: alpha('--color-app-focus'),
@@ -72,6 +70,7 @@ module.exports = function (app, options) {
 						divider: alpha('--color-app-divider'),
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
+						selectedItem: alpha('--color-app-selected-item'),
 						hover: alpha('--color-app-hover'),
 						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),
@@ -166,7 +165,6 @@ module.exports = function (app, options) {
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));
-		config.plugins.push(require('@tailwindcss/line-clamp'));
 	}
 	return config;
 };
