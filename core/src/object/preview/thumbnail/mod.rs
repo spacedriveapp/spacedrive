@@ -180,7 +180,7 @@ pub async fn generate_video_thumbnail<P: AsRef<Path>>(
 pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
 	use VideoExtension::*;
 	// File extensions that are specifically not supported by the thumbnailer
-	!matches!(video_extension, Mpg | Swf | M2v | Hevc)
+	!matches!(video_extension, Mpg | Swf | M2v | Hevc | M2ts | Mts | Ts)
 }
 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
