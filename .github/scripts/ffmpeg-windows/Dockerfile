@@ -216,9 +216,9 @@ COPY --from=layer-99-ffmpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 RUN mkdir -p /opt/dlls && find "$FFBUILD_PREFIX" -name '*.dll' -exec cp -v '{}.a' '{}' /opt/dlls/ ';'
 
-RUN mkdir -p /opt/dlls/bin /opt/dlls/lib && mv /opt/dlls/*.dll /opt/dlls/bin/ && mv /opt/dlls/*.dll.a /opt/dlls/lib/
-
 RUN x86_64-w64-mingw32-strip -s /opt/dlls/*.dll
+
+RUN mkdir -p /opt/dlls/bin /opt/dlls/lib && mv /opt/dlls/*.dll /opt/dlls/bin/ && mv /opt/dlls/*.dll.a /opt/dlls/lib/
 
 FROM scratch
 
