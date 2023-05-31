@@ -119,22 +119,22 @@ macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		// #[cfg(debug_assertions)]
-		// {
-		// 	#[ctor::ctor]
-		// 	fn invalidate() {
-		// 		crate::api::utils::INVALIDATION_REQUESTS
-		// 			.lock()
-		// 			.unwrap()
-		// 			.queries
-		// 			.push(crate::api::utils::InvalidationRequest {
-		// 				key: $key,
-		// 				arg_ty: None,
-		// 				result_ty: None,
-  //           			macro_src: concat!(file!(), ":", line!()),
-		// 			})
-		// 	}
-		// }
+		#[cfg(debug_assertions)]
+		{
+			#[ctor::ctor]
+			fn invalidate() {
+				crate::api::utils::INVALIDATION_REQUESTS
+					.lock()
+					.unwrap()
+					.queries
+					.push(crate::api::utils::InvalidationRequest {
+						key: $key,
+						arg_ty: None,
+						result_ty: None,
+            			macro_src: concat!(file!(), ":", line!()),
+					})
+			}
+		}
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
@@ -145,25 +145,25 @@ macro_rules! invalidate_query {
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
-		// #[cfg(debug_assertions)]
-		// {
-		// 	#[ctor::ctor]
-		// 	fn invalidate() {
-		// 		crate::api::utils::INVALIDATION_REQUESTS
-		// 			.lock()
-		// 			.unwrap()
-		// 			.queries
-		// 			.push(crate::api::utils::InvalidationRequest {
-		// 				key: $key,
-		// 				arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
-  //                           parent_inline: false,
-  //                           type_map: &mut rspc::internal::specta::TypeDefs::new(),
-  //                       }, &[])),
-		// 				result_ty: None,
-  //                       macro_src: concat!(file!(), ":", line!()),
-		// 			})
-		// 	}
-		// }
+		#[cfg(debug_assertions)]
+		{
+			#[ctor::ctor]
+			fn invalidate() {
+				crate::api::utils::INVALIDATION_REQUESTS
+					.lock()
+					.unwrap()
+					.queries
+					.push(crate::api::utils::InvalidationRequest {
+						key: $key,
+						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
+                            parent_inline: false,
+                            type_map: &mut rspc::internal::specta::TypeDefs::new(),
+                        }, &[])),
+						result_ty: None,
+                        macro_src: concat!(file!(), ":", line!()),
+					})
+			}
+		}
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
@@ -224,7 +224,27 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	R.router().procedure("listen", {
+	let mut r = R.router();
+
+	#[cfg(debug_assertions)]
+	{
+		let count = Arc::new(std::sync::atomic::AtomicU16::new(0));
+
+		r = r
+			.procedure(
+				"test-invalidate",
+				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+			)
+			.procedure(
+				"test-invalidate-mutation",
+				R.with2(super::library()).mutation(|(_, library), _: ()| {
+					invalidate_query!(library, "invalidation.test-invalidate");
+					Ok(())
+				}),
+			);
+	}
+
+	r.procedure("listen", {
 		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
