@@ -18,6 +18,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>((props, ref) =>
 				checked={field.value}
 				onCheckedChange={field.onChange}
 				ref={ref}
+				className={props.disabled ? 'opacity-50' : undefined}
 			/>
 		</FormField>
 	);
