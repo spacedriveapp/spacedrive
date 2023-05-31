@@ -9,7 +9,7 @@ edition.workspace = true
 assets = []
 
 [dependencies]
-sd-core = { path = "../../core", features = ["ffmpeg"] }
+sd-core = { path = "../../core", features = ["ffmpeg", "location-watcher"] }
 rspc = { workspace = true, features = ["axum"] }
 httpz = { workspace = true, features = ["axum"] }
 axum = "0.6.18"

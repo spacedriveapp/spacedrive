@@ -136,8 +136,6 @@ macro_rules! invalidate_query {
 			}
 		}
 
-		println!("INVALIDATE");
-
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
 			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
@@ -166,8 +164,6 @@ macro_rules! invalidate_query {
 					})
 			}
 		}
-
-		println!("INVALIDATE");
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
@@ -207,8 +203,6 @@ macro_rules! invalidate_query {
 			}
 		}
 
-		println!("INVALIDATE");
-
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
 			.and_then(|arg|
@@ -230,7 +224,27 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	R.router().procedure("listen", {
+	let mut r = R.router();
+
+	#[cfg(debug_assertions)]
+	{
+		let count = Arc::new(std::sync::atomic::AtomicU16::new(0));
+
+		r = r
+			.procedure(
+				"test-invalidate",
+				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+			)
+			.procedure(
+				"test-invalidate-mutation",
+				R.with2(super::library()).mutation(|(_, library), _: ()| {
+					invalidate_query!(library, "invalidation.test-invalidate");
+					Ok(())
+				}),
+			);
+	}
+
+	r.procedure("listen", {
 		R.subscription(move |ctx, _: ()| {
 			// This thread is used to deal with batching and deduplication.
 			// Their is only ever one of these management threads per Node but we spawn it like this so we can steal the event bus from the rspc context.
@@ -267,8 +281,6 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 							_ = tokio::time::sleep(Duration::from_millis(200)) => {
 								let events = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
 								if !events.is_empty() {
-									println!("{:?}", events);
-
 									match tx.send(events) {
 										Ok(_) => {},
 										// All receivers are shutdown means that all clients are disconnected.
