@@ -157,11 +157,28 @@ impl ObjectSearchOrdering {
 
 #[derive(Deserialize, Type, Debug, Default)]
 #[serde(rename_all = "camelCase")]
+enum ObjectHiddenFilter {
+	#[default]
+	Exclude,
+	Include,
+}
+
+impl Into<Option<object::WhereParam>> for ObjectHiddenFilter {
+	fn into(self) -> Option<object::WhereParam> {
+		match self {
+			Self::Exclude => Some(object::hidden::not(true)),
+			Self::Include => None,
+		}
+	}
+}
+
+#[derive(Deserialize, Type, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 struct ObjectFilterArgs {
 	#[specta(optional)]
 	favorite: Option<bool>,
-	#[specta(optional)]
-	hidden: Option<bool>,
+	#[serde(default)]
+	hidden: ObjectHiddenFilter,
 	#[specta(optional)]
 	date_accessed: Option<MaybeNot<Option<chrono::DateTime<FixedOffset>>>>,
 	#[serde(default)]
@@ -175,8 +192,8 @@ impl ObjectFilterArgs {
 		chain_optional_iter(
 			[],
 			[
+				self.hidden.into(),
 				self.favorite.map(object::favorite::equals),
-				self.hidden.map(object::hidden::equals),
 				self.date_accessed
 					.map(|date| date.into_prisma(object::date_accessed::equals)),
 				(!self.kind.is_empty())

@@ -243,7 +243,9 @@ export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
 
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
-export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: boolean | null; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
+export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
+
+export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; cursor?: number[] | null; filter?: ObjectFilterArgs }
 
