@@ -88,7 +88,6 @@ export function ErrorPage({
 							variant="colored"
 							className="max-w-xs mt-4 bg-red-500 border-transparent"
 							onClick={() => {
-								console.log('A'); // TODO
 								// @ts-expect-error
 								window.__TAURI_INVOKE__('reset_spacedrive');
 							}}
