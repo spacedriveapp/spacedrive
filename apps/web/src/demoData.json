@@ -173,10 +173,10 @@
 				"fetchStatus": "fetching"
 			},
 			"queryKey": [
-				"library.getStatistics",
+				"library.statistics",
 				{ "library_id": "dc1c41b9-65c6-4a9d-a418-79e628b3ac59", "arg": null }
 			],
-			"queryHash": "[\"library.getStatistics\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
+			"queryHash": "[\"library.statistics\",{\"arg\":null,\"library_id\":\"dc1c41b9-65c6-4a9d-a418-79e628b3ac59\"}]"
 		}
 	]
 }
