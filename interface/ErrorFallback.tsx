@@ -76,16 +76,17 @@ export function ErrorPage({
 				)}
 				{message === 'failed to initialize config' && (
 					<div className="flex flex-col items-center pt-12">
-						<p className="text-center">
+						<p className="text-md max-w-[650px] text-center">
 							We detected you may have created your library with an older version of
-							<br />
 							Spacedrive. Please reset it to continue using the app!
-							<br />
+						</p>
+						<p className="mt-3 font-bold">
+							{' '}
 							YOU WILL LOSE ANY EXISTING SPACEDRIVE DATA!
 						</p>
 						<Button
 							variant="colored"
-							className="mt-2 max-w-xs bg-red-500"
+							className="max-w-xs mt-4 bg-red-500 border-transparent"
 							onClick={() => {
 								console.log('A'); // TODO
 								// @ts-expect-error
