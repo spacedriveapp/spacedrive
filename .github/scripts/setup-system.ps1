@@ -64,6 +64,8 @@ function Add-DirectoryToPath($directory) {
     Reset-Path
 }
 
+$gh_url = "https://api.github.com/repos"
+$sd_gh_path = 'spacedriveapp/spacedrive'
 function Invoke-RestMethodGithub {
     [CmdletBinding()]
     param (
@@ -275,7 +277,7 @@ Write-Host 'Retrieving protobuf version...' -ForegroundColor Yellow
 
 $filename = $null
 $downloadUri = $null
-$releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
+$releasesUri = "${gh_url}/protocolbuffers/protobuf/releases"
 $filenamePattern = '*-win64.zip'
 
 $releases = Invoke-RestMethodGithub -Uri $releasesUri
@@ -325,34 +327,38 @@ Write-Output "Download ffmpeg build..."
 
 $page = 1
 while ($page -gt 0) {
-    $success = Invoke-RestMethodGithub -Uri "https://api.github.com/repos/spacedriveapp/spacedrive/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" |
-    ForEach-Object {
-        $_.workflow_runs |
-        ForEach-Object {
-            $artifactPath = Invoke-RestMethod -Uri $_.artifacts_url -Method Get |
-            Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
-            ForEach-Object {
-                "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
-            } |
-            Select-Object -First 1
+    $success = (
+        Invoke-RestMethodGithub -Uri `
+            "${gh_url}/${sd_gh_path}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
+        | ForEach-Object {
+            $_.workflow_runs | ForEach-Object {
+                $artifactPath = (
+                    (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
+                    | Where-Object {
+                        $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
+                    } | ForEach-Object {
+                        "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
+                    } | Select-Object -First 1
+                )
 
-            if ($artifactPath) {
-                # Download and extract the artifact
-                $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
-                $tempFile = [System.IO.Path]::GetTempFileName()
-                Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
-                Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
-                Remove-Item -Path $tempFile -Force
+                if (![string]::IsNullOrEmpty($artifactPath)) {
+                    # Download and extract the artifact
+                    $downloadUrl = "https://nightly.link/${sd_gh_path}/${artifactPath}"
+                    $tempFile = [System.IO.Path]::GetTempFileName()
+                    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
+                    Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
+                    Remove-Item -Path $tempFile -Force
 
-                Write-Output "yes"
-                exit
-            }
-            else {
-                Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
-                Start-Sleep -Seconds 1
+                    Write-Output "yes"
+                    exit
+                }
+                else {
+                    Write-Output "Failed to download ffmpeg artifact release, trying again in 1sec..."
+                    Start-Sleep -Seconds 1
+                }
             }
         }
-    }
+    )
 
     if ($success -eq "yes") {
         break
