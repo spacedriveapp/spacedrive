@@ -83,6 +83,18 @@ body {
 		@apply rounded-[6px] bg-app-box;
 	}
 }
+.job-manager-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply my-[2px] rounded-[6px]  bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-app-shade/20;
+	}
+}
 .inspector-scroll {
 	// overflow: overlay;
 	&::-webkit-scrollbar {

@@ -8,33 +8,14 @@
 	}
 }
 
-ul.groupedjob {
-	position: relative;
-	&::before {
-		position: absolute;
-		z-index: 10;
-		top: 37px;
-		height: 48.75px;
-		width: 11px;
-		border-left: 1px solid var(--border-color);
-		content: '';
-		left: 25px;
-	}
-}
-
-.removelistdot {
-	list-style: none;
-}
-
-.joblistitem {
-	position: relative;
+.job-group-child {
 	&:last-child {
 		padding-bottom: 12px;
 		&::after {
 			position: absolute;
 			z-index: 10;
-			height: 37.5px;
-			top: 0;
+			height: 72px;
+			top: -40px;
 			width: 10px;
 			border-left: 1px solid var(--border-color);
 			content: '';
@@ -42,14 +23,14 @@ ul.groupedjob {
 		}
 	}
 	&::before {
-		position: relative;
-		top: 24.5px;
+		position: absolute;
+		top: 19px;
 		height: 1em;
-		width: 13px;
+		width: 18px;
 		border-bottom: 1px solid var(--border-color);
 		content: '';
 		display: inline-block;
-		left: 9px;
+		left: 25px;
 	}
 	&::after {
 		position: absolute;
