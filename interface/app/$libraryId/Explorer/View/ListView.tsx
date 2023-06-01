@@ -2,26 +2,20 @@ import {
 	ColumnDef,
 	ColumnSizingState,
 	Row,
-	RowSelectionState,
-	SortingState,
 	flexRender,
 	getCoreRowModel,
-	getSortedRowModel,
 	useReactTable
 } from '@tanstack/react-table';
-import { observeWindowOffset, useVirtualizer, useWindowVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ResizeAware from 'react-resize-aware';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
-import { useBoundingclientrect, useKey, useOnWindowResize } from 'rooks';
-import useResizeObserver, { ObservedSize } from 'use-resize-observer';
+import { useBoundingclientrect, useKey } from 'rooks';
+import useResizeObserver from 'use-resize-observer';
 import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
-import { useCallbackToWatchResize } from '~/hooks';
-import { useDismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
@@ -29,13 +23,11 @@ import {
 } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
 import { ViewItem } from '.';
-import { TOP_BAR_HEIGHT } from '../../TopBar';
 import RenameTextBox from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
-import { sortOptions } from '../OptionsPanel';
-import { ExplorerViewSelection, useExplorerViewContext } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
+import { getItemFilePath } from '../util';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
