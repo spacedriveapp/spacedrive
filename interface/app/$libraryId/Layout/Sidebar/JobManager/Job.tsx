@@ -39,8 +39,8 @@ const getNiceData = (
 	},
 	thumbnailer: {
 		name: `${job.status === 'Running' || job.status === 'Queued'
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
+			? 'Generating thumbnails'
+			: 'Generated thumbnails'
 			}`,
 		icon: Camera,
 		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(
@@ -54,8 +54,8 @@ const getNiceData = (
 	},
 	file_identifier: {
 		name: `${job.status === 'Running' || job.status === 'Queued'
-				? 'Extracting metadata'
-				: 'Extracted metadata'
+			? 'Extracting metadata'
+			: 'Extracted metadata'
 			}`,
 		icon: Eye,
 		subtext:
@@ -154,13 +154,13 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
+							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-sidebar-inkFaint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
 								{time && ' • '}
 								<span className="truncate">{time}</span>
 							</p>
-							<div className="flex gap-1 truncate text-ink-faint"></div>
+							<div className="flex gap-1 truncate text-sidebar-inkFaint"></div>
 						</div>
 						<div className="grow" />
 						<div className="ml-7 flex flex-row space-x-2">

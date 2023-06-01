@@ -1,8 +1,8 @@
 import {
 	ExplorerItem,
 	useLibraryContext,
-	useLibraryMutation,
 	useLibraryQuery,
+	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Folder } from '~/components/Folder';
@@ -34,15 +34,22 @@ export const Component = () => {
 
 	const location = useLibraryQuery(['locations.get', location_id]);
 
-	// we destructure this since `mutate` is a stable reference but the object it's in is not
-	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
+	useLibrarySubscription(
+		[
+			'locations.quickRescan',
+			{
+				location_id,
+				sub_path: path ?? ''
+			}
+		],
+		{ onData() {} }
+	);
 
 	const explorerStore = getExplorerStore();
 
 	useEffect(() => {
 		explorerStore.locationId = location_id;
-		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
-	}, [explorerStore, location_id, path, quickRescan]);
+	}, [explorerStore, location_id, path]);
 
 	const { items, loadMore } = useItems();
 

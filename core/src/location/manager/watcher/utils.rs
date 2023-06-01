@@ -685,13 +685,23 @@ pub(super) async fn extract_inode_and_device_from_path(
 		.select(file_path::select!( {inode device} ))
 		.exec()
 		.await?
-		.map(|file_path| {
-			(
-				u64::from_le_bytes(file_path.inode[0..8].try_into().unwrap()),
-				u64::from_le_bytes(file_path.device[0..8].try_into().unwrap()),
-			)
-		})
-		.ok_or_else(|| FilePathError::NotFound(path.into()).into())
+		.map_or(
+			Err(FilePathError::NotFound(path.into()).into()),
+			|file_path| {
+				Ok((
+					u64::from_le_bytes(
+						file_path.inode[0..8]
+							.try_into()
+							.map_err(|_| LocationManagerError::InvalidInode)?,
+					),
+					u64::from_le_bytes(
+						file_path.device[0..8]
+							.try_into()
+							.map_err(|_| LocationManagerError::InvalidDevice)?,
+					),
+				))
+			},
+		)
 }
 
 pub(super) async fn extract_location_path(

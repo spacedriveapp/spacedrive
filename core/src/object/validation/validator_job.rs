@@ -73,7 +73,10 @@ impl StatefulJob for ObjectValidatorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.unwrap();
+			.ok_or(JobError::MissingFromDb(
+				"location",
+				format!("id={}", state.init.location_id),
+			))?;
 
 		state.data = Some(ObjectValidatorJobState {
 			root_path: location.path.into(),

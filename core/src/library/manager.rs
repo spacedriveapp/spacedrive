@@ -1,11 +1,12 @@
 use crate::{
 	invalidate_query,
+	location::LocationManagerError,
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
-	prisma::{node, PrismaClient},
+	prisma::{location, node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db::load_and_migrate,
+		db::{load_and_migrate, MigrationError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::MigratorError,
 		seeder::{indexer_rules_seeder, SeederError},
@@ -62,10 +63,14 @@ pub enum LibraryManagerError {
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations")]
 	MigratorError(#[from] MigratorError),
+	#[error("error migrating the library: {0}")]
+	MigrationError(#[from] MigrationError),
 	#[error("invalid library configuration: {0}")]
 	InvalidConfig(String),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
+	#[error("failed to watch locations: {0}")]
+	LocationWatcher(#[from] LocationManagerError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -93,7 +98,7 @@ pub async fn seed_keymanager(
 		.iter()
 		.map(|key| {
 			let key = key.clone();
-			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
+			let uuid = uuid::Uuid::from_str(&key.uuid).expect("invalid key id in the DB");
 
 			if key.default {
 				default = Some(uuid);
@@ -119,8 +124,7 @@ pub async fn seed_keymanager(
 				automount: key.automount,
 			})
 		})
-		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
-		.unwrap();
+		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()?;
 
 	// insert all keys from the DB into the keymanager's keystore
 	km.populate_keystore(stored_keys).await?;
@@ -368,8 +372,7 @@ impl LibraryManager {
 					LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 				})?
 			))
-			.await
-			.unwrap(),
+			.await?,
 		);
 
 		let node_config = node_context.config.get().await;
@@ -424,6 +427,23 @@ impl LibraryManager {
 			node_local_id: node_data.id,
 			node_context,
 		};
+
+		for location in library
+			.db
+			.location()
+			.find_many(vec![location::node_id::equals(node_data.id)])
+			.exec()
+			.await?
+		{
+			if let Err(e) = library
+				.node_context
+				.location_manager
+				.add(location.id, library.clone())
+				.await
+			{
+				error!("Failed to watch location on startup: {e}");
+			};
+		}
 
 		if let Err(e) = library
 			.node_context

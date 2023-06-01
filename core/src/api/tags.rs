@@ -1,4 +1,4 @@
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 
@@ -151,7 +151,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.select(tag::select!({ pub_id }))
 						.exec()
 						.await?
-						.unwrap();
+						.ok_or(rspc::Error::new(
+							ErrorCode::NotFound,
+							"Error finding tag in db".into(),
+						))?;
 
 					sync.write_ops(
 						db,

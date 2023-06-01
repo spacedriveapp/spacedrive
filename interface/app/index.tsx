@@ -1,6 +1,7 @@
 import { Navigate, Outlet, RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs } from '@sd/ui';
+import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
@@ -39,6 +40,7 @@ const Wrapper = () => {
 export const routes = [
 	{
 		element: <Wrapper />,
+		errorElement: <RouterErrorBoundary />,
 		children: [
 			{
 				index: true,

@@ -67,6 +67,8 @@ pub fn handle_core_msg(
 			match node {
 				Some(node) => node.clone(),
 				None => {
+					let _guard = Node::init_logger(&data_dir);
+
 					// TODO: probably don't unwrap
 					let new_node = Node::new(data_dir).await.unwrap();
 					node.replace(new_node.clone());

@@ -615,7 +615,7 @@ mod tests {
 	use globset::{Glob, GlobSetBuilder};
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
-	use tracing_test::traced_test;
+	// use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {
 		fn eq(&self, other: &Self) -> bool {
@@ -758,7 +758,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_only_photos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -822,7 +822,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_git_repos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -895,7 +895,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn git_repos_without_deps_or_build_dirs() {
 		let root = prepare_location().await;
 		let root_path = root.path();

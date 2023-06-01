@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_variables)] // TODO: Reenable once this is working
+#![allow(dead_code, unused_variables, clippy::panic, clippy::unwrap_used)] // TODO: Reenable once this is working
 
 use serde::{Deserialize, Serialize};
 use specta::Type;

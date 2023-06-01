@@ -2,19 +2,14 @@ use crate::{
 	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError, StatefulJob},
 	library::Library,
-	location::indexer::{indexer_job::IndexerJob, shallow_indexer_job::ShallowIndexerJob},
+	location::indexer::indexer_job::IndexerJob,
 	object::{
-		file_identifier::{
-			file_identifier_job::FileIdentifierJob,
-			shallow_file_identifier_job::ShallowFileIdentifierJob,
-		},
+		file_identifier::file_identifier_job::FileIdentifierJob,
 		fs::{
 			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
 			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
 		},
-		preview::{
-			shallow_thumbnailer_job::ShallowThumbnailerJob, thumbnailer_job::ThumbnailerJob,
-		},
+		preview::thumbnailer_job::ThumbnailerJob,
 		validation::validator_job::ObjectValidatorJob,
 	},
 	prisma::{job, node, SortOrder},
@@ -228,6 +223,15 @@ impl JobManager {
 	}
 
 	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+		library
+			.db
+			.job()
+			.delete_many(vec![job::name::not_in_vec(
+				ALL_JOB_NAMES.into_iter().map(|s| s.to_string()).collect(),
+			)])
+			.exec()
+			.await?;
+
 		for root_paused_job_report in library
 			.db
 			.job()
@@ -281,12 +285,8 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			if let Err(e) = Worker::spawn(
-				Arc::clone(&self),
-				Arc::clone(&wrapped_worker),
-				library.clone(),
-			)
-			.await
+			if let Err(e) =
+				Worker::spawn(self.clone(), Arc::clone(&wrapped_worker), library.clone()).await
 			{
 				error!("Error spawning worker: {:?}", e);
 			} else {
@@ -532,11 +532,8 @@ fn get_background_info_by_job_name(name: &str) -> bool {
 		},
 		jobs = [
 			ThumbnailerJob,
-			ShallowThumbnailerJob,
 			IndexerJob,
-			ShallowIndexerJob,
 			FileIdentifierJob,
-			ShallowFileIdentifierJob,
 			ObjectValidatorJob,
 			FileCutterJob,
 			FileCopierJob,
@@ -564,11 +561,8 @@ fn get_resumable_job(
 		},
 		jobs = [
 			ThumbnailerJob,
-			ShallowThumbnailerJob,
 			IndexerJob,
-			ShallowIndexerJob,
 			FileIdentifierJob,
-			ShallowFileIdentifierJob,
 			ObjectValidatorJob,
 			FileCutterJob,
 			FileCopierJob,
@@ -578,3 +572,16 @@ fn get_resumable_job(
 	)
 	.map_err(Into::into)
 }
+
+const ALL_JOB_NAMES: &[&str] = &[
+	ThumbnailerJob::NAME,
+	IndexerJob::NAME,
+	FileIdentifierJob::NAME,
+	ObjectValidatorJob::NAME,
+	FileCutterJob::NAME,
+	FileCopierJob::NAME,
+	FileDeleterJob::NAME,
+	FileEraserJob::NAME,
+	FileEncryptorJob::NAME,
+	FileDecryptorJob::NAME,
+];

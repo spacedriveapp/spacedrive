@@ -1,7 +1,11 @@
+use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
-use sd_p2p::{spaceblock::SpacedropRequest, spacetime::SpaceTimeStream};
+use sd_p2p::{
+	spaceblock::{SpacedropRequest, SpacedropRequestError},
+	spacetime::SpaceTimeStream,
+};
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -11,31 +15,65 @@ pub enum Header {
 	Sync(Uuid, u32),
 }
 
+#[derive(Debug, Error)]
+pub enum SyncRequestError {
+	#[error("io error reading library id: {0}")]
+	LibraryIdIoError(std::io::Error),
+	#[error("io error decoding library id: {0}")]
+	ErrorDecodingLibraryId(uuid::Error),
+	#[error("io error reading sync payload len: {0}")]
+	PayloadLenIoError(std::io::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum HeaderError {
+	#[error("io error reading discriminator: {0}")]
+	DiscriminatorIoError(std::io::Error),
+	#[error("invalid discriminator '{0}'")]
+	InvalidDiscriminator(u8),
+	#[error("error reading spacedrop request: {0}")]
+	SpacedropRequestError(#[from] SpacedropRequestError),
+	#[error("error reading sync request: {0}")]
+	SyncRequestError(#[from] SyncRequestError),
+	#[error("invalid request. Spacedrop requires a unicast stream!")]
+	SpacedropOverMulticastIsForbidden,
+}
+
 impl Header {
-	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, ()> {
-		let discriminator = stream.read_u8().await.map_err(|e| {
-			dbg!(e);
-		})?; // TODO: Error handling
+	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, HeaderError> {
+		let discriminator = stream
+			.read_u8()
+			.await
+			.map_err(HeaderError::DiscriminatorIoError)?;
 
 		match discriminator {
 			0 => match stream {
 				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
 					SpacedropRequest::from_stream(stream).await?,
 				)),
-				_ => todo!(),
+				_ => Err(HeaderError::SpacedropOverMulticastIsForbidden),
 			},
 			1 => Ok(Self::Ping),
 			2 => {
 				let mut uuid = [0u8; 16];
-				stream.read_exact(&mut uuid).await.map_err(|_| ())?; // TODO: Error handling
+				stream
+					.read_exact(&mut uuid)
+					.await
+					.map_err(SyncRequestError::LibraryIdIoError)?;
 
 				let mut len = [0; 4];
-				stream.read_exact(&mut len).await.map_err(|_| ())?; // TODO: Error handling
+				stream
+					.read_exact(&mut len)
+					.await
+					.map_err(SyncRequestError::PayloadLenIoError)?;
 				let len = u32::from_le_bytes(len);
 
-				Ok(Self::Sync(Uuid::from_slice(&uuid).unwrap(), len)) // TODO: Error handling
+				Ok(Self::Sync(
+					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
+					len,
+				))
 			}
-			_ => Err(()),
+			d => Err(HeaderError::InvalidDiscriminator(d)),
 		}
 	}
 
