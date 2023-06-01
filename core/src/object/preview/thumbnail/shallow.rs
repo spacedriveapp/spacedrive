@@ -117,7 +117,7 @@ pub async fn shallow_thumbnailer(
 	.flatten();
 
 	for file in all_files {
-		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, &library)
+		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, library)
 			.await?;
 	}
 

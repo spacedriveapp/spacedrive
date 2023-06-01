@@ -49,9 +49,6 @@ pub enum JobManagerError {
 
 	#[error("Failed to fetch job data from database: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
-
-	#[error("Job error: {0}")]
-	Job(#[from] JobError),
 }
 
 impl From<JobManagerError> for rspc::Error {
@@ -65,11 +62,6 @@ impl From<JobManagerError> for rspc::Error {
 			JobManagerError::Database(_) => Self::with_cause(
 				rspc::ErrorCode::InternalServerError,
 				"Error accessing the database".to_string(),
-				value,
-			),
-			JobManagerError::Job(_) => Self::with_cause(
-				rspc::ErrorCode::InternalServerError,
-				"Job error".to_string(),
 				value,
 			),
 		}
@@ -222,12 +214,12 @@ impl JobManager {
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobError> {
 		library
 			.db
 			.job()
 			.delete_many(vec![job::name::not_in_vec(
-				ALL_JOB_NAMES.into_iter().map(|s| s.to_string()).collect(),
+				ALL_JOB_NAMES.iter().map(|s| s.to_string()).collect(),
 			)])
 			.exec()
 			.await?;
@@ -548,7 +540,7 @@ fn get_background_info_by_job_name(name: &str) -> bool {
 fn get_resumable_job(
 	job_report: JobReport,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
-) -> Result<Box<dyn DynJob>, JobManagerError> {
+) -> Result<Box<dyn DynJob>, JobError> {
 	dispatch_call_to_job_by_name!(
 		job_report.name.as_str(),
 		T -> Job::resume(job_report, T {}, next_jobs),
@@ -570,7 +562,6 @@ fn get_resumable_job(
 			FileEraserJob,
 		]
 	)
-	.map_err(Into::into)
 }
 
 const ALL_JOB_NAMES: &[&str] = &[

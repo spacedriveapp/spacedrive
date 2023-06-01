@@ -129,17 +129,17 @@ export type EncryptedKey = number[]
 
 export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
 
-export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
-export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
+export type FileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
-export type FileDecryptorJobInit = { location_id: number; path_id: number; mount_associated_key: boolean; output_path: string | null; password: string | null; save_to_library: boolean | null }
+export type FileDecryptorJobInit = { location_id: number; file_path_ids: number[]; mount_associated_key: boolean; password: string | null; save_to_library: boolean | null }
 
-export type FileDeleterJobInit = { location_id: number; path_id: number }
+export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] }
 
-export type FileEncryptorJobInit = { location_id: number; path_id: number; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean; output_path: string | null }
+export type FileEncryptorJobInit = { location_id: number; file_path_ids: number[]; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean }
 
-export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
+export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 

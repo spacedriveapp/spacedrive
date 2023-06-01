@@ -163,11 +163,11 @@ enum ObjectHiddenFilter {
 	Include,
 }
 
-impl Into<Option<object::WhereParam>> for ObjectHiddenFilter {
-	fn into(self) -> Option<object::WhereParam> {
-		match self {
-			Self::Exclude => Some(object::hidden::not(true)),
-			Self::Include => None,
+impl From<ObjectHiddenFilter> for Option<object::WhereParam> {
+	fn from(value: ObjectHiddenFilter) -> Self {
+		match value {
+			ObjectHiddenFilter::Exclude => Some(object::hidden::not(true)),
+			ObjectHiddenFilter::Include => None,
 		}
 	}
 }

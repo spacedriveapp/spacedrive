@@ -1,4 +1,5 @@
 use crate::{
+	extract_job_data,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
@@ -96,10 +97,7 @@ impl StatefulJob for ObjectValidatorJob {
 		let Library { db, sync, .. } = &ctx.library;
 
 		let file_path = &state.steps[0];
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data!(state);
 
 		// this is to skip files that already have checksums
 		// i'm unsure what the desired behaviour is in this case
@@ -139,10 +137,7 @@ impl StatefulJob for ObjectValidatorJob {
 	}
 
 	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data!(state);
 		info!(
 			"finalizing validator job at {}: {} tasks",
 			data.root_path.display(),

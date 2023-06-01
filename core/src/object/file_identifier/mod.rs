@@ -351,7 +351,7 @@ async fn process_identifier_file_paths(
 		orphan_count
 	);
 
-	let counts = identifier_job_step(&library, location, file_paths).await?;
+	let counts = identifier_job_step(library, location, file_paths).await?;
 
 	// set the step data cursor to the last row of this chunk
 	if let Some(last_row) = file_paths.last() {

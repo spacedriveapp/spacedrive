@@ -22,6 +22,8 @@ pub use isolated_file_path_data::IsolatedFilePathData;
 
 use super::LocationId;
 
+pub type FilePathId = i32;
+
 // File Path selectables!
 file_path::select!(file_path_just_pub_id { pub_id });
 file_path::select!(file_path_just_pub_id_materialized_path {

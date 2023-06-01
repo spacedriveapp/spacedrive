@@ -1,5 +1,5 @@
 use crate::{
-	invalidate_query,
+	extract_job_data, invalidate_query,
 	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	prisma::{file_path, PrismaClient},
@@ -215,10 +215,7 @@ where
 	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
 	Step: Serialize + DeserializeOwned + Send + Sync,
 {
-	let data = state
-		.data
-		.as_ref()
-		.expect("critical error: missing data on job state");
+	let data = extract_job_data!(state);
 
 	info!(
 		"scan of {} completed in {:?}. {} new files found, \

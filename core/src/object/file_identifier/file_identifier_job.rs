@@ -1,4 +1,5 @@
 use crate::{
+	extract_job_data, extract_job_data_mut,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
@@ -115,10 +116,7 @@ impl StatefulJob for FileIdentifierJob {
 			maybe_sub_iso_file_path,
 		});
 
-		let data = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data_mut!(state);
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
@@ -166,10 +164,7 @@ impl StatefulJob for FileIdentifierJob {
 			ref mut cursor,
 			ref mut report,
 			ref maybe_sub_iso_file_path,
-		} = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		} = extract_job_data_mut!(state);
 
 		let step_number = state.step_number;
 		let location = &state.init.location;
@@ -219,11 +214,7 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let report = &state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state")
-			.report;
+		let report = &extract_job_data!(state).report;
 
 		info!("Finalizing identifier job: {report:?}");
 

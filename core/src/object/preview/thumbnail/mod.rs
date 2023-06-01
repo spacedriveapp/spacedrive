@@ -229,7 +229,7 @@ async fn process_step(
 		.expect("critical error: missing data on job state");
 
 	let step_result = inner_process_step(
-		&step,
+		step,
 		&data.location_path,
 		&data.thumbnail_dir,
 		&state.init.location,
@@ -248,12 +248,14 @@ async fn process_step(
 
 pub async fn inner_process_step(
 	step: &ThumbnailerJobStep,
-	location_path: &PathBuf,
-	thumbnail_dir: &PathBuf,
+	location_path: impl AsRef<Path>,
+	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
 	library: &Library,
 ) -> Result<(), JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
+	let location_path = location_path.as_ref();
+	let thumbnail_dir = thumbnail_dir.as_ref();
 
 	// assemble the file path
 	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));

@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobManagerError},
+	job::{Job, JobManagerError, JobError},
 	library::Library,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -421,7 +421,7 @@ pub async fn light_scan_location(
 	library: Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobManagerError> {
+) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	if location.node_id != library.node_local_id {

@@ -270,9 +270,7 @@ impl Drop for LocationWatcher {
 
 			// FIXME: change this Drop to async drop in the future
 			if let Some(handle) = self.handle.take() {
-				if let Err(e) =
-					block_in_place(move || Handle::current().block_on(async move { handle.await }))
-				{
+				if let Err(e) = block_in_place(move || Handle::current().block_on(handle)) {
 					error!("Failed to join watcher task: {e:#?}")
 				}
 			}

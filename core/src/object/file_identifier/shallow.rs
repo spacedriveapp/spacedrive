@@ -80,7 +80,7 @@ pub async fn shallow(
 		.select(file_path::select!({ id }))
 		.exec()
 		.await?
-		.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
+		.expect("We already validated before that there are orphans `file_path`s");
 
 	// Initializing `state.data` here because we need a complete state in case of early finish
 	let mut data = ShallowFileIdentifierJobState {
@@ -103,7 +103,7 @@ pub async fn shallow(
 			&file_paths,
 			step_number,
 			cursor,
-			&library,
+			library,
 			orphan_count,
 		)
 		.await?;
