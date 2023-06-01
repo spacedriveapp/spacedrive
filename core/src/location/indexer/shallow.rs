@@ -1,5 +1,5 @@
 use crate::{
-	file_paths_db_fetcher_fn,
+	file_paths_db_fetcher_fn, invalidate_query,
 	job::JobError,
 	library::Library,
 	location::file_path_helper::{
@@ -100,6 +100,8 @@ pub async fn shallow(
 	for step in steps {
 		execute_indexer_save_step(&location, &step, &library).await?;
 	}
+
+	invalidate_query!(&library, "search.paths");
 
 	library.orphan_remover.invoke().await;
 
