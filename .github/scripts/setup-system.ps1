@@ -22,11 +22,13 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
     Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
     if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
         throw 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
-    } else {
+    }
+    else {
         throw 'This script is only supported on Windows 64-bit'
     }
     Exit 1
-} elseif (
+}
+elseif (
     -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ) {
     # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
@@ -152,7 +154,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
         --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Visual Studio Build Tools'
-    } else {
+    }
+    else {
         $LASTEXITCODE = 0
     }
 
@@ -162,7 +165,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id Microsoft.EdgeWebView2Runtime
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Edge Webview 2'
-    } else {
+    }
+    else {
         $LASTEXITCODE = 0
     }
 
@@ -171,7 +175,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Rust and Cargo'
-    } else {
+    }
+    else {
         $LASTEXITCODE = 0
     }
 
@@ -189,7 +194,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install NodeJS'
-    } else {
+    }
+    else {
         $LASTEXITCODE = 0
     }
     # Add NodeJS to the PATH
@@ -207,7 +213,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id LLVM.LLVM --version "$llvmVersion"
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install NodeJS'
-    } else {
+    }
+    else {
         $LASTEXITCODE = 0
     }
     # Add LLVM to the PATH
@@ -251,7 +258,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
         if (Test-Path "$env:APPDATA\npm" -PathType Container) {
             Add-DirectoryToPath "$env:APPDATA\npm"
         }
-    } elseif ($currentPnpmVersion -and $enginesPnpmVersion -and $currentPnpmVersion.CompareTo($enginesPnpmVersion) -lt 0) {
+    }
+    elseif ($currentPnpmVersion -and $enginesPnpmVersion -and $currentPnpmVersion.CompareTo($enginesPnpmVersion) -lt 0) {
         Exit-WithError "Current pnpm version: $currentPnpmVersion (required: $enginesPnpmVersion)" `
             'Uninstall the current version of pnpm and run this script again'
     }
@@ -318,33 +326,33 @@ Write-Output "Download ffmpeg build..."
 $page = 1
 while ($page -gt 0) {
     $success = Invoke-RestMethodGithub -Uri "https://api.github.com/repos/spacedriveapp/spacedrive/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" |
+    ForEach-Object {
+        $_.workflow_runs |
         ForEach-Object {
-            $_.workflow_runs |
-                ForEach-Object {
-                    $artifactPath = (Invoke-RestMethod -Uri $_.artifacts_url -Method Get) |
-                        Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
-                        ForEach-Object {
-                            "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
-                        } |
-                        Select-Object -First 1
+            $artifactPath = Invoke-RestMethod -Uri $_.artifacts_url -Method Get |
+            Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
+            ForEach-Object {
+                "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
+            } |
+            Select-Object -First 1
 
-                    if ($artifactPath) {
-                        # Download and extract the artifact
-                        $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
-                        $tempFile = [System.IO.Path]::GetTempFileName()
-                        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
-                        Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
-                        Remove-Item -Path $tempFile -Force
+            if ($artifactPath) {
+                # Download and extract the artifact
+                $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
+                Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
+                Remove-Item -Path $tempFile -Force
 
-                        Write-Output "yes"
-                        exit
-                    }
-                    else {
-                        Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
-                        Start-Sleep -Seconds 1
-                    }
-                }
+                Write-Output "yes"
+                exit
+            }
+            else {
+                Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
+                Start-Sleep -Seconds 1
+            }
         }
+    }
 
     if ($success -eq "yes") {
         break
