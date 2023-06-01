@@ -92,10 +92,8 @@ export default () => {
 
 	const { isScrolled } = useScrolled(
 		explorerView.scrollRef,
-		listOffset - scrollerPaddingTop - (explorerView.top || 0)
+		sized ? listOffset - scrollerPaddingTop - (explorerView.top || 0) : undefined
 	);
-
-	console.log('Is scrolled: ', isScrolled, listOffset);
 
 	const paddingX = 16;
 	const paddingY = 12;
