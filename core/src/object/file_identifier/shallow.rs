@@ -109,9 +109,7 @@ pub async fn shallow(
 		.await?;
 	}
 
-	if orphan_count > 0 {
-		invalidate_query!(library, "search.paths");
-	}
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
