@@ -1,3 +1,5 @@
+ARG FFMPEG_VERSION=6.0
+
 FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest AS base
 
 ENV TARGET=win64
@@ -205,6 +207,9 @@ FROM layer-50 AS layer-99-libheif
 RUN --mount=src=scripts.d/99-libheif.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-50 AS layer-99-ffmpeg
+
+ARG FFMPEG_VERSION
+ENV FFMPEG_VERSION="FFMPEG_VERSION"
 
 RUN --mount=src=scripts.d/99-ffmpeg.sh,dst=/stage.sh run_stage /stage.sh
 

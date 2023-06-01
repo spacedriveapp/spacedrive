@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO='https://github.com/FFmpeg/FFmpeg.git'
-SCRIPT_BRANCH='release/6.0'
+SCRIPT_BRANCH="release/${FFMPEG_VERSION:-6.0}"
 
 ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_BRANCH" ffmpeg
