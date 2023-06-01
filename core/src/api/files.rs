@@ -36,18 +36,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-		.procedure("getMultiple", {
-			R.with2(library())
-				.query(|(_, library), ids: Vec<i32>| async move {
-					Ok(library
-						.db
-						.object()
-						.find_many(vec![object::id::in_vec(ids)])
-						.include(object::include!({ file_paths media_data }))
-						.exec()
-						.await?)
-				})
-		})
 		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
 			pub struct SetNoteArgs {
