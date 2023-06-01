@@ -20,8 +20,8 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	const explorerStore = useExplorerStore();
 
 	return (
-		<ViewItem data={data} index={index} className="h-full w-full" {...props}>
-			<div className={clsx('mb-1 rounded-lg', selected && 'bg-app-selectedItem')}>
+		<ViewItem data={data} className="h-full w-full" {...props}>
+			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
 				<FileThumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
 			</div>
 
@@ -31,12 +31,13 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 						filePathData={filePathData}
 						selected={selected}
 						className={clsx(
-							'text-center font-medium',
-							selected && 'bg-accent text-white'
+							'text-center font-medium text-ink',
+							selected && 'bg-accent text-white dark:text-ink'
 						)}
 						style={{
 							maxHeight: explorerStore.gridItemSize / 3
 						}}
+						activeClassName="!text-ink"
 					/>
 				)}
 				{explorerStore.showBytesInGridView &&
@@ -75,6 +76,7 @@ export default () => {
 			onLoadMore={explorerView.onLoadMore}
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
+			preventSelection={explorerStore.isRenaming || !explorerView.selectable}
 		>
 			{({ index, item: Item }) => {
 				if (!explorerView.items) {

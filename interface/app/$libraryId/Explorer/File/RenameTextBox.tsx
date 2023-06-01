@@ -9,9 +9,17 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	filePathData: FilePath;
 	selected: boolean;
 	activeClassName?: string;
+	disabled?: boolean;
 }
 
-export default ({ filePathData, selected, className, activeClassName, ...props }: Props) => {
+export default ({
+	filePathData,
+	selected,
+	className,
+	activeClassName,
+	disabled,
+	...props
+}: Props) => {
 	const explorerStore = useExplorerStore();
 	const os = useOperatingSystem();
 
@@ -129,8 +137,21 @@ export default ({ filePathData, selected, className, activeClassName, ...props }
 		if (allowRename) {
 			e.preventDefault();
 			blur();
-		} else if (selected) setAllowRename(true);
+		} else if (selected && !disabled) setAllowRename(true);
 	});
+
+	useEffect(() => {
+		function handleClickOutside(event: MouseEvent) {
+			if (ref.current && !ref.current.contains(event.target as Node)) {
+				blur();
+			}
+		}
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, [ref]);
 
 	return (
 		<div
@@ -139,13 +160,16 @@ export default ({ filePathData, selected, className, activeClassName, ...props }
 			contentEditable={allowRename}
 			suppressContentEditableWarning
 			className={clsx(
-				'cursor-default overflow-y-auto truncate rounded-md px-1.5 py-px text-xs',
-				allowRename && ['whitespace-normal bg-app', activeClassName],
+				'cursor-default overflow-y-auto truncate rounded-md px-1.5 py-px text-xs text-ink',
+				allowRename && [
+					'whitespace-normal bg-app outline-none ring-2 ring-accent-deep',
+					activeClassName
+				],
 				className
 			)}
 			onClick={(e) => {
 				if (selected || allowRename) e.stopPropagation();
-				if (selected) setAllowRename(true);
+				if (selected && !disabled) setAllowRename(true);
 			}}
 			onBlur={() => {
 				rename();

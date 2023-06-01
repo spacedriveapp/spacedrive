@@ -21,7 +21,6 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 	return (
 		<ViewItem
 			data={data}
-			index={index}
 			className={clsx(
 				'h-full w-full overflow-hidden border-2',
 				selected ? 'border-accent' : 'border-transparent'

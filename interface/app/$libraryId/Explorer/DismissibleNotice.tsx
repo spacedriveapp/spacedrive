@@ -1,7 +1,9 @@
-import { Collection, Image, Video } from '@sd/assets/icons';
+import { Collection, Collection_Light, Image, Video } from '@sd/assets/icons';
+import { useTheme } from '@tanstack/react-query-devtools/build/lib/theme';
 import clsx from 'clsx';
 import { ReactNode } from 'react';
 import DismissibleNotice from '~/components/DismissibleNotice';
+import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
 
@@ -12,11 +14,15 @@ const MediaViewIcon = () => (
 	</div>
 );
 
-const CollectionIcon = () => (
-	<div className="ml-3 mr-4 h-14 w-14 shrink-0">
-		<img src={Collection} />
-	</div>
-);
+const CollectionIcon = () => {
+	const isDark = useIsDark();
+
+	return (
+		<div className="ml-3 mr-4 h-14 w-14 shrink-0">
+			<img src={isDark ? Collection : Collection_Light} />
+		</div>
+	);
+};
 
 interface Notice {
 	key: keyof typeof dismissibleNoticeStore;

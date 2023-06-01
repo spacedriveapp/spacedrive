@@ -37,6 +37,7 @@ interface GridListDefaults<T extends GridListSelection> {
 	top?: number;
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
+	preventSelection?: boolean;
 }
 interface WrapProps<T extends GridListSelection> extends GridListDefaults<T> {
 	size: number | { width: number; height: number };
@@ -74,15 +75,15 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 			: undefined;
 
 	const ref = useRef<HTMLDivElement>(null);
+
 	const { width = 0 } = useResizeObserver({ ref: ref });
+
 	const rect = useBoundingclientrect(ref);
 
 	const selecto = useRef<Selecto>(null);
 
 	const [scrollOptions, setScrollOptions] = React.useState<SelectoProps['scrollOptions']>();
 	const [listOffset, setListOffset] = useState(0);
-
-	// console.log('list offset: ', listOffset);
 
 	const gridWidth = width - (paddingX || 0) * 2;
 
@@ -153,9 +154,9 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 
 	// Handle key Selection
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		e.preventDefault();
+		!props.preventSelection && e.preventDefault();
 
-		if (!selectable || !props.onSelectedChange) return;
+		if (!selectable || !props.onSelectedChange || props.preventSelection) return;
 
 		const selectedItems = selecto.current?.getSelectedTargets() || [
 			...document.querySelectorAll<HTMLDivElement>(`[data-selected="true"]`)
@@ -221,7 +222,7 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 						case 'up': {
 							if (itemRect.top < top) {
 								props.scrollRef.current.scrollBy({
-									top: itemRect.top - top - paddingY,
+									top: itemRect.top - top - paddingY - 1,
 									behavior: 'smooth'
 								});
 							}
@@ -230,7 +231,7 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 						case 'down': {
 							if (itemRect.bottom > scrollRect.height) {
 								props.scrollRef.current.scrollBy({
-									top: itemRect.bottom - scrollRect.height + paddingY,
+									top: itemRect.bottom - scrollRect.height + paddingY + 1,
 									behavior: 'smooth'
 								});
 							}
@@ -336,8 +337,12 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 											selectable: selectable && !!props.onSelectedChange,
 											index,
 											style: { width: itemWidth },
-											onClick: (id) =>
-												!multiSelect && props.onSelectedChange?.(id as T)
+											onClick: (id) => {
+												!multiSelect && props.onSelectedChange?.(id as T);
+											},
+											onContextMenu: (id) => {
+												!multiSelect && props.onSelectedChange?.(id as T);
+											}
 										})}
 									</div>
 								);
@@ -355,12 +360,13 @@ const useSelecto = () => useContext(SelectoContext);
 
 interface GridListItemProps
 	extends PropsWithChildren,
-		Omit<HTMLAttributes<HTMLDivElement>, 'id' | 'onClick'> {
+		Omit<HTMLAttributes<HTMLDivElement>, 'id' | 'onClick' | 'onContextMenu'> {
 	selectable?: boolean;
 	index?: number;
 	selected?: boolean;
 	id?: number;
 	onClick?: (id: number) => void;
+	onContextMenu?: (id: number) => void;
 }
 
 const GridListItem = ({ className, children, style, ...props }: GridListItemProps) => {
@@ -369,9 +375,7 @@ const GridListItem = ({ className, children, style, ...props }: GridListItemProp
 
 	useEffect(() => {
 		if (props.selectable && props.selected && selecto.current) {
-			console.log('new');
 			const current = selecto.current.getSelectedTargets();
-
 			selecto.current?.setSelectedTargets([
 				...current.filter(
 					(el) => el.getAttribute('data-selectable-id') !== String(props.id)
@@ -400,6 +404,12 @@ const GridListItem = ({ className, children, style, ...props }: GridListItemProp
 				if (props.onClick && props.selectable) {
 					const id = props.id || props.index;
 					if (id) props.onClick(id);
+				}
+			}}
+			onContextMenu={() => {
+				if (props.onContextMenu && props.selectable) {
+					const id = props.id || props.index;
+					if (id) props.onContextMenu(id);
 				}
 			}}
 		>

@@ -38,14 +38,13 @@ export const Component = () => {
 	const { mutate: quickRescan } = useLibraryMutation('locations.quickRescan');
 
 	const explorerStore = getExplorerStore();
+
 	useEffect(() => {
 		explorerStore.locationId = location_id;
 		if (location_id !== null) quickRescan({ location_id, sub_path: path ?? '' });
 	}, [explorerStore, location_id, path, quickRescan]);
 
-	const { query, items } = useItems();
-	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
-	useKeyDeleteFile(file as ExplorerItem, location_id);
+	const { items, loadMore } = useItems();
 
 	return (
 		<>
@@ -67,14 +66,8 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex w-full flex-col">
-				<Explorer
-					items={items}
-					onLoadMore={query.fetchNextPage}
-					hasNextPage={query.hasNextPage}
-					isFetchingNextPage={query.isFetchingNextPage}
-				/>
-			</div>
+
+			<Explorer items={items} onLoadMore={loadMore} />
 		</>
 	);
 };
@@ -119,7 +112,13 @@ const useItems = () => {
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
-	return { query, items };
+	function loadMore() {
+		if (query.hasNextPage && !query.isFetchingNextPage) {
+			query.fetchNextPage();
+		}
+	}
+
+	return { query, items, loadMore };
 };
 
 function getLastSectionOfPath(path: string): string | undefined {

@@ -1,36 +1,38 @@
-import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import clsx from 'clsx';
 import { FolderNotchOpen } from 'phosphor-react';
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { useKey } from 'rooks';
-import { getExplorerStore, useExplorerStore, useKeyDeleteFile, useSelectedExplorerItems } from '~/hooks';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ExplorerItem, useLibrarySubscription } from '@sd/client';
+import { useExplorerStore, useKeyDeleteFile } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
+import ContextMenu from './File/ContextMenu';
 import { Inspector } from './Inspector';
 import View from './View';
 import { useExplorerSearchParams } from './util';
 
 interface Props {
-	// TODO: not using data since context isn't actually used
-	// and it's not exactly compatible with search
-	// data?: ExplorerData;
 	items: ExplorerItem[] | null;
 	onLoadMore?(): void;
-	hasNextPage?: boolean;
-	isFetchingNextPage?: boolean;
-	viewClassName?: string;
-	children?: ReactNode;
-	inspectorClassName?: string;
-	explorerClassName?: string;
-	listViewHeadersClassName?: string;
-	scrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function Explorer(props: Props) {
-	const { selectedRowIndex, layoutMode, ...expStore } = useExplorerStore();
-	const selectedExplorerItems = useSelectedExplorerItems();
+	const INSPECTOR_WIDTH = 260;
+
+	const explorerStore = useExplorerStore();
+
 	const [{ path }] = useExplorerSearchParams();
+
+	const scrollRef = useRef<HTMLDivElement>(null);
+
+	const [selectedItemId, setSelectedItemId] = useState<number>();
+
+	const selectedItem = useMemo(
+		() =>
+			selectedItemId
+				? props.items?.find((item) => item.item.id === selectedItemId)
+				: undefined,
+		[selectedItemId]
+	);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
@@ -41,43 +43,13 @@ export default function Explorer(props: Props) {
 		},
 		onData: (cas_id) => {
 			console.log({ cas_id });
-			expStore.addNewThumbnail(cas_id);
+			explorerStore.addNewThumbnail(cas_id);
 		}
 	});
 
-	const scrollRef = useRef<HTMLDivElement>(null);
+	useKeyDeleteFile(selectedItem || null, explorerStore.locationId);
 
-	const [selectedItems, setSelectedItems] = useState<number[]>([]);
-
-	const selectedItem = useMemo(
-		() => props.items?.filter((item) => item.item.id === selectedItems[0])[0],
-		[selectedItems[0]]
-	);
-
-	useKeyDeleteFile(selectedItem || null, expStore.locationId);
-
-	useEffect(() => {
-		getExplorerStore().selectedRowIndex = null;
-		setSelectedItems([]);
-	}, [path]);
-
-	useKey('Space', (e) => {
-		e.preventDefault();
-
-		if (selectedItem) {
-			if (expStore.quickViewObject?.item.id === selectedItem.item.id) {
-				getExplorerStore().quickViewObject = null;
-			} else {
-				getExplorerStore().quickViewObject = selectedItem;
-			}
-		}
-	});
-
-	const loadMore = () => {
-		if (props.hasNextPage && !props.isFetchingNextPage) {
-			props.onLoadMore?.();
-		}
-	};
+	useEffect(() => setSelectedItemId(undefined), [path]);
 
 	return (
 		<>
@@ -85,41 +57,38 @@ export default function Explorer(props: Props) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={scrollRef}
-						className={clsx(
-							'custom-scroll explorer-scroll relative h-screen overflow-x-hidden',
-							layoutMode === 'grid' && 'overflow-x-hidden',
-							props.viewClassName,
-							expStore.showInspector && 'pr-[260px]'
-						)}
-						style={{ paddingTop: TOP_BAR_HEIGHT }}
+						className="custom-scroll explorer-scroll relative h-screen overflow-x-hidden"
+						style={{
+							paddingTop: TOP_BAR_HEIGHT,
+							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+						}}
 					>
 						<DismissibleNotice />
-
-						{props.items === null || (props.items && props.items.length > 0) ? (
-							<View
-								layout={layoutMode}
-								items={props.items}
-								scrollRef={scrollRef}
-								onLoadMore={loadMore}
-								rowsBeforeLoadMore={5}
-								selected={selectedItems}
-								onSelectedChange={setSelectedItems}
-							/>
-						) : (
-							<div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2  flex-col items-center text-ink-faint">
-								<FolderNotchOpen size={100} opacity={0.3} />
-								<p className="mt-5 text-xs">This folder is empty</p>
-							</div>
-						)}
+						<View
+							layout={explorerStore.layoutMode}
+							items={props.items}
+							scrollRef={scrollRef}
+							onLoadMore={props.onLoadMore}
+							rowsBeforeLoadMore={5}
+							selected={selectedItemId}
+							onSelectedChange={setSelectedItemId}
+							contextMenu={selectedItem && <ContextMenu data={selectedItem} />}
+							emptyNotice={
+								<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+									<FolderNotchOpen size={100} opacity={0.3} />
+									<p className="mt-5 text-xs">This folder is empty</p>
+								</div>
+							}
+						/>
 					</div>
 				</div>
 			</ExplorerContextMenu>
 
-			{expStore.showInspector && (
+			{explorerStore.showInspector && (
 				<Inspector
 					data={selectedItem}
-					className="custom-scroll inspector-scroll absolute bottom-0 right-0 top-0 w-[260px] pb-4 pl-1.5 pr-1"
-					style={{ paddingTop: TOP_BAR_HEIGHT + 16 }}
+					className="custom-scroll inspector-scroll absolute bottom-0 right-0 top-0 pb-4 pl-1.5 pr-1"
+					style={{ paddingTop: TOP_BAR_HEIGHT + 16, width: INSPECTOR_WIDTH }}
 				/>
 			)}
 		</>

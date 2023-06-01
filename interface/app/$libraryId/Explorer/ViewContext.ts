@@ -1,4 +1,4 @@
-import { RefObject, createContext, useContext } from 'react';
+import { ReactNode, RefObject, createContext, useContext } from 'react';
 import { ExplorerItem } from '@sd/client';
 
 export type ExplorerViewSelection = number | number[];
@@ -12,6 +12,10 @@ export interface ExplorerViewContext<T = ExplorerViewSelection> {
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
 	top?: number;
+	multiSelect?: T extends number[] ? true : false;
+	contextMenu?: ReactNode;
+	setIsContextMenuOpen?: (isOpen: boolean) => void;
+	selectable?: boolean;
 }
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);

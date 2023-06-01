@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
+import { useKey } from 'rooks';
 import { Category } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
+import { getExplorerStore, useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import { Inspector } from '../Explorer/Inspector';
 import View from '../Explorer/View';
 import { SEARCH_PARAMS } from '../Explorer/util';
@@ -17,25 +18,22 @@ export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();
+
 	const page = usePageLayout();
+
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const { items, query } = useItems(selectedCategory);
+	const { items, query, loadMore } = useItems(selectedCategory);
 
-	const [selectedItems, setSelectedItems] = useState<number[]>([]);
+	const [selectedItemId, setSelectedItemId] = useState<number>();
 
-	// TODO: Instead of filter fetch item in inspector?
 	const selectedItem = useMemo(
-		() => items?.filter((item) => item.item.id === selectedItems[0])[0],
-		[selectedItems[0]]
+		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
+		[selectedItemId]
 	);
-
-	const loadMore = () => {
-		if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
-	};
 
 	return (
 		<>
@@ -59,10 +57,12 @@ export const Component = () => {
 						scrollRef={page?.ref!}
 						onLoadMore={loadMore}
 						rowsBeforeLoadMore={5}
-						selected={selectedItems}
-						onSelectedChange={setSelectedItems}
+						selected={selectedItemId}
+						onSelectedChange={setSelectedItemId}
 						top={68}
+						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
 					/>
+
 					{explorerStore.showInspector && (
 						<Inspector
 							data={selectedItem}

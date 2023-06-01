@@ -19,6 +19,7 @@
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
+		"@icons-pack/react-simple-icons": "^7.2.0",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
 		"@radix-ui/react-toast": "^1.1.2",
@@ -35,6 +36,7 @@
 		"@tanstack/react-query-devtools": "^4.22.0",
 		"@tanstack/react-table": "^8.8.5",
 		"@tanstack/react-virtual": "3.0.0-beta.54",
+		"@types/react-scroll-sync": "^0.8.4",
 		"@vitejs/plugin-react": "^2.1.0",
 		"autoprefixer": "^10.4.12",
 		"byte-size": "^8.1.0",
@@ -55,6 +57,7 @@
 		"react-qr-code": "^2.0.11",
 		"react-router": "6.9.0",
 		"react-router-dom": "6.9.0",
+		"react-scroll-sync": "^0.11.0",
 		"react-selecto": "^1.22.3",
 		"remix-params-helper": "^0.4.10",
 		"rooks": "^5.14.0",
@@ -63,8 +66,7 @@
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^8.0.4",
 		"use-resize-observer": "^9.1.0",
-		"valtio": "^1.7.4",
-		"@icons-pack/react-simple-icons": "^7.2.0"
+		"valtio": "^1.7.4"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

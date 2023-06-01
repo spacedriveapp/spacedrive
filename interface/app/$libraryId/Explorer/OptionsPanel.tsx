@@ -12,7 +12,7 @@ import {
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
+export const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
 	'none': 'None',
 	'name': 'Name',
 	'sizeInBytes': 'Size',
@@ -91,6 +91,7 @@ export default () => {
 					</Select>
 				</div>
 			</div>
+
 			<div className="flex w-full flex-col space-y-3 pt-2">
 				{explorerStore.layoutMode === 'media' ? (
 					<RadixCheckbox

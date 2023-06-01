@@ -1,30 +1,39 @@
-import { HTMLAttributes, PropsWithChildren, ReactNode, memo } from 'react';
+import clsx from 'clsx';
+import {
+	Cards,
+	Columns,
+	FolderNotchOpen,
+	GridFour,
+	MonitorPlay,
+	Rows,
+	SquaresFour
+} from 'phosphor-react';
+import { HTMLAttributes, PropsWithChildren, ReactNode, memo, useState } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
+import { useKey } from 'rooks';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { ContextMenu } from '@sd/ui';
 import { useExplorerConfigStore } from '~/hooks';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import ContextMenu from '../File/ContextMenu';
-import { ExplorerViewContext, ExplorerViewSelection, ViewContext } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
+import {
+	ExplorerViewContext,
+	ExplorerViewSelection,
+	ViewContext,
+	useExplorerViewContext
+} from '../ViewContext';
+import { getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
 
 interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
-	index: number;
-	contextMenuClassName?: string;
 }
 
-export const ViewItem = ({
-	data,
-	index,
-	children,
-	contextMenuClassName,
-	...props
-}: ViewItemProps) => {
+export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const explorerStore = useExplorerStore();
+	const explorerView = useExplorerViewContext();
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
 
@@ -42,56 +51,96 @@ export const ViewItem = ({
 					path: `${data.item.materialized_path}${data.item.name}/`
 				}).toString()
 			});
-
-			getExplorerStore().selectedRowIndex = null;
 		} else if (
 			openFilePath &&
 			filePath &&
 			explorerConfig.openOnDoubleClick &&
 			!explorerStore.isRenaming
 		) {
-			data.type === 'Path' &&
-				data.item.object_id &&
+			if (data.type === 'Path' && data.item.object_id) {
 				updateAccessTime.mutate(data.item.object_id);
-			openFilePath(library.uuid, filePath.id);
-		} else {
-			const { kind } = getExplorerItemData(data);
-
-			if (['Video', 'Image', 'Audio'].includes(kind)) {
-				getExplorerStore().quickViewObject = data;
 			}
+
+			openFilePath(library.uuid, filePath.id);
 		}
 	};
 
-	const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
-		// e.stopPropagation();
-		// getExplorerStore().selectedRowIndex = index;
-	};
-
 	return (
-		<ContextMenu data={data} className={contextMenuClassName}>
-			<div
-				onClick={onClick}
-				onDoubleClick={onDoubleClick}
-				onContextMenu={() => (getExplorerStore().selectedRowIndex = index)}
-				{...props}
-			>
-				{children}
-			</div>
-		</ContextMenu>
+		<ContextMenu.Root
+			trigger={
+				<div onDoubleClick={onDoubleClick} {...props}>
+					{children}
+				</div>
+			}
+			onOpenChange={explorerView.setIsContextMenuOpen}
+		>
+			{explorerView.contextMenu}
+		</ContextMenu.Root>
 	);
 };
 
-interface Props<T extends ExplorerViewSelection> extends ExplorerViewContext<T> {
+interface Props<T extends ExplorerViewSelection>
+	extends Omit<ExplorerViewContext<T>, 'multiSelect' | 'selectable'> {
 	layout: ExplorerLayoutMode;
+	className?: string;
+	emptyNotice?: ReactNode;
 }
 
-export default memo(({ layout, ...contextProps }) => {
+export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
+	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+
+	useKey('Space', (e) => {
+		e.preventDefault();
+
+		if (!getExplorerStore().quickViewObject) {
+			const selectedItem = contextProps.items?.find(
+				(item) =>
+					item.item.id ===
+					(Array.isArray(contextProps.selected)
+						? contextProps.selected[0]
+						: contextProps.selected)
+			);
+
+			if (selectedItem) {
+				getExplorerStore().quickViewObject = selectedItem;
+			}
+		}
+	});
+
 	return (
-		<ViewContext.Provider value={contextProps as ExplorerViewContext}>
-			{layout === 'grid' && <GridView />}
-			{layout === 'rows' && <ListView />}
-			{layout === 'media' && <MediaView />}
-		</ViewContext.Provider>
+		<div className={clsx('h-full w-full', className)}>
+			{contextProps.items === null ||
+			(contextProps.items && contextProps.items.length > 0) ? (
+				<ViewContext.Provider
+					value={
+						{
+							...contextProps,
+							multiSelect: Array.isArray(contextProps.selected),
+							selectable: !isContextMenuOpen,
+							setIsContextMenuOpen: setIsContextMenuOpen
+						} as ExplorerViewContext
+					}
+				>
+					{layout === 'grid' && <GridView />}
+					{layout === 'rows' && <ListView />}
+					{layout === 'media' && <MediaView />}
+				</ViewContext.Provider>
+			) : (
+				emptyNotice || (
+					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+						{layout === 'grid' ? (
+							<SquaresFour size={100} opacity={0.3} />
+						) : layout === 'media' ? (
+							<MonitorPlay size={100} opacity={0.3} />
+						) : layout === 'columns' ? (
+							<Columns size={100} opacity={0.3} />
+						) : (
+							<Rows size={100} opacity={0.3} />
+						)}
+						<p className="mt-5 text-xs">This list is empty</p>
+					</div>
+				)
+			)}
+		</div>
 	);
 }) as <T extends ExplorerViewSelection>(props: Props<T>) => JSX.Element;

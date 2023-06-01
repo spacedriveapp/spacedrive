@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
-import { proxySet } from 'valtio/utils';
+import { proxyMap, proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering } from '@sd/client';
 import { resetStore } from '@sd/client';
@@ -31,7 +31,7 @@ export const SortOrder = z.union([z.literal('Asc'), z.literal('Desc')]);
 
 const state = {
 	locationId: null as number | null,
-	layoutMode: 'grid' as ExplorerLayoutMode,
+	layoutMode: 'rows' as ExplorerLayoutMode,
 	gridItemSize: 100,
 	listItemSize: 40,
 	selectedRowIndex: 1 as number | null,
@@ -72,7 +72,3 @@ export function useExplorerStore() {
 export function getExplorerStore() {
 	return explorerStore;
 }
-
-const selectedExplorerItems = proxySet<number>();
-export const useSelectedExplorerItems = () => useSnapshot(selectedExplorerItems);
-export const getSelectedExplorerItems = () => selectedExplorerItems;

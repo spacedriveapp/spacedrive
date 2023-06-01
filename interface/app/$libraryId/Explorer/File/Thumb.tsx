@@ -67,6 +67,7 @@ const Thumbnail = memo(
 					}}
 					decoding={props.decoding}
 					className={props.className}
+					draggable={false}
 				/>
 				{videoExtension && (
 					<div
@@ -248,6 +249,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										)}
 										playsInline
 										onLoadedData={onLoad}
+										draggable={false}
 									>
 										<p>Video preview is not supported.</p>
 									</video>
@@ -260,6 +262,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											onLoad={onLoad}
 											decoding={size ? 'async' : 'sync'}
 											className={clsx(childClassName, props.className)}
+											draggable={false}
 										/>
 										{props.mediaControls && (
 											<audio
@@ -321,6 +324,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								onError={() => setLoaded(false)}
 								decoding={size ? 'async' : 'sync'}
 								className={clsx(childClassName, props.className)}
+								draggable={false}
 							/>
 						);
 				}
