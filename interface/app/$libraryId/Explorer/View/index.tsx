@@ -125,7 +125,7 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 					{layout === 'rows' && <ListView />}
 					{layout === 'media' && <MediaView />}
 				</ViewContext.Provider>
-			) : (
+			) : emptyNotice === null ? null : (
 				emptyNotice || (
 					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 						{layout === 'grid' ? (
