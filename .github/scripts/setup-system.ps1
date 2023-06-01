@@ -331,6 +331,10 @@ while ($page -gt 0) {
         Invoke-RestMethodGithub -Uri `
             "${gh_url}/${sd_gh_path}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
         | ForEach-Object {
+            if (-not $_.workflow_runs) {
+                throw "Error: $_"
+            }
+
             $_.workflow_runs | ForEach-Object {
                 $artifactPath = (
                     (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
