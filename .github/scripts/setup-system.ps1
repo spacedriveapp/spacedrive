@@ -110,6 +110,8 @@ $wingetValidExit = 0, -1978335189, -1978335153, -1978335135
 # See https://github.com/spacedriveapp/spacedrive/issues/677
 $llvmVersion = [Version]'15.0.7'
 
+$ffmpegVersion = '6.0'
+
 # Change CWD to project root
 Set-Location $projectRoot
 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$projectRoot\.cargo\config"
@@ -306,23 +308,6 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 # --
 
-Write-Host
-Write-Host 'Retrieving ffmpeg version...' -ForegroundColor Yellow
-
-# Run first to update packages
-cargo metadata --format-version 1 | Out-Null
-
-# Get ffmpeg-sys-next version
-$ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
-    $_.name -like 'ffmpeg-sys-next'
-} | Select-Object -ExpandProperty 'req' | ForEach-Object {
-    $_ -replace '[~^<>=!*]+', ''
-} | Sort-Object -Unique | Select-Object -Last 1
-
-if ($LASTEXITCODE -ne 0) {
-    Exit-WithError 'Failed to get ffmpeg-sys-next version'
-}
-
 Write-Output "Download ffmpeg ${ffmpegVersion} build..."
 
 $page = 1
@@ -332,7 +317,7 @@ while ($page -gt 0) {
             "${gh_url}/${sd_gh_path}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
         | ForEach-Object {
             if (-not $_.workflow_runs) {
-                throw "Error: $_"
+                Exit-WithError "Error: $_"
             }
 
             $_.workflow_runs | ForEach-Object {
