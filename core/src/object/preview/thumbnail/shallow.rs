@@ -3,6 +3,7 @@ use super::{
 	THUMBNAIL_CACHE_DIR_NAME,
 };
 use crate::{
+	invalidate_query,
 	job::JobError,
 	library::Library,
 	location::{
@@ -119,6 +120,8 @@ pub async fn shallow_thumbnailer(
 		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, &library)
 			.await?;
 	}
+
+	invalidate_query!(library, "search.paths");
 
 	Ok(())
 }
