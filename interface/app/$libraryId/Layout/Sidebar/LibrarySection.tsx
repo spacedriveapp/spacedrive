@@ -29,15 +29,15 @@ export const LibrarySection = () => {
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">{node.data?.name}</span>
 				</SidebarLink> */}
-				<SidebarLink className="group relative w-full" to={`/`} key={'jeff'}>
+				<SidebarLink className="group relative w-full" to={`/`}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">Jamie's MBP</span>
 				</SidebarLink>
-				<SidebarLink className="group relative w-full" to={`/`} key={'jeff'}>
+				<SidebarLink className="group relative w-full" to={`/`}>
 					<img src={Mobile} className="mr-1 h-5 w-5" />
 					<span className="truncate">spacephone</span>
 				</SidebarLink>
-				<SidebarLink className="group relative w-full" to={`/`} key={'jeff'}>
+				<SidebarLink className="group relative w-full" to={`/`}>
 					<img src={Server} className="mr-1 h-5 w-5" />
 					<span className="truncate">titan</span>
 				</SidebarLink>
