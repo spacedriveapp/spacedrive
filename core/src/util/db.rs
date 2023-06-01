@@ -1,6 +1,6 @@
 use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
-use prisma_client_rust::{migrations::*, NewClientError};
+use prisma_client_rust::{migrations::*, raw, NewClientError};
 use sd_crypto::keys::keymanager::StoredKey;
 use thiserror::Error;
 use uuid::Uuid;
@@ -10,6 +10,8 @@ use uuid::Uuid;
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
 	NewClient(#[from] Box<NewClientError>),
+	#[error("An error occurred while setting the DB pragmas: {0}")]
+	QueryError(#[from] prisma_client_rust::QueryError),
 	#[cfg(debug_assertions)]
 	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] DbPushError),
@@ -40,6 +42,11 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 
 	#[cfg(not(debug_assertions))]
 	client._migrate_deploy().await?;
+
+	client
+		._execute_raw(raw!("PRAGMA busy_timeout = 5000;"))
+		.exec()
+		.await?;
 
 	Ok(client)
 }
