@@ -6,8 +6,8 @@ import { resetStore } from '@sd/client';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
-	? `${K}${'' extends P ? '' : '.'}${P}`
-	: never
+		? `${K}${'' extends P ? '' : '.'}${P}`
+		: never
 	: never;
 
 type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[keyof T] : '';
@@ -31,7 +31,7 @@ export const SortOrder = z.union([z.literal('Asc'), z.literal('Desc')]);
 
 const state = {
 	locationId: null as number | null,
-	layoutMode: 'rows' as ExplorerLayoutMode,
+	layoutMode: 'grid' as ExplorerLayoutMode,
 	gridItemSize: 100,
 	listItemSize: 40,
 	selectedRowIndex: 1 as number | null,
