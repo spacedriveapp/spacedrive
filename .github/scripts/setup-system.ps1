@@ -323,7 +323,7 @@ if ($LASTEXITCODE -ne 0) {
     Exit-WithError 'Failed to get ffmpeg-sys-next version'
 }
 
-Write-Output "Download ffmpeg build..."
+Write-Output "Download ffmpeg ${ffmpegVersion} build..."
 
 $page = 1
 while ($page -gt 0) {

@@ -209,7 +209,7 @@ RUN --mount=src=scripts.d/99-libheif.sh,dst=/stage.sh run_stage /stage.sh
 FROM layer-50 AS layer-99-ffmpeg
 
 ARG FFMPEG_VERSION
-ENV FFMPEG_VERSION="FFMPEG_VERSION"
+ENV FFMPEG_VERSION="$FFMPEG_VERSION"
 
 RUN --mount=src=scripts.d/99-ffmpeg.sh,dst=/stage.sh run_stage /stage.sh
 
