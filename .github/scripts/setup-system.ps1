@@ -317,36 +317,32 @@ Write-Output "Download ffmpeg build..."
 
 $page = 1
 while ($page -gt 0) {
-    $success = Invoke-RestMethodGithub -Uri "https://github.com/spacedriveapp/spacedrive/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" |
+    $success = Invoke-RestMethodGithub -Uri "https://api.github.com/repos/spacedriveapp/spacedrive/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" |
         ForEach-Object {
             $_.workflow_runs |
                 ForEach-Object {
-                    $_.artifacts_url |
+                    $artifactPath = (Invoke-RestMethod -Uri $_.artifacts_url -Method Get) |
+                        Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
                         ForEach-Object {
-                            $artifactsUrl = $_
-                            $artifactPath = (Invoke-RestMethod -Uri $artifactsUrl -Method Get) |
-                                Where-Object { $_.name -eq "ffmpeg-$ffmpegVersion-x86_64" } |
-                                ForEach-Object {
-                                    "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
-                                } |
-                                Select-Object -First 1
+                            "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
+                        } |
+                        Select-Object -First 1
 
-                            if ($artifactPath) {
-                                # Download and extract the artifact
-                                $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
-                                $tempFile = [System.IO.Path]::GetTempFileName()
-                                Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
-                                Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
-                                Remove-Item -Path $tempFile -Force
+                    if ($artifactPath) {
+                        # Download and extract the artifact
+                        $downloadUrl = "https://nightly.link/spacedriveapp/spacedrive/$artifactPath"
+                        $tempFile = [System.IO.Path]::GetTempFileName()
+                        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
+                        Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
+                        Remove-Item -Path $tempFile -Force
 
-                                Write-Output "yes"
-                                exit
-                            }
-                            else {
-                                Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
-                                Start-Sleep -Seconds 1
-                            }
-                        }
+                        Write-Output "yes"
+                        exit
+                    }
+                    else {
+                        Write-Output "Failed to ffmpeg artifact release, trying again in 1sec..."
+                        Start-Sleep -Seconds 1
+                    }
                 }
         }
 

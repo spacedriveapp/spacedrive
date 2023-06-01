@@ -1,3 +1,4 @@
+ARG REPO_REF=main
 ARG DEBIAN_FRONTEND=noninteractive
 
 #--
@@ -37,7 +38,11 @@ ENV PATH="/root/.cargo/bin:$PATH"
 
 WORKDIR /srv
 
-RUN git clone https://github.com/spacedriveapp/spacedrive.git spacedrive
+RUN git init spacedrive
+RUN git -C spacedrive remote add origin https://github.com/spacedriveapp/spacedrive.git
+RUN git -C spacedrive fetch --depth=1 origin "$REPO_REF"
+RUN git -C spacedrive config advice.detachedHead false
+RUN git -C spacedrive checkout FETCH_HEAD
 
 WORKDIR /srv/spacedrive
 
