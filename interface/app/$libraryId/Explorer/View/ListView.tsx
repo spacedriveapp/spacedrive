@@ -353,9 +353,8 @@ export default () => {
 
 	// TODO: Improve this
 	useEffect(() => {
-		console.log(tableBodyRef.current?.offsetTop);
 		setListOffset(tableRef.current?.offsetTop || 0);
-	}, [rect, sized, tableBodyRef]);
+	}, [rect]);
 
 	// Measure initial column widths
 	useEffect(() => {
@@ -406,6 +405,8 @@ export default () => {
 	useKey(
 		['ArrowUp', 'ArrowDown'],
 		(e) => {
+			if (!explorerView.selectable) return;
+
 			e.preventDefault();
 
 			if (explorerView.onSelectedChange) {
