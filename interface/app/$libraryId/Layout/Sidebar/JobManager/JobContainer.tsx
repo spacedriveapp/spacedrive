@@ -22,7 +22,7 @@ interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 	children?: ReactNode;
 }
 
-const CIRCLE_ICON_CLASS = `relative flex-shrink-0 top-2 z-20 mr-2 h-6 w-6 rounded-full bg-app-button p-[5.5px]`;
+const CIRCLE_ICON_CLASS = `relative flex-shrink-0 top-1 z-20 mx-1 h-7 w-7 rounded-full bg-app-button p-[5.5px]`;
 const IMG_ICON_CLASS = `relative left-[-2px] top-1 z-10 mr-2 h-8 w-8`;
 
 const MetaContainer = tw.div`flex w-full flex-col`;

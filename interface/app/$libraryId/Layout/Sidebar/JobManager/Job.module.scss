@@ -1,5 +1,6 @@
 :root {
 	--border-color: rgba(50, 51, 67, 1);
+	--left-amount: 29px;
 }
 
 @media (prefers-color-scheme: light) {
@@ -14,12 +15,12 @@
 		&::after {
 			position: absolute;
 			z-index: 10;
-			height: 72px;
-			top: -40px;
+			height: 32px;
+			top: 0px;
 			width: 10px;
 			border-left: 1px solid var(--border-color);
 			content: '';
-			left: 25px;
+			left: var(--left-amount);
 		}
 	}
 	&::before {
@@ -30,7 +31,7 @@
 		border-bottom: 1px solid var(--border-color);
 		content: '';
 		display: inline-block;
-		left: 25px;
+		left: var(--left-amount);
 	}
 	&::after {
 		position: absolute;
@@ -40,6 +41,6 @@
 		width: 10px;
 		border-left: 1px solid var(--border-color);
 		content: '';
-		left: 25px;
+		left: var(--left-amount);
 	}
 }

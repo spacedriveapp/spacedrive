@@ -67,7 +67,7 @@ function Job({ job, className, isChild }: JobProps) {
 			text: "Completed with errors", icon: Info, onClick: () => {
 				showAlertDialog({
 					title: 'Error',
-					description: 'The job completed with errors. Please check the error log for more information.',
+					description: 'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
 					children: JobError
 
 				});
