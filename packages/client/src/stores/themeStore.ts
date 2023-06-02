@@ -4,7 +4,7 @@ import { valtioPersist } from './util';
 export type Themes = 'vanilla' | 'dark';
 
 const themeStore = valtioPersist('sd-theme', {
-	theme: 'vanilla' as Themes,
+	theme: 'dark' as Themes,
 	syncThemeWithSystem: false,
 	hueValue: null as number | null
 });

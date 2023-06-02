@@ -13,7 +13,7 @@ module.exports = function (app, options) {
 			'../../packages/*/src/**/*.{ts,tsx,html,stories.tsx}',
 			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
-		darkMode: app == 'landing' ? 'class' : 'media',
+		darkMode: 'class',
 		theme: {
 			screens: {
 				xs: '475px',

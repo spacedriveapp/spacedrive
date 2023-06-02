@@ -2,9 +2,10 @@ import clsx from 'clsx';
 import { CheckCircle } from 'phosphor-react';
 import { useEffect } from 'react';
 import { useState } from 'react';
-import { useThemeStore } from '@sd/client';
+import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
 import { forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -27,7 +28,6 @@ const schema = z.object({
 	blurEffects: z.boolean()
 });
 
-// TODO: Once theming is fixed, use theme values for Light theme too.
 const themes: Theme[] = [
 	{
 		insideColor: 'bg-white',
@@ -38,18 +38,18 @@ const themes: Theme[] = [
 		themeValue: 'vanilla'
 	},
 	{
-		insideColor: 'bg-app',
+		insideColor: 'bg-[#1C1D26]', //Not using theme color because we want it to stay the same color when theme is toggled
 		outsideColor: 'bg-black',
 		textColor: 'text-white',
-		border: 'border border-app-line',
+		border: 'border border-[#323342]',
 		themeName: 'Dark',
 		themeValue: 'dark'
 	},
 	{
-		insideColor: 'bg-box',
-		outsideColor: 'bg-black',
-		textColor: 'black',
-		border: 'border border-black',
+		insideColor: '',
+		outsideColor: '',
+		textColor: 'text-white',
+		border: 'border border-[#323342]',
 		themeName: 'System',
 		themeValue: 'system'
 	}
@@ -57,8 +57,9 @@ const themes: Theme[] = [
 
 export const Component = () => {
 	const themeStore = useThemeStore();
-	const [selectedTheme, _] = useState(
-		themeStore.syncThemeWithSystem === true ? 'system' : 'dark' //temporary not themeStore value until working
+	const platform = usePlatform();
+	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
+		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
 	const form = useZodForm({
 		schema
@@ -73,6 +74,23 @@ export const Component = () => {
 		return () => subscription.unsubscribe();
 	}, [form, onSubmit]);
 
+	const themeSelectHandler = (theme: Theme['themeValue']) => {
+		setSelectedTheme(theme);
+		if (theme === 'system') {
+			getThemeStore().syncThemeWithSystem = true;
+		} else if (theme === 'vanilla') {
+			getThemeStore().syncThemeWithSystem = false;
+			platform.toggleSwiftTheme(0);
+			getThemeStore().theme = theme;
+			document.documentElement.classList.add('vanilla-theme');
+		} else if (theme === 'dark') {
+			getThemeStore().syncThemeWithSystem = false;
+			platform.toggleSwiftTheme(1);
+			getThemeStore().theme = theme;
+			document.documentElement.classList.remove('vanilla-theme');
+		}
+	};
+
 	return (
 		<Form form={form} onSubmit={onSubmit}>
 			<Heading title="Appearance" description="Change the look of your client." />
@@ -80,8 +98,9 @@ export const Component = () => {
 				{themes.map((theme, i) => {
 					return (
 						<div
+							onClick={() => themeSelectHandler(theme.themeValue)}
 							className={clsx(
-								selectedTheme !== theme.themeValue && 'opacity-30',
+								selectedTheme !== theme.themeValue && 'opacity-70',
 								'transition-all duration-200 hover:translate-y-[-3.5px]'
 							)}
 							key={i}
