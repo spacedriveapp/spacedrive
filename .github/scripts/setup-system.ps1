@@ -275,7 +275,7 @@ New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projec
 # --
 
 Write-Host
-Write-Host 'Retrieving protobuf version...' -ForegroundColor Yellow
+Write-Host 'Retrieving protobuf build...' -ForegroundColor Yellow
 
 $filename = $null
 $downloadUri = $null
@@ -308,7 +308,7 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 # --
 
-Write-Output "Download ffmpeg ${ffmpegVersion} build..."
+Write-Output "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
 
 $page = 1
 while ($page -gt 0) {
@@ -332,11 +332,12 @@ while ($page -gt 0) {
 
                 if (![string]::IsNullOrEmpty($artifactPath)) {
                     # Download and extract the artifact
-                    $downloadUrl = "https://nightly.link/${sd_gh_path}/${artifactPath}"
-                    $tempFile = [System.IO.Path]::GetTempFileName()
-                    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
-                    Expand-Archive -Path $tempFile -DestinationPath "$projectRoot\target\Frameworks" -Force
-                    Remove-Item -Path $tempFile -Force
+                    Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
+                    Start-BitsTransfer -TransferType Download -Source "https://nightly.link/${sd_gh_path}/${artifactPath}" -Destination "$temp\ffmpeg-${ffmpegVersion}.zip"
+
+                    Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
+                    Expand-Archive  "$temp\ffmpeg-${ffmpegVersion}.zip" "$projectRoot\target\Frameworks" -Force
+                    Remove-Item -Force -ErrorAction SilentlyContinue -Path  "$temp\ffmpeg-${ffmpegVersion}.zip"
 
                     Write-Output "yes"
                     exit
