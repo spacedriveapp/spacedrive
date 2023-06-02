@@ -17,6 +17,9 @@
 	--color-sidebar: var(--dark-hue), 15%, 7%;
 	--color-sidebar-box: var(--dark-hue), 15%, 16%;
 	--color-sidebar-line: var(--dark-hue), 15%, 23%;
+	--color-sidebar-ink: var(--dark-hue), 0%, 100%;
+	--color-sidebar-ink-dull: var(--dark-hue), 10%, 70%;
+	--color-sidebar-ink-faint: var(--dark-hue), 10%, 55%;
 	--color-sidebar-divider: var(--dark-hue), 15%, 17%;
 	--color-sidebar-button: var(--dark-hue), 15%, 18%;
 	--color-sidebar-selected: var(--dark-hue), 15%, 24%;
@@ -64,6 +67,9 @@
 		--color-sidebar: var(--light-hue), 5%, 96%;
 		--color-sidebar-box: var(--light-hue), 5%, 100%;
 		--color-sidebar-line: var(--light-hue), 10%, 85%;
+		--color-sidebar-ink: var(--light-hue), 5%, 20%;
+		--color-sidebar-ink-dull: var(--light-hue), 5%, 30%;
+		--color-sidebar-ink-faint: var(--light-hue), 5%, 40%;
 		--color-sidebar-divider: var(--light-hue), 15%, 93%;
 		--color-sidebar-button: var(--light-hue), 15%, 100%;
 		--color-sidebar-selected: var(--light-hue), 10%, 80%;

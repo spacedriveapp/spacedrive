@@ -18,7 +18,7 @@ export default () => {
 						to="settings/client/general"
 						size="icon"
 						variant="subtle"
-						className="text-ink-faint ring-offset-sidebar"
+						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings">
 							<Gear className="h-5 w-5" />
@@ -29,7 +29,7 @@ export default () => {
 							<Button
 								size="icon"
 								variant="subtle"
-								className="text-ink-faint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
+								className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
 								disabled={!library}
 							>
 								{library && (
@@ -52,7 +52,7 @@ export default () => {
 						dialogManager.create((dp) => <FeedbackDialog {...dp} />);
 					}}
 				>
-					<p className="text-[11px] font-normal text-ink-faint">Feedback</p>
+					<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
 				</Button>
 			</div>
 			{debugState.enabled && <DebugPopover />}

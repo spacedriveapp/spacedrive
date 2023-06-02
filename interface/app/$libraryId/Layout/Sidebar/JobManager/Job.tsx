@@ -32,17 +32,16 @@ const getNiceData = (
 		name: isGroup
 			? 'Indexing paths'
 			: job.metadata?.location_path
-			? `Indexed paths at ${job.metadata?.location_path} `
-			: `Processing added location...`,
+				? `Indexed paths at ${job.metadata?.location_path} `
+				: `Processing added location...`,
 		icon: Folder,
 		subtext: `${numberWithCommas(job.metadata?.total_paths || 0)} ${appendPlural(job, 'path')}`
 	},
 	thumbnailer: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Generating thumbnails'
+			: 'Generated thumbnails'
+			}`,
 		icon: Camera,
 		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(
 			job.task_count
@@ -54,15 +53,14 @@ const getNiceData = (
 		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'item')}`
 	},
 	file_identifier: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Extracting metadata'
-				: 'Extracted metadata'
-		}`,
+		name: `${job.status === 'Running' || job.status === 'Queued'
+			? 'Extracting metadata'
+			: 'Extracted metadata'
+			}`,
 		icon: Eye,
 		subtext:
 			job.message ||
-			`${numberWithCommas(job.metadata.total_orphan_paths)} ${appendPlural(
+			`${numberWithCommas(job.metadata?.total_orphan_paths)} ${appendPlural(
 				job,
 				'file',
 				'file_identifier'
@@ -156,13 +154,13 @@ function Job({ job, clearJob, className, isGroup }: JobProps) {
 					<div className="flex items-center">
 						<div className="truncate">
 							<span className="truncate font-semibold">{niceData.name}</span>
-							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-ink-faint">
+							<p className="mb-[5px] mt-[2px] flex gap-1 truncate text-sidebar-inkFaint">
 								{job.status === 'Queued' && <p>{job.status}:</p>}
 								{niceData.subtext}
 								{time && ' • '}
 								<span className="truncate">{time}</span>
 							</p>
-							<div className="flex gap-1 truncate text-ink-faint"></div>
+							<div className="flex gap-1 truncate text-sidebar-inkFaint"></div>
 						</div>
 						<div className="grow" />
 						<div className="ml-7 flex flex-row space-x-2">
