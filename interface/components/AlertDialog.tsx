@@ -7,7 +7,7 @@ interface Props extends UseDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
 	children?: ReactNode; // dialog content
-	value: string; // value to be displayed as text or in an input box
+	value?: string; // value to be displayed as text or in an input box
 	label?: string; // button label
 	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
 }
@@ -22,7 +22,7 @@ const AlertDialog = (props: Props) => {
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 			onCancelled={false}
 		>
-			{props.description && <div className="text-sm mb-3">{props.description}</div>}
+			{props.description && <div className="mb-3 text-sm">{props.description}</div>}
 			{props.children}
 			{props.inputBox ? (
 				<Input
@@ -33,7 +33,7 @@ const AlertDialog = (props: Props) => {
 						<Button
 							type="button"
 							onClick={() => {
-								navigator.clipboard.writeText(props.value);
+								props.value && navigator.clipboard.writeText(props.value);
 							}}
 							size="icon"
 						>

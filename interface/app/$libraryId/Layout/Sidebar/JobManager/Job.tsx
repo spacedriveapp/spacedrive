@@ -1,15 +1,15 @@
 import { JobReport, useLibraryMutation } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import {
 	Info,
 	Question
 } from 'phosphor-react';
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
+import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 import useJobInfo from './useJobInfo';
-import { showAlertDialog } from '~/components';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface JobProps {
 	job: JobReport;
@@ -50,23 +50,25 @@ function Job({ job, className, isChild }: JobProps) {
 	// 	[clearJob]
 	// );
 
+	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === "CompletedWithErrors") {
+		const JobError = (
+			<pre className='custom-scroll inspector-scroll max-h-[300px] rounded border border-app-darkBox bg-app-darkBox/80 p-3'>
+				{job.errors_text.map((error, i) =>
+					<p
+						className='mb-1 w-full overflow-auto whitespace-normal break-words text-sm'
+						key={i}>
+						{error.trim()}
+					</p>
+				)}
+			</pre>
+		);
 		niceData.textItems?.push([{
 			text: "Completed with errors", icon: Info, onClick: () => {
 				showAlertDialog({
 					title: 'Error',
 					description: 'The job completed with errors. Please check the error log for more information.',
-					// map error text to string with newlines per error
-					value: "",
-					children: <pre className='rounded border border-app-darkBox bg-app-darkBox/80 p-3 max-h-[300px] custom-scroll inspector-scroll'>
-						{job.errors_text.map((error, i) =>
-							<p
-								className='overflow-auto whitespace-normal break-words w-full mb-1 text-sm'
-								key={i}>
-								{error.trim()}
-							</p>
-						)}
-					</pre>
+					children: JobError
 
 				});
 			}

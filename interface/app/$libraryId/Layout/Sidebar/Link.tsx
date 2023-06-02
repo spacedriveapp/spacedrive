@@ -34,6 +34,7 @@ export default ({
 			onClick={(e) => (disabled ? e.preventDefault() : onClick?.(e))}
 			className={({ isActive }) =>
 				clsx(
+					"ring-0", // Remove ugly outline ring on Chrome Windows & Linux
 					styles({ active: isActive, transparent: os === 'macOS' }),
 					disabled && 'pointer-events-none opacity-50',
 					className
