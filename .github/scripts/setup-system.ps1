@@ -333,7 +333,7 @@ while ($page -gt 0) {
                 if (![string]::IsNullOrEmpty($artifactPath)) {
                     # Download and extract the artifact
                     Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                    Start-BitsTransfer -TransferType Download -Source "https://nightly.link/${sd_gh_path}/${artifactPath}" -Destination "$temp\ffmpeg-${ffmpegVersion}.zip"
+                    Invoke-WebRequest -Uri "https://nightly.link/${sd_gh_path}/${artifactPath}" -OutFile "$temp\ffmpeg-${ffmpegVersion}.zip"
 
                     Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
                     Expand-Archive  "$temp\ffmpeg-${ffmpegVersion}.zip" "$projectRoot\target\Frameworks" -Force
