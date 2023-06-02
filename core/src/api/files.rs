@@ -1,7 +1,7 @@
 use crate::{
 	api::utils::library,
 	invalidate_query,
-	location::{file_path_helper::IsolatedFilePathData, find_location, LocationError},
+	location::{file_path_helper::IsolatedFilePathData, find_location, LocationError, LocationId},
 	object::fs::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
 		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
@@ -9,11 +9,12 @@ use crate::{
 	prisma::{location, object},
 };
 
+use std::path::Path;
+
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use std::path::Path;
 use tokio::fs;
 
 use super::{Ctx, R};
@@ -179,7 +180,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
 			pub struct RenameFileArgs {
-				pub location_id: i32,
+				pub location_id: LocationId,
 				pub file_name: String,
 				pub new_file_name: String,
 			}

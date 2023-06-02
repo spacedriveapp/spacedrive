@@ -3,16 +3,17 @@ use crate::{
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		LocationError, LocationId, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 	util::debug_initializer::AbortOnDrop,
 };
 
+use std::path::PathBuf;
+
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -63,7 +64,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("get", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: LocationId| async move {
 					Ok(library
 						.db
 						.location()
@@ -74,7 +75,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("getWithRules", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: LocationId| async move {
 					Ok(library
 						.db
 						.location()
@@ -103,7 +104,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("delete", {
 			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+				.mutation(|(_, library), location_id: LocationId| async move {
 					delete_location(&library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
@@ -129,7 +130,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("fullRescan", {
 			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+				.mutation(|(_, library), location_id: LocationId| async move {
 					// rescan location
 					scan_location(
 						&library,
@@ -146,7 +147,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("quickRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LightScanArgs {
-				pub location_id: i32,
+				pub location_id: LocationId,
 				pub sub_path: String,
 			}
 
@@ -271,7 +272,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: LocationId| async move {
 					library
 						.db
 						.indexer_rule()

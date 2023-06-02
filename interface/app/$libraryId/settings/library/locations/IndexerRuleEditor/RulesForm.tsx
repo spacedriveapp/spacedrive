@@ -187,7 +187,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 									control={form.control}
 									render={({ field }) => {
 										return (
-											<div className="flex flex-col w-full">
+											<div className="flex w-full flex-col">
 												<RuleInput
 													className={clsx(
 														'!h-[30px]',

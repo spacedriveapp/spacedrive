@@ -2,7 +2,7 @@ use crate::{
 	job::JobError,
 	library::Library,
 	location::file_path_helper::{
-		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
+		file_path_for_file_identifier, FilePathError, FilePathId, IsolatedFilePathData,
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
@@ -14,13 +14,14 @@ use crate::{
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_sync::CRDTOperation;
 
-use futures::future::join_all;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 };
+
+use futures::future::join_all;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, info};
@@ -340,7 +341,7 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut i32,
+	cursor: &mut FilePathId,
 	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize), JobError> {

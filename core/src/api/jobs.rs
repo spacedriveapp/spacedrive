@@ -1,6 +1,6 @@
 use crate::{
 	job::JobManager,
-	location::{find_location, LocationError},
+	location::{find_location, LocationError, LocationId},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
 		preview::thumbnailer_job::ThumbnailerJobInit,
@@ -8,10 +8,11 @@ use crate::{
 	},
 };
 
+use std::path::PathBuf;
+
 use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use specta::Type;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
@@ -46,7 +47,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("generateThumbsForLocation", {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {
-				pub id: i32,
+				pub id: LocationId,
 				pub path: PathBuf,
 			}
 
@@ -69,7 +70,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
-				pub id: i32,
+				pub id: LocationId,
 				pub path: PathBuf,
 			}
 
@@ -92,7 +93,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("identifyUniqueFiles", {
 			#[derive(Type, Deserialize)]
 			pub struct IdentifyUniqueFilesArgs {
-				pub id: i32,
+				pub id: LocationId,
 				pub path: PathBuf,
 			}
 

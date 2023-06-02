@@ -117,6 +117,7 @@ pub enum MigratorError {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod test {
 	use std::{fs, io::Read, path::PathBuf};
 

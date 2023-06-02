@@ -10,7 +10,7 @@
 // // if the location is remote, we queue a job for that client specifically
 // // the actual create_folder function should be an option on an enum for all vfs actions
 // pub async fn create_folder(
-// 	location_id: i32,
+// 	location_id: LocationId,
 // 	path: &str,
 // 	name: Option<&str>,
 // 	library: &LibraryContext,

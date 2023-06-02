@@ -69,8 +69,7 @@ export default (props: Props) => {
 			onSubmit={form.handleSubmit((data) =>
 				decryptFile.mutateAsync({
 					location_id: props.location_id,
-					path_id: props.path_id,
-					output_path: data.outputPath !== '' ? data.outputPath : null,
+					file_path_ids: [props.path_id],
 					mount_associated_key: data.mountAssociatedKey,
 					password: data.type === 'password' ? data.password : null,
 					save_to_library: data.type === 'password' ? data.saveToKeyManager : null

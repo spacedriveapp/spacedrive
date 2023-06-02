@@ -351,6 +351,7 @@ impl Drop for LocationWatcher {
 *																								   *
 ***************************************************************************************************/
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
 	use std::{
 		io::ErrorKind,
@@ -365,7 +366,7 @@ mod tests {
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
-	use tracing_test::traced_test;
+	// use tracing_test::traced_test;
 
 	#[cfg(target_os = "macos")]
 	use notify::event::DataChange;
@@ -431,7 +432,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn create_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -469,7 +470,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn create_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -499,7 +500,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -550,7 +551,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_file_rename_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -599,7 +600,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -650,7 +651,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn delete_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -682,7 +683,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn delete_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 

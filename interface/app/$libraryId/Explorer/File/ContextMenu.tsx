@@ -132,9 +132,9 @@ export default ({ data, className, ...props }: Props) => {
 
 						copyFiles.mutate({
 							source_location_id: store.locationId!,
-							source_path_id: data.item.id,
+							sources_file_path_ids: [data.item.id],
 							target_location_id: store.locationId!,
-							target_path: params.path,
+							target_location_relative_directory_path: params.path,
 							target_file_name_suffix: ' copy'
 						});
 					}}

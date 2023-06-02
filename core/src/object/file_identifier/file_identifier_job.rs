@@ -4,9 +4,12 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		file_path_for_file_identifier, IsolatedFilePathData,
+	location::{
+		file_path_helper::{
+			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			file_path_for_file_identifier, FilePathId, IsolatedFilePathData,
+		},
+		LocationId,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
 	util::db::chain_optional_iter,
@@ -48,7 +51,7 @@ impl Hash for FileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
-	cursor: i32,
+	cursor: FilePathId,
 	report: FileIdentifierReport,
 	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
 }
@@ -223,8 +226,8 @@ impl StatefulJob for FileIdentifierJob {
 }
 
 fn orphan_path_filters(
-	location_id: i32,
-	file_path_id: Option<i32>,
+	location_id: LocationId,
+	file_path_id: Option<FilePathId>,
 	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
@@ -249,7 +252,7 @@ fn orphan_path_filters(
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
+	location_id: LocationId,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
@@ -265,8 +268,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
-	file_path_id: i32,
+	location_id: LocationId,
+	file_path_id: FilePathId,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(

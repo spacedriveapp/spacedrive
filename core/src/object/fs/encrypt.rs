@@ -42,7 +42,7 @@ pub struct FileEncryptorJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
-	pub path_id: i32,
+	pub file_path_id: FilePathId,
 	pub name: String,
 	pub hidden: bool,
 	pub favorite: bool,
@@ -170,7 +170,7 @@ impl StatefulJob for FileEncryptorJob {
 				if let Some(ref object) = step.file_path.object {
 					if state.init.metadata {
 						let metadata = Metadata {
-							path_id: step.file_path.id,
+							file_path_id: step.file_path.id,
 							name: step.file_path.materialized_path.clone(),
 							hidden: object.hidden,
 							favorite: object.favorite,

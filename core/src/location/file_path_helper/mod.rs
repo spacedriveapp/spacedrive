@@ -102,7 +102,7 @@ pub enum FilePathError {
 	#[error("file Path not found: <path='{}'>", .0.display())]
 	NotFound(Box<Path>),
 	#[error("location '{0}' not found")]
-	LocationNotFound(i32),
+	LocationNotFound(LocationId),
 	#[error("received an invalid sub path: <location_path='{}', sub_path='{}'>", .location_path.display(), .sub_path.display())]
 	InvalidSubPath {
 		location_path: Box<Path>,

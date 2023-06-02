@@ -2,7 +2,7 @@ use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
 	location::{
-		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+		file_path_helper::{file_path_to_full_path, FilePathId, IsolatedFilePathData},
 		LocationManager,
 	},
 	node::NodeConfigManager,
@@ -20,6 +20,7 @@ use std::{
 };
 
 use sd_crypto::keys::keymanager::KeyManager;
+
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
@@ -101,7 +102,10 @@ impl Library {
 	}
 
 	/// Returns the full path of a file
-	pub async fn get_file_path(&self, id: i32) -> Result<Option<PathBuf>, LibraryManagerError> {
+	pub async fn get_file_path(
+		&self,
+		id: FilePathId,
+	) -> Result<Option<PathBuf>, LibraryManagerError> {
 		Ok(self
 			.db
 			.file_path()

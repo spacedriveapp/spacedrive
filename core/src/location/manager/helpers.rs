@@ -104,7 +104,10 @@ pub(super) fn drop_location(
 	}
 }
 
-pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<location::Data> {
+pub(super) async fn get_location(
+	location_id: LocationId,
+	library: &Library,
+) -> Option<location::Data> {
 	library
 		.db
 		.location()

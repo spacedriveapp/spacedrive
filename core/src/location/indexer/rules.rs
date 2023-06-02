@@ -4,6 +4,12 @@ use crate::{
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	path::Path,
+};
+
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use globset::{Glob, GlobSet, GlobSetBuilder};
@@ -11,11 +17,6 @@ use rmp_serde::{self, decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{
-	collections::{HashMap, HashSet},
-	marker::PhantomData,
-	path::Path,
-};
 use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
@@ -627,6 +628,7 @@ async fn reject_dir_for_its_children(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 	use tempfile::tempdir;

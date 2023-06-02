@@ -4,7 +4,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::LocationId,
+	location::{file_path_helper::FilePathId, LocationId},
 	object::fs::{construct_target_filename, error::FileSystemJobsError},
 	util::error::FileIOError,
 };
@@ -24,7 +24,7 @@ pub struct FileCutterJob {}
 pub struct FileCutterJobInit {
 	pub source_location_id: LocationId,
 	pub target_location_id: LocationId,
-	pub sources_file_path_ids: Vec<i32>,
+	pub sources_file_path_ids: Vec<FilePathId>,
 	pub target_location_relative_directory_path: PathBuf,
 }
 

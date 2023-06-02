@@ -71,10 +71,9 @@ export default (props: Props) => {
 					algorithm: data.encryptionAlgo as Algorithm,
 					key_uuid: data.key,
 					location_id: props.location_id,
-					path_id: props.path_id,
+					file_path_ids: [props.path_id],
 					metadata: data.metadata,
-					preview_media: data.previewMedia,
-					output_path: data.outputPath || null
+					preview_media: data.previewMedia
 				})
 			)}
 			dialog={useDialog(props)}

@@ -7,7 +7,8 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::{
-	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
+	file_path_helper::FilePathError, manager::LocationManagerError,
+	metadata::LocationMetadataError, LocationId,
 };
 
 /// Error type for location related errors
@@ -19,7 +20,7 @@ pub enum LocationError {
 	#[error("location not found <uuid='{0}'>")]
 	UuidNotFound(Uuid),
 	#[error("location not found <id='{0}'>")]
-	IdNotFound(i32),
+	IdNotFound(LocationId),
 
 	// User errors
 	#[error("location not a directory <path='{}'>", .0.display())]

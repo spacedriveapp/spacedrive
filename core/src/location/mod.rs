@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobManagerError, JobError},
+	job::{Job, JobError, JobManagerError},
 	library::Library,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -211,7 +211,7 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: i32,
+	pub id: LocationId,
 	pub name: Option<String>,
 	pub generate_preview_media: Option<bool>,
 	pub sync_preview_media: Option<bool>,
@@ -325,7 +325,7 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqueQuery {
+pub fn find_location(library: &Library, location_id: LocationId) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
@@ -334,7 +334,7 @@ pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqu
 
 async fn link_location_and_indexer_rules(
 	library: &Library,
-	location_id: i32,
+	location_id: LocationId,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
 	library
@@ -599,7 +599,10 @@ async fn create_location(
 	Ok(Some(location))
 }
 
-pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
+pub async fn delete_location(
+	library: &Library,
+	location_id: LocationId,
+) -> Result<(), LocationError> {
 	let Library { db, .. } = library;
 
 	library
@@ -642,7 +645,7 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
 	library: &Library,
-	location_id: i32,
+	location_id: LocationId,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
