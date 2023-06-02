@@ -107,6 +107,27 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 		}
 	});
 
+	const emptyNoticeIcon = () => {
+		let Icon;
+
+		switch (layout) {
+			case 'grid':
+				Icon = GridFour;
+				break;
+			case 'media':
+				Icon = MonitorPlay;
+				break;
+			case 'columns':
+				Icon = Columns;
+				break;
+			case 'rows':
+				Icon = Rows;
+				break;
+		}
+
+		return <Icon size={100} opacity={0.3} />;
+	};
+
 	return (
 		<div className={clsx('h-full w-full', className)}>
 			{contextProps.items === null ||
@@ -128,15 +149,7 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 			) : emptyNotice === null ? null : (
 				emptyNotice || (
 					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-						{layout === 'grid' ? (
-							<SquaresFour size={100} opacity={0.3} />
-						) : layout === 'media' ? (
-							<MonitorPlay size={100} opacity={0.3} />
-						) : layout === 'columns' ? (
-							<Columns size={100} opacity={0.3} />
-						) : (
-							<Rows size={100} opacity={0.3} />
-						)}
+						{emptyNoticeIcon()}
 						<p className="mt-5 text-xs">This list is empty</p>
 					</div>
 				)
