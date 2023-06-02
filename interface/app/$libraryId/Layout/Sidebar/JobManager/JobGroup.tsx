@@ -1,14 +1,14 @@
 /* eslint-disable no-case-declarations */
 import { Folder } from '@sd/assets/icons';
-import clsx from 'clsx';
-import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Stop, Trash, X } from 'phosphor-react';
-import { Fragment, useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import clsx from 'clsx';
+import dayjs from 'dayjs';
+import { DotsThreeVertical, Pause, Stop } from 'phosphor-react';
+import { Fragment, useState } from 'react';
 import Job from './Job';
-import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 import JobContainer from './JobContainer';
+import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 import { IJobGroup } from './useGroupedJobs';
 interface JobGroupProps {
 	data: IJobGroup;
@@ -72,10 +72,10 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 				className={clsx("pb-2 hover:bg-app-selected/10", showChildJobs && "border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox")}
 				iconImg={Folder}
 				name={niceActionName(data.action, !!data.completed, jobs[0])}
-				textItems={[[`${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}`, date_started, data.completed ? undefined : totalGroupTime || undefined]]}
+				textItems={[[{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` }, { text: date_started }, { text: data.completed ? totalGroupTime || undefined : data.queued ? "Queued" : "Finished with errors" }]]}
 			>
 				{!showChildJobs && isJobsRunning && (
-					<div className="mt-1 mb-1 w-full">
+					<div className="my-1 w-full">
 						<ProgressBar value={tasks.completed} total={tasks.total} />
 					</div>
 				)}
@@ -106,12 +106,10 @@ function totalTasks(jobs: JobReport[]) {
 }
 
 function niceActionName(action: string, completed: boolean, job?: JobReport) {
-	// console.log({job})
 	switch (action) {
 		case 'scan_location':
 			const name = job?.metadata?.init?.location?.name || 'Unknown';
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
-
 	}
 	return action;
 }

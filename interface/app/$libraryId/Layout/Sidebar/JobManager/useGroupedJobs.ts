@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { JobReport } from '@sd/client';
 
 export interface IJobGroup {
+	queued?: boolean;
 	id: string;
 	action: string;
 	completed?: boolean;
@@ -45,9 +46,11 @@ export function useGroupedJobs(jobs: JobReport[] = []): IJobGroup[] {
 		groupsArray.map((group) => {
 			// Check if all jobs in the group are completed.
 			const completed = group.jobs.every((job) => job.status === 'Completed');
+			const queued = group.jobs.every((job) => job.status === 'Queued');
 
 			// Add the completed property to the group.
 			group.completed = completed;
+			group.queued = queued;
 		});
 
 		// Update the state.

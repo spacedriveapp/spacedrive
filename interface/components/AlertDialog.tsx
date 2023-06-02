@@ -1,10 +1,12 @@
 import { Clipboard } from 'phosphor-react';
 import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
+import { ReactNode } from 'react';
 
 interface Props extends UseDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
+	children?: ReactNode; // dialog content
 	value: string; // value to be displayed as text or in an input box
 	label?: string; // button label
 	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
@@ -17,10 +19,11 @@ const AlertDialog = (props: Props) => {
 			title={props.title}
 			form={useZodForm()}
 			dialog={useDialog(props)}
-			description={props.description}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 			onCancelled={false}
 		>
+			{props.description && <div className="text-sm mb-3">{props.description}</div>}
+			{props.children}
 			{props.inputBox ? (
 				<Input
 					value={props.value}
@@ -45,6 +48,6 @@ const AlertDialog = (props: Props) => {
 	);
 };
 
-export function showAlertDialog(props: Omit<Props, 'id'>) {
+export function showAlertDialog(props: Omit<Props & { children?: ReactNode }, 'id'>) {
 	dialogManager.create((dp) => <AlertDialog {...dp} {...props} />);
 }

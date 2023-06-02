@@ -2,6 +2,7 @@ import { JobReport, useLibraryMutation } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import dayjs from 'dayjs';
 import {
+	Info,
 	Question
 } from 'phosphor-react';
 import { memo, useCallback } from 'react';
@@ -22,12 +23,12 @@ function Job({ job, className, isChild }: JobProps) {
 	const niceData = useJobInfo(job)[job.name] || {
 		name: job.name,
 		icon: Question,
-		subtext: job.name
+		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
 	};
 	const isRunning = job.status === 'Running';
 
 	// dayjs from seconds to time
-	const time = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
+	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
 
 	const clearJob = useLibraryMutation(['jobs.clear'], {
 		onError: () => {
@@ -41,6 +42,7 @@ function Job({ job, className, isChild }: JobProps) {
 		}
 	});
 
+
 	// const clearJobHandler = useCallback(
 	// 	(id: string) => {
 	// 		clearJob.mutate(id);
@@ -48,12 +50,26 @@ function Job({ job, className, isChild }: JobProps) {
 	// 	[clearJob]
 	// );
 
+	if (job.status === "CompletedWithErrors") {
+		niceData.textItems?.push([{
+			text: "Completed with errors", icon: Info, onClick: () => {
+				showAlertDialog({
+					title: 'Error',
+					description: 'The job completed with errors. Please check the error log for more information.',
+					// map error text to string with newlines per error
+					value: "",
+					children: <pre className=' p-3 rounded border bg-app-darkBox/80 border-app-darkBox'>{job.errors_text.map((error, i) => <p className='text-sm' key={i}>{error.trim()}</p>)}</pre>
+				});
+			}
+		}])
+	}
+
 	return (
 		<JobContainer
 			className={className}
 			name={niceData.name}
 			circleIcon={niceData.icon}
-			textItems={[[job.status === 'Queued' && job.status || undefined, niceData.subtext, time]]}
+			textItems={job.status === 'Queued' ? [[{ text: "Queued" }]] : niceData.textItems}
 			isChild={job.action !== null}
 		>
 			{isRunning && (

@@ -104,7 +104,7 @@ pub enum IndexerError {
 	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
-	#[error("database error")]
+	#[error("database error {}", .0.to_string())]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
