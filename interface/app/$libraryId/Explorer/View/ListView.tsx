@@ -466,7 +466,9 @@ export default () => {
 								const top =
 									(explorerView.top
 										? paddingTop + explorerView.top
-										: paddingTop) + scrollRect.top;
+										: paddingTop) +
+									scrollRect.top +
+									(isScrolled ? 35 : 0);
 
 								const viewpoint = {
 									top: explorerView.scrollRef.current.scrollTop,
@@ -476,7 +478,7 @@ export default () => {
 
 								const rowTop =
 									nextRow.index * rowHeight +
-									paddingY +
+									rowVirtualizer.options.paddingStart +
 									(tableBodyRect?.top || 0) +
 									scrollRect.top;
 
@@ -625,7 +627,6 @@ export default () => {
 							<div
 								role="rowgroup"
 								className="no-scrollbar overflow-x-auto overscroll-x-none"
-								ref={tableBodyRef}
 							>
 								<div
 									className="relative"
@@ -633,6 +634,7 @@ export default () => {
 										height: `${rowVirtualizer.getTotalSize()}px`,
 										width: headerWidth
 									}}
+									ref={tableBodyRef}
 								>
 									{virtualRows.map((virtualRow) => {
 										if (!explorerView.items) {
