@@ -326,7 +326,7 @@ while ($page -gt 0) {
                     | Where-Object {
                         $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
                     } | ForEach-Object {
-                        "suites/$($_.workflow_run.id)/artifacts/$($_.id)"
+                        "suites/$($_.workflow_run.id | Out-String)/artifacts/$($_.id | Out-String)"
                     } | Select-Object -First 1
                 )
 
