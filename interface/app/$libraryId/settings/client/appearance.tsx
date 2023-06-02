@@ -80,12 +80,10 @@ export const Component = () => {
 			getThemeStore().syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
 			getThemeStore().syncThemeWithSystem = false;
-			platform.toggleSwiftTheme(0);
 			getThemeStore().theme = theme;
 			document.documentElement.classList.add('vanilla-theme');
 		} else if (theme === 'dark') {
 			getThemeStore().syncThemeWithSystem = false;
-			platform.toggleSwiftTheme(1);
 			getThemeStore().theme = theme;
 			document.documentElement.classList.remove('vanilla-theme');
 		}
