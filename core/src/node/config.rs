@@ -17,7 +17,7 @@ use crate::{
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
-const MIGRATOR: FileMigrator<NodeConfig> = FileMigrator {
+const MIGRATOR: FileMigrator<NodeConfig, ()> = FileMigrator {
 	current_version: migrations::NODE_VERSION,
 	migration_fn: migrations::migration_node,
 	phantom: PhantomData,
@@ -66,7 +66,7 @@ impl NodeConfigManager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
 	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(
-			RwLock::new(MIGRATOR.load(&Self::path(&data_path))?),
+			RwLock::new(MIGRATOR.load(&Self::path(&data_path), ()).await?),
 			data_path,
 		)))
 	}

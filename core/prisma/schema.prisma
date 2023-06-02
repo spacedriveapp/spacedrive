@@ -446,7 +446,7 @@ model Comment {
 
 model IndexerRule {
     id             Int      @id @default(autoincrement())
-    pub_id         Bytes    @unique
+    pub_id         Bytes?   @unique
     name           String
     default        Boolean  @default(false)
     rules_per_kind Bytes

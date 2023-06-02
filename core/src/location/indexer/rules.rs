@@ -126,10 +126,11 @@ impl IndexerRuleCreateArgs {
 				.db
 				.indexer_rule()
 				.create(
-					uuid_to_bytes(generate_pub_id()),
 					self.name,
 					rules_data,
-					vec![],
+					vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
+						generate_pub_id(),
+					)))],
 				)
 				.exec()
 				.await?,
@@ -452,6 +453,17 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
+	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+		Self {
+			id: None,
+			name,
+			default,
+			rules,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
+		}
+	}
+
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path>,
@@ -645,10 +657,9 @@ mod seeder {
 				.upsert(
 					indexer_rule::pub_id::equals(pub_id.clone()),
 					indexer_rule::create(
-						pub_id.clone(),
 						rule.name.to_string(),
 						rules.clone(),
-						vec![],
+						vec![indexer_rule::pub_id::set(Some(pub_id.clone()))],
 					),
 					vec![
 						indexer_rule::name::set(rule.name.to_string()),

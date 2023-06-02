@@ -1,14 +1,14 @@
-use std::{marker::PhantomData, path::PathBuf};
+use std::{marker::PhantomData, path::PathBuf, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::{migrations, util::migrator::FileMigrator};
+use crate::{migrations, prisma::PrismaClient, util::migrator::FileMigrator};
 
 use super::LibraryManagerError;
 
-const MIGRATOR: FileMigrator<LibraryConfig> = FileMigrator {
+const MIGRATOR: FileMigrator<LibraryConfig, Arc<PrismaClient>> = FileMigrator {
 	current_version: migrations::LIBRARY_VERSION,
 	migration_fn: migrations::migration_library,
 	phantom: PhantomData,
@@ -28,16 +28,16 @@ pub struct LibraryConfig {
 
 impl LibraryConfig {
 	/// read will read the configuration from disk and return it.
-	pub(super) fn read(file_dir: PathBuf) -> Result<LibraryConfig, LibraryManagerError> {
-		MIGRATOR.load(&file_dir).map_err(Into::into)
+	pub(super) async fn read_and_migrate(
+		file_dir: PathBuf,
+		db: Arc<PrismaClient>,
+	) -> Result<LibraryConfig, LibraryManagerError> {
+		MIGRATOR.load(&file_dir, db).await.map_err(Into::into)
 	}
 
 	/// save will write the configuration back to disk
-	pub(super) fn save(
-		file_dir: PathBuf,
-		config: &LibraryConfig,
-	) -> Result<(), LibraryManagerError> {
-		MIGRATOR.save(&file_dir, config.clone())?;
+	pub(super) fn save(&self, file_dir: PathBuf) -> Result<(), LibraryManagerError> {
+		MIGRATOR.save(&file_dir, self.clone())?;
 		Ok(())
 	}
 }

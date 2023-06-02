@@ -153,41 +153,41 @@ impl LibraryManager {
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
 		{
-			let entry_path = entry.path();
+			let config_path = entry.path();
 			let metadata = entry
 				.metadata()
 				.await
-				.map_err(|e| FileIOError::from((&entry_path, e)))?;
+				.map_err(|e| FileIOError::from((&config_path, e)))?;
 			if metadata.is_file()
-				&& entry_path
+				&& config_path
 					.extension()
 					.map(|ext| ext == "sdlibrary")
 					.unwrap_or(false)
 			{
-				let Some(Ok(library_id)) = entry_path
+				let Some(Ok(library_id)) = config_path
 				.file_stem()
 				.and_then(|v| v.to_str().map(Uuid::from_str))
 			else {
-				warn!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", entry_path.display());
+				warn!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", config_path.display());
 					continue;
 			};
 
-				let db_path = entry_path.with_extension("db");
+				let db_path = config_path.with_extension("db");
 				match fs::metadata(&db_path).await {
 					Ok(_) => {}
 					Err(e) if e.kind() == io::ErrorKind::NotFound => {
 						warn!(
 					"Found library '{}' but no matching database file was found. Skipping...",
-						entry_path.display()
+						config_path.display()
 					);
 						continue;
 					}
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				let config = LibraryConfig::read(entry_path)?;
-				libraries
-					.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
+				libraries.push(
+					Self::load(library_id, &db_path, config_path, node_context.clone()).await?,
+				);
 			}
 		}
 
@@ -221,15 +221,13 @@ impl LibraryManager {
 			));
 		}
 
-		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
-			&config,
-		)?;
+		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
+		config.save(config_path.clone())?;
 
 		let library = Self::load(
 			id,
 			self.libraries_dir.join(format!("{id}.db")),
-			config.clone(),
+			config_path,
 			self.node_context.clone(),
 		)
 		.await?;
@@ -281,8 +279,8 @@ impl LibraryManager {
 		}
 
 		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&library.config,
+			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 		)?;
 
 		invalidate_query!(library, "library.list");
@@ -360,7 +358,7 @@ impl LibraryManager {
 	pub(crate) async fn load(
 		id: Uuid,
 		db_path: impl AsRef<Path>,
-		config: LibraryConfig,
+		config_path: PathBuf,
 		node_context: NodeContext,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
@@ -373,6 +371,8 @@ impl LibraryManager {
 			))
 			.await?,
 		);
+
+		let config = LibraryConfig::read_and_migrate(config_path, db.clone()).await?;
 
 		let node_config = node_context.config.get().await;
 

@@ -74,7 +74,9 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
+		debug!("LocationManager created");
 		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await?;
+		debug!("P2PManager created");
 
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
@@ -87,6 +89,7 @@ impl Node {
 			},
 		)
 		.await?;
+		debug!("LibraryManager created");
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
