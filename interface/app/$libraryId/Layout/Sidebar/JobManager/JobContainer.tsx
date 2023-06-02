@@ -71,7 +71,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 												textItem?.onClick && "rounded-md hover:bg-app-button/50"
 											)}>
 											{Icon &&
-												<Icon weight="fill" className="-mt-0.5 mr-1 inline" />
+												<Icon weight="fill" className="-mt-0.5 ml-[-2px] mr-1 inline" />
 											}
 											{textItem?.text}
 										</TextItem>

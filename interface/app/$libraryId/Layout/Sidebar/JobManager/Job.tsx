@@ -58,7 +58,16 @@ function Job({ job, className, isChild }: JobProps) {
 					description: 'The job completed with errors. Please check the error log for more information.',
 					// map error text to string with newlines per error
 					value: "",
-					children: <pre className=' p-3 rounded border bg-app-darkBox/80 border-app-darkBox'>{job.errors_text.map((error, i) => <p className='text-sm' key={i}>{error.trim()}</p>)}</pre>
+					children: <pre className='rounded border border-app-darkBox bg-app-darkBox/80 p-3 max-h-[300px] custom-scroll inspector-scroll'>
+						{job.errors_text.map((error, i) =>
+							<p
+								className='overflow-auto whitespace-normal break-words w-full mb-1 text-sm'
+								key={i}>
+								{error.trim()}
+							</p>
+						)}
+					</pre>
+
 				});
 			}
 		}])
