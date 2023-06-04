@@ -67,6 +67,8 @@ export default () => {
 			onLoadMore={explorerView.onLoadMore}
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
+			preventSelection={!explorerView.selectable}
+			preventContextMenuSelection={!explorerView.contextMenu}
 		>
 			{({ index, item: Item }) => {
 				if (!explorerView.items) {

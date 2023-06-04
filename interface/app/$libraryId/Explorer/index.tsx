@@ -72,7 +72,7 @@ export default function Explorer(props: Props) {
 							rowsBeforeLoadMore={5}
 							selected={selectedItemId}
 							onSelectedChange={setSelectedItemId}
-							contextMenu={selectedItem && <ContextMenu data={selectedItem} />}
+							contextMenu={<ContextMenu data={selectedItem} />}
 							emptyNotice={
 								<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 									<FolderNotchOpen size={100} opacity={0.3} />

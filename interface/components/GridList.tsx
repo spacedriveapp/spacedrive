@@ -25,19 +25,17 @@ interface GridListDefaults<T extends GridListSelection> {
 		index: number;
 		item: (props: GridListItemProps) => JSX.Element;
 	}) => JSX.Element | null;
-
 	selected?: T;
 	onSelectedChange?: (change: T) => void;
-
 	selectable?: boolean;
 	onSelect?: (index: number) => void;
 	onDeselect?: (index: number) => void;
-
 	overscan?: number;
 	top?: number;
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
 	preventSelection?: boolean;
+	preventContextMenuSelection?: boolean;
 }
 interface WrapProps<T extends GridListSelection> extends GridListDefaults<T> {
 	size: number | { width: number; height: number };
@@ -125,6 +123,15 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 		rowVirtualizer.measure();
 		columnVirtualizer.measure();
 	}, [rowVirtualizer, columnVirtualizer, virtualItemWidth, virtualItemHeight]);
+
+	// Force recalculate range
+	// https://github.com/TanStack/virtual/issues/485
+	useMemo(() => {
+		// @ts-ignore
+		rowVirtualizer.calculateRange();
+		// @ts-ignore
+		columnVirtualizer.calculateRange();
+	}, [amountOfRows, amountOfColumns, rowVirtualizer, columnVirtualizer]);
 
 	// Set Selecto scroll options
 	useEffect(() => {
@@ -341,7 +348,9 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 												!multiSelect && props.onSelectedChange?.(id as T);
 											},
 											onContextMenu: (id) => {
-												!multiSelect && props.onSelectedChange?.(id as T);
+												!props.preventContextMenuSelection &&
+													!multiSelect &&
+													props.onSelectedChange?.(id as T);
 											}
 										})}
 									</div>

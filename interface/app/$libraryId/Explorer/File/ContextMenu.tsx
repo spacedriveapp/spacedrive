@@ -33,7 +33,7 @@ import EncryptDialog from './EncryptDialog';
 import EraseDialog from './EraseDialog';
 
 interface Props {
-	data: ExplorerItem;
+	data?: ExplorerItem;
 }
 
 export default ({ data }: Props) => {
@@ -51,6 +51,7 @@ export default ({ data }: Props) => {
 	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
+	if (!data) return null;
 	return (
 		<>
 			<OpenOrDownloadOptions data={data} />

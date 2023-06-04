@@ -73,6 +73,8 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				</div>
 			}
 			onOpenChange={explorerView.setIsContextMenuOpen}
+			disabled={!explorerView.contextMenu}
+			asChild={false}
 		>
 			{explorerView.contextMenu}
 		</ContextMenu.Root>

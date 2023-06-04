@@ -27,30 +27,31 @@ import RenameTextBox from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath } from '../util';
+import { getExplorerItemData, getItemFilePath } from '../util';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
-	index: number;
-	selected: boolean;
 	columnSizing: ColumnSizingState;
+	paddingX: number;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
-		<ViewItem data={props.row.original}>
+		<ViewItem data={props.row.original} className="w-full">
 			<div role="row" className="flex h-full items-center">
-				{props.row.getVisibleCells().map((cell) => {
+				{props.row.getVisibleCells().map((cell, i, cells) => {
 					return (
 						<div
 							role="cell"
 							key={cell.id}
 							className={clsx(
-								'table-cell truncate px-4 text-xs text-ink-dull',
+								'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
 								cell.column.columnDef.meta?.className
 							)}
 							style={{
-								width: cell.column.getSize()
+								width:
+									cell.column.getSize() -
+									(cells.length - 1 === i ? props.paddingX : 0)
 							}}
 						>
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -72,25 +73,36 @@ export default () => {
 
 	const [sized, setSized] = useState(false);
 	const [locked, setLocked] = useState(true);
-	const [listOffset, setListOffset] = useState(0);
-
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
-
+	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<[number, number][]>([]);
 
-	const scrollerPaddingTop = explorerView.scrollRef.current
-		? parseInt(getComputedStyle(explorerView.scrollRef.current).paddingTop)
-		: 0;
+	const top =
+		(explorerView.top || 0) +
+		(explorerView.scrollRef.current
+			? parseInt(getComputedStyle(explorerView.scrollRef.current).paddingTop)
+			: 0);
 
 	const { isScrolled } = useScrolled(
 		explorerView.scrollRef,
-		sized ? listOffset - scrollerPaddingTop - (explorerView.top || 0) : undefined
+		sized ? listOffset - top : undefined
 	);
 
-	const paddingX = 16;
-	const paddingY = 12;
+	const paddingX =
+		(typeof explorerView.padding === 'object'
+			? explorerView.padding.x
+			: explorerView.padding) || 16;
+
+	const paddingY =
+		(typeof explorerView.padding === 'object'
+			? explorerView.padding.y
+			: explorerView.padding) || 12;
+
 	const scrollBarWidth = 8;
 	const rowHeight = 45;
+
+	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
+	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
 	const getObjectData = (data: ExplorerItem) => (isObject(data) ? data.item : data.item.object);
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
@@ -171,8 +183,7 @@ export default () => {
 				header: 'Content ID',
 				enableSorting: false,
 				size: 180,
-				// accessorFn: (file) => getExplorerItemData(file).casId
-				accessorFn: (file) => file.item.id
+				accessorFn: (file) => getExplorerItemData(file).casId
 			}
 		],
 		[explorerView.selected, explorerStore.isRenaming]
@@ -211,12 +222,10 @@ export default () => {
 			: explorerView.selected;
 	}, [explorerView.selected]);
 
-	function handleResize(size: { width: number }) {
-		if (!size.width) return;
-
+	function handleResize(width: number) {
 		if (locked && Object.keys(columnSizing).length > 0) {
 			table.setColumnSizing((sizing) => {
-				const scrollWidth = size.width;
+				const scrollWidth = width;
 				const nameWidth = sizing.name;
 				return {
 					...sizing,
@@ -233,7 +242,7 @@ export default () => {
 				};
 			});
 		} else {
-			const scrollWidth = size.width;
+			const scrollWidth = width;
 			const tableWidth = tableLength;
 			if (Math.abs(scrollWidth - tableWidth) < 10) {
 				setLocked(true);
@@ -321,10 +330,8 @@ export default () => {
 
 			explorerView.onSelectedChange?.([...updated]);
 		} else if (e.button === 0) {
-			// setLastMouseSelectedId(rowIndex);
 			explorerView.onSelectedChange?.(explorerView.multiSelect ? [itemId] : itemId);
 			setRanges([[itemId, itemId]]);
-			// table.setRowSelection({ [row.id]: true });
 		}
 	}
 
@@ -343,13 +350,11 @@ export default () => {
 		}
 	}
 
-	const { width = 0 } = useResizeObserver({ ref: tableRef });
-	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
+	function isSelected(id: number) {
+		return typeof selectedItems === 'object' ? !!selectedItems.has(id) : selectedItems === id;
+	}
 
-	// TODO: Improve this
-	useEffect(() => {
-		handleResize({ width });
-	}, [width]);
+	useEffect(() => handleResize(tableWidth), [tableWidth]);
 
 	// TODO: Improve this
 	useEffect(() => {
@@ -418,8 +423,6 @@ export default () => {
 					const lastSelectedRow = table.getRow(lastSelectedItemId.toString());
 
 					if (lastSelectedRow) {
-						const shouldSelectNextRow =
-							ranges[ranges.length - 1]?.[0] === lastSelectedItemId;
 						const nextRow =
 							rows[
 								e.key === 'ArrowUp'
@@ -470,12 +473,6 @@ export default () => {
 									scrollRect.top +
 									(isScrolled ? 35 : 0);
 
-								const viewpoint = {
-									top: explorerView.scrollRef.current.scrollTop,
-									bottom:
-										explorerView.scrollRef.current.scrollTop + scrollRect.height
-								};
-
 								const rowTop =
 									nextRow.index * rowHeight +
 									rowVirtualizer.options.paddingStart +
@@ -513,37 +510,36 @@ export default () => {
 	);
 
 	return (
-		<div role="table" className="flex w-full flex-col" ref={tableRef}>
+		<div className="flex w-full flex-col" ref={tableRef}>
 			{sized && (
 				<ScrollSync>
 					<>
 						<ScrollSyncPane>
 							<div
-								onClick={(e) => e.stopPropagation()}
 								className={clsx(
 									'no-scrollbar table-header-group overflow-x-auto overscroll-x-none',
 									isScrolled && 'top-bar-blur fixed z-20 !bg-app/90'
 								)}
 								style={{
-									top: (explorerView.top || 0) + scrollerPaddingTop,
-									width: isScrolled ? width : undefined
+									top: top,
+									width: isScrolled ? tableWidth : undefined
 								}}
 							>
 								<div className="flex">
 									{table.getHeaderGroups().map((headerGroup) => (
 										<div
 											ref={tableHeaderRef}
-											role="rowheader"
 											key={headerGroup.id}
 											className="flex grow border-b border-app-line/50"
 										>
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
+
 												const isSorted =
 													explorerStore.orderBy === header.id;
+
 												return (
 													<div
-														role="columnheader"
 														key={header.id}
 														className="relative shrink-0 truncate px-4 py-2 text-xs first:pl-24"
 														style={{
@@ -580,14 +576,15 @@ export default () => {
 																	header.column.columnDef.header,
 																	header.getContext()
 																)}
+
 																<div className="flex-1" />
 
 																{isSorted ? (
 																	explorerStore.orderByDirection ===
 																	'Asc' ? (
-																		<CaretUp className="text-ink-faint" />
+																		<CaretUp className="shrink-0 text-ink-faint" />
 																	) : (
-																		<CaretDown className="text-ink-faint" />
+																		<CaretDown className="shrink-0 text-ink-faint" />
 																	)
 																) : null}
 
@@ -624,30 +621,29 @@ export default () => {
 						</ScrollSyncPane>
 
 						<ScrollSyncPane>
-							<div
-								role="rowgroup"
-								className="no-scrollbar overflow-x-auto overscroll-x-none"
-							>
+							<div className="no-scrollbar overflow-x-auto overscroll-x-none">
 								<div
+									ref={tableBodyRef}
 									className="relative"
 									style={{
 										height: `${rowVirtualizer.getTotalSize()}px`,
 										width: headerWidth
 									}}
-									ref={tableBodyRef}
 								>
 									{virtualRows.map((virtualRow) => {
 										if (!explorerView.items) {
 											return (
 												<div
 													key={virtualRow.index}
-													className="absolute left-0 top-0 flex w-full py-px pl-4 pr-3"
+													className="absolute left-0 top-0 flex w-full py-px"
 													style={{
 														height: `${virtualRow.size}px`,
 														transform: `translateY(${
 															virtualRow.start -
 															rowVirtualizer.options.scrollMargin
-														}px)`
+														}px)`,
+														paddingLeft: `${paddingX}px`,
+														paddingRight: `${paddingX}px`
 													}}
 												>
 													<div className="relative flex h-full w-full animate-pulse rounded-md bg-app-box" />
@@ -658,34 +654,21 @@ export default () => {
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 
-										const selected =
-											typeof selectedItems !== 'number'
-												? !!selectedItems?.has(row.original.item.id)
-												: selectedItems === row.original.item.id;
+										const selected = isSelected(row.original.item.id);
 
+										const previousRow = rows[virtualRow.index - 1];
 										const selectedPrior =
-											typeof selectedItems !== 'number'
-												? !!selectedItems?.has(
-														rows[virtualRow.index - 1]?.original.item
-															.id!
-												  )
-												: selectedItems ===
-												  rows[virtualRow.index - 1]?.original.item.id!;
+											previousRow && isSelected(previousRow.original.item.id);
 
+										const nextRow = rows[virtualRow.index + 1];
 										const selectedNext =
-											typeof selectedItems !== 'number'
-												? !!selectedItems?.has(
-														rows[virtualRow.index + 1]?.original.item
-															.id!
-												  )
-												: selectedItems ===
-												  rows[virtualRow.index + 1]?.original.item.id!;
+											nextRow && isSelected(nextRow.original.item.id);
 
 										return (
 											<div
 												key={row.id}
 												className={clsx(
-													'absolute left-0 top-0 flex w-full pl-4 pr-3',
+													'absolute left-0 top-0 flex w-full',
 													explorerStore.isRenaming && selected && 'z-10'
 												)}
 												style={{
@@ -693,7 +676,9 @@ export default () => {
 													transform: `translateY(${
 														virtualRow.start -
 														rowVirtualizer.options.scrollMargin
-													}px)`
+													}px)`,
+													paddingLeft: `${paddingX}px`,
+													paddingRight: `${paddingX}px`
 												}}
 											>
 												<div
@@ -701,18 +686,14 @@ export default () => {
 													onContextMenu={() => handleRowContextMenu(row)}
 													className={clsx(
 														'relative flex h-full w-full rounded-md border',
-
 														virtualRow.index % 2 === 0 &&
 															'bg-[#00000006] dark:bg-[#00000030]',
-
 														selected
 															? 'border-accent !bg-accent/10'
 															: 'border-transparent',
-
 														selected &&
 															selectedPrior &&
 															'rounded-t-none border-t-0 border-t-transparent',
-
 														selected &&
 															selectedNext &&
 															'rounded-b-none border-b-0 border-b-transparent'
@@ -724,8 +705,7 @@ export default () => {
 
 													<ListViewItem
 														row={row}
-														index={virtualRow.index}
-														selected={selected}
+														paddingX={paddingX}
 														columnSizing={columnSizing}
 													/>
 												</div>

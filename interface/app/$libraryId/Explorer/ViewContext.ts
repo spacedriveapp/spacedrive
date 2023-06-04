@@ -16,6 +16,7 @@ export interface ExplorerViewContext<T = ExplorerViewSelection> {
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	selectable?: boolean;
+	padding?: number | { x?: number; y?: number };
 }
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);

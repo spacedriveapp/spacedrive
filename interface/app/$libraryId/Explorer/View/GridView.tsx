@@ -77,6 +77,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={explorerStore.isRenaming || !explorerView.selectable}
+			preventContextMenuSelection={!explorerView.contextMenu}
 		>
 			{({ index, item: Item }) => {
 				if (!explorerView.items) {
