@@ -222,29 +222,29 @@ export default () => {
 			: explorerView.selected;
 	}, [explorerView.selected]);
 
-	function handleResize(width: number) {
+	function handleResize() {
 		if (locked && Object.keys(columnSizing).length > 0) {
 			table.setColumnSizing((sizing) => {
-				const scrollWidth = width;
-				const nameWidth = sizing.name;
+				const nameSize = sizing.name;
+				const nameColumnMinSize = table.getColumn('name')?.columnDef.minSize;
+				const newNameSize =
+					(nameSize || 0) + tableWidth - paddingX * 2 - scrollBarWidth - tableLength;
+
 				return {
 					...sizing,
-					...(scrollWidth && nameWidth
+					...(nameSize !== undefined && nameColumnMinSize !== undefined
 						? {
 								name:
-									nameWidth +
-									scrollWidth -
-									paddingX * 2 -
-									scrollBarWidth -
-									tableLength
+									newNameSize >= nameColumnMinSize
+										? newNameSize
+										: nameColumnMinSize
 						  }
 						: {})
 				};
 			});
 		} else {
-			const scrollWidth = width;
 			const tableWidth = tableLength;
-			if (Math.abs(scrollWidth - tableWidth) < 10) {
+			if (Math.abs(tableWidth - tableWidth) < 10) {
 				setLocked(true);
 			}
 		}
@@ -354,7 +354,7 @@ export default () => {
 		return typeof selectedItems === 'object' ? !!selectedItems.has(id) : selectedItems === id;
 	}
 
-	useEffect(() => handleResize(tableWidth), [tableWidth]);
+	useEffect(() => handleResize(), [tableWidth]);
 
 	// TODO: Improve this
 	useEffect(() => {
