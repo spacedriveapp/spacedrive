@@ -1,4 +1,11 @@
-import { Collection, Collection_Light, Image, Video } from '@sd/assets/icons';
+import {
+	Collection,
+	Collection_Light,
+	Image,
+	Image_Light,
+	Video,
+	Video_Light
+} from '@sd/assets/icons';
 import { useTheme } from '@tanstack/react-query-devtools/build/lib/theme';
 import clsx from 'clsx';
 import { ReactNode } from 'react';
@@ -7,12 +14,22 @@ import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
 
-const MediaViewIcon = () => (
-	<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
-		<img src={Image} className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden" />
-		<img src={Video} className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden" />
-	</div>
-);
+const MediaViewIcon = () => {
+	const isDark = useIsDark();
+
+	return (
+		<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
+			<img
+				src={isDark ? Image : Image_Light}
+				className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden"
+			/>
+			<img
+				src={isDark ? Video : Video_Light}
+				className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden"
+			/>
+		</div>
+	);
+};
 
 const CollectionIcon = () => {
 	const isDark = useIsDark();
