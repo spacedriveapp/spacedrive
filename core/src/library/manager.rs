@@ -434,11 +434,14 @@ impl LibraryManager {
 			.exec()
 			.await?
 		{
-			library
+			if let Err(e) = library
 				.node_context
 				.location_manager
 				.add(location.id, library.clone())
-				.await?;
+				.await
+			{
+				error!("Failed to watch location on startup: {e}");
+			};
 		}
 
 		if let Err(e) = library
