@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { useState } from 'react';
 import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
-import { Button, Slider, forms } from '@sd/ui';
+import { Button, Divider, Slider, forms } from '@sd/ui';
+import { InfoText } from '@sd/ui/src/forms';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -97,78 +98,103 @@ export const Component = () => {
 	};
 
 	return (
-		<Form form={form} onSubmit={onSubmit}>
-			<Heading title="Appearance" description="Change the look of your client." />
-			<div className="mb-14 mt-8 flex h-[90px] w-full flex-wrap gap-5">
-				{themes.map((theme, i) => {
-					return (
-						<div
-							onClick={() => themeSelectHandler(theme.themeValue)}
-							className={clsx(
-								selectedTheme !== theme.themeValue && 'opacity-70',
-								'transition-all duration-200 hover:translate-y-[-3.5px]'
-							)}
-							key={i}
-						>
-							{theme.themeValue === 'system' ? (
-								<SystemTheme {...theme} isSelected={selectedTheme === 'system'} />
-							) : (
-								<Theme {...theme} isSelected={selectedTheme === theme.themeValue} />
-							)}
-						</div>
-					);
-				})}
-			</div>
-			<Setting mini title="Theme hue value" description="Change the hue of the theme">
-				<div className="mr-3 w-full max-w-[250px] justify-between gap-5">
-					<div className="w-full">
-						<Slider
-							value={getThemeStore().hueValue ?? [235]}
-							onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
-							min={0}
-							max={359}
-							step={1}
-							defaultValue={[235]}
-						/>
-						<p className="text-center text-xs text-ink-faint">{themeStore.hueValue}</p>
-					</div>
+		<>
+			<Form form={form} onSubmit={onSubmit}>
+				<Heading title="Appearance" description="Change the look of your client." />
+				<div className="mb-14 mt-8 flex h-[90px] w-full flex-wrap gap-5">
+					{themes.map((theme, i) => {
+						return (
+							<div
+								onClick={() => themeSelectHandler(theme.themeValue)}
+								className={clsx(
+									selectedTheme !== theme.themeValue && 'opacity-70',
+									'transition-all duration-200 hover:translate-y-[-3.5px]'
+								)}
+								key={i}
+							>
+								{theme.themeValue === 'system' ? (
+									<SystemTheme
+										{...theme}
+										isSelected={selectedTheme === 'system'}
+									/>
+								) : (
+									<Theme
+										{...theme}
+										isSelected={selectedTheme === theme.themeValue}
+									/>
+								)}
+							</div>
+						);
+					})}
 				</div>
-			</Setting>
-			{themeStore.theme === 'vanilla' && (
-				<p className="mb-3 text-xs text-red-700">
-					Hue color changes visible in dark mode only
-				</p>
-			)}
-			<Setting
-				mini
-				title="UI Animations"
-				className="opacity-30"
-				description="Dialogs and other UI elements will animate when opening and closing."
-			>
-				<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
-			</Setting>
-			<Setting
-				mini
-				title="Blur Effects"
-				className="opacity-30"
-				description="Some components will have a blur effect applied to them."
-			>
-				<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
-			</Setting>
-			<div className="mt-5 w-full text-center">
-				<Button
-					onClick={() => {
-						hueSliderHandler(235);
-						themeSelectHandler('dark');
-					}}
-					className="items-center justify-center "
-					variant="accent"
-					size="md"
+				<Setting mini title="Theme hue value" description="Change the hue of the theme">
+					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
+						<div className="w-full">
+							<Slider
+								value={getThemeStore().hueValue ?? [235]}
+								onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
+								min={0}
+								max={359}
+								step={1}
+								defaultValue={[235]}
+							/>
+							<p className="text-center text-xs text-ink-faint">
+								{themeStore.hueValue}
+							</p>
+						</div>
+					</div>
+				</Setting>
+				{themeStore.theme === 'vanilla' && (
+					<p className="mb-3 text-xs text-red-700">
+						Hue color changes visible in dark mode only
+					</p>
+				)}
+				<Setting
+					mini
+					title="UI Animations"
+					className="opacity-30"
+					description="Dialogs and other UI elements will animate when opening and closing."
 				>
-					Reset
-				</Button>
+					<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
+				</Setting>
+				<Setting
+					mini
+					title="Blur Effects"
+					className="opacity-30"
+					description="Some components will have a blur effect applied to them."
+				>
+					<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
+				</Setting>
+			</Form>
+			<Divider />
+			<div className="flex space-x-5">
+				<div className="flex flex-1 flex-col">
+					<div>
+						<Button
+							disabled={themeStore.theme === 'dark' && themeStore.hueValue[0] === 235}
+							variant={
+								themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
+									? 'outline'
+									: 'accent'
+							}
+							size="sm"
+							className="flex items-center gap-1"
+							onClick={() => {
+								hueSliderHandler(235);
+								themeSelectHandler('dark');
+							}}
+						>
+							<ArrowClockwise className="h-4 w-4" />
+							Reset
+						</Button>
+					</div>
+					<InfoText className="mt-2">
+						Reset appearance settings to their default.
+					</InfoText>
+				</div>
 			</div>
-		</Form>
+			<Divider />
+		</>
 	);
 };
 
