@@ -131,7 +131,7 @@ export const Component = () => {
 							defaultValue={[235]}
 						/>
 						<p className="text-center text-xs text-ink-faint">{themeStore.hueValue}</p>
-						{themeStore.hueValue[0] !== 235 && themeStore.theme === 'vanilla' && (
+						{themeStore.theme === 'vanilla' && (
 							<p className="mx-auto mt-2 w-[80%] text-center text-xs text-ink-faint">
 								Hue color changes visible in dark mode only
 							</p>
