@@ -12,7 +12,7 @@ export interface ExplorerViewContext<T = ExplorerViewSelection> {
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
 	top?: number;
-	multiSelect?: T extends number[] ? true : false;
+	multiSelect?: boolean;
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	selectable?: boolean;

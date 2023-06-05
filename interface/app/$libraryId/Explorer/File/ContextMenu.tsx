@@ -167,9 +167,11 @@ export default ({ data }: Props) => {
 
 			<ContextMenu.Separator />
 
-			<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
-				<AssignTagMenuItems objectId={objectData ? objectData.id : data.item.id} />
-			</ContextMenu.SubMenu>
+			{objectData && (
+				<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
+					<AssignTagMenuItems objectId={objectData.id} />
+				</ContextMenu.SubMenu>
+			)}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
 				<ContextMenu.Item
