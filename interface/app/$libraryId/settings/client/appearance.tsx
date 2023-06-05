@@ -100,7 +100,32 @@ export const Component = () => {
 	return (
 		<>
 			<Form form={form} onSubmit={onSubmit}>
-				<Heading title="Appearance" description="Change the look of your client." />
+				<Heading
+					title="Appearance"
+					description="Change the look of your client."
+					rightArea={
+						<div>
+							<Button
+								disabled={
+									themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
+								}
+								variant={
+									themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
+										? 'outline'
+										: 'accent'
+								}
+								size="sm"
+								className="flex items-center gap-1"
+								onClick={() => {
+									hueSliderHandler(235);
+									themeSelectHandler('dark');
+								}}
+							>
+								Reset
+							</Button>
+						</div>
+					}
+				/>
 				<div className="mb-14 mt-8 flex h-[90px] w-full flex-wrap gap-5">
 					{themes.map((theme, i) => {
 						return (
@@ -166,34 +191,6 @@ export const Component = () => {
 					<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
 				</Setting>
 			</Form>
-			<Divider />
-			<div className="flex space-x-5">
-				<div className="flex flex-1 flex-col">
-					<div>
-						<Button
-							disabled={themeStore.theme === 'dark' && themeStore.hueValue[0] === 235}
-							variant={
-								themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
-									? 'outline'
-									: 'accent'
-							}
-							size="sm"
-							className="flex items-center gap-1"
-							onClick={() => {
-								hueSliderHandler(235);
-								themeSelectHandler('dark');
-							}}
-						>
-							<ArrowClockwise className="h-4 w-4" />
-							Reset
-						</Button>
-					</div>
-					<InfoText className="mt-2">
-						Reset appearance settings to their default.
-					</InfoText>
-				</div>
-			</div>
-			<Divider />
 		</>
 	);
 };
