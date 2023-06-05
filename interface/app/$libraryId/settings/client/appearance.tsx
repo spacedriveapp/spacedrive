@@ -89,7 +89,7 @@ export const Component = () => {
 	};
 
 	const hueSliderHandler = (hue: number) => {
-		getThemeStore().hueValue = [hue];
+		getThemeStore().hueValue = hue;
 		if (themeStore.theme === 'vanilla') {
 			document.documentElement.style.setProperty('--light-hue', hue.toString());
 		} else if (themeStore.theme === 'dark') {
@@ -107,10 +107,10 @@ export const Component = () => {
 						<div>
 							<Button
 								disabled={
-									themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
+									themeStore.theme === 'dark' && themeStore.hueValue === 235
 								}
 								variant={
-									themeStore.theme === 'dark' && themeStore.hueValue[0] === 235
+									themeStore.theme === 'dark' && themeStore.hueValue === 235
 										? 'outline'
 										: 'accent'
 								}
@@ -156,7 +156,7 @@ export const Component = () => {
 					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
 						<div className="w-full">
 							<Slider
-								value={getThemeStore().hueValue ?? [235]}
+								value={[getThemeStore().hueValue] ?? [235]}
 								onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
 								min={0}
 								max={359}

@@ -6,7 +6,7 @@ export type Themes = 'vanilla' | 'dark';
 const themeStore = valtioPersist('sd-theme', {
 	theme: 'dark' as Themes,
 	syncThemeWithSystem: false,
-	hueValue: [235],
+	hueValue: 235,
 });
 
 export function useThemeStore() {
