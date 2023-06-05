@@ -308,7 +308,7 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 # --
 
-Write-Output "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
+Write-Host "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
 
 $page = 1
 while ($page -gt 0) {
@@ -326,7 +326,9 @@ while ($page -gt 0) {
                     | Where-Object {
                         $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
                     } | ForEach-Object {
-                        "suites/$($_.workflow_run.id | Out-String)/artifacts/$($_.id | Out-String)"
+                        $id = $_.id
+                        $workflowRunId = $_.workflow_run.id
+                        "suites/${workflowRunId}/artifacts/${id}"
                     } | Select-Object -First 1
                 )
 
