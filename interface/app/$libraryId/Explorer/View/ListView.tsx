@@ -483,7 +483,7 @@ export default () => {
 
 								if (rowTop < top) {
 									const scrollBy =
-										rowTop - top - (nextRow.index === 0 ? paddingY : 1);
+										rowTop - top - (nextRow.index === 0 ? paddingY : 0);
 
 									explorerView.scrollRef.current.scrollBy({
 										top: scrollBy,
@@ -493,7 +493,7 @@ export default () => {
 									const scrollBy =
 										rowBottom -
 										scrollRect.height +
-										(nextRow.index === rows.length - 1 ? paddingY : 1);
+										(nextRow.index === rows.length - 1 ? paddingY : 0);
 
 									explorerView.scrollRef.current.scrollBy({
 										top: scrollBy,
