@@ -243,8 +243,7 @@ export default () => {
 				};
 			});
 		} else {
-			const tableWidth = tableLength;
-			if (Math.abs(tableWidth - tableWidth) < 10) {
+			if (Math.abs(tableWidth - tableLength) < 10) {
 				setLocked(true);
 			}
 		}
