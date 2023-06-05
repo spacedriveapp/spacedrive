@@ -120,7 +120,7 @@ export const Component = () => {
 				})}
 			</div>
 			<Setting mini title="Theme hue value" description="Change the hue of the theme">
-				<div className="mr-3 flex w-full max-w-[250px] justify-between gap-5">
+				<div className="mr-3 w-full max-w-[250px] justify-between gap-5">
 					<div className="w-full">
 						<Slider
 							value={getThemeStore().hueValue ?? [235]}
@@ -131,31 +131,18 @@ export const Component = () => {
 							defaultValue={[235]}
 						/>
 						<p className="text-center text-xs text-ink-faint">{themeStore.hueValue}</p>
-						{themeStore.theme === 'vanilla' && (
-							<p className="mx-auto mt-2 w-[80%] text-center text-xs text-ink-faint">
-								Hue color changes visible in dark mode only
-							</p>
-						)}
 					</div>
-					<Button
-						onClick={() => hueSliderHandler(235)}
-						className="flex h-[30px] w-[35px] items-center justify-center !p-0"
-						variant="accent"
-					>
-						<ArrowClockwise size={14} />
-					</Button>
 				</div>
 			</Setting>
-			<Setting
-				mini
-				title="Sync Theme with System"
-				description="The theme of the client will change based on your system theme."
-			>
-				<Switch disabled {...form.register('syncThemeWithSystem')} className="m-2 ml-4" />
-			</Setting>
+			{themeStore.theme === 'vanilla' && (
+				<p className="mb-3 text-xs text-red-700">
+					Hue color changes visible in dark mode only
+				</p>
+			)}
 			<Setting
 				mini
 				title="UI Animations"
+				className="opacity-30"
 				description="Dialogs and other UI elements will animate when opening and closing."
 			>
 				<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
@@ -163,10 +150,24 @@ export const Component = () => {
 			<Setting
 				mini
 				title="Blur Effects"
+				className="opacity-30"
 				description="Some components will have a blur effect applied to them."
 			>
 				<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
 			</Setting>
+			<div className="mt-5 w-full text-center">
+				<Button
+					onClick={() => {
+						hueSliderHandler(235);
+						themeSelectHandler('dark');
+					}}
+					className="items-center justify-center "
+					variant="accent"
+					size="md"
+				>
+					Reset
+				</Button>
+			</div>
 		</Form>
 	);
 };
