@@ -156,7 +156,7 @@ export const Component = () => {
 					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
 						<div className="w-full">
 							<Slider
-								value={[themeStore.hueValue] ?? [235]}
+								value={[themeStore.hueValue ?? 235]}
 								onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
 								min={0}
 								max={359}
