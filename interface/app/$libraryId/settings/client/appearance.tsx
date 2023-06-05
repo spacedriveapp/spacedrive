@@ -1,11 +1,10 @@
 import clsx from 'clsx';
-import { CheckCircle } from 'phosphor-react';
+import { ArrowClockwise, CheckCircle } from 'phosphor-react';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
-import { forms } from '@sd/ui';
-import { usePlatform } from '~/util/Platform';
+import { Button, Slider, forms } from '@sd/ui';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -57,7 +56,6 @@ const themes: Theme[] = [
 
 export const Component = () => {
 	const themeStore = useThemeStore();
-	const platform = usePlatform();
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
@@ -89,6 +87,15 @@ export const Component = () => {
 		}
 	};
 
+	const hueSliderHandler = (hue: number) => {
+		getThemeStore().hueValue = [hue];
+		if (themeStore.theme === 'vanilla') {
+			document.documentElement.style.setProperty('--light-hue', hue.toString());
+		} else if (themeStore.theme === 'dark') {
+			document.documentElement.style.setProperty('--dark-hue', hue.toString());
+		}
+	};
+
 	return (
 		<Form form={form} onSubmit={onSubmit}>
 			<Heading title="Appearance" description="Change the look of your client." />
@@ -112,6 +119,33 @@ export const Component = () => {
 					);
 				})}
 			</div>
+			<Setting mini title="Theme hue value" description="Change the hue of the theme">
+				<div className="mr-3 flex w-full max-w-[250px] justify-between gap-5">
+					<div className="w-full">
+						<Slider
+							value={getThemeStore().hueValue ?? [235]}
+							onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
+							min={0}
+							max={359}
+							step={1}
+							defaultValue={[235]}
+						/>
+						<p className="text-center text-xs text-ink-faint">{themeStore.hueValue}</p>
+						{themeStore.hueValue[0] !== 235 && themeStore.theme === 'vanilla' && (
+							<p className="mx-auto mt-2 w-[80%] text-center text-xs text-ink-faint">
+								Hue color changes visible in dark mode only
+							</p>
+						)}
+					</div>
+					<Button
+						onClick={() => hueSliderHandler(235)}
+						className="flex h-[30px] w-[35px] items-center justify-center !p-0"
+						variant="accent"
+					>
+						<ArrowClockwise size={14} />
+					</Button>
+				</div>
+			</Setting>
 			<Setting
 				mini
 				title="Sync Theme with System"
