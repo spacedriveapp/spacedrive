@@ -60,7 +60,7 @@ pub enum LibraryManagerError {
 	IndexerRulesSeeder(#[from] rules::SeederError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),
-	#[error("failed to run library migrations")]
+	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] MigratorError),
 	#[error("error migrating the library: {0}")]
 	MigrationError(#[from] MigrationError),

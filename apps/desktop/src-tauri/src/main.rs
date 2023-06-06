@@ -101,7 +101,7 @@ async fn main() -> tauri::Result<()> {
 			(Some(node), app)
 		}
 		Err(err) => {
-			tracing::error!("Error starting up the node: {err}");
+			println!("Error starting up the node: {err}");
 			(None, app.plugin(tauri_error_plugin(err)))
 		}
 	};
