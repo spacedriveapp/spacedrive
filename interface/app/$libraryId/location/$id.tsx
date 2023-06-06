@@ -1,6 +1,3 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import {
 	ExplorerItem,
 	useLibraryContext,
@@ -9,6 +6,9 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { Folder } from '~/components/Folder';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { z } from 'zod';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -20,6 +20,7 @@ import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
+import LocationOptions from './LocationOptions';
 
 const PARAMS = z.object({
 	id: z.coerce.number()
@@ -50,20 +51,21 @@ export const Component = () => {
 		explorerStore.locationId = location_id;
 	}, [explorerStore, location_id, path]);
 
-	const { query, items } = useItems();
-	const file = explorerStore.selectedRowIndex !== null && items?.[explorerStore.selectedRowIndex];
-	useKeyDeleteFile(file as ExplorerItem, location_id);
+	const { items, loadMore } = useItems();
 
 	return (
 		<>
 			<TopBarPortal
 				left={
-					<>
-						<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-						<span className="text-sm font-medium">
-							{path ? getLastSectionOfPath(path) : location.data?.name}
+					<div className='group flex flex-row items-center space-x-2'>
+						<span>
+							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
+							<span className="text-sm font-medium">
+								{path ? getLastSectionOfPath(path) : location.data?.name}
+							</span>
 						</span>
-					</>
+						{location.data && <LocationOptions location={location.data} path={path || ""} />}
+					</div>
 				}
 				right={
 					<TopBarOptions
@@ -71,14 +73,8 @@ export const Component = () => {
 					/>
 				}
 			/>
-			<div className="relative flex w-full flex-col">
-				<Explorer
-					items={items}
-					onLoadMore={query.fetchNextPage}
-					hasNextPage={query.hasNextPage}
-					isFetchingNextPage={query.isFetchingNextPage}
-				/>
-			</div>
+
+			<Explorer items={items} onLoadMore={loadMore} />
 		</>
 	);
 };
@@ -117,12 +113,19 @@ const useItems = () => {
 					cursor
 				}
 			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+		keepPreviousData: true
 	});
 
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items), [query.data]);
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
-	return { query, items };
+	function loadMore() {
+		if (query.hasNextPage && !query.isFetchingNextPage) {
+			query.fetchNextPage();
+		}
+	}
+
+	return { query, items, loadMore };
 };
 
 function getLastSectionOfPath(path: string): string | undefined {
