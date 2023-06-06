@@ -432,7 +432,7 @@ model ObjectInAlbum {
 
 model Comment {
     id            Int      @id @default(autoincrement())
-    pub_id        Bytes?   @unique
+    pub_id        Bytes    @unique
     content       String
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
