@@ -1,14 +1,13 @@
 import clsx from 'clsx';
+import { Columns, GridFour, Icon, MonitorPlay, Rows } from 'phosphor-react';
 import {
-	Cards,
-	Columns,
-	FolderNotchOpen,
-	GridFour,
-	MonitorPlay,
-	Rows,
-	SquaresFour
-} from 'phosphor-react';
-import { HTMLAttributes, PropsWithChildren, ReactNode, memo, useState } from 'react';
+	HTMLAttributes,
+	PropsWithChildren,
+	ReactNode,
+	isValidElement,
+	memo,
+	useState
+} from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKey } from 'rooks';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
@@ -19,6 +18,7 @@ import { usePlatform } from '~/util/Platform';
 import {
 	ExplorerViewContext,
 	ExplorerViewSelection,
+	ExplorerViewSelectionChange,
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
@@ -81,81 +81,110 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	);
 };
 
-interface Props<T extends ExplorerViewSelection>
+export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
 	extends Omit<ExplorerViewContext<T>, 'multiSelect' | 'selectable'> {
 	layout: ExplorerLayoutMode;
 	className?: string;
-	emptyNotice?: ReactNode;
+	emptyNotice?: JSX.Element | { icon?: Icon | ReactNode; message?: ReactNode } | null;
 }
 
-export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
-	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+export default memo(
+	<T extends ExplorerViewSelection>({
+		layout,
+		className,
+		emptyNotice,
+		...contextProps
+	}: ExplorerViewProps<T>) => {
+		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 
-	useKey('Space', (e) => {
-		e.preventDefault();
+		useKey('Space', (e) => {
+			e.preventDefault();
 
-		if (!getExplorerStore().quickViewObject) {
-			const selectedItem = contextProps.items?.find(
-				(item) =>
-					item.item.id ===
-					(Array.isArray(contextProps.selected)
-						? contextProps.selected[0]
-						: contextProps.selected)
-			);
+			if (!getExplorerStore().quickViewObject) {
+				const selectedItem = contextProps.items?.find(
+					(item) =>
+						item.item.id ===
+						(Array.isArray(contextProps.selected)
+							? contextProps.selected[0]
+							: contextProps.selected)
+				);
 
-			if (selectedItem) {
-				getExplorerStore().quickViewObject = selectedItem;
+				if (selectedItem) {
+					getExplorerStore().quickViewObject = selectedItem;
+				}
+			} else {
+				getExplorerStore().quickViewObject = null;
 			}
-		}
-	});
+		});
 
-	const emptyNoticeIcon = () => {
-		let Icon;
+		const emptyNoticeIcon = (icon?: Icon) => {
+			let Icon = icon;
 
-		switch (layout) {
-			case 'grid':
-				Icon = GridFour;
-				break;
-			case 'media':
-				Icon = MonitorPlay;
-				break;
-			case 'columns':
-				Icon = Columns;
-				break;
-			case 'rows':
-				Icon = Rows;
-				break;
-		}
+			if (!Icon) {
+				switch (layout) {
+					case 'grid':
+						Icon = GridFour;
+						break;
+					case 'media':
+						Icon = MonitorPlay;
+						break;
+					case 'columns':
+						Icon = Columns;
+						break;
+					case 'rows':
+						Icon = Rows;
+						break;
+				}
+			}
 
-		return <Icon size={100} opacity={0.3} />;
-	};
+			return <Icon size={100} opacity={0.3} />;
+		};
 
-	return (
-		<div className={clsx('h-full w-full', className)}>
-			{contextProps.items === null ||
-			(contextProps.items && contextProps.items.length > 0) ? (
-				<ViewContext.Provider
-					value={
-						{
-							...contextProps,
-							multiSelect: Array.isArray(contextProps.selected),
-							selectable: !isContextMenuOpen,
-							setIsContextMenuOpen: setIsContextMenuOpen
-						} as ExplorerViewContext
-					}
-				>
-					{layout === 'grid' && <GridView />}
-					{layout === 'rows' && <ListView />}
-					{layout === 'media' && <MediaView />}
-				</ViewContext.Provider>
-			) : emptyNotice === null ? null : (
-				emptyNotice || (
+		return (
+			<div
+				className={clsx('h-full w-full', className)}
+				onMouseDown={() =>
+					contextProps.onSelectedChange?.(
+						(Array.isArray(contextProps.selected)
+							? []
+							: undefined) as ExplorerViewSelectionChange<T>
+					)
+				}
+			>
+				{contextProps.items === null ||
+				(contextProps.items && contextProps.items.length > 0) ? (
+					<ViewContext.Provider
+						value={
+							{
+								...contextProps,
+								multiSelect: Array.isArray(contextProps.selected),
+								selectable: !isContextMenuOpen,
+								setIsContextMenuOpen: setIsContextMenuOpen
+							} as ExplorerViewContext
+						}
+					>
+						{layout === 'grid' && <GridView />}
+						{layout === 'rows' && <ListView />}
+						{layout === 'media' && <MediaView />}
+					</ViewContext.Provider>
+				) : emptyNotice === null ? null : isValidElement(emptyNotice) ? (
+					emptyNotice
+				) : (
 					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-						{emptyNoticeIcon()}
-						<p className="mt-5 text-xs">This list is empty</p>
+						{emptyNotice && 'icon' in emptyNotice
+							? isValidElement(emptyNotice.icon)
+								? emptyNotice.icon
+								: emptyNoticeIcon(emptyNotice.icon as Icon)
+							: emptyNoticeIcon()}
+
+						<p className="mt-5 text-xs">
+							{emptyNotice && 'message' in emptyNotice
+								? emptyNotice.message
+								: 'This list is empty'}
+						</p>
 					</div>
-				)
-			)}
-		</div>
-	);
-}) as <T extends ExplorerViewSelection>(props: Props<T>) => JSX.Element;
+				)}
+			</div>
+		);
+	}
+) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;

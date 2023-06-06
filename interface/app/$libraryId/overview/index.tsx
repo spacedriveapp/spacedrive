@@ -36,16 +36,6 @@ export const Component = () => {
 		[selectedItemId]
 	);
 
-	// this should be redundant once above todo is complete
-	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
-
-	const [selectedItemId, setSelectedItemId] = useState<number>();
-
-	const selectedItem = useMemo(
-		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
-		[selectedItemId]
-	);
-
 	return (
 		<>
 			<TopBarPortal
