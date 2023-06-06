@@ -52,7 +52,7 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
-		.js_init_script(format!(r#"window.__SD_ERROR__ = "{err}";"#))
+		.js_init_script(format!(r#"window.__SD_ERROR__ = `{err}`;"#))
 		.build()
 }
 

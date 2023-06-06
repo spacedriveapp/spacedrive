@@ -29,7 +29,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder size={30} className="mr-3" />
+			<Folder size={40} className="mr-3" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">

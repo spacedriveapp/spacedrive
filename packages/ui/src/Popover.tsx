@@ -1,11 +1,16 @@
 import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
+import { tw } from '.';
 
 interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
 	disabled?: boolean;
 }
+
+export const PopoverContainer = tw.div`flex flex-col p-1.5`;
+export const PopoverSection = tw.div`flex flex-col`;
+export const PopoverDivider = tw.div`my-2 border-b border-app-line`;
 
 export const Popover = ({ trigger, children, disabled, className, ...props }: Props) => {
 	const triggerRef = useRef<HTMLButtonElement>(null);

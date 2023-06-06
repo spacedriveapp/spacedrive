@@ -25,7 +25,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 	 * explorerStore.quickViewObject is set to null the component will not close immediately.
 	 * Instead, it will enter the beginning of the close transition and it must continue to display
 	 * content for a few more seconds due to the ongoing animation. To handle this, the open state
-	 * is decoupled from the store state, by assinging references to the required store properties
+	 * is decoupled from the store state, by assigning references to the required store properties
 	 * to render the component in the subscribe callback.
 	 */
 	useEffect(

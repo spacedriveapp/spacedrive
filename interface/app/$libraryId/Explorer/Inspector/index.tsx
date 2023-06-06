@@ -3,7 +3,7 @@ import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
 	Location,
@@ -36,12 +36,13 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	context?: Location | Tag;
-	data: ExplorerItem | null;
+	data?: ExplorerItem;
+	showThumbnail?: boolean;
 }
 
-export const Inspector = ({ data, context, className, ...elementProps }: Props) => {
+export const Inspector = ({ data, context, showThumbnail = true, ...props }: Props) => {
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
@@ -73,23 +74,12 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
 
 	return (
-		<div
-			{...elementProps}
-			className={clsx(
-				`custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1`,
-				className
-			)}
-			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
-		>
+		<div {...props}>
 			{item ? (
 				<>
-					{explorerStore.layoutMode !== 'media' && (
-						<div
-							className={clsx(
-								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
-							)}
-						>
-							<FileThumb loadOriginal size={240} data={data} />
+					{showThumbnail && (
+						<div className="mb-2 aspect-square">
+							<FileThumb loadOriginal size={null} data={data} className="mx-auto" />
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
