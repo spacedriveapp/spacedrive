@@ -1,7 +1,7 @@
+import { FilePath, useLibraryMutation } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef, useState } from 'react';
 import { useKey } from 'rooks';
-import { FilePath, useLibraryMutation } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 
@@ -31,9 +31,8 @@ export default ({
 		onError: () => reset()
 	});
 
-	const fileName = `${filePathData?.name}${
-		filePathData?.extension && `.${filePathData.extension}`
-	}`;
+	const fileName = `${filePathData?.name}${filePathData?.extension && `.${filePathData.extension}`
+		}`;
 
 	// Reset to original file name
 	function reset() {
@@ -58,8 +57,9 @@ export default ({
 				if (newName !== oldName) {
 					renameFile.mutate({
 						location_id: filePathData.location_id,
-						file_name: oldName,
-						new_file_name: newName
+						file_path_ids: [filePathData.id],
+						to: newName,
+						from_pattern: null,
 					});
 				}
 			}

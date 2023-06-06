@@ -82,7 +82,7 @@ export default ({ data }: Props) => {
 				<ContextMenu.Item
 					label="Remove from recents"
 					onClick={() =>
-						data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						data.item.object_id && removeFromRecents.mutate([data.item.object_id])
 					}
 				/>
 			)}

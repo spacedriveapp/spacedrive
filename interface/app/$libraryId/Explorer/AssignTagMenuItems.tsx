@@ -1,9 +1,9 @@
+import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
+import { ContextMenu, DropdownMenu, dialogManager, useContextMenu, useDropdownMenu } from '@sd/ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
-import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
-import { ContextMenu, DropdownMenu, dialogManager, useContextMenu, useDropdownMenu } from '@sd/ui';
 import { useScrolled } from '~/hooks/useScrolled';
 import CreateDialog from '../settings/library/tags/CreateDialog';
 
@@ -87,7 +87,7 @@ export default (props: { objectId: number }) => {
 										e.preventDefault();
 										assignTag.mutate({
 											tag_id: tag.id,
-											object_id: props.objectId,
+											object_ids: [props.objectId],
 											unassign: active
 										});
 									}}

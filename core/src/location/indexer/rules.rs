@@ -454,17 +454,6 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
-		Self {
-			id: None,
-			name,
-			default,
-			rules,
-			date_created: Utc::now(),
-			date_modified: Utc::now(),
-		}
-	}
-
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path>,
@@ -772,7 +761,7 @@ mod seeder {
                 ]
                 .into_iter()
                 .flatten()
-            ).unwrap(),
+            ).expect("this is hardcoded and should always work"),
         ],
     }
 	}
@@ -780,7 +769,8 @@ mod seeder {
 	fn no_hidden() -> SystemIndexerRule {
 		SystemIndexerRule {
 			name: "No Hidden",
-			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"]).unwrap()],
+			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
+				.expect("this is hardcoded and should always work")],
 		}
 	}
 
@@ -799,7 +789,7 @@ mod seeder {
 			rules: vec![RulePerKind::new_accept_files_by_globs_str([
 				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
 			])
-			.unwrap()],
+			.expect("this is hardcoded and should always work")],
 		}
 	}
 }
@@ -812,6 +802,19 @@ mod tests {
 	use super::*;
 	use tempfile::tempdir;
 	use tokio::fs;
+
+	impl IndexerRule {
+		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+			Self {
+				id: None,
+				name,
+				default,
+				rules,
+				date_created: Utc::now(),
+				date_modified: Utc::now(),
+			}
+		}
+	}
 
 	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
 		indexer_rule

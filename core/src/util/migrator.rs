@@ -54,7 +54,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 							};
 
 							if let Some(obj) = y.as_object_mut() {
-								if let Some(_) = obj.get("version").and_then(|v| v.as_str()) {
+								if obj.contains_key("version") {
 									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
 								} else {
 									return Err(err.into());
@@ -74,7 +74,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 				let is_latest = cfg.version == Self::CURRENT_VERSION;
 				for v in (cfg.version + 1)..=Self::CURRENT_VERSION {
 					cfg.version = v;
-					match Self::migrate(v, &mut cfg.other, &ctx).await {
+					match Self::migrate(v, &mut cfg.other, ctx).await {
 						Ok(()) => (),
 						Err(err) => {
 							file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
@@ -157,7 +157,7 @@ mod test {
 		async fn migrate(
 			to_version: u32,
 			config: &mut Map<String, Value>,
-			ctx: &Self::Ctx,
+			_ctx: &Self::Ctx,
 		) -> Result<(), MigratorError> {
 			match to_version {
 				0 => Ok(()),
@@ -218,12 +218,13 @@ mod test {
 				"version": 0
 			}))
 			.unwrap(),
-		);
+		)
+		.unwrap();
 		assert!(p.exists(), "config file was not initialised");
 		assert_eq!(file_as_str(&p), r#"{"version":0}"#);
 
 		// Load + migrate config
-		let config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
+		let _config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
 
 		assert_eq!(
 			file_as_str(&p),
