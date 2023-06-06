@@ -86,7 +86,7 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
-							className="max-w-xs mt-4 bg-red-500 border-transparent"
+							className="mt-4 max-w-xs border-transparent bg-red-500"
 							onClick={() => {
 								// @ts-expect-error
 								window.__TAURI_INVOKE__('reset_spacedrive');

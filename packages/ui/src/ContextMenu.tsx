@@ -6,6 +6,8 @@ import { PropsWithChildren, Suspense, createContext, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
+	onOpenChange?: (open: boolean) => void;
+	disabled?: boolean;
 }
 
 export const contextMenuClassNames = clsx(
@@ -20,10 +22,19 @@ export const contextMenuClassNames = clsx(
 const context = createContext<boolean>(false);
 export const useContextMenu = () => useContext(context);
 
-const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
+const Root = ({
+	trigger,
+	children,
+	className,
+	onOpenChange,
+	disabled,
+	...props
+}: ContextMenuProps) => {
 	return (
-		<RadixCM.Root>
-			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
+		<RadixCM.Root onOpenChange={onOpenChange}>
+			<RadixCM.Trigger asChild onContextMenu={(e) => disabled && e.preventDefault()}>
+				{trigger}
+			</RadixCM.Trigger>
 			<RadixCM.Portal>
 				<RadixCM.Content className={clsx(contextMenuClassNames, className)} {...props}>
 					<context.Provider value={true}>{children}</context.Provider>
