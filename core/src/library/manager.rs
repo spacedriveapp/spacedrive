@@ -288,7 +288,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		for library in self.libraries.read().await.iter() {
+		for library in libraries.iter() {
 			for location in library
 				.db
 				.location()

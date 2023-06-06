@@ -1,5 +1,4 @@
 use crate::{
-	invalidate_query,
 	library::LibraryConfig,
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
