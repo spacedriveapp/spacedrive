@@ -1,14 +1,22 @@
 use crate::{location::LocationId, prisma::file_path, util::error::NonUtf8PathError};
 
-use std::{borrow::Cow, fmt, path::Path};
+use std::{
+	borrow::Cow,
+	fmt,
+	path::{Path, MAIN_SEPARATOR},
+	sync::OnceLock,
+};
 
+use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
 	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
-	file_path_with_object, FilePathError,
+	file_path_to_isolate_with_id, file_path_with_object, FilePathError,
 };
+
+static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
@@ -71,6 +79,14 @@ impl<'a> IsolatedFilePathData<'a> {
 		self.location_id
 	}
 
+	pub fn name(&'a self) -> &'a str {
+		&self.name
+	}
+
+	pub fn extension(&'a self) -> &'a str {
+		&self.extension
+	}
+
 	pub fn parent(&'a self) -> Self {
 		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
 			("/", "", "")
@@ -113,6 +129,14 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
+	pub fn full_name(&self) -> String {
+		if self.extension.is_empty() {
+			self.name.to_string()
+		} else {
+			format!("{}.{}", self.name, self.extension)
+		}
+	}
+
 	pub fn materialized_path_for_children(&self) -> Option<String> {
 		if self.materialized_path == "/" && self.name.is_empty() && self.is_dir {
 			// We're at the root file_path
@@ -121,6 +145,53 @@ impl<'a> IsolatedFilePathData<'a> {
 			self.is_dir
 				.then(|| format!("{}{}/", self.materialized_path, self.name))
 		}
+	}
+
+	pub fn separate_name_and_extension_from_str(
+		source: &'a str,
+	) -> Result<(&'a str, &'a str), FilePathError> {
+		if source.contains(MAIN_SEPARATOR) {
+			return Err(FilePathError::InvalidFilenameAndExtension(
+				source.to_string(),
+			));
+		}
+
+		if let Some(last_dot_idx) = source.rfind('.') {
+			if last_dot_idx == 0 {
+				// The dot is the first character, so it's a hidden file
+				Ok((source, ""))
+			} else {
+				Ok((&source[..last_dot_idx], &source[last_dot_idx + 1..]))
+			}
+		} else {
+			// It's a file without extension
+			Ok((source, ""))
+		}
+	}
+
+	pub fn accept_file_name(name: &str) -> bool {
+		let reg = {
+			// Maybe we should enforce windows more restrictive rules on all platforms?
+			#[cfg(target_os = "windows")]
+			{
+				FORBIDDEN_FILE_NAMES.get_or_init(|| {
+					RegexSet::new([
+						r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.\w+)*$",
+						r#"[<>:"/\\|?*\u0000-\u0031]"#,
+					])
+					.expect("this regex should always be valid")
+				})
+			}
+
+			#[cfg(not(target_os = "windows"))]
+			{
+				FORBIDDEN_FILE_NAMES.get_or_init(|| {
+					RegexSet::new([r"/|\x00"]).expect("this regex should always be valid")
+				})
+			}
+		};
+
+		!reg.is_match(name)
 	}
 
 	pub fn separate_path_name_and_extension_from_str(
@@ -363,7 +434,12 @@ mod macros {
 	}
 }
 
-impl_from_db!(file_path, file_path_to_isolate, file_path_with_object);
+impl_from_db!(
+	file_path,
+	file_path_to_isolate,
+	file_path_to_isolate_with_id,
+	file_path_with_object
+);
 
 impl_from_db_without_location_id!(
 	file_path_for_file_identifier,

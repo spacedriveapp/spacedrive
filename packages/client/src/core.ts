@@ -37,7 +37,6 @@ export type Procedures = {
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobInit>, result: null } | 
-        { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
@@ -150,6 +149,8 @@ export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchO
 export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
+export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
@@ -293,7 +294,7 @@ export type RelationOperation = { relation_item: string; relation_group: string;
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+export type RenameFileArgs = { location_id: number; file_path_ids: number[]; to: string; from_pattern: FromPattern | null }
 
 export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
 

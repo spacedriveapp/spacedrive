@@ -3,7 +3,7 @@ name = "sd-core"
 version = "0.1.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
-rust-version = "1.68.1"
+rust-version = "1.70.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -91,6 +91,7 @@ normpath = { version = "1.1.1", features = ["localization"] }
 tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for log deletion
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
+regex = "1.8.4"
 
 
 [target.'cfg(windows)'.dependencies.winapi-util]

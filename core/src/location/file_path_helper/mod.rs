@@ -65,6 +65,14 @@ file_path::select!(file_path_to_isolate {
 	name
 	extension
 });
+file_path::select!(file_path_to_isolate_with_id {
+	id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+});
 file_path::select!(file_path_to_handle_custom_uri {
 	materialized_path
 	is_dir
@@ -99,6 +107,8 @@ pub struct FilePathMetadata {
 
 #[derive(Error, Debug)]
 pub enum FilePathError {
+	#[error("file path not found: <id='{0}'>")]
+	IdNotFound(FilePathId),
 	#[error("file Path not found: <path='{}'>", .0.display())]
 	NotFound(Box<Path>),
 	#[error("location '{0}' not found")]
@@ -131,6 +141,8 @@ pub enum FilePathError {
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
+	#[error("received an invalid filename and extension: <filename_and_extension='{0}'>")]
+	InvalidFilenameAndExtension(String),
 }
 
 #[cfg(feature = "location-watcher")]

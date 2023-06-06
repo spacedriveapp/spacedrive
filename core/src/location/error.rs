@@ -50,21 +50,21 @@ pub enum LocationError {
 
 	// Internal Errors
 	#[error(transparent)]
-	LocationMetadataError(#[from] LocationMetadataError),
+	LocationMetadata(#[from] LocationMetadataError),
 	#[error("failed to read location path metadata info")]
 	LocationPathFilesystemMetadataAccess(FileIOError),
 	#[error("missing metadata file for location <path='{}'>", .0.display())]
 	MissingMetadataFile(PathBuf),
 	#[error("failed to open file from local OS")]
-	FileReadError(FileIOError),
+	FileRead(FileIOError),
 	#[error("failed to read mounted volumes from local OS")]
 	VolumeReadError(String),
 	#[error("database error")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
-	LocationManagerError(#[from] LocationManagerError),
+	LocationManager(#[from] LocationManagerError),
 	#[error(transparent)]
-	FilePathError(#[from] FilePathError),
+	FilePath(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }
