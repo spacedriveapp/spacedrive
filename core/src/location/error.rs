@@ -58,7 +58,7 @@ pub enum LocationError {
 	FileReadError(FileIOError),
 	#[error("failed to read mounted volumes from local OS")]
 	VolumeReadError(String),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	LocationManagerError(#[from] LocationManagerError),

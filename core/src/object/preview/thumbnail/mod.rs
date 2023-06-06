@@ -83,7 +83,7 @@ pub enum ThumbnailerError {
 	SubPathNotFound(Box<Path>),
 
 	// Internal errors
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	FilePath(#[from] FilePathError),

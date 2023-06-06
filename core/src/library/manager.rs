@@ -49,7 +49,7 @@ pub enum LibraryManagerError {
 	FileIO(#[from] FileIOError),
 	#[error("error serializing or deserializing the JSON in the config file")]
 	Json(#[from] serde_json::Error),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("library not found error")]
 	LibraryNotFound,
@@ -57,7 +57,7 @@ pub enum LibraryManagerError {
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
-	#[error("failed to run seeder")]
+	#[error("failed to run seeder: {0}")]
 	Seeder(#[from] SeederError),
 	#[error("failed to initialise the key manager")]
 	KeyManager(#[from] sd_crypto::Error),

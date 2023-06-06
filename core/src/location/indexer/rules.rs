@@ -39,7 +39,7 @@ pub enum IndexerRuleError {
 	AcceptByItsChildrenFileIO(FileIOError),
 	#[error("reject by its children file I/O error")]
 	RejectByItsChildrenFileIO(FileIOError),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 }
 

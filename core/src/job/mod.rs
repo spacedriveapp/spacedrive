@@ -30,7 +30,7 @@ pub use worker::*;
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
-	#[error("database error")]
+	#[error("database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
 	JoinTaskError(#[from] tokio::task::JoinError),
