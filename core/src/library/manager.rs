@@ -6,7 +6,7 @@ use crate::{
 	prisma::{location, node, PrismaClient},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db::{load_and_migrate, MigrationError},
+		db,
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
 	},
@@ -63,7 +63,7 @@ pub enum LibraryManagerError {
 	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] MigratorError),
 	#[error("error migrating the library: {0}")]
-	MigrationError(#[from] MigrationError),
+	MigrationError(#[from] db::MigrationError),
 	#[error("invalid library configuration: {0}")]
 	InvalidConfig(String),
 	#[error(transparent)]
@@ -368,7 +368,7 @@ impl LibraryManager {
 				LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 			})?
 		);
-		let db = Arc::new(load_and_migrate(&db_url).await?);
+		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
 		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
 
