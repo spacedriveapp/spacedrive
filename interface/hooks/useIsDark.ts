@@ -1,16 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useThemeStore } from '@sd/client';
 
-// Use a media query to detect light theme changes, because our default theme is dark
-const lightMediaQuery = matchMedia('(prefers-color-scheme: light)');
+//this hook is being used for some ui elements & icons that need to be inverted
 
 export function useIsDark(): boolean {
-	const [isDark, setIsDark] = useState(!lightMediaQuery.matches);
+	const themeStore = useThemeStore();
+	const [isDark, setIsDark] = useState(themeStore.theme === 'dark');
 
 	useEffect(() => {
-		const handleChange = () => setIsDark(!lightMediaQuery.matches);
-		lightMediaQuery.addEventListener('change', handleChange);
-		return () => lightMediaQuery.removeEventListener('change', handleChange);
-	}, [setIsDark]);
+		 if (themeStore.syncThemeWithSystem) {
+			if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+				setIsDark(true);
+			} else setIsDark(false);
+		 } else {
+			if (themeStore.theme === 'dark') {
+				setIsDark(true);
+			} else if (themeStore.theme === 'vanilla') {
+				setIsDark(false);
+			}
+		}
+	}, [setIsDark, themeStore]);
 
 	return isDark;
 }
