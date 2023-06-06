@@ -51,7 +51,6 @@
 	--color-menu-shade: var(--dark-hue), 5%, 0%;
 }
 
-@media (prefers-color-scheme: light) {
 	.vanilla-theme {
 		// global
 		--color-black: 0, 0%, 0%;
@@ -109,4 +108,3 @@
 		// --color-menu-selected: var(--light-hue), 5%, 30%;
 		// --color-menu-shade: var(--light-hue), 5%, 0%;
 	}
-}
