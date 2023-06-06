@@ -86,7 +86,7 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 	const gridWidth = width - (paddingX || 0) * 2;
 
 	// Virtualizer count calculation
-	let amountOfColumns =
+	const amountOfColumns =
 		'columns' in props ? props.columns : itemWidth ? Math.floor(gridWidth / itemWidth) : 0;
 	const amountOfRows = amountOfColumns > 0 ? Math.ceil(props.count / amountOfColumns) : 0;
 
@@ -138,6 +138,8 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 		setScrollOptions({
 			container: props.scrollRef.current!,
 			getScrollPosition: () => {
+				// FIXME: Eslint is right here.
+				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 				return [props.scrollRef.current?.scrollLeft!, props.scrollRef.current?.scrollTop!];
 			},
 			throttleTime: 30,

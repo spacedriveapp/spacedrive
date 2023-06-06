@@ -445,6 +445,8 @@ export default () => {
 								explorerView.onSelectedChange([...newSet]);
 								setRanges([
 									...ranges.slice(0, ranges.length - 1),
+									// FIXME: Eslint is right here.
+									// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 									[ranges[ranges.length - 1]?.[0]!, Number(nextRow.id)]
 								]);
 							} else {
@@ -699,7 +701,7 @@ export default () => {
 													)}
 												>
 													{selectedPrior && (
-														<div className="absolute left-3 right-3 top-0 h-px bg-accent/10" />
+														<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
 													)}
 
 													<ListViewItem

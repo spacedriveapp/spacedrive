@@ -55,7 +55,8 @@ export const Component = () => {
 					<View
 						layout={explorerStore.layoutMode}
 						items={query.isLoading ? null : items || []}
-						scrollRef={page?.ref!}
+						// TODO: Fix this type here.
+						scrollRef={page?.ref as any}
 						onLoadMore={loadMore}
 						rowsBeforeLoadMore={5}
 						selected={selectedItemId}
@@ -70,7 +71,7 @@ export const Component = () => {
 						<Inspector
 							data={selectedItem}
 							showThumbnail={explorerStore.layoutMode !== 'media'}
-							className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] flex-shrink-0 bg-app pb-4 pl-1.5 pr-1"
+							className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] shrink-0 bg-app pb-4 pl-1.5 pr-1"
 						/>
 					)}
 				</div>
