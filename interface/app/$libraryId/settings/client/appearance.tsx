@@ -106,19 +106,12 @@ export const Component = () => {
 					rightArea={
 						<div>
 							<Button
-								disabled={
-									themeStore.theme === 'dark' && themeStore.hueValue === 235
-								}
-								variant={
-									themeStore.theme === 'dark' && themeStore.hueValue === 235
-										? 'outline'
-										: 'accent'
-								}
+								disabled={themeStore.hueValue === 235}
+								variant={themeStore.hueValue === 235 ? 'outline' : 'accent'}
 								size="sm"
 								className="flex items-center gap-1"
 								onClick={() => {
 									hueSliderHandler(235);
-									themeSelectHandler('dark');
 								}}
 							>
 								Reset
@@ -152,7 +145,15 @@ export const Component = () => {
 						);
 					})}
 				</div>
-				<Setting mini title="Theme hue value" description="Change the hue of the theme">
+				<Setting
+					mini
+					title="Theme hue value"
+					toolTipLabel={
+						themeStore.theme === 'vanilla' &&
+						'Hue color changes visible in dark mode only'
+					}
+					description="Change the hue of the theme"
+				>
 					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
 						<div className="w-full">
 							<Slider
@@ -169,11 +170,7 @@ export const Component = () => {
 						</div>
 					</div>
 				</Setting>
-				{themeStore.theme === 'vanilla' && (
-					<p className="mb-3 text-xs text-red-700">
-						Hue color changes visible in dark mode only
-					</p>
-				)}
+
 				<Setting
 					mini
 					title="UI Animations"
@@ -236,11 +233,7 @@ function SystemTheme(props: ThemeProps) {
 				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />
 				</div>
-				<div
-					className={clsx(
-						'relative h-full w-[50%] grow overflow-hidden rounded-r-lg'
-					)}
-				>
+				<div className={clsx('relative h-full w-[50%] grow overflow-hidden rounded-r-lg')}>
 					<Theme className="rounded-l-none" {...themes[0]!} />
 				</div>
 				{props.isSelected && (
