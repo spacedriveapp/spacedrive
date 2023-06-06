@@ -6,7 +6,7 @@ use crate::{
 		LocationError, LocationId, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
-	util::debug_initializer::AbortOnDrop,
+	util::AbortOnDrop,
 };
 
 use std::path::PathBuf;

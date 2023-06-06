@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
 import { Info } from 'phosphor-react';
-import { ChangeEvent, useId } from 'react';
+import { ChangeEvent, useEffect, useId } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
@@ -121,7 +121,9 @@ const RulesForm = ({ onSubmitted }: Props) => {
 		}
 	});
 
-	if (form.formState.isSubmitSuccessful) onSubmitted?.();
+	useEffect(() => {
+		if (form.formState.isSubmitSuccessful) onSubmitted?.();
+	}, [form.formState.isSubmitSuccessful, onSubmitted]);
 
 	return (
 		// The portal is required for Form because this component can be nested inside another form element
