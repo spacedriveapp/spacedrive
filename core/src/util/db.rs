@@ -50,9 +50,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	#[cfg(not(debug_assertions))]
 	client._migrate_deploy().await?;
 
-	Ok(prisma::new_client_with_url(db_url)
-		.await
-		.map_err(Box::new)?)
+	Ok(client)
 }
 
 /// This writes a `StoredKey` to prisma

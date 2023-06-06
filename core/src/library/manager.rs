@@ -362,15 +362,14 @@ impl LibraryManager {
 		node_context: NodeContext,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
-		let db = Arc::new(
-			load_and_migrate(&format!(
-				"file:{}",
-				db_path.as_os_str().to_str().ok_or_else(|| {
-					LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
-				})?
-			))
-			.await?,
+		let db_url = format!(
+			"file:{}",
+			db_path.as_os_str().to_str().ok_or_else(|| {
+				LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
+			})?
 		);
+		load_and_migrate(&db_url).await?;
+		let db = Arc::new(load_and_migrate(&db_url).await?);
 
 		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
 
