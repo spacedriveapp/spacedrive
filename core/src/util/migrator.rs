@@ -52,7 +52,33 @@ where
 		match path.try_exists()? {
 			true => {
 				let mut file = File::options().read(true).write(true).open(path)?;
-				let mut cfg: BaseConfig = serde_json::from_reader(BufReader::new(&mut file))?;
+				let mut cfg: BaseConfig = match serde_json::from_reader(BufReader::new(&mut file)) {
+					Ok(cfg) => cfg,
+					Err(err) => {
+						// This is for backwards compatibility for the backwards compatibility cause the super super old system store the version as a string.
+						{
+							file.rewind()?;
+							let mut y = match serde_json::from_reader::<_, Value>(BufReader::new(
+								&mut file,
+							)) {
+								Ok(y) => y,
+								Err(_) => {
+									return Err(err.into());
+								}
+							};
+
+							if let Some(obj) = y.as_object_mut() {
+								if let Some(_) = obj.get("version").and_then(|v| v.as_str()) {
+									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
+								} else {
+									return Err(err.into());
+								}
+							} else {
+								return Err(err.into());
+							}
+						}
+					}
+				};
 				file.rewind()?; // Fail early so we don't end up invalid state
 
 				if cfg.version > self.current_version {
@@ -112,6 +138,8 @@ pub enum MigratorError {
 	YourAppIsOutdated,
 	#[error("Type '{0}' as generic `Migrator::T` must be serialiable to a Serde object!")]
 	InvalidType(&'static str),
+	#[error("We detected a Spacedrive config from a super early version of the app!")]
+	HasSuperLegacyConfig,
 	#[error("custom migration error: {0}")]
 	Custom(String),
 }

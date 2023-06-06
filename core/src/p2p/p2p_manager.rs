@@ -106,7 +106,8 @@ impl P2PManager {
 								.ok();
 
 							// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
-							event.dial().await;
+							// TODO(Spacedrop): Disable Spacedrop for now
+							// event.dial().await;
 						}
 						Event::PeerMessage(mut event) => {
 							let events = events.clone();
