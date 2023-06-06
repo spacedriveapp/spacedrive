@@ -116,12 +116,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("removeAccessTime", {
 			R.with2(library())
-				.mutation(|(_, library), id: i32| async move {
+				.mutation(|(_, library), object_ids: Vec<i32>| async move {
 					library
 						.db
 						.object()
-						.update(
-							object::id::equals(id),
+						.update_many(
+							vec![object::id::in_vec(object_ids)],
 							vec![object::date_accessed::set(None)],
 						)
 						.exec()
