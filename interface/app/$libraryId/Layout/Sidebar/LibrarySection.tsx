@@ -25,11 +25,11 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{/* <SidebarLink className="group relative w-full" to={`/`} key={'jeff'}>
+				<SidebarLink disabled className="group relative w-full" to={`/`} key={'jeff'}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">{node.data?.name}</span>
-				</SidebarLink> */}
-				<SidebarLink className="group relative w-full" to={`/`}>
+				</SidebarLink>
+				{/* <SidebarLink className="group relative w-full" to={`/`}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">Jamie's MBP</span>
 				</SidebarLink>
@@ -41,7 +41,7 @@ export const LibrarySection = () => {
 					<img src={Server} className="mr-1 h-5 w-5" />
 					<span className="truncate">titan</span>
 				</SidebarLink>
-				{/* {(locations.data?.length || 0) < 4 && (
+				{(locations.data?.length || 0) < 4 && (
 					<Button variant="dotted" className="mt-1 w-full">
 						Connect Node
 					</Button>
