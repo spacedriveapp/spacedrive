@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::{migrations::*, NewClientError};
@@ -32,6 +34,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			.map(|v| v == "true")
 			.unwrap_or(false)
 		{
+			println!("accepting data loss");
 			builder = builder.accept_data_loss();
 		}
 
@@ -43,6 +46,8 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 		}
 
 		builder.await?;
+
+		tokio::time::sleep(Duration::from_millis(100)).await;
 	}
 
 	#[cfg(not(debug_assertions))]
