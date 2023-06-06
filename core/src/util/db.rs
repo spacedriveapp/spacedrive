@@ -42,7 +42,16 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			builder = builder.force_reset();
 		}
 
-		builder.await?;
+		let res = builder.await;
+
+		match res {
+			Ok(_) => {}
+			Err(e @ DbPushError::PossibleDataLoss(_)) => {
+				eprintln!("Pushing Prisma schema may result in data loss. Use `SD_ACCEPT_DATA_LOSS=true` to force it.");
+				Err(e)?;
+			}
+			Err(e) => Err(e)?,
+		}
 	}
 
 	#[cfg(not(debug_assertions))]
