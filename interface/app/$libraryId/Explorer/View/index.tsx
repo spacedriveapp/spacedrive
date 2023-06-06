@@ -1,14 +1,13 @@
 import clsx from 'clsx';
+import { Columns, GridFour, Icon, MonitorPlay, Rows } from 'phosphor-react';
 import {
-	Cards,
-	Columns,
-	FolderNotchOpen,
-	GridFour,
-	MonitorPlay,
-	Rows,
-	SquaresFour
-} from 'phosphor-react';
-import { HTMLAttributes, PropsWithChildren, ReactNode, memo, useState } from 'react';
+	HTMLAttributes,
+	PropsWithChildren,
+	ReactNode,
+	isValidElement,
+	memo,
+	useState
+} from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKey } from 'rooks';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
@@ -81,11 +80,11 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	);
 };
 
-interface Props<T extends ExplorerViewSelection>
+export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
 	extends Omit<ExplorerViewContext<T>, 'multiSelect' | 'selectable'> {
 	layout: ExplorerLayoutMode;
 	className?: string;
-	emptyNotice?: ReactNode;
+	emptyNotice?: JSX.Element | { icon?: Icon | ReactNode; message?: ReactNode } | null;
 }
 
 export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
@@ -109,22 +108,24 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 		}
 	});
 
-	const emptyNoticeIcon = () => {
-		let Icon;
+	const emptyNoticeIcon = (icon?: Icon) => {
+		let Icon = icon;
 
-		switch (layout) {
-			case 'grid':
-				Icon = GridFour;
-				break;
-			case 'media':
-				Icon = MonitorPlay;
-				break;
-			case 'columns':
-				Icon = Columns;
-				break;
-			case 'rows':
-				Icon = Rows;
-				break;
+		if (!Icon) {
+			switch (layout) {
+				case 'grid':
+					Icon = GridFour;
+					break;
+				case 'media':
+					Icon = MonitorPlay;
+					break;
+				case 'columns':
+					Icon = Columns;
+					break;
+				case 'rows':
+					Icon = Rows;
+					break;
+			}
 		}
 
 		return <Icon size={100} opacity={0.3} />;
@@ -148,14 +149,23 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 					{layout === 'rows' && <ListView />}
 					{layout === 'media' && <MediaView />}
 				</ViewContext.Provider>
-			) : emptyNotice === null ? null : (
-				emptyNotice || (
-					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-						{emptyNoticeIcon()}
-						<p className="mt-5 text-xs">This list is empty</p>
-					</div>
-				)
+			) : emptyNotice === null ? null : isValidElement(emptyNotice) ? (
+				emptyNotice
+			) : (
+				<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+					{emptyNotice && 'icon' in emptyNotice
+						? isValidElement(emptyNotice.icon)
+							? emptyNotice.icon
+							: emptyNoticeIcon(emptyNotice.icon as Icon)
+						: emptyNoticeIcon()}
+
+					<p className="mt-5 text-xs">
+						{emptyNotice && 'message' in emptyNotice
+							? emptyNotice.message
+							: 'This list is empty'}
+					</p>
+				</div>
 			)}
 		</div>
 	);
-}) as <T extends ExplorerViewSelection>(props: Props<T>) => JSX.Element;
+}) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;

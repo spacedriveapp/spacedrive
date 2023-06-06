@@ -21,7 +21,12 @@ export const Component = () => {
 
 	return (
 		<div className="w-full">
-			{explorerData.data && <Explorer items={explorerData.data.items} />}
+			<Explorer
+				items={explorerData.data?.items || null}
+				emptyNotice={{
+					message: 'No items assigned to this tag'
+				}}
+			/>
 		</div>
 	);
 };
