@@ -10,8 +10,6 @@ use uuid::Uuid;
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
 	NewClient(#[from] Box<NewClientError>),
-	#[error("An error occurred while setting the DB pragmas: {0}")]
-	QueryError(#[from] prisma_client_rust::QueryError),
 	#[cfg(debug_assertions)]
 	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] DbPushError),
