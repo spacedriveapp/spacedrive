@@ -106,6 +106,8 @@ export default memo(({ layout, className, emptyNotice, ...contextProps }) => {
 			if (selectedItem) {
 				getExplorerStore().quickViewObject = selectedItem;
 			}
+		} else {
+			getExplorerStore().quickViewObject = null;
 		}
 	});
 
