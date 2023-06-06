@@ -66,6 +66,7 @@ function Add-DirectoryToPath($directory) {
 
 $ghUrl = "https://api.github.com/repos"
 $sdGhPath = "spacedriveapp/spacedrive"
+
 function Invoke-RestMethodGithub {
     [CmdletBinding()]
     param (
@@ -96,36 +97,29 @@ function Invoke-RestMethodGithub {
 function DownloadArtifact {
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$ArtifactPath
     )
-
-    if (-not $ArtifactPath -is [string]) {
-        throw "Argument must be a string"
-    }
 
     $tempFile = [System.IO.Path]::GetTempFileName() + ".zip"
 
     try {
-        $response = Invoke-RestMethodGithub -Uri "${ghUrl}/${sdGhPath}/actions/artifacts/$($ArtifactPath -split '/')[3]/zip"
-        $responseStream = [System.IO.MemoryStream]::new([System.Text.Encoding]::Default.GetBytes($response))
-        $responseStream.Position = 0
-
-        $bitsTransferJob = Start-BitsTransfer -Source $responseStream -Destination $tempFile -ErrorAction Stop -Asynchronous
-        $bitsTransferJob | Wait-BitsTransfer -ErrorAction Stop | Out-Null
-
-        $tempFile
+        $response = Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip"
     }
     catch {
         # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
         # https://github.com/actions/upload-artifact/issues/51
         # Use it when running in environments that are not authenticated with GitHub
-        $downloadUrl = "https://nightly.link/${sdGhPath}/${ArtifactPath}"
-
-        $bitsTransferJob = Start-BitsTransfer -Source $downloadUrl -Destination $tempFile -ErrorAction Stop -Asynchronous
-        $bitsTransferJob | Wait-BitsTransfer -ErrorAction Stop | Out-Null
-
-        $tempFile
+        Write-Host "Failed to download artifact from Github, falling back to nightly.link" -ForegroundColor Yellow
+        $response = Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}"
     }
+
+    $responseStream = [System.IO.MemoryStream]::new([System.Text.Encoding]::Default.GetBytes($response))
+    $responseStream.Position = 0
+
+    Start-BitsTransfer -TransferType Download -Source $responseStream -Destination $tempFile
+
+    $tempFile
 }
 
 # Reset PATH to ensure the script doesn't have stale Path entries
