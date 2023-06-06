@@ -49,7 +49,7 @@ export default () => {
 						<Icon component={ShieldCheck} />
 						Privacy
 					</SidebarLink>
-					<SidebarLink to="client/appearance" disabled>
+					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
 						Appearance
 					</SidebarLink>
