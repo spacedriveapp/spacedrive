@@ -32,6 +32,13 @@ export default ({ error, resetErrorBoundary }: FallbackProps) => (
 	/>
 );
 
+// This is sketchy but these are all edge cases that will only be encountered by developers if everything works as expected so it's probs fine
+const errorsThatRequireACoreReset = [
+	'failed to initialize config',
+	'failed to initialize library manager: failed to run library migrations',
+	'failed to initialize config: We detected a Spacedrive config from a super early version of the app!'
+];
+
 export function ErrorPage({
 	reloadBtn,
 	sendReportBtn,
@@ -61,7 +68,9 @@ export function ErrorPage({
 		>
 			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
 			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
-			<pre className="m-2 text-ink">{message}</pre>
+			<pre className="m-2 max-w-[650px] whitespace-normal text-center text-ink">
+				{message}
+			</pre>
 			{submessage && <pre className="m-2 text-sm text-ink-dull">{submessage}</pre>}
 			<div className="flex flex-row space-x-2 text-ink">
 				{reloadBtn && (
@@ -74,7 +83,7 @@ export function ErrorPage({
 						Send report
 					</Button>
 				)}
-				{message === 'failed to initialize config' && (
+				{errorsThatRequireACoreReset.includes(message) && (
 					<div className="flex flex-col items-center pt-12">
 						<p className="text-md max-w-[650px] text-center">
 							We detected you may have created your library with an older version of
@@ -92,7 +101,7 @@ export function ErrorPage({
 								window.__TAURI_INVOKE__('reset_spacedrive');
 							}}
 						>
-							Reset Library
+							Reset Spacedrive
 						</Button>
 					</div>
 				)}

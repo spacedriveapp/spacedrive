@@ -14,6 +14,9 @@ import { getSpacedropState, subscribeSpacedropState } from '../hooks/useSpacedro
 const { Input, useZodForm, z } = forms;
 
 export function SpacedropUI() {
+	// TODO(Spacedrop): Disable Spacedrop for now
+	return null;
+
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
