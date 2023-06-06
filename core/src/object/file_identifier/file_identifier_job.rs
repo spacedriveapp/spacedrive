@@ -25,11 +25,11 @@ use super::{
 
 pub struct FileIdentifierJob {}
 
-/// `FileIdentifierJobInit` takes file_paths without a file_id from an entire location
+/// `FileIdentifierJobInit` takes file_paths without an object_id from a location
 /// or starting from a `sub_path` (getting every descendent from this `sub_path`
 /// and uniquely identifies them:
 /// - first: generating the cas_id and extracting metadata
-/// - finally: creating unique file records, and linking them to their file_paths
+/// - finally: creating unique object records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,

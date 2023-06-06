@@ -14,29 +14,26 @@ interface JobNiceData {
 
 export default function useJobInfo(job: JobReport,
 ): Record<string, JobNiceData> {
-	const isRunning = job.status === 'Running';
-	const isQueued = job.status === 'Queued';
-	const indexedPath = job.metadata?.data?.indexed_path;
-	const taskCount = comma(job.task_count);
-	const completedTaskCount = comma(job.completed_task_count);
-	// const fileCount = plural(job.task_count, 'file');
-	const meta = job.metadata;
+	const isRunning = job.status === 'Running',
+		// isQueued = job.status === 'Queued',
+		indexedPath = job.metadata?.data?.indexed_path,
+		taskCount = comma(job.task_count),
+		completedTaskCount = comma(job.completed_task_count),
+		meta = job.metadata;
 
 	return ({
 		indexer: {
-			name: isRunning || isQueued
-				? `Indexing files ${indexedPath && `at ${indexedPath}`}`
-				: `Indexed files  ${indexedPath && `at ${indexedPath}`}`
+			name: isRunning
+				? `Indexing files ${indexedPath ? `at ${indexedPath}` : ``}`
+				: `Indexed files  ${indexedPath ? `at ${indexedPath}` : ``}`
 			,
 			icon: Folder,
 			textItems: [[
-				{ text: `${comma(job.completed_task_count)} of ${comma(job.task_count)} ${plural(job.task_count, 'task')}` },
-				{ text: `${comma(meta?.total_indexed_directories)} ${plural(meta?.total_indexed_directories, 'folder')}` },
-				{ text: `${comma(meta?.total_indexed_files)} ${plural(meta?.total_indexed_files, 'file')}` },
+				{ text: isRunning && job.message ? job.message : `${comma(meta?.data?.total_paths)} ${plural(meta?.data?.total_paths, 'path')}` },
 			]]
 		},
 		thumbnailer: {
-			name: isRunning || isQueued
+			name: isRunning
 				? 'Generating thumbnails'
 				: 'Generated thumbnails'
 			,
@@ -44,16 +41,16 @@ export default function useJobInfo(job: JobReport,
 			textItems: [[{ text: `${completedTaskCount} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }]]
 		},
 		file_identifier: {
-			name: `${isRunning || isQueued
+			name: `${isRunning
 				? 'Extracting metadata'
 				: 'Extracted metadata'
 				}`,
 			icon: Fingerprint,
-			textItems: [[
+			textItems: [!isRunning ? [
 				{ text: `${comma(meta?.total_orphan_paths)} ${plural(meta?.total_orphan_paths, 'file')}` },
 				{ text: `${comma(meta?.total_objects_created)} ${plural(meta?.total_objects_created, 'Object')} created` },
 				{ text: `${comma(meta?.total_objects_linked)} ${plural(meta?.total_objects_linked, 'Object')} linked` }
-			]]
+			] : [{ text: job.message }]]
 		},
 		// Repeat the similar pattern for all subtext fields
 	})

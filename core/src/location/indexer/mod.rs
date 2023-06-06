@@ -74,7 +74,10 @@ impl IndexerJobData {
 				.map(|p| match p.clone() {
 					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
 					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => JobReportUpdate::Message(m),
+					ScanProgress::Message(m) => {
+						// println!("MESSAGE: {:?}", m);
+						JobReportUpdate::Message(m)
+					}
 				})
 				.collect(),
 		)
@@ -242,7 +245,7 @@ fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
-				ScanProgress::Message(format!("Scanning {}", path.display())),
+				ScanProgress::Message(format!("Scanning: {:?}", path.file_name())),
 				ScanProgress::ChunkCount(total_entries / batch_size),
 			],
 		);
