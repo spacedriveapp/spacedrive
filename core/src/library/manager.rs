@@ -8,7 +8,7 @@ use crate::{
 	util::{
 		db::{load_and_migrate, MigrationError},
 		error::{FileIOError, NonUtf8PathError},
-		migrator::MigratorError,
+		migrator::{Migrate, MigratorError},
 	},
 	NodeContext,
 };
@@ -222,7 +222,7 @@ impl LibraryManager {
 		}
 
 		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
-		config.save(config_path.clone())?;
+		config.save(&config_path)?;
 
 		let library = Self::load(
 			id,
@@ -280,7 +280,7 @@ impl LibraryManager {
 
 		LibraryConfig::save(
 			&library.config,
-			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
+			&self.libraries_dir.join(format!("{id}.sdlibrary")),
 		)?;
 
 		invalidate_query!(library, "library.list");
@@ -372,7 +372,7 @@ impl LibraryManager {
 			.await?,
 		);
 
-		let config = LibraryConfig::read_and_migrate(config_path, db.clone()).await?;
+		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
 
 		let node_config = node_context.config.get().await;
 

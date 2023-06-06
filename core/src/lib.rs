@@ -29,7 +29,6 @@ pub mod custom_uri;
 pub(crate) mod job;
 pub mod library;
 pub(crate) mod location;
-pub(crate) mod migrations;
 pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;

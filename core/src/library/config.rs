@@ -1,17 +1,13 @@
-use std::{marker::PhantomData, path::PathBuf, sync::Arc};
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::{migrations, prisma::PrismaClient, util::migrator::FileMigrator};
-
-use super::LibraryManagerError;
-
-const MIGRATOR: FileMigrator<LibraryConfig, Arc<PrismaClient>> = FileMigrator {
-	current_version: migrations::LIBRARY_VERSION,
-	migration_fn: migrations::migration_library,
-	phantom: PhantomData,
+use crate::{
+	prisma::{indexer_rule, PrismaClient},
+	util::{
+		db::uuid_to_bytes,
+		migrator::{Migrate, MigratorError},
+	},
 };
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
@@ -26,18 +22,46 @@ pub struct LibraryConfig {
 	// pub is_encrypted: bool,
 }
 
-impl LibraryConfig {
-	/// read will read the configuration from disk and return it.
-	pub(super) async fn read_and_migrate(
-		file_dir: PathBuf,
-		db: Arc<PrismaClient>,
-	) -> Result<LibraryConfig, LibraryManagerError> {
-		MIGRATOR.load(&file_dir, db).await.map_err(Into::into)
-	}
+#[async_trait::async_trait]
+impl Migrate for LibraryConfig {
+	const CURRENT_VERSION: u32 = 1;
 
-	/// save will write the configuration back to disk
-	pub(super) fn save(&self, file_dir: PathBuf) -> Result<(), LibraryManagerError> {
-		MIGRATOR.save(&file_dir, self.clone())?;
+	type Ctx = PrismaClient;
+
+	async fn migrate(
+		to_version: u32,
+		_config: &mut serde_json::Map<String, serde_json::Value>,
+		db: &Self::Ctx,
+	) -> Result<(), MigratorError> {
+		match to_version {
+			0 => {}
+			1 => {
+				let rules = vec![
+					format!("No OS protected"),
+					format!("No Hidden"),
+					format!("Only Git Repositories"),
+					format!("Only Images"),
+				];
+
+				db._batch(
+					rules
+						.into_iter()
+						.enumerate()
+						.map(|(i, name)| {
+							db.indexer_rule().update_many(
+								vec![indexer_rule::name::equals(name)],
+								vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
+									Uuid::from_u128(i as u128),
+								)))],
+							)
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await?;
+			}
+			v => unreachable!("Missing migration for library version {}", v),
+		}
+
 		Ok(())
 	}
 }

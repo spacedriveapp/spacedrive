@@ -2,12 +2,9 @@ use std::{
 	any::type_name,
 	fs::File,
 	io::{self, BufReader, Seek, Write},
-	marker::PhantomData,
 	path::Path,
-	pin::Pin,
 };
 
-use futures::Future;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use specta::Type;
@@ -25,52 +22,33 @@ pub struct BaseConfig {
 }
 
 /// System for managing app level migrations on a config file so we can introduce breaking changes to the app without the user needing to reset their whole system.
-pub struct FileMigrator<T, S>
-where
-	T: Serialize + DeserializeOwned + Default,
-	S: Clone,
-{
-	pub current_version: u32,
-	pub migration_fn: fn(
-		u32,
-		&mut Map<String, Value>,
-		S,
-	) -> Pin<Box<dyn Future<Output = Result<(), MigratorError>> + Send>>,
-	pub phantom: PhantomData<T>,
-}
+#[async_trait::async_trait]
+pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
+	const CURRENT_VERSION: u32;
 
-impl<T, S> FileMigrator<T, S>
-where
-	T: Serialize + DeserializeOwned + Default,
-	S: Clone,
-{
-	// TODO: This is blocked on Rust. Make sure to make all fields private when this is introduced! Tracking issue: https://github.com/rust-lang/rust/issues/57349
-	// pub const fn new(
-	// 	current_version: u32,
-	// 	migration_fn: fn(u32, &mut Map<String, Value>) -> Result<(), MigratorError>,
-	// ) -> Self {
-	// 	Self {
-	// 		current_version,
-	// 		migration_fn,
-	// 		phantom: PhantomData,
-	// 	}
-	// }
+	type Ctx: Sync;
 
-	pub async fn load(&self, path: &Path, state: S) -> Result<T, MigratorError> {
+	async fn migrate(
+		from_version: u32,
+		config: &mut Map<String, Value>,
+		ctx: &Self::Ctx,
+	) -> Result<(), MigratorError>;
+
+	async fn load_and_migrate(path: &Path, ctx: &Self::Ctx) -> Result<Self, MigratorError> {
 		match path.try_exists()? {
 			true => {
 				let mut file = File::options().read(true).write(true).open(path)?;
 				let mut cfg: BaseConfig = serde_json::from_reader(BufReader::new(&mut file))?;
 				file.rewind()?; // Fail early so we don't end up invalid state
 
-				if cfg.version > self.current_version {
+				if cfg.version > Self::CURRENT_VERSION {
 					return Err(MigratorError::YourAppIsOutdated);
 				}
 
-				let is_latest = cfg.version == self.current_version;
-				for v in (cfg.version + 1)..=self.current_version {
+				let is_latest = cfg.version == Self::CURRENT_VERSION;
+				for v in (cfg.version + 1)..=Self::CURRENT_VERSION {
 					cfg.version = v;
-					match (self.migration_fn)(v, &mut cfg.other, state.clone()).await {
+					match Self::migrate(v, &mut cfg.other, &ctx).await {
 						Ok(()) => (),
 						Err(err) => {
 							file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
@@ -86,18 +64,18 @@ where
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
 			false => Ok(serde_json::from_value(Value::Object(
-				self.save(path, T::default())?.other,
+				Self::default().save(path)?.other,
 			))?),
 		}
 	}
 
-	pub fn save(&self, path: &Path, content: T) -> Result<BaseConfig, MigratorError> {
+	fn save(&self, path: &Path) -> Result<BaseConfig, MigratorError> {
 		let config = BaseConfig {
-			version: self.current_version,
-			other: match serde_json::to_value(content)? {
+			version: Self::CURRENT_VERSION,
+			other: match serde_json::to_value(self)? {
 				Value::Object(map) => map,
 				_ => {
-					return Err(MigratorError::InvalidType(type_name::<T>()));
+					return Err(MigratorError::InvalidType(type_name::<Self>()));
 				}
 			},
 		};
@@ -130,44 +108,55 @@ pub enum MigratorError {
 mod test {
 	use std::{fs, io::Read, path::PathBuf};
 
-	use futures::executor::block_on;
+	use serde_json::json;
 
 	use super::*;
 
 	#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-	pub struct MyConfigType {
-		a: u8,
+	struct MyConfigType {
 		// For testing add new fields without breaking the passing.
 		#[serde(flatten)]
 		other: Map<String, Value>,
 	}
 
-	pub fn migration_node(
-		version: u32,
-		config: &mut Map<String, Value>,
-		_: (),
-	) -> Pin<Box<dyn Future<Output = Result<(), MigratorError>> + Send>> {
-		Box::pin(async move {
-			match version {
+	#[async_trait::async_trait]
+	impl Migrate for MyConfigType {
+		const CURRENT_VERSION: u32 = 3;
+
+		type Ctx = ();
+
+		async fn migrate(
+			to_version: u32,
+			config: &mut Map<String, Value>,
+			ctx: &Self::Ctx,
+		) -> Result<(), MigratorError> {
+			match to_version {
 				0 => Ok(()),
-				// Add field to config
 				1 => {
-					config.insert("b".into(), 2.into());
+					config.insert("a".into(), json!({}));
 					Ok(())
 				}
-				// Async migration
 				2 => {
-					let mut a = false;
-					block_on(async {
-						a = true;
-						config.insert("c".into(), 3.into());
-					});
-					assert!(a, "Async block was not blocked on correctly!");
+					config
+						.get_mut("a")
+						.and_then(|v| v.as_object_mut())
+						.map(|v| v.insert("b".into(), json!({})));
+
+					Ok(())
+				}
+				3 => {
+					config
+						.get_mut("a")
+						.and_then(|v| v.as_object_mut())
+						.and_then(|v| v.get_mut("b"))
+						.and_then(|v| v.as_object_mut())
+						.map(|v| v.insert("c".into(), json!("it works")));
+
 					Ok(())
 				}
 				v => unreachable!("Missing migration for library version {}", v),
 			}
-		})
+		}
 	}
 
 	fn path(file_name: &'static str) -> PathBuf {
@@ -190,64 +179,27 @@ mod test {
 
 	#[tokio::test]
 	async fn test_migrator_happy_path() {
-		let migrator = FileMigrator::<MyConfigType, ()> {
-			current_version: 0,
-			migration_fn: migration_node,
-			phantom: PhantomData,
-		};
-
 		let p = path("test_migrator_happy_path.config");
 
 		// Check config is created when it's missing
 		assert!(!p.exists(), "config file should start out deleted");
-		let default_cfg = migrator.load(&p, ()).await.unwrap();
-		assert!(p.exists(), "config file was not initialised");
-		assert_eq!(file_as_str(&p), r#"{"version":0,"a":0}"#);
-
-		// Check config can be loaded back into the system correctly
-		let config = migrator.load(&p, ()).await.unwrap();
-		assert_eq!(default_cfg, config, "Config has got mangled somewhere");
-
-		// Update the config and check it saved correctly
-		let mut new_config = config;
-		new_config.a = 1;
-		migrator.save(&p, new_config.clone()).unwrap();
-		assert_eq!(file_as_str(&p), r#"{"version":0,"a":1}"#);
-
-		// Try loading in the new config and check it's correct
-		let config = migrator.load(&p, ()).await.unwrap();
-		assert_eq!(
-			new_config, config,
-			"Config has got mangled during the saving process"
+		std::fs::write(
+			&p,
+			serde_json::to_string(&json!({
+				"version": 0
+			}))
+			.unwrap(),
 		);
+		assert!(p.exists(), "config file was not initialised");
+		assert_eq!(file_as_str(&p), r#"{"version":0}"#);
 
-		// Test upgrading to a new version which adds a field
-		let migrator = FileMigrator::<MyConfigType, ()> {
-			current_version: 1,
-			migration_fn: migration_node,
-			phantom: PhantomData,
-		};
+		// Load + migrate config
+		let config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
 
-		// Try loading in the new config and check it was updated
-		let config = migrator.load(&p, ()).await.unwrap();
-		assert_eq!(file_as_str(&p), r#"{"version":1,"a":1,"b":2}"#);
-
-		// Check editing works
-		let mut new_config = config;
-		new_config.a = 2;
-		migrator.save(&p, new_config).unwrap();
-		assert_eq!(file_as_str(&p), r#"{"version":1,"a":2,"b":2}"#);
-
-		// Test upgrading to a new version which adds a field asynchronously
-		let migrator = FileMigrator::<MyConfigType, ()> {
-			current_version: 2,
-			migration_fn: migration_node,
-			phantom: PhantomData,
-		};
-
-		// Try loading in the new config and check it was updated
-		migrator.load(&p, ()).await.unwrap();
-		assert_eq!(file_as_str(&p), r#"{"version":2,"a":2,"b":2,"c":3}"#);
+		assert_eq!(
+			file_as_str(&p),
+			r#"{"version":3,"a":{"b":{"c":"it works"}}}"#
+		);
 
 		// Cleanup
 		fs::remove_file(&p).unwrap();
@@ -258,13 +210,8 @@ mod test {
 		let p = path("test_time_traveling_backwards.config");
 
 		// You opened a new database in an older version of the app
-		write_to_file(&p, r#"{"version":5,"a":1}"#);
-		let migrator = FileMigrator::<MyConfigType, ()> {
-			current_version: 2,
-			migration_fn: migration_node,
-			phantom: PhantomData,
-		};
-		match migrator.load(&p, ()).await {
+		write_to_file(&p, r#"{"version":5}"#);
+		match MyConfigType::load_and_migrate(&p, &()).await {
 			Err(MigratorError::YourAppIsOutdated) => (),
 			_ => panic!("Should have failed to load config from a super newer version of the app"),
 		}
