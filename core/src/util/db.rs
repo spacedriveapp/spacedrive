@@ -28,14 +28,30 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	{
 		let mut builder = client._db_push();
 
+		if std::env::var("SD_ACCEPT_DATA_LOSS")
+			.map(|v| v == "true")
+			.unwrap_or(false)
+		{
+			builder = builder.accept_data_loss();
+		}
+
 		if std::env::var("SD_FORCE_RESET_DB")
 			.map(|v| v == "true")
 			.unwrap_or(false)
 		{
-			builder = builder.accept_data_loss().force_reset();
+			builder = builder.force_reset();
 		}
 
-		builder.await?;
+		let res = builder.await;
+
+		match res {
+			Ok(_) => {}
+			Err(e @ DbPushError::PossibleDataLoss(_)) => {
+				eprintln!("Pushing Prisma schema may result in data loss. Use `SD_ACCEPT_DATA_LOSS=true` to force it.");
+				Err(e)?;
+			}
+			Err(e) => Err(e)?,
+		}
 	}
 
 	#[cfg(not(debug_assertions))]
