@@ -223,6 +223,15 @@ impl JobManager {
 	}
 
 	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+		library
+			.db
+			.job()
+			.delete_many(vec![job::name::not_in_vec(
+				ALL_JOB_NAMES.into_iter().map(|s| s.to_string()).collect(),
+			)])
+			.exec()
+			.await?;
+
 		for root_paused_job_report in library
 			.db
 			.job()
@@ -563,3 +572,16 @@ fn get_resumable_job(
 	)
 	.map_err(Into::into)
 }
+
+const ALL_JOB_NAMES: &[&str] = &[
+	ThumbnailerJob::NAME,
+	IndexerJob::NAME,
+	FileIdentifierJob::NAME,
+	ObjectValidatorJob::NAME,
+	FileCutterJob::NAME,
+	FileCopierJob::NAME,
+	FileDeleterJob::NAME,
+	FileEraserJob::NAME,
+	FileEncryptorJob::NAME,
+	FileDecryptorJob::NAME,
+];

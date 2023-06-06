@@ -1,3 +1,4 @@
+/* eslint-disable tailwindcss/classnames-order */
 import { cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
@@ -9,8 +10,8 @@ const styles = cva(
 	{
 		variants: {
 			active: {
-				true: 'bg-sidebar-selected/40 text-ink',
-				false: 'text-ink-dull'
+				true: 'bg-sidebar-selected/40 text-sidebar-ink',
+				false: 'text-sidebar-inkDull'
 			},
 			transparent: {
 				true: 'bg-opacity-90',
