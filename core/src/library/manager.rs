@@ -367,7 +367,7 @@ impl LibraryManager {
 		let db_path = db_path.as_ref();
 		let db = Arc::new(
 			load_and_migrate(&format!(
-				"file:{}",
+				"file:{}?socket_timeout=15",
 				db_path.as_os_str().to_str().ok_or_else(|| {
 					LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 				})?

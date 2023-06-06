@@ -1,6 +1,6 @@
 use crate::library::LibraryManagerError;
 use crate::prisma::{self, PrismaClient};
-use prisma_client_rust::{migrations::*, raw, NewClientError};
+use prisma_client_rust::{migrations::*, NewClientError};
 use sd_crypto::keys::keymanager::StoredKey;
 use thiserror::Error;
 use uuid::Uuid;
@@ -42,11 +42,6 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 
 	#[cfg(not(debug_assertions))]
 	client._migrate_deploy().await?;
-
-	client
-		._execute_raw(raw!("PRAGMA busy_timeout = 5000;"))
-		.exec()
-		.await?;
 
 	Ok(client)
 }
