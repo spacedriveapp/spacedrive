@@ -664,11 +664,11 @@ mod seeder {
 					vec![
 						indexer_rule::name::set(rule.name.to_string()),
 						indexer_rule::rules_per_kind::set(rules),
+						indexer_rule::pub_id::set(Some(pub_id.clone())),
 					],
 				)
 				.exec()
-				.await
-				.ok();
+				.await?;
 		}
 
 		Ok(())

@@ -368,7 +368,6 @@ impl LibraryManager {
 				LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 			})?
 		);
-		load_and_migrate(&db_url).await?;
 		let db = Arc::new(load_and_migrate(&db_url).await?);
 
 		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
