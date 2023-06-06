@@ -25,9 +25,9 @@ export const Item = ({ children, ...props }: ItemProps) => {
 			<RadioGroup.Item
 				id={'radio' + props.value}
 				className={cx(
-					'peer relative mr-1 mt-1 h-4 w-4 flex-shrink-0 rounded-full border border-transparent',
+					'peer relative mr-1 mt-1 h-4 w-4 flex-shrink-0 rounded-full border border-app-line',
 					'radix-state-checked:bg-accent',
-					'radix-state-unchecked:bg-gray-100 dark:radix-state-unchecked:bg-gray-900',
+					'radix-state-unchecked:bg-app-input',
 					'focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800'
 				)}
 				{...props}

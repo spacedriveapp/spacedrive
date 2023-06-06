@@ -51,7 +51,6 @@
 	--color-menu-shade: var(--dark-hue), 5%, 0%;
 }
 
-@media (prefers-color-scheme: light) {
 	.vanilla-theme {
 		// global
 		--color-black: 0, 0%, 0%;
@@ -95,7 +94,7 @@
 		// menu
 		--color-menu: var(--light-hue), 5%, 100%;
 		--color-menu-line: var(--light-hue), 5%, 95%;
-		--color-menu-ink: var(--light-hue), 5%, 100%;
+		--color-menu-ink: var(--light-hue), 5%, 20%;
 		--color-menu-faint: var(--light-hue), 5%, 80%;
 		--color-menu-hover: var(--light-hue), 15%, 20%;
 		--color-menu-selected: var(--light-hue), 5%, 30%;
@@ -109,4 +108,3 @@
 		// --color-menu-selected: var(--light-hue), 5%, 30%;
 		// --color-menu-shade: var(--light-hue), 5%, 0%;
 	}
-}
