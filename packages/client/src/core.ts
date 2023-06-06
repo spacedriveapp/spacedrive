@@ -344,7 +344,7 @@ export type StoredKeyVersion = "V1"
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
-export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
+export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
 
 export type TagCreateArgs = { name: string; color: string }
 
