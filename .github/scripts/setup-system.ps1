@@ -64,8 +64,8 @@ function Add-DirectoryToPath($directory) {
     Reset-Path
 }
 
-$gh_url = "https://api.github.com/repos"
-$sd_gh_path = 'spacedriveapp/spacedrive'
+$ghUrl = "https://api.github.com/repos"
+$sdGhPath = "spacedriveapp/spacedrive"
 function Invoke-RestMethodGithub {
     [CmdletBinding()]
     param (
@@ -91,6 +91,41 @@ function Invoke-RestMethodGithub {
     }
 
     Invoke-RestMethod @params
+}
+
+function DownloadArtifact {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactPath
+    )
+
+    if (-not $ArtifactPath -is [string]) {
+        throw "Argument must be a string"
+    }
+
+    $tempFile = [System.IO.Path]::GetTempFileName() + ".zip"
+
+    try {
+        $response = Invoke-RestMethodGithub -Uri "${ghUrl}/${sdGhPath}/actions/artifacts/$($ArtifactPath -split '/')[3]/zip"
+        $responseStream = [System.IO.MemoryStream]::new([System.Text.Encoding]::Default.GetBytes($response))
+        $responseStream.Position = 0
+
+        $bitsTransferJob = Start-BitsTransfer -Source $responseStream -Destination $tempFile -ErrorAction Stop -Asynchronous
+        $bitsTransferJob | Wait-BitsTransfer -ErrorAction Stop | Out-Null
+
+        $tempFile
+    }
+    catch {
+        # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+        # https://github.com/actions/upload-artifact/issues/51
+        # Use it when running in environments that are not authenticated with GitHub
+        $downloadUrl = "https://nightly.link/${sdGhPath}/${ArtifactPath}"
+
+        $bitsTransferJob = Start-BitsTransfer -Source $downloadUrl -Destination $tempFile -ErrorAction Stop -Asynchronous
+        $bitsTransferJob | Wait-BitsTransfer -ErrorAction Stop | Out-Null
+
+        $tempFile
+    }
 }
 
 # Reset PATH to ensure the script doesn't have stale Path entries
@@ -279,7 +314,7 @@ Write-Host 'Retrieving protobuf build...' -ForegroundColor Yellow
 
 $filename = $null
 $downloadUri = $null
-$releasesUri = "${gh_url}/protocolbuffers/protobuf/releases"
+$releasesUri = "${ghUrl}/protocolbuffers/protobuf/releases"
 $filenamePattern = '*-win64.zip'
 
 $releases = Invoke-RestMethodGithub -Uri $releasesUri
@@ -299,7 +334,7 @@ if (-not ($filename -and $downloadUri)) {
     Exit-WithError "Couldn't find a protobuf compiler installer"
 }
 
-Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
+Write-Host "Dowloading protobuf zip from ${downloadUri}..." -ForegroundColor Yellow
 Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
 Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
@@ -314,7 +349,7 @@ $page = 1
 while ($page -gt 0) {
     $success = (
         Invoke-RestMethodGithub -Uri `
-            "${gh_url}/${sd_gh_path}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
+            "${ghUrl}/${sdGhPath}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
         | ForEach-Object {
             if (-not $_.workflow_runs) {
                 Exit-WithError "Error: $_"
@@ -332,21 +367,29 @@ while ($page -gt 0) {
                     } | Select-Object -First 1
                 )
 
-                if (![string]::IsNullOrEmpty($artifactPath)) {
+                try {
+                    if ([string]::IsNullOrEmpty($artifactPath)) {
+                        throw "Empty argument"
+                    }
+
                     # Download and extract the artifact
-                    Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                    Invoke-WebRequest -Uri "https://nightly.link/${sd_gh_path}/${artifactPath}" -OutFile "$temp\ffmpeg-${ffmpegVersion}.zip"
+                    Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
+
+                    $ffmpegZipFile = DownloadArtifact -ArtifactPath $artifactPath
 
                     Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                    Expand-Archive  "$temp\ffmpeg-${ffmpegVersion}.zip" "$projectRoot\target\Frameworks" -Force
-                    Remove-Item -Force -ErrorAction SilentlyContinue -Path  "$temp\ffmpeg-${ffmpegVersion}.zip"
+                    Expand-Archive  $ffmpegZipFile "$projectRoot\target\Frameworks" -Force
+                    Remove-Item -Force -ErrorAction SilentlyContinue -Path $ffmpegZipFile
 
                     Write-Output "yes"
                     exit
                 }
-                else {
+                catch {
+                    $errorMessage = $_.Exception.Message
+                    Write-Host "Error: $errorMessage" -ForegroundColor Red
                     Write-Output "Failed to download ffmpeg artifact release, trying again in 1sec..."
                     Start-Sleep -Seconds 1
+                    continue
                 }
             }
         }

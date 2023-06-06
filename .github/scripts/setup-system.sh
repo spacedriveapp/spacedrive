@@ -6,6 +6,9 @@ if [ "${CI:-}" = "true" ]; then
   set -x
 fi
 
+# Force xz to use multhreaded extraction
+export XZ_OPT='-T0'
+
 SYSNAME="$(uname)"
 FFMPEG_VERSION='6.0'
 
@@ -289,10 +292,16 @@ elif [ "$SYSNAME" = "Darwin" ]; then
             )" -r \
               '. as $raw | .artifacts | if length == 0 then error("Error: \($raw)") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
         )"; then
-          # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
-          # https://github.com/actions/upload-artifact/issues/51
-          # TODO: Use Github's private API when running on CI
-          if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | XZ_OPT='-T0' tar -xJf- -C "$_frameworks_dir"; then
+          if {
+            gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/$(echo "$_artifact_path" | awk -F/ '{print $4}')/zip" \
+              | tar -xOf- | tar -xJf- -C "$_frameworks_dir"
+          } 2>/dev/null; then
+            printf 'yes'
+            exit
+            # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+            # https://github.com/actions/upload-artifact/issues/51
+            # Use it when running in evironments that are not authenticated with github
+          elif curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | tar -xJf- -C "$_frameworks_dir"; then
             printf 'yes'
             exit
           fi
@@ -333,18 +342,30 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
   echo "Download patched tauri cli.js build..."
-  case "$_arch" in
-    x86_64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683038.zip"
-      ;;
-    arm64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683035.zip"
-      ;;
-    *)
-      err "Unsupported architecture: $_arch"
-      ;;
-  esac
-  curl -LSs "$_artifact_url" | tar -xf- -C "${_frameworks_dir}/bin"
+  (
+    case "$_arch" in
+      x86_64)
+        _artifact_id="702683038"
+        ;;
+      arm64)
+        _artifact_id="702683035"
+        ;;
+      *)
+        err "Unsupported architecture: $_arch"
+        ;;
+    esac
+
+    if ! {
+      gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/${_artifact_id}/zip" \
+        | tar -xf- -C "${_frameworks_dir}/bin"
+    } 2>/dev/null; then
+      # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+      # https://github.com/actions/upload-artifact/issues/51
+      # Use it when running in evironments that are not authenticated with github
+      curl -LSs "https://nightly.link/${_sd_gh_path}/actions/artifacts/${_artifact_id}.zip" \
+        | tar -xf- -C "${_frameworks_dir}/bin"
+    fi
+  )
 
   echo "Download protobuf build"
   _page=1
