@@ -17,6 +17,10 @@ export default function FeedbackDialog(props: UseDialogProps) {
 	const [emojiSelected, setEmojiSelected] = useState<string | undefined>(undefined);
 
 	const emojiSelectHandler = (index: number) => {
+		if (emojiSelected === EMOJIS[index]) {
+			setEmojiSelected(undefined);
+			return form.setValue('emoji', undefined);
+		}
 		setEmojiSelected(EMOJIS[index]);
 		form.setValue('emoji', EMOJIS[index] as string);
 	};
