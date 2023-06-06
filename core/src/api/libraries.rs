@@ -1,5 +1,4 @@
 use crate::{
-	invalidate_query,
 	library::LibraryConfig,
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
@@ -103,15 +102,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						..Default::default()
 					})
 					.await?;
-
-				invalidate_query!(
-					// SAFETY: This unwrap is alright as we just created the library
-					ctx.library_manager
-						.get_library(new_library.uuid)
-						.await
-						.expect("We just created the library. Where do it be?"),
-					"library.statistics"
-				);
 
 				Ok(new_library)
 			})
