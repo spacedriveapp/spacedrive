@@ -44,7 +44,6 @@ ffbuild_dockerbuild() {
     --enable-gray \
     --enable-inline-asm \
     --enable-libdav1d \
-    --enable-libjxl \
     --enable-libkvazaar \
     --enable-libmp3lame \
     --enable-libopenjpeg \
