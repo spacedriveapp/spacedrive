@@ -118,26 +118,34 @@ pub async fn open_file_path_with(
 	let url_by_id = file_ids_and_urls.into_iter().collect::<HashMap<_, _>>();
 	let ids = url_by_id.keys().copied().collect::<Vec<_>>();
 
-	library
-		.get_file_paths(ids)
-		.await
-		.map(|paths| {
-			paths.iter().for_each(|(id, path)| {
-				if let Some(path) = path {
-					unsafe {
-						sd_desktop_macos::open_file_path_with(
-							&path.to_str().unwrap().into(),
-							&url_by_id
-								.get(id)
-								.expect("we just created this hashmap")
-								.as_str()
-								.into(),
-						)
+	#[cfg(target_os = "macos")]
+	{
+		library
+			.get_file_paths(ids)
+			.await
+			.map(|paths| {
+				paths.iter().for_each(|(id, path)| {
+					if let Some(path) = path {
+						unsafe {
+							sd_desktop_macos::open_file_path_with(
+								&path.to_str().unwrap().into(),
+								&url_by_id
+									.get(id)
+									.expect("we just created this hashmap")
+									.as_str()
+									.into(),
+							)
+						}
 					}
-				}
+				})
 			})
-		})
-		.map_err(|e| {
-			error!("{e:#?}");
-		})
+			.map_err(|e| {
+				error!("{e:#?}");
+			})
+	}
+
+	#[cfg(not(target_os = "macos"))]
+	{
+		Err(())
+	}
 }
