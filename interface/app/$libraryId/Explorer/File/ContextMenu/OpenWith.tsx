@@ -41,14 +41,19 @@ const Items = ({
 
 	return (
 		<>
-			{items.data?.map((d) => (
-				<ContextMenu.Item
-					key={d.name}
-					onClick={() => actions.openFilePathWith(library.uuid, filePath.id, d.url)}
-				>
-					{d.name}
-				</ContextMenu.Item>
-			))}
+			{/* FIXME: treat error properly */}
+			{items.data
+				?.filter((data) => data.t === 'File')
+				.map((data) => (
+					<ContextMenu.Item
+						key={data.c.name}
+						onClick={() =>
+							actions.openFilePathWith(library.uuid, filePath.id, data.c.url)
+						}
+					>
+						{data.c.name}
+					</ContextMenu.Item>
+				))}
 		</>
 	);
 };

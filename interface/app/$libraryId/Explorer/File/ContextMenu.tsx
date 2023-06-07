@@ -1,12 +1,4 @@
 import {
-	ExplorerItem,
-	isObject,
-	useLibraryContext,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
-import { ContextMenu, dialogManager } from '@sd/ui';
-import {
 	ArrowBendUpRight,
 	Copy,
 	FileX,
@@ -20,6 +12,14 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
+import {
+	ExplorerItem,
+	isObject,
+	useLibraryContext,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
+import { ContextMenu, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -126,7 +126,6 @@ export default ({ data }: Props) => {
 				keybind="⌘D"
 				onClick={() => {
 					if (params.path === undefined) return;
-
 
 					copyFiles.mutate({
 						source_location_id: store.locationId!,
@@ -304,6 +303,8 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 									props.data.type === 'Path' &&
 										props.data.item.object_id &&
 										updateAccessTime.mutate(props.data.item.object_id);
+
+									// FIXME: treat error properly
 									openFilePath(library.uuid, filePath.id);
 								}}
 							/>

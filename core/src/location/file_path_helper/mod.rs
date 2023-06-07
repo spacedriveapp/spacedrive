@@ -83,6 +83,7 @@ file_path::select!(file_path_to_handle_custom_uri {
 	}
 });
 file_path::select!(file_path_to_full_path {
+	id
 	materialized_path
 	is_dir
 	name

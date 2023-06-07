@@ -14,6 +14,7 @@ use crate::{
 };
 
 use std::{
+	collections::HashMap,
 	fmt::{Debug, Formatter},
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -102,23 +103,38 @@ impl Library {
 	}
 
 	/// Returns the full path of a file
-	pub async fn get_file_path(
+	pub async fn get_file_paths(
 		&self,
-		id: FilePathId,
-	) -> Result<Option<PathBuf>, LibraryManagerError> {
-		Ok(self
-			.db
+		ids: Vec<FilePathId>,
+	) -> Result<HashMap<FilePathId, Option<PathBuf>>, LibraryManagerError> {
+		let mut out = ids
+			.iter()
+			.copied()
+			.map(|id| (id, None))
+			.collect::<HashMap<_, _>>();
+
+		self.db
 			.file_path()
-			.find_first(vec![
+			.find_many(vec![
 				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
-				file_path::id::equals(id),
+				file_path::id::in_vec(ids),
 			])
 			.select(file_path_to_full_path::select())
 			.exec()
 			.await?
-			.map(|record| {
-				Path::new(&record.location.path)
-					.join(IsolatedFilePathData::from((record.location.id, &record)))
-			}))
+			.into_iter()
+			.for_each(|file_path| {
+				out.insert(
+					file_path.id,
+					Some(
+						Path::new(&file_path.location.path).join(IsolatedFilePathData::from((
+							file_path.location.id,
+							&file_path,
+						))),
+					),
+				);
+			});
+
+		Ok(out)
 	}
 }
