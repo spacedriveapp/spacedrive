@@ -78,6 +78,7 @@ export const Component = () => {
 	const themeSelectHandler = (theme: Theme['themeValue']) => {
 		setSelectedTheme(theme);
 		if (theme === 'system') {
+			lockAppTheme?.('Auto');
 			getThemeStore().syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
 			lockAppTheme?.('Light');

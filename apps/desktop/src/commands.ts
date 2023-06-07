@@ -40,4 +40,4 @@ export function lockAppTheme(themeType: AppThemeType) {
 
 export type OpenWithApplication = { name: string; url: string }
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile" } | { t: "OpenError"; c: string } | { t: "AllGood" }
-export type AppThemeType = "Light" | "Dark"
+export type AppThemeType = "Auto" | "Light" | "Dark"

@@ -3,6 +3,7 @@ use specta::Type;
 
 #[derive(Type, Deserialize, Clone, Copy, Debug)]
 pub enum AppThemeType {
+	Auto = -1,
 	Light = 0,
 	Dark = 1,
 }
