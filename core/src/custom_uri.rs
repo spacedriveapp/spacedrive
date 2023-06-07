@@ -100,20 +100,18 @@ async fn handle_thumbnail(
 		return Ok(response?);
 	}
 
-	let shard_hex = path
-		.get(1)
-		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
-	let file_cas_id = path
-		.get(2)
-		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
+	if path.len() < 3 {
+		return Err(HandleCustomUriError::BadRequest(
+			"Invalid number of parameters!",
+		));
+	}
 
-	let filename = node
-		.config
-		.data_directory()
-		.join("thumbnails")
-		.join(shard_hex)
-		.join(file_cas_id)
-		.with_extension("webp");
+	let mut thumbnail_path = node.config.data_directory().join("thumbnails");
+	// if we ever wish to support multiple levels of sharding, we need only supply more params here
+	for path_part in &path[1..] {
+		thumbnail_path = thumbnail_path.join(path_part);
+	}
+	let filename = thumbnail_path.with_extension("webp");
 
 	let file = File::open(&filename).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
@@ -123,7 +121,7 @@ async fn handle_thumbnail(
 		}
 	})?;
 
-	let content_lenght = file
+	let content_length = file
 		.metadata()
 		.await
 		.map_err(|e| FileIOError::from((&filename, e)))?
@@ -131,12 +129,12 @@ async fn handle_thumbnail(
 
 	Ok(builder
 		.header("Content-Type", "image/webp")
-		.header("Content-Length", content_lenght)
+		.header("Content-Length", content_length)
 		.status(StatusCode::OK)
 		.body(if method == Method::HEAD {
 			vec![]
 		} else {
-			read_file(file, content_lenght, None)
+			read_file(file, content_length, None)
 				.await
 				.map_err(|e| FileIOError::from((&filename, e)))?
 		})?)
