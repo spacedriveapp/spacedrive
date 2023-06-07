@@ -7,7 +7,7 @@ ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" xz
   cd xz
 
-  ./autogen.sh --no-po4a
+  ./autogen.sh --no-po4a --no-doxygen
 
   local myconf=(
     --prefix="$FFBUILD_PREFIX"

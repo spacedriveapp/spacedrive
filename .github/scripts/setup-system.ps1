@@ -375,7 +375,7 @@ while ($page -gt 0) {
                 catch {
                     $errorMessage = $_.Exception.Message
                     Write-Host "Error: $errorMessage" -ForegroundColor Red
-                    Write-Output "Failed to download ffmpeg artifact release, trying again in 1sec..."
+                    Write-Host "Failed to download ffmpeg artifact release, trying again in 1sec..."
                     Start-Sleep -Seconds 1
                     continue
                 }
