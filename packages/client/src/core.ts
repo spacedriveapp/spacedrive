@@ -162,7 +162,7 @@ export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "B
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
+export type IndexerRule = { id: number; pub_id: number[] | null; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.

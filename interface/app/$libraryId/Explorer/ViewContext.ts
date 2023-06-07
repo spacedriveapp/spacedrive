@@ -3,11 +3,11 @@ import { ExplorerItem } from '@sd/client';
 
 export type ExplorerViewSelection = number | number[];
 
-export interface ExplorerViewContext<T = ExplorerViewSelection> {
+export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerViewSelection> {
 	items: ExplorerItem[] | null;
 	scrollRef: RefObject<HTMLDivElement>;
 	selected?: T;
-	onSelectedChange?: (selected: T) => void;
+	onSelectedChange?: (selected: ExplorerViewSelectionChange<T>) => void;
 	overscan?: number;
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
@@ -18,6 +18,10 @@ export interface ExplorerViewContext<T = ExplorerViewSelection> {
 	selectable?: boolean;
 	padding?: number | { x?: number; y?: number };
 }
+
+export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends number[]
+	? number[]
+	: number | undefined;
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);
 
