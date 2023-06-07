@@ -54,6 +54,12 @@ pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
 		.with_extension("webp")
 }
 
+// this is used to pass the relevant data to the frontend so it can request the thumbnail
+// it supports extending the shard hex to support deeper directory structures in the future
+pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
+	vec![calc_shard_hex(cas_id), cas_id.to_string()]
+}
+
 #[cfg(feature = "ffmpeg")]
 static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
@@ -272,19 +278,22 @@ pub async fn inner_process_step(
 		return Ok(());
 	};
 
-	let hex_dir = thumbnail_dir.join(calc_shard_hex(cas_id));
+	let thumb_dir = thumbnail_dir.join(calc_shard_hex(cas_id));
 
 	// Create the directory if it doesn't exist
-	if let Err(e) = fs::create_dir_all(&hex_dir).await {
+	if let Err(e) = fs::create_dir_all(&thumb_dir).await {
 		error!("Error creating thumbnail directory {:#?}", e);
 	}
 
 	// Define and write the WebP-encoded file to a given path
-	let output_path = hex_dir.join(format!("{cas_id}.webp"));
+	let output_path = thumb_dir.join(format!("{cas_id}.webp"));
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
-			info!("Thumb exists, skipping... {}", output_path.display());
+			info!(
+				"Thumb already exists, skipping generation for {}",
+				output_path.display()
+			);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			info!("Writing {:?} to {:?}", path, output_path);
@@ -303,9 +312,9 @@ pub async fn inner_process_step(
 				}
 			}
 
-			println!("emitting new thumbnail event");
+			info!("Emitting new thumbnail event");
 			library.emit(CoreEvent::NewThumbnail {
-				cas_id: cas_id.clone(),
+				thumb_key: get_thumb_key(cas_id),
 			});
 		}
 		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),

@@ -1,13 +1,13 @@
-import { proxy, useSnapshot } from 'valtio';
-import { proxyMap, proxySet } from 'valtio/utils';
+import { proxy, useSnapshot, subscribe } from 'valtio';
+import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering } from '@sd/client';
 import { resetStore } from '@sd/client';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
-		? `${K}${'' extends P ? '' : '.'}${P}`
-		: never
+	? `${K}${'' extends P ? '' : '.'}${P}`
+	: never
 	: never;
 
 type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[keyof T] : '';
@@ -25,7 +25,7 @@ export enum ExplorerKind {
 export type CutCopyType = 'Cut' | 'Copy';
 
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
-export type ObjectSearchOrderingKyes = UnionKeys<ObjectSearchOrdering> | 'none';
+export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
 export const SortOrder = z.union([z.literal('Asc'), z.literal('Desc')]);
 
@@ -39,7 +39,7 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	multiSelectIndexes: [] as number[],
-	newThumbnails: {} as Record<string, boolean | undefined>,
+	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: {
 		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
@@ -56,13 +56,21 @@ const state = {
 	groupBy: 'none'
 };
 
+export function flattenThumbnailKey(thumbKey: string[]) {
+	return thumbKey.join('/');
+}
+
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
 const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
-	addNewThumbnail: (casId: string) => {
-		explorerStore.newThumbnails[casId] = true;
-	}
+	addNewThumbnail: (thumbKey: string[]) => {
+		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey))
+	},
+	// this should be done when the explorer query is refreshed
+	resetNewThumbnails: () => {
+		explorerStore.newThumbnails.clear();
+	},
 });
 
 export function useExplorerStore() {

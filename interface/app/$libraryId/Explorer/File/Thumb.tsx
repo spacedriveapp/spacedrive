@@ -131,7 +131,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 
 		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
-		} else if (itemData.hasThumbnail) {
+		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
 			setThumbType(ThumbType.Icon);
@@ -139,7 +139,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId: itemLocationId, shard_hex } = itemData;
+		const { casId, kind, isDir, extension, locationId: itemLocationId, thumbnailKey } = itemData;
 		const locationId = itemLocationId ?? explorerLocationId;
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -158,9 +158,8 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			case ThumbType.Thumbnail:
-				if (casId && shard_hex) {
-					console.log(platform.getThumbnailUrlById(casId, shard_hex))
-					setSrc(platform.getThumbnailUrlById(casId, shard_hex));
+				if (casId && thumbnailKey) {
+					setSrc(platform.getThumbnailUrlByThumbKey(thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);
 				}
@@ -184,7 +183,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const onError = () => {
 		setLoaded(false);
 		setThumbType((prevThumbType) => {
-			return prevThumbType === ThumbType.Original && itemData.hasThumbnail
+			return prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
 				? ThumbType.Thumbnail
 				: ThumbType.Icon;
 		});

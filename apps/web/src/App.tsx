@@ -28,8 +28,8 @@ const spacedriveProtocol = `${http}://${serverOrigin}/spacedrive`;
 
 const platform: Platform = {
 	platform: 'web',
-	getThumbnailUrlById: (casId, shard_hex) =>
-		`${spacedriveProtocol}/thumbnail/${shard_hex}/${encodeURIComponent(casId)}.webp`,
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		`${spacedriveProtocol}/thumbnail/${keyParts.map(i => encodeURIComponent(i)).join("/")}.webp`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		`${spacedriveProtocol}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
