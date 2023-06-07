@@ -335,53 +335,52 @@ Write-Host "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
 
 $page = 1
 while ($page -gt 0) {
-    $success = (
-        Invoke-RestMethodGithub -Uri `
-            "${ghUrl}/${sdGhPath}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
-        | ForEach-Object {
-            if (-not $_.workflow_runs) {
-                Exit-WithError "Error: $_"
-            }
+    $success = ''
+    Invoke-RestMethodGithub -Uri `
+        "${ghUrl}/${sdGhPath}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
+    | ForEach-Object {
+        if (-not $_.workflow_runs) {
+            Exit-WithError "Error: $_"
+        }
 
-            $_.workflow_runs | ForEach-Object {
-                $artifactPath = (
+        $_.workflow_runs | ForEach-Object {
+            $artifactPath = (
                     (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
-                    | Where-Object {
-                        $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
-                    } | ForEach-Object {
-                        $id = $_.id
-                        $workflowRunId = $_.workflow_run.id
-                        "suites/${workflowRunId}/artifacts/${id}"
-                    } | Select-Object -First 1
-                )
+                | Where-Object {
+                    $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
+                } | ForEach-Object {
+                    $id = $_.id
+                    $workflowRunId = $_.workflow_run.id
+                    "suites/${workflowRunId}/artifacts/${id}"
+                } | Select-Object -First 1
+            )
 
-                try {
-                    if ([string]::IsNullOrEmpty($artifactPath)) {
-                        throw "Empty argument"
-                    }
-
-                    # Download and extract the artifact
-                    Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
-
-                    DownloadArtifact -ArtifactPath $artifactPath -OutFile "$temp/ffmpeg.zip"
-
-                    Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                    Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
-                    Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
-
-                    Write-Output "yes"
-                    exit
+            try {
+                if ([string]::IsNullOrEmpty($artifactPath)) {
+                    throw "Empty argument"
                 }
-                catch {
-                    $errorMessage = $_.Exception.Message
-                    Write-Host "Error: $errorMessage" -ForegroundColor Red
-                    Write-Host "Failed to download ffmpeg artifact release, trying again in 1sec..."
-                    Start-Sleep -Seconds 1
-                    continue
-                }
+
+                # Download and extract the artifact
+                Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
+
+                DownloadArtifact -ArtifactPath $artifactPath -OutFile "$temp/ffmpeg.zip"
+
+                Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
+                Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
+                Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
+
+                $success = "yes"
+                break
+            }
+            catch {
+                $errorMessage = $_.Exception.Message
+                Write-Host "Error: $errorMessage" -ForegroundColor Red
+                Write-Host "Failed to download ffmpeg artifact release, trying again in 1sec..."
+                Start-Sleep -Seconds 1
+                continue
             }
         }
-    )
+    }
 
     if ($success -eq "yes") {
         break
