@@ -688,7 +688,7 @@ export default () => {
 													className={clsx(
 														'relative flex h-full w-full rounded-md border',
 														virtualRow.index % 2 === 0 &&
-															'bg-[#00000006] dark:bg-[#00000030]',
+															'bg-app-darkBox',
 														selected
 															? 'border-accent !bg-accent/10'
 															: 'border-transparent',
