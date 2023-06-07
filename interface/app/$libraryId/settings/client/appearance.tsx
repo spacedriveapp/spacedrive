@@ -6,6 +6,7 @@ import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
 import { Button, Divider, Slider, forms } from '@sd/ui';
 import { InfoText } from '@sd/ui/src/forms';
+import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -56,6 +57,7 @@ const themes: Theme[] = [
 ];
 
 export const Component = () => {
+	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
@@ -78,10 +80,12 @@ export const Component = () => {
 		if (theme === 'system') {
 			getThemeStore().syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
+			lockAppTheme?.('Light');
 			getThemeStore().syncThemeWithSystem = false;
 			getThemeStore().theme = theme;
 			document.documentElement.classList.add('vanilla-theme');
 		} else if (theme === 'dark') {
+			lockAppTheme?.('Dark');
 			getThemeStore().syncThemeWithSystem = false;
 			getThemeStore().theme = theme;
 			document.documentElement.classList.remove('vanilla-theme');
@@ -221,7 +225,7 @@ function Theme(props: ThemeProps) {
 					/>
 				)}
 			</div>
-			<p className="mb-3 mt-3 text-center text-sm">{props.themeName}</p>
+			<p className="my-3 text-center text-sm">{props.themeName}</p>
 		</div>
 	);
 }
