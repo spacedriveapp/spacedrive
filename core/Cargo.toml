@@ -10,11 +10,8 @@ edition.workspace = true
 
 [features]
 default = []
-mobile = [
-] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = [
-	"dep:sd-ffmpeg",
-] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = ["dep:sd-ffmpeg"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 location-watcher = ["dep:notify"]
 sync-messages = []
 heif = ["dep:sd-heif"]
@@ -91,6 +88,7 @@ normpath = { version = "1.1.1", features = ["localization"] }
 tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for log deletion
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
+hex = "0.4.3"
 
 
 [target.'cfg(windows)'.dependencies.winapi-util]

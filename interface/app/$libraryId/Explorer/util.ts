@@ -49,7 +49,8 @@ export function getExplorerItemData(data: ExplorerItem) {
 		isDir: isPath(data) && data.item.is_dir,
 		extension: filePath?.extension || null,
 		locationId: filePath?.location_id || null,
-		hasThumbnail: data.has_thumbnail
+		hasThumbnail: data.has_thumbnail,
+		shard_hex: data.shard_hex
 	};
 }
 

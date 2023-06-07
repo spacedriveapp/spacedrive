@@ -33,9 +33,11 @@ use webp::Encoder;
 use self::thumbnailer_job::ThumbnailerJob;
 
 mod shallow;
+mod shard;
 pub mod thumbnailer_job;
 
 pub use shallow::*;
+pub use shard::*;
 
 const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 const THUMBNAIL_QUALITY: f32 = 30.0;
@@ -47,6 +49,7 @@ pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
 		.config()
 		.data_directory()
 		.join(THUMBNAIL_CACHE_DIR_NAME)
+		.join(calc_shard_hex(cas_id))
 		.join(cas_id)
 		.with_extension("webp")
 }
@@ -269,8 +272,15 @@ pub async fn inner_process_step(
 		return Ok(());
 	};
 
+	let hex_dir = thumbnail_dir.join(calc_shard_hex(cas_id));
+
+	// Create the directory if it doesn't exist
+	if let Err(e) = fs::create_dir_all(&hex_dir).await {
+		error!("Error creating thumbnail directory {:#?}", e);
+	}
+
 	// Define and write the WebP-encoded file to a given path
-	let output_path = thumbnail_dir.join(format!("{cas_id}.webp"));
+	let output_path = hex_dir.join(format!("{cas_id}.webp"));
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {

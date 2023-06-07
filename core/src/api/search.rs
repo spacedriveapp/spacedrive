@@ -1,4 +1,7 @@
-use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePathData};
+use crate::{
+	location::file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+	object::preview::calc_shard_hex,
+};
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset, Utc};
@@ -332,6 +335,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Path {
 							has_thumbnail,
+							shard_hex: file_path.cas_id.clone().map(|id| calc_shard_hex(&id)),
 							item: file_path,
 						})
 					}
@@ -403,6 +407,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Object {
 							has_thumbnail,
+							shard_hex: cas_id.map(|id| calc_shard_hex(&id)),
 							item: object,
 						});
 					}

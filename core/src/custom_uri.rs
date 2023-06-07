@@ -100,14 +100,18 @@ async fn handle_thumbnail(
 		return Ok(response?);
 	}
 
-	let file_cas_id = path
+	let shard_hex = path
 		.get(1)
+		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
+	let file_cas_id = path
+		.get(2)
 		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
 
 	let filename = node
 		.config
 		.data_directory()
 		.join("thumbnails")
+		.join(shard_hex)
 		.join(file_cas_id)
 		.with_extension("webp");
 

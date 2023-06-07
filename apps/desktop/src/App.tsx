@@ -58,7 +58,7 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
+	getThumbnailUrlById: (casId, shard_hex) => convertFileSrc(`thumbnail/${shard_hex}/${casId}`, 'spacedrive'),
 	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
 		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
 		if (_linux_workaround && customUriServerUrl) {

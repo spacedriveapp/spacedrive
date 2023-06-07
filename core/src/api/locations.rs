@@ -30,10 +30,12 @@ pub enum ExplorerItem {
 	Path {
 		// has_thumbnail is determined by the local existence of a thumbnail
 		has_thumbnail: bool,
+		shard_hex: Option<String>,
 		item: file_path_with_object::Data,
 	},
 	Object {
 		has_thumbnail: bool,
+		shard_hex: Option<String>,
 		item: object_with_file_paths::Data,
 	},
 }

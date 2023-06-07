@@ -6,7 +6,7 @@ export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unkno
 // This could be Tauri or web.
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
-	getThumbnailUrlById: (casId: string) => string;
+	getThumbnailUrlById: (casId: string, shard_hex: string) => string;
 	getFileUrl: (
 		libraryId: string,
 		locationLocalId: number,

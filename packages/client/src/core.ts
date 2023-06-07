@@ -127,7 +127,7 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
  */
 export type EncryptedKey = number[]
 
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
+export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; shard_hex: string | null; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; shard_hex: string | null; item: ObjectWithFilePaths }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
