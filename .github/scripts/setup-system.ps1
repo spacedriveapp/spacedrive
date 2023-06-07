@@ -1,3 +1,5 @@
+# Set default value of 0 for external command exit code
+$LASTEXITCODE = 0
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
 $ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
 Set-StrictMode -Version Latest
