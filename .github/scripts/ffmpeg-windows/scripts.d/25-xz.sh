@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/xz-mirror/xz.git"
-SCRIPT_COMMIT="1dbe12b90cff79bb51923733ac0840747b4b4131"
+SCRIPT_TAG="v5.4.3"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" xz
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" xz
   cd xz
 
   ./autogen.sh --no-po4a

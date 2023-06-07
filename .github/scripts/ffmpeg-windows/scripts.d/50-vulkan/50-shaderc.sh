@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT="4a8f5e537f20bbcfe4b11f1fe45314f1dcbfddf6"
+SCRIPT_TAG="v2023.4"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" shaderc
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" shaderc
   cd shaderc
 
   ./utils/git-sync-deps

@@ -1,8 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/Vulkan-Headers.git"
-SCRIPT_COMMIT="v1.3.247"
-SCRIPT_TAGFILTER="v?.*.*"
+SCRIPT_COMMIT="v1.3.252"
 
 ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" vkheaders

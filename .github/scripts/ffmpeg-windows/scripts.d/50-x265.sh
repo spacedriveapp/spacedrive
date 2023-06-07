@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://bitbucket.org/multicoreware/x265_git.git"
-SCRIPT_COMMIT="753305affb093ae15d5e4b333125267b16258c21"
+SCRIPT_COMMIT="34532bda12a3a3141880582aa186a59cd4538ae6"
 
 ffbuild_dockerbuild() {
   git clone "$SCRIPT_REPO" x265
@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
 
   cmake -S source -B 10bit -G Ninja \
     "${common_config[@]}" \
+    -DENABLE_HDRDENABLE_HDR10_PLUS=ON \
     -DHIGH_BIT_DEPTH=ON \
     -DEXPORT_C_API=OFF \
     -DENABLE_SHARED=OFF \

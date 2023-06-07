@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/xiph/rav1e.git"
-SCRIPT_COMMIT="80d0ff2df4785e0d3b0050205541914faffd583d"
+SCRIPT_TAG="v0.6.6"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" rav1e
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" rav1e
   cd rav1e
 
   local myconf=(
@@ -13,7 +13,7 @@ ffbuild_dockerbuild() {
     --release
   )
 
-  if [[ -n $FFBUILD_RUST_TARGET ]]; then
+  if [[ -n "$FFBUILD_RUST_TARGET" ]]; then
     unset PKG_CONFIG_LIBDIR
 
     export CC="gcc"

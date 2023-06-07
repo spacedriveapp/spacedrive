@@ -73,6 +73,7 @@ function Invoke-RestMethodGithub {
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [string]$Method = 'GET',
+        [string]$OutFile = $null,
         [hashtable]$Headers = @{},
         [string]$UserAgent = 'PowerShell'
     )
@@ -87,6 +88,7 @@ function Invoke-RestMethodGithub {
     $params = @{
         Uri       = $Uri
         Method    = $Method
+        OutFile   = $OutFile
         Headers   = $Headers
         UserAgent = $UserAgent
     }
@@ -98,28 +100,20 @@ function DownloadArtifact {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$ArtifactPath
+        [string]$ArtifactPath,
+        [string]$OutFile
     )
 
-    $tempFile = [System.IO.Path]::GetTempFileName() + ".zip"
-
     try {
-        $response = Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip"
+        Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip" -OutFile $OutFile
     }
     catch {
         # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
         # https://github.com/actions/upload-artifact/issues/51
         # Use it when running in environments that are not authenticated with GitHub
         Write-Host "Failed to download artifact from Github, falling back to nightly.link" -ForegroundColor Yellow
-        $response = Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}"
+        Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}" -OutFile $OutFile
     }
-
-    $responseStream = [System.IO.MemoryStream]::new([System.Text.Encoding]::Default.GetBytes($response))
-    $responseStream.Position = 0
-
-    Start-BitsTransfer -TransferType Download -Source $responseStream -Destination $tempFile
-
-    $tempFile
 }
 
 # Reset PATH to ensure the script doesn't have stale Path entries
@@ -369,11 +363,11 @@ while ($page -gt 0) {
                     # Download and extract the artifact
                     Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
 
-                    $ffmpegZipFile = DownloadArtifact -ArtifactPath $artifactPath
+                    DownloadArtifact -ArtifactPath $artifactPath -OutFile "$temp/ffmpeg.zip"
 
                     Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                    Expand-Archive  $ffmpegZipFile "$projectRoot\target\Frameworks" -Force
-                    Remove-Item -Force -ErrorAction SilentlyContinue -Path $ffmpegZipFile
+                    Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
+                    Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
 
                     Write-Output "yes"
                     exit

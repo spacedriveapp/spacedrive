@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://git.code.sf.net/p/soxr/code"
-SCRIPT_COMMIT="945b592b70470e29f917f4de89b4281fbbd540c0"
+SCRIPT_TAG="0.1.3"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" soxr
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" soxr
   cd soxr
 
   mkdir build && cd build

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://chromium.googlesource.com/webm/libwebp"
-SCRIPT_COMMIT="761f49c3ab1c91b8e911840a4f6f246308b7c242"
+SCRIPT_TAG="v1.3.1-rc1"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" webp
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" webp
   cd webp
 
   ./autogen.sh
@@ -33,8 +33,6 @@ ffbuild_dockerbuild() {
     echo "Unknown target"
     return -1
   fi
-
-  export CFLAGS="$CFLAGS -fcommon"
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"

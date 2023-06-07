@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/madler/zlib.git"
-SCRIPT_COMMIT="04f42ceca40f73e2978b50e93806c2a18c1281fc"
+SCRIPT_TAG="v1.2.13"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" zlib
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" zlib
   cd zlib
 
   local myconf=(

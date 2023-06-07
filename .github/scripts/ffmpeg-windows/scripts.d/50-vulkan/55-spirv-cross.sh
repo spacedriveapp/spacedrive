@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Cross.git"
-SCRIPT_COMMIT="fc9bee27f445644635e83ef111ef54944bb6e3af"
+SCRIPT_TAG="sdk-1.3.250.0"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" spirv-cross
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" spirv-cross
   cd spirv-cross
 
   VER_MAJ="$(grep 'set(spirv-cross-abi-major' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"

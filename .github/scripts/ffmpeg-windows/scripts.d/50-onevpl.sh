@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/oneapi-src/oneVPL.git"
-SCRIPT_COMMIT="fcabffb463299a8792c6baed69afbb69236ba6cb"
+SCRIPT_TAG="v2023.3.0"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" onevpl
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" onevpl
   cd onevpl
 
   mkdir build && cd build

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
-SCRIPT_COMMIT="6c296fb8ca5ea17a36c123eb82bba2102e26c411"
+SCRIPT_TAG="v0.8.1"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" jxl
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" jxl
   cd jxl
   git submodule update --init --recursive --depth 1 --recommend-shallow third_party/{highway,skcms}
 
