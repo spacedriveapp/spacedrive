@@ -38,18 +38,15 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	//if the last category is visible - we hide the right arrow
 	const isInView = useInView(lastCategoryRef, {
 		amount: 1,
-		root: ref.current
+		root: ref.current as any //todo: fix this type (needs to be .current to work)
 	});
 
 	useEffect(() => {
 		const element = ref.current;
-
 		if (!element) return;
-
 		const handler = () => {
 			setScroll(element.scrollLeft);
 		};
-
 		element.addEventListener('scroll', handler);
 		return () => {
 			element.removeEventListener('scroll', handler);
@@ -67,26 +64,41 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	};
 
 	return (
-		<div
-			ref={ref}
-			className="no-scrollbar sticky top-0 z-10 ml-[-30px] mt-2 flex space-x-[1px] overflow-x-scroll bg-app/90 px-5 py-1.5 backdrop-blur"
-		>
+		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
 			<div
 				onClick={() => handleArrowOnClick('right')}
 				className={clsx(
 					scroll > 0
 						? 'cursor-pointer bg-opacity-50 opacity-100 hover:opacity-80'
 						: 'pointer-events-none',
-					'sticky left-[33px] z-40 mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[33px] z-40 mt-3 flex h-9 w-9 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowLeft weight="bold" className="h-4 w-4 text-white" />
 			</div>
-			{categories.data &&
-				CategoryList.map((category, index) => {
-					const iconString = IconForCategory[category] || 'Document';
-					return index === CategoryList.length - 1 ? (
-						<div className="min-w-fit" ref={lastCategoryRef}>
+			<div
+				ref={ref}
+				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
+				style={{
+					maskImage:
+						'linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 1) 90%, transparent 95%)'
+				}}
+			>
+				{categories.data &&
+					CategoryList.map((category, index) => {
+						const iconString = IconForCategory[category] || 'Document';
+						return index === CategoryList.length - 1 ? (
+							<div key={category} className="min-w-fit" ref={lastCategoryRef}>
+								<CategoryButton
+									key={category}
+									category={category}
+									icon={getIcon(iconString, isDark)}
+									items={categories.data[category]}
+									selected={props.selected === category}
+									onClick={() => props.onSelectedChanged(category)}
+								/>
+							</div>
+						) : (
 							<CategoryButton
 								key={category}
 								category={category}
@@ -95,23 +107,14 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 								selected={props.selected === category}
 								onClick={() => props.onSelectedChanged(category)}
 							/>
-						</div>
-					) : (
-						<CategoryButton
-							key={category}
-							category={category}
-							icon={getIcon(iconString, isDark)}
-							items={categories.data[category]}
-							selected={props.selected === category}
-							onClick={() => props.onSelectedChanged(category)}
-						/>
-					);
-				})}
+						);
+					})}
+			</div>
 			<div
 				onClick={() => handleArrowOnClick('left')}
 				className={clsx(
 					isInView ? 'pointer-events-none opacity-0 hover:opacity-0' : 'hover:opacity-80',
-					'sticky right-[2px] z-40 mt-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app bg-opacity-50 p-2 backdrop-blur-md transition-all duration-200'
+					'sticky right-[25px] z-40 mt-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app bg-opacity-50 p-2 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowRight weight="bold" className="h-4 w-4 text-white" />

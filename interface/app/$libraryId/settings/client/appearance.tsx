@@ -119,14 +119,14 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div className="mb-14 mt-8 flex h-[90px] w-full flex-wrap gap-5">
+				<div className="mb-14 mt-8 flex h-auto w-full gap-5">
 					{themes.map((theme, i) => {
 						return (
 							<div
 								onClick={() => themeSelectHandler(theme.themeValue)}
 								className={clsx(
 									selectedTheme !== theme.themeValue && 'opacity-70',
-									'transition-all duration-200 hover:translate-y-[-3.5px]'
+									'h-[100px] transition-all duration-200 hover:translate-y-[-3.5px]'
 								)}
 								key={i}
 							>
@@ -201,7 +201,7 @@ function Theme(props: ThemeProps) {
 					props.border,
 					props.textColor,
 					props.className,
-					'relative h-full w-[150px] overflow-hidden rounded-lg'
+					'relative h-[90px] w-[150px] overflow-hidden rounded-lg'
 				)}
 			>
 				<div
@@ -221,7 +221,7 @@ function Theme(props: ThemeProps) {
 					/>
 				)}
 			</div>
-			<p className="mt-3 text-center text-sm">{props.themeName}</p>
+			<p className="mb-3 mt-3 text-center text-sm">{props.themeName}</p>
 		</div>
 	);
 }
@@ -229,7 +229,7 @@ function Theme(props: ThemeProps) {
 function SystemTheme(props: ThemeProps) {
 	return (
 		<div className="h-full w-[150px]">
-			<div className="relative flex h-full">
+			<div className="relative flex h-[90px]">
 				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />
 				</div>
