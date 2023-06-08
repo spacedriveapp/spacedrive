@@ -230,7 +230,7 @@ COPY --from=layer-99-ffmpeg /opt/dlls /opt/dlls
 
 RUN rm -rf /opt/dlls/share /opt/dlls/lib/pkgconfig /opt/dlls/lib/cmake
 
-RUN find /opt/dlls/share -type d -delete
+RUN find /opt/dlls -type d -delete
 
 FROM scratch
 
