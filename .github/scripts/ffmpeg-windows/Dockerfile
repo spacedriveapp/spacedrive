@@ -4,7 +4,7 @@ FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest@sha256:69e7ee385c41ae4580161fb
 
 ENV TARGET=win64
 
-COPY --chmod=755 copy_dll.sh /usr/bin/copy_dll
+COPY --chmod=755 bak_dll.sh /usr/bin/bak_dll
 
 FROM base AS layer-10-mingw
 
@@ -225,9 +225,11 @@ COPY --from=layer-99-libheif $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-99-ffmpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
-RUN mkdir -p /opt/dlls/bin /opt/dlls/lib
+RUN mkdir -p /opt/dlls
 
-RUN copy_dll final
+COPY --chmod=755 copy_dll.sh /usr/bin/copy_dll
+
+RUN copy_dll
 
 RUN cp -av $FFBUILD_PREFIX/include /opt/dlls/
 

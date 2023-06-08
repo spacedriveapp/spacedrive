@@ -35,5 +35,5 @@ ffbuild_dockerbuild() {
   ninja -j"$(nproc)"
   ninja install
 
-  copy_dll
+  bak_dll
 }

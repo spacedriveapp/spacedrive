@@ -40,5 +40,5 @@ EOF
 
   chmod 644 "${FFBUILD_PREFIX}"/lib/*rav1e*
 
-  copy_dll
+  bak_dll
 }

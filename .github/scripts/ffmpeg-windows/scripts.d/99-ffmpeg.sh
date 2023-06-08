@@ -87,5 +87,5 @@ ffbuild_dockerbuild() {
 
   make PREFIX="$FFBUILD_PREFIX" install
 
-  copy_dll
+  bak_dll
 }
