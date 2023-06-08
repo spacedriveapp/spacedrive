@@ -28,7 +28,10 @@ ffbuild_dockerbuild() {
   ninja -j"$(nproc)"
   ninja install
 
+  sed -i "s@^prefix=/opt/dav1d\$@prefix=${FFBUILD_PREFIX}@" /opt/dav1d/lib/pkgconfig/dav1d.pc
   cp -nav /opt/dav1d/* "${FFBUILD_PREFIX}/"
+
   mkdir -p /opt/dlls/
   cp -nav /opt/dav1d/* /opt/dlls/
+  rm -r /opt/dlls/lib/pkgconfig
 }

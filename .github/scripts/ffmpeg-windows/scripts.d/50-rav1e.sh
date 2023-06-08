@@ -40,7 +40,10 @@ EOF
 
   chmod 644 /opt/rav1e/lib/*rav1e*
 
+  sed -i "s@^prefix=/opt/rav1e\$@prefix=${FFBUILD_PREFIX}@" /opt/rav1e/lib/pkgconfig/rav1e.pc
   cp -nav /opt/rav1e/* "${FFBUILD_PREFIX}/"
+
   mkdir -p /opt/dlls/
   cp -nav /opt/rav1e/* /opt/dlls/
+  rm -r /opt/dlls/lib/pkgconfig
 }
