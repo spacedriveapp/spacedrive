@@ -165,6 +165,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
 '@
     }
 
+    # TODO: Check system winget version is greater or equal to v1.4.10052
+
     # Check connectivity to GitHub
     $ProgressPreference = 'SilentlyContinue'
     if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
@@ -175,6 +177,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     Write-Host
     Read-Host 'Press Enter to continue'
 
+    # TODO: Force update Visual Studio build tools
     Write-Host
     Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
     Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
