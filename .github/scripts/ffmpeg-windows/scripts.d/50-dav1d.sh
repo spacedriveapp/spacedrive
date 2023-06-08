@@ -29,5 +29,6 @@ ffbuild_dockerbuild() {
   ninja install
 
   cp -nav /opt/dav1d/* "${FFBUILD_PREFIX}/"
-  cp -nav /opt/dav1d/* "/opt/dlls/"
+  mkdir -p /opt/dlls/
+  cp -nav /opt/dav1d/* /opt/dlls/
 }

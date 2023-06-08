@@ -41,5 +41,6 @@ EOF
   chmod 644 /opt/rav1e/lib/*rav1e*
 
   cp -nav /opt/rav1e/* "${FFBUILD_PREFIX}/"
-  cp -nav /opt/rav1e/* "/opt/dlls/"
+  mkdir -p /opt/dlls/
+  cp -nav /opt/rav1e/* /opt/dlls/
 }
