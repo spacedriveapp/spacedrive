@@ -54,6 +54,6 @@ ffbuild_dockerbuild() {
 
   echo "Libs.private: -lstdc++" >>/opt/x265/lib/pkgconfig/x265.pc
 
-  cp -nav /opt/x265 "$FFBUILD_PREFIX"
-  cp -nav /opt/x265 "/opt/dlls"
+  cp -nav /opt/x265/* "${FFBUILD_PREFIX}/"
+  cp -nav /opt/x265/* "/opt/dlls/"
 }

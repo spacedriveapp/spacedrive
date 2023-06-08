@@ -28,6 +28,6 @@ ffbuild_dockerbuild() {
   ninja -j"$(nproc)"
   ninja install
 
-  cp -nav /opt/dav1d "$FFBUILD_PREFIX"
-  cp -nav /opt/dav1d "/opt/dlls"
+  cp -nav /opt/dav1d/* "${FFBUILD_PREFIX}/"
+  cp -nav /opt/dav1d/* "/opt/dlls/"
 }
