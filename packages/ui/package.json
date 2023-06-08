@@ -34,7 +34,7 @@
 		"@react-spring/web": "9.6.0",
 		"@sd/assets": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",
-		"class-variance-authority": "^0.4.0",
+		"class-variance-authority": "^0.5.3",
 		"clsx": "^1.2.1",
 		"phosphor-react": "^1.4.1",
 		"postcss": "^8.4.17",
