@@ -33,8 +33,6 @@ pub struct WorkerContext {
 	pub library: Library,
 	events_tx: UnboundedSender<WorkerEvent>,
 	shutdown_tx: Arc<broadcast::Sender<()>>,
-	// Used for debouncing
-	last_event: Instant,
 }
 
 impl WorkerContext {
@@ -42,17 +40,6 @@ impl WorkerContext {
 		self.events_tx
 			.send(WorkerEvent::Progressed(updates))
 			.expect("critical error: failed to send worker worker progress event updates");
-	}
-
-	pub fn progress_debounced(&mut self, updates: Vec<JobReportUpdate>) {
-		let now = Instant::now();
-		if now.duration_since(self.last_event) > JOB_REPORT_UPDATE_INTERVAL {
-			self.last_event = now;
-
-			self.events_tx
-				.send(WorkerEvent::Progressed(updates))
-				.expect("critical error: failed to send worker worker progress event updates");
-		}
 	}
 
 	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
@@ -143,8 +130,6 @@ impl Worker {
 				library: library.clone(),
 				events_tx: worker_events_tx,
 				shutdown_tx: job_manager.shutdown_tx(),
-				last_event: (Instant::now()
-					- (JOB_REPORT_UPDATE_INTERVAL + Duration::from_secs(1))), // So we don't miss the first event
 			};
 
 			let (done_tx, done_rx) = oneshot::channel();
@@ -220,9 +205,6 @@ impl Worker {
 							}
 
 							JobReportUpdate::Message(message) => {
-								// DEBUG: We know the messages reach here correctly
-								// TODO: Remove this before PR
-								println!("Message: {:#?}", message);
 								worker.report.message = message;
 							}
 						}

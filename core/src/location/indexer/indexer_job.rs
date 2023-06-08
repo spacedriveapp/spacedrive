@@ -191,7 +191,7 @@ impl StatefulJob for IndexerJob {
 					vec![
 						ScanProgress::SavedChunks(step.chunk_idx),
 						ScanProgress::Message(format!(
-							"Writing {}/{} to db",
+							"Writing chunk {} of {} to database",
 							step.chunk_idx, data.total_save_steps
 						)),
 					],

@@ -84,7 +84,7 @@ function Job({ job, className, isChild }: JobProps) {
 			isChild={job.action !== null}
 		>
 			{isRunning && (
-				<div className="my-1 w-[335px]">
+				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar value={job.completed_task_count} total={job.task_count} />
 				</div>
 			)}

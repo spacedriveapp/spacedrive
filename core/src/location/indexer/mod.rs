@@ -68,7 +68,7 @@ pub struct IndexerJobData {
 
 impl IndexerJobData {
 	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress_debounced(
+		ctx.progress(
 			progress
 				.iter()
 				.map(|p| match p.clone() {
@@ -245,7 +245,10 @@ fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
-				ScanProgress::Message(format!("Scanning: {:?}", path.file_name())),
+				ScanProgress::Message(format!(
+					"Scanning: {:?}",
+					path.file_name().unwrap_or(path.as_os_str())
+				)),
 				ScanProgress::ChunkCount(total_entries / batch_size),
 			],
 		);

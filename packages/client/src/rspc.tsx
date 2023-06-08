@@ -95,7 +95,6 @@ export function useInvalidateQuery() {
 	const context = nonLibraryHooks.useContext();
 	useBridgeSubscription(['invalidation.listen'], {
 		onData: (ops) => {
-			console.log('Invalidating', ops); // TODO: Remove before this PR
 			for (const op of ops) {
 				let key = [op.key];
 				if (op.arg !== null) {
