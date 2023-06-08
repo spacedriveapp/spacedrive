@@ -224,6 +224,12 @@ impl LibraryManager {
 		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
 		config.save(&config_path)?;
 
+		debug!(
+			"Created library '{}' config at '{}'",
+			id,
+			config_path.display()
+		);
+
 		let library = Self::load(
 			id,
 			self.libraries_dir.join(format!("{id}.db")),
@@ -232,12 +238,19 @@ impl LibraryManager {
 		)
 		.await?;
 
+		debug!("Loaded library '{id:?}'");
+
 		// Run seeders
 		rules::seeder(&library.db).await?;
+
+		debug!("Seeded library '{id:?}'");
 
 		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
+
+		debug!("Pushed library into manager '{id:?}'");
+
 		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
