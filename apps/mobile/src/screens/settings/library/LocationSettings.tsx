@@ -1,4 +1,5 @@
 import { CaretRight, Pen, Repeat, Trash } from 'phosphor-react-native';
+import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
@@ -10,7 +11,10 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
+import { ModalRef } from '~/components/layout/Modal';
+import ImportModal from '~/components/modal/ImportModal';
 import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
+import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
@@ -121,10 +125,25 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 	);
 }
 
-// TODO: Add new location from here (ImportModal)
-
 const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'LocationSettings'>) => {
 	const { data: locations } = useLibraryQuery(['locations.list']);
+
+	useEffect(() => {
+		navigation.setOptions({
+			headerRight: () => (
+				<AnimatedButton
+					variant="accent"
+					style={tw`mr-2`}
+					size="sm"
+					onPress={() => modalRef.current?.present()}
+				>
+					<Text style={tw`text-white`}>New</Text>
+				</AnimatedButton>
+			)
+		});
+	}, [navigation]);
+
+	const modalRef = useRef<ModalRef>(null);
 
 	return (
 		<View style={tw`flex-1 px-3 py-4`}>
@@ -135,6 +154,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 					<LocationItem navigation={navigation} location={item} index={index} />
 				)}
 			/>
+			<ImportModal ref={modalRef} />
 		</View>
 	);
 };
