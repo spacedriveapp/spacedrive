@@ -44,8 +44,10 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	return (
 		<Modal
 			ref={modalRef}
-			snapPoints={['25']}
+			snapPoints={['30']}
 			title="Create New Library"
+			description="Choose a name for your new library, you can configure this and more settings
+			from the library settings later on."
 			onDismiss={() => {
 				// Resets form onDismiss
 				setLibName('');
@@ -55,26 +57,20 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			enableHandlePanningGesture={false}
 			enableContentPanningGesture={false}
 		>
-			<View style={tw`p-4`}>
-				<Text>
-					Choose a name for your new library, you can configure this and more settings
-					from the library settings later on.
-				</Text>
-				<ModalInput
-					style={tw`ml-2 flex-1`}
-					value={libName}
-					onChangeText={(text) => setLibName(text)}
-					placeholder="My Cool Library"
-				/>
-				<Button
-					variant="accent"
-					onPress={() => createLibrary({ name: libName })}
-					style={tw`mt-6`}
-					disabled={libName.length === 0 || createLibLoading}
-				>
-					<Text style={tw`text-sm font-medium text-white`}>Create</Text>
-				</Button>
-			</View>
+			<ModalInput
+				style={tw`mt-4`}
+				value={libName}
+				onChangeText={(text) => setLibName(text)}
+				placeholder="My Cool Library"
+			/>
+			<Button
+				variant="accent"
+				onPress={() => createLibrary({ name: libName })}
+				style={tw`mt-6`}
+				disabled={libName.length === 0 || createLibLoading}
+			>
+				<Text style={tw`text-sm font-medium text-white`}>Create</Text>
+			</Button>
 		</Modal>
 	);
 });

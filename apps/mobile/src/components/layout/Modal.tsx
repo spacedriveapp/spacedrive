@@ -45,11 +45,12 @@ export type ModalRef = BottomSheetModal;
 interface ModalProps extends BottomSheetModalProps {
 	children: React.ReactNode;
 	title?: string;
+	description?: string;
 	showCloseButton?: boolean;
 }
 
 export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
-	const { children, title, showCloseButton = false, ...otherProps } = props;
+	const { children, title, description, showCloseButton = false, ...otherProps } = props;
 
 	const modalRef = useForwardedRef(ref);
 
@@ -62,7 +63,13 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-center text-base font-medium text-ink`}>{title}</Text>}
-			{children}
+			<View style={tw`p-4`}>
+				{/* Description */}
+				{props.description && (
+					<Text style={tw`text-sm text-ink-dull`}>{props.description}</Text>
+				)}
+				{children}
+			</View>
 		</BottomSheetModal>
 	);
 });

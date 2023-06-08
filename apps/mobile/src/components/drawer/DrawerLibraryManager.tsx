@@ -2,13 +2,14 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 import { AnimatedHeight } from '../animation/layout';
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
+import { ModalRef } from '../layout/Modal';
+import CreateLibraryModal from '../modal/CreateLibraryModal';
 import { Divider } from '../primitive/Divider';
 
 const DrawerLibraryManager = () => {
@@ -23,6 +24,8 @@ const DrawerLibraryManager = () => {
 	const { library: currentLibrary, libraries } = useClientContext();
 
 	const navigation = useNavigation();
+
+	const modalRef = useRef<ModalRef>(null);
 
 	return (
 		<View>
@@ -77,12 +80,14 @@ const DrawerLibraryManager = () => {
 					<Divider style={tw`my-2`} />
 					{/* Menu */}
 					{/* Create Library */}
-					<CreateLibraryDialog>
-						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Plus size={18} weight="bold" color="white" style={tw`mr-2`} />
-							<Text style={tw`text-sm font-semibold text-white`}>New Library</Text>
-						</View>
-					</CreateLibraryDialog>
+					<Pressable
+						style={tw`flex flex-row items-center px-1.5 py-[8px]`}
+						onPress={() => modalRef.current?.present()}
+					>
+						<Plus size={18} weight="bold" color="white" style={tw`mr-2`} />
+						<Text style={tw`text-sm font-semibold text-white`}>New Library</Text>
+					</Pressable>
+					<CreateLibraryModal ref={modalRef} />
 					{/* Manage Library */}
 					<Pressable
 						onPress={() =>
