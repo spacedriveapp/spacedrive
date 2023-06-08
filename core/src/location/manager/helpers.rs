@@ -2,7 +2,7 @@ use crate::{library::Library, prisma::location};
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	time::Duration,
 };
 
@@ -23,8 +23,13 @@ pub(super) async fn check_online(
 ) -> Result<bool, LocationManagerError> {
 	let pub_id = Uuid::from_slice(&location.pub_id)?;
 
-	if location.node_id == library.node_local_id {
-		match fs::metadata(&location.path).await {
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return Err(LocationManagerError::MissingPath)
+    };
+
+	if location.node_id == Some(library.node_local_id) {
+		match fs::metadata(&location_path).await {
 			Ok(_) => {
 				library.location_manager().add_online(pub_id).await;
 				Ok(true)
@@ -60,11 +65,14 @@ pub(super) fn watch_location(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return 
+    };
+
 	if let Some(mut watcher) = locations_unwatched.remove(&(location_id, library_id)) {
-		if watcher.check_path(&location.path) {
+		if watcher.check_path(location_path) {
 			watcher.watch();
-		} else {
-			watcher.update_data(location, true);
 		}
 
 		locations_watched.insert((location_id, library_id), watcher);
@@ -78,11 +86,14 @@ pub(super) fn unwatch_location(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return 
+    };
+
 	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
-		if watcher.check_path(&location.path) {
+		if watcher.check_path(location_path) {
 			watcher.unwatch();
-		} else {
-			watcher.update_data(location, false)
 		}
 
 		locations_unwatched.insert((location_id, library_id), watcher);
@@ -128,7 +139,7 @@ pub(super) async fn handle_remove_location_request(
 ) {
 	let key = (location_id, library.id);
 	if let Some(location) = get_location(location_id, &library).await {
-		if location.node_id == library.node_local_id {
+		if location.node_id == Some(library.node_local_id) {
 			unwatch_location(location, library.id, locations_watched, locations_unwatched);
 			locations_unwatched.remove(&key);
 			forced_unwatch.remove(&key);

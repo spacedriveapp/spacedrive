@@ -15,7 +15,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 type LocationItemProps = {
-	location: Location & { node: Node };
+	location: Location & { node: Node | null };
 	index: number;
 	navigation: SettingsStackScreenProps<'LocationSettings'>['navigation'];
 };
@@ -103,11 +103,13 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
 						{location.name}
 					</Text>
-					<View style={tw`mt-0.5 self-start rounded bg-app-highlight px-1 py-[1px]`}>
-						<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
-							{location.node.name}
-						</Text>
-					</View>
+					{location.node && (
+						<View style={tw`mt-0.5 self-start rounded bg-app-highlight px-1 py-[1px]`}>
+							<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
+								{location.node.name}
+							</Text>
+						</View>
+					)}
 					<Text
 						numberOfLines={1}
 						style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}

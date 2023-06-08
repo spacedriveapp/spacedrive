@@ -51,7 +51,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					{locations?.map((location) => (
 						<DrawerLocationItem
 							key={location.id}
-							folderName={location.name}
+							folderName={location.name ?? ''}
 							onPress={() =>
 								navigation.navigate(stackName, {
 									screen: 'Location',

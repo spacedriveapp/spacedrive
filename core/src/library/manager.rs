@@ -70,6 +70,8 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
+	#[error("no-path")]
+	NoPath(i32),
 }
 
 impl From<LibraryManagerError> for rspc::Error {

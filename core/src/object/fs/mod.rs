@@ -55,6 +55,7 @@ pub async fn get_location_path_from_location_id(
 			value: String::from("location which matches location_id"),
 		})?
 		.path
+		.ok_or(JobError::MissingPath)?
 		.into())
 }
 

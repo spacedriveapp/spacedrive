@@ -76,6 +76,8 @@ pub enum JobError {
 	MissingFromDb(&'static str, String),
 	#[error("the cas id is not set on the path data")]
 	MissingCasId,
+	#[error("missing-location-path")]
+	MissingPath,
 
 	// Not errors
 	#[error("step completed with errors")]

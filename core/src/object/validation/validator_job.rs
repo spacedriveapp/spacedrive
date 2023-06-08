@@ -4,7 +4,7 @@ use crate::{
 	},
 	library::Library,
 	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
-	prisma::{file_path, location},
+	prisma::file_path,
 	sync,
 	util::error::FileIOError,
 };
@@ -68,18 +68,8 @@ impl StatefulJob for ObjectValidatorJob {
 				.await?,
 		);
 
-		let location = db
-			.location()
-			.find_unique(location::id::equals(state.init.location_id))
-			.exec()
-			.await?
-			.ok_or(JobError::MissingFromDb(
-				"location",
-				format!("id={}", state.init.location_id),
-			))?;
-
 		state.data = Some(ObjectValidatorJobState {
-			root_path: location.path.into(),
+			root_path: state.init.path.clone(),
 			task_count: state.steps.len(),
 		});
 
