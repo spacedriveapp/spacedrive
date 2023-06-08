@@ -51,7 +51,7 @@ pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
 		.config()
 		.data_directory()
 		.join(THUMBNAIL_CACHE_DIR_NAME)
-		.join(calc_shard_hex(cas_id))
+		.join(get_shard_hex(cas_id))
 		.join(cas_id)
 		.with_extension("webp")
 }
@@ -59,7 +59,7 @@ pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
 // this is used to pass the relevant data to the frontend so it can request the thumbnail
 // it supports extending the shard hex to support deeper directory structures in the future
 pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
-	vec![calc_shard_hex(cas_id), cas_id.to_string()]
+	vec![get_shard_hex(cas_id), cas_id.to_string()]
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -282,7 +282,7 @@ pub async fn inner_process_step(
 		return Ok(());
 	};
 
-	let thumb_dir = thumbnail_dir.join(calc_shard_hex(cas_id));
+	let thumb_dir = thumbnail_dir.join(get_shard_hex(cas_id));
 
 	// Create the directory if it doesn't exist
 	if let Err(e) = fs::create_dir_all(&thumb_dir).await {

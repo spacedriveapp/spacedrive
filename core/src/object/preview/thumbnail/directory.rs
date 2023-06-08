@@ -6,7 +6,7 @@ use tracing::{error, info};
 
 use crate::util::{error::FileIOError, version_manager::VersionManager};
 
-use super::{calc_shard_hex, ThumbnailerError, THUMBNAIL_CACHE_DIR_NAME};
+use super::{get_shard_hex, ThumbnailerError, THUMBNAIL_CACHE_DIR_NAME};
 
 #[derive(IntEnum, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(i32)]
@@ -73,7 +73,7 @@ async fn move_webp_files(dir: &PathBuf) -> Result<(), ThumbnailerError> {
 			if let Some(extension) = path.extension() {
 				if extension == "webp" {
 					let filename = path.file_name().unwrap().to_str().unwrap(); // we know they're cas_id's, so they're valid utf8
-					let shard_folder = calc_shard_hex(filename);
+					let shard_folder = get_shard_hex(filename);
 
 					let new_dir = dir.join(shard_folder);
 					async_fs::create_dir_all(&new_dir)
