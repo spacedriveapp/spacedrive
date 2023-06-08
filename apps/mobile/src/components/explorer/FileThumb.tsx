@@ -15,8 +15,10 @@ type FileThumbProps = {
 	size?: number;
 };
 
-export const getThumbnailUrlById = (casId: string) =>
-	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
+export const getThumbnailUrlById = (keyParts: string[]) =>
+	`${DocumentDirectoryPath}/thumbnails/${keyParts
+		.map((i) => encodeURIComponent(i))
+		.join('/')}.webp`;
 
 type KindType = keyof typeof icons | 'Unknown';
 
@@ -29,7 +31,8 @@ function getExplorerItemData(data: ExplorerItem) {
 		casId: filePath?.cas_id || null,
 		isDir: isPath(data) && data.item.is_dir,
 		kind: ObjectKind[objectData?.kind || 0] as KindType,
-		hasThumbnail: data.has_thumbnail,
+		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
+		thumbnailKey: data.thumbnail_key,
 		extension: filePath?.extension
 	};
 }
@@ -41,7 +44,8 @@ const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: numb
 );
 
 export default function FileThumb({ data, size = 1 }: FileThumbProps) {
-	const { casId, isDir, kind, hasThumbnail, extension } = getExplorerItemData(data);
+	const { casId, isDir, kind, hasLocalThumbnail, extension, thumbnailKey } =
+		getExplorerItemData(data);
 
 	if (isPath(data) && data.item.is_dir) {
 		return (
@@ -51,12 +55,12 @@ export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 		);
 	}
 
-	if (hasThumbnail && casId) {
+	if (hasLocalThumbnail && thumbnailKey) {
 		// TODO: Handle Image checkers bg?
 		return (
 			<FileThumbWrapper size={size}>
 				<Image
-					source={{ uri: getThumbnailUrlById(casId) }}
+					source={{ uri: getThumbnailUrlById(thumbnailKey) }}
 					resizeMode="contain"
 					style={tw`h-full w-full`}
 				/>

@@ -233,15 +233,15 @@ function SystemTheme(props: ThemeProps) {
 	return (
 		<div className="h-full w-[150px]">
 			<div className="relative flex h-full">
-				<div className="relative h-full w-[50%] grow overflow-hidden rounded-bl-lg rounded-tl-lg bg-black">
-					<Theme className="rounded-br-none rounded-tr-none" {...themes[1]!} />
+				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
+					<Theme className="rounded-r-none" {...themes[1]!} />
 				</div>
 				<div
 					className={clsx(
-						'relative h-full w-[50%] grow overflow-hidden rounded-br-lg rounded-tr-lg'
+						'relative h-full w-[50%] grow overflow-hidden rounded-r-lg'
 					)}
 				>
-					<Theme className="rounded-bl-none rounded-tl-none" {...themes[0]!} />
+					<Theme className="rounded-l-none" {...themes[0]!} />
 				</div>
 				{props.isSelected && (
 					<CheckCircle

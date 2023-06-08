@@ -217,3 +217,10 @@ body {
 	width: 8px !important;
 	border-radius: 3px !important;
 }
+
+.selecto-selection {
+	@apply rounded;
+	border-color: hsla(var(--color-accent));
+	background-color: hsla(var(--color-accent), 0.2) !important;
+	z-index: 10 !important;
+}

@@ -9,7 +9,21 @@ export interface IJobGroup extends JobReport {
 export function useGroupedJobs(jobs: JobReport[] = [], runningJobs: JobReport[] = []) {
 	return useMemo(() => {
 		return jobs.reduce((arr, job) => {
-			const childJobs = jobs.filter((j) => j.parent_id === job.id);
+			const childJobs = jobs
+				.filter((j) => j.parent_id === job.id || j.id === job.id)
+				// sort by started_at, a string date that is possibly null
+				.sort((a, b) => {
+					if (!a.started_at && !b.started_at) {
+						return 0;
+					}
+
+					if (!a.started_at) {
+						// a is null
+						return 1;
+					}
+
+					return a.started_at.localeCompare(b.started_at || '');
+				});
 
 			if (!jobs.some((j) => j.id === job.parent_id)) {
 				arr.push({

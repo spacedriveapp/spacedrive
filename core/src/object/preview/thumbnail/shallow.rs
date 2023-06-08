@@ -1,6 +1,5 @@
 use super::{
 	ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
-	THUMBNAIL_CACHE_DIR_NAME,
 };
 use crate::{
 	invalidate_query,
@@ -19,6 +18,7 @@ use crate::{
 };
 use sd_file_ext::extensions::Extension;
 use std::path::{Path, PathBuf};
+use thumbnail::init_thumbnail_dir;
 use tokio::fs;
 use tracing::info;
 
@@ -32,10 +32,7 @@ pub async fn shallow_thumbnailer(
 ) -> Result<(), JobError> {
 	let Library { db, .. } = &library;
 
-	let thumbnail_dir = library
-		.config()
-		.data_directory()
-		.join(THUMBNAIL_CACHE_DIR_NAME);
+	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
 
 	let location_id = location.id;
 	let location_path = PathBuf::from(&location.path);

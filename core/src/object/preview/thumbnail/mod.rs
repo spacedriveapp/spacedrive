@@ -8,7 +8,7 @@ use crate::{
 		LocationId,
 	},
 	prisma::location,
-	util::error::FileIOError,
+	util::{error::FileIOError, version_manager::VersionManagerError},
 };
 
 use std::{
@@ -32,10 +32,14 @@ use webp::Encoder;
 
 use self::thumbnailer_job::ThumbnailerJob;
 
+mod directory;
 mod shallow;
+mod shard;
 pub mod thumbnailer_job;
 
+pub use directory::*;
 pub use shallow::*;
+pub use shard::*;
 
 const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 const THUMBNAIL_QUALITY: f32 = 30.0;
@@ -47,8 +51,15 @@ pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
 		.config()
 		.data_directory()
 		.join(THUMBNAIL_CACHE_DIR_NAME)
+		.join(get_shard_hex(cas_id))
 		.join(cas_id)
 		.with_extension("webp")
+}
+
+// this is used to pass the relevant data to the frontend so it can request the thumbnail
+// it supports extending the shard hex to support deeper directory structures in the future
+pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
+	vec![get_shard_hex(cas_id), cas_id.to_string()]
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -89,6 +100,8 @@ pub enum ThumbnailerError {
 	FilePath(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	VersionManager(#[from] VersionManagerError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -269,12 +282,22 @@ pub async fn inner_process_step(
 		return Ok(());
 	};
 
+	let thumb_dir = thumbnail_dir.join(get_shard_hex(cas_id));
+
+	// Create the directory if it doesn't exist
+	if let Err(e) = fs::create_dir_all(&thumb_dir).await {
+		error!("Error creating thumbnail directory {:#?}", e);
+	}
+
 	// Define and write the WebP-encoded file to a given path
-	let output_path = thumbnail_dir.join(format!("{cas_id}.webp"));
+	let output_path = thumb_dir.join(format!("{cas_id}.webp"));
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
-			info!("Thumb exists, skipping... {}", output_path.display());
+			info!(
+				"Thumb already exists, skipping generation for {}",
+				output_path.display()
+			);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			info!("Writing {:?} to {:?}", path, output_path);
@@ -293,9 +316,9 @@ pub async fn inner_process_step(
 				}
 			}
 
-			println!("emitting new thumbnail event");
+			info!("Emitting new thumbnail event");
 			library.emit(CoreEvent::NewThumbnail {
-				cas_id: cas_id.clone(),
+				thumb_key: get_thumb_key(cas_id),
 			});
 		}
 		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),

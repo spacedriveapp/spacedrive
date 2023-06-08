@@ -28,8 +28,8 @@ const spacedriveProtocol = `${http}://${serverOrigin}/spacedrive`;
 
 const platform: Platform = {
 	platform: 'web',
-	getThumbnailUrlById: (casId) =>
-		`${spacedriveProtocol}/thumbnail/${encodeURIComponent(casId)}.webp`,
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		`${spacedriveProtocol}/thumbnail/${keyParts.map(i => encodeURIComponent(i)).join("/")}.webp`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		`${spacedriveProtocol}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
@@ -42,12 +42,12 @@ const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: import.meta.env.VITE_SD_DEMO_MODE
 			? {
-					refetchOnWindowFocus: false,
-					staleTime: Infinity,
-					cacheTime: Infinity,
-					networkMode: 'offlineFirst',
-					enabled: false
-			  }
+				refetchOnWindowFocus: false,
+				staleTime: Infinity,
+				cacheTime: Infinity,
+				networkMode: 'offlineFirst',
+				enabled: false
+			}
 			: undefined
 		// TODO: Mutations can't be globally disable which is annoying!
 	}
