@@ -34,11 +34,10 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const [scroll, setScroll] = useState(0);
 	const ref = useRef<HTMLDivElement>(null);
 	const lastCategoryRef = useRef<HTMLDivElement>(null);
-
 	//if the last category is visible - we hide the right arrow
 	const isInView = useInView(lastCategoryRef, {
 		amount: 1,
-		root: ref.current as any //todo: fix this type (needs to be .current to work)
+		root: ref.current as any //TODO: fix this type - current is required for this to work
 	});
 
 	useEffect(() => {
@@ -71,13 +70,14 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					scroll > 0
 						? 'cursor-pointer bg-opacity-50 opacity-100 hover:opacity-80'
 						: 'pointer-events-none',
-					'sticky left-[33px] z-40 mt-3 flex h-9 w-9 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[33px] z-40 mt-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
-				<ArrowLeft weight="bold" className="h-4 w-4 text-white" />
+				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
 			</div>
 			<div
 				ref={ref}
+				id="categories"
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
 					maskImage:
@@ -114,10 +114,10 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				onClick={() => handleArrowOnClick('left')}
 				className={clsx(
 					isInView ? 'pointer-events-none opacity-0 hover:opacity-0' : 'hover:opacity-80',
-					'sticky right-[25px] z-40 mt-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app bg-opacity-50 p-2 backdrop-blur-md transition-all duration-200'
+					'sticky right-[25px] z-40 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app bg-opacity-50 p-2 backdrop-blur-md transition-all duration-200'
 				)}
 			>
-				<ArrowRight weight="bold" className="h-4 w-4 text-white" />
+				<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
 			</div>
 		</div>
 	);

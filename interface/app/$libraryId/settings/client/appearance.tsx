@@ -4,8 +4,7 @@ import { useEffect } from 'react';
 import { useState } from 'react';
 import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
-import { Button, Divider, Slider, forms } from '@sd/ui';
-import { InfoText } from '@sd/ui/src/forms';
+import { Button, Slider, forms } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -72,7 +71,9 @@ export const Component = () => {
 
 	useEffect(() => {
 		const subscription = form.watch(() => onSubmit());
-		return () => subscription.unsubscribe();
+		return () => {
+			subscription.unsubscribe();
+		};
 	}, [form, onSubmit]);
 
 	const themeSelectHandler = (theme: Theme['themeValue']) => {
@@ -81,12 +82,10 @@ export const Component = () => {
 			lockAppTheme?.('Auto');
 			getThemeStore().syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
-			lockAppTheme?.('Light');
 			getThemeStore().syncThemeWithSystem = false;
 			getThemeStore().theme = theme;
 			document.documentElement.classList.add('vanilla-theme');
 		} else if (theme === 'dark') {
-			lockAppTheme?.('Dark');
 			getThemeStore().syncThemeWithSystem = false;
 			getThemeStore().theme = theme;
 			document.documentElement.classList.remove('vanilla-theme');
@@ -124,14 +123,14 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div className="mb-14 mt-8 flex h-auto w-full gap-5">
+				<div className="explorer-scroll mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll md:w-[300px] lg:w-full">
 					{themes.map((theme, i) => {
 						return (
 							<div
 								onClick={() => themeSelectHandler(theme.themeValue)}
 								className={clsx(
 									selectedTheme !== theme.themeValue && 'opacity-70',
-									'h-[100px] transition-all duration-200 hover:translate-y-[-3.5px]'
+									'h-[100px] transition-all duration-200 hover:translate-y-[3.5px]'
 								)}
 								key={i}
 							>
