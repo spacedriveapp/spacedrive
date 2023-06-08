@@ -81,7 +81,7 @@ ffbuild_dockerbuild() {
     --extra-cxxflags='' \
     --extra-ldflags='-pthread' \
     --extra-ldexeflags='' \
-    --extra-libs='-lgomp'
+    --extra-libs='-lgomp -lstdc++'
 
   make -j"$(nproc)" V=1
 
