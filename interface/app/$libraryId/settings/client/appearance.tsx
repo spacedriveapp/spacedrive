@@ -1,6 +1,7 @@
 import clsx from 'clsx';
-import { ArrowClockwise, CheckCircle } from 'phosphor-react';
-import { useEffect } from 'react';
+import { useMotionValueEvent, useScroll } from 'framer-motion';
+import { CheckCircle } from 'phosphor-react';
+import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { getThemeStore, useThemeStore } from '@sd/client';
 import { Themes } from '@sd/client';
@@ -61,6 +62,15 @@ export const Component = () => {
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
+	const themesRef = useRef<HTMLDivElement>(null);
+	const [themeScroll, setThemeScroll] = useState(0);
+	const { scrollX } = useScroll({
+		container: themesRef
+	});
+	useMotionValueEvent(scrollX, 'change', (latest) => {
+		setThemeScroll(latest);
+	});
+
 	const form = useZodForm({
 		schema
 	});
@@ -100,7 +110,6 @@ export const Component = () => {
 			document.documentElement.style.setProperty('--dark-hue', hue.toString());
 		}
 	};
-
 	return (
 		<>
 			<Form form={form} onSubmit={onSubmit}>
@@ -123,14 +132,22 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div className="explorer-scroll mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll md:w-[300px] lg:w-full">
+				<div
+					style={{
+						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
+							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
+						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
+					}}
+					ref={themesRef}
+					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] transition-all  duration-200 md:w-[300px] lg:w-full"
+				>
 					{themes.map((theme, i) => {
 						return (
 							<div
 								onClick={() => themeSelectHandler(theme.themeValue)}
 								className={clsx(
 									selectedTheme !== theme.themeValue && 'opacity-70',
-									'h-[100px] transition-all duration-200 hover:translate-y-[3.5px]'
+									'h-[100px] transition-all duration-200 hover:translate-y-[3.5px] lg:first:ml-0'
 								)}
 								key={i}
 							>
