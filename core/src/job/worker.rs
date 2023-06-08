@@ -128,6 +128,7 @@ impl Worker {
 		job.register_children(&library).await?;
 
 		invalidate_query!(library, "jobs.getRunning");
+		invalidate_query!(library, "jobs.getHistory");
 
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(

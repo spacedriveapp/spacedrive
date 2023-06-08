@@ -43,6 +43,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
+		// pause job
+		// .procedure("pause", {
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), id: Uuid| async move {
+		// 			JobManager::pause_job(id, &library)
+		// 				.await
+		// 				.map_err(Into::into)
+		// 		})
+		// })
 		.procedure("generateThumbsForLocation", {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {

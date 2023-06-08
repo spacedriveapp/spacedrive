@@ -388,7 +388,7 @@ model Job {
 
     date_created   DateTime  @default(now())
     date_started   DateTime? @default(now()) // Started execution
-    date_completed DateTime? @default(now()) // Finished execution
+    date_completed DateTime? // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 

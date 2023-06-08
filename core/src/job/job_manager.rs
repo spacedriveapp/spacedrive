@@ -437,6 +437,7 @@ impl JobReport {
 						job::action::set(self.action.clone()),
 						job::data::set(self.data.clone()),
 						job::date_created::set(now.into()),
+						job::status::set(self.status as i32),
 						job::date_started::set(self.started_at.map(|d| d.into())),
 					],
 					[self
