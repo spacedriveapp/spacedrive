@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
 
   ninja -C 8bit install
 
-  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
+  copy_dll
 
   echo "Libs.private: -lstdc++" >>"$FFBUILD_PREFIX"/lib/pkgconfig/x265.pc
 }

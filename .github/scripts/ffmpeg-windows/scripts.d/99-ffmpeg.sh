@@ -44,6 +44,7 @@ ffbuild_dockerbuild() {
     --enable-gray \
     --enable-inline-asm \
     --enable-libdav1d \
+    --enable-libjxl \
     --enable-libkvazaar \
     --enable-libmp3lame \
     --enable-libopenjpeg \
@@ -86,5 +87,5 @@ ffbuild_dockerbuild() {
 
   make PREFIX="$FFBUILD_PREFIX" install
 
-  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
+  copy_dll
 }

@@ -4,6 +4,8 @@ FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest@sha256:69e7ee385c41ae4580161fb
 
 ENV TARGET=win64
 
+COPY --chmod=755 copy_dll.sh /usr/bin/copy_dll
+
 FROM base AS layer-10-mingw
 
 RUN --mount=src=scripts.d/10-mingw.sh,dst=/stage.sh run_stage /stage.sh
@@ -48,6 +50,10 @@ COPY --from=layer-25-libogg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-25-xz $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
+FROM layer-25 AS layer-45-brotli
+
+RUN --mount=src=scripts.d/45-brotli.sh,dst=/stage.sh run_stage /stage.sh
+
 FROM layer-25 AS layer-45-libvorbis
 
 RUN --mount=src=scripts.d/45-libvorbis.sh,dst=/stage.sh run_stage /stage.sh
@@ -61,6 +67,8 @@ FROM layer-25 AS layer-45-vmaf
 RUN --mount=src=scripts.d/45-vmaf.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-25 AS layer-45
+
+COPY --from=layer-45-brotli $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-45-libvorbis $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -86,9 +94,7 @@ RUN --mount=src=scripts.d/50-kvazaar.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-45 AS layer-50-libjxl
 
-RUN --mount=src=scripts.d/50-libjxl/45-brotli.sh,dst=/stage.sh run_stage /stage.sh
-
-RUN --mount=src=scripts.d/50-libjxl/50-libjxl.sh,dst=/stage.sh run_stage /stage.sh
+RUN --mount=src=scripts.d/50-libjxl.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-45 AS layer-50-libmp3lame
 
@@ -219,14 +225,32 @@ COPY --from=layer-99-libheif $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-99-ffmpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
-RUN mkdir -p /opt/dlls && find "$FFBUILD_PREFIX" -name '*.dll' -exec cp -v '{}.a' '{}' /opt/dlls/ ';'
-
-RUN x86_64-w64-mingw32-strip -s /opt/dlls/*.dll /opt/dlls/*.dll.a
-
 RUN mkdir -p /opt/dlls/bin /opt/dlls/lib
-RUN mv /opt/dlls/*.dll /opt/dlls/bin/
-RUN mv /opt/dlls/*.dll.a /opt/dlls/lib/
-RUN mv $FFBUILD_PREFIX/include /opt/dlls/
+
+RUN set -eux; find "${FFBUILD_PREFIX}/lib" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
+	x86_64-w64-mingw32-strip -s "$_dll"
+	cp -av "$_dll" /opt/dlls/bin
+
+	_dir="$(dirname "$_dll")"
+	_dir="${_dir#"${FFBUILD_PREFIX}/lib/"}"
+	if [ -z "$_dir" ]; then
+    _dir='.'
+  fi
+
+	_name="$(basename "$_dll" '.dll')"
+
+	if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" ]; then
+		mkdir -p "/opt/dlls/lib/${_dir}"
+		cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" "/opt/dlls/lib/${_dir}/"
+	fi
+
+	if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" ]; then
+		mkdir -p "/opt/dlls/lib/${_dir}"
+		cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" "/opt/dlls/lib/${_dir}/"
+	fi
+done
+
+RUN cp -av $FFBUILD_PREFIX/include /opt/dlls/
 
 FROM scratch
 

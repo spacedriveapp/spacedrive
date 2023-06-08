@@ -40,5 +40,5 @@ EOF
 
   chmod 644 "${FFBUILD_PREFIX}"/lib/*rav1e*
 
-  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
+  copy_dll
 }

@@ -13,7 +13,7 @@ RUN tar -xf ffmpeg-${FFMPEG_VERSION}.tar.xz && rm ffmpeg-${FFMPEG_VERSION}.tar.x
 
 WORKDIR /srv/ffmpeg-${FFMPEG_VERSION}
 
-COPY ./ffmpeg-build-macos.sh ./
+COPY --chmod=755 ./ffmpeg-build-macos.sh ./
 
 # ---
 FROM base as x86_64

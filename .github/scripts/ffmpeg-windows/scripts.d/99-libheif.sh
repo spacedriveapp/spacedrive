@@ -35,5 +35,5 @@ ffbuild_dockerbuild() {
   ninja -j"$(nproc)"
   ninja install
 
-  mv "$FFBUILD_PREFIX/bin"/*.dll "$FFBUILD_PREFIX/lib"
+  copy_dll
 }
