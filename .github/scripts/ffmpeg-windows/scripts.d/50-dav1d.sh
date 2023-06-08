@@ -10,7 +10,7 @@ ffbuild_dockerbuild() {
   mkdir build && cd build
 
   local myconf=(
-    --prefix="$FFBUILD_PREFIX"
+    --prefix=/opt/dav1d
     --buildtype=release
     --default-library=shared
   )
@@ -21,12 +21,13 @@ ffbuild_dockerbuild() {
     )
   else
     echo "Unknown target"
-    return -1
+    return 255
   fi
 
   meson "${myconf[@]}" ..
   ninja -j"$(nproc)"
   ninja install
 
-  bak_dll
+  rsync -aP /opt/dav1d "$FFBUILD_PREFIX"
+  rsync -aP /opt/dav1d "/opt/dlls"
 }

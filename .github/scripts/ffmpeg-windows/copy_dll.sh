@@ -42,8 +42,8 @@ find "$FFBUILD_PREFIX" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
   (
     _name="$(basename "$_dll" '.dll')"
     _name="${_name#lib}"
-    _name="${_name%%-*}"
-    _name="${_name%%_*}"
+    _name="${_name%-*}"
+    _name="${_name%_*}"
 
     find "${FFBUILD_PREFIX}" -name "*${_name}*.lib" | while IFS= read -r -d '' _lib; do
       _dir="$(get_dir "$_lib" "${FFBUILD_PREFIX}/")"

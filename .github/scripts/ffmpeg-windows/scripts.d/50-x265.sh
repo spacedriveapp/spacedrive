@@ -9,7 +9,7 @@ ffbuild_dockerbuild() {
   git checkout "$SCRIPT_COMMIT"
 
   local common_config=(
-    -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+    -DCMAKE_INSTALL_PREFIX="/opt/x265"
     -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
     -DCMAKE_BUILD_TYPE=Release
     -DENABLE_CLI=OFF
@@ -52,7 +52,8 @@ ffbuild_dockerbuild() {
 
   ninja -C 8bit install
 
-  bak_dll
+  echo "Libs.private: -lstdc++" >>/opt/x265/lib/pkgconfig/x265.pc
 
-  echo "Libs.private: -lstdc++" >>"$FFBUILD_PREFIX"/lib/pkgconfig/x265.pc
+  rsync -aP /opt/x265 "$FFBUILD_PREFIX"
+  rsync -aP /opt/x265 "/opt/dlls"
 }

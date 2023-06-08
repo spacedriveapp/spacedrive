@@ -8,7 +8,7 @@ ffbuild_dockerbuild() {
   cd rav1e
 
   local myconf=(
-    --prefix="$FFBUILD_PREFIX"
+    --prefix=/opt/rav1e
     --library-type=cdylib
     --release
   )
@@ -38,7 +38,8 @@ EOF
 
   cargo cinstall -v "${myconf[@]}"
 
-  chmod 644 "${FFBUILD_PREFIX}"/lib/*rav1e*
+  chmod 644 /opt/rav1e/lib/*rav1e*
 
-  bak_dll
+  rsync -aP /opt/rav1e "$FFBUILD_PREFIX"
+  rsync -aP /opt/rav1e "/opt/dlls"
 }

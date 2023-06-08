@@ -4,8 +4,6 @@ FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest@sha256:69e7ee385c41ae4580161fb
 
 ENV TARGET=win64
 
-COPY --chmod=755 bak_dll.sh /usr/bin/bak_dll
-
 FROM base AS layer-10-mingw
 
 RUN --mount=src=scripts.d/10-mingw.sh,dst=/stage.sh run_stage /stage.sh
@@ -169,6 +167,7 @@ FROM layer-45 AS layer-50
 COPY --from=layer-50-amf $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-dav1d $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+COPY --from=layer-50-dav1d /opt/dlls /opt/dlls
 
 COPY --from=layer-50-ffnvcodec $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -193,6 +192,7 @@ COPY --from=layer-50-openal $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 COPY --from=layer-50-openjpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-rav1e $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+COPY --from=layer-50-rav1e /opt/dlls /opt/dlls
 
 COPY --from=layer-50-soxr $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -203,6 +203,7 @@ COPY --from=layer-50-vulkan $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 COPY --from=layer-50-x264 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-x265 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+COPY --from=layer-50-x265 /opt/dlls /opt/dlls
 
 COPY --from=layer-50-xvid $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -221,17 +222,11 @@ RUN --mount=src=scripts.d/99-ffmpeg.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-50 AS layer-99
 
-COPY --from=layer-99-libheif $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+COPY --from=layer-50 /opt/dlls /opt/dlls
 
-COPY --from=layer-99-ffmpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+COPY --from=layer-99-libheif /opt/dlls /opt/dlls
 
-RUN mkdir -p /opt/dlls
-
-COPY --chmod=755 copy_dll.sh /usr/bin/copy_dll
-
-RUN copy_dll
-
-RUN cp -av $FFBUILD_PREFIX/include /opt/dlls/
+COPY --from=layer-99-ffmpeg /opt/dlls /opt/dlls
 
 FROM scratch
 

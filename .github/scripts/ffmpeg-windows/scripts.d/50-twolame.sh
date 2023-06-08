@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     )
   else
     echo "Unknown target"
-    return -1
+    return 255
   fi
 
   ./configure "${myconf[@]}"

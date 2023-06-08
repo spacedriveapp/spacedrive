@@ -11,7 +11,7 @@ ffbuild_dockerbuild() {
   ./configure \
     --cpu="x86_64" \
     --arch='x86_64' \
-    --prefix="$FFBUILD_PREFIX" \
+    --prefix="/opt/dlls" \
     --target-os=mingw32 \
     --pkg-config=pkg-config \
     --pkg-config-flags="--static" \
@@ -85,7 +85,5 @@ ffbuild_dockerbuild() {
 
   make -j"$(nproc)" V=1
 
-  make PREFIX="$FFBUILD_PREFIX" install
-
-  bak_dll
+  make PREFIX="/opt/dlls" install
 }

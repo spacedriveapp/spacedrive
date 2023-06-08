@@ -32,6 +32,6 @@ ffbuild_dockerbuild() {
     rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/lib/*.so*
   else
     echo "Unknown target"
-    return -1
+    return 255
   fi
 }

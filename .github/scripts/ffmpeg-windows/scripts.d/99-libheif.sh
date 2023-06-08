@@ -14,9 +14,9 @@ ffbuild_dockerbuild() {
     -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-    -DCMAKE_INSTALL_BINDIR="$FFBUILD_PREFIX"/bin \
-    -DCMAKE_INSTALL_LIBDIR="$FFBUILD_PREFIX"/lib \
+    -DCMAKE_INSTALL_PREFIX='/opt/dlls' \
+    -DCMAKE_INSTALL_BINDIR='/opt/dlls/bin' \
+    -DCMAKE_INSTALL_LIBDIR='/opt/dlls/lib' \
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_TESTING=OFF \
     -DWITH_EXAMPLES=OFF \
@@ -34,6 +34,4 @@ ffbuild_dockerbuild() {
 
   ninja -j"$(nproc)"
   ninja install
-
-  bak_dll
 }

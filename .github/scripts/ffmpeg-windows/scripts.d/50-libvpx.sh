@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     export CROSS="$FFBUILD_CROSS_PREFIX"
   else
     echo "Unknown target"
-    return -1
+    return 255
   fi
 
   ./configure "${myconf[@]}"
