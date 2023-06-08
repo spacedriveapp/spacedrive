@@ -428,7 +428,7 @@ impl LibraryManager {
 		for location in library
 			.db
 			.location()
-			.find_many(vec![location::node_id::equals(node_data.id)])
+			.find_many(vec![location::node_id::equals(Some(node_data.id))])
 			.exec()
 			.await?
 		{

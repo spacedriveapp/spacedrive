@@ -67,7 +67,10 @@ impl StatefulJob for ThumbnailerJob {
 		// .join(THUMBNAIL_CACHE_DIR_NAME);
 
 		let location_id = state.init.location.id;
-		let location_path = PathBuf::from(&state.init.location.path);
+		let location_path = match &state.init.location.path {
+			Some(v) => PathBuf::from(v),
+			None => return Ok(()),
+		};
 
 		let (path, iso_file_path) = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)

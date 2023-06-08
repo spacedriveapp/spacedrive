@@ -247,21 +247,10 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Location(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
+				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
 					db.location()
 						.create(
 							id.pub_id,
-							serde_json::from_value(data.remove(location::name::NAME).unwrap())
-								.unwrap(),
-							serde_json::from_value(data.remove(location::path::NAME).unwrap())
-								.unwrap(),
-							{
-								let val: std::collections::HashMap<String, Value> =
-									from_value(data.remove(location::node::NAME).unwrap()).unwrap();
-								let val = val.into_iter().next().unwrap();
-
-								node::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
-							},
 							data.into_iter()
 								.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
 								.collect(),
