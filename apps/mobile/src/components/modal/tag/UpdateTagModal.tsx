@@ -24,6 +24,9 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 	const [showPicker, setShowPicker] = useState(false);
 
 	const { mutate: updateTag, isLoading } = useLibraryMutation('tags.update', {
+		onMutate: () => {
+			console.log('Updating tag');
+		},
 		onSuccess: () => {
 			// Reset form
 			setShowPicker(false);

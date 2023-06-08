@@ -18,14 +18,13 @@ const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(
 		'library.delete',
 		{
+			onMutate: () => {
+				console.log('Deleting library');
+			},
 			onSuccess: () => {
 				queryClient.invalidateQueries(['library.list']);
 				onSubmit?.();
-				submitPlausibleEvent({
-					event: {
-						type: 'libraryDelete'
-					}
-				});
+				submitPlausibleEvent({ event: { type: 'libraryDelete' } });
 			},
 			onSettled: () => {
 				modalRef.current?.close();

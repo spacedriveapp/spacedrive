@@ -63,13 +63,10 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-center text-base font-medium text-ink`}>{title}</Text>}
-			<View style={tw`p-4`}>
-				{/* Description */}
-				{props.description && (
-					<Text style={tw`text-sm text-ink-dull`}>{props.description}</Text>
-				)}
-				{children}
-			</View>
+			{props.description && (
+				<Text style={tw`px-4 py-3 text-sm text-ink-dull`}>{props.description}</Text>
+			)}
+			{children}
 		</BottomSheetModal>
 	);
 });

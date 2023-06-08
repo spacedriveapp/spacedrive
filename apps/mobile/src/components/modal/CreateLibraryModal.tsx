@@ -57,20 +57,21 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			enableHandlePanningGesture={false}
 			enableContentPanningGesture={false}
 		>
-			<ModalInput
-				style={tw`mt-4`}
-				value={libName}
-				onChangeText={(text) => setLibName(text)}
-				placeholder="My Cool Library"
-			/>
-			<Button
-				variant="accent"
-				onPress={() => createLibrary({ name: libName })}
-				style={tw`mt-6`}
-				disabled={libName.length === 0 || createLibLoading}
-			>
-				<Text style={tw`text-sm font-medium text-white`}>Create</Text>
-			</Button>
+			<View style={tw`px-4`}>
+				<ModalInput
+					value={libName}
+					onChangeText={(text) => setLibName(text)}
+					placeholder="My Cool Library"
+				/>
+				<Button
+					variant="accent"
+					onPress={() => createLibrary({ name: libName })}
+					style={tw`mt-4`}
+					disabled={libName.length === 0 || createLibLoading}
+				>
+					<Text style={tw`text-sm font-medium text-white`}>Create</Text>
+				</Button>
+			</View>
 		</Modal>
 	);
 });
