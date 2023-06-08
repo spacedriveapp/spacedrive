@@ -10,12 +10,12 @@ ffbuild_dockerbuild() {
   mkdir build && cd build
 
   local myconf=(
+    -Denable_docs=false
+    -Denable_tools=false
+    -Denable_tests=false
+    -Denable_examples=false
     --prefix=/opt/dav1d
     --buildtype=release
-    --enable_docs=false
-    --enable_tools=false
-    --enable_tests=false
-    --enable_examples=false
     --default-library=shared
   )
 
