@@ -186,6 +186,11 @@ impl Node {
 								"spacedrive=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
+							)
+							.add_directive(
+								"rspc=debug"
+									.parse()
+									.expect("Error invalid tracing directive!"),
 							),
 					),
 			);
