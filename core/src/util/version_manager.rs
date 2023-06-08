@@ -42,7 +42,7 @@ impl<T: IntEnum<Int = i32>> VersionManager<T> {
 	pub fn get_version(&self) -> Result<T, VersionManagerError> {
 		if Path::new(&self.version_file_path).exists() {
 			let contents = fs::read_to_string(&self.version_file_path)?;
-			let version = i32::from_str(&contents.trim())?;
+			let version = i32::from_str(contents.trim())?;
 			T::from_int(version).map_err(|_| VersionManagerError::IntConversionError)
 		} else {
 			Err(VersionManagerError::VersionFileDoesNotExist)

@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf};
+use std::path::PathBuf;
 use tokio::fs as async_fs;
 
 use int_enum::IntEnum;
@@ -21,7 +21,8 @@ pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, Thumbnaile
 	let thumbnail_dir = data_dir.join(THUMBNAIL_CACHE_DIR_NAME);
 
 	let version_file = thumbnail_dir.join("version.txt");
-	let version_manager = VersionManager::<ThumbnailVersion>::new(version_file.to_str().unwrap());
+	let version_manager =
+		VersionManager::<ThumbnailVersion>::new(version_file.to_str().expect("Invalid path"));
 
 	info!("Thumbnail directory: {:?}", thumbnail_dir);
 
@@ -72,7 +73,11 @@ async fn move_webp_files(dir: &PathBuf) -> Result<(), ThumbnailerError> {
 		if path.is_file() {
 			if let Some(extension) = path.extension() {
 				if extension == "webp" {
-					let filename = path.file_name().unwrap().to_str().unwrap(); // we know they're cas_id's, so they're valid utf8
+					let filename = path
+						.file_name()
+						.expect("Missing file name")
+						.to_str()
+						.expect("Failed to parse UTF8"); // we know they're cas_id's, so they're valid utf8
 					let shard_folder = get_shard_hex(filename);
 
 					let new_dir = dir.join(shard_folder);
