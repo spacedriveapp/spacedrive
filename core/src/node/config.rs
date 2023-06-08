@@ -39,8 +39,8 @@ impl Migrate for NodeConfig {
 
 	async fn migrate(
 		from_version: u32,
-		config: &mut Map<String, Value>,
-		ctx: &Self::Ctx,
+		_config: &mut Map<String, Value>,
+		_ctx: &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match from_version {
 			0 => Ok(()),
