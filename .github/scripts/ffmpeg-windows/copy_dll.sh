@@ -11,28 +11,47 @@ if [ -z "${FFBUILD_PREFIX:-}" ]; then
   exit 1
 fi
 
+get_dir() {
+  local _dir
+
+  if [ "$#" -ne 2 ]; then
+    echo 'get_dir: <path> <base_dir>'
+  fi
+
+  _dir="$(dirname "$1")"
+  _dir="${_dir#"${2}/"}"
+  if [ -z "$_dir" ]; then
+    _dir='.'
+  fi
+
+  echo "$_dir"
+}
+
 if [ "${1:-}" = 'final' ]; then
-  find "${FFBUILD_PREFIX}/lib" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
+  find "$FFBUILD_PREFIX" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
     x86_64-w64-mingw32-strip -s "$_dll"
-    cp -av "$_dll" /opt/dlls/bin
 
-    _dir="$(dirname "$_dll")"
-    _dir="${_dir#"${FFBUILD_PREFIX}/lib/"}"
-    if [ -z "$_dir" ]; then
-      _dir='.'
+    _dir="$(get_dir "$_dll" "${FFBUILD_PREFIX}/")"
+
+    mkdir -p "/opt/dlls/${_dir}"
+
+    cp -av "$_dll" "/opt/dlls/${_dir}/"
+    if [ -f "${_dll}.a" ]; then
+      cp -av "${_dll}.a" "/opt/dlls/${_dir}/"
     fi
 
-    _name="$(basename "$_dll" '.dll')"
+    (
+      _name="$(basename "$_dll" '.dll')"
+      _name="${_name#lib}"
+      _name="${_name%%-*}"
+      _name="${_name%%_*}"
 
-    if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" ]; then
-      mkdir -p "/opt/dlls/lib/${_dir}"
-      cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" "/opt/dlls/lib/${_dir}/"
-    fi
-
-    if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" ]; then
-      mkdir -p "/opt/dlls/lib/${_dir}"
-      cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" "/opt/dlls/lib/${_dir}/"
-    fi
+      find "${FFBUILD_PREFIX}" -name "*${_name}*.lib" | while IFS= read -r -d '' _lib; do
+        _dir="$(get_dir "$_lib" "${FFBUILD_PREFIX}/")"
+        mkdir -p "/opt/dlls/${_dir}"
+        cp -av "$_lib" "/opt/dlls/${_dir}/"
+      done
+    )
   done
 else
   find "$FFBUILD_PREFIX/bin" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
