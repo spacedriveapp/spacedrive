@@ -120,7 +120,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {
-								CoreEvent::NewThumbnail { cas_id } => yield cas_id,
+								CoreEvent::NewThumbnail { thumb_key } => yield thumb_key,
 								_ => {}
 							}
 						}

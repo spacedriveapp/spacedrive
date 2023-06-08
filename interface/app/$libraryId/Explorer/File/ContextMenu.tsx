@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import {
 	ArrowBendUpRight,
 	Copy,
@@ -13,7 +12,6 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
 import {
 	ExplorerItem,
 	isObject,
@@ -34,12 +32,11 @@ import DeleteDialog from './DeleteDialog';
 import EncryptDialog from './EncryptDialog';
 import EraseDialog from './EraseDialog';
 
-interface Props extends PropsWithChildren {
-	data: ExplorerItem;
-	className?: string;
+interface Props {
+	data?: ExplorerItem;
 }
 
-export default ({ data, className, ...props }: Props) => {
+export default ({ data }: Props) => {
 	const store = useExplorerStore();
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
@@ -54,225 +51,206 @@ export default ({ data, className, ...props }: Props) => {
 	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 
+	if (!data) return null;
 	return (
-		<div onClick={(e) => e.stopPropagation()} className={clsx('flex', className)}>
-			<ContextMenu.Root trigger={props.children}>
-				<OpenOrDownloadOptions data={data} />
+		<>
+			<OpenOrDownloadOptions data={data} />
 
-				<ContextMenu.Separator />
+			<ContextMenu.Separator />
 
-				{!store.showInspector && (
-					<>
-						<ContextMenu.Item
-							label="Details"
-							keybind="⌘I"
-							// icon={Sidebar}
-							onClick={() => (getExplorerStore().showInspector = true)}
-						/>
-						<ContextMenu.Separator />
-					</>
-				)}
-
-				<OpenInNativeExplorer />
-
-				<ContextMenu.Item
-					label="Rename"
-					keybind="Enter"
-					onClick={() => (getExplorerStore().isRenaming = true)}
-				/>
-
-				{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+			{!store.showInspector && (
+				<>
 					<ContextMenu.Item
-						label="Remove from recents"
-						onClick={() =>
-							data.item.object_id && removeFromRecents.mutate(data.item.object_id)
-						}
+						label="Details"
+						keybind="⌘I"
+						// icon={Sidebar}
+						onClick={() => (getExplorerStore().showInspector = true)}
 					/>
-				)}
+					<ContextMenu.Separator />
+				</>
+			)}
 
+			<OpenInNativeExplorer />
+
+			<ContextMenu.Item
+				label="Rename"
+				keybind="Enter"
+				onClick={() => (getExplorerStore().isRenaming = true)}
+			/>
+
+			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
 				<ContextMenu.Item
-					label="Cut"
-					keybind="⌘X"
+					label="Remove from recents"
+					onClick={() =>
+						data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+					}
+				/>
+			)}
+
+			<ContextMenu.Item
+				label="Cut"
+				keybind="⌘X"
+				onClick={() => {
+					if (params.path === undefined) return;
+
+					getExplorerStore().cutCopyState = {
+						sourcePath: params.path,
+						sourceLocationId: store.locationId!,
+						sourcePathId: data.item.id,
+						actionType: 'Cut',
+						active: true
+					};
+				}}
+				icon={Scissors}
+			/>
+
+			<ContextMenu.Item
+				label="Copy"
+				keybind="⌘C"
+				onClick={() => {
+					if (params.path === undefined) return;
+
+					getExplorerStore().cutCopyState = {
+						sourcePath: params.path,
+						sourceLocationId: store.locationId!,
+						sourcePathId: data.item.id,
+						actionType: 'Copy',
+						active: true
+					};
+				}}
+				icon={Copy}
+			/>
+
+			<ContextMenu.Item
+				label="Duplicate"
+				keybind="⌘D"
+				onClick={() => {
+					if (params.path === undefined) return;
+
+					copyFiles.mutate({
+						source_location_id: store.locationId!,
+						source_path_id: data.item.id,
+						target_location_id: store.locationId!,
+						target_path: params.path,
+						target_file_name_suffix: ' copy'
+					});
+				}}
+			/>
+
+			<ContextMenu.Item
+				label="Deselect"
+				hidden={!store.cutCopyState.active}
+				onClick={() => {
+					getExplorerStore().cutCopyState = {
+						...store.cutCopyState,
+						active: false
+					};
+				}}
+				icon={FileX}
+			/>
+
+			<ContextMenu.Separator />
+
+			<ContextMenu.Item
+				label="Share"
+				icon={Share}
+				onClick={(e) => {
+					e.preventDefault();
+
+					navigator.share?.({
+						title: 'Spacedrive',
+						text: 'Check out this cool app',
+						url: 'https://spacedrive.com'
+					});
+				}}
+			/>
+
+			<ContextMenu.Separator />
+
+			{objectData && (
+				<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
+					<AssignTagMenuItems objectId={objectData.id} />
+				</ContextMenu.SubMenu>
+			)}
+
+			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
+				<ContextMenu.Item
+					label="Encrypt"
+					icon={LockSimple}
+					keybind="⌘E"
 					onClick={() => {
-						if (params.path === undefined) return;
-
-						getExplorerStore().cutCopyState = {
-							sourcePath: params.path,
-							sourceLocationId: store.locationId!,
-							sourcePathId: data.item.id,
-							actionType: 'Cut',
-							active: true
-						};
-					}}
-					icon={Scissors}
-				/>
-
-				<ContextMenu.Item
-					label="Copy"
-					keybind="⌘C"
-					onClick={() => {
-						if (params.path === undefined) return;
-
-						getExplorerStore().cutCopyState = {
-							sourcePath: params.path,
-							sourceLocationId: store.locationId!,
-							sourcePathId: data.item.id,
-							actionType: 'Copy',
-							active: true
-						};
-					}}
-					icon={Copy}
-				/>
-
-				<ContextMenu.Item
-					label="Duplicate"
-					keybind="⌘D"
-					onClick={() => {
-						if (params.path === undefined) return;
-
-						copyFiles.mutate({
-							source_location_id: store.locationId!,
-							source_path_id: data.item.id,
-							target_location_id: store.locationId!,
-							target_path: params.path,
-							target_file_name_suffix: ' copy'
-						});
-					}}
-				/>
-
-				<ContextMenu.Item
-					label="Deselect"
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						getExplorerStore().cutCopyState = {
-							...store.cutCopyState,
-							active: false
-						};
-					}}
-					icon={FileX}
-				/>
-
-				<ContextMenu.Separator />
-
-				<ContextMenu.Item
-					label="Share"
-					icon={Share}
-					onClick={(e) => {
-						e.preventDefault();
-
-						navigator.share?.({
-							title: 'Spacedrive',
-							text: 'Check out this cool app',
-							url: 'https://spacedrive.com'
-						});
-					}}
-				/>
-
-				<ContextMenu.Separator />
-
-				{objectData && (
-					<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
-						<AssignTagMenuItems objectId={objectData.id} />
-					</ContextMenu.SubMenu>
-				)}
-
-				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-					<ContextMenu.Item
-						label="Encrypt"
-						icon={LockSimple}
-						keybind="⌘E"
-						onClick={() => {
-							if (keyManagerUnlocked && hasMountedKeys) {
-								dialogManager.create((dp) => (
-									<EncryptDialog
-										{...dp}
-										location_id={store.locationId!}
-										path_id={data.item.id}
-									/>
-								));
-							} else if (!keyManagerUnlocked) {
-								showAlertDialog({
-									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.'
-								});
-							} else if (!hasMountedKeys) {
-								showAlertDialog({
-									title: 'No mounted keys',
-									value: 'No mounted keys were found. Please mount a key and try again.'
-								});
-							}
-						}}
-					/>
-					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-					<ContextMenu.Item
-						label="Decrypt"
-						icon={LockSimpleOpen}
-						keybind="⌘D"
-						onClick={() => {
-							if (keyManagerUnlocked) {
-								dialogManager.create((dp) => (
-									<DecryptDialog
-										{...dp}
-										location_id={store.locationId!}
-										path_id={data.item.id}
-									/>
-								));
-							} else {
-								showAlertDialog({
-									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.'
-								});
-							}
-						}}
-					/>
-					<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
-					<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-						<ContextMenu.Item label="PNG" />
-						<ContextMenu.Item label="WebP" />
-					</ContextMenu.SubMenu>
-					<ContextMenu.Item
-						onClick={() => {
-							fullRescan.mutate(getExplorerStore().locationId!);
-						}}
-						label="Rescan Directory"
-						icon={Package}
-					/>
-					<ContextMenu.Item
-						onClick={() => {
-							generateThumbnails.mutate({
-								id: getExplorerStore().locationId!,
-								path: '/'
-							});
-						}}
-						label="Regen Thumbnails"
-						icon={Package}
-					/>
-					<ContextMenu.Item
-						variant="danger"
-						label="Secure delete"
-						icon={TrashSimple}
-						onClick={() => {
+						if (keyManagerUnlocked && hasMountedKeys) {
 							dialogManager.create((dp) => (
-								<EraseDialog
+								<EncryptDialog
 									{...dp}
-									location_id={getExplorerStore().locationId!}
+									location_id={store.locationId!}
 									path_id={data.item.id}
 								/>
 							));
-						}}
-					/>
-				</ContextMenu.SubMenu>
-
-				<ContextMenu.Separator />
-
+						} else if (!keyManagerUnlocked) {
+							showAlertDialog({
+								title: 'Key manager locked',
+								value: 'The key manager is currently locked. Please unlock it and try again.'
+							});
+						} else if (!hasMountedKeys) {
+							showAlertDialog({
+								title: 'No mounted keys',
+								value: 'No mounted keys were found. Please mount a key and try again.'
+							});
+						}
+					}}
+				/>
+				{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
 				<ContextMenu.Item
-					icon={Trash}
-					label="Delete"
+					label="Decrypt"
+					icon={LockSimpleOpen}
+					keybind="⌘D"
+					onClick={() => {
+						if (keyManagerUnlocked) {
+							dialogManager.create((dp) => (
+								<DecryptDialog
+									{...dp}
+									location_id={store.locationId!}
+									path_id={data.item.id}
+								/>
+							));
+						} else {
+							showAlertDialog({
+								title: 'Key manager locked',
+								value: 'The key manager is currently locked. Please unlock it and try again.'
+							});
+						}
+					}}
+				/>
+				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
+				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+					<ContextMenu.Item label="PNG" />
+					<ContextMenu.Item label="WebP" />
+				</ContextMenu.SubMenu>
+				<ContextMenu.Item
+					onClick={() => {
+						fullRescan.mutate(getExplorerStore().locationId!);
+					}}
+					label="Rescan Directory"
+					icon={Package}
+				/>
+				<ContextMenu.Item
+					onClick={() => {
+						generateThumbnails.mutate({
+							id: getExplorerStore().locationId!,
+							path: '/'
+						});
+					}}
+					label="Regen Thumbnails"
+					icon={Package}
+				/>
+				<ContextMenu.Item
 					variant="danger"
-					keybind="⌘DEL"
+					label="Secure delete"
+					icon={TrashSimple}
 					onClick={() => {
 						dialogManager.create((dp) => (
-							<DeleteDialog
+							<EraseDialog
 								{...dp}
 								location_id={getExplorerStore().locationId!}
 								path_id={data.item.id}
@@ -280,8 +258,26 @@ export default ({ data, className, ...props }: Props) => {
 						));
 					}}
 				/>
-			</ContextMenu.Root>
-		</div>
+			</ContextMenu.SubMenu>
+
+			<ContextMenu.Separator />
+
+			<ContextMenu.Item
+				icon={Trash}
+				label="Delete"
+				variant="danger"
+				keybind="⌘DEL"
+				onClick={() => {
+					dialogManager.create((dp) => (
+						<DeleteDialog
+							{...dp}
+							location_id={getExplorerStore().locationId!}
+							path_id={data.item.id}
+						/>
+					));
+				}}
+			/>
+		</>
 	);
 };
 

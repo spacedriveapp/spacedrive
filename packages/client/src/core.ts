@@ -87,7 +87,7 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -127,7 +127,7 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
  */
 export type EncryptedKey = number[]
 
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
+export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths }
 
 export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
 
@@ -162,7 +162,7 @@ export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "B
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type IndexerRule = { id: number; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
+export type IndexerRule = { id: number; pub_id: number[] | null; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
