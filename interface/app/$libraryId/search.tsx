@@ -22,7 +22,7 @@ export const SEARCH_PARAMS = z.object({
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
-const ExplorerStuff = memo((props: { args: SearchArgs }) => {
+const SearchExplorer = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
@@ -41,7 +41,8 @@ const ExplorerStuff = memo((props: { args: SearchArgs }) => {
 		],
 		{
 			suspense: true,
-			enabled: !!search
+			enabled: !!search,
+			onSuccess: () => getExplorerStore().resetNewThumbnails()
 		}
 	);
 
@@ -98,7 +99,7 @@ export const Component = () => {
 
 	return (
 		<Suspense fallback="LOADING FIRST RENDER">
-			<ExplorerStuff args={search} />
+			<SearchExplorer args={search} />
 		</Suspense>
 	);
 };
