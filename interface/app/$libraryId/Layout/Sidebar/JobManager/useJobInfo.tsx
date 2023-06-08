@@ -15,7 +15,7 @@ interface JobNiceData {
 export default function useJobInfo(job: JobReport,
 ): Record<string, JobNiceData> {
 	const isRunning = job.status === 'Running',
-		// isQueued = job.status === 'Queued',
+		isQueued = job.status === 'Queued',
 		indexedPath = job.metadata?.data?.indexed_path,
 		taskCount = comma(job.task_count),
 		completedTaskCount = comma(job.completed_task_count),
@@ -23,9 +23,7 @@ export default function useJobInfo(job: JobReport,
 
 	return ({
 		indexer: {
-			name: isRunning
-				? `Indexing files ${indexedPath ? `at ${indexedPath}` : ``}`
-				: `Indexed files  ${indexedPath ? `at ${indexedPath}` : ``}`
+			name: `${isQueued ? "Index" : isRunning ? "Indexing" : "Indexed"} files  ${indexedPath ? `at ${indexedPath}` : ``}`
 			,
 			icon: Folder,
 			textItems: [[
@@ -33,18 +31,13 @@ export default function useJobInfo(job: JobReport,
 			]]
 		},
 		thumbnailer: {
-			name: isRunning
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
+			name: `${isQueued ? "Generate" : isRunning ? "Generating" : "Generated"} thumbnails`
 			,
 			icon: Image,
 			textItems: [[{ text: `${completedTaskCount} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }]]
 		},
 		file_identifier: {
-			name: `${isRunning
-				? 'Extracting metadata'
-				: 'Extracted metadata'
-				}`,
+			name: `${isQueued ? "Extract" : isRunning ? "Extracting" : "Extracted"} metadata`,
 			icon: Fingerprint,
 			textItems: [!isRunning ? [
 				{ text: `${comma(meta?.total_orphan_paths)} ${plural(meta?.total_orphan_paths, 'file')}` },
