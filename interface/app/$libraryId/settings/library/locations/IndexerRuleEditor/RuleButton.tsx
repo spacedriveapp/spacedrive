@@ -4,6 +4,11 @@ import { IndexerRule } from '@sd/client';
 import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
 import { IndexerRuleIdFieldType } from '.';
 
+function ruleIsSystem(rule: IndexerRule) {
+	const num = rule.pub_id?.[15 - 3];
+	return num !== undefined ? num === 0 : false;
+}
+
 interface RuleButtonProps<T extends IndexerRuleIdFieldType> {
 	rule: IndexerRule;
 	field?: T;
@@ -57,7 +62,9 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 					>
 						{ruleEnabled ? 'Enabled' : 'Disabled'}
 					</InfoPill>
-					{rule.default && <InfoPill className="px-2 text-ink-faint">System</InfoPill>}
+					{ruleIsSystem(rule) && (
+						<InfoPill className="px-2 text-ink-faint">System</InfoPill>
+					)}
 				</div>
 			</div>
 		</div>

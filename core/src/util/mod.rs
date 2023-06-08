@@ -4,6 +4,6 @@ pub mod db;
 pub mod debug_initializer;
 pub mod error;
 pub mod migrator;
-pub mod seeder;
+pub mod version_manager;
 
 pub use abort_on_drop::*;
