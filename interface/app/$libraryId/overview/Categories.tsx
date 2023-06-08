@@ -1,6 +1,6 @@
 import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
-import { useInView } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { Category, useLibraryQuery } from '@sd/client';
@@ -34,11 +34,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const [scroll, setScroll] = useState(0);
 	const ref = useRef<HTMLDivElement>(null);
 	const lastCategoryRef = useRef<HTMLDivElement>(null);
-	//if the last category is visible - we hide the right arrow
-	const isInView = useInView(lastCategoryRef, {
-		amount: 1,
-		root: ref.current as any //TODO: fix this type - current is required for this to work
-	});
+	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	useEffect(() => {
 		const element = ref.current;
@@ -77,7 +73,6 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 			</div>
 			<div
 				ref={ref}
-				id="categories"
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
 					maskImage:
@@ -88,7 +83,18 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					CategoryList.map((category, index) => {
 						const iconString = IconForCategory[category] || 'Document';
 						return index === CategoryList.length - 1 ? (
-							<div key={category} className="min-w-fit" ref={lastCategoryRef}>
+							<motion.div
+								onViewportEnter={() => {
+									setLastCategoryVisible((prev) => !prev);
+								}}
+								onViewportLeave={() => {
+									setLastCategoryVisible((prev) => !prev);
+								}}
+								viewport={{ root: ref, margin: '0 -120px 0 0' }}
+								key={category}
+								className="min-w-fit"
+								ref={lastCategoryRef}
+							>
 								<CategoryButton
 									key={category}
 									category={category}
@@ -97,7 +103,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									selected={props.selected === category}
 									onClick={() => props.onSelectedChanged(category)}
 								/>
-							</div>
+							</motion.div>
 						) : (
 							<CategoryButton
 								key={category}
@@ -113,7 +119,9 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 			<div
 				onClick={() => handleArrowOnClick('left')}
 				className={clsx(
-					isInView ? 'pointer-events-none opacity-0 hover:opacity-0' : 'hover:opacity-80',
+					lastCategoryVisible
+						? 'pointer-events-none opacity-0 hover:opacity-0'
+						: 'hover:opacity-80',
 					'sticky right-[25px] z-40 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app bg-opacity-50 p-2 backdrop-blur-md transition-all duration-200'
 				)}
 			>
