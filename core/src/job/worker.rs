@@ -46,7 +46,7 @@ impl WorkerContext {
 
 	pub fn progress_debounced(&mut self, updates: Vec<JobReportUpdate>) {
 		let now = Instant::now();
-		if self.last_event.duration_since(now) > JOB_REPORT_UPDATE_INTERVAL {
+		if now.duration_since(self.last_event) > JOB_REPORT_UPDATE_INTERVAL {
 			self.last_event = now;
 
 			self.events_tx
@@ -218,7 +218,11 @@ impl Worker {
 							JobReportUpdate::CompletedTaskCount(completed_task_count) => {
 								worker.report.completed_task_count = completed_task_count as i32;
 							}
+
 							JobReportUpdate::Message(message) => {
+								// DEBUG: We know the messages reach here correctly
+								// TODO: Remove this before PR
+								println!("Message: {:#?}", message);
 								worker.report.message = message;
 							}
 						}
@@ -291,6 +295,8 @@ impl Worker {
 					}
 
 					invalidate_query!(library, "library.list");
+					invalidate_query!(library, "jobs.getRunning");
+					invalidate_query!(library, "jobs.getHistory");
 
 					warn!("{}", worker.report);
 
@@ -309,6 +315,7 @@ impl Worker {
 
 					info!("{}", worker.report);
 
+					invalidate_query!(library, "jobs.getRunning");
 					invalidate_query!(library, "jobs.getHistory");
 
 					done_tx

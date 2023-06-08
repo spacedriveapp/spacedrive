@@ -68,7 +68,7 @@ pub struct IndexerJobData {
 
 impl IndexerJobData {
 	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress(
+		ctx.progress_debounced(
 			progress
 				.iter()
 				.map(|p| match p.clone() {

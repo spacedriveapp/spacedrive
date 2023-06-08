@@ -20,12 +20,12 @@ type StripLibraryArgsFromInput<
 	NeverOverNull extends boolean
 > = T extends any
 	? T['input'] extends LibraryArgs<infer E>
-		? {
-				key: T['key'];
-				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
-				result: T['result'];
-		  }
-		: never
+	? {
+		key: T['key'];
+		input: NeverOverNull extends true ? (E extends null ? never : E) : E;
+		result: T['result'];
+	}
+	: never
 	: never;
 
 type NonLibraryProceduresDef = {
@@ -95,6 +95,7 @@ export function useInvalidateQuery() {
 	const context = nonLibraryHooks.useContext();
 	useBridgeSubscription(['invalidation.listen'], {
 		onData: (ops) => {
+			console.log('Invalidating', ops); // TODO: Remove before this PR
 			for (const op of ops) {
 				let key = [op.key];
 				if (op.arg !== null) {
