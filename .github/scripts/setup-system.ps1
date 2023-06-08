@@ -405,6 +405,9 @@ if ($success -ne "yes") {
     "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
     "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
     '',
+    '[target.x86_64-pc-windows-msvc]',
+    "rustflags = [`"-L $("$projectRoot\target\Frameworks\lib" -replace '\\', '\\')`"]",
+    '',
     (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
 ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
