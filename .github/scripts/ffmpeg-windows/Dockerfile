@@ -227,28 +227,7 @@ COPY --from=layer-99-ffmpeg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 RUN mkdir -p /opt/dlls/bin /opt/dlls/lib
 
-RUN set -eux; find "${FFBUILD_PREFIX}/lib" -name '*.dll' -print0 | while IFS= read -r -d '' _dll; do
-	x86_64-w64-mingw32-strip -s "$_dll"
-	cp -av "$_dll" /opt/dlls/bin
-
-	_dir="$(dirname "$_dll")"
-	_dir="${_dir#"${FFBUILD_PREFIX}/lib/"}"
-	if [ -z "$_dir" ]; then
-    _dir='.'
-  fi
-
-	_name="$(basename "$_dll" '.dll')"
-
-	if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" ]; then
-		mkdir -p "/opt/dlls/lib/${_dir}"
-		cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.dll.a" "/opt/dlls/lib/${_dir}/"
-	fi
-
-	if [ -f "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" ]; then
-		mkdir -p "/opt/dlls/lib/${_dir}"
-		cp -av "${FFBUILD_PREFIX}/lib/${_dir}/${_name}.lib" "/opt/dlls/lib/${_dir}/"
-	fi
-done
+RUN copy_dll final
 
 RUN cp -av $FFBUILD_PREFIX/include /opt/dlls/
 
