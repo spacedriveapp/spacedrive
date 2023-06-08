@@ -20,9 +20,6 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const createLocation = useLibraryMutation('locations.create', {
 		onError: (error, variables) => {
 			switch (error.message) {
-				case 'CREATE':
-					createLocation.mutate(variables);
-					break;
 				case 'NEED_RELINK':
 					if (!variables.dry_run) relinkLocation.mutate(variables.path);
 					break;
