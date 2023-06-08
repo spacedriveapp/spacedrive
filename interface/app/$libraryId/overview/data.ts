@@ -11,7 +11,7 @@ import {
 	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
-import { useExplorerStore } from '~/hooks';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
 import { useExplorerOrder } from '../Explorer/util';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
@@ -86,7 +86,8 @@ export function useItems(selectedCategory: Category) {
 					cursor
 				}
 			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
 	const pathsItems = useMemo(

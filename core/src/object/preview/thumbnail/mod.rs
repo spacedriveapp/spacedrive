@@ -8,7 +8,7 @@ use crate::{
 		LocationId,
 	},
 	prisma::location,
-	util::error::FileIOError,
+	util::{error::FileIOError, version_manager::VersionManagerError},
 };
 
 use std::{
@@ -32,10 +32,12 @@ use webp::Encoder;
 
 use self::thumbnailer_job::ThumbnailerJob;
 
+mod directory;
 mod shallow;
 mod shard;
 pub mod thumbnailer_job;
 
+pub use directory::*;
 pub use shallow::*;
 pub use shard::*;
 
@@ -98,6 +100,8 @@ pub enum ThumbnailerError {
 	FilePath(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	VersionManager(#[from] VersionManagerError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

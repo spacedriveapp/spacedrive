@@ -1,8 +1,7 @@
-import { proxy, useSnapshot, subscribe } from 'valtio';
+import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
+import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
-import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering } from '@sd/client';
-import { resetStore } from '@sd/client';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
@@ -68,6 +67,7 @@ const explorerStore = proxy({
 		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey))
 	},
 	// this should be done when the explorer query is refreshed
+	// prevents memory leak
 	resetNewThumbnails: () => {
 		explorerStore.newThumbnails.clear();
 	},
