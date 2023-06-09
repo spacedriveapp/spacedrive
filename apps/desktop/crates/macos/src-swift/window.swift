@@ -10,7 +10,6 @@ public enum AppThemeType: Int {
 @_cdecl("lock_app_theme")
 public func lockAppTheme(themeType: AppThemeType) {
   var theme: NSAppearance?
-
   switch themeType {
   case .auto:
     theme = nil
@@ -20,7 +19,15 @@ public func lockAppTheme(themeType: AppThemeType) {
     theme = NSAppearance(named: .aqua)!
   }
 
-  NSApp.appearance = theme
+  DispatchQueue.main.async {
+    NSApp.appearance = theme
+
+    // Trigger a repaint of the window
+    if let window = NSApplication.shared.mainWindow {
+      window.invalidateShadow()
+      window.displayIfNeeded()
+    }
+  }
 }
 
 @_cdecl("blur_window_background")
