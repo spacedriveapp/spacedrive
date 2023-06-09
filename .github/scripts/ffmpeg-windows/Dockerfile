@@ -230,6 +230,11 @@ COPY --from=layer-99-ffmpeg /opt/dlls /opt/dlls
 
 RUN rm -rf /opt/dlls/share /opt/dlls/lib/pkgconfig /opt/dlls/lib/cmake
 
+RUN cd /opt/dlls/bin \
+	&& find . -name '*.lib' -exec install -Dt ../lib/ -m a-rwx,u+rw,g+r,o+r {} + \
+	&& find . -name '*.lib' -delete \
+	&& find . -name '*.dll' -exec x86_64-w64-mingw32-strip -s {} \;
+
 RUN find /opt/dlls -type d -delete || true
 
 FROM scratch
