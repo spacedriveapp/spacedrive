@@ -57,6 +57,10 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 		});
 	};
 
+	const lastCategoryVisibleHandler = (index: number) => {
+		index === CategoryList.length - 1 && setLastCategoryVisible((prev) => !prev);
+	};
+
 	return (
 		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
 			<div
@@ -83,14 +87,8 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 						const iconString = IconForCategory[category] || 'Document';
 						return (
 							<motion.div
-								onViewportEnter={() => {
-									index === CategoryList.length - 1 &&
-										setLastCategoryVisible((prev) => !prev);
-								}}
-								onViewportLeave={() => {
-									index === CategoryList.length - 1 &&
-										setLastCategoryVisible((prev) => !prev);
-								}}
+								onViewportEnter={() => lastCategoryVisibleHandler(index)}
+								onViewportLeave={() => lastCategoryVisibleHandler(index)}
 								viewport={{ root: ref, margin: '0 -120px 0 0' }}
 								className="min-w-fit"
 								key={category}
