@@ -33,7 +33,6 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const isDark = useIsDark();
 	const [scroll, setScroll] = useState(0);
 	const ref = useRef<HTMLDivElement>(null);
-	const lastCategoryRef = useRef<HTMLDivElement>(null);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	useEffect(() => {
@@ -53,7 +52,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 		if (!element) return;
 
 		element.scrollTo({
-			left: direction === 'left' ? element.scrollLeft + 250 : element.scrollLeft - 250,
+			left: direction === 'left' ? element.scrollLeft + 200 : element.scrollLeft - 200,
 			behavior: 'smooth'
 		});
 	};
@@ -82,21 +81,21 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				{categories.data &&
 					CategoryList.map((category, index) => {
 						const iconString = IconForCategory[category] || 'Document';
-						return index === CategoryList.length - 1 ? (
+						return (
 							<motion.div
 								onViewportEnter={() => {
-									setLastCategoryVisible((prev) => !prev);
+									index === CategoryList.length - 1 &&
+										setLastCategoryVisible((prev) => !prev);
 								}}
 								onViewportLeave={() => {
-									setLastCategoryVisible((prev) => !prev);
+									index === CategoryList.length - 1 &&
+										setLastCategoryVisible((prev) => !prev);
 								}}
 								viewport={{ root: ref, margin: '0 -120px 0 0' }}
-								key={category}
 								className="min-w-fit"
-								ref={lastCategoryRef}
+								key={category}
 							>
 								<CategoryButton
-									key={category}
 									category={category}
 									icon={getIcon(iconString, isDark)}
 									items={categories.data[category]}
@@ -104,15 +103,6 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									onClick={() => props.onSelectedChanged(category)}
 								/>
 							</motion.div>
-						) : (
-							<CategoryButton
-								key={category}
-								category={category}
-								icon={getIcon(iconString, isDark)}
-								items={categories.data[category]}
-								selected={props.selected === category}
-								onClick={() => props.onSelectedChanged(category)}
-							/>
 						);
 					})}
 			</div>

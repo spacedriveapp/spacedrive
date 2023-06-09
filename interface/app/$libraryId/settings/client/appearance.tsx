@@ -139,7 +139,7 @@ export const Component = () => {
 						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
 					}}
 					ref={themesRef}
-					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] transition-all duration-200 md:w-[300px] lg:w-full"
+					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
 				>
 					{themes.map((theme, i) => {
 						return (
