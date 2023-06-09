@@ -24,13 +24,11 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
     Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
     if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
         throw 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
-    }
-    else {
+    } else {
         throw 'This script is only supported on Windows 64-bit'
     }
     Exit 1
-}
-elseif (
+} elseif (
     -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ) {
     # Start a new PowerShell process with administrator privileges and set the working directory to the directory where the script is located
@@ -66,8 +64,8 @@ function Add-DirectoryToPath($directory) {
     Reset-Path
 }
 
-$ghUrl = "https://api.github.com/repos"
-$sdGhPath = "spacedriveapp/spacedrive"
+$ghUrl = 'https://api.github.com/repos'
+$sdGhPath = 'spacedriveapp/spacedrive'
 
 function Invoke-RestMethodGithub {
     [CmdletBinding()]
@@ -108,12 +106,11 @@ function DownloadArtifact {
 
     try {
         Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip" -OutFile $OutFile
-    }
-    catch {
+    } catch {
         # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
         # https://github.com/actions/upload-artifact/issues/51
         # Use it when running in environments that are not authenticated with GitHub
-        Write-Host "Failed to download artifact from Github, falling back to nightly.link" -ForegroundColor Yellow
+        Write-Host 'Failed to download artifact from Github, falling back to nightly.link' -ForegroundColor Yellow
         Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}" -OutFile $OutFile
     }
 }
@@ -186,8 +183,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
         --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Visual Studio Build Tools'
-    }
-    else {
+    } else {
         $LASTEXITCODE = 0
     }
 
@@ -197,8 +193,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id Microsoft.EdgeWebView2Runtime
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Edge Webview 2'
-    }
-    else {
+    } else {
         $LASTEXITCODE = 0
     }
 
@@ -207,8 +202,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Rust and Cargo'
-    }
-    else {
+    } else {
         $LASTEXITCODE = 0
     }
 
@@ -226,8 +220,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id OpenJS.NodeJS
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install NodeJS'
-    }
-    else {
+    } else {
         $LASTEXITCODE = 0
     }
     # Add NodeJS to the PATH
@@ -245,8 +238,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id LLVM.LLVM --version "$llvmVersion"
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install NodeJS'
-    }
-    else {
+    } else {
         $LASTEXITCODE = 0
     }
     # Add LLVM to the PATH
@@ -290,8 +282,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
         if (Test-Path "$env:APPDATA\npm" -PathType Container) {
             Add-DirectoryToPath "$env:APPDATA\npm"
         }
-    }
-    elseif ($currentPnpmVersion -and $enginesPnpmVersion -and $currentPnpmVersion.CompareTo($enginesPnpmVersion) -lt 0) {
+    } elseif ($currentPnpmVersion -and $enginesPnpmVersion -and $currentPnpmVersion.CompareTo($enginesPnpmVersion) -lt 0) {
         Exit-WithError "Current pnpm version: $currentPnpmVersion (required: $enginesPnpmVersion)" `
             'Uninstall the current version of pnpm and run this script again'
     }
@@ -362,7 +353,7 @@ while ($page -gt 0) {
 
             try {
                 if ([string]::IsNullOrEmpty($artifactPath)) {
-                    throw "Empty argument"
+                    throw 'Empty argument'
                 }
 
                 # Download and extract the artifact
@@ -374,29 +365,28 @@ while ($page -gt 0) {
                 Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
                 Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
 
-                $success = "yes"
+                $success = 'yes'
                 break
-            }
-            catch {
+            } catch {
                 $errorMessage = $_.Exception.Message
                 Write-Host "Error: $errorMessage" -ForegroundColor Red
-                Write-Host "Failed to download ffmpeg artifact release, trying again in 1sec..."
+                Write-Host 'Failed to download ffmpeg artifact release, trying again in 1sec...'
                 Start-Sleep -Seconds 1
                 continue
             }
         }
     }
 
-    if ($success -eq "yes") {
+    if ($success -eq 'yes') {
         break
     }
 
     $page++
-    Write-Output "ffmpeg artifact not found, trying again in 1sec..."
+    Write-Output 'ffmpeg artifact not found, trying again in 1sec...'
     Start-Sleep -Seconds 1
 }
 
-if ($success -ne "yes") {
+if ($success -ne 'yes') {
     Exit-WithError 'Failed to download ffmpeg files'
 }
 
