@@ -9,7 +9,7 @@ import {
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
-import { Dialog, Tabs, UseDialogProps, useDialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
