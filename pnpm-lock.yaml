@@ -215,6 +215,9 @@ importers:
       remark-math:
         specifier: ^5.1.1
         version: 5.1.1
+      searchmate-react:
+        specifier: ^2.1.0
+        version: 2.1.0(postcss@8.4.23)
       sharp:
         specifier: ^0.32.1
         version: 0.32.1
@@ -5133,6 +5136,15 @@ packages:
     resolution: {integrity: sha512-z8AuWvUuSnugFKJOA9Ke0aiFuehcqLFqia9bk8XaQNEWr44ahPVn3sEWnAncTxPbpWuUw5UajoJa0egRAE1CCg==}
     engines: {node: '>=14.6'}
     dev: true
+
+  /@csstools/selector-specificity@2.2.0(postcss-selector-parser@6.0.13):
+    resolution: {integrity: sha512-+OJ9konv95ClSTOJCmMZqpd5+YGsB2S+x6w3E1oaM8UuR5j8nTNHYSz8c9BEPGDOCMQYIEEGlVPj/VY64iTbGw==}
+    engines: {node: ^14 || ^16 || >=18}
+    peerDependencies:
+      postcss-selector-parser: ^6.0.10
+    dependencies:
+      postcss-selector-parser: 6.0.13
+    dev: false
 
   /@cush/relative@1.0.0:
     resolution: {integrity: sha512-RpfLEtTlyIxeNPGKcokS+p3BZII/Q3bYxryFRglh5H3A3T8q9fsLYm72VYAMEOOIBLEa8o93kFLiBDUWKrwXZA==}
@@ -16605,6 +16617,10 @@ packages:
       object.assign: 4.1.4
     dev: true
 
+  /just-debounce-it@3.2.0:
+    resolution: {integrity: sha512-WXzwLL0745uNuedrCsCs3rpmfD6DBaf7uuVwaq98/8dafURfgQaBsSpjiPp5+CW6Vjltwy9cOGI6qE71b3T8iQ==}
+    dev: false
+
   /katex@0.16.7:
     resolution: {integrity: sha512-Xk9C6oGKRwJTfqfIbtr0Kes9OSv6IFsuhFGc7tW4urlpMJtuh+7YhzU6YEG9n8gmWKcMAFzkp7nr+r69kV0zrA==}
     hasBin: true
@@ -19678,6 +19694,17 @@ packages:
       postcss: 8.4.23
       postcss-selector-parser: 6.0.13
 
+  /postcss-nesting@11.2.2(postcss@8.4.23):
+    resolution: {integrity: sha512-aOTiUniAB1bcPE6GGiynWRa6PZFPhOTAm5q3q5cem6QeSijIHHkWr6gs65ukCZMXeak8yXeZVbBJET3VM+HlhA==}
+    engines: {node: ^14 || ^16 || >=18}
+    peerDependencies:
+      postcss: ^8.4
+    dependencies:
+      '@csstools/selector-specificity': 2.2.0(postcss-selector-parser@6.0.13)
+      postcss: 8.4.23
+      postcss-selector-parser: 6.0.13
+    dev: false
+
   /postcss-selector-parser@6.0.10:
     resolution: {integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w==}
     engines: {node: '>=4'}
@@ -21453,6 +21480,25 @@ packages:
     resolution: {integrity: sha512-URMy4uj80+USxik0E+P7OeagdYGRM6vJQ+8zADRRNjcoIVdouxB7B60P4G4y20TizSGXdE0nAW5sSM1IIXa3hw==}
     engines: {node: '>= 0.4.0'}
     dev: true
+
+  /searchmate-js@2.1.0(postcss@8.4.23):
+    resolution: {integrity: sha512-88CjNnVRg03iG7oojC4YiYaeVKCW4bXOwiWdJBVUdQ172kVO51crSqYAgFr/FoZ5fJWadmkXJ3EDZ1KXwlBo5Q==}
+    dependencies:
+      just-debounce-it: 3.2.0
+      postcss-nesting: 11.2.2(postcss@8.4.23)
+    transitivePeerDependencies:
+      - postcss
+    dev: false
+
+  /searchmate-react@2.1.0(postcss@8.4.23):
+    resolution: {integrity: sha512-mi77TfNaWR1m9K1P3atIj4KqT80tabDvnl5tB1xBaF0eleGrmGXHO5tcj72qDA4Dzzy0ADxfqibtCX0A8it3Bg==}
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      searchmate-js: 2.1.0(postcss@8.4.23)
+    transitivePeerDependencies:
+      - postcss
+    dev: false
 
   /section-matter@1.0.0:
     resolution: {integrity: sha512-vfD3pmTzGpufjScBh50YHKzEu2lxBWhVEHsNGoEXmCmn2hKGfeNLYMzCJpe8cD7gqX7TJluOVpBkAequ6dgMmA==}

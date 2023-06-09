@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 import Link from 'next/link';
-import { SearchInput } from '@sd/ui';
 import { DocsNavigation, iconConfig } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
+import SearchBox from './Search';
 
 interface DocsSidebarProps {
 	navigation: DocsNavigation;
@@ -16,12 +16,8 @@ export default function DocsSidebar(props: DocsSidebarProps) {
 
 	return (
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
-			<div onClick={() => alert('Search coming soon...')} className="mb-5">
-				<SearchInput
-					placeholder="Search..."
-					disabled
-					right={<span className="pr-2 text-xs font-semibold text-gray-400">⌘K</span>}
-				/>
+			<div className="mb-5">
+				<SearchBox />
 			</div>
 
 			<div className="mb-6 flex flex-col">

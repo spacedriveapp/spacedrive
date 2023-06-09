@@ -39,6 +39,7 @@
 		"rehype-slug": "^5.1.0",
 		"remark-gfm": "^3.0.1",
 		"remark-math": "^5.1.1",
+		"searchmate-react": "^2.1.0",
 		"sharp": "^0.32.1",
 		"tsparticles": "^2.9.3",
 		"uuid": "^9.0.0",
