@@ -1,8 +1,9 @@
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+import { ModalRef } from '~/components/layout/Modal';
 import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -68,6 +69,23 @@ function LibraryItem({
 
 const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const { data: libraries } = useBridgeQuery(['library.list']);
+
+	useEffect(() => {
+		navigation.setOptions({
+			headerRight: () => (
+				<AnimatedButton
+					variant="accent"
+					style={tw`mr-2`}
+					size="sm"
+					onPress={() => modalRef.current?.present()}
+				>
+					<Text style={tw`text-white`}>New</Text>
+				</AnimatedButton>
+			)
+		});
+	}, [navigation]);
+
+	const modalRef = useRef<ModalRef>(null);
 
 	return (
 		<View style={tw`flex-1 px-3 py-4`}>

@@ -1,7 +1,9 @@
 import { AppLogo, BloomOne } from '@sd/assets/images';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
@@ -28,9 +30,11 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 				<KeyboardAvoidingView
 					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 					keyboardVerticalOffset={bottom}
-					style={tw`w-full flex-1 items-center justify-center px-4`}
+					style={tw`w-full flex-1 items-center justify-center`}
 				>
-					{children}
+					<MotiView style={tw`w-full items-center justify-center px-4`}>
+						{children}
+					</MotiView>
 				</KeyboardAvoidingView>
 				<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
 					&copy; 2022 Spacedrive Technology Inc.
@@ -43,7 +47,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 }
 
 export const OnboardingTitle = styled(
-	Text,
+	Animated.Text,
 	'text-ink text-center text-4xl font-extrabold leading-tight'
 );
 

@@ -28,12 +28,16 @@ pub enum ExplorerContext {
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_thumbnail is determined by the local existence of a thumbnail
-		has_thumbnail: bool,
+		// has_local_thumbnail is true only if there is local existence of a thumbnail
+		has_local_thumbnail: bool,
+		// thumbnail_key is present if there is a cas_id
+		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
+		thumbnail_key: Option<Vec<String>>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_thumbnail: bool,
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
 }

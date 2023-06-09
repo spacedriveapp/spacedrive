@@ -14,9 +14,21 @@ import { tw } from '~/lib/tailwind';
 const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
-	const { mutate: createLocation } = useLibraryMutation('locations.create', {
-		onError: (error) => {
-			console.error(error);
+	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
+	const relinkLocation = useLibraryMutation('locations.relink');
+
+	const createLocation = useLibraryMutation('locations.create', {
+		onError: (error, variables) => {
+			switch (error.message) {
+				case 'NEED_RELINK':
+					if (!variables.dry_run) relinkLocation.mutate(variables.path);
+					break;
+				case 'ADD_LIBRARY':
+					addLocationToLibrary.mutate(variables);
+					break;
+				default:
+					throw new Error('Unimplemented custom remote error handling');
+			}
 		},
 		onSettled: () => {
 			// Close the modal
@@ -32,7 +44,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			if (!response) return;
 
-			createLocation({
+			createLocation.mutate({
 				path: decodeURIComponent(response.uri.replace('file://', '')),
 				dry_run: false,
 				indexer_rules_ids: []
