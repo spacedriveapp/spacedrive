@@ -55,6 +55,8 @@ pub struct Worker {
 	worker_events_tx: UnboundedSender<WorkerEvent>,
 	worker_events_rx: Option<UnboundedReceiver<WorkerEvent>>,
 	start_time: Option<DateTime<Utc>>,
+	pause_tx: Option<oneshot::Sender<()>>,
+	paused: bool,
 }
 
 impl Worker {
@@ -67,6 +69,8 @@ impl Worker {
 			worker_events_tx,
 			worker_events_rx: Some(worker_events_rx),
 			start_time: None,
+			pause_tx: None,
+			paused: false,
 		}
 	}
 
@@ -86,6 +90,11 @@ impl Worker {
 			.worker_events_rx
 			.take()
 			.expect("critical error: missing worker events rx");
+
+		// Create a new oneshot channel for the pause functionality
+		let (pause_tx, pause_rx) = oneshot::channel();
+		worker.pause_tx = Some(pause_tx);
+		worker.paused = false;
 
 		let mut job = worker
 			.job
@@ -134,7 +143,10 @@ impl Worker {
 
 			let (done_tx, done_rx) = oneshot::channel();
 
-			match job.run(job_manager.clone(), worker_ctx.clone()).await {
+			match job
+				.run(job_manager.clone(), worker_ctx.clone(), pause_rx)
+				.await
+			{
 				Ok((metadata, errors)) if errors.is_empty() => {
 					worker_ctx
 						.events_tx
@@ -307,6 +319,25 @@ impl Worker {
 					break;
 				}
 			}
+		}
+	}
+	pub fn pause(&mut self) -> Result<(), JobError> {
+		// Return an error if job is already paused
+		if self.paused {
+			return Err(JobError::PauseFailed("Job is already paused".into()));
+		}
+
+		// Send a pause signal through the pause_tx channel
+		if let Some(pause_tx) = self.pause_tx.take() {
+			pause_tx
+				.send(())
+				.map_err(|_| JobError::PauseFailed("Failed to send pause signal".into()))?;
+			self.paused = true;
+			Ok(())
+		} else {
+			Err(JobError::PauseFailed(
+				"Cannot pause job at this time".into(),
+			))
 		}
 	}
 }

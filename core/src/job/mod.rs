@@ -18,6 +18,7 @@ use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
+use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -58,6 +59,8 @@ pub enum JobError {
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("job failed to pause: {0}")]
+	PauseFailed(String),
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]
@@ -143,6 +146,7 @@ pub trait DynJob: Send + Sync {
 		&mut self,
 		job_manager: Arc<JobManager>,
 		ctx: WorkerContext,
+		pause_tx: oneshot::Receiver<()>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -325,6 +329,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		&mut self,
 		job_manager: Arc<JobManager>,
 		ctx: WorkerContext,
+		mut pause_rx: oneshot::Receiver<()>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
 
@@ -369,6 +374,13 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 					self.state.steps.pop_front();
 				}
 				_ = shutdown_rx.recv() => {
+					return Err(
+						JobError::Paused(
+							rmp_serde::to_vec_named(&self.state)?
+						)
+					);
+				}
+				_ = &mut pause_rx => {
 					return Err(
 						JobError::Paused(
 							rmp_serde::to_vec_named(&self.state)?

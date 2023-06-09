@@ -53,6 +53,8 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
+        { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
+        { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
         { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: null } | 

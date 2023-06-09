@@ -3,6 +3,7 @@ import { JobReport } from '@sd/client';
 
 export interface IJobGroup {
 	queued?: boolean;
+	paused?: boolean;
 	id: string;
 	action: string;
 	completed?: boolean;
@@ -58,12 +59,15 @@ export function useGroupedJobs(jobs: JobReport[] = []): IJobGroup[] {
 
 		groupsArray.map((group) => {
 			// Check if all jobs in the group are completed.
+			// TODO: this is cringe idk
 			const completed = group.jobs.every((job) => job.status === 'Completed');
 			const queued = group.jobs.every((job) => job.status === 'Queued');
+			const paused = group.jobs.every((job) => job.status === 'Paused');
 
 			// Add the completed property to the group.
 			group.completed = completed;
 			group.queued = queued;
+			group.paused = paused;
 		});
 
 		// Update the state.

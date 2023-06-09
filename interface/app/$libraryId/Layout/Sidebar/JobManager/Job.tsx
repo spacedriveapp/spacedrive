@@ -80,7 +80,7 @@ function Job({ job, className, isChild }: JobProps) {
 			className={className}
 			name={niceData.name}
 			circleIcon={niceData.icon}
-			textItems={job.status === 'Queued' ? [[{ text: "Queued" }]] : niceData.textItems}
+			textItems={['Queued', 'Paused'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems}
 			isChild={job.action !== null}
 		>
 			{isRunning && (

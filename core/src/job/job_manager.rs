@@ -50,6 +50,9 @@ pub enum JobManagerError {
 	#[error("Failed to fetch job data from database: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 
+	#[error("job not found: {0}")]
+	NotFound(Uuid),
+
 	#[error("Job error: {0}")]
 	Job(#[from] JobError),
 }
@@ -65,6 +68,11 @@ impl From<JobManagerError> for rspc::Error {
 			JobManagerError::Database(_) => Self::with_cause(
 				rspc::ErrorCode::InternalServerError,
 				"Error accessing the database".to_string(),
+				value,
+			),
+			JobManagerError::NotFound(_) => Self::with_cause(
+				rspc::ErrorCode::NotFound,
+				"Job not found".to_string(),
 				value,
 			),
 			JobManagerError::Job(_) => Self::with_cause(
@@ -206,23 +214,31 @@ impl JobManager {
 	pub fn shutdown_tx(&self) -> Arc<broadcast::Sender<()>> {
 		Arc::clone(&self.shutdown_tx)
 	}
+	// Pause a specific job.
+	pub async fn pause(&self, job_id: Uuid) -> Result<(), JobManagerError> {
+		// Get a read lock on the running workers.
+		let workers_guard = self.running_workers.read().await;
 
-	pub async fn pause(&self) {
-		if !self.running_workers.read().await.is_empty() {
-			self.shutdown_tx
-				.send(())
-				.expect("Failed to send shutdown signal");
-		}
+		// Look up the worker for the given job ID.
+		if let Some(worker_mutex) = workers_guard.get(&job_id) {
+			// Lock the worker.
+			let mut worker = worker_mutex.lock().await;
 
-		loop {
-			sleep(Duration::from_millis(50)).await;
-			if self.running_workers.read().await.is_empty() {
-				break;
-			}
+			// Call the pause method on the worker.
+			worker.pause()?; // Assuming the worker has a pause method
+
+			Ok(())
+		} else {
+			Err(JobManagerError::NotFound(job_id))
 		}
 	}
 
-	pub async fn resume_jobs(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+	pub async fn resume(
+		self: Arc<Self>,
+		library: &Library,
+		id: Option<Uuid>,
+	) -> Result<(), JobManagerError> {
+		// delete all jobs that are not in the ALL_JOB_NAMES list as housekeeping
 		library
 			.db
 			.job()
@@ -232,18 +248,31 @@ impl JobManager {
 			.exec()
 			.await?;
 
+		let find_condition = match id {
+			Some(id) => vec![
+				job::status::equals(JobStatus::Paused as i32),
+				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
+				job::id::equals(id.as_bytes().to_vec()), // only fetch job with specified id
+			],
+			None => vec![
+				job::status::equals(JobStatus::Paused as i32),
+				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
+			],
+		};
+
 		for root_paused_job_report in library
 			.db
 			.job()
-			.find_many(vec![
-				job::status::equals(JobStatus::Paused as i32),
-				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
-			])
+			.find_many(find_condition)
 			.exec()
 			.await?
 			.into_iter()
 			.map(JobReport::from)
 		{
+			info!(
+				"Resuming job: {} with uuid {}",
+				root_paused_job_report.name, root_paused_job_report.id
+			);
 			let children_jobs = library
 				.db
 				.job()
