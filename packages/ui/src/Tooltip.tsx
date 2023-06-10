@@ -22,9 +22,9 @@ export const Tooltip = ({
 				<TooltipPrimitive.Portal>
 					<TooltipPrimitive.Content
 						side={position}
-						className="z-50 mb-[2px] max-w-[200px] rounded bg-gray-300 px-2 py-1 text-center text-xs dark:!bg-gray-900 dark:text-gray-100"
+						className="z-50 mb-[2px] max-w-[200px] rounded bg-app-darkBox px-2 py-1 text-center text-xs text-ink"
 					>
-						<TooltipPrimitive.Arrow className="fill-gray-300 dark:!fill-gray-900" />
+						<TooltipPrimitive.Arrow className="fill-app-darkBox" />
 						{label}
 					</TooltipPrimitive.Content>
 				</TooltipPrimitive.Portal>

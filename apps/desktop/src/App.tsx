@@ -20,6 +20,7 @@ import '@sd/ui/style';
 import {
 	appReady,
 	getFilePathOpenWithApps,
+	lockAppTheme,
 	openFilePath,
 	openFilePathWith,
 	openLogsDir
@@ -80,7 +81,8 @@ const platform: Platform = {
 	openLogsDir,
 	openFilePath,
 	getFilePathOpenWithApps,
-	openFilePathWith
+	openFilePathWith,
+	lockAppTheme
 };
 
 const queryClient = new QueryClient();

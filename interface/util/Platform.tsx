@@ -26,6 +26,7 @@ export type Platform = {
 	openFilePath?(library: string, id: number): any;
 	getFilePathOpenWithApps?(library: string, id: number): any;
 	openFilePathWith?(library: string, id: number, appUrl: string): any;
+	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 
 // Keep this private and use through helpers below
