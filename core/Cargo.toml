@@ -91,7 +91,6 @@ strum_macros = "0.24"
 hex = "0.4.3"
 int-enum = "0.4.0"
 
-
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
 
