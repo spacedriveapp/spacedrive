@@ -412,6 +412,8 @@ impl LibraryManager {
 		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		seed_keymanager(&db, &key_manager).await?;
 
+		rules::seeder(&db).await?;
+
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
 
 		tokio::spawn({
