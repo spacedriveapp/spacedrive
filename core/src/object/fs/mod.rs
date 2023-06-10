@@ -13,9 +13,9 @@ pub mod create;
 pub mod copy;
 pub mod cut;
 
-pub mod decrypt;
+// pub mod decrypt;
 pub mod delete;
-pub mod encrypt;
+// pub mod encrypt;
 
 pub mod error;
 
