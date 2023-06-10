@@ -13,7 +13,7 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 use std::cmp::min;
 
 use http_range::HttpRange;
@@ -100,16 +100,18 @@ async fn handle_thumbnail(
 		return Ok(response?);
 	}
 
-	let file_cas_id = path
-		.get(1)
-		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
+	if path.len() < 3 {
+		return Err(HandleCustomUriError::BadRequest(
+			"Invalid number of parameters!",
+		));
+	}
 
-	let filename = node
-		.config
-		.data_directory()
-		.join("thumbnails")
-		.join(file_cas_id)
-		.with_extension("webp");
+	let mut thumbnail_path = node.config.data_directory().join("thumbnails");
+	// if we ever wish to support multiple levels of sharding, we need only supply more params here
+	for path_part in &path[1..] {
+		thumbnail_path = thumbnail_path.join(path_part);
+	}
+	let filename = thumbnail_path.with_extension("webp");
 
 	let file = File::open(&filename).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
@@ -119,7 +121,7 @@ async fn handle_thumbnail(
 		}
 	})?;
 
-	let content_lenght = file
+	let content_length = file
 		.metadata()
 		.await
 		.map_err(|e| FileIOError::from((&filename, e)))?
@@ -127,12 +129,12 @@ async fn handle_thumbnail(
 
 	Ok(builder
 		.header("Content-Type", "image/webp")
-		.header("Content-Length", content_lenght)
+		.header("Content-Length", content_length)
 		.status(StatusCode::OK)
 		.body(if method == Method::HEAD {
 			vec![]
 		} else {
-			read_file(file, content_lenght, None)
+			read_file(file, content_length, None)
 				.await
 				.map_err(|e| FileIOError::from((&filename, e)))?
 		})?)
@@ -232,12 +234,16 @@ async fn handle_file(
 		"avi" => "video/x-msvideo",
 		// MP4 video
 		"mp4" | "m4v" => "video/mp4",
+		#[cfg(not(target_os = "macos"))]
+		// FIX-ME: This media types break macOS video rendering
+		// MPEG transport stream
+		"ts" => "video/mp2t",
+		#[cfg(not(target_os = "macos"))]
+		// FIX-ME: This media types break macOS video rendering
 		// MPEG Video
 		"mpeg" => "video/mpeg",
 		// OGG video
 		"ogv" => "video/ogg",
-		// MPEG transport stream
-		"ts" => "video/mp2t",
 		// WEBM video
 		"webm" => "video/webm",
 		// 3GPP audio/video container (TODO: audio/3gpp if it doesn't contain video)
@@ -319,7 +325,8 @@ async fn handle_file(
 
 			// TODO: For some reason webkit2gtk doesn't like this at all.
 			// It causes it to only stream random pieces of any given audio file.
-			#[cfg(not(target_os = "linux"))]
+			// TODO: This causes macOS to freeze streaming mp4
+			#[cfg(windows)]
 			// prevent max_length;
 			// specially on webview2
 			if mime_type != "application/pdf" && range.length > file_size / 3 {

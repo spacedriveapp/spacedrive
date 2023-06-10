@@ -20,3 +20,4 @@ export * from './useSpacedropState';
 export * from './useToasts';
 export * from './useZodRouteParams';
 export * from './useZodSearchParams';
+export * from './useTheme';
