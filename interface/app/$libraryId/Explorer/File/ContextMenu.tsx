@@ -41,9 +41,9 @@ export default ({ data }: Props) => {
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
-	const mountedKeys = useLibraryQuery(['keys.listMounted']);
-	const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
+	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
+	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
+	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
