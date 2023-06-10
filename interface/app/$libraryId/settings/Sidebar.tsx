@@ -80,10 +80,10 @@ export default () => {
 						<Icon component={TagSimple} />
 						Tags
 					</SidebarLink>
-					{/* <SidebarLink to="library/keys">
+					<SidebarLink to="library/keys" disabled>
 						<Icon component={Key} />
 						Keys
-					</SidebarLink> */}
+					</SidebarLink>
 				</Section>
 				<Section>
 					<Heading>Resources</Heading>
