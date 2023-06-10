@@ -636,6 +636,7 @@ mod seeder {
 	struct SystemIndexerRule {
 		name: &'static str,
 		rules: Vec<RulePerKind>,
+		default: bool,
 	}
 
 	pub async fn seeder(client: &PrismaClient) -> Result<(), SeederError> {
@@ -659,12 +660,16 @@ mod seeder {
 					indexer_rule::create(
 						rule.name.to_string(),
 						rules.clone(),
-						vec![indexer_rule::pub_id::set(Some(pub_id.clone()))],
+						vec![
+							indexer_rule::pub_id::set(Some(pub_id.clone())),
+							indexer_rule::default::set(rule.default),
+						],
 					),
 					vec![
 						indexer_rule::name::set(rule.name.to_string()),
 						indexer_rule::rules_per_kind::set(rules),
 						indexer_rule::pub_id::set(Some(pub_id.clone())),
+						indexer_rule::default::set(rule.default),
 					],
 				)
 				.exec()
@@ -679,6 +684,7 @@ mod seeder {
         // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
         // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
         name: "No OS protected",
+        default: true,
         rules: vec![
             RulePerKind::new_reject_files_by_globs_str(
                 [
@@ -779,6 +785,7 @@ mod seeder {
 	fn no_hidden() -> SystemIndexerRule {
 		SystemIndexerRule {
 			name: "No Hidden",
+			default: true,
 			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"]).unwrap()],
 		}
 	}
@@ -786,6 +793,7 @@ mod seeder {
 	fn only_git_repos() -> SystemIndexerRule {
 		SystemIndexerRule {
 			name: "Only Git Repositories",
+			default: false,
 			rules: vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
 				[".git".to_string()].into_iter().collect(),
 			)],
@@ -795,6 +803,7 @@ mod seeder {
 	fn only_images() -> SystemIndexerRule {
 		SystemIndexerRule {
 			name: "Only Images",
+			default: false,
 			rules: vec![RulePerKind::new_accept_files_by_globs_str([
 				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
 			])
