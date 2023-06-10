@@ -52,9 +52,9 @@
 		// Hiding these folders bcs they create a lot of noise in the search results
 		"**/*.contentlayer": true,
 		"**/*.next": true,
-		"apps/mobile/ios/Pods": true
-		// "apps/mobile/android": true
-		// "apps/mobile/ios": true
+		"apps/mobile/ios/Pods": true,
+		"apps/mobile/android": true,
+		"apps/mobile/ios": true
 	},
 	"eslint.workingDirectories": [
 		"apps/desktop",

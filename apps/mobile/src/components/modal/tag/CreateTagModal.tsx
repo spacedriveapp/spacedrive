@@ -24,6 +24,9 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const { mutate: createTag } = useLibraryMutation('tags.create', {
+		onMutate: () => {
+			console.log('Creating tag');
+		},
 		onSuccess: () => {
 			// Reset form
 			setTagName('');
@@ -67,7 +70,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			enableContentPanningGesture={false}
 		>
 			<View style={tw`p-4`}>
-				<View style={tw`mt-4 flex flex-row items-center`}>
+				<View style={tw`mt-2 flex flex-row items-center`}>
 					<Pressable
 						onPress={() => setShowPicker(true)}
 						style={twStyle({ backgroundColor: tagColor }, 'h-6 w-6 rounded-full')}

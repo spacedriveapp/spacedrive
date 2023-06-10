@@ -11,7 +11,8 @@ import {
 	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
-import { useExplorerStore } from '~/hooks';
+import { getExplorerStore, useExplorerStore } from '~/hooks';
+import { useExplorerOrder } from '../Explorer/util';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
@@ -85,7 +86,8 @@ export function useItems(selectedCategory: Category) {
 					cursor
 				}
 			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
 	const pathsItems = useMemo(
@@ -126,14 +128,21 @@ export function useItems(selectedCategory: Category) {
 		[objectsQuery.data]
 	);
 
+	const loadMore = () => {
+		const query = isObjectQuery ? objectsQuery : pathsQuery;
+		if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
+	};
+
 	return isObjectQuery
 		? {
 				items: objectsItems,
-				query: objectsQuery
+				query: objectsQuery,
+				loadMore
 		  }
 		: {
 				items: pathsItems,
-				query: pathsQuery
+				query: pathsQuery,
+				loadMore
 		  };
 }
 
