@@ -15,5 +15,5 @@ pub async fn lock_app_theme(theme_type: AppThemeType) {
 	unsafe {
 		sd_desktop_macos::lock_app_theme(theme_type as isize);
 	}
-	println!("Lock theme, type: {theme_type:?}")
+	// println!("Lock theme, type: {theme_type:?}")
 }
