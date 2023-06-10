@@ -149,6 +149,7 @@ export const AddLocationDialog = ({
 		[form]
 	);
 
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useCallbackToWatchForm(
 		useDebouncedCallback(async (values, { name }) => {
 			if (name === 'path') {
@@ -232,7 +233,7 @@ export const AddLocationDialog = ({
 					<p className="text-sm">Advanced settings</p>
 					<CaretDown
 						className={clsx(
-							toggleSettings && 'rotate-180 transform',
+							toggleSettings && 'rotate-180',
 							'transition-all duration-200'
 						)}
 					/>
