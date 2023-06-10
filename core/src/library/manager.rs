@@ -3,7 +3,7 @@ use crate::{
 	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
-	prisma::{location, node, PrismaClient},
+	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
 		db,
@@ -11,11 +11,6 @@ use crate::{
 		migrator::{Migrate, MigratorError},
 	},
 	NodeContext,
-};
-
-use sd_crypto::{
-	keys::keymanager::{KeyManager, StoredKey},
-	types::{EncryptedKey, Nonce, Salt},
 };
 
 use std::{
@@ -58,8 +53,8 @@ pub enum LibraryManagerError {
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder")]
 	IndexerRulesSeeder(#[from] rules::SeederError),
-	#[error("failed to initialise the key manager")]
-	KeyManager(#[from] sd_crypto::Error),
+	// #[error("failed to initialise the key manager")]
+	// KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] MigratorError),
 	#[error("error migrating the library: {0}")]
@@ -80,58 +75,6 @@ impl From<LibraryManagerError> for rspc::Error {
 			error,
 		)
 	}
-}
-
-pub async fn seed_keymanager(
-	client: &PrismaClient,
-	km: &Arc<KeyManager>,
-) -> Result<(), LibraryManagerError> {
-	let mut default = None;
-
-	// collect and serialize the stored keys
-	let stored_keys: Vec<StoredKey> = client
-		.key()
-		.find_many(vec![])
-		.exec()
-		.await?
-		.iter()
-		.map(|key| {
-			let key = key.clone();
-			let uuid = uuid::Uuid::from_str(&key.uuid).expect("invalid key id in the DB");
-
-			if key.default {
-				default = Some(uuid);
-			}
-
-			Ok(StoredKey {
-				uuid,
-				version: serde_json::from_str(&key.version)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				key_type: serde_json::from_str(&key.key_type)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				algorithm: serde_json::from_str(&key.algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				content_salt: Salt::try_from(key.content_salt)?,
-				master_key: EncryptedKey::try_from(key.master_key)?,
-				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
-				key_nonce: Nonce::try_from(key.key_nonce)?,
-				key: key.key,
-				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				salt: Salt::try_from(key.salt)?,
-				memory_only: false,
-				automount: key.automount,
-			})
-		})
-		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()?;
-
-	// insert all keys from the DB into the keymanager's keystore
-	km.populate_keystore(stored_keys).await?;
-
-	// if any key had an associated default tag
-	default.map(|k| km.set_default(k));
-
-	Ok(())
 }
 
 impl LibraryManager {
@@ -409,8 +352,8 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		seed_keymanager(&db, &key_manager).await?;
+		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
+		// seed_keymanager(&db, &key_manager).await?;
 
 		rules::seeder(&db).await?;
 
@@ -432,7 +375,7 @@ impl LibraryManager {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager,
+			// key_manager,
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
