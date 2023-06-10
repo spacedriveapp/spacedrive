@@ -174,7 +174,7 @@ export default ({ data }: Props) => {
 			)}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					label="Encrypt"
 					icon={LockSimple}
 					keybind="⌘E"
@@ -199,9 +199,9 @@ export default ({ data }: Props) => {
 							});
 						}
 					}}
-				/>
+				/> */}
 				{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					label="Decrypt"
 					icon={LockSimpleOpen}
 					keybind="⌘D"
@@ -221,7 +221,7 @@ export default ({ data }: Props) => {
 							});
 						}
 					}}
-				/>
+				/> */}
 				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 					<ContextMenu.Item label="PNG" />
