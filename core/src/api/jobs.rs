@@ -30,17 +30,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("clear", {
 			R.with2(library())
 				.mutation(|(_, library), id: Uuid| async move {
-					JobManager::clear_job(id, &library)
-						.await
-						.map_err(Into::into)
+					JobManager::clear(id, &library).await.map_err(Into::into)
 				})
 		})
 		.procedure("clearAll", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
-					JobManager::clear_all_jobs(&library)
-						.await
-						.map_err(Into::into)
+					JobManager::clear_all(&library).await.map_err(Into::into)
 				})
 		})
 		// pause job

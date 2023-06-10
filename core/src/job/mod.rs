@@ -1,95 +1,27 @@
-use crate::{
-	library::Library,
-	location::indexer::IndexerError,
-	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
-	util::error::FileIOError,
-};
+use crate::library::Library;
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
-	fmt::Debug,
 	hash::{Hash, Hasher},
 	mem,
-	path::PathBuf,
 	sync::Arc,
 };
 
-use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
-use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use thiserror::Error;
+
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
+mod error;
 mod job_manager;
+mod report;
 mod worker;
 
+pub use error::*;
 pub use job_manager::*;
+pub use report::*;
 pub use worker::*;
-
-#[derive(Error, Debug)]
-pub enum JobError {
-	// General errors
-	#[error("database error")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("Failed to join Tokio spawn blocking: {0}")]
-	JoinTaskError(#[from] tokio::task::JoinError),
-	#[error("Job state encode error: {0}")]
-	StateEncode(#[from] EncodeError),
-	#[error("Job state decode error: {0}")]
-	StateDecode(#[from] DecodeError),
-	#[error("Job metadata serialization error: {0}")]
-	MetadataSerialization(#[from] serde_json::Error),
-	#[error("Tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
-	UnknownJobName(Uuid, String),
-	#[error(
-		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
-	)]
-	MissingJobDataState(Uuid, String),
-	#[error("missing report field: job <uuid='{id}', name='{name}'>")]
-	MissingReport { id: Uuid, name: String },
-	#[error("missing some job data: '{value}'")]
-	MissingData { value: String },
-	#[error("error converting/handling OS strings")]
-	OsStr,
-	#[error("error converting/handling paths")]
-	Path,
-	#[error("invalid job status integer")]
-	InvalidJobStatusInt(i32),
-	#[error(transparent)]
-	FileIO(#[from] FileIOError),
-	#[error("job failed to pause: {0}")]
-	PauseFailed(String),
-
-	// Specific job errors
-	#[error("Indexer error: {0}")]
-	IndexerError(#[from] IndexerError),
-	#[error("Thumbnailer error: {0}")]
-	ThumbnailError(#[from] ThumbnailerError),
-	#[error("Identifier error: {0}")]
-	IdentifierError(#[from] FileIdentifierJobError),
-	#[error("Crypto error: {0}")]
-	CryptoError(#[from] CryptoError),
-	#[error("source and destination path are the same: {}", .0.display())]
-	MatchingSrcDest(PathBuf),
-	#[error("action would overwrite another file: {}", .0.display())]
-	WouldOverwrite(PathBuf),
-	#[error("item of type '{0}' with id '{1}' is missing from the db")]
-	MissingFromDb(&'static str, String),
-	#[error("the cas id is not set on the path data")]
-	MissingCasId,
-
-	// Not errors
-	#[error("step completed with errors")]
-	StepCompletedWithErrors(JobRunErrors),
-	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
-	EarlyFinish { name: String, reason: String },
-	#[error("data needed for job execution not found: job <name='{0}'>")]
-	JobDataNotFound(String),
-	#[error("job paused")]
-	Paused(Vec<u8>),
-}
 
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
@@ -146,7 +78,6 @@ pub trait DynJob: Send + Sync {
 		&mut self,
 		job_manager: Arc<JobManager>,
 		ctx: WorkerContext,
-		pause_tx: oneshot::Receiver<()>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -329,8 +260,12 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		&mut self,
 		job_manager: Arc<JobManager>,
 		ctx: WorkerContext,
-		mut pause_rx: oneshot::Receiver<()>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
+		info!(
+			"Starting job {id} ({name})",
+			id = self.id,
+			name = self.name()
+		);
 		let mut job_should_run = true;
 
 		let mut errors = vec![];
@@ -349,10 +284,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
-		let mut shutdown_rx = ctx.shutdown_rx();
-
 		while job_should_run && !self.state.steps.is_empty() {
 			tokio::select! {
+				// -> Job execution
 				step_result = self.stateful_job.execute_step(
 					ctx.clone(),
 					&mut self.state,
@@ -373,20 +307,25 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 					self.state.steps.pop_front();
 				}
-				_ = shutdown_rx.recv() => {
-					return Err(
-						JobError::Paused(
-							rmp_serde::to_vec_named(&self.state)?
-						)
-					);
-				}
-				_ = &mut pause_rx => {
-					return Err(
-						JobError::Paused(
-							rmp_serde::to_vec_named(&self.state)?
-						)
-					);
-				}
+				// // -> Shutdown signal
+				// _ = shutdown_rx.recv() => {
+				// 	return Err(
+				// 		JobError::Paused(
+				// 			rmp_serde::to_vec_named(&self.state)?
+				// 		)
+				// 	);
+				// }
+				// // -> Pause signal
+				// _ = &mut pause_rx => {
+				// 	if let Some(report) = self.report_mut() {
+				// 		let serialized_state = self.serialize_state()?;
+				// 		report.data = Some(serialized_state);
+				// 		report.update(&ctx.library).await?;
+				// 	}
+
+				// 	return Err(JobError::Paused(
+				// 		rmp_serde::to_vec_named(&self.state)?));
+				// }
 			}
 			self.state.step_number += 1;
 		}

@@ -2,21 +2,18 @@ use crate::invalidate_query;
 use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::Library;
 use chrono::{DateTime, Utc};
-use std::{sync::Arc, time::Duration};
-use tokio::sync::oneshot;
-use tokio::{
-	sync::{
-		broadcast,
-		mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-		Mutex,
-	},
-	time::Instant,
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Condvar};
+use tokio::select;
+use tokio::sync::{
+	broadcast,
+	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+	Mutex,
 };
+use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 
 use super::{JobMetadata, JobReport, JobRunErrors};
-
-const JOB_REPORT_UPDATE_INTERVAL: Duration = Duration::from_millis(1000 / 60);
 
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
@@ -28,11 +25,19 @@ pub enum WorkerEvent {
 	Paused(Vec<u8>, oneshot::Sender<()>),
 }
 
+// used to send commands to the worker thread from the manager
+#[derive(Debug)]
+pub enum WorkerCommand {
+	Pause,
+	Resume,
+	Cancel,
+}
+
 #[derive(Clone)]
 pub struct WorkerContext {
 	pub library: Library,
 	events_tx: UnboundedSender<WorkerEvent>,
-	shutdown_tx: Arc<broadcast::Sender<()>>,
+	command_rx: Arc<Mutex<UnboundedReceiver<WorkerCommand>>>,
 }
 
 impl WorkerContext {
@@ -41,10 +46,6 @@ impl WorkerContext {
 			.send(WorkerEvent::Progressed(updates))
 			.expect("critical error: failed to send worker worker progress event updates");
 	}
-
-	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
-		self.shutdown_tx.subscribe()
-	}
 }
 
 // a worker is a dedicated thread that runs a single job
@@ -52,25 +53,23 @@ impl WorkerContext {
 pub struct Worker {
 	job: Option<Box<dyn DynJob>>,
 	report: JobReport,
-	worker_events_tx: UnboundedSender<WorkerEvent>,
-	worker_events_rx: Option<UnboundedReceiver<WorkerEvent>>,
+	events_tx: UnboundedSender<WorkerEvent>,
+	events_rx: Option<UnboundedReceiver<WorkerEvent>>,
+	command_tx: Option<UnboundedSender<WorkerCommand>>,
 	start_time: Option<DateTime<Utc>>,
-	pause_tx: Option<oneshot::Sender<()>>,
-	paused: bool,
 }
 
 impl Worker {
 	pub fn new(job: Box<dyn DynJob>, report: JobReport) -> Self {
-		let (worker_events_tx, worker_events_rx) = unbounded_channel();
+		let (events_tx, events_rx) = unbounded_channel();
 
 		Self {
 			job: Some(job),
 			report,
-			worker_events_tx,
-			worker_events_rx: Some(worker_events_rx),
+			events_tx,
+			events_rx: Some(events_rx),
+			command_tx: None,
 			start_time: None,
-			pause_tx: None,
-			paused: false,
 		}
 	}
 
@@ -85,16 +84,16 @@ impl Worker {
 	) -> Result<(), JobError> {
 		let mut worker = worker_mutex.lock().await;
 		// we capture the worker receiver channel so state can be updated from inside the worker
-		let worker_events_tx = worker.worker_events_tx.clone();
-		let worker_events_rx = worker
-			.worker_events_rx
+		let events_tx = worker.events_tx.clone();
+		let events_rx = worker
+			.events_rx
 			.take()
 			.expect("critical error: missing worker events rx");
 
-		// Create a new oneshot channel for the pause functionality
-		let (pause_tx, pause_rx) = oneshot::channel();
-		worker.pause_tx = Some(pause_tx);
-		worker.paused = false;
+		// create command channel to send commands to the worker
+		let (command_tx, command_rx) = unbounded_channel();
+		let command_rx = Arc::new(Mutex::new(command_rx));
+		worker.command_tx = Some(command_tx);
 
 		let mut job = worker
 			.job
@@ -129,7 +128,7 @@ impl Worker {
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			Arc::clone(&worker_mutex),
-			worker_events_rx,
+			events_rx,
 			library.clone(),
 		));
 
@@ -137,68 +136,135 @@ impl Worker {
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
 				library: library.clone(),
-				events_tx: worker_events_tx,
-				shutdown_tx: job_manager.shutdown_tx(),
+				events_tx,
+				command_rx,
 			};
 
-			let (done_tx, done_rx) = oneshot::channel();
+			let (done_tx, done_rx) = oneshot::channel::<()>();
+			let done_tx = Arc::new(Mutex::new(Some(done_tx)));
 
-			match job
-				.run(job_manager.clone(), worker_ctx.clone(), pause_rx)
-				.await
-			{
-				Ok((metadata, errors)) if errors.is_empty() => {
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Completed(done_tx, metadata))
-						.expect("critical error: failed to send worker complete event");
-				}
-				Ok((metadata, errors)) => {
-					warn!("Job<id'{job_id}'> completed with errors");
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::CompletedWithErrors(done_tx, metadata, errors))
-						.expect("critical error: failed to send worker complete event");
-				}
-				Err(JobError::Paused(state)) => {
-					info!("Job<id='{job_id}'> paused, we will pause all children jobs");
-					if let Err(e) = job.pause_children(&library).await {
-						error!("Failed to pause children jobs: {e:#?}");
+			'outer: loop {
+				let mut command_rx = worker_ctx.command_rx.lock().await;
+
+				select! {
+					command = command_rx.recv() => {
+						if let Some(command) = command {
+							println!("Worker received command: {:?}", command);
+							match command {
+								WorkerCommand::Pause => {
+									println!("Worker handled pause command");
+
+									'pause: loop {
+										if let Some(command) = command_rx.recv().await {
+											match command {
+												WorkerCommand::Resume => {
+													println!("Worker handled resume command");
+													break 'pause;
+												}
+												WorkerCommand::Cancel => {
+													println!("Worker handled cancel command");
+													break 'outer;
+												}
+												_ => (),
+											}
+										}
+									}
+								}
+								WorkerCommand::Cancel => {
+									println!("Worker received cancel command");
+									break 'outer;
+								}
+								_ => (),
+							}
+						}
 					}
+					_ = async {
+						println!("Worker running job: {:?}", job_hash);
 
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Paused(state, done_tx))
-						.expect("critical error: failed to send worker pause event");
-				}
-				Err(e) => {
-					error!("Job<id='{job_id}'> failed with error: {e:#?}; We will cancel all children jobs");
-					if let Err(e) = job.cancel_children(&library).await {
-						error!("Failed to cancel children jobs: {e:#?}");
-					}
+						match job.run(job_manager.clone(), worker_ctx.clone()).await {
+							Ok((metadata, errors)) if errors.is_empty() => {
+								let local_done_tx = done_tx.lock().await.take();
+								if let Some(tx) = local_done_tx {
+									worker_ctx
+										.events_tx
+										.send(WorkerEvent::Completed(tx, metadata))
+										.expect("critical error: failed to send worker complete event");
+								}
 
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Failed(done_tx))
-						.expect("critical error: failed to send worker fail event");
+							}
+							Ok((metadata, errors)) => {
+								warn!("Job<id'{job_id}'> completed with errors");
+								let local_done_tx = done_tx.lock().await.take();
+								if let Some(tx) = local_done_tx {
+									worker_ctx
+										.events_tx
+										.send(WorkerEvent::CompletedWithErrors(tx, metadata, errors))
+										.expect("critical error: failed to send worker complete event");
+								}
+
+							}
+							Err(JobError::Paused(state)) => {
+								info!("Job<id='{job_id}'> paused, we will pause all children jobs");
+								if let Err(e) = job.pause_children(&library).await {
+									error!("Failed to pause children jobs: {e:#?}");
+								}
+
+								let local_done_tx = done_tx.lock().await.take();
+								if let Some(tx) = local_done_tx {
+									worker_ctx
+										.events_tx
+										.send(WorkerEvent::Paused(state, tx))
+										.expect("critical error: failed to send worker pause event");
+								}
+							}
+							Err(e) => {
+								error!("Job<id='{job_id}'> failed with error: {e:#?}; We will cancel all children jobs");
+								if let Err(e) = job.cancel_children(&library).await {
+									error!("Failed to cancel children jobs: {e:#?}");
+								}
+
+								let local_done_tx = done_tx.lock().await.take();
+								if let Some(tx) = local_done_tx {
+									worker_ctx
+										.events_tx
+										.send(WorkerEvent::Failed(tx))
+										.expect("critical error: failed to send worker fail event");
+								}
+
+							}
+						}
+					} => {}
 				}
 			}
 
 			if let Err(e) = done_rx.await {
 				error!("failed to wait for worker completion: {:#?}", e);
 			}
+
 			job_manager.complete(&library, job_id, job_hash).await;
 		});
 
 		Ok(())
 	}
 
+	// send command to worker from job manager
+	pub fn command(&self, command: WorkerCommand) -> Result<(), JobError> {
+		info!("Sending command to worker: {:#?}", command);
+		if let Some(tx) = &self.command_tx {
+			let tx = tx.clone();
+			tx.send(command)
+				.map_err(|_| JobError::WorkerCommandSendFailed)
+		} else {
+			Err(JobError::WorkerCommandSendFailed)
+		}
+	}
+
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
-		mut worker_events_rx: UnboundedReceiver<WorkerEvent>,
+		mut events_rx: UnboundedReceiver<WorkerEvent>,
 		library: Library,
 	) {
-		while let Some(command) = worker_events_rx.recv().await {
+		while let Some(command) = events_rx.recv().await {
 			let mut worker = worker.lock().await;
 
 			match command {
@@ -319,25 +385,6 @@ impl Worker {
 					break;
 				}
 			}
-		}
-	}
-	pub fn pause(&mut self) -> Result<(), JobError> {
-		// Return an error if job is already paused
-		if self.paused {
-			return Err(JobError::PauseFailed("Job is already paused".into()));
-		}
-
-		// Send a pause signal through the pause_tx channel
-		if let Some(pause_tx) = self.pause_tx.take() {
-			pause_tx
-				.send(())
-				.map_err(|_| JobError::PauseFailed("Failed to send pause signal".into()))?;
-			self.paused = true;
-			Ok(())
-		} else {
-			Err(JobError::PauseFailed(
-				"Cannot pause job at this time".into(),
-			))
 		}
 	}
 }
