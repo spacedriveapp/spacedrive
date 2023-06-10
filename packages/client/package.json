@@ -29,7 +29,7 @@
 		"@types/react": "^18.0.21",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^4.8.4"
+		"typescript": "^5.0.4"
 	},
 	"peerDependencies": {
 		"react": "^18.2.0"
