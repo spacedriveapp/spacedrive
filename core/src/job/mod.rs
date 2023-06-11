@@ -4,7 +4,8 @@ use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	hash::{Hash, Hasher},
 	mem,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
+	time::Duration,
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -284,49 +285,52 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
+		let mut command_rx = ctx.command_rx.lock().await;
+
 		while job_should_run && !self.state.steps.is_empty() {
-			tokio::select! {
-				// -> Job execution
-				step_result = self.stateful_job.execute_step(
-					ctx.clone(),
-					&mut self.state,
-				) => {
-					match step_result {
-						Err(JobError::EarlyFinish { .. }) => {
-							step_result.map_err(|err| {
-								warn!("{}", err);
-							}).ok();
-							break;
-						},
-						Err(JobError::StepCompletedWithErrors(errors_text)) => {
-							warn!("Job<id='{}'> had a step with errors", self.id);
-							errors.extend(errors_text);
-						},
-						maybe_err => maybe_err?
+			// Check for commands every iteration
+			if let Ok(command) = command_rx.try_recv() {
+				match command {
+					WorkerCommand::Pause => {
+						ctx.paused.store(true, Ordering::Relaxed);
 					}
-
-					self.state.steps.pop_front();
+					WorkerCommand::Shutdown => {
+						return Err(JobError::Paused(rmp_serde::to_vec_named(&self.state)?));
+					}
+					WorkerCommand::Cancel => unimplemented!(),
+					WorkerCommand::Resume => {
+						println!("Resuming job now {}", self.id);
+						ctx.paused.store(false, Ordering::Relaxed);
+					}
 				}
-				// // -> Shutdown signal
-				// _ = shutdown_rx.recv() => {
-				// 	return Err(
-				// 		JobError::Paused(
-				// 			rmp_serde::to_vec_named(&self.state)?
-				// 		)
-				// 	);
-				// }
-				// // -> Pause signal
-				// _ = &mut pause_rx => {
-				// 	if let Some(report) = self.report_mut() {
-				// 		let serialized_state = self.serialize_state()?;
-				// 		report.data = Some(serialized_state);
-				// 		report.update(&ctx.library).await?;
-				// 	}
-
-				// 	return Err(JobError::Paused(
-				// 		rmp_serde::to_vec_named(&self.state)?));
-				// }
 			}
+
+			while ctx.paused.load(Ordering::Relaxed) {
+				println!("Job {} is paused", self.id);
+				tokio::time::sleep(Duration::from_millis(500)).await;
+			}
+
+			let step_result = self
+				.stateful_job
+				.execute_step(ctx.clone(), &mut self.state)
+				.await;
+			match step_result {
+				Err(JobError::EarlyFinish { .. }) => {
+					step_result
+						.map_err(|err| {
+							warn!("{}", err);
+						})
+						.ok();
+					break;
+				}
+				Err(JobError::StepCompletedWithErrors(errors_text)) => {
+					warn!("Job<id='{}'> had a step with errors", self.id);
+					errors.extend(errors_text);
+				}
+				maybe_err => maybe_err?,
+			}
+
+			self.state.steps.pop_front();
 			self.state.step_number += 1;
 		}
 

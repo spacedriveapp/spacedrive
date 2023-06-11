@@ -49,9 +49,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("resume", {
 			R.with2(library())
 				.mutation(|(ctx, library), id: Uuid| async move {
-					JobManager::resume(ctx.jobs.clone(), &library, Some(id))
-						.await
-						.map_err(Into::into)
+					JobManager::resume(&ctx.jobs, id).await.map_err(Into::into)
 				})
 		})
 		.procedure("generateThumbsForLocation", {

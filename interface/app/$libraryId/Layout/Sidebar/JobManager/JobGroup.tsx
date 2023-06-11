@@ -62,7 +62,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 					</Button>
 					<Button
 						className="cursor-pointer"
-						onClick={() => alert('Not implemented, we are currently working on upgrades to the job system to shut down jobs.')}
+						onClick={() => resumeJob.mutate(data.id)}
 						size="icon"
 						variant="outline"
 					>

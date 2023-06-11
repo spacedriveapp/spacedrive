@@ -20,7 +20,7 @@ use std::{
 	sync::{atomic::Ordering, Arc},
 };
 
-use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -31,6 +31,7 @@ const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Library, Box<dyn DynJob>),
+	Shutdown,
 }
 
 /// JobManager handles queueing and executing jobs using the `DynJob`
@@ -41,20 +42,18 @@ pub struct JobManager {
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
 	running_workers: RwLock<HashMap<Uuid, Arc<Mutex<Worker>>>>,
 	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
-	shutdown_tx: Arc<broadcast::Sender<()>>,
 }
 
 impl JobManager {
 	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
 	pub fn new() -> Arc<Self> {
-		let (shutdown_tx, _shutdown_rx) = broadcast::channel(1);
 		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
+
 		let this = Arc::new(Self {
 			current_jobs_hashes: RwLock::new(HashSet::new()),
 			job_queue: RwLock::new(VecDeque::new()),
 			running_workers: RwLock::new(HashMap::new()),
 			internal_sender,
-			shutdown_tx: Arc::new(shutdown_tx),
 		});
 
 		let this2 = this.clone();
@@ -65,12 +64,23 @@ impl JobManager {
 					JobManagerEvent::IngestJob(library, job) => {
 						this2.clone().dispatch(&library, job).await
 					}
+					// When the app shuts down, we need to gracefully shutdown all
+					// active workers and preserve their state
+					JobManagerEvent::Shutdown => {
+						let mut running_workers = this2.running_workers.write().await;
+						for (_, worker) in running_workers.iter_mut() {
+							worker
+								.lock()
+								.await
+								.command(WorkerCommand::Shutdown)
+								.expect("Failed to send shutdown command to worker");
+						}
+					}
 				}
 			}
 		});
 
 		debug!("JobManager initialized");
-
 		this
 	}
 
@@ -151,10 +161,6 @@ impl JobManager {
 		}
 	}
 
-	pub fn shutdown_tx(&self) -> Arc<broadcast::Sender<()>> {
-		Arc::clone(&self.shutdown_tx)
-	}
-
 	// Pause a specific job.
 	pub async fn pause(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Get a read lock on the running workers.
@@ -177,8 +183,28 @@ impl JobManager {
 			Err(JobManagerError::NotFound(job_id))
 		}
 	}
+	// Resume a specific job.
+	pub async fn resume(&self, job_id: Uuid) -> Result<(), JobManagerError> {
+		// Get a read lock on the running workers.
+		let workers_guard = self.running_workers.read().await;
 
-	pub async fn resume(
+		// Look up the worker for the given job ID.
+		if let Some(worker_mutex) = workers_guard.get(&job_id) {
+			// Lock the worker.
+			let worker = worker_mutex.lock().await;
+
+			info!("Resuming job: {:?}", worker.report());
+
+			// Set the pause signal in the worker.
+			worker.paused.store(false, Ordering::Relaxed);
+
+			Ok(())
+		} else {
+			Err(JobManagerError::NotFound(job_id))
+		}
+	}
+
+	pub async fn cold_resume(
 		self: Arc<Self>,
 		library: &Library,
 		id: Option<Uuid>,
@@ -237,7 +263,10 @@ impl JobManager {
 
 		for worker in self.running_workers.read().await.values() {
 			let report = worker.lock().await.report();
-			ret.push(report);
+			// this check prevents paused jobs from being returned
+			if report.status == JobStatus::Running {
+				ret.push(report);
+			}
 		}
 		ret
 	}
@@ -257,35 +286,35 @@ impl JobManager {
 			.collect())
 	}
 
-	async fn get_paused_jobs(
-		&self,
-		library: &Library,
-		id: Option<Uuid>,
-	) -> Result<Vec<JobReport>, JobManagerError> {
-		let find_condition = match id {
-			Some(id) => vec![
-				job::status::equals(JobStatus::Paused as i32),
-				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
-				job::id::equals(id.as_bytes().to_vec()), // only fetch job with specified id
-			],
-			None => vec![
-				job::status::equals(JobStatus::Paused as i32),
-				job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
-			],
-		};
+	// async fn get_paused_jobs(
+	// 	&self,
+	// 	library: &Library,
+	// 	id: Option<Uuid>,
+	// ) -> Result<Vec<JobReport>, JobManagerError> {
+	// 	let find_condition = match id {
+	// 		Some(id) => vec![
+	// 			job::status::equals(JobStatus::Paused as i32),
+	// 			job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
+	// 			job::id::equals(id.as_bytes().to_vec()), // only fetch job with specified id
+	// 		],
+	// 		None => vec![
+	// 			job::status::equals(JobStatus::Paused as i32),
+	// 			job::parent_id::equals(None), // only fetch top-level jobs, they will resume their children
+	// 		],
+	// 	};
 
-		let jobs = library
-			.db
-			.job()
-			.find_many(find_condition)
-			.exec()
-			.await?
-			.into_iter()
-			.map(JobReport::from)
-			.collect::<Vec<_>>();
+	// 	let jobs = library
+	// 		.db
+	// 		.job()
+	// 		.find_many(find_condition)
+	// 		.exec()
+	// 		.await?
+	// 		.into_iter()
+	// 		.map(JobReport::from)
+	// 		.collect::<Vec<_>>();
 
-		Ok(jobs)
-	}
+	// 	Ok(jobs)
+	// }
 
 	pub async fn clear_all(library: &Library) -> Result<(), JobManagerError> {
 		library.db.job().delete_many(vec![]).exec().await?;
@@ -294,38 +323,38 @@ impl JobManager {
 		Ok(())
 	}
 
-	async fn dispatch_group(
-		self: Arc<Self>,
-		library: &Library,
-		job_reports: Vec<JobReport>,
-	) -> Result<(), JobManagerError> {
-		for root_paused_job_report in job_reports {
-			info!(
-				"Resuming job: {} with uuid {}",
-				root_paused_job_report.name, root_paused_job_report.id
-			);
-			let children_jobs = library
-				.db
-				.job()
-				.find_many(vec![job::parent_id::equals(Some(
-					root_paused_job_report.id.as_bytes().to_vec(),
-				))])
-				.order_by(job::action::order(SortOrder::Asc))
-				.exec()
-				.await?
-				.into_iter()
-				.map(|job_data| get_resumable_job(JobReport::from(job_data), VecDeque::new()))
-				.collect::<Result<_, _>>()?;
+	// async fn dispatch_group(
+	// 	self: Arc<Self>,
+	// 	library: &Library,
+	// 	job_reports: Vec<JobReport>,
+	// ) -> Result<(), JobManagerError> {
+	// 	for root_paused_job_report in job_reports {
+	// 		info!(
+	// 			"Resuming job: {} with uuid {}",
+	// 			root_paused_job_report.name, root_paused_job_report.id
+	// 		);
+	// 		let children_jobs = library
+	// 			.db
+	// 			.job()
+	// 			.find_many(vec![job::parent_id::equals(Some(
+	// 				root_paused_job_report.id.as_bytes().to_vec(),
+	// 			))])
+	// 			.order_by(job::action::order(SortOrder::Asc))
+	// 			.exec()
+	// 			.await?
+	// 			.into_iter()
+	// 			.map(|job_data| get_resumable_job(JobReport::from(job_data), VecDeque::new()))
+	// 			.collect::<Result<_, _>>()?;
 
-			Arc::clone(&self)
-				.dispatch(
-					library,
-					get_resumable_job(root_paused_job_report, children_jobs)?,
-				)
-				.await;
-		}
-		Ok(())
-	}
+	// 		Arc::clone(&self)
+	// 			.dispatch(
+	// 				library,
+	// 				get_resumable_job(root_paused_job_report, children_jobs)?,
+	// 			)
+	// 			.await;
+	// 	}
+	// 	Ok(())
+	// }
 
 	pub async fn clear(id: Uuid, library: &Library) -> Result<(), JobManagerError> {
 		// unsure whether we should only delete jobs if marked as `JobStatus::Completed`?
@@ -341,17 +370,17 @@ impl JobManager {
 		Ok(())
 	}
 
-	async fn delete_inactive_jobs(&self, library: &Library) -> Result<(), JobManagerError> {
-		library
-			.db
-			.job()
-			.delete_many(vec![job::name::not_in_vec(
-				JOBS.into_iter().map(|s| s.to_string()).collect(),
-			)])
-			.exec()
-			.await?;
-		Ok(())
-	}
+	// async fn delete_inactive_jobs(&self, library: &Library) -> Result<(), JobManagerError> {
+	// 	library
+	// 		.db
+	// 		.job()
+	// 		.delete_many(vec![job::name::not_in_vec(
+	// 			JOBS.into_iter().map(|s| s.to_string()).collect(),
+	// 		)])
+	// 		.exec()
+	// 		.await?;
+	// 	Ok(())
+	// }
 }
 
 #[macro_use]
