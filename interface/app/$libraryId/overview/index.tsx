@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { useKey } from 'rooks';
 import { Category } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { getExplorerStore, useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
+import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import ContextMenu from '../Explorer/File/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import View from '../Explorer/View';
@@ -33,7 +32,7 @@ export const Component = () => {
 
 	const selectedItem = useMemo(
 		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
-		[selectedItemId]
+		[selectedItemId, items]
 	);
 
 	return (
@@ -63,7 +62,7 @@ export const Component = () => {
 						onSelectedChange={setSelectedItemId}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={selectedItem && <ContextMenu data={selectedItem} />}
+						contextMenu={<ContextMenu data={selectedItem} />}
 						emptyNotice={null}
 					/>
 
