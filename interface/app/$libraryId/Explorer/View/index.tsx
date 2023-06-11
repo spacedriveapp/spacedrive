@@ -22,7 +22,7 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
-import { getItemFilePath } from '../util';
+import { getExplorerItemData, getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -62,6 +62,12 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			}
 
 			openFilePath(library.uuid, filePath.id);
+		} else {
+			const { kind } = getExplorerItemData(data);
+
+			if (['Video', 'Image', 'Audio'].includes(kind)) {
+				getExplorerStore().quickViewObject = data;
+			}
 		}
 	};
 
