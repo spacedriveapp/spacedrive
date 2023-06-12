@@ -245,6 +245,6 @@ pub enum LocationMetadataError {
 	Write(io::Error, PathBuf),
 	#[error("Failed to deserialize metadata file for location (at path: {1:?}); (error: {0:?})")]
 	Deserialize(serde_json::Error, PathBuf),
-	#[error("Failed to relink, as the new location path is the same as the old path")]
+	#[error("Failed to relink, as the new location path is the same as the old path: {0}")]
 	RelinkSamePath(PathBuf),
 }

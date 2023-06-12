@@ -30,7 +30,7 @@ pub use worker::*;
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
-	#[error("database error")]
+	#[error("database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
 	JoinTaskError(#[from] tokio::task::JoinError),
@@ -54,7 +54,7 @@ pub enum JobError {
 	OsStr,
 	#[error("error converting/handling paths")]
 	Path,
-	#[error("invalid job status integer")]
+	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
@@ -78,7 +78,7 @@ pub enum JobError {
 	MissingCasId,
 
 	// Not errors
-	#[error("step completed with errors")]
+	#[error("step completed with errors: {0:?}")]
 	StepCompletedWithErrors(JobRunErrors),
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
