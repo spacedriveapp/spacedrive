@@ -8,19 +8,22 @@ export default (props: { filePath: FilePath }) => {
 	const { getFilePathOpenWithApps, openFilePathWith } = usePlatform();
 
 	if (!getFilePathOpenWithApps || !openFilePathWith) return null;
-
 	return (
-		<ContextMenu.SubMenu label="Open with">
-			<Suspense>
-				<Items
-					filePath={props.filePath}
-					actions={{
-						getFilePathOpenWithApps,
-						openFilePathWith
-					}}
-				/>
-			</Suspense>
-		</ContextMenu.SubMenu>
+		<>
+			{props.filePath.is_dir ? null : (
+				<ContextMenu.SubMenu label="Open with">
+					<Suspense>
+						<Items
+							filePath={props.filePath}
+							actions={{
+								getFilePathOpenWithApps,
+								openFilePathWith
+							}}
+						/>
+					</Suspense>
+				</ContextMenu.SubMenu>
+			)}
+		</>
 	);
 };
 
