@@ -42,7 +42,7 @@ pub enum FileIdentifierJobError {
 	// Internal Errors
 	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 }
 
