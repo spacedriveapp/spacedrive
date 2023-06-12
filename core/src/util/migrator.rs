@@ -114,12 +114,12 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 
 #[derive(Error, Debug)]
 pub enum MigratorError {
-	#[error("error saving or loading the config from the filesystem: {0}")]
+	#[error("Io - error saving or loading the config from the filesystem: {0}")]
 	Io(#[from] io::Error),
-	#[error("error serializing or deserializing the JSON in the config file: {0}")]
+	#[error("Json - error serializing or deserializing the JSON in the config file: {0}")]
 	Json(#[from] serde_json::Error),
 	#[error(
-		"the config file is for a newer version of the app. Please update to the latest version to load it!"
+		"YourAppIsOutdated - the config file is for a newer version of the app. Please update to the latest version to load it!"
 	)]
 	YourAppIsOutdated,
 	#[error("Type '{0}' as generic `Migrator::T` must be serialiable to a Serde object!")]
