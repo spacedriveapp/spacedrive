@@ -38,7 +38,7 @@ export default function OnboardingAlpha() {
 							className="flex gap-2"
 							variant="gray"
 						>
-							<Discord className="h-5 w-5 fill-white" />
+							<Discord className="h-4 w-4 fill-white" />
 							Join Discord
 						</Button>
 						<Button
