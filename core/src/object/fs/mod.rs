@@ -13,15 +13,15 @@ pub mod create;
 pub mod copy;
 pub mod cut;
 
-pub mod decrypt;
+// pub mod decrypt;
 pub mod delete;
-pub mod encrypt;
+// pub mod encrypt;
 
 pub mod error;
 
 pub mod erase;
 
-pub const BYTES_EXT: &str = ".bytes";
+// pub const BYTES_EXT: &str = ".bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {

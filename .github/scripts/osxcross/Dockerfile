@@ -58,7 +58,7 @@ WORKDIR /srv
 # Setup macports
 RUN osxcross-macports --help
 
-LABEL org.opencontainers.image.title="alpine-osxcross" \
+LABEL org.opencontainers.image.title="osxcross" \
 	# Version is macOS SDK version + osxcross commit hash
 	org.opencontainers.image.version="12.3-50e86eb" \
 	org.opencontainers.image.authors="Vítor Vasconcellos <vasconcellos.dev@gmail.com>, Spacedrive <support@spacedrive.com>" \

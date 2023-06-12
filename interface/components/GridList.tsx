@@ -346,7 +346,7 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 											selectable: selectable && !!props.onSelectedChange,
 											index,
 											style: { width: itemWidth },
-											onClick: (id) => {
+											onMouseDown: (id) => {
 												!multiSelect && props.onSelectedChange?.(id as T);
 											},
 											onContextMenu: (id) => {
@@ -371,12 +371,12 @@ const useSelecto = () => useContext(SelectoContext);
 
 interface GridListItemProps
 	extends PropsWithChildren,
-		Omit<HTMLAttributes<HTMLDivElement>, 'id' | 'onClick' | 'onContextMenu'> {
+		Omit<HTMLAttributes<HTMLDivElement>, 'id' | 'onMouseDown' | 'onContextMenu'> {
 	selectable?: boolean;
 	index?: number;
 	selected?: boolean;
 	id?: number;
-	onClick?: (id: number) => void;
+	onMouseDown?: (id: number) => void;
 	onContextMenu?: (id: number) => void;
 }
 
@@ -411,10 +411,11 @@ const GridListItem = ({ className, children, style, ...props }: GridListItemProp
 			{...selectableProps}
 			style={style}
 			className={clsx('mx-auto h-full', className)}
-			onClick={() => {
-				if (props.onClick && props.selectable) {
+			onMouseDown={(e) => {
+				e.stopPropagation();
+				if (e.button === 0 && props.onMouseDown && props.selectable) {
 					const id = props.id || props.index;
-					if (id) props.onClick(id);
+					if (id) props.onMouseDown(id);
 				}
 			}}
 			onContextMenu={() => {

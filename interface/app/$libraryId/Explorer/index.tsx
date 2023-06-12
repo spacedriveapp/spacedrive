@@ -32,7 +32,7 @@ export default function Explorer(props: Props) {
 			selectedItemId
 				? props.items?.find((item) => item.item.id === selectedItemId)
 				: undefined,
-		[selectedItemId]
+		[selectedItemId, props.items]
 	);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {

@@ -17,6 +17,8 @@ use tracing::{debug, error};
 #[cfg(target_os = "linux")]
 mod app_linux;
 
+mod theme;
+
 mod file;
 mod menu;
 
@@ -161,7 +163,8 @@ async fn main() -> tauri::Result<()> {
 			open_logs_dir,
 			file::open_file_path,
 			file::get_file_path_open_with_apps,
-			file::open_file_path_with
+			file::open_file_path_with,
+			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;
 

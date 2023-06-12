@@ -270,7 +270,6 @@ async fn handle_file(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-
 		// HEIF/HEIC images
 		"heif" | "heifs" => "image/heif,image/heif-sequence",
 		"heic" | "heics" => "image/heic,image/heic-sequence",
