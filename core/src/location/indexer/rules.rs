@@ -29,19 +29,19 @@ pub enum IndexerRuleError {
 	// User errors
 	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
-	#[error("glob builder error")]
+	#[error("glob builder error: {0}")]
 	Glob(#[from] globset::Error),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
 
 	// Internal Errors
-	#[error("indexer rule parameters encode error")]
+	#[error("indexer rule parameters encode error: {0}")]
 	RuleParametersRMPEncode(#[from] encode::Error),
-	#[error("indexer rule parameters decode error")]
+	#[error("indexer rule parameters decode error: {0}")]
 	RuleParametersRMPDecode(#[from] decode::Error),
-	#[error("accept by its children file I/O error")]
+	#[error("accept by its children file I/O error: {0}")]
 	AcceptByItsChildrenFileIO(FileIOError),
-	#[error("reject by its children file I/O error")]
+	#[error("reject by its children file I/O error: {0}")]
 	RejectByItsChildrenFileIO(FileIOError),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),

@@ -386,17 +386,17 @@ pub fn create_custom_uri_endpoint(node: Arc<Node>) -> Endpoint<impl HttpEndpoint
 
 #[derive(Error, Debug)]
 pub enum HandleCustomUriError {
-	#[error("http - {0}")]
+	#[error("HandleCustomUriError::Http - {0}")]
 	Http(#[from] httpz::http::Error),
-	#[error("io - {0}")]
+	#[error("HandleCustomUriError::FileIO - {0}")]
 	FileIO(#[from] FileIOError),
-	#[error("query - {0}")]
+	#[error("HandleCustomUriError::QueryError - {0}")]
 	QueryError(#[from] QueryError),
-	#[error("bad request - {0}")]
+	#[error("HandleCustomUriError::BadRequest - {0}")]
 	BadRequest(&'static str),
-	#[error("Range is not valid: {0}")]
+	#[error("HandleCustomUriError::RangeNotSatisfiable - invalid range {0}")]
 	RangeNotSatisfiable(&'static str),
-	#[error("resource '{0}' not found")]
+	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
 	NotFound(&'static str),
 }
 

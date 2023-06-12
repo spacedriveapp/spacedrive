@@ -1,6 +1,9 @@
 use crate::{
 	invalidate_query,
-	location::{indexer::rules, LocationManagerError},
+	location::{
+		indexer::rules::{self, SeederError},
+		LocationManagerError,
+	},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node, PrismaClient},
@@ -46,19 +49,19 @@ pub struct LibraryManager {
 pub enum LibraryManagerError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
-	#[error("error serializing or deserializing the JSON in the config file")]
+	#[error("error serializing or deserializing the JSON in the config file: {0}")]
 	Json(#[from] serde_json::Error),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("library not found error")]
 	LibraryNotFound,
-	#[error("error migrating the config file")]
+	#[error("error migrating the config file: {0}")]
 	Migration(String),
-	#[error("failed to parse uuid")]
+	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run seeder: {0}")]
 	Seeder(#[from] SeederError),
-	#[error("failed to initialise the key manager")]
+	#[error("failed to initialise the key manager: {0}")]
 	KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] MigratorError),

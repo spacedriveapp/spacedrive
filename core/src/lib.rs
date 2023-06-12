@@ -230,15 +230,15 @@ impl Node {
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
 pub enum NodeError {
-	#[error("failed to initialize config: {0}")]
+	#[error("NodeError::FailedToInitializeConfig({0})")]
 	FailedToInitializeConfig(util::migrator::MigratorError),
 	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
-	#[error(transparent)]
+	#[error("failed to initialize location manager: {0}")]
 	LocationManager(#[from] LocationManagerError),
 	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(#[from] sd_p2p::ManagerError),
-	#[error("invalid platform integer")]
+	#[error("invalid platform integer: {0}")]
 	InvalidPlatformInt(i32),
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
