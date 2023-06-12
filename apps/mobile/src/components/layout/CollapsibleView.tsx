@@ -16,19 +16,15 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 
 	return (
 		<View style={containerStyle}>
-			<Pressable onPress={toggle} style={tw`flex flex-row items-center justify-between`}>
+			<Pressable onPress={toggle} style={tw`flex flex-row items-center justify-between pr-3`}>
 				<Text style={titleStyle} selectable={false}>
 					{title}
 				</Text>
 				<MotiView
-					animate={{
-						rotateZ: hide ? '0deg' : '90deg',
-						translateX: hide ? 0 : 5,
-						translateY: hide ? 0 : 5
-					}}
+					animate={{ rotateZ: hide ? '0deg' : '90deg' }}
 					transition={{ type: 'timing', duration: 150 }}
 				>
-					<CaretRight color="white" weight="bold" size={16} style={tw`mr-3`} />
+					<CaretRight color="white" weight="bold" size={16} />
 				</MotiView>
 			</Pressable>
 			<AnimatedHeight hide={hide}>{children}</AnimatedHeight>

@@ -1,58 +1,70 @@
 import clsx from 'clsx';
-import { Dispatch, SetStateAction } from 'react';
+import { useRef } from 'react';
 import { IndexerRule } from '@sd/client';
 import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
 import { IndexerRuleIdFieldType } from '.';
 
+function ruleIsSystem(rule: IndexerRule) {
+	const num = rule.pub_id?.[15 - 3];
+	return num !== undefined ? num === 0 : false;
+}
+
 interface RuleButtonProps<T extends IndexerRuleIdFieldType> {
 	rule: IndexerRule;
 	field?: T;
-	setRuleSelected: Dispatch<SetStateAction<IndexerRule | undefined>>;
-	ruleSelected: IndexerRule | undefined;
+	onClick?: React.ComponentProps<'div'>['onClick'];
+	className?: string;
 }
 
 function RuleButton<T extends IndexerRuleIdFieldType>({
 	rule,
 	field,
-	ruleSelected,
-	setRuleSelected
+	onClick,
+	className
 }: RuleButtonProps<T>) {
 	const value = field?.value ?? [];
+	const toggleRef = useRef<HTMLElement>(null);
 	const ruleEnabled = value.includes(rule.id);
 
 	return (
 		<div
+			onClick={
+				onClick ??
+				(() => {
+					if (toggleRef.current) toggleRef.current.click();
+				})
+			}
 			className={clsx(
-				ruleSelected?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input',
-				!rule.default && 'cursor-pointer',
-				`relative flex w-[100px] min-w-[150px] justify-between gap-2 rounded-md border border-app-line py-2`
+				`relative flex w-[100px] min-w-[150px] justify-between gap-2 rounded-md border border-app-line py-2`,
+				className
 			)}
-			onClick={() => {
-				if (rule.default) return;
-				ruleSelected?.id === rule.id ? setRuleSelected(undefined) : setRuleSelected(rule);
-			}}
 		>
 			<div className="w-full">
 				<p className="mb-2 text-center text-sm">{rule.name}</p>
 				<div className="flex flex-wrap justify-center gap-2">
 					<InfoPill
+						ref={toggleRef}
 						onClick={
 							field &&
-							(() =>
+							((e) => {
+								e.stopPropagation();
 								field.onChange(
 									ruleEnabled
 										? value.filter((v) => v !== rule.id)
 										: Array.from(new Set([...value, rule.id]))
-								))
+								);
+							})
 						}
 						className={clsx(
-							'hover:brightness-125',
-							ruleEnabled ? '!text-green-500' : 'text-red-500'
+							'px-2 hover:brightness-110',
+							ruleEnabled ? '!bg-accent !text-white' : 'text-ink'
 						)}
 					>
 						{ruleEnabled ? 'Enabled' : 'Disabled'}
 					</InfoPill>
-					{rule.default && <InfoPill className="text-ink-faint">System</InfoPill>}
+					{ruleIsSystem(rule) && (
+						<InfoPill className="px-2 text-ink-faint">System</InfoPill>
+					)}
 				</div>
 			</div>
 		</div>

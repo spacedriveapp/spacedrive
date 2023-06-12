@@ -1,22 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.cspell/**'
-      - '.vscode/**'
-      - '.github/CODEOWNERS'
-      - '.github/FUNDING.yml'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/scripts/osxcross/**'
-      - '.github/scripts/ffmpeg-macos/**'
-      - '.gitattributes'
-      - 'cspell.config.yaml'
   pull_request:
     paths-ignore:
       - '**.md'
@@ -32,6 +16,7 @@ on:
       - '.gitattributes'
       - 'cspell.config.yaml'
   workflow_dispatch:
+  merge_group:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends

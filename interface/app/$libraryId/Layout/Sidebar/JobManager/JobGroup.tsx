@@ -2,7 +2,7 @@ import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { X } from 'phosphor-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { JobReport } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
@@ -72,14 +72,13 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 							<div className="truncate">
 								<p className="truncate font-semibold">
 									{allJobsCompleted
-										? `Added location "${
-												data.metadata.init.location.name || ''
-										  }"`
-										: 'Processing added location...'}
+										? `Added location "${data.metadata.init.location.name || ''
+										}"`
+										: `Indexing "${data.metadata.init.location.name || ''}"`}
 								</p>
-								<p className="my-[2px] text-ink-faint">
+								<p className="my-[2px] text-sidebar-inkFaint">
 									<b>{tasks.total} </b>
-									{tasks.total <= 1 ? 'item' : 'items'}
+									{tasks.total <= 1 ? 'task' : 'tasks'}
 									{' • '}
 									{date_started}
 									{!allJobsCompleted && totalGroupTime && ' • '}

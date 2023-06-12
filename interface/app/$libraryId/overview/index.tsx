@@ -1,145 +1,80 @@
-import * as icons from '@sd/assets/icons';
-import {
-	ExplorerItem,
-	ObjectKind,
-	ObjectKindKey,
-	useLibraryContext,
-	useLibraryQuery,
-	useRspcLibraryContext
-} from '@sd/client';
-import { z } from '@sd/ui/src/forms';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
+import { Category } from '@sd/client';
+import { z } from '@sd/ui/src/forms';
 import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
-import Explorer from '../Explorer';
+import ContextMenu from '../Explorer/File/ContextMenu';
+import { Inspector } from '../Explorer/Inspector';
+import View from '../Explorer/View';
 import { SEARCH_PARAMS } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
-import TopBarChildren from '../TopBar/TopBarChildren';
-import CategoryButton from '../overview/CategoryButton';
+import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
-
-// TODO: Replace left hand type with Category enum type (doesn't exist yet)
-const CategoryToIcon: Record<string, string> = {
-	Recents: 'Collection',
-	Favorites: 'HeartFlat',
-	Photos: 'Image',
-	Videos: 'Video',
-	Movies: 'Movie',
-	Music: 'Audio',
-	Documents: 'Document',
-	Downloads: 'Package',
-	Applications: 'Application',
-	Games: "Game",
-	Books: 'Book',
-	Encrypted: 'EncryptedLock',
-	Archives: 'Database',
-	Projects: 'Folder',
-	Trash: 'Trash'
-};
-
-// Map the category to the ObjectKind for searching
-const SearchableCategories: Record<string, ObjectKindKey> = {
-	Photos: 'Image',
-	Videos: 'Video',
-	Music: 'Audio',
-	Documents: 'Document',
-	Encrypted: 'Encrypted',
-	Books: 'Book',
-}
+import { Categories } from './Categories';
+import { useItems } from './data';
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 export const Component = () => {
-	const page = usePageLayout();
 	const explorerStore = useExplorerStore();
-	const ctx = useRspcLibraryContext();
-	const { library } = useLibraryContext();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } = useExplorerTopBarOptions();
 
-	const [selectedCategory, setSelectedCategory] = useState<string>('Recents');
+	const page = usePageLayout();
 
-	// TODO: integrate this into search query
-	const recentFiles = useLibraryQuery(['files.getRecent', 50]);
-	// this should be redundant once above todo is complete
-	const canSearch = !!SearchableCategories[selectedCategory] || selectedCategory === 'Favorites';
+	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
+		useExplorerTopBarOptions();
 
-	const kind = ObjectKind[SearchableCategories[selectedCategory] || 0] as number;
+	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const categories = useLibraryQuery(['categories.list']);
+	const { items, query, loadMore } = useItems(selectedCategory);
 
-	// TODO: Make a custom double click handler for directories to take users to the location explorer.
-	// For now it's not needed because folders shouldn't show.
-	const query = useInfiniteQuery({
-		enabled: canSearch,
-		queryKey: [
-			'search.paths',
-			{
-				library_id: library.uuid,
-				arg: {
-					...(explorerStore.layoutMode === 'media'
-						? { kind: [5, 7].includes(kind) ? [kind] : [5, 7, kind] }
-						: { kind: [kind] })
-				}
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			ctx.client.query([
-				'search.paths',
-				{
-					...queryKey[1].arg,
-					cursor,
-				},
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
-	});
+	const [selectedItemId, setSelectedItemId] = useState<number>();
 
-	const searchItems = useMemo(() => query.data?.pages?.flatMap((d) => d.items), [query.data]);
-
-	let items: ExplorerItem[] = [];
-	switch (selectedCategory) {
-		case 'Recents':
-			items = recentFiles.data || [];
-			break;
-		default:
-			if (canSearch) {
-				items = searchItems || [];
-			}
-	}
+	const selectedItem = useMemo(
+		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
+		[selectedItemId, items]
+	);
 
 	return (
 		<>
-			<TopBarChildren toolOptions={[explorerViewOptions, explorerToolOptions, explorerControlOptions]} />
-			<Explorer
-				inspectorClassName="!pt-0 !fixed !top-[50px] !right-[10px] !w-[260px]"
-				viewClassName="!pl-0 !pt-0 !h-auto"
-				explorerClassName="!overflow-visible"
-				items={items}
-				onLoadMore={query.fetchNextPage}
-				hasNextPage={query.hasNextPage}
-				isFetchingNextPage={query.isFetchingNextPage}
-				scrollRef={page?.ref}
-			>
+			<TopBarPortal
+				right={
+					<TopBarOptions
+						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
+					/>
+				}
+			/>
+
+			<div>
 				<Statistics />
-				<div className="no-scrollbar sticky top-0 z-50 mt-4 flex space-x-[1px] overflow-x-scroll bg-app/90 py-1.5 backdrop-blur">
-					{categories.data?.map((category) => {
-						const iconString = CategoryToIcon[category.name] || 'Document';
-						const icon = icons[iconString as keyof typeof icons];
-						return (
-							<CategoryButton
-								key={category.name}
-								category={category.name}
-								icon={icon}
-								items={category.count}
-								selected={selectedCategory === category.name}
-								onClick={() => setSelectedCategory(category.name)}
-							/>
-						);
-					})}
+
+				<Categories selected={selectedCategory} onSelectedChanged={setSelectedCategory} />
+
+				<div className="flex">
+					<View
+						layout={explorerStore.layoutMode}
+						items={query.isLoading ? null : items || []}
+						// TODO: Fix this type here.
+						scrollRef={page?.ref as any}
+						onLoadMore={loadMore}
+						rowsBeforeLoadMore={5}
+						selected={selectedItemId}
+						onSelectedChange={setSelectedItemId}
+						top={68}
+						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
+						contextMenu={<ContextMenu data={selectedItem} />}
+						emptyNotice={null}
+					/>
+
+					{explorerStore.showInspector && (
+						<Inspector
+							data={selectedItem}
+							showThumbnail={explorerStore.layoutMode !== 'media'}
+							className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] shrink-0 bg-app pb-4 pl-1.5 pr-1"
+						/>
+					)}
 				</div>
-			</Explorer>
+			</div>
 		</>
 	);
 };
-
-

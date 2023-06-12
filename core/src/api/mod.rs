@@ -16,7 +16,7 @@ pub type Router = rspc::Router<Ctx>;
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
-	NewThumbnail { cas_id: String },
+	NewThumbnail { thumb_key: Vec<String> },
 	InvalidateOperation(InvalidateOperationEvent),
 }
 
@@ -75,7 +75,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("categories.", categories::mount())
-		.merge("keys.", keys::mount())
+		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())

@@ -13,8 +13,6 @@ const schema = z.object({
 });
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
-
 	const eraseFile = useLibraryMutation('files.eraseFiles');
 
 	const form = useZodForm({
@@ -24,21 +22,19 @@ export default (props: Props) => {
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
-		eraseFile.mutateAsync({
-			location_id: props.location_id,
-			path_id: props.path_id,
-			passes: data.passes.toString()
-		})
-	);
-
 	const [passes, setPasses] = useState([4]);
 
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={form.handleSubmit((data) =>
+				eraseFile.mutateAsync({
+					location_id: props.location_id,
+					path_id: props.path_id,
+					passes: data.passes.toString()
+				})
+			)}
+			dialog={useDialog(props)}
 			title="Erase a file"
 			description="Configure your erasure settings."
 			loading={eraseFile.isLoading}

@@ -1,6 +1,4 @@
 import { useSnapshot } from 'valtio';
-import { Algorithm } from '../core';
-import { HashingAlgoSlug } from '../utils';
 import { valtioPersist } from './util';
 
 export enum UseCase {
@@ -13,7 +11,7 @@ export enum UseCase {
 
 const onboardingStoreDefaults = {
 	newLibraryName: '',
-	unlockedScreens: ['start'],
+	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
 	shareTelemetry: true,
 	useCases: [] as UseCase[],

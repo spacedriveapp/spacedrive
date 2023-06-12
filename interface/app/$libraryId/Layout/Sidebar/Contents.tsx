@@ -1,12 +1,10 @@
 import {
 	ArchiveBox,
 	Broadcast,
-	CirclesFour,
 	CopySimple,
 	Crosshair,
 	Eraser,
 	FilmStrip,
-	MonitorPlay,
 	Planet
 } from 'phosphor-react';
 import { useClientContext } from '@sd/client';
@@ -30,7 +28,7 @@ export default () => {
 					<Icon component={CirclesFour} />
 					Spaces
 				</SidebarLink> */}
-				<SidebarLink to="spacedrop">
+				<SidebarLink to="spacedrop" disabled>
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
@@ -38,7 +36,7 @@ export default () => {
 					<Icon component={MonitorPlay} />
 					Media
 				</SidebarLink> */}
-				<SidebarLink to="imports">
+				<SidebarLink to="imports" disabled>
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink>

@@ -1,8 +1,8 @@
 use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use specta::Type;
 use std::{
-	marker::PhantomData,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -10,19 +10,12 @@ use tokio::sync::{RwLock, RwLockWriteGuard};
 use uuid::Uuid;
 
 use crate::{
-	migrations,
 	notifications::Notification,
-	util::migrator::{FileMigrator, MigratorError},
+	util::migrator::{Migrate, MigratorError},
 };
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
-
-const MIGRATOR: FileMigrator<NodeConfig> = FileMigrator {
-	current_version: migrations::NODE_VERSION,
-	migration_fn: migrations::migration_node,
-	phantom: PhantomData,
-};
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -42,6 +35,24 @@ pub struct NodeConfig {
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
+}
+
+#[async_trait::async_trait]
+impl Migrate for NodeConfig {
+	const CURRENT_VERSION: u32 = 0;
+
+	type Ctx = ();
+
+	async fn migrate(
+		from_version: u32,
+		_config: &mut Map<String, Value>,
+		_ctx: &Self::Ctx,
+	) -> Result<(), MigratorError> {
+		match from_version {
+			0 => Ok(()),
+			v => unreachable!("Missing migration for library version {}", v),
+		}
+	}
 }
 
 impl Default for NodeConfig {
@@ -71,7 +82,7 @@ impl NodeConfigManager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
 	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(
-			RwLock::new(MIGRATOR.load(&Self::path(&data_path))?),
+			RwLock::new(NodeConfig::load_and_migrate(&Self::path(&data_path), &()).await?),
 			data_path,
 		)))
 	}
@@ -104,7 +115,7 @@ impl NodeConfigManager {
 
 	/// save will write the configuration back to disk
 	fn save(base_path: &Path, config: &NodeConfig) -> Result<(), MigratorError> {
-		MIGRATOR.save(&Self::path(base_path), config.clone())?;
+		NodeConfig::save(config, &Self::path(base_path))?;
 		Ok(())
 	}
 }

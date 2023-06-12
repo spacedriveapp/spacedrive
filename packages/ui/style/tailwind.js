@@ -1,5 +1,3 @@
-// const colors = require('tailwindcss/colors');
-const plugin = require('tailwindcss/plugin');
 const defaultTheme = require('tailwindcss/defaultTheme');
 
 function alpha(variableName) {
@@ -15,8 +13,7 @@ module.exports = function (app, options) {
 			'../../packages/*/src/**/*.{ts,tsx,html,stories.tsx}',
 			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
-		darkMode: app == 'landing' ? 'class' : 'media',
-		mode: 'jit',
+		darkMode: 'class',
 		theme: {
 			screens: {
 				xs: '475px',
@@ -56,6 +53,9 @@ module.exports = function (app, options) {
 						DEFAULT: alpha('--color-sidebar'),
 						box: alpha('--color-sidebar-box'),
 						line: alpha('--color-sidebar-line'),
+						ink: alpha('--color-sidebar-ink'),
+						inkFaint: alpha('--color-sidebar-ink-faint'),
+						inkDull: alpha('--color-sidebar-ink-dull'),
 						divider: alpha('--color-sidebar-divider'),
 						button: alpha('--color-sidebar-button'),
 						selected: alpha('--color-sidebar-selected'),
@@ -73,6 +73,7 @@ module.exports = function (app, options) {
 						divider: alpha('--color-app-divider'),
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
+						selectedItem: alpha('--color-app-selected-item'),
 						hover: alpha('--color-app-hover'),
 						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),
@@ -167,7 +168,6 @@ module.exports = function (app, options) {
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));
-		config.plugins.push(require('@tailwindcss/line-clamp'));
 	}
 	return config;
 };

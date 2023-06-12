@@ -17,7 +17,7 @@ use tokio::time::Instant;
 use super::{
 	execute_indexer_save_step, finalize_indexer, iso_file_path_factory,
 	remove_non_existing_file_paths,
-	rules::aggregate_rules_by_kind,
+	rules::IndexerRule,
 	update_notifier_fn,
 	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobSaveStep, ScanProgress,
@@ -66,7 +66,13 @@ impl StatefulJob for IndexerJob {
 
 		let db = Arc::clone(&ctx.library.db);
 
-		let rules_by_kind = aggregate_rules_by_kind(state.init.location.indexer_rules.iter())
+		let indexer_rules = state
+			.init
+			.location
+			.indexer_rules
+			.iter()
+			.map(|rule| IndexerRule::try_from(&rule.indexer_rule))
+			.collect::<Result<Vec<_>, _>>()
 			.map_err(IndexerError::from)?;
 
 		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
@@ -100,7 +106,7 @@ impl StatefulJob for IndexerJob {
 		} = {
 			walk(
 				&to_walk_path,
-				&rules_by_kind,
+				&indexer_rules,
 				update_notifier_fn(BATCH_SIZE, &mut ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
@@ -147,7 +153,7 @@ impl StatefulJob for IndexerJob {
 
 		state.data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
-			rules_by_kind,
+			indexer_rules,
 			db_write_time: db_delete_time,
 			scan_read_time,
 			total_paths: *total_paths,
@@ -178,12 +184,25 @@ impl StatefulJob for IndexerJob {
 
 		match &state.steps[0] {
 			IndexerJobStepInput::Save(step) => {
-				execute_indexer_save_step(&state.init.location, step, data, &mut ctx)
-					.await
-					.map(|(indexed_count, elapsed_time)| {
-						data.indexed_count += indexed_count;
-						data.db_write_time += elapsed_time;
-					})?
+				let start_time = Instant::now();
+
+				IndexerJobData::on_scan_progress(
+					&mut ctx,
+					vec![
+						ScanProgress::SavedChunks(step.chunk_idx),
+						ScanProgress::Message(format!(
+							"Writing {}/{} to db",
+							step.chunk_idx, data.total_save_steps
+						)),
+					],
+				);
+
+				let count =
+					execute_indexer_save_step(&state.init.location, step, &ctx.library.clone())
+						.await?;
+
+				data.indexed_count += count as u64;
+				data.db_write_time += start_time.elapsed();
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;
@@ -200,7 +219,7 @@ impl StatefulJob for IndexerJob {
 				} = {
 					keep_walking(
 						to_walk_entry,
-						&data.rules_by_kind,
+						&data.indexer_rules,
 						update_notifier_fn(BATCH_SIZE, &mut ctx),
 						file_paths_db_fetcher_fn!(&db),
 						to_remove_db_fetcher_fn!(location_id, location_path, &db),

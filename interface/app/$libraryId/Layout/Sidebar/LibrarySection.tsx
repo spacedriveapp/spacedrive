@@ -1,9 +1,9 @@
-import { Laptop } from '@sd/assets/icons';
+import { Laptop, Mobile, Server } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { Link, NavLink } from 'react-router-dom';
 import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
-import { Button, Folder } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
+import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
 import SidebarLink from './Link';
 import Section from './Section';
@@ -25,11 +25,23 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				<SidebarLink className="group relative w-full" to={`/`} disabled key={'jeff'}>
+				<SidebarLink disabled className="group relative w-full" to={`/`} key={'jeff'}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
 					<span className="truncate">{node.data?.name}</span>
 				</SidebarLink>
-				{/* {(locations.data?.length || 0) < 4 && (
+				{/* <SidebarLink className="group relative w-full" to={`/`}>
+					<img src={Laptop} className="mr-1 h-5 w-5" />
+					<span className="truncate">Jamie's MBP</span>
+				</SidebarLink>
+				<SidebarLink className="group relative w-full" to={`/`}>
+					<img src={Mobile} className="mr-1 h-5 w-5" />
+					<span className="truncate">spacephone</span>
+				</SidebarLink>
+				<SidebarLink className="group relative w-full" to={`/`}>
+					<img src={Server} className="mr-1 h-5 w-5" />
+					<span className="truncate">titan</span>
+				</SidebarLink>
+				{(locations.data?.length || 0) < 4 && (
 					<Button variant="dotted" className="mt-1 w-full">
 						Connect Node
 					</Button>

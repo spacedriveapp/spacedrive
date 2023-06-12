@@ -9,7 +9,6 @@ interface Props extends UseDialogProps {
 }
 
 export default function DeleteLibraryDialog(props: Props) {
-	const dialog = useDialog(props);
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const queryClient = useQueryClient();
@@ -27,13 +26,11 @@ export default function DeleteLibraryDialog(props: Props) {
 
 	const form = useZodForm({ schema: z.object({}) });
 
-	const onSubmit = form.handleSubmit(() => deleteLib.mutateAsync(props.libraryUuid));
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={form.handleSubmit(() => deleteLib.mutateAsync(props.libraryUuid))}
+			dialog={useDialog(props)}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."
 			ctaDanger

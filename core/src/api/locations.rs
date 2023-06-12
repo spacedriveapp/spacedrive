@@ -6,13 +6,13 @@ use crate::{
 		LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	util::AbortOnDrop,
 };
-
-use std::path::PathBuf;
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -28,12 +28,16 @@ pub enum ExplorerContext {
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_thumbnail is determined by the local existence of a thumbnail
-		has_thumbnail: bool,
+		// has_local_thumbnail is true only if there is local existence of a thumbnail
+		has_local_thumbnail: bool,
+		// thumbnail_key is present if there is a cas_id
+		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
+		thumbnail_key: Option<Vec<String>>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_thumbnail: bool,
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
 }
@@ -151,19 +155,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: LightScanArgs| async move {
-					// light rescan location
-					light_scan_location(
-						&library,
-						find_location(&library, args.location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(args.location_id))?,
-						&args.sub_path,
-					)
-					.await
-					.map_err(Into::into)
+				.subscription(|(_, library), args: LightScanArgs| async move {
+					let location = find_location(&library, args.location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+					let handle =
+						tokio::spawn(light_scan_location(library, location, args.sub_path));
+
+					Ok(AbortOnDrop(handle))
 				})
 		})
 		.procedure(

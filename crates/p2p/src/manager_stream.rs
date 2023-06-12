@@ -12,7 +12,7 @@ use libp2p::{
 	futures::StreamExt,
 	swarm::{
 		dial_opts::{DialOpts, PeerCondition},
-		NetworkBehaviourAction, NotifyHandler, SwarmEvent,
+		NotifyHandler, SwarmEvent, ToSwarm,
 	},
 	Swarm,
 };
@@ -114,7 +114,6 @@ where
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
-						SwarmEvent::BannedPeer { peer_id, .. } => warn!("banned peer '{}' attempted to connection and was rejected", peer_id),
 						SwarmEvent::NewListenAddr { address, .. } => {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
@@ -162,6 +161,8 @@ where
 						}
 						SwarmEvent::ListenerError { listener_id, error } => warn!("listener '{:?}' reported a non-fatal error: {}", listener_id, error),
 						SwarmEvent::Dialing(_peer_id) => {},
+						#[allow(deprecated)]
+						SwarmEvent::BannedPeer { .. } => {},
 					}
 				}
 			}
@@ -202,26 +203,25 @@ where
 				}
 			}
 			ManagerStreamAction::StartStream(peer_id, rx) => {
-				self.swarm.behaviour_mut().pending_events.push_back(
-					NetworkBehaviourAction::NotifyHandler {
+				self.swarm
+					.behaviour_mut()
+					.pending_events
+					.push_back(ToSwarm::NotifyHandler {
 						peer_id: peer_id.0,
 						handler: NotifyHandler::Any,
 						event: OutboundRequest::Unicast(rx),
-					},
-				);
+					});
 			}
 			ManagerStreamAction::BroadcastData(data) => {
 				let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();
 				let behaviour = self.swarm.behaviour_mut();
 				debug!("Broadcasting message to '{:?}'", connected_peers);
 				for peer_id in connected_peers {
-					behaviour
-						.pending_events
-						.push_back(NetworkBehaviourAction::NotifyHandler {
-							peer_id,
-							handler: NotifyHandler::Any,
-							event: OutboundRequest::Broadcast(data.clone()),
-						});
+					behaviour.pending_events.push_back(ToSwarm::NotifyHandler {
+						peer_id,
+						handler: NotifyHandler::Any,
+						event: OutboundRequest::Broadcast(data.clone()),
+					});
 				}
 			}
 			ManagerStreamAction::Shutdown(tx) => {

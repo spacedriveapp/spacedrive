@@ -1,4 +1,3 @@
-/* eslint-disable tailwindcss/classnames-order */
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
 import { useCallback } from 'react';
@@ -81,20 +80,20 @@ export function JobsManager() {
 				</PopoverClose>
 			</div>
 			<div className="no-scrollbar h-full overflow-x-hidden">
+				{runningIndividualJobs?.map((job) => (
+					<Job key={job.id} job={job} />
+				))}
 				{groupedJobs.map((data) => (
 					<JobGroup key={data.id} data={data} clearJob={clearJobHandler} />
 				))}
 				{orphanJobs?.map((job) => (
 					<Job key={job?.id} job={job} />
 				))}
-				{runningIndividualJobs?.map((job) => (
-					<Job key={job.id} job={job} />
-				))}
 				{individualJobs?.map((job) => (
 					<Job clearJob={clearJobHandler} key={job.id} job={job} />
 				))}
 				{jobs?.length === 0 && runningJobs?.length === 0 && (
-					<div className="flex h-32 items-center justify-center text-ink-dull">
+					<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 						No jobs.
 					</div>
 				)}

@@ -8,10 +8,7 @@ interface Props extends UseDialogProps {
 }
 
 export default (props: Props) => {
-	const dialog = useDialog(props);
 	const submitPlausibleEvent = usePlausibleEvent();
-
-	const form = useZodForm();
 
 	const deleteLocation = useLibraryMutation('locations.delete', {
 		onSuccess: () => {
@@ -20,11 +17,13 @@ export default (props: Props) => {
 		}
 	});
 
+	const form = useZodForm();
+
 	return (
 		<Dialog
 			form={form}
 			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
-			dialog={dialog}
+			dialog={useDialog(props)}
 			title="Delete Location"
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 			ctaDanger

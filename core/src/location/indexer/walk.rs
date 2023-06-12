@@ -14,7 +14,7 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
@@ -85,7 +85,7 @@ where
 /// in case of doubts.
 pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	root: impl AsRef<Path>,
-	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -121,7 +121,7 @@ where
 		let current_to_remove = inner_walk_single_dir(
 			root,
 			entry,
-			rules_per_kind,
+			indexer_rules,
 			&mut update_notifier,
 			&to_remove_db_fetcher,
 			&iso_file_path_factory,
@@ -150,7 +150,7 @@ where
 
 pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	to_walk_entry: &ToWalkEntry,
-	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -177,7 +177,7 @@ where
 	let to_remove = inner_walk_single_dir(
 		to_walk_entry.path.clone(),
 		to_walk_entry,
-		rules_per_kind,
+		indexer_rules,
 		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
@@ -200,7 +200,7 @@ where
 
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	root: impl AsRef<Path>,
-	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -263,7 +263,7 @@ where
 			path: root.to_path_buf(),
 			parent_dir_accepted_by_its_children: None,
 		},
-		rules_per_kind,
+		indexer_rules,
 		&mut update_notifier,
 		&to_remove_db_fetcher,
 		&iso_file_path_factory,
@@ -333,7 +333,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		path,
 		parent_dir_accepted_by_its_children,
 	}: &ToWalkEntry,
-	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
+	indexer_rules: &[IndexerRule],
 	update_notifier: &mut impl FnMut(&Path, usize),
 	to_remove_db_fetcher: &impl Fn(
 		IsolatedFilePathData<'static>,
@@ -403,21 +403,23 @@ where
 			current_path.display(),
 			accept_by_children_dir
 		);
-		if let Some(reject_rules) = rules_per_kind.get(&RuleKind::RejectFilesByGlob) {
-			for reject_rule in reject_rules {
-				if !reject_rule
-					.apply(&current_path)
-					.await
-					.expect("reject rules of this kind must be infallible")
-				{
-					trace!(
-						"Path {} rejected by rule {}",
-						current_path.display(),
-						reject_rule.name
-					);
-					continue 'entries;
-				}
-			}
+
+		let Ok(rules_per_kind) = IndexerRule::apply_all(indexer_rules, &current_path).await
+			.map_err(|e| errors.push(e.into()))
+			else {
+			continue 'entries;
+		};
+
+		if rules_per_kind
+			.get(&RuleKind::RejectFilesByGlob)
+			.map_or(false, |reject_results| {
+				reject_results.iter().any(|reject| !reject)
+			}) {
+			trace!(
+				"Path {} rejected by `RuleKind::RejectFilesByGlob`",
+				current_path.display()
+			);
+			continue 'entries;
 		}
 
 		let Ok(metadata) = entry
@@ -452,43 +454,24 @@ where
 
 		if is_dir {
 			// If it is a directory, first we check if we must reject it and its children entirely
-			if let Some(reject_by_children_rules) =
-				rules_per_kind.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
-			{
-				for reject_by_children_rule in reject_by_children_rules {
-					match reject_by_children_rule.apply(&current_path).await {
-						Ok(false) => {
-							trace!(
-								"Path {} rejected by rule {}",
-								current_path.display(),
-								reject_by_children_rule.name
-							);
-							continue 'entries;
-						}
-						Ok(true) => {}
-						Err(e) => {
-							errors.push(e.into());
-							continue 'entries;
-						}
-					}
-				}
+			if rules_per_kind
+				.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
+				.map_or(false, |reject_results| {
+					reject_results.iter().any(|reject| !reject)
+				}) {
+				trace!(
+					"Path {} rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`",
+					current_path.display(),
+				);
+				continue 'entries;
 			}
 
 			// Then we check if we must accept it and its children
 			if let Some(accept_by_children_rules) =
 				rules_per_kind.get(&RuleKind::AcceptIfChildrenDirectoriesArePresent)
 			{
-				for accept_by_children_rule in accept_by_children_rules {
-					match accept_by_children_rule.apply(&current_path).await {
-						Ok(true) => {
-							accept_by_children_dir = Some(true);
-							break;
-						}
-						Ok(false) => {}
-						Err(e) => {
-							errors.push(e.into());
-						}
-					}
+				if accept_by_children_rules.iter().any(|accept| *accept) {
+					accept_by_children_dir = Some(true);
 				}
 
 				// If it wasn't accepted then we mark as rejected
@@ -510,38 +493,19 @@ where
 			}
 		}
 
-		let mut accept_by_glob = false;
-		if let Some(accept_rules) = rules_per_kind.get(&RuleKind::AcceptFilesByGlob) {
-			for accept_rule in accept_rules {
-				if accept_rule
-					.apply(&current_path)
-					.await
-					.expect("accept rules by glob must be infallible")
-				{
-					trace!(
-						"Path {} accepted by rule {}",
-						current_path.display(),
-						accept_rule.name
-					);
-					accept_by_glob = true;
-					break;
-				}
-			}
-			if !accept_by_glob {
-				trace!(
-					"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
-					current_path.display()
-				);
-				continue 'entries;
-			}
-		} else {
-			// If there are no accept rules, then accept all paths
-			accept_by_glob = true;
+		if rules_per_kind
+			.get(&RuleKind::AcceptFilesByGlob)
+			.map_or(false, |accept_rules| {
+				accept_rules.iter().all(|accept| !accept)
+			}) {
+			trace!(
+				"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
+				current_path.display()
+			);
+			continue 'entries;
 		}
 
-		if accept_by_glob
-			&& (accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked"))
-		{
+		if accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked") {
 			let Ok(iso_file_path) = iso_file_path_factory(&current_path, is_dir)
 				.map_err(|e| errors.push(e))
 				else {
@@ -645,13 +609,13 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::super::rules::ParametersPerKind;
+	use super::super::rules::RulePerKind;
 	use super::*;
 	use chrono::Utc;
 	use globset::{Glob, GlobSetBuilder};
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
-	use tracing_test::traced_test;
+	// use tracing_test::traced_test;
 
 	impl PartialEq for WalkedEntry {
 		fn eq(&self, other: &Self) -> bool {
@@ -768,9 +732,9 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let actual = walk(
+		let walk_result = walk(
 			root_path.to_path_buf(),
-			&HashMap::new(),
+			&[],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -780,15 +744,21 @@ mod tests {
 			420,
 		)
 		.await
-		.unwrap()
-		.walked
-		.collect::<HashSet<_>>();
+		.unwrap();
 
-		assert_eq!(actual, expected);
+		if !walk_result.errors.is_empty() {
+			panic!("errors: {:#?}", walk_result.errors);
+		}
+
+		let actual = walk_result.walked.collect::<HashSet<_>>();
+
+		if actual != expected {
+			panic!("difference: {:#?}", expected.difference(&actual));
+		}
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_only_photos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -814,27 +784,21 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let only_photos_rule = [(
-			RuleKind::AcceptFilesByGlob,
-			vec![IndexerRule::new(
-				RuleKind::AcceptFilesByGlob,
-				"only photos".to_string(),
-				false,
-				ParametersPerKind::AcceptFilesByGlob(
-					vec![],
-					GlobSetBuilder::new()
-						.add(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap())
-						.build()
-						.unwrap(),
-				),
+		let only_photos_rule = &[IndexerRule::new(
+			"only photos".to_string(),
+			false,
+			vec![RulePerKind::AcceptFilesByGlob(
+				vec![],
+				GlobSetBuilder::new()
+					.add(Glob::new("{*.png,*.jpg,*.jpeg}").unwrap())
+					.build()
+					.unwrap(),
 			)],
-		)]
-		.into_iter()
-		.collect::<HashMap<_, _>>();
+		)];
 
-		let actual = walk(
+		let walk_result = walk(
 			root_path.to_path_buf(),
-			&only_photos_rule,
+			only_photos_rule,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -844,15 +808,21 @@ mod tests {
 			420,
 		)
 		.await
-		.unwrap()
-		.walked
-		.collect::<HashSet<_>>();
+		.unwrap();
 
-		assert_eq!(actual, expected);
+		if !walk_result.errors.is_empty() {
+			panic!("errors: {:#?}", walk_result.errors);
+		}
+
+		let actual = walk_result.walked.collect::<HashSet<_>>();
+
+		if actual != expected {
+			panic!("difference: {:#?}", expected.difference(&actual));
+		}
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn test_git_repos() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -891,23 +861,17 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos = [(
-			RuleKind::AcceptIfChildrenDirectoriesArePresent,
-			vec![IndexerRule::new(
-				RuleKind::AcceptIfChildrenDirectoriesArePresent,
-				"git repos".to_string(),
-				false,
-				ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
-					[".git".to_string()].into_iter().collect(),
-				),
+		let git_repos = &[IndexerRule::new(
+			"git repos".to_string(),
+			false,
+			vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+				[".git".to_string()].into_iter().collect(),
 			)],
-		)]
-		.into_iter()
-		.collect::<HashMap<_, _>>();
+		)];
 
-		let actual = walk(
+		let walk_result = walk(
 			root_path.to_path_buf(),
-			&git_repos,
+			git_repos,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -917,15 +881,21 @@ mod tests {
 			420,
 		)
 		.await
-		.unwrap()
-		.walked
-		.collect::<HashSet<_>>();
+		.unwrap();
 
-		assert_eq!(actual, expected);
+		if !walk_result.errors.is_empty() {
+			panic!("errors: {:#?}", walk_result.errors);
+		}
+
+		let actual = walk_result.walked.collect::<HashSet<_>>();
+
+		if actual != expected {
+			panic!("difference: {:#?}", expected.difference(&actual));
+		}
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn git_repos_without_deps_or_build_dirs() {
 		let root = prepare_location().await;
 		let root_path = root.path();
@@ -958,54 +928,41 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos_no_deps_no_build_dirs = [
-			(
-				RuleKind::AcceptIfChildrenDirectoriesArePresent,
-				vec![IndexerRule::new(
-					RuleKind::AcceptIfChildrenDirectoriesArePresent,
-					"git repos".to_string(),
-					false,
-					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(
-						[".git".to_string()].into_iter().collect(),
-					),
+		let git_repos_no_deps_no_build_dirs = &[
+			IndexerRule::new(
+				"git repos".to_string(),
+				false,
+				vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+					[".git".to_string()].into_iter().collect(),
 				)],
 			),
-			(
-				RuleKind::RejectFilesByGlob,
-				vec![
-					IndexerRule::new(
-						RuleKind::RejectFilesByGlob,
-						"reject node_modules".to_string(),
-						false,
-						ParametersPerKind::RejectFilesByGlob(
-							vec![],
-							GlobSetBuilder::new()
-								.add(Glob::new("{**/node_modules/*,**/node_modules}").unwrap())
-								.build()
-								.unwrap(),
-						),
-					),
-					IndexerRule::new(
-						RuleKind::RejectFilesByGlob,
-						"reject rust build dir".to_string(),
-						false,
-						ParametersPerKind::RejectFilesByGlob(
-							vec![],
-							GlobSetBuilder::new()
-								.add(Glob::new("{**/target/*,**/target}").unwrap())
-								.build()
-								.unwrap(),
-						),
-					),
-				],
+			IndexerRule::new(
+				"reject node_modules".to_string(),
+				false,
+				vec![RulePerKind::RejectFilesByGlob(
+					vec![],
+					GlobSetBuilder::new()
+						.add(Glob::new("{**/node_modules/*,**/node_modules}").unwrap())
+						.build()
+						.unwrap(),
+				)],
 			),
-		]
-		.into_iter()
-		.collect::<HashMap<_, _>>();
+			IndexerRule::new(
+				"reject rust build dir".to_string(),
+				false,
+				vec![RulePerKind::RejectFilesByGlob(
+					vec![],
+					GlobSetBuilder::new()
+						.add(Glob::new("{**/target/*,**/target}").unwrap())
+						.build()
+						.unwrap(),
+				)],
+			),
+		];
 
-		let actual = walk(
+		let walk_result = walk(
 			root_path.to_path_buf(),
-			&git_repos_no_deps_no_build_dirs,
+			git_repos_no_deps_no_build_dirs,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -1015,10 +972,16 @@ mod tests {
 			420,
 		)
 		.await
-		.unwrap()
-		.walked
-		.collect::<HashSet<_>>();
+		.unwrap();
 
-		assert_eq!(actual, expected);
+		if !walk_result.errors.is_empty() {
+			panic!("errors: {:#?}", walk_result.errors);
+		}
+
+		let actual = walk_result.walked.collect::<HashSet<_>>();
+
+		if actual != expected {
+			panic!("difference: {:#?}", expected.difference(&actual));
+		}
 	}
 }

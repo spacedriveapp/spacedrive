@@ -1,7 +1,8 @@
 import { Navigate, Outlet, RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs } from '@sd/ui';
-import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
+import { RouterErrorBoundary } from '~/ErrorFallback';
+import { useKeybindHandler, useTheme } from '~/hooks';
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import './style.scss';
@@ -23,6 +24,7 @@ const Index = () => {
 const Wrapper = () => {
 	useKeybindHandler();
 	useInvalidateQuery();
+	useTheme();
 
 	return (
 		<>
@@ -39,6 +41,7 @@ const Wrapper = () => {
 export const routes = [
 	{
 		element: <Wrapper />,
+		errorElement: <RouterErrorBoundary />,
 		children: [
 			{
 				index: true,

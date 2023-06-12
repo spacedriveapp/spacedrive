@@ -7,7 +7,7 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location, PrismaClient, SortOrder},
 	util::db::chain_optional_iter,
 };
 
@@ -16,13 +16,11 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::{
-	finalize_file_identifier, process_identifier_file_paths, FileIdentifierJobError,
-	FileIdentifierReport, CHUNK_SIZE,
+	process_identifier_file_paths, FileIdentifierJobError, FileIdentifierReport, CHUNK_SIZE,
 };
 
 pub struct FileIdentifierJob {}
@@ -150,7 +148,7 @@ impl StatefulJob for FileIdentifierJob {
 			.select(file_path::select!({ id }))
 			.exec()
 			.await?
-			.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
+			.expect("We already validated before that there are orphans `file_path`s"); // SAFETY: We already validated before that there are orphans `file_path`s
 
 		data.cursor = first_path.id;
 
@@ -185,27 +183,51 @@ impl StatefulJob for FileIdentifierJob {
 		)
 		.await?;
 
-		process_identifier_file_paths(
-			<Self as StatefulJob>::NAME,
+		// if no file paths found, abort entire job early, there is nothing to do
+		// if we hit this error, there is something wrong with the data/query
+		if file_paths.is_empty() {
+			return Err(JobError::EarlyFinish {
+				name: <Self as StatefulJob>::NAME.to_string(),
+				reason: "Expected orphan Paths not returned from database query for this chunk"
+					.to_string(),
+			});
+		}
+
+		let (total_objects_created, total_objects_linked) = process_identifier_file_paths(
 			location,
 			&file_paths,
 			step_number,
 			cursor,
-			report,
-			ctx,
+			&ctx.library,
+			report.total_orphan_paths,
 		)
-		.await
+		.await?;
+
+		report.total_objects_created += total_objects_created;
+		report.total_objects_linked += total_objects_linked;
+
+		ctx.progress(vec![
+			JobReportUpdate::CompletedTaskCount(step_number),
+			JobReportUpdate::Message(format!(
+				"Processed {} of {} orphan Paths",
+				step_number * CHUNK_SIZE,
+				report.total_orphan_paths
+			)),
+		]);
+
+		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_file_identifier(
-			&state
-				.data
-				.as_ref()
-				.expect("critical error: missing data on job state")
-				.report,
-			ctx,
-		)
+	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		let report = &state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state")
+			.report;
+
+		info!("Finalizing identifier job: {report:?}");
+
+		Ok(Some(serde_json::to_value(report)?))
 	}
 }
 
@@ -266,7 +288,7 @@ async fn get_orphan_file_paths(
 			Some(file_path_id),
 			maybe_sub_materialized_path,
 		))
-		.order_by(file_path::id::order(Direction::Asc))
+		.order_by(file_path::id::order(SortOrder::Asc))
 		.take(CHUNK_SIZE as i64)
 		// .skip(1)
 		.select(file_path_for_file_identifier::select())

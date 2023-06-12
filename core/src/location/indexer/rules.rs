@@ -1,11 +1,14 @@
 use crate::{
 	library::Library,
-	location::location_with_indexer_rules,
-	prisma::{indexer_rule, PrismaClient},
-	util::error::{FileIOError, NonUtf8PathError},
+	prisma::indexer_rule,
+	util::{
+		db::uuid_to_bytes,
+		error::{FileIOError, NonUtf8PathError},
+	},
 };
 
 use chrono::{DateTime, Utc};
+use futures::future::try_join_all;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{self, decode, encode};
 use rspc::ErrorCode;
@@ -19,27 +22,28 @@ use std::{
 use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
+use uuid::Uuid;
 
 #[derive(Error, Debug)]
 pub enum IndexerRuleError {
 	// User errors
 	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
-	#[error("glob builder error")]
+	#[error("glob builder error: {0}")]
 	Glob(#[from] globset::Error),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
 
 	// Internal Errors
-	#[error("indexer rule parameters encode error")]
+	#[error("indexer rule parameters encode error: {0}")]
 	RuleParametersRMPEncode(#[from] encode::Error),
-	#[error("indexer rule parameters decode error")]
+	#[error("indexer rule parameters decode error: {0}")]
 	RuleParametersRMPDecode(#[from] decode::Error),
-	#[error("accept by its children file I/O error")]
+	#[error("accept by its children file I/O error: {0}")]
 	AcceptByItsChildrenFileIO(FileIOError),
-	#[error("reject by its children file I/O error")]
+	#[error("reject by its children file I/O error: {0}")]
 	RejectByItsChildrenFileIO(FileIOError),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 }
 
@@ -58,19 +62,18 @@ impl From<IndexerRuleError> for rspc::Error {
 }
 
 /// `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
-/// Note that `parameters` field **MUST** be a JSON object serialized to bytes.
+/// Note that `rules` field is a vector of tuples of `RuleKind` and `parameters`.
 ///
 /// In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
-/// single string containing a glob pattern.
+/// vector of strings containing a glob patterns.
 ///
 /// In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
 /// `parameters` field must be a vector of strings containing the names of the directories.
 #[derive(Type, Deserialize)]
 pub struct IndexerRuleCreateArgs {
-	pub kind: RuleKind,
 	pub name: String,
 	pub dry_run: bool,
-	pub parameters: Vec<String>,
+	pub rules: Vec<(RuleKind, Vec<String>)>,
 }
 
 impl IndexerRuleCreateArgs {
@@ -86,21 +89,33 @@ impl IndexerRuleCreateArgs {
 				"Trying to create"
 			},
 			self.name,
-			self.parameters
+			self.rules
 		);
 
-		let parameters = match self.kind {
-			RuleKind::AcceptFilesByGlob | RuleKind::RejectFilesByGlob => rmp_serde::to_vec(
-				&self
-					.parameters
-					.into_iter()
-					.map(|s| Glob::new(s.as_str()))
-					.collect::<Result<Vec<Glob>, _>>()?,
-			)?,
-
-			RuleKind::AcceptIfChildrenDirectoriesArePresent
-			| RuleKind::RejectIfChildrenDirectoriesArePresent => rmp_serde::to_vec(&self.parameters)?,
-		};
+		let rules_data = rmp_serde::to_vec_named(
+			&self
+				.rules
+				.into_iter()
+				.map(|(kind, parameters)| match kind {
+					RuleKind::AcceptFilesByGlob => {
+						RulePerKind::new_accept_files_by_globs_str(parameters)
+					}
+					RuleKind::RejectFilesByGlob => {
+						RulePerKind::new_reject_files_by_globs_str(parameters)
+					}
+					RuleKind::AcceptIfChildrenDirectoriesArePresent => {
+						Ok(RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+							parameters.into_iter().collect(),
+						))
+					}
+					RuleKind::RejectIfChildrenDirectoriesArePresent => {
+						Ok(RulePerKind::RejectIfChildrenDirectoriesArePresent(
+							parameters.into_iter().collect(),
+						))
+					}
+				})
+				.collect::<Result<Vec<_>, _>>()?,
+		)?;
 
 		if self.dry_run {
 			return Ok(None);
@@ -110,7 +125,13 @@ impl IndexerRuleCreateArgs {
 			library
 				.db
 				.indexer_rule()
-				.create(self.kind as i32, self.name, parameters, vec![])
+				.create(
+					self.name,
+					rules_data,
+					vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
+						generate_pub_id(),
+					)))],
+				)
 				.exec()
 				.await?,
 		))
@@ -134,22 +155,6 @@ impl RuleKind {
 	}
 }
 
-impl TryFrom<i32> for RuleKind {
-	type Error = IndexerRuleError;
-
-	fn try_from(value: i32) -> Result<Self, Self::Error> {
-		let s = match value {
-			0 => Self::AcceptFilesByGlob,
-			1 => Self::RejectFilesByGlob,
-			2 => Self::AcceptIfChildrenDirectoriesArePresent,
-			3 => Self::RejectIfChildrenDirectoriesArePresent,
-			_ => return Err(Self::Error::InvalidRuleKindInt(value)),
-		};
-
-		Ok(s)
-	}
-}
-
 /// `ParametersPerKind` is a mapping from `RuleKind` to the parameters required for each kind of rule.
 /// In case of doubt about globs, consult <https://docs.rs/globset/latest/globset/#syntax>
 ///
@@ -158,7 +163,7 @@ impl TryFrom<i32> for RuleKind {
 /// In case of `ParametersPerKind::AcceptIfChildrenDirectoriesArePresent` or `ParametersPerKind::RejectIfChildrenDirectoriesArePresent`
 /// first we change the data structure to a vector, then we serialize it.
 #[derive(Debug)]
-pub enum ParametersPerKind {
+pub enum RulePerKind {
 	// TODO: Add an indexer rule that filter files based on their extended attributes
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 	// https://en.wikipedia.org/wiki/Extended_file_attributes
@@ -168,7 +173,7 @@ pub enum ParametersPerKind {
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
 }
 
-impl ParametersPerKind {
+impl RulePerKind {
 	fn new_files_by_globs_str_and_kind(
 		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
 		kind_fn: impl Fn(Vec<Glob>, GlobSet) -> Self,
@@ -197,7 +202,7 @@ impl ParametersPerKind {
 		Self::new_files_by_globs_str_and_kind(globs_str, Self::AcceptFilesByGlob)
 	}
 
-	pub fn new_reject_files_by_glob(
+	pub fn new_reject_files_by_globs_str(
 		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
 	) -> Result<Self, IndexerRuleError> {
 		Self::new_files_by_globs_str_and_kind(globs_str, Self::RejectFilesByGlob)
@@ -206,24 +211,24 @@ impl ParametersPerKind {
 
 /// We're implementing `Serialize` by hand as `GlobSet`s aren't serializable, so we ignore them on
 /// serialization
-impl Serialize for ParametersPerKind {
+impl Serialize for RulePerKind {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: ser::Serializer,
 	{
 		match *self {
-			ParametersPerKind::AcceptFilesByGlob(ref globs, ref _glob_set) => serializer
+			RulePerKind::AcceptFilesByGlob(ref globs, ref _glob_set) => serializer
 				.serialize_newtype_variant("ParametersPerKind", 0, "AcceptFilesByGlob", globs),
-			ParametersPerKind::RejectFilesByGlob(ref globs, ref _glob_set) => serializer
+			RulePerKind::RejectFilesByGlob(ref globs, ref _glob_set) => serializer
 				.serialize_newtype_variant("ParametersPerKind", 1, "RejectFilesByGlob", globs),
-			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(ref children) => serializer
+			RulePerKind::AcceptIfChildrenDirectoriesArePresent(ref children) => serializer
 				.serialize_newtype_variant(
 					"ParametersPerKind",
 					2,
 					"AcceptIfChildrenDirectoriesArePresent",
 					children,
 				),
-			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(ref children) => serializer
+			RulePerKind::RejectIfChildrenDirectoriesArePresent(ref children) => serializer
 				.serialize_newtype_variant(
 					"ParametersPerKind",
 					3,
@@ -234,7 +239,7 @@ impl Serialize for ParametersPerKind {
 	}
 }
 
-impl<'de> Deserialize<'de> for ParametersPerKind {
+impl<'de> Deserialize<'de> for RulePerKind {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: de::Deserializer<'de>,
@@ -330,12 +335,12 @@ impl<'de> Deserialize<'de> for ParametersPerKind {
 		}
 
 		struct ParametersPerKindVisitor<'de> {
-			marker: PhantomData<ParametersPerKind>,
+			marker: PhantomData<RulePerKind>,
 			lifetime: PhantomData<&'de ()>,
 		}
 
 		impl<'de> de::Visitor<'de> for ParametersPerKindVisitor<'de> {
-			type Value = ParametersPerKind;
+			type Value = RulePerKind;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 				formatter.write_str("enum ParametersPerKind")
@@ -404,29 +409,35 @@ impl<'de> Deserialize<'de> for ParametersPerKind {
 			"ParametersPerKind",
 			VARIANTS,
 			ParametersPerKindVisitor {
-				marker: PhantomData::<ParametersPerKind>,
+				marker: PhantomData::<RulePerKind>,
 				lifetime: PhantomData,
 			},
 		)
 	}
 }
 
-impl ParametersPerKind {
-	async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerRuleError> {
+impl RulePerKind {
+	async fn apply(&self, source: impl AsRef<Path>) -> Result<(RuleKind, bool), IndexerRuleError> {
 		match self {
-			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(children) => {
-				accept_dir_for_its_children(source, children).await
+			RulePerKind::AcceptIfChildrenDirectoriesArePresent(children) => {
+				accept_dir_for_its_children(source, children)
+					.await
+					.map(|accepted| (RuleKind::AcceptIfChildrenDirectoriesArePresent, accepted))
 			}
-			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(children) => {
-				reject_dir_for_its_children(source, children).await
+			RulePerKind::RejectIfChildrenDirectoriesArePresent(children) => {
+				reject_dir_for_its_children(source, children)
+					.await
+					.map(|rejected| (RuleKind::RejectIfChildrenDirectoriesArePresent, rejected))
 			}
 
-			ParametersPerKind::AcceptFilesByGlob(_globs, accept_glob_set) => {
-				Ok(accept_by_glob(source, accept_glob_set))
-			}
-			ParametersPerKind::RejectFilesByGlob(_globs, reject_glob_set) => {
-				Ok(reject_by_glob(source, reject_glob_set))
-			}
+			RulePerKind::AcceptFilesByGlob(_globs, accept_glob_set) => Ok((
+				RuleKind::AcceptFilesByGlob,
+				accept_by_glob(source, accept_glob_set),
+			)),
+			RulePerKind::RejectFilesByGlob(_globs, reject_glob_set) => Ok((
+				RuleKind::RejectFilesByGlob,
+				reject_by_glob(source, reject_glob_set),
+			)),
 		}
 	}
 }
@@ -434,61 +445,47 @@ impl ParametersPerKind {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexerRule {
 	pub id: Option<i32>,
-	pub kind: RuleKind,
 	pub name: String,
 	pub default: bool,
-	pub parameters: ParametersPerKind,
+	pub rules: Vec<RulePerKind>,
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
 }
 
 impl IndexerRule {
-	pub fn new(kind: RuleKind, name: String, default: bool, parameters: ParametersPerKind) -> Self {
+	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
 		Self {
 			id: None,
-			kind,
 			name,
 			default,
-			parameters,
+			rules,
 			date_created: Utc::now(),
 			date_modified: Utc::now(),
 		}
 	}
 
-	pub async fn apply(&self, source: impl AsRef<Path>) -> Result<bool, IndexerRuleError> {
-		self.parameters.apply(source).await
+	pub async fn apply(
+		&self,
+		source: impl AsRef<Path>,
+	) -> Result<Vec<(RuleKind, bool)>, IndexerRuleError> {
+		try_join_all(self.rules.iter().map(|rule| rule.apply(source.as_ref()))).await
 	}
 
-	pub async fn save(self, client: &PrismaClient) -> Result<(), IndexerRuleError> {
-		if let Some(id) = self.id {
-			client
-				.indexer_rule()
-				.upsert(
-					indexer_rule::id::equals(id),
-					indexer_rule::create(
-						self.kind as i32,
-						self.name,
-						rmp_serde::to_vec_named(&self.parameters)?,
-						vec![indexer_rule::default::set(self.default)],
-					),
-					vec![indexer_rule::date_modified::set(Utc::now().into())],
+	pub async fn apply_all(
+		rules: &[IndexerRule],
+		source: impl AsRef<Path>,
+	) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
+		try_join_all(rules.iter().map(|rule| rule.apply(source.as_ref())))
+			.await
+			.map(|results| {
+				results.into_iter().flatten().fold(
+					HashMap::with_capacity(RuleKind::variant_count()),
+					|mut map, (kind, result)| {
+						map.entry(kind).or_insert_with(Vec::new).push(result);
+						map
+					},
 				)
-				.exec()
-				.await?;
-		} else {
-			client
-				.indexer_rule()
-				.create(
-					self.kind as i32,
-					self.name,
-					rmp_serde::to_vec_named(&self.parameters)?,
-					vec![indexer_rule::default::set(self.default)],
-				)
-				.exec()
-				.await?;
-		}
-
-		Ok(())
+			})
 	}
 }
 
@@ -496,14 +493,11 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	type Error = IndexerRuleError;
 
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
-		let kind = RuleKind::try_from(data.kind)?;
-
 		Ok(Self {
 			id: Some(data.id),
-			kind,
 			name: data.name.clone(),
 			default: data.default,
-			parameters: rmp_serde::from_slice(&data.parameters)?,
+			rules: rmp_serde::from_slice(&data.rules_per_kind)?,
 			date_created: data.date_created.into(),
 			date_modified: data.date_modified.into(),
 		})
@@ -531,26 +525,38 @@ async fn accept_dir_for_its_children(
 	children: &HashSet<String>,
 ) -> Result<bool, IndexerRuleError> {
 	let source = source.as_ref();
-	let mut read_dir = fs::read_dir(source)
+
+	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
+	if !fs::metadata(source)
 		.await
+		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
+		.is_dir()
+	{
+		return Ok(false);
+	}
+
+	let mut read_dir = fs::read_dir(source)
+		.await // TODO: Check NotADirectory error here when available
 		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?;
 	while let Some(entry) = read_dir
 		.next_entry()
 		.await
 		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
 	{
+		let entry_name = entry
+			.file_name()
+			.to_str()
+			.ok_or_else(|| NonUtf8PathError(entry.path().into()))?
+			.to_string();
+
 		if entry
 			.metadata()
 			.await
 			.map_err(|e| {
 				IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e)))
 			})?
-			.is_dir() && children.contains(
-			entry
-				.file_name()
-				.to_str()
-				.ok_or_else(|| NonUtf8PathError(entry.path().into()))?,
-		) {
+			.is_dir() && children.contains(&entry_name)
+		{
 			return Ok(true);
 		}
 	}
@@ -563,8 +569,18 @@ async fn reject_dir_for_its_children(
 	children: &HashSet<String>,
 ) -> Result<bool, IndexerRuleError> {
 	let source = source.as_ref();
-	let mut read_dir = fs::read_dir(source)
+
+	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
+	if !fs::metadata(source)
 		.await
+		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
+		.is_dir()
+	{
+		return Ok(true);
+	}
+
+	let mut read_dir = fs::read_dir(source)
+		.await // TODO: Check NotADirectory error here when available
 		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?;
 	while let Some(entry) = read_dir
 		.next_entry()
@@ -590,25 +606,228 @@ async fn reject_dir_for_its_children(
 	Ok(true)
 }
 
-pub fn aggregate_rules_by_kind<'r>(
-	mut rules: impl Iterator<Item = &'r location_with_indexer_rules::indexer_rules::Data>,
-) -> Result<HashMap<RuleKind, Vec<IndexerRule>>, IndexerRuleError> {
-	rules.try_fold(
-		HashMap::<_, Vec<_>>::with_capacity(RuleKind::variant_count()),
-		|mut rules_by_kind, location_rule| {
-			IndexerRule::try_from(&location_rule.indexer_rule).map(|rule| {
-				rules_by_kind.entry(rule.kind).or_default().push(rule);
-				rules_by_kind
-			})
-		},
-	)
+pub fn generate_pub_id() -> Uuid {
+	loop {
+		let pub_id = Uuid::new_v4();
+		if pub_id.as_u128() >= 0xFFF {
+			return pub_id;
+		}
+	}
 }
+
+mod seeder {
+	use crate::{
+		location::indexer::rules::{IndexerRuleError, RulePerKind},
+		prisma::PrismaClient,
+		util::db::uuid_to_bytes,
+	};
+	use sd_prisma::prisma::indexer_rule;
+	use thiserror::Error;
+	use uuid::Uuid;
+
+	#[derive(Error, Debug)]
+	pub enum SeederError {
+		#[error("Failed to run indexer rules seeder: {0}")]
+		IndexerRules(#[from] IndexerRuleError),
+		#[error("An error occurred with the database while applying migrations: {0}")]
+		DatabaseError(#[from] prisma_client_rust::QueryError),
+	}
+
+	struct SystemIndexerRule {
+		name: &'static str,
+		rules: Vec<RulePerKind>,
+		default: bool,
+	}
+
+	pub async fn seeder(client: &PrismaClient) -> Result<(), SeederError> {
+		// DO NOT REORDER THIS ARRAY!
+		for (i, rule) in [
+			no_os_protected(),
+			no_hidden(),
+			only_git_repos(),
+			only_images(),
+		]
+		.into_iter()
+		.enumerate()
+		{
+			let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
+			let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
+
+			client
+				.indexer_rule()
+				.upsert(
+					indexer_rule::pub_id::equals(pub_id.clone()),
+					indexer_rule::create(
+						rule.name.to_string(),
+						rules.clone(),
+						vec![
+							indexer_rule::pub_id::set(Some(pub_id.clone())),
+							indexer_rule::default::set(rule.default),
+						],
+					),
+					vec![
+						indexer_rule::name::set(rule.name.to_string()),
+						indexer_rule::rules_per_kind::set(rules),
+						indexer_rule::pub_id::set(Some(pub_id.clone())),
+						indexer_rule::default::set(rule.default),
+					],
+				)
+				.exec()
+				.await?;
+		}
+
+		Ok(())
+	}
+
+	fn no_os_protected() -> SystemIndexerRule {
+		SystemIndexerRule {
+        // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
+        // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
+        name: "No OS protected",
+        default: true,
+        rules: vec![
+            RulePerKind::new_reject_files_by_globs_str(
+                [
+                    vec![
+                        "**/.spacedrive",
+                    ],
+                    // Globset, even on Windows, requires the use of / as a separator
+                    // https://github.com/github/gitignore/blob/main/Global/Windows.gitignore
+                    // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+                    #[cfg(target_os = "windows")]
+                    vec![
+                        // Windows thumbnail cache files
+                        "**/{Thumbs.db,Thumbs.db:encryptable,ehthumbs.db,ehthumbs_vista.db}",
+                        // Dump file
+                        "**/*.stackdump",
+                        // Folder config file
+                        "**/[Dd]esktop.ini",
+                        // Recycle Bin used on file shares
+                        "**/$RECYCLE.BIN",
+                        // Chkdsk recovery directory
+                        "**/FOUND.[0-9][0-9][0-9]",
+                        // Reserved names
+                        "**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}",
+                        "**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}.*",
+                        // User special files
+                        "C:/Users/*/NTUSER.DAT*",
+                        "C:/Users/*/ntuser.dat*",
+                        "C:/Users/*/{ntuser.ini,ntuser.dat,NTUSER.DAT}",
+                        // User special folders (most of these the user dont even have permission to access)
+                        "C:/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings}",
+                        // System special folders
+                        "C:/{$Recycle.Bin,$WinREAgent,Documents and Settings,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}",
+                        // NTFS internal dir, can exists on any drive
+                        "[A-Z]:/System Volume Information",
+                        // System special files
+                        "C:/{config,pagefile,hiberfil}.sys",
+                        // Windows can create a swapfile on any drive
+                        "[A-Z]:/swapfile.sys",
+                        "C:/DumpStack.log.tmp",
+                    ],
+                    // https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
+                    // https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW14
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
+                    vec![
+                        "**/.{DS_Store,AppleDouble,LSOverride}",
+                        // Icon must end with two \r
+                        "**/Icon\r\r",
+                        // Thumbnails
+                        "**/._*",
+                    ],
+                    #[cfg(target_os = "macos")]
+                    vec![
+                        "/{System,Network,Library,Applications}",
+                        "/Users/*/{Library,Applications}",
+                        // Files that might appear in the root of a volume
+                        "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
+                        // Directories potentially created on remote AFP share
+                        "**/.{AppleDB,AppleDesktop,apdisk}",
+                        "**/{Network Trash Folder,Temporary Items}",
+                    ],
+                    // https://github.com/github/gitignore/blob/main/Global/Linux.gitignore
+                    #[cfg(target_os = "linux")]
+                    vec![
+                        "**/*~",
+                        // temporary files which can be created if a process still has a handle open of a deleted file
+                        "**/.fuse_hidden*",
+                        // KDE directory preferences
+                        "**/.directory",
+                        // Linux trash folder which might appear on any partition or disk
+                        "**/.Trash-*",
+                        // .nfs files are created when an open file is removed but is still being accessed
+                        "**/.nfs*",
+                    ],
+                    #[cfg(target_os = "android")]
+                    vec![
+                        "**/.nomedia",
+                        "**/.thumbnails",
+                    ],
+                    // https://en.wikipedia.org/wiki/Unix_filesystem#Conventional_directory_layout
+                    // https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard
+                    #[cfg(target_family = "unix")]
+                    vec![
+                        // Directories containing unix memory/device mapped files/dirs
+                        "/{dev,sys,proc}",
+                        // Directories containing special files for current running programs
+                        "/{run,var,boot}",
+                        // ext2-4 recovery directory
+                        "**/lost+found",
+                    ],
+                ]
+                .into_iter()
+                .flatten()
+            ).unwrap(),
+        ],
+    }
+	}
+
+	fn no_hidden() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "No Hidden",
+			default: true,
+			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"]).unwrap()],
+		}
+	}
+
+	fn only_git_repos() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "Only Git Repositories",
+			default: false,
+			rules: vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+				[".git".to_string()].into_iter().collect(),
+			)],
+		}
+	}
+
+	fn only_images() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "Only Images",
+			default: false,
+			rules: vec![RulePerKind::new_accept_files_by_globs_str([
+				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
+			])
+			.unwrap()],
+		}
+	}
+}
+
+pub use seeder::*;
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
 	use tokio::fs;
+
+	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
+		indexer_rule
+			.apply(path)
+			.await
+			.unwrap()
+			.into_iter()
+			.all(|(_kind, res)| res)
+	}
 
 	#[tokio::test]
 	async fn test_reject_hidden_file() {
@@ -619,23 +838,23 @@ mod tests {
 		let normal_inner_dir = Path::new("/test/normal/");
 		let normal_inner_file = Path::new("/test/normal/inner.txt");
 		let rule = IndexerRule::new(
-			RuleKind::RejectFilesByGlob,
 			"ignore hidden files".to_string(),
 			false,
-			ParametersPerKind::RejectFilesByGlob(
+			vec![RulePerKind::RejectFilesByGlob(
 				vec![],
 				GlobSetBuilder::new()
 					.add(Glob::new("**/.*").unwrap())
 					.build()
 					.unwrap(),
-			),
+			)],
 		);
-		assert!(!rule.apply(hidden).await.unwrap());
-		assert!(rule.apply(normal).await.unwrap());
-		assert!(!rule.apply(hidden_inner_dir).await.unwrap());
-		assert!(!rule.apply(hidden_inner_file).await.unwrap());
-		assert!(rule.apply(normal_inner_dir).await.unwrap());
-		assert!(rule.apply(normal_inner_file).await.unwrap());
+
+		assert!(!check_rule(&rule, hidden).await);
+		assert!(check_rule(&rule, normal).await);
+		assert!(!check_rule(&rule, hidden_inner_dir).await);
+		assert!(!check_rule(&rule, hidden_inner_file).await);
+		assert!(check_rule(&rule, normal_inner_dir).await);
+		assert!(check_rule(&rule, normal_inner_file).await);
 	}
 
 	#[tokio::test]
@@ -645,21 +864,20 @@ mod tests {
 		let project_build_dir_inner = Path::new("/test/project/target/debug/");
 
 		let rule = IndexerRule::new(
-			RuleKind::RejectFilesByGlob,
 			"ignore build directory".to_string(),
 			false,
-			ParametersPerKind::RejectFilesByGlob(
+			vec![RulePerKind::RejectFilesByGlob(
 				vec![],
 				GlobSetBuilder::new()
 					.add(Glob::new("{**/target/*,**/target}").unwrap())
 					.build()
 					.unwrap(),
-			),
+			)],
 		);
 
-		assert!(rule.apply(project_file).await.unwrap());
-		assert!(!rule.apply(project_build_dir).await.unwrap());
-		assert!(!rule.apply(project_build_dir_inner).await.unwrap());
+		assert!(check_rule(&rule, project_file).await);
+		assert!(!check_rule(&rule, project_build_dir).await);
+		assert!(!check_rule(&rule, project_build_dir_inner).await);
 	}
 
 	#[tokio::test]
@@ -675,27 +893,27 @@ mod tests {
 		let many_inner_dirs_text = Path::new("/test/1/2/3/4/4/5/6/file.txt");
 		let many_inner_dirs_png = Path::new("/test/1/2/3/4/4/5/6/photo1.png");
 		let rule = IndexerRule::new(
-			RuleKind::AcceptFilesByGlob,
 			"only photos".to_string(),
 			false,
-			ParametersPerKind::AcceptFilesByGlob(
+			vec![RulePerKind::AcceptFilesByGlob(
 				vec![],
 				GlobSetBuilder::new()
 					.add(Glob::new("*.{jpg,png,jpeg}").unwrap())
 					.build()
 					.unwrap(),
-			),
+			)],
 		);
-		assert!(!rule.apply(text).await.unwrap());
-		assert!(rule.apply(png).await.unwrap());
-		assert!(rule.apply(jpg).await.unwrap());
-		assert!(rule.apply(jpeg).await.unwrap());
-		assert!(!rule.apply(inner_text).await.unwrap());
-		assert!(rule.apply(inner_png).await.unwrap());
-		assert!(rule.apply(inner_jpg).await.unwrap());
-		assert!(rule.apply(inner_jpeg).await.unwrap());
-		assert!(!rule.apply(many_inner_dirs_text).await.unwrap());
-		assert!(rule.apply(many_inner_dirs_png).await.unwrap());
+
+		assert!(!check_rule(&rule, text).await);
+		assert!(check_rule(&rule, png).await);
+		assert!(check_rule(&rule, jpg).await);
+		assert!(check_rule(&rule, jpeg).await);
+		assert!(!check_rule(&rule, inner_text).await);
+		assert!(check_rule(&rule, inner_png).await);
+		assert!(check_rule(&rule, inner_jpg).await);
+		assert!(check_rule(&rule, inner_jpeg).await);
+		assert!(!check_rule(&rule, many_inner_dirs_text).await);
+		assert!(check_rule(&rule, many_inner_dirs_png).await);
 	}
 
 	#[tokio::test]
@@ -717,15 +935,16 @@ mod tests {
 		let childrens = [".git".to_string()].into_iter().collect::<HashSet<_>>();
 
 		let rule = IndexerRule::new(
-			RuleKind::AcceptIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
 			false,
-			ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(childrens),
+			vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+				childrens,
+			)],
 		);
 
-		assert!(rule.apply(project1).await.unwrap());
-		assert!(rule.apply(project2).await.unwrap());
-		assert!(!rule.apply(not_project).await.unwrap());
+		assert!(check_rule(&rule, project1).await);
+		assert!(check_rule(&rule, project2).await);
+		assert!(!check_rule(&rule, not_project).await);
 	}
 
 	#[tokio::test]
@@ -747,50 +966,50 @@ mod tests {
 		let childrens = [".git".to_string()].into_iter().collect::<HashSet<_>>();
 
 		let rule = IndexerRule::new(
-			RuleKind::RejectIfChildrenDirectoriesArePresent,
 			"git projects".to_string(),
 			false,
-			ParametersPerKind::RejectIfChildrenDirectoriesArePresent(childrens),
+			vec![RulePerKind::RejectIfChildrenDirectoriesArePresent(
+				childrens,
+			)],
 		);
 
-		assert!(!rule.apply(project1).await.unwrap());
-		assert!(!rule.apply(project2).await.unwrap());
-		assert!(rule.apply(not_project).await.unwrap());
+		assert!(!check_rule(&rule, project1).await);
+		assert!(!check_rule(&rule, project2).await);
+		assert!(check_rule(&rule, not_project).await);
 	}
 
-	impl PartialEq for ParametersPerKind {
+	impl PartialEq for RulePerKind {
 		fn eq(&self, other: &Self) -> bool {
 			match (self, other) {
 				(
-					ParametersPerKind::AcceptFilesByGlob(self_globs, _),
-					ParametersPerKind::AcceptFilesByGlob(other_globs, _),
+					RulePerKind::AcceptFilesByGlob(self_globs, _),
+					RulePerKind::AcceptFilesByGlob(other_globs, _),
 				) => self_globs == other_globs,
 				(
-					ParametersPerKind::RejectFilesByGlob(self_globs, _),
-					ParametersPerKind::RejectFilesByGlob(other_globs, _),
+					RulePerKind::RejectFilesByGlob(self_globs, _),
+					RulePerKind::RejectFilesByGlob(other_globs, _),
 				) => self_globs == other_globs,
 				(
-					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(self_childrens),
-					ParametersPerKind::AcceptIfChildrenDirectoriesArePresent(other_childrens),
+					RulePerKind::AcceptIfChildrenDirectoriesArePresent(self_childrens),
+					RulePerKind::AcceptIfChildrenDirectoriesArePresent(other_childrens),
 				) => self_childrens == other_childrens,
 				(
-					ParametersPerKind::RejectIfChildrenDirectoriesArePresent(self_childrens),
-					ParametersPerKind::RejectIfChildrenDirectoriesArePresent(other_childrens),
+					RulePerKind::RejectIfChildrenDirectoriesArePresent(self_childrens),
+					RulePerKind::RejectIfChildrenDirectoriesArePresent(other_childrens),
 				) => self_childrens == other_childrens,
 				_ => false,
 			}
 		}
 	}
 
-	impl Eq for ParametersPerKind {}
+	impl Eq for RulePerKind {}
 
 	impl PartialEq for IndexerRule {
 		fn eq(&self, other: &Self) -> bool {
 			self.id == other.id
-				&& self.kind == other.kind
 				&& self.name == other.name
 				&& self.default == other.default
-				&& self.parameters == other.parameters
+				&& self.rules == other.rules
 				&& self.date_created == other.date_created
 				&& self.date_modified == other.date_modified
 		}
@@ -801,15 +1020,14 @@ mod tests {
 	#[test]
 	fn serde_smoke_test() {
 		let actual = IndexerRule::new(
-			RuleKind::RejectFilesByGlob,
 			"No Hidden".to_string(),
 			true,
-			ParametersPerKind::RejectFilesByGlob(
+			vec![RulePerKind::RejectFilesByGlob(
 				vec![Glob::new("**/.*").unwrap()],
 				Glob::new("**/.*")
 					.and_then(|glob| GlobSetBuilder::new().add(glob).build())
 					.unwrap(),
-			),
+			)],
 		);
 
 		let expected =

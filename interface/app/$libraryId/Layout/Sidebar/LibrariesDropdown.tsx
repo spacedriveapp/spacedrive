@@ -12,11 +12,11 @@ export default () => {
 				<Dropdown.Button
 					variant="gray"
 					className={clsx(
-						`w-full text-ink`,
+						`w-full text-sidebar-ink`,
 						// these classname overrides are messy
 						// but they work
 						`!border-sidebar-line/50 !bg-sidebar-box ring-offset-sidebar active:!border-sidebar-line active:!bg-sidebar-button ui-open:!border-sidebar-line ui-open:!bg-sidebar-button`,
-						(library === null || libraries.isLoading) && '!text-ink-faint'
+						(library === null || libraries.isLoading) && '!text-sidebar-inkFaint'
 					)}
 				>
 					<span className="truncate">
@@ -40,7 +40,7 @@ export default () => {
 			))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
-				label="	New Library"
+				label="New Library"
 				icon={Plus}
 				iconProps={{ weight: 'bold', size: 16 }}
 				onClick={() => dialogManager.create((dp) => <CreateDialog {...dp} />)}

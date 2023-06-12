@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import clsx from 'clsx';
 
 interface CategoryButtonProps {
 	category: string;
@@ -14,7 +14,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 			onClick={onClick}
 			className={clsx(
 				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm',
-				selected && 'bg-app-selected/20'
+				selected && 'bg-app-selectedItem'
 			)}
 		>
 			<img src={icon} className="mr-3 h-12 w-12" />
@@ -28,8 +28,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 			</div>
 		</div>
 	);
-}
-
+};
 
 function numberWithCommas(x: number) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');

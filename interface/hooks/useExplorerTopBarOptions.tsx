@@ -10,10 +10,12 @@ import {
 	SquaresFour,
 	Tag
 } from 'phosphor-react';
+import { useEffect, useRef } from 'react';
+import { useRspcLibraryContext } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar';
+import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
+// import { KeyManager } from '../app/$libraryId/KeyManager';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
-import { KeyManager } from '../app/$libraryId/KeyManager';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
@@ -72,14 +74,22 @@ export const useExplorerTopBarOptions = () => {
 		}
 	];
 
+	// subscription so that we can cancel it if in progress
+	const quickRescanSubscription = useRef<() => void | undefined>();
+
+	// gotta clean up any rescan subscriptions if the exist
+	useEffect(() => () => quickRescanSubscription.current?.(), []);
+
+	const { client } = useRspcLibraryContext();
+
 	const explorerToolOptions: ToolOption[] = [
-		{
-			toolTipLabel: 'Key Manager',
-			icon: <Key className={TOP_BAR_ICON_STYLE} />,
-			popOverComponent: <KeyManager />,
-			individual: true,
-			showAtResolution: 'xl:flex'
-		},
+		// {
+		// 	toolTipLabel: 'Key Manager',
+		// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
+		// 	popOverComponent: <KeyManager />,
+		// 	individual: true,
+		// 	showAtResolution: 'xl:flex'
+		// },
 		{
 			toolTipLabel: 'Tag Assign Mode',
 			icon: (
@@ -94,7 +104,22 @@ export const useExplorerTopBarOptions = () => {
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: 'Regenerate thumbs (temp)',
+			toolTipLabel: 'Reload',
+			onClick: () => {
+				if (explorerStore.locationId) {
+					quickRescanSubscription.current?.();
+					quickRescanSubscription.current = client.addSubscription(
+						[
+							'locations.quickRescan',
+							{
+								location_id: explorerStore.locationId,
+								sub_path: ''
+							}
+						],
+						{ onData() {} }
+					);
+				}
+			},
 			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 			individual: true,
 			showAtResolution: 'xl:flex'

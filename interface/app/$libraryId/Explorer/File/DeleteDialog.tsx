@@ -8,23 +8,20 @@ interface Propps extends UseDialogProps {
 }
 
 export default (props: Propps) => {
-	const dialog = useDialog(props);
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 
 	const form = useZodForm();
 
-	const onSubmit = form.handleSubmit(() =>
-		deleteFile.mutateAsync({
-			location_id: props.location_id,
-			path_id: props.path_id
-		})
-	);
-
 	return (
 		<Dialog
 			form={form}
-			onSubmit={onSubmit}
-			dialog={dialog}
+			onSubmit={form.handleSubmit(() =>
+				deleteFile.mutateAsync({
+					location_id: props.location_id,
+					path_id: props.path_id
+				})
+			)}
+			dialog={useDialog(props)}
 			title="Delete a file"
 			description="Configure your deletion settings."
 			loading={deleteFile.isLoading}

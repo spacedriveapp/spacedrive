@@ -1,1 +1,6 @@
-module.exports = require('@sd/ui/postcss');
+module.exports = {
+	plugins: {
+		tailwindcss: {},
+		autoprefixer: {}
+	}
+};

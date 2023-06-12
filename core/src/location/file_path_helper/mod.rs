@@ -99,6 +99,8 @@ pub struct FilePathMetadata {
 pub enum FilePathError {
 	#[error("file Path not found: <path='{}'>", .0.display())]
 	NotFound(Box<Path>),
+	#[error("location '{0}' not found")]
+	LocationNotFound(i32),
 	#[error("received an invalid sub path: <location_path='{}', sub_path='{}'>", .location_path.display(), .sub_path.display())]
 	InvalidSubPath {
 		location_path: Box<Path>,
@@ -120,7 +122,7 @@ pub enum FilePathError {
 		location_id: LocationId,
 		path: Box<Path>,
 	},
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] QueryError),
 
 	#[error(transparent)]
@@ -154,7 +156,7 @@ pub async fn create_file_path(
 		.select(location::select!({ id pub_id }))
 		.exec()
 		.await?
-		.unwrap();
+		.ok_or(FilePathError::LocationNotFound(location_id))?;
 
 	let params = {
 		use file_path::*;
@@ -291,7 +293,9 @@ pub async fn ensure_sub_path_is_in_location(
 	let mut sub_path = sub_path.as_ref();
 	if sub_path.starts_with("/") {
 		// SAFETY: we just checked that it starts with the separator
-		sub_path = sub_path.strip_prefix("/").unwrap();
+		sub_path = sub_path
+			.strip_prefix("/")
+			.expect("we just checked that it starts with the separator");
 	}
 	let location_path = location_path.as_ref();
 
@@ -361,7 +365,9 @@ pub async fn ensure_sub_path_is_directory(
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			if sub_path.starts_with("/") {
 				// SAFETY: we just checked that it starts with the separator
-				sub_path = sub_path.strip_prefix("/").unwrap();
+				sub_path = sub_path
+					.strip_prefix("/")
+					.expect("we just checked that it starts with the separator");
 			}
 
 			let location_path = location_path.as_ref();

@@ -1,10 +1,8 @@
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { CodeBlock } from '~/components/Codeblock';
-import { usePlatform } from '~/util/Platform';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export const Component = () => {
-	const platform = usePlatform();
 	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
 	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);

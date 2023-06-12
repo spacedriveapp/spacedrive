@@ -3,7 +3,8 @@ import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Button, Card, Folder, Tooltip, dialogManager } from '@sd/ui';
+import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
+import { Folder } from '~/components/Folder';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
@@ -28,7 +29,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder size={30} className="mr-3" />
+			<Folder className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">

@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { useController } from 'react-hook-form';
 import * as Root from '../Switch';
@@ -18,6 +19,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>((props, ref) =>
 				checked={field.value}
 				onCheckedChange={field.onChange}
 				ref={ref}
+				className={clsx(props.disabled ? 'opacity-60' : undefined)}
 			/>
 		</FormField>
 	);

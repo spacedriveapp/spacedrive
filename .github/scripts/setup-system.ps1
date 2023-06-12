@@ -1,3 +1,5 @@
+# Set default value of 0 for external command exit code
+$LASTEXITCODE = 0
 # Enables strict mode, which causes PowerShell to treat uninitialized variables, undefined functions, and other common errors as terminating errors.
 $ErrorActionPreference = if ($env:CI) { 'Stop' } else { 'Inquire' }
 Set-StrictMode -Version Latest
@@ -62,12 +64,16 @@ function Add-DirectoryToPath($directory) {
     Reset-Path
 }
 
+$ghUrl = 'https://api.github.com/repos'
+$sdGhPath = 'spacedriveapp/spacedrive'
+
 function Invoke-RestMethodGithub {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [string]$Method = 'GET',
+        [string]$OutFile = $null,
         [hashtable]$Headers = @{},
         [string]$UserAgent = 'PowerShell'
     )
@@ -82,11 +88,31 @@ function Invoke-RestMethodGithub {
     $params = @{
         Uri       = $Uri
         Method    = $Method
+        OutFile   = $OutFile
         Headers   = $Headers
         UserAgent = $UserAgent
     }
 
     Invoke-RestMethod @params
+}
+
+function DownloadArtifact {
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ArtifactPath,
+        [string]$OutFile
+    )
+
+    try {
+        Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip" -OutFile $OutFile
+    } catch {
+        # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+        # https://github.com/actions/upload-artifact/issues/51
+        # Use it when running in environments that are not authenticated with GitHub
+        Write-Host 'Failed to download artifact from Github, falling back to nightly.link' -ForegroundColor Yellow
+        Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}" -OutFile $OutFile
+    }
 }
 
 # Reset PATH to ensure the script doesn't have stale Path entries
@@ -105,6 +131,8 @@ $wingetValidExit = 0, -1978335189, -1978335153, -1978335135
 # Currently LLVM >= 16 is not supported due to incompatibilities with ffmpeg-sys-next
 # See https://github.com/spacedriveapp/spacedrive/issues/677
 $llvmVersion = [Version]'15.0.7'
+
+$ffmpegVersion = '6.0'
 
 # Change CWD to project root
 Set-Location $projectRoot
@@ -134,6 +162,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
 '@
     }
 
+    # TODO: Check system winget version is greater or equal to v1.4.10052
+
     # Check connectivity to GitHub
     $ProgressPreference = 'SilentlyContinue'
     if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
@@ -144,6 +174,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     Write-Host
     Read-Host 'Press Enter to continue'
 
+    # TODO: Force update Visual Studio build tools
     Write-Host
     Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
     Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
@@ -263,11 +294,11 @@ New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projec
 # --
 
 Write-Host
-Write-Host 'Retrieving protobuf version...' -ForegroundColor Yellow
+Write-Host 'Retrieving protobuf build...' -ForegroundColor Yellow
 
 $filename = $null
 $downloadUri = $null
-$releasesUri = 'https://api.github.com/repos/protocolbuffers/protobuf/releases'
+$releasesUri = "${ghUrl}/protocolbuffers/protobuf/releases"
 $filenamePattern = '*-win64.zip'
 
 $releases = Invoke-RestMethodGithub -Uri $releasesUri
@@ -287,7 +318,7 @@ if (-not ($filename -and $downloadUri)) {
     Exit-WithError "Couldn't find a protobuf compiler installer"
 }
 
-Write-Host 'Dowloading protobuf zip...' -ForegroundColor Yellow
+Write-Host "Dowloading protobuf zip from ${downloadUri}..." -ForegroundColor Yellow
 Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
 
 Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
@@ -296,73 +327,76 @@ Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
 
 # --
 
-Write-Host
-Write-Host 'Retrieving ffmpeg version...' -ForegroundColor Yellow
+Write-Host "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
 
-# Run first to update packages
-cargo metadata --format-version 1 | Out-Null
+$page = 1
+while ($page -gt 0) {
+    $success = ''
+    Invoke-RestMethodGithub -Uri `
+        "${ghUrl}/${sdGhPath}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
+    | ForEach-Object {
+        if (-not $_.workflow_runs) {
+            Exit-WithError "Error: $_"
+        }
 
-# Get ffmpeg-sys-next version
-$ffmpegVersion = (cargo metadata --format-version 1 | ConvertFrom-Json).packages.dependencies | Where-Object {
-    $_.name -like 'ffmpeg-sys-next'
-} | Select-Object -ExpandProperty 'req' | ForEach-Object {
-    $_ -replace '[~^<>=!*]+', ''
-} | Sort-Object -Unique | Select-Object -Last 1
+        $_.workflow_runs | ForEach-Object {
+            $artifactPath = (
+                    (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
+                | Where-Object {
+                    $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
+                } | ForEach-Object {
+                    $id = $_.id
+                    $workflowRunId = $_.workflow_run.id
+                    "suites/${workflowRunId}/artifacts/${id}"
+                } | Select-Object -First 1
+            )
 
-if ($LASTEXITCODE -ne 0) {
-    Exit-WithError 'Failed to get ffmpeg-sys-next version'
-}
-
-$filename = $null
-$downloadUri = $null
-$releasesUri = 'https://api.github.com/repos/GyanD/codexffmpeg/releases'
-$filenamePattern = '*-full_build-shared.zip'
-
-# Downloads a build of ffmpeg from GitHub compatible with the declared ffmpeg-sys-next version
-$releases = Invoke-RestMethodGithub -Uri $releasesUri
-$version = $ffmpegVersion
-while (-not ($filename -and $downloadUri) -and $version) {
-    for ($i = 0; $i -lt $releases.Count; $i++) {
-        $release = $releases[$i]
-        if ($release.tag_name -eq $version) {
-            foreach ($asset in $release.assets) {
-                if ($asset.name -like $filenamePattern) {
-                    $filename = $asset.name
-                    $downloadUri = $asset.browser_download_url
-                    $i = $releases.Count
-                    break
+            try {
+                if ([string]::IsNullOrEmpty($artifactPath)) {
+                    throw 'Empty argument'
                 }
+
+                # Download and extract the artifact
+                Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
+
+                DownloadArtifact -ArtifactPath $artifactPath -OutFile "$temp/ffmpeg.zip"
+
+                Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
+                Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
+                Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
+
+                $success = 'yes'
+                break
+            } catch {
+                $errorMessage = $_.Exception.Message
+                Write-Host "Error: $errorMessage" -ForegroundColor Red
+                Write-Host 'Failed to download ffmpeg artifact release, trying again in 1sec...'
+                Start-Sleep -Seconds 1
+                continue
             }
         }
     }
-    $version = $version -replace '\.?\d+$'
+
+    if ($success -eq 'yes') {
+        break
+    }
+
+    $page++
+    Write-Output 'ffmpeg artifact not found, trying again in 1sec...'
+    Start-Sleep -Seconds 1
 }
 
-if (-not ($filename -and $downloadUri)) {
-    Exit-WithError "Couldn't find a ffmpeg installer for version: $ffmpegVersion"
+if ($success -ne 'yes') {
+    Exit-WithError 'Failed to download ffmpeg files'
 }
-
-Write-Host 'Dowloading ffmpeg zip...' -ForegroundColor Yellow
-Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\ffmpeg.zip"
-
-Write-Host 'Expanding ffmpeg zip...' -ForegroundColor Yellow
-# FFmpeg zip contains a subdirectory with the same name as the zip file
-Expand-Archive -Force -Path "$temp\ffmpeg.zip" -DestinationPath "$temp"
-Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\ffmpeg.zip"
-
-$ffmpegDir = "$temp\$([System.IO.Path]::GetFileNameWithoutExtension($fileName))"
-$proc = Start-Process -PassThru -Wait -FilePath 'Robocopy.exe' -Verb RunAs -ArgumentList `
-    "`"$ffmpegDir`" `"$projectRoot\target\Frameworks`" /E /NS /NC /NFL /NDL /NP /NJH /NJS"
-# https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy#exit-return-codes
-if ($proc.ExitCode -ge 8) {
-    Exit-WithError 'Failed to copy ffmpeg files'
-}
-Remove-Item -Force -ErrorAction SilentlyContinue -Recurse -Path "$ffmpegDir"
 
 @(
     '[env]',
     "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
     "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
+    '',
+    '[target.x86_64-pc-windows-msvc]',
+    "rustflags = [`"-L $("$projectRoot\target\Frameworks\lib" -replace '\\', '\\')`"]",
     '',
     (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
 ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"

@@ -1,9 +1,9 @@
 // import types from '../../constants/file-types.json';
-import { Image } from '@sd/assets/icons';
+import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
 	Location,
@@ -14,7 +14,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { useExplorerStore, useIsDark } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
@@ -36,12 +36,14 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-interface Props extends Omit<ComponentProps<'div'>, 'onScroll'> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	context?: Location | Tag;
-	data: ExplorerItem | null;
+	data?: ExplorerItem;
+	showThumbnail?: boolean;
 }
 
-export const Inspector = ({ data, context, className, ...elementProps }: Props) => {
+export const Inspector = ({ data, context, showThumbnail = true, ...props }: Props) => {
+	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
 	const explorerStore = useExplorerStore();
@@ -72,23 +74,12 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
 
 	return (
-		<div
-			{...elementProps}
-			className={clsx(
-				`custom-scroll inspector-scroll h-screen w-full overflow-x-hidden pb-4 pl-1.5 pr-1`,
-				className
-			)}
-			style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
-		>
+		<div {...props}>
 			{item ? (
 				<>
-					{explorerStore.layoutMode !== 'media' && (
-						<div
-							className={clsx(
-								'mb-[10px] flex h-[240] w-full items-center justify-center overflow-hidden'
-							)}
-						>
-							<FileThumb loadOriginal size={240} data={data} />
+					{showThumbnail && (
+						<div className="mb-2 aspect-square">
+							<FileThumb loadOriginal size={null} data={data} className="mx-auto" />
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
@@ -118,16 +109,21 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
 								<MetaValue>
-									{`${context.path}/${data.item.materialized_path}${data.item.name}${data.item.is_dir ? `.${data.item.extension}` : '/'
-										}`}
+									{`${context.path}/${data.item.materialized_path}${
+										data.item.name
+									}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
 								</MetaValue>
 							</MetaContainer>
 						)}
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-								{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+								<InfoPill>
+									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
+								</InfoPill>
+								{filePathData?.extension && (
+									<InfoPill>{filePathData.extension}</InfoPill>
+								)}
 								{tags.data?.map((tag) => (
 									<Tooltip
 										key={tag.id}
@@ -167,7 +163,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+									<MetaValue>
+										{fullObjectData.data.media_data.duration_seconds}
+									</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -177,7 +175,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-									<MetaValue>{dayjs(item.date_created).format('MMM Do YYYY')}</MetaValue>
+									<MetaValue>
+										{dayjs(item.date_created).format('MMM Do YYYY')}
+									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
 							<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
@@ -207,8 +207,12 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 										<Tooltip label={filePathData?.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
-												<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-												<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
+												<MetaKeyName className="mr-1.5">
+													Checksum
+												</MetaKeyName>
+												<MetaValue>
+													{filePathData?.integrity_checksum}
+												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
 									)}
@@ -216,7 +220,9 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 										<Tooltip label={pub_id || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={Hash} />
-												<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
+												<MetaKeyName className="mr-1.5">
+													Object ID
+												</MetaKeyName>
 												<MetaValue>{pub_id}</MetaValue>
 											</MetaTextLine>
 										</Tooltip>
@@ -228,7 +234,7 @@ export const Inspector = ({ data, context, className, ...elementProps }: Props) 
 				</>
 			) : (
 				<div className="flex w-full flex-col items-center justify-center">
-					<img src={Image} />
+					<img src={isDark ? Image : Image_Light} />
 					<div
 						className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center
 					rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10"

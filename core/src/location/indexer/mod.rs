@@ -8,7 +8,6 @@ use crate::{
 };
 
 use std::{
-	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	time::Duration,
@@ -18,7 +17,6 @@ use rspc::ErrorCode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tokio::time::Instant;
 use tracing::info;
 
 use super::{
@@ -28,11 +26,13 @@ use super::{
 
 pub mod indexer_job;
 pub mod rules;
-pub mod shallow_indexer_job;
+mod shallow;
 mod walk;
 
 use rules::IndexerRuleError;
 use walk::WalkedEntry;
+
+pub use shallow::*;
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
@@ -57,7 +57,7 @@ impl Hash for IndexerJobInit {
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
 	indexed_path: PathBuf,
-	rules_by_kind: HashMap<rules::RuleKind, Vec<rules::IndexerRule>>,
+	indexer_rules: Vec<rules::IndexerRule>,
 	db_write_time: Duration,
 	scan_read_time: Duration,
 	total_paths: u64,
@@ -104,7 +104,7 @@ pub enum IndexerError {
 	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
@@ -133,22 +133,9 @@ impl From<IndexerError> for rspc::Error {
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
 	save_step: &IndexerJobSaveStep,
-	data: &IndexerJobData,
-	ctx: &mut WorkerContext,
-) -> Result<(u64, Duration), IndexerError> {
-	let start_time = Instant::now();
-
-	IndexerJobData::on_scan_progress(
-		ctx,
-		vec![
-			ScanProgress::SavedChunks(save_step.chunk_idx),
-			ScanProgress::Message(format!(
-				"Writing {}/{} to db",
-				save_step.chunk_idx, data.total_save_steps
-			)),
-		],
-	);
-	let Library { sync, db, .. } = &ctx.library;
+	library: &Library,
+) -> Result<i64, IndexerError> {
+	let Library { sync, db, .. } = &library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
 		.walked
@@ -215,7 +202,7 @@ async fn execute_indexer_save_step(
 
 	info!("Inserted {count} records");
 
-	Ok((count as u64, start_time.elapsed()))
+	Ok(count)
 }
 
 fn finalize_indexer<SJob, Init, Step>(

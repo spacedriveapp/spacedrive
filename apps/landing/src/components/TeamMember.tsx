@@ -1,5 +1,7 @@
-import { Dribbble, Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
+import { Dribbble, Github, Twitch, Twitter } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
+import Image from 'next/image';
+import NextLink from 'next/link';
 import { PropsWithChildren } from 'react';
 
 export interface TeamMemberProps {
@@ -10,7 +12,7 @@ export interface TeamMemberProps {
 	role: string;
 
 	// Member's avatar
-	image: string;
+	imageUrl: string;
 
 	// Socials
 	socials?: {
@@ -30,14 +32,14 @@ interface LinkProps {
 
 function Link(props: PropsWithChildren<LinkProps>) {
 	return (
-		<a
+		<NextLink
 			className="duration-300 hover:scale-105 hover:opacity-80"
 			href={props.href}
 			rel="noreferrer"
 			target="_blank"
 		>
 			{props.children}
-		</a>
+		</NextLink>
 	);
 }
 
@@ -46,8 +48,8 @@ export function TeamMember(props: TeamMemberProps) {
 
 	return (
 		<div className="flex flex-col">
-			<img
-				src={props.image}
+			<Image
+				src={props.imageUrl}
 				role="img"
 				alt={`Portrait of ${props.name}`}
 				width={size}

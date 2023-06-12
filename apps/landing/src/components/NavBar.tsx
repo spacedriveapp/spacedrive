@@ -1,32 +1,34 @@
 import { AppLogo } from '@sd/assets/images';
-import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
+import { Academia, Discord, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
+import Image from 'next/image';
+import Link from 'next/link';
+import { NextRouter, useRouter } from 'next/router';
 import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
-import * as router from 'vite-plugin-ssr/client/router';
 import { Button, Dropdown } from '@sd/ui';
-import { positions } from '../pages/careers.page';
-import { getWindow } from '../utils';
+import { positions } from '~/pages/careers';
+import { getWindow } from '~/utils/util';
 
 function NavLink(props: PropsWithChildren<{ link?: string }>) {
 	return (
-		<a
+		<Link
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
 			className="cursor-pointer p-4 text-gray-300 no-underline transition hover:text-gray-50"
 			rel="noreferrer"
 		>
 			{props.children}
-		</a>
+		</Link>
 	);
 }
 
-function link(path: string) {
+function link(path: string, router: NextRouter) {
 	const selected = getWindow()?.location.href.includes(path);
 
 	return {
 		selected,
-		onClick: () => router.navigate(path),
+		onClick: () => router.push(path),
 		className: clsx(selected && 'bg-accent/20')
 	};
 }
@@ -44,6 +46,8 @@ export default function NavBar() {
 		else if (isAtTop) setIsAtTop(false);
 	}
 
+	const router = useRouter();
+
 	useEffect(() => {
 		if (!window) return;
 		setTimeout(onScroll, 0);
@@ -55,17 +59,17 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed z-[55] h-16 w-full border-b px-2 transition ',
+				'fixed z-[55] h-16 w-full border-b px-2 transition',
 				isAtTop
 					? 'border-transparent bg-transparent'
 					: 'border-gray-550 bg-gray-700/80 backdrop-blur'
 			)}
 		>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
-				<a href="/" className="absolute flex flex-row items-center">
-					<img src={AppLogo} className="z-30 mr-3 h-8 w-8" />
+				<Link href="/" className="absolute flex flex-row items-center">
+					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
-				</a>
+				</Link>
 
 				<div className="m-auto hidden space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
@@ -106,22 +110,22 @@ export default function NavBar() {
 						</Dropdown.Item>
 					</Dropdown.Section>
 					<Dropdown.Section>
-						<Dropdown.Item icon={MapPin} {...link('/roadmap')}>
+						<Dropdown.Item icon={MapPin} {...link('/roadmap', router)}>
 							Roadmap
 						</Dropdown.Item>
 						<Dropdown.Item
 							icon={Book}
-							{...link('/docs/product/getting-started/introduction')}
+							{...link('/docs/product/getting-started/introduction', router)}
 						>
 							Docs
 						</Dropdown.Item>
-						<Dropdown.Item icon={User} {...link('/team')}>
+						<Dropdown.Item icon={User} {...link('/team', router)}>
 							Team
 						</Dropdown.Item>
-						<Dropdown.Item icon={Chat} {...link('/blog')}>
+						<Dropdown.Item icon={Chat} {...link('/blog', router)}>
 							Blog
 						</Dropdown.Item>
-						<Dropdown.Item icon={Academia} {...link('/careers')}>
+						<Dropdown.Item icon={Academia} {...link('/careers', router)}>
 							Careers
 							{positions.length > 0 ? (
 								<span className="ml-2 rounded-md bg-primary px-[5px] py-px text-xs">
@@ -133,16 +137,16 @@ export default function NavBar() {
 				</Dropdown.Root>
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
-					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<Discord className="text-white" />
-					</a>
-					<a
+					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
+						<Discord className="h-6 w-6 text-white" />
+					</Link>
+					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="text-white" />
-					</a>
+						<Github className="h-6 w-6 text-white" />
+					</Link>
 				</div>
 			</div>
 		</div>

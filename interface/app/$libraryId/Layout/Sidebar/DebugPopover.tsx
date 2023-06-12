@@ -1,4 +1,4 @@
-import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
+import { getDebugState, useBridgeQuery, useDebugState, useLibraryMutation } from '@sd/client';
 import { Button, Popover, Select, SelectOption, Switch } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import Setting from '../../settings/Setting';
@@ -14,7 +14,7 @@ export default () => {
 		<Popover
 			className="p-4 focus:outline-none"
 			trigger={
-				<h1 className="ml-1 w-full text-[7pt] text-ink-faint/50">
+				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}
@@ -97,6 +97,7 @@ export default () => {
 						<SelectOption value="enabled">Enabled</SelectOption>
 					</Select>
 				</Setting>
+				<InvalidateDebugPanel />
 
 				{/* {platform.showDevtools && (
 					<SettingContainer
@@ -115,3 +116,22 @@ export default () => {
 		</Popover>
 	);
 };
+
+function InvalidateDebugPanel() {
+	const { data: count } = useBridgeQuery(['invalidation.test-invalidate']);
+	const { mutate } = useLibraryMutation(['invalidation.test-invalidate-mutation']);
+
+	return (
+		<Setting
+			mini
+			title="Invalidate Debug Panel"
+			description={`Pressing the button issues an invalidate to the query rendering this number: ${count}`}
+		>
+			<div className="mt-2">
+				<Button size="sm" variant="gray" onClick={() => mutate(null)}>
+					Invalidate
+				</Button>
+			</div>
+		</Setting>
+	);
+}
