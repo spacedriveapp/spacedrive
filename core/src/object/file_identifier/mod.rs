@@ -100,10 +100,15 @@ async fn identifier_job_step(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return Err(JobError::MissingPath)
+    };
+
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
 		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
 		FileMetadata::new(
-			&location.path,
+			&location_path,
 			&IsolatedFilePathData::from((location.id, file_path)),
 		)
 		.await

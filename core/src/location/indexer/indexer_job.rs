@@ -62,7 +62,10 @@ impl StatefulJob for IndexerJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
-		let location_path = Path::new(&state.init.location.path);
+		let location_path = state.init.location.path.as_ref();
+		let Some(location_path) = location_path.map(Path::new) else {
+            return Err(JobError::MissingPath)
+        };
 
 		let db = Arc::clone(&ctx.library.db);
 
@@ -206,7 +209,11 @@ impl StatefulJob for IndexerJob {
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;
-				let location_path = Path::new(&state.init.location.path);
+				let location_path = state.init.location.path.as_ref();
+				let Some(location_path) = location_path.map(Path::new) else {
+                    return Err(JobError::MissingPath)
+                };
+
 				let db = Arc::clone(&ctx.library.db);
 
 				let scan_start = Instant::now();
@@ -276,6 +283,11 @@ impl StatefulJob for IndexerJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_indexer(&state.init.location.path, state, ctx)
+		let location_path = state.init.location.path.as_ref();
+		let Some(location_path) = location_path.map(Path::new) else {
+            return Err(JobError::MissingPath)
+        };
+
+		finalize_indexer(&location_path, state, ctx)
 	}
 }

@@ -66,6 +66,8 @@ pub enum LocationError {
 	FilePathError(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("missing-path")]
+	MissingPath,
 }
 
 impl From<LocationError> for rspc::Error {

@@ -68,6 +68,8 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
+	#[error("no-path")]
+	NoPath(i32),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -389,7 +391,7 @@ impl LibraryManager {
 		for location in library
 			.db
 			.location()
-			.find_many(vec![location::node_id::equals(node_data.id)])
+			.find_many(vec![location::node_id::equals(Some(node_data.id))])
 			.exec()
 			.await?
 		{

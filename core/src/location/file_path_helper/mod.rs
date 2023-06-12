@@ -69,6 +69,7 @@ file_path::select!(file_path_to_handle_custom_uri {
 	name
 	extension
 	location: select {
+		id
 		path
 	}
 });
