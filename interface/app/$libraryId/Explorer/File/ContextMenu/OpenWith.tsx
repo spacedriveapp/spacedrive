@@ -10,17 +10,17 @@ export default (props: { filePath: FilePath }) => {
 	if (!getFilePathOpenWithApps || !openFilePathWith) return null;
 	if (props.filePath.is_dir) return null;
 	return (
-				<ContextMenu.SubMenu label="Open with">
-					<Suspense>
-						<Items
-							filePath={props.filePath}
-							actions={{
-								getFilePathOpenWithApps,
-								openFilePathWith
-							}}
-						/>
-					</Suspense>
-				</ContextMenu.SubMenu>
+		<ContextMenu.SubMenu label="Open with">
+			<Suspense>
+				<Items
+					filePath={props.filePath}
+					actions={{
+						getFilePathOpenWithApps,
+						openFilePathWith
+					}}
+				/>
+			</Suspense>
+		</ContextMenu.SubMenu>
 	);
 };
 
