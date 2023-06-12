@@ -52,6 +52,7 @@ pub async fn open_file_path(
 
 #[derive(Serialize, Type)]
 #[serde(tag = "t", content = "c")]
+#[allow(dead_code)]
 pub enum OpenWithApplication {
 	File { id: i32, name: String, url: String },
 	Error(i32, String),
@@ -59,6 +60,7 @@ pub enum OpenWithApplication {
 
 #[tauri::command(async)]
 #[specta::specta]
+#[allow(unused_variables)]
 pub async fn get_file_path_open_with_apps(
 	library: uuid::Uuid,
 	ids: Vec<i32>,
@@ -106,6 +108,7 @@ type FileIdAndUrl = (i32, String);
 
 #[tauri::command(async)]
 #[specta::specta]
+#[allow(unused_variables)]
 pub async fn open_file_path_with(
 	library: uuid::Uuid,
 	file_ids_and_urls: Vec<FileIdAndUrl>,
