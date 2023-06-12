@@ -197,7 +197,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?
 						.ok_or(LocationError::IdNotFound(location_id))?;
 
-					let location_path = Path::new(&location.path);
+					let Some(location_path) = location.path.as_ref().map(Path::new) else {
+                        Err(LocationError::MissingPath)?
+                    };
+
 					fs::rename(
 						location_path.join(IsolatedFilePathData::from_relative_str(
 							location_id,

@@ -35,7 +35,10 @@ pub async fn shallow_thumbnailer(
 	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
 
 	let location_id = location.id;
-	let location_path = PathBuf::from(&location.path);
+	let location_path = match &location.path {
+		Some(v) => PathBuf::from(v),
+		None => return Ok(()),
+	};
 
 	let (path, iso_file_path) = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)

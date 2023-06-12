@@ -74,7 +74,11 @@ impl StatefulJob for FileIdentifierJob {
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location.id;
-		let location_path = Path::new(&state.init.location.path);
+
+		let location_path = state.init.location.path.as_ref();
+		let Some(location_path) = location_path.map(Path::new) else {
+            return Err(JobError::MissingPath)
+        };
 
 		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)

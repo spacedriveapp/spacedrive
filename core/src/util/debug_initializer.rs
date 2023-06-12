@@ -144,7 +144,7 @@ impl InitConfig {
 				if let Some(location) = library
 					.db
 					.location()
-					.find_first(vec![location::path::equals(loc.path.clone())])
+					.find_first(vec![location::path::equals(Some(loc.path.clone()))])
 					.exec()
 					.await?
 				{

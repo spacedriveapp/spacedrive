@@ -193,9 +193,12 @@ async fn handle_file(
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
+			let Some(path) = &file_path.location.path else {
+                return Err(HandleCustomUriError::NoPath(file_path.location.id))
+            };
+
 			let lru_entry = (
-				Path::new(&file_path.location.path)
-					.join(IsolatedFilePathData::from((location_id, &file_path))),
+				Path::new(path).join(IsolatedFilePathData::from((location_id, &file_path))),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
@@ -397,6 +400,8 @@ pub enum HandleCustomUriError {
 	RangeNotSatisfiable(&'static str),
 	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
 	NotFound(&'static str),
+	#[error("no-path")]
+	NoPath(i32),
 }
 
 impl From<HandleCustomUriError> for Response<Vec<u8>> {
@@ -439,6 +444,12 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.as_bytes()
 					.to_vec(),
 			),
+			HandleCustomUriError::NoPath(id) => {
+				error!("Location <id = {id}> has no path");
+				builder
+					.status(StatusCode::INTERNAL_SERVER_ERROR)
+					.body(b"Internal Server Error".to_vec())
+			}
 		})
 		// SAFETY: This unwrap is ok as we have an hardcoded the response builders.
 		.expect("internal error building hardcoded HTTP error response")
