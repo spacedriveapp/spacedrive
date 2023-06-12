@@ -228,6 +228,8 @@ export type RenameFileArgs = { location_id: number; file_name: string; new_file_
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
+export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
+
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
