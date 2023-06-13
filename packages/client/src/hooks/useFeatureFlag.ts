@@ -1,29 +1,34 @@
 import { useSnapshot } from 'valtio';
-import { proxySet } from 'valtio/utils';
 import { valtioPersist } from '../lib/valito';
 
-const features = ['spacedrop', 'p2pPairing'] as const;
+export const features = ['spacedrop', 'p2pPairing'] as const;
 
 export type FeatureFlag = (typeof features)[number];
 
 const featureFlagState = valtioPersist('sd-featureFlags', {
-	enabled: proxySet<FeatureFlag>()
+	enabled: [] as FeatureFlag[]
 });
 
+export function useFeatureFlags() {
+	return useSnapshot(featureFlagState);
+}
+
 export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
-	const state = useSnapshot(featureFlagState);
-	return Array.isArray(flag) ? flag.every((f) => state.enabled.has(f)) : state.enabled.has(flag);
+	useSnapshot(featureFlagState); // Rerender on change
+	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
 }
 
-export function isFeatureEnabled(flag: FeatureFlag | FeatureFlag[]) {
-	return Array.isArray(flag)
-		? flag.every((f) => featureFlagState.enabled.has(f))
-		: featureFlagState.enabled.has(flag);
-}
+export const isEnabled = (flag: FeatureFlag) => featureFlagState.enabled.find((ff) => flag === ff);
 
-export function enableFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
+export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 	if (!Array.isArray(flags)) {
 		flags = [flags];
 	}
-	flags.forEach((f) => featureFlagState.enabled.add(f));
+	flags.forEach((f) => {
+		if (!featureFlagState.enabled.find((ff) => f === ff)) {
+			featureFlagState.enabled.push(f);
+		} else {
+			featureFlagState.enabled = featureFlagState.enabled.filter((ff) => f !== ff);
+		}
+	});
 }
