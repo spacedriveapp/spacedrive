@@ -21,7 +21,6 @@ const { Input, useZodForm, z } = forms;
 
 export function SpacedropUI() {
 	const isSpacedropEnabled = useFeatureFlag('spacedrop');
-	// TODO(Spacedrop): Disable Spacedrop for now
 	if (!isSpacedropEnabled) {
 		return null;
 	}
