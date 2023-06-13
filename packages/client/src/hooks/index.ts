@@ -3,7 +3,6 @@ export * from './useDebugState';
 export * from './useFeatureFlag';
 export * from './useLibraryContext';
 export * from './useOnboardingStore';
-export * from './useOnlineLocations';
 export * from './useP2PEvents';
 export * from './usePlausible';
 export * from './useTelemetryState';
