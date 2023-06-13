@@ -72,8 +72,7 @@ impl DesktopEntry {
 	}
 
 	pub fn get_cmd(&self, args: Vec<String>) -> Result<(String, Vec<String>)> {
-		let special =
-			AhoCorasick::new(["%f", "%F", "%u", "%U"]).expect("Failed to build pattern");
+		let special = AhoCorasick::new(["%f", "%F", "%u", "%U"]).expect("Failed to build pattern");
 
 		let mut exec = shlex::split(&self.exec).ok_or(Error::InvalidExec(self.exec.clone()))?;
 

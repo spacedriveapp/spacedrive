@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, VecDeque, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	convert::TryFrom,
 	ffi::OsString,
 };
@@ -27,11 +27,7 @@ impl SystemApps {
 				}
 				handlers.into_iter().collect()
 			}
-			HandlerType::Mime(mime) => self
-				.0
-				.get(&mime)
-				.unwrap_or(&VecDeque::new())
-				.clone(),
+			HandlerType::Mime(mime) => self.0.get(&mime).unwrap_or(&VecDeque::new()).clone(),
 		}
 	}
 
