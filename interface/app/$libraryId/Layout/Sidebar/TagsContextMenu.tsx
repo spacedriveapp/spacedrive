@@ -11,7 +11,6 @@ interface Props {
 
 export default ({ children, tagId }: Props) => {
 	const navigate = useNavigate();
-	//params
 	return (
 		<CM.Root trigger={children}>
 			<CM.Item
