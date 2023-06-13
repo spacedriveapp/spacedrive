@@ -36,7 +36,10 @@ pub async fn shallow(
 	info!("Identifying orphan File Paths...");
 
 	let location_id = location.id;
-	let location_path = Path::new(&location.path);
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return Err(JobError::MissingPath)
+    };
 
 	let sub_iso_file_path = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(location_path, &sub_path)

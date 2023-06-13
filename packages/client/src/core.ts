@@ -9,14 +9,6 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
-        { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
-        { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
-        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean | null } | 
-        { key: "keys.isSetup", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.isUnlocked", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.list", input: LibraryArgs<null>, result: StoredKey[] } | 
-        { key: "keys.listMounted", input: LibraryArgs<null>, result: string[] } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -24,7 +16,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; node: Node }[] } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node: Node | null }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -36,10 +28,8 @@ export type Procedures = {
     mutations: 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
-        { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
-        { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
@@ -52,20 +42,6 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
-        { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
-        { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: null } | 
-        { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
-        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setup", input: LibraryArgs<OnboardingConfig>, result: null } | 
-        { key: "keys.syncKeyToLibrary", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.unlockKeyManager", input: LibraryArgs<UnlockKeyManagerArgs>, result: null } | 
-        { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
-        { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -86,19 +62,12 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string } | 
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
-
-/**
- * These are all possible algorithms that can be used for encryption and decryption
- */
-export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
-
-export type AutomountUpdateArgs = { uuid: string; status: boolean }
 
 export type BuildInfo = { version: string; commit: string }
 
@@ -119,24 +88,13 @@ export type DiskType = "SSD" | "HDD" | "Removable"
 
 export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
 
-/**
- * This should be used for passing an encrypted key around.
- * 
- * This is always `ENCRYPTED_KEY_LEN` (which is `KEY_LEM` + `AEAD_TAG_LEN`)
- */
-export type EncryptedKey = number[]
-
-export type ExplorerItem = { type: "Path"; has_thumbnail: boolean; item: FilePathWithObject } | { type: "Object"; has_thumbnail: boolean; item: ObjectWithFilePaths }
+export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
 export type FileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
-export type FileDecryptorJobInit = { location_id: number; file_path_ids: number[]; mount_associated_key: boolean; password: string | null; save_to_library: boolean | null }
-
 export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] }
-
-export type FileEncryptorJobInit = { location_id: number; file_path_ids: number[]; key_uuid: string; algorithm: Algorithm; metadata: boolean; preview_media: boolean }
 
 export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
@@ -155,11 +113,6 @@ export type FromPattern = { pattern: string; replace_all: boolean }
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type GetArgs = { id: number }
-
-/**
- * This defines all available password hashing algorithms.
- */
-export type HashingAlgorithm = { name: "Argon2id"; params: Params } | { name: "BalloonBlake3"; params: Params }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -183,8 +136,6 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
-export type KeyAddArgs = { algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; key: Protected<string>; library_sync: boolean; automount: boolean }
-
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
  */
@@ -199,7 +150,7 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Location = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string }
+export type Location = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -218,9 +169,7 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number; name: string; path: string; total_capacity: number | null; available_capacity: number | null; is_archived: boolean; generate_preview_media: boolean; sync_preview_media: boolean; hidden: boolean; date_created: string; indexer_rules: { indexer_rule: IndexerRule }[] }
-
-export type MasterPasswordChangeArgs = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type MaybeNot<T> = T | { not: T }
 
@@ -235,13 +184,6 @@ export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-/**
- * This should be used for providing a nonce to encrypt/decrypt functions.
- * 
- * You may also generate a nonce for a given algorithm with `Nonce::generate()`
- */
-export type Nonce = { XChaCha20Poly1305: number[] } | { Aes256Gcm: number[] }
-
 export type Object = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null }
 
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
@@ -255,8 +197,6 @@ export type ObjectSearchOrdering = { dateAccessed: SortOrder }
 export type ObjectValidatorArgs = { id: number; path: string }
 
 export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[] }
-
-export type OnboardingConfig = { password: Protected<string>; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm }
 
 /**
  * Represents the operating system which the remote peer is running.
@@ -277,18 +217,9 @@ export type OwnedOperationItem = { id: any; data: OwnedOperationData }
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
 
-/**
- * These parameters define the password-hashing level.
- * 
- * The greater the parameter, the longer the password will take to hash.
- */
-export type Params = "Standard" | "Hardened" | "Paranoid"
-
 export type PeerId = string
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
-
-export type Protected<T> = T
 
 export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
 
@@ -296,16 +227,9 @@ export type RelationOperationData = "Create" | { Update: { field: string; value:
 
 export type RenameFileArgs = { location_id: number; file_path_ids: number[]; to: string; from_pattern: FromPattern | null }
 
-export type RestoreBackupArgs = { password: Protected<string>; secret_key: Protected<string>; path: string }
-
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-/**
- * This should be used for passing a salt around.
- * 
- * You may also generate a salt with `Salt::generate()`
- */
-export type Salt = number[]
+export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -325,23 +249,6 @@ export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
-/**
- * This is a stored key, and can be freely written to the database.
- * 
- * It contains no sensitive information that is not encrypted.
- */
-export type StoredKey = { uuid: string; version: StoredKeyVersion; key_type: StoredKeyType; algorithm: Algorithm; hashing_algorithm: HashingAlgorithm; content_salt: Salt; master_key: EncryptedKey; master_key_nonce: Nonce; key_nonce: Nonce; key: number[]; salt: Salt; memory_only: boolean; automount: boolean }
-
-/**
- * This denotes the type of key. `Root` keys can be used to unlock the key manager, and `User` keys are ordinary keys.
- */
-export type StoredKeyType = "User" | "Root"
-
-/**
- * This denotes the `StoredKey` version.
- */
-export type StoredKeyVersion = "V1"
-
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
 
 export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
@@ -349,7 +256,5 @@ export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: bo
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type UnlockKeyManagerArgs = { password: Protected<string>; secret_key: Protected<string> }
 
 export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }

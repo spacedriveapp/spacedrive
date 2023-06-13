@@ -1,6 +1,4 @@
 import { useSnapshot } from 'valtio';
-import { Algorithm } from '../core';
-import { HashingAlgoSlug } from '../utils';
 import { valtioPersist } from './util';
 
 export enum UseCase {

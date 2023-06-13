@@ -75,13 +75,17 @@ pub(super) async fn create_dir(
 
 	let path = path.as_ref();
 
+	let Some(location_path) = &location.path else {
+        return Err(LocationManagerError::MissingPath(location_id))
+    };
+
 	trace!(
 		"Location: <root_path ='{}'> creating directory: {}",
-		location.path,
+		location_path,
 		path.display()
 	);
 
-	let materialized_path = IsolatedFilePathData::new(location.id, &location.path, path, true)?;
+	let materialized_path = IsolatedFilePathData::new(location.id, location_path, path, true)?;
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
@@ -338,7 +342,9 @@ async fn inner_update_file(
 		.await?
 		.ok_or_else(|| LocationManagerError::MissingLocation(location_id))?;
 
-	let location_path = PathBuf::from(location.path);
+	let Some(location_path) = location.path.map(PathBuf::from) else {
+        return Err(LocationManagerError::MissingPath(location_id))
+    };
 
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
@@ -676,13 +682,17 @@ pub(super) async fn extract_inode_and_device_from_path(
 		.await?
 		.ok_or(LocationManagerError::MissingLocation(location_id))?;
 
+	let Some(location_path) = &location.path else {
+        return Err(LocationManagerError::MissingPath(location_id))
+    };
+
 	library
 		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location.path, path, true)?,
+			&IsolatedFilePathData::new(location_id, location_path, path, true)?,
 		))
-		.select(file_path::select!( {inode device} ))
+		.select(file_path::select!({ inode device }))
 		.exec()
 		.await?
 		.map_or(
@@ -715,6 +725,11 @@ pub(super) async fn extract_location_path(
 		.map_or(
 			Err(LocationManagerError::MissingLocation(location_id)),
 			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
-			|location| Ok(PathBuf::from(location.path)),
+			|location| {
+				location
+					.path
+					.map(PathBuf::from)
+					.ok_or(LocationManagerError::MissingPath(location_id))
+			},
 		)
 }

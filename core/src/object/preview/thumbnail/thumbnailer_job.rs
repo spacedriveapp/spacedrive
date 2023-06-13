@@ -8,8 +8,8 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
+	object::preview::thumbnail::directory::init_thumbnail_dir,
 	prisma::{file_path, location, PrismaClient},
-	util::error::FileIOError,
 };
 
 use std::{collections::VecDeque, hash::Hash, path::PathBuf};
@@ -17,13 +17,12 @@ use std::{collections::VecDeque, hash::Hash, path::PathBuf};
 use sd_file_ext::extensions::Extension;
 
 use serde::{Deserialize, Serialize};
-use tokio::fs;
+
 use tracing::info;
 
 use super::{
 	finalize_thumbnailer, process_step, ThumbnailerError, ThumbnailerJobReport,
 	ThumbnailerJobState, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
-	THUMBNAIL_CACHE_DIR_NAME,
 };
 
 #[cfg(feature = "ffmpeg")]
@@ -65,14 +64,14 @@ impl StatefulJob for ThumbnailerJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
-		let thumbnail_dir = ctx
-			.library
-			.config()
-			.data_directory()
-			.join(THUMBNAIL_CACHE_DIR_NAME);
+		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
+		// .join(THUMBNAIL_CACHE_DIR_NAME);
 
 		let location_id = state.init.location.id;
-		let location_path = PathBuf::from(&state.init.location.path);
+		let location_path = match &state.init.location.path {
+			Some(v) => PathBuf::from(v),
+			None => return Ok(()),
+		};
 
 		let (path, iso_file_path) = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
@@ -104,11 +103,6 @@ impl StatefulJob for ThumbnailerJob {
 		};
 
 		info!("Searching for images in location {location_id} at directory {iso_file_path}");
-
-		// create all necessary directories if they don't exist
-		fs::create_dir_all(&thumbnail_dir)
-			.await
-			.map_err(|e| FileIOError::from((&thumbnail_dir, e)))?;
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(

@@ -6,8 +6,7 @@ use crate::{
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJob,
 		fs::{
-			copy::FileCopierJob, cut::FileCutterJob, decrypt::FileDecryptorJob,
-			delete::FileDeleterJob, encrypt::FileEncryptorJob, erase::FileEraserJob,
+			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
 		},
 		preview::thumbnailer_job::ThumbnailerJob,
 		validation::validator_job::ObjectValidatorJob,
@@ -531,8 +530,8 @@ fn get_background_info_by_job_name(name: &str) -> bool {
 			FileCopierJob,
 			FileDeleterJob,
 			FileEraserJob,
-			FileEncryptorJob,
-			FileDecryptorJob,
+			// FileEncryptorJob,
+			// FileDecryptorJob,
 		]
 	)
 }
@@ -573,6 +572,6 @@ const ALL_JOB_NAMES: &[&str] = &[
 	FileCopierJob::NAME,
 	FileDeleterJob::NAME,
 	FileEraserJob::NAME,
-	FileEncryptorJob::NAME,
-	FileDecryptorJob::NAME,
+	// FileEncryptorJob::NAME,
+	// FileDecryptorJob::NAME,
 ];

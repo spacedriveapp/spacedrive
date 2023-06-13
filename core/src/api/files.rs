@@ -10,8 +10,8 @@ use crate::{
 		find_location, LocationError, LocationId,
 	},
 	object::fs::{
-		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
-		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
+		copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+		erase::FileEraserJobInit,
 	},
 	prisma::{file_path, location, object},
 };
@@ -131,18 +131,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("encryptFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
-				})
-		})
-		.procedure("decryptFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
-				})
-		})
+		// .procedure("encryptFiles", {
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
+		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 		})
+		// })
+		// .procedure("decryptFiles", {
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
+		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 		})
+		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileDeleterJobInit| async move {
@@ -369,7 +369,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 						.ok_or(LocationError::IdNotFound(args.location_id))?
-						.path;
+						.path
+						.ok_or(LocationError::MissingPath(args.location_id))?;
 
 					let res = if args.file_path_ids.len() == 1 {
 						if args.from_pattern.is_some() {

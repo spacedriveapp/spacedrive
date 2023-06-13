@@ -15,13 +15,13 @@ const FlexCol = tw.label`flex flex-col flex-1`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const schema = z.object({
-	name: z.string(),
-	path: z.string(),
-	hidden: z.boolean(),
+	name: z.string().nullable(),
+	path: z.string().nullable(),
+	hidden: z.boolean().nullable(),
 	indexerRulesIds: z.array(z.number()),
 	locationType: z.string(),
-	syncPreviewMedia: z.boolean(),
-	generatePreviewMedia: z.boolean()
+	syncPreviewMedia: z.boolean().nullable(),
+	generatePreviewMedia: z.boolean().nullable()
 });
 
 const PARAMS = z.object({

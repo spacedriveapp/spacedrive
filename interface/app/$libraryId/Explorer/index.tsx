@@ -32,7 +32,7 @@ export default function Explorer(props: Props) {
 			selectedItemId
 				? props.items?.find((item) => item.item.id === selectedItemId)
 				: undefined,
-		[selectedItemId]
+		[selectedItemId, props.items]
 	);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -42,9 +42,8 @@ export default function Explorer(props: Props) {
 		onError: (err) => {
 			console.error('Error in RSPC subscription new thumbnail', err);
 		},
-		onData: (cas_id) => {
-			console.log({ cas_id });
-			explorerStore.addNewThumbnail(cas_id);
+		onData: (thumbKey) => {
+			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
 

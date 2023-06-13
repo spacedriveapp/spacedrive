@@ -9,7 +9,7 @@ import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
-import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
+// import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
@@ -88,11 +88,11 @@ export default function SettingsNavigator() {
 				component={TagsSettingsScreen}
 				options={{ headerTitle: 'Tags' }}
 			/>
-			<SettingsStack.Screen
+			{/* <SettingsStack.Screen
 				name="KeysSettings"
 				component={KeysSettingsScreen}
 				options={{ headerTitle: 'Keys' }}
-			/>
+			/> */}
 			{/* Info */}
 			<SettingsStack.Screen
 				name="About"

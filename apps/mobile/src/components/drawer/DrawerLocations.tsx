@@ -36,7 +36,7 @@ type DrawerLocationsProp = {
 const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	const importModalRef = useRef<ModalRef>(null);
+	const modalRef = useRef<ModalRef>(null);
 
 	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 
@@ -51,7 +51,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					{locations?.map((location) => (
 						<DrawerLocationItem
 							key={location.id}
-							folderName={location.name}
+							folderName={location.name ?? ''}
 							onPress={() =>
 								navigation.navigate(stackName, {
 									screen: 'Location',
@@ -62,7 +62,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					))}
 				</View>
 				{/* Add Location */}
-				<Pressable onPress={() => importModalRef.current?.present()}>
+				<Pressable onPress={() => modalRef.current?.present()}>
 					<View style={tw`mt-1 rounded border border-dashed border-app-line/80`}>
 						<Text style={tw`p-2 text-center text-xs font-bold text-gray-400`}>
 							Add Location
@@ -70,7 +70,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 					</View>
 				</Pressable>
 			</CollapsibleView>
-			<ImportModal ref={importModalRef} />
+			<ImportModal ref={modalRef} />
 		</>
 	);
 };

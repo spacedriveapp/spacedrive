@@ -8,6 +8,7 @@ use crate::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		find_location, LocationError, LocationId,
 	},
+	object::preview::get_thumb_key,
 	prisma::{self, file_path, object, tag, tag_on_object},
 	util::db::chain_optional_iter,
 };
@@ -323,7 +324,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut items = Vec::with_capacity(file_paths.len());
 
 					for file_path in file_paths {
-						let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
+						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
 							library
 								.thumbnail_exists(cas_id)
 								.await
@@ -333,7 +334,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Path {
-							has_thumbnail,
+							has_local_thumbnail: thumbnail_exists_locally,
+							thumbnail_key: file_path.cas_id.as_ref().map(|i| get_thumb_key(i)),
 							item: file_path,
 						})
 					}
@@ -391,7 +393,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.map(|fp| fp.cas_id.as_ref())
 							.find_map(|c| c);
 
-						let has_thumbnail = if let Some(cas_id) = cas_id {
+						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
 							library.thumbnail_exists(cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
@@ -404,7 +406,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Object {
-							has_thumbnail,
+							has_local_thumbnail: thumbnail_exists_locally,
+							thumbnail_key: cas_id.map(|i| get_thumb_key(i)),
 							item: object,
 						});
 					}

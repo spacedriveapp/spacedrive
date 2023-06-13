@@ -1,0 +1,24 @@
+From cc9db1c519dc00966ba8d8cdb4328698dfff9f80 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Thu, 15 Apr 2021 21:38:32 +0200
+Subject: [PATCH] Fall back to built-in vmaf model on load failure
+
+---
+ aom_dsp/vmaf.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/aom_dsp/vmaf.c b/aom_dsp/vmaf.c
+index 219e27830..6625f05c1 100644
+--- a/aom_dsp/vmaf.c
++++ b/aom_dsp/vmaf.c
+@@ -37,6 +37,7 @@ void aom_init_vmaf_model(VmafModel **vmaf_model, const char *model_path) {
+   model_cfg.name = "vmaf";
+ 
+   if (vmaf_model_load_from_path(vmaf_model, &model_cfg, model_path)) {
++   if (vmaf_model_load(vmaf_model, &model_cfg, "vmaf_v0.6.1"))
+     vmaf_fatal_error("Failed to load VMAF model.");
+   }
+ }
+-- 
+2.25.1
+

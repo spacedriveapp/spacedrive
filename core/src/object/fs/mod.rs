@@ -17,14 +17,14 @@ pub mod erase;
 pub mod copy;
 pub mod cut;
 
-pub mod decrypt;
-pub mod encrypt;
+// pub mod decrypt;
+// pub mod encrypt;
 
 pub mod error;
 
 use error::FileSystemJobsError;
 
-pub const BYTES_EXT: &str = ".bytes";
+// pub const BYTES_EXT: &str = ".bytes";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
@@ -46,7 +46,7 @@ pub async fn get_location_path_from_location_id(
 		.find_unique(location::id::equals(location_id))
 		.exec()
 		.await?
-		.map(|location| PathBuf::from(location.path))
+		.and_then(|location| location.path.map(PathBuf::from))
 		.ok_or(FileSystemJobsError::Location(LocationError::IdNotFound(
 			location_id,
 		)))
@@ -125,8 +125,18 @@ pub async fn fetch_source_and_target_location_paths(
 		.await?
 	{
 		(Some(source_location), Some(target_location)) => Ok((
-			PathBuf::from(source_location.path),
-			PathBuf::from(target_location.path),
+			source_location
+				.path
+				.map(PathBuf::from)
+				.ok_or(FileSystemJobsError::Location(LocationError::MissingPath(
+					source_location_id,
+				)))?,
+			target_location
+				.path
+				.map(PathBuf::from)
+				.ok_or(FileSystemJobsError::Location(LocationError::MissingPath(
+					target_location_id,
+				)))?,
 		)),
 		(None, _) => Err(FileSystemJobsError::Location(LocationError::IdNotFound(
 			source_location_id,

@@ -9,6 +9,7 @@ import {
 	Image,
 	Paperclip
 } from 'phosphor-react';
+import { useNavigate } from 'react-router';
 import { Location, useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -17,6 +18,7 @@ import {
 	PopoverContainer,
 	PopoverDivider,
 	PopoverSection,
+	Tooltip,
 	tw
 } from '@sd/ui';
 import TopBarButton from '../TopBar/TopBarButton';
@@ -24,6 +26,8 @@ import TopBarButton from '../TopBar/TopBarButton';
 const OptionButton = tw(TopBarButton)`w-full gap-1 !px-1.5 !py-1`;
 
 export default function LocationOptions({ location, path }: { location: Location; path: string }) {
+	const navigate = useNavigate();
+
 	const _scanLocation = useLibraryMutation('locations.fullRescan');
 	const scanLocation = () => _scanLocation.mutate(location.id);
 
@@ -34,7 +38,7 @@ export default function LocationOptions({ location, path }: { location: Location
 
 	let currentPath = path ? location.path + path : location.path;
 
-	currentPath = currentPath.endsWith('/')
+	currentPath = currentPath?.endsWith('/')
 		? currentPath.substring(0, currentPath.length - 1)
 		: currentPath;
 
@@ -53,14 +57,29 @@ export default function LocationOptions({ location, path }: { location: Location
 							<Input
 								autoFocus
 								className="mb-2"
-								value={currentPath}
+								value={currentPath ?? ''}
+								onChange={() => { }}
 								right={
-									<Button size="icon" variant="outline" className="opacity-70">
-										<Copy className="!pointer-events-none h-4 w-4" />
-									</Button>
+									<Tooltip label="Copy path to clipboard" className="flex">
+										<Button
+											size="icon"
+											variant="outline"
+											className="opacity-70"
+											onClick={() =>
+												currentPath &&
+												navigator.clipboard.writeText(currentPath)
+											}
+										>
+											<Copy className="!pointer-events-none h-4 w-4" />
+										</Button>
+									</Tooltip>
 								}
 							/>
-							<OptionButton>
+							<OptionButton
+								onClick={() =>
+									navigate(`../settings/library/locations/${location.id}`)
+								}
+							>
 								<Gear />
 								Configure Location
 							</OptionButton>

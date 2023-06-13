@@ -34,5 +34,10 @@ export function openFilePathWith(library: string, fileIdsAndUrls: ([number, stri
     return invoke()<null>("open_file_path_with", { library,fileIdsAndUrls })
 }
 
+export function lockAppTheme(themeType: AppThemeType) {
+    return invoke()<null>("lock_app_theme", { themeType })
+}
+
 export type OpenWithApplication = { t: "File"; c: { id: number; name: string; url: string } } | { t: "Error"; c: [number, string] }
+export type AppThemeType = "Auto" | "Light" | "Dark"
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }

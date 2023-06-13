@@ -42,7 +42,7 @@ export const Component = () => {
 				sub_path: path ?? ''
 			}
 		],
-		{ onData() {} }
+		{ onData() { } }
 	);
 
 	const explorerStore = getExplorerStore();
@@ -116,7 +116,8 @@ const useItems = () => {
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
-		keepPreviousData: true
+		keepPreviousData: true,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);

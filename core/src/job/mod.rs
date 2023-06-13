@@ -1,6 +1,6 @@
 use crate::{
 	library::Library,
-	location::indexer::IndexerError,
+	location::{indexer::IndexerError, LocationError},
 	object::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
 		preview::ThumbnailerError,
@@ -34,10 +34,10 @@ pub use worker::*;
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
-	#[error("database error")]
-	DatabaseError(#[from] QueryError),
-	#[error("failed to join Tokio spawn blocking")]
-	JoinTaskError(#[from] tokio::task::JoinError),
+	#[error("database error: {0}")]
+	Database(#[from] QueryError),
+	#[error("Failed to join Tokio spawn blocking: {0}")]
+	JoinTask(#[from] tokio::task::JoinError),
 	#[error("job state encode error: {0}")]
 	StateEncode(#[from] EncodeError),
 	#[error("job state decode error: {0}")]
@@ -56,10 +56,12 @@ pub enum JobError {
 	MissingData { value: String },
 	#[error("error converting/handling paths")]
 	Path,
-	#[error("invalid job status integer")]
+	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("Location error: {0}")]
+	Location(#[from] LocationError),
 
 	// Specific job errors
 	#[error(transparent)]
@@ -76,9 +78,11 @@ pub enum JobError {
 	MissingFromDb(&'static str, String),
 	#[error("the cas id is not set on the path data")]
 	MissingCasId,
+	#[error("missing-location-path")]
+	MissingPath,
 
 	// Not errors
-	#[error("step completed with errors")]
+	#[error("step completed with errors: {0:?}")]
 	StepCompletedWithErrors(JobRunErrors),
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },

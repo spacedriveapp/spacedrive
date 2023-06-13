@@ -20,8 +20,6 @@ use std::{
 	sync::Arc,
 };
 
-use sd_crypto::keys::keymanager::KeyManager;
-
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
@@ -41,7 +39,7 @@ pub struct Library {
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
-	pub key_manager: Arc<KeyManager>,
+	// pub key_manager: Arc<KeyManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
@@ -116,7 +114,7 @@ impl Library {
 		self.db
 			.file_path()
 			.find_many(vec![
-				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
+				file_path::location::is(vec![location::node_id::equals(Some(self.node_local_id))]),
 				file_path::id::in_vec(ids),
 			])
 			.select(file_path_to_full_path::select())
@@ -126,12 +124,12 @@ impl Library {
 			.for_each(|file_path| {
 				out.insert(
 					file_path.id,
-					Some(
-						Path::new(&file_path.location.path).join(IsolatedFilePathData::from((
+					file_path.location.path.as_ref().map(|location_path| {
+						Path::new(&location_path).join(IsolatedFilePathData::from((
 							file_path.location.id,
 							&file_path,
-						))),
-					),
+						)))
+					}),
 				);
 			});
 

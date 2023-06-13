@@ -61,7 +61,8 @@ trait EventHandler<'lib> {
 
 #[derive(Debug)]
 pub(super) struct LocationWatcher {
-	location: location::Data,
+	id: i32,
+	path: String,
 	watcher: RecommendedWatcher,
 	ignore_path_tx: mpsc::UnboundedSender<IgnorePath>,
 	handle: Option<JoinHandle<()>>,
@@ -105,8 +106,13 @@ impl LocationWatcher {
 			stop_rx,
 		));
 
+		let Some(path) = location.path else {
+            return Err(LocationManagerError::MissingPath(location.id))
+        };
+
 		Ok(Self {
-			location,
+			id: location.id,
+			path,
 			watcher,
 			ignore_path_tx,
 			handle: Some(handle),
@@ -212,12 +218,16 @@ impl LocationWatcher {
 	}
 
 	pub(super) fn check_path(&self, path: impl AsRef<Path>) -> bool {
-		(self.location.path.as_ref() as &Path) == path.as_ref()
+		Path::new(&self.path) == path.as_ref()
 	}
 
 	pub(super) fn watch(&mut self) {
-		let path = &self.location.path;
-		if let Err(e) = self.watcher.watch(path.as_ref(), RecursiveMode::Recursive) {
+		let path = &self.path;
+
+		if let Err(e) = self
+			.watcher
+			.watch(Path::new(path), RecursiveMode::Recursive)
+		{
 			error!("Unable to watch location: (path: {path}, error: {e:#?})");
 		} else {
 			debug!("Now watching location: (path: {path})");
@@ -225,8 +235,8 @@ impl LocationWatcher {
 	}
 
 	pub(super) fn unwatch(&mut self) {
-		let path = &self.location.path;
-		if let Err(e) = self.watcher.unwatch(path.as_ref()) {
+		let path = &self.path;
+		if let Err(e) = self.watcher.unwatch(Path::new(path)) {
 			/**************************************** TODO: ****************************************
 			 * According to an unit test, this error may occur when a subdirectory is removed	   *
 			 * and we try to unwatch the parent directory then we have to check the implications   *
@@ -237,25 +247,6 @@ impl LocationWatcher {
 			debug!("Stop watching location: (path: {path})");
 		}
 	}
-
-	pub(super) fn update_data(&mut self, new_location: location::Data, to_watch: bool) {
-		assert_eq!(
-			self.location.id, new_location.id,
-			"Updated location data must have the same id"
-		);
-
-		let new_path = self.location.path != new_location.path;
-
-		if new_path {
-			self.unwatch();
-		}
-
-		self.location = new_location;
-
-		if new_path && to_watch {
-			self.watch();
-		}
-	}
 }
 
 impl Drop for LocationWatcher {
@@ -264,7 +255,7 @@ impl Drop for LocationWatcher {
 			if stop_tx.send(()).is_err() {
 				error!(
 					"Failed to send stop signal to location watcher: <id='{}'>",
-					self.location.id
+					self.id
 				);
 			}
 

@@ -8,7 +8,7 @@ import { Folder } from '~/components/Folder';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
-	location: Location & { node: Node };
+	location: Location & { node: Node | null };
 }
 
 export default ({ location }: Props) => {
@@ -29,13 +29,15 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder size={40} className="mr-3" />
+			<Folder className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
-					<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
-						{location.node.name}
-					</span>
+					{location.node && (
+						<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
+							{location.node.name}
+						</span>
+					)}
 					{location.path}
 				</p>
 			</div>

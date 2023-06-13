@@ -14,7 +14,7 @@ use thiserror::Error;
 /// Error type for file system related jobs errors
 #[derive(Error, Debug)]
 pub enum FileSystemJobsError {
-	#[error(transparent)]
+	#[error("Location error: {0}")]
 	Location(#[from] LocationError),
 	#[error("file_path not in database: <path='{}'>", .0.display())]
 	FilePathNotFound(Box<Path>),
@@ -22,8 +22,8 @@ pub enum FileSystemJobsError {
 	FilePathIdNotFound(FilePathId),
 	#[error("failed to create file or folder on disk")]
 	CreateFileOrFolder(FileIOError),
-	#[error("database error")]
-	DatabaseError(#[from] QueryError),
+	#[error("database error: {0}")]
+	Database(#[from] QueryError),
 	#[error(transparent)]
 	FilePath(#[from] FilePathError),
 	#[error("source and destination path are the same: {}", .0.display())]
