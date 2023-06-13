@@ -146,7 +146,7 @@ pub async fn open_file_path_with(
 	#[cfg(target_os = "linux")]
 	{
 		sd_desktop_linux::Handler::assume_valid(url.into())
-			.open(vec![path.to_str().ok_or(())?.into()])
+			.open(&[path.to_str().ok_or(())?])
 			.map_err(|_| ())?;
 	}
 

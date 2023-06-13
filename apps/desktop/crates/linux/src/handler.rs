@@ -44,11 +44,11 @@ impl Handler {
 		DesktopEntry::try_from(self.get_path()?)
 	}
 
-	pub fn launch(&self, args: Vec<String>) -> Result<()> {
+	pub fn launch(&self, args: &[&str]) -> Result<()> {
 		self.get_entry()?.exec(ExecMode::Launch, args)
 	}
 
-	pub fn open(&self, args: Vec<String>) -> Result<()> {
+	pub fn open(&self, args: &[&str]) -> Result<()> {
 		self.get_entry()?.exec(ExecMode::Open, args)
 	}
 }

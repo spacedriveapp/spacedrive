@@ -39,22 +39,22 @@ fn terminal() -> Result<String> {
 }
 
 impl DesktopEntry {
-	pub fn exec(&self, mode: Mode, arguments: Vec<String>) -> Result<()> {
+	pub fn exec(&self, mode: Mode, arguments: &[&str]) -> Result<()> {
 		let supports_multiple = self.exec.contains("%F") || self.exec.contains("%U");
 		if arguments.is_empty() {
-			self.exec_inner(vec![])?
+			self.exec_inner(&[])?
 		} else if supports_multiple || mode == Mode::Launch {
 			self.exec_inner(arguments)?;
 		} else {
 			for arg in arguments {
-				self.exec_inner(vec![arg])?;
+				self.exec_inner(&[*arg])?;
 			}
 		};
 
 		Ok(())
 	}
 
-	fn exec_inner(&self, args: Vec<String>) -> Result<()> {
+	fn exec_inner(&self, args: &[&str]) -> Result<()> {
 		let mut cmd = {
 			let (cmd, args) = self.get_cmd(args)?;
 			let mut cmd = Command::new(cmd);
@@ -71,7 +71,7 @@ impl DesktopEntry {
 		Ok(())
 	}
 
-	pub fn get_cmd(&self, args: Vec<String>) -> Result<(String, Vec<String>)> {
+	pub fn get_cmd(&self, args: &[&str]) -> Result<(String, Vec<String>)> {
 		let special = AhoCorasick::new(["%f", "%F", "%u", "%U"]).expect("Failed to build pattern");
 
 		let mut exec = shlex::split(&self.exec).ok_or(Error::InvalidExec(self.exec.clone()))?;
@@ -82,11 +82,13 @@ impl DesktopEntry {
 			exec = exec
 				.into_iter()
 				.flat_map(|s| match s.as_str() {
-					"%f" | "%F" | "%u" | "%U" => args.clone(),
+					"%f" | "%F" | "%u" | "%U" => {
+						args.iter().map(|arg| str::to_string(arg)).collect()
+					}
 					s if special.is_match(s) => vec![{
 						let mut replaced = String::with_capacity(s.len() + args.len() * 2);
 						special.replace_all_with(s, &mut replaced, |_, _, dst| {
-							dst.push_str(args.clone().join(" ").as_str());
+							dst.push_str(args.join(" ").as_str());
 							false
 						});
 						replaced
@@ -95,7 +97,7 @@ impl DesktopEntry {
 				})
 				.collect()
 		} else {
-			exec.extend_from_slice(&args);
+			exec.extend(args.iter().map(|arg| str::to_string(arg)));
 		}
 
 		// If the entry expects a terminal (emulator), but this process is not running in one, we
@@ -104,7 +106,7 @@ impl DesktopEntry {
 			exec = shlex::split(&terminal()?)
 				.ok_or(Error::InvalidExec(self.exec.clone()))?
 				.into_iter()
-				.chain(vec!["-e".to_owned()])
+				.chain(["-e".to_owned()])
 				.chain(exec)
 				.collect();
 		}
