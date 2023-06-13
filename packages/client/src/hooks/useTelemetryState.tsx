@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from './util';
+import { valtioPersist } from '..';
 
 /**
  * Possible Platform types that can be sourced from `usePlatform().platform` or even hardcoded.

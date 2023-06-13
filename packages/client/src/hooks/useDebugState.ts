@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from './util';
+import { valtioPersist } from '../lib/valito';
 
 export interface DebugState {
 	enabled: boolean;
