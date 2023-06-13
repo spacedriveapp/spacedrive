@@ -35,7 +35,7 @@ const Items = ({
 
 	const items = useQuery<any[]>(
 		['openWith', filePath.id],
-		() => actions.getFilePathOpenWithApps(library.uuid, filePath.id),
+		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
 		{ suspense: true }
 	);
 
@@ -48,7 +48,7 @@ const Items = ({
 					<ContextMenu.Item
 						key={data.c.name}
 						onClick={() =>
-							actions.openFilePathWith(library.uuid, filePath.id, data.c.url)
+							actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)])
 						}
 					>
 						{data.c.name}

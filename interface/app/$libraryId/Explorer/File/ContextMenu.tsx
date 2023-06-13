@@ -305,7 +305,7 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 										updateAccessTime.mutate(props.data.item.object_id);
 
 									// FIXME: treat error properly
-									openFilePath(library.uuid, filePath.id);
+									openFilePath(library.uuid, [filePath.id]);
 								}}
 							/>
 						)}

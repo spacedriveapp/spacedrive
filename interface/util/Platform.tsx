@@ -23,9 +23,9 @@ export type Platform = {
 	openPath?(path: string): void;
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
-	openFilePath?(library: string, id: number): any;
-	getFilePathOpenWithApps?(library: string, id: number): any;
-	openFilePathWith?(library: string, id: number, appUrl: string): any;
+	openFilePath?(library: string, ids: number[]): any;
+	getFilePathOpenWithApps?(library: string, ids: number[]): any;
+	openFilePathWith?(library: string, fileIdsAndUrls: ([number, string])[]): any;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 
