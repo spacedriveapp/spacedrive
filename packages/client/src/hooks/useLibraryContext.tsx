@@ -42,5 +42,5 @@ export const useLibraryContext = () => {
 
 export function useOnlineLocations() {
 	const ctx = useLibraryContext();
-	return ctx.onlineLocations;
+	return ctx?.onlineLocations || [];
 }
