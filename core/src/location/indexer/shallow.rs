@@ -2,10 +2,13 @@ use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::JobError,
 	library::Library,
-	location::{file_path_helper::{
-		check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		IsolatedFilePathData,
-	}, LocationError},
+	location::{
+		file_path_helper::{
+			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			IsolatedFilePathData,
+		},
+		LocationError,
+	},
 	to_remove_db_fetcher_fn,
 };
 use tracing::error;
