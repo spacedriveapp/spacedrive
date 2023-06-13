@@ -9,7 +9,7 @@ export interface DebugState {
 	telemetryLogging: boolean;
 }
 
-export const debugState: DebugState = valtioPersist('sd-debugState', {
+const debugState: DebugState = valtioPersist('sd-debugState', {
 	enabled: globalThis.isDev,
 	rspcLogger: false,
 	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
