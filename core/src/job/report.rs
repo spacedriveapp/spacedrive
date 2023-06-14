@@ -22,6 +22,8 @@ pub enum JobReportUpdate {
 	Message(String),
 }
 
+job::select!(job_without_data { id name action status parent_id errors_text metadata date_created date_started date_completed task_count completed_task_count date_estimated_completion });
+
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct JobReport {
 	pub id: Uuid,
@@ -44,7 +46,6 @@ pub struct JobReport {
 
 	pub message: String,
 	pub estimated_completion: DateTime<Utc>,
-	// pub percentage_complete: f64,
 }
 
 impl Display for JobReport {
@@ -66,6 +67,44 @@ impl From<job::Data> for JobReport {
 			name: data.name,
 			action: data.action,
 			data: data.data,
+			metadata: data.metadata.and_then(|m| {
+				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
+					error!("Failed to deserialize job metadata: {}", e);
+					None
+				})
+			}),
+			errors_text: data
+				.errors_text
+				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
+				.unwrap_or_default(),
+			created_at: Some(data.date_created.into()),
+			started_at: data.date_started.map(DateTime::into),
+			completed_at: data.date_completed.map(DateTime::into),
+			parent_id: data
+				.parent_id
+				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
+			status: JobStatus::try_from(data.status).expect("corrupted database"),
+			task_count: data.task_count,
+			completed_task_count: data.completed_task_count,
+			message: String::new(),
+			estimated_completion: data
+				.date_estimated_completion
+				.map_or(Utc::now(), DateTime::into),
+		}
+	}
+}
+
+// I despise having to write this twice, but it seems to be the only way to
+// remove the data field from the struct
+// would love to get this DRY'd up
+impl From<job_without_data::Data> for JobReport {
+	fn from(data: job_without_data::Data) -> Self {
+		Self {
+			id: Uuid::from_slice(&data.id).expect("corrupted database"),
+			is_background: false, // deprecated
+			name: data.name,
+			action: data.action,
+			data: None,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
 					error!("Failed to deserialize job metadata: {}", e);
@@ -131,6 +170,22 @@ impl JobReport {
 		report.parent_id = Some(parent_id);
 		report.action = action;
 		report
+	}
+
+	pub fn get_meta(&self) -> (String, Option<String>) {
+		// actions are formatted like "added_location" or "added_location-1"
+		let action_name = match self.action {
+			Some(ref action) => action.split('-').next().unwrap_or("").to_string(),
+			None => return (self.id.to_string(), None),
+		};
+		// create a unique group_key, EG: "added_location-<location_id>"
+		let group_key = if let Some(parent_id) = &self.parent_id {
+			format!("{}-{}", action_name, parent_id)
+		} else {
+			format!("{}-{}", action_name, &self.id)
+		};
+
+		(action_name, Some(group_key))
 	}
 
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {

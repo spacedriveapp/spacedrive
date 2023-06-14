@@ -3,9 +3,9 @@ import { Loader } from '@sd/ui';
 import { useLibraryQuery } from '~/../packages/client/src';
 
 export default () => {
-	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
-	const isRunningJob = runningJobs?.length !== undefined && runningJobs?.length > 0;
-
+	// const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
+	// const isRunningJob = runningJobs?.length !== undefined && runningJobs?.length > 0;
+	const isRunningJob = false;
 	return isRunningJob ? (
 		<Loader className="h-[20px] w-[20px]" />
 	) : (

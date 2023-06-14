@@ -60,7 +60,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							<Pause className="h-4 w-4 cursor-pointer" />
 						</Tooltip>
 					</Button>
-					<Button
+					{/* <Button
 						className="cursor-pointer"
 						onClick={() => resumeJob.mutate(data.id)}
 						size="icon"
@@ -69,7 +69,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						<Tooltip label="Stop">
 							<Stop className="h-4 w-4 cursor-pointer" />
 						</Tooltip>
-					</Button>
+					</Button> */}
 				</Fragment>)}
 				{!isJobsRunning && (
 					<Button

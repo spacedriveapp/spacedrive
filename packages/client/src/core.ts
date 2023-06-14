@@ -7,8 +7,7 @@ export type Procedures = {
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
-        { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
+        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroups } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.getSecretKey", input: LibraryArgs<null>, result: string | null } | 
@@ -90,6 +89,7 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
+        { key: "jobs.progress", input: LibraryArgs<null>, result: JobReport } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -179,6 +179,10 @@ export type IndexerRule = { id: number; pub_id: number[] | null; name: string; d
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+
+export type JobGroup = { id: string; action: string; status: JobStatus; created_at: string; jobs: JobReport[] }
+
+export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 

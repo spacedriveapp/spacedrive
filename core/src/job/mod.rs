@@ -10,17 +10,16 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod error;
-mod job_manager;
+mod manager;
 mod report;
 mod worker;
 
 pub use error::*;
-pub use job_manager::*;
+pub use manager::*;
 pub use report::*;
 pub use worker::*;
 
@@ -182,10 +181,11 @@ where
 		self
 	}
 
-	pub fn resume(
+	// this function returns an ingestible job instance from a job report
+	pub fn new_from_report(
 		mut report: JobReport,
-		stateful_job: SJob,
-		next_jobs: VecDeque<Box<dyn DynJob>>,
+		stateful_job: SJob, // whichever type of job this should be is passed here
+		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
 		Ok(Box::new(Self {
 			id: report.id,
@@ -197,7 +197,7 @@ where
 			)?,
 			report: Some(report),
 			stateful_job,
-			next_jobs,
+			next_jobs: next_jobs.unwrap_or_default(),
 		}))
 	}
 
@@ -262,14 +262,13 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		job_manager: Arc<JobManager>,
 		ctx: WorkerContext,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
+		let mut job_should_run = true;
+		let mut errors = vec![];
 		info!(
 			"Starting job {id} ({name})",
 			id = self.id,
 			name = self.name()
 		);
-		let mut job_should_run = true;
-
-		let mut errors = vec![];
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
@@ -287,29 +286,33 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		let mut command_rx = ctx.command_rx.lock().await;
 
+		// Run the job until it's done or we get a command
 		while job_should_run && !self.state.steps.is_empty() {
 			// Check for commands every iteration
 			if let Ok(command) = command_rx.try_recv() {
 				match command {
-					WorkerCommand::Pause => {
-						ctx.paused.store(true, Ordering::Relaxed);
-					}
 					WorkerCommand::Shutdown => {
 						return Err(JobError::Paused(rmp_serde::to_vec_named(&self.state)?));
 					}
-					WorkerCommand::Cancel => unimplemented!(),
-					WorkerCommand::Resume => {
-						println!("Resuming job now {}", self.id);
-						ctx.paused.store(false, Ordering::Relaxed);
+					WorkerCommand::Cancel => {
+						return Err(JobError::Canceled(rmp_serde::to_vec_named(&self.state)?));
 					}
 				}
 			}
 
+			let mut state_preserved = false;
+			// Every X milliseconds, check the AtomicBool if we should pause or stay paused
 			while ctx.paused.load(Ordering::Relaxed) {
-				println!("Job {} is paused", self.id);
+				if !state_preserved {
+					// Save the state of the job
+					println!("Saving state {:?}", &self.report);
+					// ctx.preserve_state(rmp_serde::to_vec_named(&self.state)?);
+				}
+				state_preserved = true;
 				tokio::time::sleep(Duration::from_millis(500)).await;
 			}
 
+			// process job step and handle errors if any
 			let step_result = self
 				.stateful_job
 				.execute_step(ctx.clone(), &mut self.state)
@@ -329,7 +332,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				}
 				maybe_err => maybe_err?,
 			}
-
+			// remove the step from the queue
 			self.state.steps.pop_front();
 			self.state.step_number += 1;
 		}

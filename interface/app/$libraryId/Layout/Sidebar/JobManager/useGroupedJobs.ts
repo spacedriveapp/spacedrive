@@ -62,7 +62,7 @@ export function useGroupedJobs(jobs: JobReport[] = []): IJobGroup[] {
 			// TODO: this is cringe idk
 			const completed = group.jobs.every((job) => job.status === 'Completed');
 			const queued = group.jobs.every((job) => job.status === 'Queued');
-			const paused = group.jobs.every((job) => job.status === 'Paused');
+			const paused = !!group.jobs.find((job) => job.status === 'Paused');
 
 			// Add the completed property to the group.
 			group.completed = completed;

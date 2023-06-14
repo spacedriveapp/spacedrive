@@ -1,4 +1,4 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
 import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -10,17 +10,28 @@ import JobGroup from './JobGroup';
 import { useGroupedJobs } from './useGroupedJobs';
 
 export function JobsManager() {
-	const { data: _runningJobs } = useLibraryQuery(['jobs.getRunning']);
-	const { data: _jobs } = useLibraryQuery(['jobs.getHistory']);
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
-	const jobs = useMemo(() => (
-		[...(_jobs || []), ...(_runningJobs || [])].sort((a, b) => {
-			return dayjs(a.created_at).isBefore(dayjs(b.created_at)) ? 1 : -1;
-		})
-	), [_jobs, _runningJobs]);
+	const { data: jobs } = useLibraryQuery(['jobs.reports'], {
+		onSuccess: (data) => console.log('data', data)
+	});
 
-	const groupedJobs = useGroupedJobs(jobs);
+	useLibrarySubscription(['jobs.progress'], {
+		onData(data) {
+			console.log({ data })
+			// update query cache for job.reports
+			const groupIndex = jobs?.index[data.id];
+			if (groupIndex !== undefined) {
+				const childJobs = jobs?.groups?.[groupIndex]?.jobs;
+				if (childJobs) {
+					const childIndex = childJobs?.findIndex((job) => job.id === data.id);
+					childJobs[childIndex] = data;
+					queryClient.setQueryData(['jobs.reports'], jobs);
+				}
+			}
+
+		},
+	});
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -30,7 +41,7 @@ export function JobsManager() {
 			});
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.getHistory']);
+			queryClient.invalidateQueries(['jobs.reports ']);
 		}
 	});
 
@@ -45,10 +56,11 @@ export function JobsManager() {
 
 	return (
 		<div className="h-full overflow-hidden pb-10">
+
 			<PopoverClose asChild>
 				<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
 					<span className=" ml-1.5 font-medium">Recent Jobs</span>
-					<div className='mx-2 flex h-4 w-4 items-center justify-center rounded-full bg-app-selected text-tiny font-medium text-ink/60'>{groupedJobs.length}</div>
+
 					<div className="grow" />
 					<Button className='opacity-70' onClick={() => clearAllJobsHandler()} size="icon">
 						<Tooltip label="Clear out finished jobs">
@@ -64,12 +76,12 @@ export function JobsManager() {
 			</PopoverClose>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className='h-full border-r border-app-line/50'>
-					{groupedJobs?.map((group) => (
+					{jobs?.groups?.map((group) => (
 						<JobGroup key={group.id} data={group} clearJob={function (arg: string): void {
 							throw new Error('Function not implemented.');
 						}} />
 					))}
-					{jobs?.length === 0 && (
+					{jobs?.groups?.length === 0 && (
 						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 							No jobs.
 						</div>

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
 
-use crate::{node::NodeConfig, Node};
+use crate::{job::JobReport, node::NodeConfig, Node};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -17,6 +17,7 @@ pub type Router = rspc::Router<Ctx>;
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
 	NewThumbnail { thumb_key: Vec<String> },
+	JobReportUpdate(JobReport),
 	InvalidateOperation(InvalidateOperationEvent),
 }
 

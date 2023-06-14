@@ -76,6 +76,8 @@ pub enum JobError {
 	JobDataNotFound(String),
 	#[error("job paused")]
 	Paused(Vec<u8>),
+	#[error("job paused")]
+	Canceled(Vec<u8>),
 }
 
 #[derive(Error, Debug)]

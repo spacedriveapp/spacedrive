@@ -1,15 +1,16 @@
+use crate::api::CoreEvent;
 use crate::invalidate_query;
 use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::Library;
 use chrono::{DateTime, Utc};
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Condvar};
-use tokio::select;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use tokio::sync::oneshot;
 use tokio::sync::{
 	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 	Mutex,
 };
-use tokio::sync::{oneshot, Notify};
 use tracing::{debug, error, info, warn};
 
 use super::{JobMetadata, JobReport, JobRunErrors};
@@ -21,14 +22,12 @@ pub enum WorkerEvent {
 	Completed(oneshot::Sender<()>, JobMetadata),
 	CompletedWithErrors(oneshot::Sender<()>, JobMetadata, JobRunErrors),
 	Failed(oneshot::Sender<()>),
-	Paused(Option<Vec<u8>>, oneshot::Sender<()>),
+	Paused(Option<Vec<u8>>),
 }
 
 // used to send commands to the worker thread from the manager
 #[derive(Debug)]
 pub enum WorkerCommand {
-	Pause,
-	Resume,
 	Cancel,
 	Shutdown,
 }
@@ -47,6 +46,11 @@ impl WorkerContext {
 			.send(WorkerEvent::Progressed(updates))
 			.expect("critical error: failed to send worker worker progress event updates");
 	}
+	pub fn preserve_state(&self, state: Vec<u8>) {
+		self.events_tx
+			.send(WorkerEvent::Paused(Some(state)))
+			.expect("critical error: failed to send worker worker progress event updates");
+	}
 }
 
 // a worker is a dedicated thread that runs a single job
@@ -57,12 +61,17 @@ pub struct Worker {
 	events_tx: UnboundedSender<WorkerEvent>,
 	events_rx: Option<UnboundedReceiver<WorkerEvent>>,
 	command_tx: Option<UnboundedSender<WorkerCommand>>,
+	// external_event_tx: UnboundedSender<JobManagerUpdate>,
 	start_time: Option<DateTime<Utc>>,
-	pub paused: Arc<AtomicBool>,
+	paused: Arc<AtomicBool>,
 }
 
 impl Worker {
-	pub fn new(job: Box<dyn DynJob>, report: JobReport) -> Self {
+	pub fn new(
+		job: Box<dyn DynJob>,
+		report: JobReport,
+		// external_event_tx: UnboundedSender<JobManagerUpdate>,
+	) -> Self {
 		let (events_tx, events_rx) = unbounded_channel();
 
 		Self {
@@ -71,9 +80,18 @@ impl Worker {
 			events_tx,
 			events_rx: Some(events_rx),
 			command_tx: None,
+			// external_event_tx,
 			start_time: None,
 			paused: Arc::new(AtomicBool::new(false)),
 		}
+	}
+
+	pub fn pause(&self) {
+		self.paused.store(true, Ordering::Relaxed);
+	}
+
+	pub fn resume(&self) {
+		self.paused.store(false, Ordering::Relaxed);
 	}
 
 	pub fn report(&self) -> JobReport {
@@ -125,8 +143,7 @@ impl Worker {
 
 		job.register_children(&library).await?;
 
-		invalidate_query!(library, "jobs.getRunning");
-		invalidate_query!(library, "jobs.getHistory");
+		invalidate_query!(library, "jobs.reports");
 
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
@@ -134,8 +151,6 @@ impl Worker {
 			events_rx,
 			library.clone(),
 		));
-
-		// listen to command_rx for resume command
 
 		let paused = Arc::clone(&worker_mutex.lock().await.paused);
 
@@ -152,9 +167,7 @@ impl Worker {
 			// back to the task that's monitoring job execution.
 			let (done_tx, done_rx) = oneshot::channel::<()>();
 
-			debug!("Worker running job: {:?}", job_hash);
-			// Run the job and handle
-
+			// Run the job and handle the result
 			match job.run(job_manager.clone(), worker_ctx.clone()).await {
 				// -> Job completed successfully
 				Ok((metadata, errors)) if errors.is_empty() => {
@@ -174,15 +187,15 @@ impl Worker {
 				// -> Job paused
 				Err(JobError::Paused(state)) => {
 					info!("Job<id='{job_id}'> paused, we will pause all children jobs");
-					if let Err(e) = job.pause_children(&library).await {
-						error!("Failed to pause children jobs: {e:#?}");
-					}
-
+					// if let Err(e) = job.pause_children(&library).await {
+					// 	error!("Failed to pause children jobs: {e:#?}");
+					// }
 					worker_ctx
 						.events_tx
-						.send(WorkerEvent::Paused(Some(state), done_tx))
+						.send(WorkerEvent::Paused(Some(state)))
 						.expect("critical error: failed to send worker pause event");
 				}
+
 				// -> Job failed
 				Err(e) => {
 					error!("Job<id='{job_id}'> failed with error: {e:#?};");
@@ -225,10 +238,10 @@ impl Worker {
 		mut events_rx: UnboundedReceiver<WorkerEvent>,
 		library: Library,
 	) {
-		while let Some(command) = events_rx.recv().await {
+		while let Some(event) = events_rx.recv().await {
 			let mut worker = worker.lock().await;
 
-			match command {
+			match event {
 				WorkerEvent::Progressed(updates) => {
 					// protect against updates if job is not running
 					if worker.report.status != JobStatus::Running {
@@ -263,9 +276,10 @@ impl Worker {
 						worker.report.estimated_completion = Utc::now()
 							.checked_add_signed(remaining_time)
 							.unwrap_or(Utc::now());
-					}
 
-					invalidate_query!(library, "jobs.getRunning");
+						// emit a CoreEvent
+						library.emit(CoreEvent::JobReportUpdate(worker.report.clone()));
+					}
 				}
 				WorkerEvent::Completed(done_tx, metadata) => {
 					worker.report.status = JobStatus::Completed;
@@ -276,8 +290,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "jobs.getRunning");
-					invalidate_query!(library, "jobs.getHistory");
+					invalidate_query!(library, "jobs.reports");
 
 					info!("{}", worker.report);
 
@@ -297,8 +310,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "jobs.getRunning");
-					invalidate_query!(library, "jobs.getHistory");
+					invalidate_query!(library, "jobs.reports");
 
 					info!("{}", worker.report);
 
@@ -316,8 +328,7 @@ impl Worker {
 					}
 
 					invalidate_query!(library, "library.list");
-					invalidate_query!(library, "jobs.getRunning");
-					invalidate_query!(library, "jobs.getHistory");
+					invalidate_query!(library, "jobs.reports");
 
 					warn!("{}", worker.report);
 
@@ -327,7 +338,7 @@ impl Worker {
 
 					break;
 				}
-				WorkerEvent::Paused(state, done_tx) => {
+				WorkerEvent::Paused(state) => {
 					debug!("Setting worker status to paused");
 
 					worker.report.status = JobStatus::Paused;
@@ -339,12 +350,7 @@ impl Worker {
 
 					info!("{}", worker.report);
 
-					invalidate_query!(library, "jobs.getRunning");
-					invalidate_query!(library, "jobs.getHistory");
-
-					done_tx
-						.send(())
-						.expect("critical error: failed to send worker completion");
+					invalidate_query!(library, "jobs.reports");
 
 					break;
 				}

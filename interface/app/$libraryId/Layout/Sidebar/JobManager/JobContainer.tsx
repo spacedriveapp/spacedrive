@@ -70,8 +70,6 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 									const Icon = textItem?.icon;
 									return (
 										<Fragment key={index}>
-
-
 											<TextItem
 												onClick={textItem?.onClick}
 												className={clsx(
