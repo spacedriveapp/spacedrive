@@ -42,8 +42,6 @@ export const LibrarySection = () => {
 		};
 	}, [triggeredContextItem]);
 
-	console.log(triggeredContextItem);
-
 	return (
 		<>
 			<Section
