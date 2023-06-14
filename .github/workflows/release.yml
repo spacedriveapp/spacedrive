@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Are you sure you want to do this here?
+        description: 'Override release protection on main repo. (hint: use the private repo for testing)'
         default: false
+        required: true
         type: boolean
 
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
