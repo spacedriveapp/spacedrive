@@ -11,17 +11,29 @@ import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
 import TagsContextMenu from './TagsContextMenu';
 
+type TriggeredContextItem =
+	| {
+			type: 'location';
+			locationId: number;
+	  }
+	| {
+			type: 'tag';
+			tagId: number;
+	  };
+
 export const LibrarySection = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
-	const [triggeredContextItem, setTriggeredContextItem] = useState('');
+	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
+		null
+	);
 
 	useEffect(() => {
 		const outsideClick = () => {
 			document.addEventListener('click', () => {
-				setTriggeredContextItem('');
+				setTriggeredContextItem(null);
 			});
 		};
 		outsideClick();
@@ -29,6 +41,8 @@ export const LibrarySection = () => {
 			document.removeEventListener('click', outsideClick);
 		};
 	}, [triggeredContextItem]);
+
+	console.log(triggeredContextItem);
 
 	return (
 		<>
@@ -76,10 +90,14 @@ export const LibrarySection = () => {
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink
 								onContextMenu={() =>
-									setTriggeredContextItem(`location-${location.id}`)
+									setTriggeredContextItem({
+										type: 'location',
+										locationId: location.id
+									})
 								}
 								className={clsx(
-									triggeredContextItem === `location-${location.id}`
+									triggeredContextItem?.type === 'location' &&
+										triggeredContextItem.locationId === location.id
 										? 'border-accent'
 										: 'border-transparent',
 									'group relative w-full border'
@@ -116,9 +134,15 @@ export const LibrarySection = () => {
 						{tags.data?.slice(0, 6).map((tag) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
-									onContextMenu={() => setTriggeredContextItem(`tag-${tag.id}`)}
+									onContextMenu={() =>
+										setTriggeredContextItem({
+											type: 'tag',
+											tagId: tag.id
+										})
+									}
 									className={clsx(
-										triggeredContextItem === `tag-${tag.id}`
+										triggeredContextItem?.type === 'tag' &&
+											triggeredContextItem?.tagId === tag.id
 											? 'border-accent'
 											: 'border-transparent',
 										'border'
