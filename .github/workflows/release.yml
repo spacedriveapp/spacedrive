@@ -2,11 +2,17 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Are you sure you want to do this here?
+        default: false
+        type: boolean
 
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
 jobs:
   desktop-main:
+    if: ${{ github.event.inputs.confirm == 'true' }}
     strategy:
       fail-fast: true
       matrix:
