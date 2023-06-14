@@ -34,7 +34,7 @@ const Items = ({
 }) => {
 	const { library } = useLibraryContext();
 
-	const items = useQuery(
+	const items = useQuery<any[]>(
 		['openWith', filePath.id],
 		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
 		{ suspense: true }

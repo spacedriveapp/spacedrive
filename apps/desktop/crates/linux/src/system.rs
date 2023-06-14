@@ -39,12 +39,7 @@ impl SystemApps {
 			.list_data_files_once("applications")
 			.into_iter()
 			.filter(|p| p.extension().and_then(|x| x.to_str()) == Some("desktop"))
-			.filter_map(|p| {
-				Some((
-					p.file_name()?.to_owned(),
-					DesktopEntry::try_from(&p).ok()?,
-				))
-			}))
+			.filter_map(|p| Some((p.file_name()?.to_owned(), DesktopEntry::try_from(&p).ok()?))))
 	}
 
 	pub fn populate() -> Result<Self> {
