@@ -453,6 +453,7 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
+	#[cfg(test)]
 	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
 		Self {
 			id: None,
