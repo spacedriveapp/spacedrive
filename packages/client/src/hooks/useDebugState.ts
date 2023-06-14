@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from './util';
+import { valtioPersist } from '../lib/valito';
 
 export interface DebugState {
 	enabled: boolean;
@@ -9,7 +9,7 @@ export interface DebugState {
 	telemetryLogging: boolean;
 }
 
-export const debugState: DebugState = valtioPersist('sd-debugState', {
+const debugState: DebugState = valtioPersist('sd-debugState', {
 	enabled: globalThis.isDev,
 	rspcLogger: false,
 	reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',

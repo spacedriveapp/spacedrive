@@ -1,6 +1,7 @@
 import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect, useRef } from 'react';
-import { PlausiblePlatformType, telemetryStore, useDebugState, useTelemetryState } from '../stores';
+import { useDebugState } from './useDebugState';
+import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useTelemetryState';
 
 /**
  * This should be in sync with the Core's version.
