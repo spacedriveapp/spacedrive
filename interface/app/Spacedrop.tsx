@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { PeerMetadata, useBridgeMutation, useBridgeSubscription } from '@sd/client';
+import {
+	PeerMetadata,
+	useBridgeMutation,
+	useBridgeSubscription,
+	useDiscoveredPeers,
+	useFeatureFlag
+} from '@sd/client';
 import {
 	Dialog,
 	Select,
@@ -14,15 +20,22 @@ import { getSpacedropState, subscribeSpacedropState } from '../hooks/useSpacedro
 const { Input, useZodForm, z } = forms;
 
 export function SpacedropUI() {
-	// TODO(Spacedrop): Disable Spacedrop for now
-	return null;
+	const isSpacedropEnabled = useFeatureFlag('spacedrop');
+	if (!isSpacedropEnabled) {
+		return null;
+	}
 
+	return <SpacedropUIInner />;
+}
+
+function SpacedropUIInner() {
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
 		})
 	);
 
+	// TODO: In a perfect world, this would not exist as it means we have two open subscriptions for the same data (the other one being in `useP2PEvents.tsx` in `@sd/client`). It's just hard so we will eat the overhead for now.
 	useBridgeSubscription(['p2p.events'], {
 		onData(data) {
 			if (data.type === 'SpacedropRequest') {
@@ -42,20 +55,12 @@ export function SpacedropUI() {
 }
 
 function SpacedropDialog(props: UseDialogProps) {
-	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
+	const discoveredPeers = useDiscoveredPeers();
 	const form = useZodForm({
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
 			target_peer: z.string()
 		})
-	});
-
-	useBridgeSubscription(['p2p.events'], {
-		onData(data) {
-			if (data.type === 'DiscoveredPeer') {
-				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
-			}
-		}
 	});
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');

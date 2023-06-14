@@ -1,7 +1,7 @@
 import { PropsWithChildren, createContext, useContext, useMemo } from 'react';
 import { LibraryConfigWrapped } from '../core';
+import { valtioPersist } from '../lib';
 import { useBridgeQuery } from '../rspc';
-import { valtioPersist } from '../stores';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
