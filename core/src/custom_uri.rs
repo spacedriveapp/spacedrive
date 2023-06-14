@@ -1,7 +1,7 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	prisma::file_path,
-	util::error::FileIOError,
+	util::{db::*, error::FileIOError},
 	Node,
 };
 
@@ -193,14 +193,14 @@ async fn handle_file(
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
-			let Some(path) = &file_path.location.path else {
-                return Err(HandleCustomUriError::NoPath(file_path.location.id))
-            };
+			let location = maybe_missing(&file_path.location, "file_path.location")?;
+			let path = maybe_missing(&location.path, "file_path.location.path")?;
 
 			let lru_entry = (
-				Path::new(path).join(IsolatedFilePathData::from((location_id, &file_path))),
-				file_path.extension,
+				Path::new(path).join(IsolatedFilePathData::try_from((location_id, &file_path))?),
+				maybe_missing(file_path.extension, "extension")?,
 			);
+
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
 
 			lru_entry
@@ -400,8 +400,8 @@ pub enum HandleCustomUriError {
 	RangeNotSatisfiable(&'static str),
 	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
 	NotFound(&'static str),
-	#[error("no-path")]
-	NoPath(i32),
+	#[error("HandleCustomUriError::MissingField - '{0}'")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<HandleCustomUriError> for Response<Vec<u8>> {
@@ -444,7 +444,7 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.as_bytes()
 					.to_vec(),
 			),
-			HandleCustomUriError::NoPath(id) => {
+			HandleCustomUriError::MissingField(id) => {
 				error!("Location <id = {id}> has no path");
 				builder
 					.status(StatusCode::INTERNAL_SERVER_ERROR)

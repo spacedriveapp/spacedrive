@@ -3,7 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -38,17 +38,20 @@ pub enum FileCopierJobStep {
 	File { path: PathBuf },
 }
 
-impl From<FsInfo> for FileCopierJobStep {
-	fn from(value: FsInfo) -> Self {
-		if value.path_data.is_dir {
-			Self::Directory {
-				path: value.fs_path,
-			}
-		} else {
-			Self::File {
-				path: value.fs_path,
-			}
-		}
+impl TryFrom<FsInfo> for FileCopierJobStep {
+	type Error = JobError;
+
+	fn try_from(value: FsInfo) -> Result<Self, Self::Error> {
+		Ok(
+			match maybe_missing(value.path_data.is_dir, "file_path.is_dir")? {
+				true => Self::Directory {
+					path: value.fs_path,
+				},
+				false => Self::File {
+					path: value.fs_path,
+				},
+			},
+		)
 	}
 }
 
@@ -92,15 +95,17 @@ impl StatefulJob for FileCopierJob {
 		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or_else(
 			|| Ok::<_, JobError>(file_name.clone()),
 			|suffix| {
-				Ok(if source_fs_info.path_data.is_dir {
-					format!("{file_name}{suffix}")
-				} else {
-					osstr_to_string(source_fs_info.fs_path.file_stem())?
-						+ suffix + &source_fs_info.fs_path.extension().map_or_else(
-						|| Ok(String::new()),
-						|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
-					)?
-				})
+				Ok(
+					if maybe_missing(source_fs_info.path_data.is_dir, "file_path.is_dir")? {
+						format!("{file_name}{suffix}")
+					} else {
+						osstr_to_string(source_fs_info.fs_path.file_stem())?
+							+ suffix + &source_fs_info.fs_path.extension().map_or_else(
+							|| Ok(String::new()),
+							|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
+						)?
+					},
+				)
 			},
 		)?;
 
@@ -111,7 +116,7 @@ impl StatefulJob for FileCopierJob {
 			source_fs_info: source_fs_info.clone(),
 		});
 
-		state.steps.push_back(source_fs_info.into());
+		state.steps.push_back(source_fs_info.try_into()?);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -132,7 +137,7 @@ impl StatefulJob for FileCopierJob {
 			FileCopierJobStep::File { path } => {
 				let mut target_path = data.target_path.clone();
 
-				if data.source_fs_info.path_data.is_dir {
+				if maybe_missing(data.source_fs_info.path_data.is_dir, "file_path.is_dir")? {
 					// if root type is a dir, we need to preserve structure by making paths relative
 					target_path.push(
 						path.strip_prefix(&data.source_fs_info.fs_path)
@@ -175,7 +180,9 @@ impl StatefulJob for FileCopierJob {
 			FileCopierJobStep::Directory { path } => {
 				// if this is the very first path, create the target dir
 				// fixes copying dirs with no child directories
-				if data.source_fs_info.path_data.is_dir && &data.source_fs_info.fs_path == path {
+				if maybe_missing(data.source_fs_info.path_data.is_dir, "file_path.is_dir")?
+					&& &data.source_fs_info.fs_path == path
+				{
 					fs::create_dir_all(&data.target_path)
 						.await
 						.map_err(|e| FileIOError::from((&data.target_path, e)))?;

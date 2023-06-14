@@ -1,15 +1,12 @@
 use crate::{
 	invalidate_query,
-	location::{
-		indexer::rules::{self, SeederError},
-		LocationManagerError,
-	},
+	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db,
+		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
 	},
@@ -68,8 +65,8 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
-	#[error("no-path")]
-	NoPath(i32),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {

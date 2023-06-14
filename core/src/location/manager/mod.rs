@@ -1,4 +1,8 @@
-use crate::{job::JobManagerError, library::Library, util::error::FileIOError};
+use crate::{
+	job::JobManagerError,
+	library::Library,
+	util::{db::MissingFieldError, error::FileIOError},
+};
 
 use std::{
 	collections::BTreeSet,
@@ -102,8 +106,8 @@ pub enum LocationManagerError {
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
 	JobManager(#[from] JobManagerError),
-	#[error("missing-location-path")]
-	MissingPath,
+	#[error("missing-field")]
+	MissingField(#[from] MissingFieldError),
 
 	#[error("invalid inode")]
 	InvalidInode,

@@ -75,7 +75,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(args.id),
-							vec![object::favorite::set(args.favorite)],
+							vec![object::favorite::set(Some(args.favorite))],
 						)
 						.exec()
 						.await?;

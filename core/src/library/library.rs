@@ -9,7 +9,7 @@ use crate::{
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
 };
 
@@ -101,8 +101,7 @@ impl Library {
 
 	/// Returns the full path of a file
 	pub async fn get_file_path(&self, id: i32) -> Result<Option<PathBuf>, LibraryManagerError> {
-		Ok(self
-			.db
+		self.db
 			.file_path()
 			.find_first(vec![
 				file_path::location::is(vec![location::node_id::equals(Some(self.node_local_id))]),
@@ -112,15 +111,13 @@ impl Library {
 			.exec()
 			.await?
 			.map(|record| {
-				record
-					.location
-					.path
-					.as_ref()
-					.map(|p| {
-						Path::new(p).join(IsolatedFilePathData::from((record.location.id, &record)))
-					})
-					.ok_or_else(|| LibraryManagerError::NoPath(record.location.id))
+				let location = maybe_missing(&record.location, "file_path.location")?;
+
+				Ok(
+					Path::new(maybe_missing(&location.path, "file_path.location.path")?)
+						.join(IsolatedFilePathData::try_from((location.id, &record))?),
+				)
 			})
-			.transpose()?)
+			.transpose()
 	}
 }

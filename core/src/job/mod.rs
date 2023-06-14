@@ -2,7 +2,7 @@ use crate::{
 	library::Library,
 	location::indexer::IndexerError,
 	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
-	util::error::FileIOError,
+	util::{db::MissingFieldError, error::FileIOError},
 };
 
 use std::{
@@ -50,6 +50,7 @@ pub enum JobError {
 	MissingReport { id: Uuid, name: String },
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
+
 	#[error("error converting/handling OS strings")]
 	OsStr,
 	#[error("error converting/handling paths")]
@@ -72,12 +73,8 @@ pub enum JobError {
 	MatchingSrcDest(PathBuf),
 	#[error("action would overwrite another file: {}", .0.display())]
 	WouldOverwrite(PathBuf),
-	#[error("item of type '{0}' with id '{1}' is missing from the db")]
-	MissingFromDb(&'static str, String),
-	#[error("the cas id is not set on the path data")]
-	MissingCasId,
-	#[error("missing-location-path")]
-	MissingPath,
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 
 	// Not errors
 	#[error("step completed with errors: {0:?}")]

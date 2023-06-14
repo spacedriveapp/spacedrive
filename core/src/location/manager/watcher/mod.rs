@@ -1,4 +1,4 @@
-use crate::{library::Library, location::LocationId, prisma::location};
+use crate::{library::Library, location::LocationId, prisma::location, util::db::maybe_missing};
 
 use std::{
 	collections::HashSet,
@@ -106,13 +106,9 @@ impl LocationWatcher {
 			stop_rx,
 		));
 
-		let Some(path) = location.path else {
-            return Err(LocationManagerError::MissingPath)
-        };
-
 		Ok(Self {
 			id: location.id,
-			path,
+			path: maybe_missing(location.path, "location.path")?,
 			watcher,
 			ignore_path_tx,
 			handle: Some(handle),

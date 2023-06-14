@@ -3,7 +3,7 @@ use crate::{
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -34,17 +34,20 @@ pub enum FileEraserJobStep {
 	File { path: PathBuf },
 }
 
-impl From<FsInfo> for FileEraserJobStep {
-	fn from(value: FsInfo) -> Self {
-		if value.path_data.is_dir {
-			Self::Directory {
-				path: value.fs_path,
-			}
-		} else {
-			Self::File {
-				path: value.fs_path,
-			}
-		}
+impl TryFrom<FsInfo> for FileEraserJobStep {
+	type Error = JobError;
+
+	fn try_from(value: FsInfo) -> Result<Self, Self::Error> {
+		Ok(
+			match maybe_missing(value.path_data.is_dir, "file_path.is_dir")? {
+				true => Self::Directory {
+					path: value.fs_path,
+				},
+				false => Self::File {
+					path: value.fs_path,
+				},
+			},
+		)
 	}
 }
 
@@ -71,7 +74,7 @@ impl StatefulJob for FileEraserJob {
 
 		state.data = Some(fs_info.clone());
 
-		state.steps.push_back(fs_info.into());
+		state.steps.push_back(fs_info.try_into()?);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -159,7 +162,7 @@ impl StatefulJob for FileEraserJob {
 			.data
 			.as_ref()
 			.expect("critical error: missing data on job state");
-		if data.path_data.is_dir {
+		if maybe_missing(data.path_data.is_dir, "file_path.is_dir")? {
 			tokio::fs::remove_dir_all(&data.fs_path)
 				.await
 				.map_err(|e| FileIOError::from((&data.fs_path, e)))?;

@@ -2,6 +2,7 @@ use crate::{
 	job::JobError,
 	location::file_path_helper::{file_path_with_object, IsolatedFilePathData},
 	prisma::{file_path, location, PrismaClient},
+	util::db::maybe_missing,
 };
 
 use std::{ffi::OsStr, path::PathBuf};
@@ -46,17 +47,15 @@ pub async fn get_location_path_from_location_id(
 	db: &PrismaClient,
 	location_id: i32,
 ) -> Result<PathBuf, JobError> {
-	Ok(db
+	let location = db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
 		.await?
 		.ok_or(JobError::MissingData {
 			value: String::from("location which matches location_id"),
-		})?
-		.path
-		.ok_or(JobError::MissingPath)?
-		.into())
+		})?;
+	Ok(maybe_missing(location.path, "location.path")?.into())
 }
 
 pub async fn context_menu_fs_info(
@@ -77,7 +76,7 @@ pub async fn context_menu_fs_info(
 	Ok(FsInfo {
 		fs_path: get_location_path_from_location_id(db, location_id)
 			.await?
-			.join(IsolatedFilePathData::from(&path_data)),
+			.join(IsolatedFilePathData::try_from(&path_data)?),
 		path_data,
 	})
 }

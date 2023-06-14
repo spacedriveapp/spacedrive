@@ -7,7 +7,7 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::chain_optional_iter,
+	util::db::{chain_optional_iter, maybe_missing},
 };
 
 use std::path::{Path, PathBuf};
@@ -33,10 +33,7 @@ pub async fn shallow(
 	info!("Identifying orphan File Paths...");
 
 	let location_id = location.id;
-	let location_path = location.path.as_ref();
-	let Some(location_path) = location_path.map(Path::new) else {
-        return Err(JobError::MissingPath)
-    };
+	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	let sub_iso_file_path = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(location_path, &sub_path)
@@ -125,13 +122,13 @@ fn orphan_path_filters(
 	chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
-			file_path::is_dir::equals(false),
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::equals(
+			file_path::is_dir::equals(Some(false)),
+			file_path::location_id::equals(Some(location_id)),
+			file_path::materialized_path::equals(Some(
 				sub_iso_file_path
 					.materialized_path_for_children()
 					.expect("sub path for shallow identifier must be a directory"),
-			),
+			)),
 		],
 		[file_path_id.map(file_path::id::gte)],
 	)
