@@ -270,11 +270,24 @@ impl JobManager {
 		Ok(())
 	}
 
+	// get all active jobs, including paused jobs
 	pub async fn get_active_reports(&self) -> HashMap<String, JobReport> {
 		let mut active_reports = HashMap::new();
 		for worker in self.running_workers.read().await.values() {
 			let report = worker.lock().await.report();
 			active_reports.insert(report.get_meta().0, report);
+		}
+		active_reports
+	}
+	// get all running jobs, excluding paused jobs
+	pub async fn get_running_reports(&self) -> HashMap<String, JobReport> {
+		let mut active_reports = HashMap::new();
+		for worker in self.running_workers.read().await.values() {
+			let worker = worker.lock().await;
+			if !worker.is_paused() {
+				let report = worker.report();
+				active_reports.insert(report.get_meta().0, report);
+			}
 		}
 		active_reports
 	}

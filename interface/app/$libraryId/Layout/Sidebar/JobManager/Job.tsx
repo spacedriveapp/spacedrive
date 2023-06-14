@@ -21,9 +21,15 @@ function Job({ job: _job, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
 
 	const [job, setJob] = useState<JobReport>(_job);
+	const [useRealtime, setUseRealtime] = useState<boolean>(false);
 
 	useEffect(() => {
-		setJob(_job)
+		if (_job.status !== 'Running') {
+			setJob(_job)
+			setUseRealtime(false);
+		} else {
+			setUseRealtime(true);
+		}
 	}, [_job]);
 
 	const handleJobUpdate = useCallback((data: JobReport) => {
@@ -35,6 +41,7 @@ function Job({ job: _job, className, isChild }: JobProps) {
 
 	useLibrarySubscription(['jobs.progress'], {
 		onData: handleJobUpdate,
+		enabled: useRealtime
 	});
 
 	const niceData = useJobInfo(job)[job.name] || {

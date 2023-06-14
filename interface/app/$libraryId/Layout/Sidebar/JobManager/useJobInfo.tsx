@@ -39,7 +39,7 @@ export default function useJobInfo(job: JobReport,
 		file_identifier: {
 			name: `${isQueued ? "Extract" : isRunning ? "Extracting" : "Extracted"} metadata`,
 			icon: Fingerprint,
-			textItems: [!isRunning ? [
+			textItems: [!isRunning ? meta?.total_orphan_paths === 0 ? [{ text: "No files changed" }] : [
 				{ text: `${comma(meta?.total_orphan_paths)} ${plural(meta?.total_orphan_paths, 'file')}` },
 				{ text: `${comma(meta?.total_objects_created)} ${plural(meta?.total_objects_created, 'Object')} created` },
 				{ text: `${comma(meta?.total_objects_linked)} ${plural(meta?.total_objects_linked, 'Object')} linked` }

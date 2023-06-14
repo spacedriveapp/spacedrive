@@ -7,6 +7,7 @@ export type Procedures = {
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number; key_id: number | null; hidden: boolean; favorite: boolean; important: boolean; has_thumbnail: boolean; has_thumbstrip: boolean; has_video_preview: boolean; ipfs_id: string | null; note: string | null; date_created: string; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
+        { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroups } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 

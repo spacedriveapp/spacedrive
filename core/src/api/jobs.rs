@@ -33,16 +33,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(ctx, _), _: ()| async move {
 					let mut event_bus_rx = ctx.event_bus.0.subscribe();
-
 					let mut tick = interval(Duration::from_secs_f64(1.0 / 10.0));
 					async_stream::stream! {
-						while let Ok(event) = event_bus_rx.recv().await {
-							match event {
-								CoreEvent::JobReportUpdate(report) => {
-									let _ = tick.tick().await;
-									yield report
-								},
-								_ => {}
+						loop { // TODO: Oscar fix this
+							while let Ok(event) = event_bus_rx.recv().await {
+								match event {
+									CoreEvent::JobReportUpdate(report) => {
+										let _ = tick.tick().await;
+										yield report
+									},
+									_ => {}
+								}
 							}
 						}
 					}
@@ -138,6 +139,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						index,
 					})
 				})
+		})
+		.procedure("isActive", {
+			R.with2(library()).query(|(ctx, _), _: ()| async move {
+				Ok(ctx.jobs.get_running_reports().await.len() > 0)
+			})
 		})
 		.procedure("clear", {
 			R.with2(library())

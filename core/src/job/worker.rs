@@ -97,6 +97,11 @@ impl Worker {
 	pub fn report(&self) -> JobReport {
 		self.report.clone()
 	}
+
+	pub fn is_paused(&self) -> bool {
+		self.paused.load(Ordering::Relaxed)
+	}
+
 	// spawns a thread and extracts channel sender to communicate with it
 	pub async fn spawn(
 		job_manager: Arc<JobManager>,
