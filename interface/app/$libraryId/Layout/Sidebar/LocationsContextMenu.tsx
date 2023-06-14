@@ -20,20 +20,20 @@ export default ({ children, locationId }: Props) => {
 	return (
 		<CM.Root trigger={children}>
 			<CM.Item
-				onClick={() => {
-					openDirectoryPickerDialog(platform)
-						.then((path) => {
-							if (path !== '')
-								dialogManager.create((dp) => (
-									<AddLocationDialog path={path ?? ''} {...dp} />
-								));
-						})
-						.catch((error) =>
-							showAlertDialog({
-								title: 'Error',
-								value: String(error)
-							})
-						);
+				onClick={async () => {
+					try {
+						const path = await openDirectoryPickerDialog(platform);
+						if (path !== '') {
+							dialogManager.create((dp) => (
+								<AddLocationDialog path={path ?? ''} {...dp} />
+							));
+						}
+					} catch (error) {
+						showAlertDialog({
+							title: 'Error',
+							value: String(error)
+						});
+					}
 				}}
 				icon={Plus}
 				label="New location"
