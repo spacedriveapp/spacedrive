@@ -12,7 +12,7 @@ use sd_p2p::{
 pub enum Header {
 	Ping,
 	Spacedrop(SpacedropRequest),
-	Sync(Uuid, u32),
+	Sync(Uuid),
 }
 
 #[derive(Debug, Error)]
@@ -61,16 +61,8 @@ impl Header {
 					.await
 					.map_err(SyncRequestError::LibraryIdIoError)?;
 
-				let mut len = [0; 4];
-				stream
-					.read_exact(&mut len)
-					.await
-					.map_err(SyncRequestError::PayloadLenIoError)?;
-				let len = u32::from_le_bytes(len);
-
 				Ok(Self::Sync(
 					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
-					len,
 				))
 			}
 			d => Err(HeaderError::InvalidDiscriminator(d)),
@@ -85,13 +77,9 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Sync(uuid, len) => {
+			Self::Sync(uuid) => {
 				let mut bytes = vec![2];
 				bytes.extend_from_slice(uuid.as_bytes());
-
-				let len_buf = len.to_le_bytes();
-				debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
-				bytes.extend_from_slice(&len_buf);
 
 				bytes
 			}

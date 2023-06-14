@@ -16,6 +16,7 @@ use crate::{
 	util::AbortOnDrop,
 };
 use prisma_client_rust::QueryError;
+use sd_p2p::spacetunnel::Identity;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
@@ -114,6 +115,7 @@ impl InitConfig {
 							LibraryConfig {
 								name: lib.name,
 								description: lib.description.unwrap_or("".to_string()),
+								identity: Identity::new().to_bytes(),
 							},
 						)
 						.await?;

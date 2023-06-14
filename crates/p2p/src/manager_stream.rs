@@ -57,10 +57,7 @@ impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction<TMetada
 }
 
 /// TODO
-pub struct ManagerStream<TMetadata>
-where
-	TMetadata: Metadata,
-{
+pub struct ManagerStream<TMetadata: Metadata> {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,

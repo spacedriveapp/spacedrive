@@ -24,6 +24,7 @@ pub struct NodeConfig {
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
+	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	#[specta(skip)]
 	pub keypair: Keypair,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.

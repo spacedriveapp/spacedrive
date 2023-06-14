@@ -1,4 +1,6 @@
+use sd_p2p::spacetunnel::Identity;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use specta::Type;
 use uuid::Uuid;
 
@@ -20,17 +22,19 @@ pub struct LibraryConfig {
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
+	/// P2P identity of this library
+	pub identity: Vec<u8>,
 }
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 1;
+	const CURRENT_VERSION: u32 = 2;
 
 	type Ctx = PrismaClient;
 
 	async fn migrate(
 		to_version: u32,
-		_config: &mut serde_json::Map<String, serde_json::Value>,
+		config: &mut serde_json::Map<String, serde_json::Value>,
 		db: &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match to_version {
@@ -58,6 +62,18 @@ impl Migrate for LibraryConfig {
 						.collect::<Vec<_>>(),
 				)
 				.await?;
+			}
+			2 => {
+				config.insert(
+					"identity".into(),
+					Value::Array(
+						Identity::new()
+							.to_bytes()
+							.into_iter()
+							.map(|v| v.into())
+							.collect(),
+					),
+				);
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}

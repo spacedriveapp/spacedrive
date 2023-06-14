@@ -11,6 +11,7 @@ use std::{
 use sd_p2p::{
 	spaceblock::{self, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
+	spacetunnel::Tunnel,
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
@@ -176,16 +177,28 @@ impl P2PManager {
 
 										info!("spacedrop({id}): complete");
 									}
-									Header::Sync(library_id, len) => {
-										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
-										event.stream.read_exact(&mut buf).await.unwrap();
+									Header::Sync(library_id) => {
+										let tunnel =
+											Tunnel::from_stream(event.stream).await.unwrap();
 
-										let mut buf: &[u8] = &buf;
-										let operations = rmp_serde::from_read(&mut buf).unwrap();
+										todo!();
 
-										println!("Received sync events for library '{library_id}': {operations:?}");
+										// let mut len = [0; 4];
+										// stream
+										// 	.read_exact(&mut len)
+										// 	.await
+										// 	.map_err(SyncRequestError::PayloadLenIoError)?;
+										// let len = u32::from_le_bytes(len);
 
-										sync_events.send((library_id, operations)).unwrap();
+										// let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
+										// event.stream.read_exact(&mut buf).await.unwrap();
+
+										// let mut buf: &[u8] = &buf;
+										// let operations = rmp_serde::from_read(&mut buf).unwrap();
+
+										// println!("Received sync events for library '{library_id}': {operations:?}");
+
+										// sync_events.send((library_id, operations)).unwrap();
 									}
 								}
 							});
@@ -271,8 +284,15 @@ impl P2PManager {
 				return;
 			}
 		};
-		let mut head_buf = Header::Sync(library_id, buf.len() as u32).to_bytes(); // Max Sync payload is like 4GB
+		let mut head_buf = Header::Sync(library_id).to_bytes(); // Max Sync payload is like 4GB
 		head_buf.append(&mut buf);
+
+		// buf.len() as u32
+
+		// let len_buf = len.to_le_bytes();
+		// debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
+		// bytes.extend_from_slice(&len_buf);
+		todo!();
 
 		debug!("broadcasting sync events. payload_len={}", buf.len());
 

@@ -32,6 +32,9 @@ specta = { workspace = true }
 flume = "0.10.14"
 tokio-util = { version = "0.7.8", features = ["compat"] }
 arc-swap = "1.6.0"
+p384 = { version = "0.13.0", feature = ["ecdh"] }
+ed25519-dalek = { version = "1.0.1", features = ["rand"] }
+rand_core = { version = "0.5.1", feature = ["getrandom"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
