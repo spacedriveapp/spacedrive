@@ -130,17 +130,12 @@ impl<'a> Block<'a> {
 		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
 		let size = u64::from_le_bytes(size);
 
-		// TODO: Handle overflow of `data_buf`
-		// TODO: Prevent this being used as a DoS cause I think it can
-		let mut read_offset = 0u64;
-		loop {
-			let read = stream.read(data_buf).await.map_err(|_| ())?; // TODO: Error handling
-			read_offset += read as u64;
+		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
 
-			if read_offset == size {
-				break;
-			}
-		}
+		stream
+			.read_exact(&mut data_buf[..size as usize])
+			.await
+			.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
 			offset,
@@ -193,6 +188,7 @@ pub async fn receive(
 	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
 	let mut offset: u64 = 0;
 
+	// TODO: Prevent loop being a DOS vector
 	loop {
 		// TODO: Timeout if nothing is being received
 		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
