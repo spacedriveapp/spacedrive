@@ -453,16 +453,16 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	// pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
-	// 	Self {
-	// 		id: None,
-	// 		name,
-	// 		default,
-	// 		rules,
-	// 		date_created: Utc::now(),
-	// 		date_modified: Utc::now(),
-	// 	}
-	// }
+	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+		Self {
+			id: None,
+			name,
+			default,
+			rules,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
+		}
+	}
 
 	pub async fn apply(
 		&self,

@@ -4,7 +4,7 @@ use crate::{
 	util::error::FileIOError,
 };
 
-use std::{fmt::Debug, hash::Hasher, path::PathBuf};
+use std::{fmt::Debug, path::PathBuf};
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
@@ -66,7 +66,8 @@ pub enum JobError {
 	MissingFromDb(&'static str, String),
 	#[error("the cas id is not set on the path data")]
 	MissingCasId,
-
+	#[error("missing-location-path")]
+	MissingPath,
 	// Not errors
 	#[error("step completed with errors")]
 	StepCompletedWithErrors(JobRunErrors),
