@@ -1,8 +1,6 @@
 use crate::{
-	location::{
-		file_path_helper::{FilePathError, FilePathId},
-		LocationError,
-	},
+	location::{file_path_helper::FilePathError, LocationError},
+	prisma::file_path,
 	util::error::FileIOError,
 };
 
@@ -19,7 +17,7 @@ pub enum FileSystemJobsError {
 	#[error("file_path not in database: <path='{}'>", .0.display())]
 	FilePathNotFound(Box<Path>),
 	#[error("file_path id not in database: <id='{0}'>")]
-	FilePathIdNotFound(FilePathId),
+	FilePathIdNotFound(file_path::id::Type),
 	#[error("failed to create file or folder on disk")]
 	CreateFileOrFolder(FileIOError),
 	#[error("database error: {0}")]

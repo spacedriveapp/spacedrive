@@ -3,10 +3,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
 	library::Library,
-	location::{
-		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
-		LocationId,
-	},
+	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{error::FileIOError, version_manager::VersionManagerError},
 };
@@ -106,7 +103,7 @@ pub enum ThumbnailerError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobReport {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	path: PathBuf,
 	thumbnails_created: u32,
 }

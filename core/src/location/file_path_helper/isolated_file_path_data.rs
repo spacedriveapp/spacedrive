@@ -1,4 +1,7 @@
-use crate::{location::LocationId, prisma::file_path, util::error::NonUtf8PathError};
+use crate::{
+	prisma::{file_path, location},
+	util::error::NonUtf8PathError,
+};
 
 use std::{
 	borrow::Cow,
@@ -21,7 +24,7 @@ static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
-	pub(in crate::location) location_id: LocationId,
+	pub(in crate::location) location_id: location::id::Type,
 	pub(in crate::location) materialized_path: Cow<'a, str>,
 	pub(in crate::location) is_dir: bool,
 	pub(in crate::location) name: Cow<'a, str>,
@@ -31,7 +34,7 @@ pub struct IsolatedFilePathData<'a> {
 
 impl IsolatedFilePathData<'static> {
 	pub fn new(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_path: impl AsRef<Path>,
 		full_path: impl AsRef<Path>,
 		is_dir: bool,
@@ -75,7 +78,7 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
-	pub fn location_id(&self) -> LocationId {
+	pub fn location_id(&self) -> location::id::Type {
 		self.location_id
 	}
 
@@ -113,7 +116,10 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	pub fn from_relative_str(location_id: LocationId, relative_file_path_str: &'a str) -> Self {
+	pub fn from_relative_str(
+		location_id: location::id::Type,
+		relative_file_path_str: &'a str,
+	) -> Self {
 		let is_dir = relative_file_path_str.ends_with('/');
 
 		let (materialized_path, maybe_name, maybe_extension) =
@@ -249,7 +255,7 @@ impl<'a> IsolatedFilePathData<'a> {
 	}
 
 	fn from_db_data(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		db_materialized_path: &'a str,
 		db_is_dir: bool,
 		db_name: &'a str,
@@ -384,13 +390,13 @@ mod macros {
 	macro_rules! impl_from_db_without_location_id {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::From<($crate::location::LocationId, $file_path_kind::Data)> for $crate::
+				impl ::std::convert::From<($crate::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-					fn from((location_id, path): ($crate::location::LocationId, $file_path_kind::Data)) -> Self {
+					fn from((location_id, path): ($crate::prisma::location::id::Type, $file_path_kind::Data)) -> Self {
 						Self {
 							location_id,
 							relative_path: Cow::Owned(
@@ -413,13 +419,13 @@ mod macros {
 					}
 				}
 
-				impl<'a> ::std::convert::From<($crate::location::LocationId, &'a $file_path_kind::Data)> for $crate::
+				impl<'a> ::std::convert::From<($crate::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-					fn from((location_id, path): ($crate::location::LocationId, &'a $file_path_kind::Data)) -> Self {
+					fn from((location_id, path): ($crate::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Self {
 						Self::from_db_data(
 							location_id,
 							&path.materialized_path,
@@ -450,7 +456,7 @@ impl_from_db_without_location_id!(
 );
 
 fn extract_relative_path(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 ) -> Result<String, FilePathError> {
@@ -472,7 +478,7 @@ fn extract_relative_path(
 /// This function separates a file path from a location path, and normalizes replacing '\' with '/'
 /// to be consistent between Windows and Unix like systems
 pub fn extract_normalized_materialized_path_str(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 ) -> Result<String, FilePathError> {

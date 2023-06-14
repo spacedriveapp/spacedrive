@@ -225,7 +225,13 @@ export type RelationOperation = { relation_item: string; relation_group: string;
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
 
-export type RenameFileArgs = { location_id: number; file_path_ids: number[]; to: string; from_pattern: FromPattern | null }
+export type RenameFileArgs = { location_id: number; kind: RenameKind }
+
+export type RenameKind = { One: RenameOne } | { Many: RenameMany }
+
+export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_file_path_ids: number[] }
+
+export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 

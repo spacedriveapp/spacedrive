@@ -4,10 +4,8 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{
-		file_path_helper::{FilePathId, IsolatedFilePathData},
-		LocationId,
-	},
+	location::file_path_helper::IsolatedFilePathData,
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
@@ -33,8 +31,8 @@ pub struct FileEraserJob {}
 #[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
-	pub location_id: LocationId,
-	pub file_path_ids: Vec<FilePathId>,
+	pub location_id: location::id::Type,
+	pub file_path_ids: Vec<file_path::id::Type>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub passes: usize,

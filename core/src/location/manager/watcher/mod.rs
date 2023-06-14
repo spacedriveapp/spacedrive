@@ -1,4 +1,4 @@
-use crate::{library::Library, location::LocationId, prisma::location};
+use crate::{library::Library, prisma::location};
 
 use std::{
 	collections::HashSet,
@@ -47,7 +47,7 @@ const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 #[async_trait]
 trait EventHandler<'lib> {
-	fn new(location_id: LocationId, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
 	where
 		Self: Sized;
 
@@ -121,7 +121,7 @@ impl LocationWatcher {
 	}
 
 	async fn handle_watch_events(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_pub_id: Uuid,
 		library: Library,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
@@ -181,7 +181,7 @@ impl LocationWatcher {
 	}
 
 	async fn handle_single_event<'lib>(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_pub_id: Uuid,
 		event: Event,
 		event_handler: &mut impl EventHandler<'lib>,

@@ -6,10 +6,10 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		find_location, LocationError, LocationId,
+		find_location, LocationError,
 	},
 	object::preview::get_thumb_key,
-	prisma::{self, file_path, object, tag, tag_on_object},
+	prisma::{self, file_path, location, object, tag, tag_on_object},
 	util::db::chain_optional_iter,
 };
 
@@ -109,7 +109,7 @@ impl<T> MaybeNot<T> {
 #[serde(rename_all = "camelCase")]
 struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<LocationId>,
+	location_id: Option<location::id::Type>,
 	#[serde(default)]
 	search: String,
 	#[specta(optional)]

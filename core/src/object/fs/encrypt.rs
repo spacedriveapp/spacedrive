@@ -2,7 +2,7 @@
 // 	invalidate_query,
 // 	job::*,
 // 	library::Library,
-// 	location::{file_path_helper::FilePathId, LocationId},
+// 	location::{file_path_helper:: location::id::Type},
 // 	util::error::{FileIOError, NonUtf8PathError},
 // };
 
@@ -32,8 +32,8 @@
 
 // #[derive(Serialize, Deserialize, Type, Hash)]
 // pub struct FileEncryptorJobInit {
-// 	pub location_id: LocationId,
-// 	pub file_path_ids: Vec<FilePathId>,
+// 	pub location_id: location::id::Type,
+// 	pub file_path_ids: Vec<file_path::id::Type>,
 // 	pub key_uuid: Uuid,
 // 	pub algorithm: Algorithm,
 // 	pub metadata: bool,
@@ -42,7 +42,7 @@
 
 // #[derive(Serialize, Deserialize)]
 // pub struct Metadata {
-// 	pub file_path_id: FilePathId,
+// 	pub file_path_id: file_path::id::Type,
 // 	pub name: String,
 // 	pub hidden: bool,
 // 	pub favorite: bool,

@@ -1,4 +1,4 @@
-use crate::util::error::FileIOError;
+use crate::{prisma::location, util::error::FileIOError};
 
 use std::path::PathBuf;
 
@@ -7,8 +7,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::{
-	file_path_helper::FilePathError, manager::LocationManagerError,
-	metadata::LocationMetadataError, LocationId,
+	file_path_helper::FilePathError, manager::LocationManagerError, metadata::LocationMetadataError,
 };
 
 /// Error type for location related errors
@@ -20,7 +19,7 @@ pub enum LocationError {
 	#[error("location not found <uuid='{0}'>")]
 	UuidNotFound(Uuid),
 	#[error("location not found <id='{0}'>")]
-	IdNotFound(LocationId),
+	IdNotFound(location::id::Type),
 
 	// User errors
 	#[error("location not a directory <path='{}'>", .0.display())]
@@ -68,7 +67,7 @@ pub enum LocationError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error("location missing path <id='{0}'>")]
-	MissingPath(LocationId),
+	MissingPath(location::id::Type),
 }
 
 impl From<LocationError> for rspc::Error {

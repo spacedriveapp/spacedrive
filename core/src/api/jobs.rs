@@ -1,11 +1,12 @@
 use crate::{
 	job::JobManager,
-	location::{find_location, LocationError, LocationId},
+	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
 		preview::thumbnailer_job::ThumbnailerJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
+	prisma::location,
 };
 
 use std::path::PathBuf;
@@ -47,7 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("generateThumbsForLocation", {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {
-				pub id: LocationId,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 
@@ -70,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
-				pub id: LocationId,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 
@@ -93,7 +94,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("identifyUniqueFiles", {
 			#[derive(Type, Deserialize)]
 			pub struct IdentifyUniqueFilesArgs {
-				pub id: LocationId,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 

@@ -4,7 +4,7 @@
 // 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 // 	},
 // 	library::Library,
-// 	location::{file_path_helper::FilePathId, LocationId},
+// 	location::{file_path_helper:: location::id::Type},
 // 	util::error::FileIOError,
 // };
 
@@ -20,8 +20,8 @@
 // // decrypt could have an option to restore metadata (and another specific option for file name? - would turn "output file" into "output path" in the UI)
 // #[derive(Serialize, Deserialize, Debug, Type, Hash)]
 // pub struct FileDecryptorJobInit {
-// 	pub location_id: LocationId,
-// 	pub file_path_ids: Vec<FilePathId>,
+// 	pub location_id: location::id::Type,
+// 	pub file_path_ids: Vec<file_path::id::Type>,
 // 	pub mount_associated_key: bool,
 // 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 // 	pub save_to_library: Option<bool>,

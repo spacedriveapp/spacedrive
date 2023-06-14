@@ -1,7 +1,7 @@
 use crate::{
 	location::{
-		file_path_helper::{file_path_with_object, FilePathId, IsolatedFilePathData},
-		LocationError, LocationId,
+		file_path_helper::{file_path_with_object, IsolatedFilePathData},
+		LocationError,
 	},
 	prisma::{file_path, location, PrismaClient},
 };
@@ -40,7 +40,7 @@ pub struct FileData {
 
 pub async fn get_location_path_from_location_id(
 	db: &PrismaClient,
-	location_id: FilePathId,
+	location_id: file_path::id::Type,
 ) -> Result<PathBuf, FileSystemJobsError> {
 	db.location()
 		.find_unique(location::id::equals(location_id))
@@ -55,7 +55,7 @@ pub async fn get_location_path_from_location_id(
 pub async fn get_many_files_datas(
 	db: &PrismaClient,
 	location_path: impl AsRef<Path>,
-	file_path_ids: &[FilePathId],
+	file_path_ids: &[file_path::id::Type],
 ) -> Result<Vec<FileData>, FileSystemJobsError> {
 	let location_path = location_path.as_ref();
 
@@ -112,8 +112,8 @@ pub async fn get_file_data_from_isolated_file_path(
 
 pub async fn fetch_source_and_target_location_paths(
 	db: &PrismaClient,
-	source_location_id: LocationId,
-	target_location_id: LocationId,
+	source_location_id: location::id::Type,
+	target_location_id: location::id::Type,
 ) -> Result<(PathBuf, PathBuf), FileSystemJobsError> {
 	match db
 		._batch((

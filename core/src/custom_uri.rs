@@ -1,9 +1,6 @@
 use crate::{
-	location::{
-		file_path_helper::{file_path_to_handle_custom_uri, FilePathId, IsolatedFilePathData},
-		LocationId,
-	},
-	prisma::file_path,
+	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
+	prisma::{file_path, location},
 	util::error::FileIOError,
 	Node,
 };
@@ -37,7 +34,7 @@ use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
-type MetadataCacheKey = (Uuid, FilePathId);
+type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
 static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
@@ -163,14 +160,14 @@ async fn handle_file(
 
 	let location_id = path
 		.get(2)
-		.and_then(|id| id.parse::<LocationId>().ok())
+		.and_then(|id| id.parse::<location::id::Type>().ok())
 		.ok_or_else(|| {
 			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing location_id!")
 		})?;
 
 	let file_path_id = path
 		.get(3)
-		.and_then(|id| id.parse::<FilePathId>().ok())
+		.and_then(|id| id.parse::<file_path::id::Type>().ok())
 		.ok_or_else(|| {
 			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing file_path_id!")
 		})?;

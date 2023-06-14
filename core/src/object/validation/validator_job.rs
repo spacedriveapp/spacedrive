@@ -4,11 +4,8 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{
-		file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
-		LocationId,
-	},
-	prisma::file_path,
+	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
+	prisma::{file_path, location},
 	sync,
 	util::error::FileIOError,
 };
@@ -36,7 +33,7 @@ pub struct ObjectValidatorJobState {
 // The validator can
 #[derive(Serialize, Deserialize, Debug, Hash)]
 pub struct ObjectValidatorJobInit {
-	pub location_id: LocationId,
+	pub location_id: location::id::Type,
 	pub path: PathBuf,
 	pub background: bool,
 }

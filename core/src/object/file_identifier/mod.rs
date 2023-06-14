@@ -2,7 +2,7 @@ use crate::{
 	job::JobError,
 	library::Library,
 	location::file_path_helper::{
-		file_path_for_file_identifier, FilePathError, FilePathId, IsolatedFilePathData,
+		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
@@ -346,7 +346,7 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut FilePathId,
+	cursor: &mut file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize), JobError> {

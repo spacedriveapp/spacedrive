@@ -4,10 +4,9 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, FilePathId,
-			IsolatedFilePathData,
+			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
 		},
-		find_location, LocationError, LocationId,
+		find_location, LocationError,
 	},
 	object::fs::{
 		copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
@@ -181,16 +180,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			#[derive(Type, Deserialize)]
-			pub struct RenameFileArgs {
-				pub location_id: LocationId,
-				pub file_path_ids: Vec<FilePathId>,
+			pub struct RenameOne {
+				pub from_file_path_id: file_path::id::Type,
 				pub to: String,
-				pub from_pattern: Option<FromPattern>,
+			}
+
+			#[derive(Type, Deserialize)]
+			pub struct RenameMany {
+				pub from_pattern: FromPattern,
+				pub to_pattern: String,
+				pub from_file_path_ids: Vec<file_path::id::Type>,
+			}
+
+			#[derive(Type, Deserialize)]
+			pub enum RenameKind {
+				One(RenameOne),
+				Many(RenameMany),
+			}
+
+			#[derive(Type, Deserialize)]
+			pub struct RenameFileArgs {
+				pub location_id: location::id::Type,
+				pub kind: RenameKind,
 			}
 
 			impl RenameFileArgs {
 				pub async fn rename_one(
-					self,
+					RenameOne {
+						from_file_path_id,
+						to,
+					}: RenameOne,
 					location_path: impl AsRef<Path>,
 					library: &Library,
 				) -> Result<(), rspc::Error> {
@@ -199,21 +218,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						library
 							.db
 							.file_path()
-							.find_unique(file_path::id::equals(self.file_path_ids[0]))
+							.find_unique(file_path::id::equals(from_file_path_id))
 							.select(file_path_to_isolate::select())
 							.exec()
 							.await?
 							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
-								self.file_path_ids[0],
+								from_file_path_id,
 							)))?,
 					);
 
-					if iso_file_path.full_name() == self.to {
+					if iso_file_path.full_name() == to {
 						return Ok(());
 					}
 
 					let (new_file_name, new_extension) =
-						IsolatedFilePathData::separate_name_and_extension_from_str(&self.to)
+						IsolatedFilePathData::separate_name_and_extension_from_str(&to)
 							.map_err(LocationError::FilePath)?;
 
 					let mut new_file_full_path = location_path.join(iso_file_path.parent());
@@ -254,7 +273,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.file_path()
 						.update(
-							file_path::id::equals(self.file_path_ids[0]),
+							file_path::id::equals(from_file_path_id),
 							vec![
 								file_path::name::set(new_file_name.to_string()),
 								file_path::extension::set(new_extension.to_string()),
@@ -267,19 +286,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				pub async fn rename_many(
-					self,
+					RenameMany {
+						from_pattern,
+						to_pattern,
+						from_file_path_ids,
+					}: RenameMany,
 					location_path: impl AsRef<Path>,
-					from_regex: Regex,
-					replace_all: bool,
 					library: &Library,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
+
+					let Ok(from_regex) = Regex::new(&from_pattern.pattern) else {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::BadRequest,
+							"Invalid `from` regex pattern".into(),
+						));
+					};
 
 					let to_update = try_join_all(
 						library
 							.db
 							.file_path()
-							.find_many(vec![file_path::id::in_vec(self.file_path_ids)])
+							.find_many(vec![file_path::id::in_vec(from_file_path_ids)])
 							.select(file_path_to_isolate_with_id::select())
 							.exec()
 							.await?
@@ -289,10 +317,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								let from = location_path.join(&iso_file_path);
 								let mut to = location_path.join(iso_file_path.parent());
 								let full_name = iso_file_path.full_name();
-								let replaced_full_name = if replace_all {
-									from_regex.replace_all(&full_name, &self.to)
+								let replaced_full_name = if from_pattern.replace_all {
+									from_regex.replace_all(&full_name, &to_pattern)
 								} else {
-									from_regex.replace(&full_name, &self.to)
+									from_regex.replace(&full_name, &to_pattern)
 								}
 								.to_string();
 
@@ -363,7 +391,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), mut args: RenameFileArgs| async move {
+				.mutation(|(_, library), args: RenameFileArgs| async move {
 					let location_path = find_location(&library, args.location_id)
 						.select(location::select!({ path }))
 						.exec()
@@ -372,33 +400,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.path
 						.ok_or(LocationError::MissingPath(args.location_id))?;
 
-					let res = if args.file_path_ids.len() == 1 {
-						if args.from_pattern.is_some() {
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::BadRequest,
-								"Cannot specify `from` pattern when renaming a single file".into(),
-							));
+					let res = match args.kind {
+						RenameKind::One(one) => {
+							RenameFileArgs::rename_one(one, location_path, &library).await
 						}
-
-						args.rename_one(location_path, &library).await
-					} else {
-						let Some(FromPattern{pattern, replace_all}) = args.from_pattern.take()
-						else {
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::BadRequest,
-								"Must specify `from` pattern when renaming multiple files".into(),
-							));
-						};
-
-						let Ok(from_regex) = Regex::new(&pattern) else {
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::BadRequest,
-								"Invalid `from` regex pattern".into(),
-							));
-						};
-
-						args.rename_many(location_path, from_regex, replace_all, &library)
-							.await
+						RenameKind::Many(many) => {
+							RenameFileArgs::rename_many(many, location_path, &library).await
+						}
 					};
 
 					invalidate_query!(library, "search.objects");

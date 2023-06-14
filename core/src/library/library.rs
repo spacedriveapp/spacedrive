@@ -2,7 +2,7 @@ use crate::{
 	api::CoreEvent,
 	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
 	location::{
-		file_path_helper::{file_path_to_full_path, FilePathId, IsolatedFilePathData},
+		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 		LocationManager,
 	},
 	node::NodeConfigManager,
@@ -103,8 +103,8 @@ impl Library {
 	/// Returns the full path of a file
 	pub async fn get_file_paths(
 		&self,
-		ids: Vec<FilePathId>,
-	) -> Result<HashMap<FilePathId, Option<PathBuf>>, LibraryManagerError> {
+		ids: Vec<file_path::id::Type>,
+	) -> Result<HashMap<file_path::id::Type, Option<PathBuf>>, LibraryManagerError> {
 		let mut out = ids
 			.iter()
 			.copied()

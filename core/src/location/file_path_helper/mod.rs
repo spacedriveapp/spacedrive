@@ -1,5 +1,5 @@
 use crate::{
-	prisma::{file_path, PrismaClient},
+	prisma::{file_path, location, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
@@ -19,10 +19,6 @@ use tracing::error;
 pub mod isolated_file_path_data;
 
 pub use isolated_file_path_data::IsolatedFilePathData;
-
-use super::LocationId;
-
-pub type FilePathId = i32;
 
 // File Path selectables!
 file_path::select!(file_path_just_pub_id { pub_id });
@@ -110,11 +106,11 @@ pub struct FilePathMetadata {
 #[derive(Error, Debug)]
 pub enum FilePathError {
 	#[error("file path not found: <id='{0}'>")]
-	IdNotFound(FilePathId),
+	IdNotFound(file_path::id::Type),
 	#[error("file Path not found: <path='{}'>", .0.display())]
 	NotFound(Box<Path>),
 	#[error("location '{0}' not found")]
-	LocationNotFound(LocationId),
+	LocationNotFound(location::id::Type),
 	#[error("received an invalid sub path: <location_path='{}', sub_path='{}'>", .location_path.display(), .sub_path.display())]
 	InvalidSubPath {
 		location_path: Box<Path>,
@@ -128,12 +124,12 @@ pub enum FilePathError {
 		.sub_path.display()
 	)]
 	SubPathParentNotInLocation {
-		location_id: LocationId,
+		location_id: location::id::Type,
 		sub_path: Box<Path>,
 	},
 	#[error("unable to extract materialized path from location: <id='{}', path='{}'>", .location_id, .path.display())]
 	UnableToExtractMaterializedPath {
-		location_id: LocationId,
+		location_id: location::id::Type,
 		path: Box<Path>,
 	},
 	#[error("database error: {0}")]
@@ -161,7 +157,7 @@ pub async fn create_file_path(
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
-	use crate::{prisma::location, sync, util::db::uuid_to_bytes};
+	use crate::{sync, util::db::uuid_to_bytes};
 
 	use serde_json::json;
 	use uuid::Uuid;

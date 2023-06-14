@@ -4,7 +4,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{file_path_helper::FilePathId, LocationId},
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
@@ -20,8 +20,8 @@ pub struct FileDeleterJob {}
 
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileDeleterJobInit {
-	pub location_id: LocationId,
-	pub file_path_ids: Vec<FilePathId>,
+	pub location_id: location::id::Type,
+	pub file_path_ids: Vec<file_path::id::Type>,
 }
 
 impl JobInitData for FileDeleterJobInit {

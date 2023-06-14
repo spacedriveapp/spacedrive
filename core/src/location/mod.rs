@@ -37,8 +37,6 @@ use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
-pub type LocationId = i32;
-
 // Location includes!
 location::include!(location_with_indexer_rules {
 	indexer_rules: select { indexer_rule }
@@ -211,7 +209,7 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: LocationId,
+	pub id: location::id::Type,
 	pub name: Option<String>,
 	pub generate_preview_media: Option<bool>,
 	pub sync_preview_media: Option<bool>,
@@ -336,7 +334,10 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: LocationId) -> location::FindUniqueQuery {
+pub fn find_location(
+	library: &Library,
+	location_id: location::id::Type,
+) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
@@ -345,7 +346,7 @@ pub fn find_location(library: &Library, location_id: LocationId) -> location::Fi
 
 async fn link_location_and_indexer_rules(
 	library: &Library,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
 	library
@@ -622,7 +623,7 @@ async fn create_location(
 
 pub async fn delete_location(
 	library: &Library,
-	location_id: LocationId,
+	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
 	let Library { db, .. } = library;
 
@@ -666,7 +667,7 @@ pub async fn delete_location(
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
 	library: &Library,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;

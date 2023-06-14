@@ -4,10 +4,8 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::{
-		file_path_helper::{FilePathId, IsolatedFilePathData},
-		LocationId,
-	},
+	location::file_path_helper::IsolatedFilePathData,
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
@@ -32,9 +30,9 @@ pub struct FileCopierJobState {
 
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileCopierJobInit {
-	pub source_location_id: LocationId,
-	pub target_location_id: LocationId,
-	pub sources_file_path_ids: Vec<FilePathId>,
+	pub source_location_id: location::id::Type,
+	pub target_location_id: location::id::Type,
+	pub sources_file_path_ids: Vec<file_path::id::Type>,
 	pub target_location_relative_directory_path: PathBuf,
 	pub target_file_name_suffix: Option<String>,
 }
