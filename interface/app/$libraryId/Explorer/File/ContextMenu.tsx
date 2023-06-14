@@ -82,7 +82,7 @@ export default ({ data }: Props) => {
 				<ContextMenu.Item
 					label="Remove from recents"
 					onClick={() =>
-						data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						data.item.object_id && removeFromRecents.mutate([data.item.object_id])
 					}
 				/>
 			)}
@@ -129,9 +129,9 @@ export default ({ data }: Props) => {
 
 					copyFiles.mutate({
 						source_location_id: store.locationId!,
-						source_path_id: data.item.id,
+						sources_file_path_ids: [data.item.id],
 						target_location_id: store.locationId!,
-						target_path: params.path,
+						target_location_relative_directory_path: params.path,
 						target_file_name_suffix: ' copy'
 					});
 				}}
@@ -303,7 +303,9 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 									props.data.type === 'Path' &&
 										props.data.item.object_id &&
 										updateAccessTime.mutate(props.data.item.object_id);
-									openFilePath(library.uuid, filePath.id);
+
+									// FIXME: treat error properly
+									openFilePath(library.uuid, [filePath.id]);
 								}}
 							/>
 						)}

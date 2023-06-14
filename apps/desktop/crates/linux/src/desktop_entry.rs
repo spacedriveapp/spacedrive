@@ -157,10 +157,10 @@ fn parse_file(path: &Path) -> Option<DesktopEntry> {
 	}
 }
 
-impl TryFrom<PathBuf> for DesktopEntry {
+impl TryFrom<&PathBuf> for DesktopEntry {
 	type Error = Error;
-	fn try_from(path: PathBuf) -> Result<DesktopEntry> {
-		parse_file(&path).ok_or(Error::BadEntry(path))
+	fn try_from(path: &PathBuf) -> Result<DesktopEntry> {
+		parse_file(path).ok_or(Error::BadEntry(path.clone()))
 	}
 }
 

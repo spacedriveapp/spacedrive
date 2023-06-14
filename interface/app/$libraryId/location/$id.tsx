@@ -1,3 +1,6 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { z } from 'zod';
 import {
 	ExplorerItem,
 	useLibraryContext,
@@ -6,9 +9,6 @@ import {
 	useRspcLibraryContext
 } from '@sd/client';
 import { Folder } from '~/components/Folder';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -57,14 +57,16 @@ export const Component = () => {
 		<>
 			<TopBarPortal
 				left={
-					<div className='group flex flex-row items-center space-x-2'>
+					<div className="group flex flex-row items-center space-x-2">
 						<span>
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="text-sm font-medium">
 								{path ? getLastSectionOfPath(path) : location.data?.name}
 							</span>
 						</span>
-						{location.data && <LocationOptions location={location.data} path={path || ""} />}
+						{location.data && (
+							<LocationOptions location={location.data} path={path || ''} />
+						)}
 					</div>
 				}
 				right={

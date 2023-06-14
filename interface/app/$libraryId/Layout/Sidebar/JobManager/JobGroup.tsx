@@ -72,8 +72,9 @@ function JobGroup({ data, clearJob }: JobGroupProps) {
 							<div className="truncate">
 								<p className="truncate font-semibold">
 									{allJobsCompleted
-										? `Added location "${data.metadata.init.location.name || ''
-										}"`
+										? `Added location "${
+												data.metadata.init.location.name || ''
+										  }"`
 										: `Indexing "${data.metadata.init.location.name || ''}"`}
 								</p>
 								<p className="my-[2px] text-sidebar-inkFaint">

@@ -3,9 +3,9 @@ name = "sd-sync-example"
 version = "0.1.0"
 rust-version = "1.64"
 publish = false
-license.workspace = true
-repository.workspace = true
-edition.workspace = true
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 serde_json = "1.0.85"

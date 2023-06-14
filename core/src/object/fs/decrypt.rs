@@ -1,36 +1,30 @@
-// use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
-// use serde::{Deserialize, Serialize};
-// use specta::Type;
-// use std::path::PathBuf;
-// use tokio::fs::File;
-
 // use crate::{
 // 	invalidate_query,
 // 	job::{
 // 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 // 	},
+// 	library::Library,
+// 	location::{file_path_helper:: location::id::Type},
 // 	util::error::FileIOError,
 // };
 
-// use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
+// use sd_crypto::{crypto::Decryptor, header::file::FileHeader, Protected};
+
+// use serde::{Deserialize, Serialize};
+// use specta::Type;
+// use tokio::fs::File;
+
+// use super::{get_location_path_from_location_id, get_many_files_datas, FileData, BYTES_EXT};
 // pub struct FileDecryptorJob;
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct FileDecryptorJobState {}
 
 // // decrypt could have an option to restore metadata (and another specific option for file name? - would turn "output file" into "output path" in the UI)
 // #[derive(Serialize, Deserialize, Debug, Type, Hash)]
 // pub struct FileDecryptorJobInit {
-// 	pub location_id: i32,
-// 	pub path_id: i32,
+// 	pub location_id: location::id::Type,
+// 	pub file_path_ids: Vec<file_path::id::Type>,
 // 	pub mount_associated_key: bool,
-// 	pub output_path: Option<PathBuf>,
 // 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 // 	pub save_to_library: Option<bool>,
-// }
-
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct FileDecryptorJobStep {
-// 	pub fs_info: FsInfo,
 // }
 
 // impl JobInitData for FileDecryptorJobInit {
@@ -40,8 +34,8 @@
 // #[async_trait::async_trait]
 // impl StatefulJob for FileDecryptorJob {
 // 	type Init = FileDecryptorJobInit;
-// 	type Data = FileDecryptorJobState;
-// 	type Step = FileDecryptorJobStep;
+// 	type Data = ();
+// 	type Step = FileData;
 
 // 	const NAME: &'static str = "file_decryptor";
 
@@ -50,13 +44,15 @@
 // 	}
 
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-// 		// enumerate files to decrypt
-// 		// populate the steps with them (local file paths)
-// 		let fs_info =
-// 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
-// 				.await?;
+// 		let Library { db, .. } = &ctx.library;
 
-// 		state.steps.push_back(FileDecryptorJobStep { fs_info });
+// 		state.steps = get_many_files_datas(
+// 			db,
+// 			get_location_path_from_location_id(db, state.init.location_id).await?,
+// 			&state.init.file_path_ids,
+// 		)
+// 		.await?
+// 		.into();
 
 // 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -68,29 +64,26 @@
 // 		ctx: WorkerContext,
 // 		state: &mut JobState<Self>,
 // 	) -> Result<(), JobError> {
-// 		let info = &&state.steps[0].fs_info;
+// 		let step = &state.steps[0];
 // 		let key_manager = &ctx.library.key_manager;
 
 // 		// handle overwriting checks, and making sure there's enough available space
-// 		let output_path = state.init.output_path.clone().map_or_else(
-// 			|| {
-// 				let mut path = info.fs_path.clone();
-// 				let extension = path.extension().map_or("decrypted", |ext| {
-// 					if ext == BYTES_EXT {
-// 						""
-// 					} else {
-// 						"decrypted"
-// 					}
-// 				});
-// 				path.set_extension(extension);
-// 				path
-// 			},
-// 			|p| p,
-// 		);
+// 		let output_path = {
+// 			let mut path = step.full_path.clone();
+// 			let extension = path.extension().map_or("decrypted", |ext| {
+// 				if ext == BYTES_EXT {
+// 					""
+// 				} else {
+// 					"decrypted"
+// 				}
+// 			});
+// 			path.set_extension(extension);
+// 			path
+// 		};
 
-// 		let mut reader = File::open(info.fs_path.clone())
+// 		let mut reader = File::open(&step.full_path)
 // 			.await
-// 			.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+// 			.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 // 		let mut writer = File::create(&output_path)
 // 			.await
 // 			.map_err(|e| FileIOError::from((output_path, e)))?;

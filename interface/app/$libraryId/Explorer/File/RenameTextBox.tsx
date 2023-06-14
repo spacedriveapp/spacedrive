@@ -58,8 +58,12 @@ export default ({
 				if (newName !== oldName) {
 					renameFile.mutate({
 						location_id: filePathData.location_id,
-						file_name: oldName,
-						new_file_name: newName
+						kind: {
+							One: {
+								from_file_path_id: filePathData.id,
+								to: newName
+							}
+						}
 					});
 				}
 			}

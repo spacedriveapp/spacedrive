@@ -14,13 +14,14 @@ use crate::{
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_sync::CRDTOperation;
 
-use futures::future::join_all;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 };
+
+use futures::future::join_all;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, info};
@@ -345,7 +346,7 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut i32,
+	cursor: &mut file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize), JobError> {
@@ -356,7 +357,7 @@ async fn process_identifier_file_paths(
 		orphan_count
 	);
 
-	let counts = identifier_job_step(&library, location, file_paths).await?;
+	let counts = identifier_job_step(library, location, file_paths).await?;
 
 	// set the step data cursor to the last row of this chunk
 	if let Some(last_row) = file_paths.last() {

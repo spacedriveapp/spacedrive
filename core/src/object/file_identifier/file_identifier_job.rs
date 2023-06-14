@@ -1,4 +1,5 @@
 use crate::{
+	extract_job_data, extract_job_data_mut,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
@@ -47,7 +48,7 @@ impl Hash for FileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
-	cursor: i32,
+	cursor: file_path::id::Type,
 	report: FileIdentifierReport,
 	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
 }
@@ -119,10 +120,7 @@ impl StatefulJob for FileIdentifierJob {
 			maybe_sub_iso_file_path,
 		});
 
-		let data = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data_mut!(state);
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
@@ -170,10 +168,7 @@ impl StatefulJob for FileIdentifierJob {
 			ref mut cursor,
 			ref mut report,
 			ref maybe_sub_iso_file_path,
-		} = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		} = extract_job_data_mut!(state);
 
 		let step_number = state.step_number;
 		let location = &state.init.location;
@@ -223,11 +218,7 @@ impl StatefulJob for FileIdentifierJob {
 	}
 
 	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let report = &state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state")
-			.report;
+		let report = &extract_job_data!(state).report;
 
 		info!("Finalizing identifier job: {report:?}");
 
@@ -236,8 +227,8 @@ impl StatefulJob for FileIdentifierJob {
 }
 
 fn orphan_path_filters(
-	location_id: i32,
-	file_path_id: Option<i32>,
+	location_id: location::id::Type,
+	file_path_id: Option<file_path::id::Type>,
 	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
@@ -262,7 +253,7 @@ fn orphan_path_filters(
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
+	location_id: location::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
@@ -278,8 +269,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
-	file_path_id: i32,
+	location_id: location::id::Type,
+	file_path_id: file_path::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(
