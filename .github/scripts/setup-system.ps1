@@ -319,7 +319,7 @@ if (-not ($filename -and $downloadUri)) {
 }
 
 Write-Host "Dowloading protobuf zip from ${downloadUri}..." -ForegroundColor Yellow
-Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
+Invoke-RestMethodGithub -Uri $downloadUri -OutFile "$temp\protobuf.zip"
 
 Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
 Expand-Archive "$temp\protobuf.zip" "$projectRoot\target\Frameworks" -Force
