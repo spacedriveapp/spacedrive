@@ -77,8 +77,10 @@ export const LibrarySection = () => {
 							<SidebarLink
 								onContextMenu={() => setTriggeredContextItem(location.id)}
 								className={clsx(
-									triggeredContextItem === location.id && 'bg-app-box/70',
-									'group relative w-full'
+									triggeredContextItem === location.id
+										? 'border-accent'
+										: 'border-transparent',
+									'group relative w-full border'
 								)}
 								to={`location/${location.id}`}
 							>
@@ -114,7 +116,10 @@ export const LibrarySection = () => {
 								<SidebarLink
 									onContextMenu={() => setTriggeredContextItem(tag.id)}
 									className={clsx(
-										triggeredContextItem === tag.id && 'bg-app-box/70'
+										triggeredContextItem === tag.id
+											? 'border-accent'
+											: 'border-transparent',
+										'border'
 									)}
 									to={`tag/${tag.id}`}
 								>
