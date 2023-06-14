@@ -23,16 +23,16 @@ prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
-] }
+], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "7e67b4550dd5323d479c96008678032f396b9060", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
-] }
+], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "7e67b4550dd5323d479c96008678032f396b9060", features = [
 	"sqlite",
-] }
+], default-features = false }
 
 rspc = { version = "0.1.4" }
 specta = { version = "1.0.4" }
