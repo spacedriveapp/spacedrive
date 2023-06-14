@@ -111,27 +111,31 @@ impl Library {
 			.map(|id| (id, None))
 			.collect::<HashMap<_, _>>();
 
-		self.db
-			.file_path()
-			.find_many(vec![
-				file_path::location::is(vec![location::node_id::equals(Some(self.node_local_id))]),
-				file_path::id::in_vec(ids),
-			])
-			.select(file_path_to_full_path::select())
-			.exec()
-			.await?
-			.into_iter()
-			.for_each(|file_path| {
-				out.insert(
-					file_path.id,
-					file_path.location.path.as_ref().map(|location_path| {
-						Path::new(&location_path).join(IsolatedFilePathData::from((
-							file_path.location.id,
-							&file_path,
-						)))
-					}),
-				);
-			});
+		out.extend(
+			self.db
+				.file_path()
+				.find_many(vec![
+					file_path::location::is(vec![location::node_id::equals(Some(
+						self.node_local_id,
+					))]),
+					file_path::id::in_vec(ids),
+				])
+				.select(file_path_to_full_path::select())
+				.exec()
+				.await?
+				.into_iter()
+				.map(|file_path| {
+					(
+						file_path.id,
+						file_path.location.path.as_ref().map(|location_path| {
+							Path::new(&location_path).join(IsolatedFilePathData::from((
+								file_path.location.id,
+								&file_path,
+							)))
+						}),
+					)
+				}),
+		);
 
 		Ok(out)
 	}
