@@ -267,7 +267,7 @@ pub async fn open_file_path_with(
 
 	#[cfg(windows)]
 	{
-		sd_desktop_windows::open_file_path_with(&path, url).unwrap(); //.map_err(|_| ())?;
+		sd_desktop_windows::open_file_path_with(&path, url).map_err(|_| ())?;
 	}
 
 	Ok(())
