@@ -1,7 +1,18 @@
 use crate::{
-	location::file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+	api::{
+		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
+		utils::library,
+	},
+	library::Library,
+	location::{
+		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+		find_location, LocationError,
+	},
 	object::preview::get_thumb_key,
+	prisma::{self, file_path, location, object, tag, tag_on_object},
+	util::db::chain_optional_iter,
 };
+
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset, Utc};
@@ -9,17 +20,6 @@ use prisma_client_rust::operator::or;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::{
-	api::{
-		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
-		utils::library,
-	},
-	library::Library,
-	location::{find_location, LocationError},
-	prisma::{self, file_path, object, tag, tag_on_object},
-	util::db::chain_optional_iter,
-};
 
 use super::{Ctx, R};
 
@@ -109,7 +109,7 @@ impl<T> MaybeNot<T> {
 #[serde(rename_all = "camelCase")]
 struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<i32>,
+	location_id: Option<location::id::Type>,
 	#[serde(default)]
 	search: String,
 	#[specta(optional)]
@@ -166,11 +166,11 @@ enum ObjectHiddenFilter {
 	Include,
 }
 
-impl Into<Option<object::WhereParam>> for ObjectHiddenFilter {
-	fn into(self) -> Option<object::WhereParam> {
-		match self {
-			Self::Exclude => Some(object::hidden::not(true)),
-			Self::Include => None,
+impl From<ObjectHiddenFilter> for Option<object::WhereParam> {
+	fn from(value: ObjectHiddenFilter) -> Self {
+		match value {
+			ObjectHiddenFilter::Exclude => Some(object::hidden::not(true)),
+			ObjectHiddenFilter::Include => None,
 		}
 	}
 }

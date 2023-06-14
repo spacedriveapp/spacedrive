@@ -5,12 +5,9 @@ use crate::{
 	invalidate_query,
 	job::JobError,
 	library::Library,
-	location::{
-		file_path_helper::{
-			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_for_thumbnailer, IsolatedFilePathData,
-		},
-		LocationId,
+	location::file_path_helper::{
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
 	object::preview::thumbnail,
 	prisma::{file_path, location, PrismaClient},
@@ -117,7 +114,7 @@ pub async fn shallow_thumbnailer(
 	.flatten();
 
 	for file in all_files {
-		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, &library)
+		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, library)
 			.await?;
 	}
 
@@ -128,7 +125,7 @@ pub async fn shallow_thumbnailer(
 
 async fn get_files_by_extensions(
 	db: &PrismaClient,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	parent_isolated_file_path_data: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,

@@ -1,4 +1,4 @@
-use crate::{library::Library, location::LocationId, prisma::location};
+use crate::{library::Library, prisma::location};
 
 use std::{
 	collections::HashSet,
@@ -47,7 +47,7 @@ const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 #[async_trait]
 trait EventHandler<'lib> {
-	fn new(location_id: LocationId, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
 	where
 		Self: Sized;
 
@@ -107,7 +107,7 @@ impl LocationWatcher {
 		));
 
 		let Some(path) = location.path else {
-            return Err(LocationManagerError::MissingPath)
+            return Err(LocationManagerError::MissingPath(location.id))
         };
 
 		Ok(Self {
@@ -121,7 +121,7 @@ impl LocationWatcher {
 	}
 
 	async fn handle_watch_events(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_pub_id: Uuid,
 		library: Library,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
@@ -181,7 +181,7 @@ impl LocationWatcher {
 	}
 
 	async fn handle_single_event<'lib>(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_pub_id: Uuid,
 		event: Event,
 		event_handler: &mut impl EventHandler<'lib>,
@@ -261,9 +261,7 @@ impl Drop for LocationWatcher {
 
 			// FIXME: change this Drop to async drop in the future
 			if let Some(handle) = self.handle.take() {
-				if let Err(e) =
-					block_in_place(move || Handle::current().block_on(async move { handle.await }))
-				{
+				if let Err(e) = block_in_place(move || Handle::current().block_on(handle)) {
 					error!("Failed to join watcher task: {e:#?}")
 				}
 			}
@@ -344,6 +342,7 @@ impl Drop for LocationWatcher {
 *																								   *
 ***************************************************************************************************/
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
 	use std::{
 		io::ErrorKind,
@@ -358,7 +357,7 @@ mod tests {
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
-	use tracing_test::traced_test;
+	// use tracing_test::traced_test;
 
 	#[cfg(target_os = "macos")]
 	use notify::event::DataChange;
@@ -424,7 +423,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn create_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -462,7 +461,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn create_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -492,7 +491,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -543,7 +542,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_file_rename_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -592,7 +591,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn update_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -643,7 +642,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn delete_file_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 
@@ -675,7 +674,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[traced_test]
+	// #[traced_test]
 	async fn delete_dir_event() {
 		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
 

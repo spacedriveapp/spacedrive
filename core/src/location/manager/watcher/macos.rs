@@ -15,8 +15,8 @@ use crate::{
 	location::{
 		file_path_helper::{check_existing_file_path, get_inode_and_device, IsolatedFilePathData},
 		manager::LocationManagerError,
-		LocationId,
 	},
+	prisma::location,
 	util::error::FileIOError,
 };
 
@@ -43,7 +43,7 @@ use super::{
 
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: &'lib Library,
 	recently_created_files: BTreeMap<PathBuf, Instant>,
 	last_check_created_files: Instant,
@@ -56,7 +56,7 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: LocationId, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
 	where
 		Self: Sized,
 	{
