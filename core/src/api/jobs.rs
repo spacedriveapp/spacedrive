@@ -21,6 +21,7 @@ use std::{
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
+use tokio::time::{interval, Duration};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -32,10 +33,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(ctx, _), _: ()| async move {
 					let mut event_bus_rx = ctx.event_bus.0.subscribe();
+
+					let mut tick = interval(Duration::from_secs_f64(1.0 / 60.0));
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {
-								CoreEvent::JobReportUpdate(report) => yield report,
+								CoreEvent::JobReportUpdate(report) => {
+									let _ = tick.tick().await;
+									yield report
+								},
 								_ => {}
 							}
 						}
@@ -65,8 +71,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.query(|(ctx, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
-					// map the jobs to their groups
-					let mut index: HashMap<String, i32> = HashMap::new();
 
 					let job_reports: Vec<JobReport> = library
 						.db
@@ -115,12 +119,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								}
 							}
 						}
-						index.insert(job.id.clone().to_string(), groups.len() as i32 - 1);
 					}
 
 					let mut groups_vec: Vec<JobGroup> =
 						groups.into_iter().map(|(_, v)| v).collect();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+					// Update the index after sorting the groups
+					let mut index: HashMap<String, i32> = HashMap::new();
+					for (i, group) in groups_vec.iter().enumerate() {
+						for job in &group.jobs {
+							index.insert(job.id.clone().to_string(), i as i32);
+						}
+					}
+
 					Ok(JobGroups {
 						groups: groups_vec,
 						index,
