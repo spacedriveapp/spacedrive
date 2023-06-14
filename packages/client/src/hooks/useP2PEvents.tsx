@@ -1,5 +1,6 @@
 import { PropsWithChildren, createContext, useContext, useState } from 'react';
-import { PeerMetadata, useBridgeSubscription } from '..';
+import { PeerMetadata } from '../core';
+import { useBridgeSubscription } from '../rspc';
 
 const Context = createContext<Map<string, PeerMetadata>>(null as any);
 
