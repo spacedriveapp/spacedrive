@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from './util';
+import { valtioPersist } from '..';
 
 export type Themes = 'vanilla' | 'dark';
 

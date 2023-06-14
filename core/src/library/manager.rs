@@ -1,9 +1,6 @@
 use crate::{
 	invalidate_query,
-	location::{
-		indexer::rules::{self, SeederError},
-		LocationManagerError,
-	},
+	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node},
@@ -55,7 +52,7 @@ pub enum LibraryManagerError {
 	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
-	IndexerRulesSeeder(#[from] SeederError),
+	IndexerRulesSeeder(#[from] rules::SeederError),
 	// #[error("failed to initialise the key manager: {0}")]
 	// KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { FilePath, useLibraryContext } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { Platform, usePlatform } from '~/util/Platform';
 
 export default (props: { filePath: FilePath }) => {
@@ -33,7 +34,7 @@ const Items = ({
 }) => {
 	const { library } = useLibraryContext();
 
-	const items = useQuery<any[]>(
+	const items = useQuery(
 		['openWith', filePath.id],
 		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
 		{ suspense: true }
@@ -41,19 +42,23 @@ const Items = ({
 
 	return (
 		<>
-			{/* FIXME: treat error properly */}
-			{items.data
-				?.filter((data) => data.t === 'File')
-				.map((data) => (
-					<ContextMenu.Item
-						key={data.c.name}
-						onClick={() =>
-							actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)])
+			{items.data?.map((data) => (
+				<ContextMenu.Item
+					key={data.name}
+					onClick={async () => {
+						try {
+							await actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)]);
+						} catch {
+							showAlertDialog({
+								title: 'Error',
+								value: `Failed to open file, with: ${data.url}`
+							});
 						}
-					>
-						{data.c.name}
-					</ContextMenu.Item>
-				))}
+					}}
+				>
+					{data.name}
+				</ContextMenu.Item>
+			)) ?? <p> No apps available </p>}
 		</>
 	);
 };

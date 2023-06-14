@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use sd_core::Node;
 use serde::Serialize;
@@ -54,7 +53,14 @@ pub async fn open_file_path(
 #[serde(tag = "t", content = "c")]
 #[allow(dead_code)]
 pub enum OpenWithApplication {
-	File { id: i32, name: String, url: String },
+	File {
+		id: i32,
+		name: String,
+		#[cfg(target_os = "linux")]
+		url: std::path::PathBuf,
+		#[cfg(not(target_os = "linux"))]
+		url: String,
+	},
 	Error(i32, String),
 }
 
@@ -74,9 +80,6 @@ pub async fn get_file_path_open_with_apps(
 	else {
 		return Err(());
 	};
-
-	#[cfg(not(target_os = "macos"))]
-	return Err(());
 
 	#[cfg(target_os = "macos")]
 	return Ok(paths
@@ -102,6 +105,70 @@ pub async fn get_file_path_open_with_apps(
 			}
 		})
 		.collect());
+
+	#[cfg(target_os = "linux")]
+	{
+		use sd_desktop_linux::{DesktopEntry, HandlerType, SystemApps};
+
+		// TODO: cache this, and only update when the underlying XDG desktop apps changes
+		let system_apps = SystemApps::populate().map_err(|_| ())?;
+
+		return Ok(paths
+			.into_iter()
+			.flat_map(|(id, path)| {
+				if let Some(path) = path {
+					let Some(name) = path.file_name()
+						.and_then(|name| name.to_str())
+						.map(|name| name.to_string())
+					else {
+						return vec![OpenWithApplication::Error(
+							id,
+							"Failed to extract file name".into(),
+						)]
+					};
+
+					system_apps
+						.get_handlers(HandlerType::Ext(name))
+						.iter()
+						.map(|handler| {
+							handler
+								.get_path()
+								.map(|path| {
+									DesktopEntry::try_from(&path)
+										.map(|entry| OpenWithApplication::File {
+											id,
+											name: entry.name,
+											url: path,
+										})
+										.unwrap_or_else(|e| {
+											error!("{e:#?}");
+											OpenWithApplication::Error(
+												id,
+												"Failed to parse desktop entry".into(),
+											)
+										})
+								})
+								.unwrap_or_else(|e| {
+									error!("{e:#?}");
+									OpenWithApplication::Error(
+										id,
+										"Failed to get path from desktop entry".into(),
+									)
+								})
+						})
+						.collect::<Vec<_>>()
+				} else {
+					vec![OpenWithApplication::Error(
+						id,
+						"File not found in database".into(),
+					)]
+				}
+			})
+			.collect());
+	}
+
+	#[allow(unreachable_code)]
+	Err(())
 }
 
 type FileIdAndUrl = (i32, String);
@@ -147,8 +214,30 @@ pub async fn open_file_path_with(
 			})
 	}
 
-	#[cfg(not(target_os = "macos"))]
+	#[cfg(target_os = "linux")]
 	{
-		Err(())
+		library
+			.get_file_paths(ids)
+			.await
+			.map(|paths| {
+				paths.iter().for_each(|(id, path)| {
+					if let Some(path) = path.as_ref().and_then(|path| path.to_str()) {
+						if let Err(e) = sd_desktop_linux::Handler::assume_valid(
+							url_by_id
+								.get(id)
+								.expect("we just created this hashmap")
+								.as_str()
+								.into(),
+						)
+						.open(&[path])
+						{
+							error!("{e:#?}");
+						}
+					}
+				})
+			})
+			.map_err(|e| {
+				error!("{e:#?}");
+			})
 	}
 }
