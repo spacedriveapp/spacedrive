@@ -70,7 +70,7 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{locations.data?.map((location, index) => {
+				{locations.data?.map((location) => {
 					const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
@@ -113,7 +113,7 @@ export const LibrarySection = () => {
 					}
 				>
 					<div className="mb-2 mt-1">
-						{tags.data?.slice(0, 6).map((tag, index) => (
+						{tags.data?.slice(0, 6).map((tag) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
 									onContextMenu={() => setTriggeredContextItem(`tag-${tag.id}`)}
