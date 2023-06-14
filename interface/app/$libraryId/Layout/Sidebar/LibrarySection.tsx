@@ -1,7 +1,13 @@
 import { Laptop, Mobile, Server } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { Link, NavLink } from 'react-router-dom';
-import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
+import {
+	arraysEqual,
+	useBridgeQuery,
+	useFeatureFlag,
+	useLibraryQuery,
+	useOnlineLocations
+} from '@sd/client';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
@@ -14,15 +20,20 @@ export const LibrarySection = () => {
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
+	const isPairingEnabled = useFeatureFlag('p2pPairing');
 
 	return (
 		<>
 			<Section
 				name="Nodes"
 				actionArea={
-					<Link to="settings/library/nodes">
+					isPairingEnabled ? (
+						<Link to="settings/library/nodes">
+							<SubtleButton />
+						</Link>
+					) : (
 						<SubtleButton />
-					</Link>
+					)
 				}
 			>
 				<SidebarLink disabled className="group relative w-full" to={`/`} key={'jeff'}>

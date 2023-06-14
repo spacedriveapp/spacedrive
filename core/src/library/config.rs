@@ -19,11 +19,11 @@ pub struct LibraryConfig {
 	pub name: String,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: String,
+	/// P2P identity of this library.
+	pub identity: Vec<u8>,
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
-	/// P2P identity of this library
-	pub identity: Vec<u8>,
 }
 
 #[async_trait::async_trait]

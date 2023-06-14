@@ -20,6 +20,7 @@ use std::{
 	sync::Arc,
 };
 
+use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use thiserror::Error;
 use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, warn};
@@ -67,6 +68,8 @@ pub enum LibraryManagerError {
 	LocationWatcher(#[from] LocationManagerError),
 	#[error("no-path")]
 	NoPath(i32),
+	#[error("failed to parse library p2p identity: {0}")]
+	Identity(#[from] IdentityErr),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -329,6 +332,7 @@ impl LibraryManager {
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
 		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
+		let identity = Identity::from_bytes(&config.identity)?;
 
 		let node_config = node_context.config.get().await;
 
@@ -363,12 +367,14 @@ impl LibraryManager {
 
 		tokio::spawn({
 			let node_context = node_context.clone();
-
 			async move {
 				while let Ok(op) = sync_rx.recv().await {
 					let SyncMessage::Created(op) = op else { continue; };
 
-					node_context.p2p.broadcast_sync_events(id, vec![op]).await;
+					node_context
+						.p2p
+						.broadcast_sync_events(id, &identity, vec![op])
+						.await;
 				}
 			}
 		});

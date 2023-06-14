@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::p2p::P2PEvent;
 
-use super::{Ctx, R};
+use super::{utils::library, Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -70,5 +70,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 			})
+		})
+		.procedure("pair", {
+			R.with2(library())
+				.mutation(|(ctx, lib), id: PeerId| async move { ctx.p2p.pair(id, lib) })
 		})
 }

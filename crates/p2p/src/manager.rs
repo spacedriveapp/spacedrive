@@ -1,5 +1,5 @@
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -92,6 +92,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 				mdns,
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
+				on_establish_streams: HashMap::new(),
 			},
 		))
 	}
@@ -136,6 +137,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.await;
 		let mut stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
+			()
 		})?;
 		stream.write_discriminator().await.unwrap(); // TODO: Error handling
 		Ok(stream)

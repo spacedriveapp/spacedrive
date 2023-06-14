@@ -1,5 +1,5 @@
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	fmt,
 	net::SocketAddr,
 	sync::{
@@ -64,6 +64,7 @@ pub struct ManagerStream<TMetadata: Metadata> {
 	pub(crate) mdns: Mdns<TMetadata>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 	pub(crate) shutdown: AtomicBool,
+	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
 }
 
 impl<TMetadata> ManagerStream<TMetadata>
@@ -106,7 +107,20 @@ where
 								return Some(event);
 							}
 						},
-						SwarmEvent::ConnectionEstablished { .. } => {},
+						SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+							if let Some(streams) = self.on_establish_streams.remove(&peer_id) {
+								for event in streams {
+									self.swarm
+										.behaviour_mut()
+										.pending_events
+										.push_back(ToSwarm::NotifyHandler {
+											peer_id,
+											handler: NotifyHandler::Any,
+											event
+										});
+								}
+							}
+						},
 						SwarmEvent::ConnectionClosed { .. } => {},
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
@@ -192,7 +206,7 @@ where
 						.addresses(addresses.iter().map(socketaddr_to_quic_multiaddr).collect())
 						.build(),
 				) {
-					Ok(_) => {}
+					Ok(()) => {}
 					Err(err) => warn!(
 						"error dialing peer '{}' with addresses '{:?}': {}",
 						peer_id, addresses, err
@@ -200,14 +214,50 @@ where
 				}
 			}
 			ManagerStreamAction::StartStream(peer_id, rx) => {
-				self.swarm
-					.behaviour_mut()
-					.pending_events
-					.push_back(ToSwarm::NotifyHandler {
-						peer_id: peer_id.0,
-						handler: NotifyHandler::Any,
-						event: OutboundRequest::Unicast(rx),
-					});
+				if self
+					.swarm
+					.connected_peers()
+					.find(|v| **v == peer_id.0)
+					.is_none()
+				{
+					let addresses = self
+						.mdns
+						.state
+						.discovered
+						.read()
+						.await
+						.get(&peer_id)
+						.unwrap()
+						.addresses
+						.clone();
+
+					match self.swarm.dial(
+						DialOpts::peer_id(peer_id.0)
+							.condition(PeerCondition::Disconnected)
+							.addresses(addresses.iter().map(socketaddr_to_quic_multiaddr).collect())
+							.build(),
+					) {
+						Ok(()) => {}
+						Err(err) => warn!(
+							"error dialing peer '{}' with addresses '{:?}': {}",
+							peer_id, addresses, err
+						),
+					}
+
+					self.on_establish_streams
+						.entry(peer_id.0)
+						.or_default()
+						.push(OutboundRequest::Unicast(rx));
+				} else {
+					self.swarm
+						.behaviour_mut()
+						.pending_events
+						.push_back(ToSwarm::NotifyHandler {
+							peer_id: peer_id.0,
+							handler: NotifyHandler::Any,
+							event: OutboundRequest::Unicast(rx),
+						});
+				}
 			}
 			ManagerStreamAction::BroadcastData(data) => {
 				let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();

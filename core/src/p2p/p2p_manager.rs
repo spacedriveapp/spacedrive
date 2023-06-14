@@ -4,14 +4,17 @@ use std::{
 	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU16, Ordering},
+		Arc,
+	},
 	time::{Duration, Instant},
 };
 
 use sd_p2p::{
 	spaceblock::{self, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
-	spacetunnel::Tunnel,
+	spacetunnel::{Identity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
@@ -27,6 +30,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
+	library::Library,
 	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
@@ -57,6 +61,7 @@ pub struct P2PManager {
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	pairing_id: AtomicU16,
 }
 
 impl P2PManager {
@@ -177,6 +182,14 @@ impl P2PManager {
 
 										info!("spacedrop({id}): complete");
 									}
+									Header::Pair(library_id) => {
+										info!(
+											"Starting pairing with '{}' for library '{library_id}'",
+											event.peer_id
+										);
+
+										// TODO
+									}
 									Header::Sync(library_id) => {
 										let tunnel =
 											Tunnel::from_stream(event.stream).await.unwrap();
@@ -228,6 +241,7 @@ impl P2PManager {
 			manager,
 			spacedrop_pairing_reqs,
 			metadata_manager,
+			pairing_id: AtomicU16::new(0),
 		});
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
@@ -275,8 +289,35 @@ impl P2PManager {
 		self.events.subscribe()
 	}
 
-	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated
-	pub async fn broadcast_sync_events(&self, library_id: Uuid, event: Vec<CRDTOperation>) {
+	pub fn pair(&self, peer_id: PeerId, lib: Library) -> u16 {
+		let pairing_id = self.pairing_id.fetch_add(1, Ordering::SeqCst);
+
+		let manager = self.manager.clone();
+		tokio::spawn(async move {
+			info!(
+				"Started pairing session '{pairing_id}' with peer '{peer_id}' for library '{}'",
+				lib.id
+			);
+
+			let mut stream = manager.stream(peer_id).await.unwrap();
+
+			let header = Header::Pair(lib.id);
+			stream.write_all(&header.to_bytes()).await.unwrap();
+
+			// TODO: Dial connection to the peer sending the pairing request
+
+			// TODO: Show QRcode/password
+		});
+
+		pairing_id
+	}
+
+	pub async fn broadcast_sync_events(
+		&self,
+		library_id: Uuid,
+		identity: &Identity,
+		event: Vec<CRDTOperation>,
+	) {
 		let mut buf = match rmp_serde::to_vec_named(&event) {
 			Ok(buf) => buf,
 			Err(e) => {
@@ -287,16 +328,23 @@ impl P2PManager {
 		let mut head_buf = Header::Sync(library_id).to_bytes(); // Max Sync payload is like 4GB
 		head_buf.append(&mut buf);
 
+		// TODO: Determine which clients we share that library with
+
+		// TODO: Establish a connection to them
+
+		// TODO: Use `Tunnel` for encryption
+
+		todo!();
+
 		// buf.len() as u32
 
 		// let len_buf = len.to_le_bytes();
 		// debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
 		// bytes.extend_from_slice(&len_buf);
-		todo!();
 
-		debug!("broadcasting sync events. payload_len={}", buf.len());
+		// debug!("broadcasting sync events. payload_len={}", buf.len());
 
-		self.manager.broadcast(head_buf).await;
+		// self.manager.broadcast(head_buf).await;
 	}
 
 	pub async fn ping(&self) {

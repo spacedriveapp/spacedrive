@@ -1,4 +1,9 @@
 use rand_core::OsRng;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct IdentityErr(#[from] ed25519_dalek::ed25519::Error);
 
 /// TODO
 pub struct Identity(ed25519_dalek::Keypair);
@@ -8,7 +13,7 @@ impl Identity {
 		Self(ed25519_dalek::Keypair::generate(&mut OsRng))
 	}
 
-	pub fn from_bytes(bytes: &[u8]) -> Result<Self, ed25519_dalek::ed25519::Error> {
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, IdentityErr> {
 		Ok(Self(ed25519_dalek::Keypair::from_bytes(bytes)?))
 	}
 

@@ -12,6 +12,7 @@ use sd_p2p::{
 pub enum Header {
 	Ping,
 	Spacedrop(SpacedropRequest),
+	Pair(Uuid),
 	Sync(Uuid),
 }
 
@@ -61,6 +62,17 @@ impl Header {
 					.await
 					.map_err(SyncRequestError::LibraryIdIoError)?;
 
+				Ok(Self::Pair(
+					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
+				))
+			}
+			3 => {
+				let mut uuid = [0u8; 16];
+				stream
+					.read_exact(&mut uuid)
+					.await
+					.map_err(SyncRequestError::LibraryIdIoError)?;
+
 				Ok(Self::Sync(
 					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
 				))
@@ -77,10 +89,14 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Sync(uuid) => {
+			Self::Pair(library_id) => {
 				let mut bytes = vec![2];
+				bytes.extend_from_slice(library_id.as_bytes());
+				bytes
+			}
+			Self::Sync(uuid) => {
+				let mut bytes = vec![3];
 				bytes.extend_from_slice(uuid.as_bytes());
-
 				bytes
 			}
 		}
