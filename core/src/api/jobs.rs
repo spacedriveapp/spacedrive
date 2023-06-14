@@ -34,7 +34,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.subscription(|(ctx, _), _: ()| async move {
 					let mut event_bus_rx = ctx.event_bus.0.subscribe();
 
-					let mut tick = interval(Duration::from_secs_f64(1.0 / 60.0));
+					let mut tick = interval(Duration::from_secs_f64(1.0 / 10.0));
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {

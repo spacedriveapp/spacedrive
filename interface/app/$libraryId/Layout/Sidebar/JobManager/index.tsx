@@ -10,40 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 export function JobsManager() {
 	const queryClient = useQueryClient()
 
-	const { data: jobs, isSuccess: jobsSuccess } = useLibraryQuery(['jobs.reports']);
-
-	// Local state to keep track of the jobs
-	const [currentJobs, setCurrentJobs] = useState<JobGroups | undefined>();
-
-	useEffect(() => {
-		// When jobs successfully loaded, update the local state
-		if (jobsSuccess) setCurrentJobs(jobs)
-	}, [jobs, jobsSuccess]);
-
-	const handleJobUpdate = useCallback((data: JobReport) => {
-		const groupIndex = currentJobs?.index[data.id];
-		console.log(data.action, data.name, data.id, currentJobs, groupIndex);
-
-		if (groupIndex !== undefined) {
-			const childJobs = currentJobs?.groups?.[groupIndex]?.jobs;
-			if (childJobs) {
-				const updatedChildJobs = childJobs.map((job) =>
-					job.id === data.id ? data : job
-				);
-				const updatedJobs = {
-					...currentJobs,
-					groups: currentJobs.groups.map((group, index) =>
-						index === groupIndex ? { ...group, jobs: updatedChildJobs } : group
-					),
-				};
-				setCurrentJobs(updatedJobs)
-			}
-		}
-	}, [currentJobs]);
-
-	useLibrarySubscription(['jobs.progress'], {
-		onData: handleJobUpdate,
-	});
+	const { data: jobs } = useLibraryQuery(['jobs.reports']);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -88,12 +55,12 @@ export function JobsManager() {
 			</PopoverClose>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className='h-full border-r border-app-line/50'>
-					{currentJobs?.groups?.map((group) => (
+					{jobs?.groups?.map((group) => (
 						<JobGroup key={group.id} data={group} clearJob={function (arg: string): void {
 							throw new Error('Function not implemented.');
 						}} />
 					))}
-					{currentJobs?.groups?.length === 0 && (
+					{jobs?.groups?.length === 0 && (
 						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 							No jobs.
 						</div>

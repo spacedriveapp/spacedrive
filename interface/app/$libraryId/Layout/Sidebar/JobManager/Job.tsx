@@ -1,4 +1,4 @@
-import { JobReport, useLibraryMutation } from '@sd/client';
+import { JobReport, useLibraryMutation, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -6,7 +6,7 @@ import {
 	Info,
 	Question
 } from 'phosphor-react';
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 import useJobInfo from './useJobInfo';
@@ -17,8 +17,25 @@ interface JobProps {
 	isChild?: boolean;
 }
 
-function Job({ job, className, isChild }: JobProps) {
+function Job({ job: _job, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
+
+	const [job, setJob] = useState<JobReport>(_job);
+
+	useEffect(() => {
+		setJob(_job)
+	}, [_job]);
+
+	const handleJobUpdate = useCallback((data: JobReport) => {
+		if (data.id === job.id && job.status === "Running") {
+			console.log('job updated', data);
+			setJob(data);
+		}
+	}, [job]);
+
+	useLibrarySubscription(['jobs.progress'], {
+		onData: handleJobUpdate,
+	});
 
 	const niceData = useJobInfo(job)[job.name] || {
 		name: job.name,
