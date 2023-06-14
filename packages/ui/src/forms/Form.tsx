@@ -69,7 +69,7 @@ export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, ne
 };
 
 export const errorStyles = cva(
-	'flex justify-center gap-3 whitespace-pre-wrap rounded border border-red-500/40 bg-red-800/40 px-3 py-2 text-white',
+	'flex flex-wrap justify-center gap-3 rounded border break-words border-red-500/40 bg-red-800/40 px-3 py-2 text-white',
 	{
 		variants: {
 			variant: {
@@ -108,7 +108,7 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 				return typeof message === 'string' ? (
 					<animated.div style={styles} className={errorStyles({ variant, className })}>
 						<Warning size={15} />
-						<p className="w-[95%]">{message}</p>
+						<p className="w-[90%]">{message}</p>
 					</animated.div>
 				) : null;
 			})}
