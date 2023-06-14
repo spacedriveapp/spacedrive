@@ -156,7 +156,7 @@ mod test {
 		async fn migrate(
 			to_version: u32,
 			config: &mut Map<String, Value>,
-			ctx: &Self::Ctx,
+			_ctx: &Self::Ctx,
 		) -> Result<(), MigratorError> {
 			match to_version {
 				0 => Ok(()),
@@ -217,12 +217,13 @@ mod test {
 				"version": 0
 			}))
 			.unwrap(),
-		);
+		)
+		.unwrap();
 		assert!(p.exists(), "config file was not initialised");
 		assert_eq!(file_as_str(&p), r#"{"version":0}"#);
 
 		// Load + migrate config
-		let config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
+		let _config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
 
 		assert_eq!(
 			file_as_str(&p),

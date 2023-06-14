@@ -1,9 +1,6 @@
 use crate::{
 	invalidate_query,
-	location::{
-		indexer::rules::{self, SeederError},
-		LocationManagerError,
-	},
+	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node},
