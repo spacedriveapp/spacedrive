@@ -1,36 +1,48 @@
-import { useLibraryMutation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
+import { JobGroups, JobReport, useLibraryMutation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
+import { Button, PopoverClose, Tooltip } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { Trash, X } from 'phosphor-react';
-import { useMemo } from 'react';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
-import { useGroupedJobs } from './useGroupedJobs';
+import { useCallback, useEffect, useState } from 'react';
 
 export function JobsManager() {
 	const queryClient = useQueryClient()
 
-	const { data: jobs } = useLibraryQuery(['jobs.reports'], {
-		onSuccess: (data) => console.log('data', data)
-	});
+	const { data: jobs, isSuccess: jobsSuccess } = useLibraryQuery(['jobs.reports']);
+
+	// Local state to keep track of the jobs
+	const [currentJobs, setCurrentJobs] = useState<JobGroups | undefined>();
+
+	useEffect(() => {
+		// When jobs successfully loaded, update the local state
+		if (jobsSuccess) setCurrentJobs(jobs)
+	}, [jobs, jobsSuccess]);
+
+	const handleJobUpdate = useCallback((data: JobReport) => {
+		const groupIndex = currentJobs?.index[data.id];
+		console.log(data.action, data.name, data.id, currentJobs, groupIndex);
+
+		if (groupIndex !== undefined) {
+			const childJobs = currentJobs?.groups?.[groupIndex]?.jobs;
+			if (childJobs) {
+				const updatedChildJobs = childJobs.map((job) =>
+					job.id === data.id ? data : job
+				);
+				const updatedJobs = {
+					...currentJobs,
+					groups: currentJobs.groups.map((group, index) =>
+						index === groupIndex ? { ...group, jobs: updatedChildJobs } : group
+					),
+				};
+				setCurrentJobs(updatedJobs)
+			}
+		}
+	}, [currentJobs]);
 
 	useLibrarySubscription(['jobs.progress'], {
-		onData(data) {
-			console.log({ data })
-			// update query cache for job.reports
-			const groupIndex = jobs?.index[data.id];
-			if (groupIndex !== undefined) {
-				const childJobs = jobs?.groups?.[groupIndex]?.jobs;
-				if (childJobs) {
-					const childIndex = childJobs?.findIndex((job) => job.id === data.id);
-					childJobs[childIndex] = data;
-					queryClient.setQueryData(['jobs.reports'], jobs);
-				}
-			}
-
-		},
+		onData: handleJobUpdate,
 	});
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
@@ -76,12 +88,12 @@ export function JobsManager() {
 			</PopoverClose>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className='h-full border-r border-app-line/50'>
-					{jobs?.groups?.map((group) => (
+					{currentJobs?.groups?.map((group) => (
 						<JobGroup key={group.id} data={group} clearJob={function (arg: string): void {
 							throw new Error('Function not implemented.');
 						}} />
 					))}
-					{jobs?.groups?.length === 0 && (
+					{currentJobs?.groups?.length === 0 && (
 						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 							No jobs.
 						</div>

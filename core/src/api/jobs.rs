@@ -115,7 +115,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								// Add to existing job group
 								Entry::Occupied(mut e) => {
 									let group = e.get_mut();
-									group.jobs.push(report.clone());
+									group.jobs.insert(0, report.clone()); // inserts at the beginning
 								}
 							}
 						}

@@ -1,4 +1,4 @@
-import { JobReport, useLibraryMutation, useLibrarySubscription } from '@sd/client';
+import { JobReport, useLibraryMutation } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -6,7 +6,7 @@ import {
 	Info,
 	Question
 } from 'phosphor-react';
-import { memo, useRef } from 'react';
+import { memo } from 'react';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 import useJobInfo from './useJobInfo';
@@ -17,7 +17,7 @@ interface JobProps {
 	isChild?: boolean;
 }
 
-function Job({ job: job, className, isChild }: JobProps) {
+function Job({ job, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
 
 	const niceData = useJobInfo(job)[job.name] || {
@@ -41,6 +41,8 @@ function Job({ job: job, className, isChild }: JobProps) {
 			queryClient.invalidateQueries(['jobs.reports']);
 		}
 	});
+
+
 
 
 	// const clearJobHandler = useCallback(
@@ -80,8 +82,8 @@ function Job({ job: job, className, isChild }: JobProps) {
 			className={className}
 			name={niceData.name}
 			circleIcon={niceData.icon}
-			// textItems={['Queued'].includes(job.status) ? [[{ text: job.status }], [{ text: job.id }]] : niceData.textItems}
-			textItems={[[{ text: job.status }, { text: job.id, }]]}
+			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }], [{ text: job.id, }]] : niceData.textItems}
+			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={job.action !== null}
 		>
 			{isRunning && (
