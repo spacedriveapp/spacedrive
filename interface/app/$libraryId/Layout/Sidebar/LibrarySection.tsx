@@ -16,12 +16,12 @@ export const LibrarySection = () => {
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
-	const [triggeredContextItem, setTriggeredContextItem] = useState(-1);
+	const [triggeredContextItem, setTriggeredContextItem] = useState('');
 
 	useEffect(() => {
 		const outsideClick = () => {
 			document.addEventListener('click', () => {
-				setTriggeredContextItem(-1);
+				setTriggeredContextItem('');
 			});
 		};
 		outsideClick();
@@ -70,14 +70,16 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{locations.data?.map((location) => {
+				{locations.data?.map((location, index) => {
 					const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink
-								onContextMenu={() => setTriggeredContextItem(location.id)}
+								onContextMenu={() =>
+									setTriggeredContextItem(`location-${location.id}`)
+								}
 								className={clsx(
-									triggeredContextItem === location.id
+									triggeredContextItem === `location-${location.id}`
 										? 'border-accent'
 										: 'border-transparent',
 									'group relative w-full border'
@@ -111,12 +113,12 @@ export const LibrarySection = () => {
 					}
 				>
 					<div className="mb-2 mt-1">
-						{tags.data?.slice(0, 6).map((tag) => (
+						{tags.data?.slice(0, 6).map((tag, index) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
-									onContextMenu={() => setTriggeredContextItem(tag.id)}
+									onContextMenu={() => setTriggeredContextItem(`tag-${tag.id}`)}
 									className={clsx(
-										triggeredContextItem === tag.id
+										triggeredContextItem === `tag-${tag.id}`
 											? 'border-accent'
 											: 'border-transparent',
 										'border'
