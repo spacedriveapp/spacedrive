@@ -6999,6 +6999,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-desktop-windows"
+version = "0.1.0"
+dependencies = [
+ "normpath",
+ "thiserror",
+ "windows 0.48.0",
+]
+
+[[package]]
 name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
@@ -7634,6 +7643,7 @@ dependencies = [
  "sd-core",
  "sd-desktop-linux",
  "sd-desktop-macos",
+ "sd-desktop-windows",
  "serde",
  "specta",
  "tauri",

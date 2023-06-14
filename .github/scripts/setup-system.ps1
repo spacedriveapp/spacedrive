@@ -178,6 +178,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     Write-Host
     Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
     Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
+    winget install -e --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools `
+        --override 'updateall --quiet --wait'
     # Force install because BuildTools is itself a package manager, so let it decide if something needs to be installed or not
     winget install -e --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools `
         --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
@@ -205,6 +207,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     } else {
         $LASTEXITCODE = 0
     }
+
+    # TODO: Install Strawberry perl, required by debug build of openssl-sys
 
     Write-Host
     Write-Host 'Installing NodeJS...' -ForegroundColor Yellow

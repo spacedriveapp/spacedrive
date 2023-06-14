@@ -167,6 +167,30 @@ pub async fn get_file_path_open_with_apps(
 			.collect());
 	}
 
+	#[cfg(windows)]
+	{
+		use sd_desktop_windows::{list_apps_associated_with_ext, Error, Result};
+
+		return Ok(list_apps_associated_with_ext(path.extension().ok_or(())?)
+			.map_err(|_| ())?
+			.iter()
+			.filter_map(|handler| {
+				if let (Ok(name), Ok(url)) = (
+					unsafe { handler.GetUIName() }.and_then(|name| -> Result<_> {
+						unsafe { name.to_string() }.map_err(|_| Error::OK)
+					}),
+					unsafe { handler.GetName() }.and_then(|name| -> Result<_> {
+						unsafe { name.to_string() }.map_err(|_| Error::OK)
+					}),
+				) {
+					Some(OpenWithApplication { name, url })
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<OpenWithApplication>>());
+	}
+
 	#[allow(unreachable_code)]
 	Err(())
 }
@@ -240,4 +264,11 @@ pub async fn open_file_path_with(
 				error!("{e:#?}");
 			})
 	}
+
+	#[cfg(windows)]
+	{
+		sd_desktop_windows::open_file_path_with(&path, url).unwrap(); //.map_err(|_| ())?;
+	}
+
+	Ok(())
 }

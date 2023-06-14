@@ -42,25 +42,27 @@ const Items = ({
 
 	return (
 		<>
-			{items.data?.map((data) => (
-				<ContextMenu.Item
-					key={data.name}
-					onClick={async () => {
-						try {
-							await actions.openFilePathWith(library.uuid, [
-								(filePath.id, data.c.url)
-							]);
-						} catch {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to open file, with: ${data.url}`
-							});
-						}
-					}}
-				>
-					{data.name}
-				</ContextMenu.Item>
-			)) ?? <p> No apps available </p>}
+			{items.data && items.data.length > 0 ? (
+				items.data.map((data) => (
+					<ContextMenu.Item
+						key={data.name}
+						onClick={async () => {
+							try {
+								await actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)]);
+							} catch {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to open file, with: ${data.url}`
+								});
+							}
+						}}
+					>
+						{data.name}
+					</ContextMenu.Item>
+				))
+			) : (
+				<p> No apps available </p>
+			)}
 		</>
 	);
 };
