@@ -61,7 +61,7 @@ const Items = ({
 					</ContextMenu.Item>
 				))
 			) : (
-				<p> No apps available </p>
+				<p className="w-full text-center text-sm text-gray-400"> No apps available </p>
 			)}
 		</>
 	);
