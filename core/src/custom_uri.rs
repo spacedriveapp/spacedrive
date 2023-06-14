@@ -193,9 +193,12 @@ async fn handle_file(
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
+			let Some(path) = &file_path.location.path else {
+                return Err(HandleCustomUriError::NoPath(file_path.location.id))
+            };
+
 			let lru_entry = (
-				Path::new(&file_path.location.path)
-					.join(IsolatedFilePathData::from((location_id, &file_path))),
+				Path::new(path).join(IsolatedFilePathData::from((location_id, &file_path))),
 				file_path.extension,
 			);
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
@@ -270,7 +273,6 @@ async fn handle_file(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-
 		// HEIF/HEIC images
 		"heif" | "heifs" => "image/heif,image/heif-sequence",
 		"heic" | "heics" => "image/heic,image/heic-sequence",
@@ -386,18 +388,20 @@ pub fn create_custom_uri_endpoint(node: Arc<Node>) -> Endpoint<impl HttpEndpoint
 
 #[derive(Error, Debug)]
 pub enum HandleCustomUriError {
-	#[error("error creating http request/response: {0}")]
+	#[error("HandleCustomUriError::Http - {0}")]
 	Http(#[from] httpz::http::Error),
-	#[error("io error: {0}")]
+	#[error("HandleCustomUriError::FileIO - {0}")]
 	FileIO(#[from] FileIOError),
-	#[error("query error: {0}")]
+	#[error("HandleCustomUriError::QueryError - {0}")]
 	QueryError(#[from] QueryError),
-	#[error("{0}")]
+	#[error("HandleCustomUriError::BadRequest - {0}")]
 	BadRequest(&'static str),
-	#[error("Range is not valid: {0}")]
+	#[error("HandleCustomUriError::RangeNotSatisfiable - invalid range {0}")]
 	RangeNotSatisfiable(&'static str),
-	#[error("resource '{0}' not found")]
+	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
 	NotFound(&'static str),
+	#[error("no-path")]
+	NoPath(i32),
 }
 
 impl From<HandleCustomUriError> for Response<Vec<u8>> {
@@ -440,6 +444,12 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.as_bytes()
 					.to_vec(),
 			),
+			HandleCustomUriError::NoPath(id) => {
+				error!("Location <id = {id}> has no path");
+				builder
+					.status(StatusCode::INTERNAL_SERVER_ERROR)
+					.body(b"Internal Server Error".to_vec())
+			}
 		})
 		// SAFETY: This unwrap is ok as we have an hardcoded the response builders.
 		.expect("internal error building hardcoded HTTP error response")

@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { PropsWithChildren, createContext, useContext } from 'react';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -24,8 +24,9 @@ export type Platform = {
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
 	openFilePath?(library: string, id: number): any;
-	getFilePathOpenWithApps?(library: string, id: number): any;
-	openFilePathWith?(library: string, id: number, appUrl: string): any;
+	getFilePathOpenWithApps?(library: string, id: number): Promise<{ name: string; url: string }[]>;
+	openFilePathWith?(library: string, id: number, appUrl: string): Promise<unknown>;
+	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 
 // Keep this private and use through helpers below

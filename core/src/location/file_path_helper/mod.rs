@@ -69,6 +69,7 @@ file_path::select!(file_path_to_handle_custom_uri {
 	name
 	extension
 	location: select {
+		id
 		path
 	}
 });
@@ -122,7 +123,7 @@ pub enum FilePathError {
 		location_id: LocationId,
 		path: Box<Path>,
 	},
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] QueryError),
 
 	#[error(transparent)]

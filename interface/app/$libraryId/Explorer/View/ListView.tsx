@@ -253,7 +253,7 @@ export default () => {
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
 	) {
-		if (!explorerView.onSelectedChange) return;
+		if (!explorerView.onSelectedChange || e.button !== 0) return;
 
 		const rowIndex = row.index;
 		const itemId = row.original.item.id;
@@ -328,7 +328,7 @@ export default () => {
 			}
 
 			explorerView.onSelectedChange?.([...updated]);
-		} else if (e.button === 0) {
+		} else {
 			explorerView.onSelectedChange(explorerView.multiSelect ? [itemId] : itemId);
 			setRanges([[itemId, itemId]]);
 		}

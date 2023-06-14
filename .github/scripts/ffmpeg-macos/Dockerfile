@@ -1,7 +1,7 @@
 ARG FAKE_DEPS="python311 perl5.34 gdk-pixbuf2 xorg-libsm xorg-libX11" \
 	FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libheif libogg libopus libpng \
-	libtheora libvidstab libvorbis libvpx-devel lzo2 openjpeg rav1e soxr svt-av1 twolame webp x264 \
-	x265 XviD xz zimg zlib" \
+	libtheora libvorbis libvpx-devel openjpeg rav1e soxr svt-av1 twolame webp x264 x265 XviD xz zimg \
+	zlib" \
 	FFMPEG_VERSION=6.0
 
 FROM vvasconcellos/osxcross:12.3-50e86eb-1 as base
@@ -13,7 +13,7 @@ RUN tar -xf ffmpeg-${FFMPEG_VERSION}.tar.xz && rm ffmpeg-${FFMPEG_VERSION}.tar.x
 
 WORKDIR /srv/ffmpeg-${FFMPEG_VERSION}
 
-COPY ./ffmpeg-build-macos.sh ./
+COPY --chmod=755 ./ffmpeg-build-macos.sh ./
 
 # ---
 FROM base as x86_64

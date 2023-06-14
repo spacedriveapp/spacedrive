@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
 
-use crate::{job::JobReport, node::NodeConfig, Node};
+use crate::{job::JobReport, node::SanitisedNodeConfig, Node};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -38,7 +38,7 @@ pub mod volumes;
 #[derive(Serialize, Deserialize, Debug, Type)]
 struct NodeState {
 	#[serde(flatten)]
-	config: NodeConfig,
+	config: SanitisedNodeConfig,
 	data_path: String,
 }
 
@@ -60,7 +60,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.procedure("nodeState", {
 			R.query(|ctx, _: ()| async move {
 				Ok(NodeState {
-					config: ctx.config.get().await,
+					config: ctx.config.get().await.into(),
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
 					data_path: ctx
 						.config
@@ -76,7 +76,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("categories.", categories::mount())
-		.merge("keys.", keys::mount())
+		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())

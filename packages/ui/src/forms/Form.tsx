@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { animated, useTransition } from '@react-spring/web';
 import { VariantProps, cva } from 'class-variance-authority';
-import clsx from 'clsx';
+import { Warning } from 'phosphor-react';
 import { ComponentProps } from 'react';
 import {
 	FieldErrors,
@@ -69,13 +69,13 @@ export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, ne
 };
 
 export const errorStyles = cva(
-	'inline-block whitespace-pre-wrap rounded border border-red-400/40 bg-red-400/40 text-white',
+	'flex justify-center gap-3 whitespace-pre-wrap rounded border border-red-500/40 bg-red-800/40 px-3 py-2 text-white',
 	{
 		variants: {
 			variant: {
 				none: '',
-				default: 'px-1 text-xs',
-				large: 'w-full px-3 py-2 text-center text-sm font-semibold'
+				default: 'w-full text-xs',
+				large: 'text-left text-xs font-semibold'
 			}
 		},
 		defaultVariants: {
@@ -106,9 +106,10 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 			{transitions((styles, error) => {
 				const message = error?.message;
 				return typeof message === 'string' ? (
-					<animated.span style={styles} className={errorStyles({ variant, className })}>
-						{message}
-					</animated.span>
+					<animated.div style={styles} className={errorStyles({ variant, className })}>
+						<Warning size={15} />
+						<p className="w-[95%]">{message}</p>
+					</animated.div>
 				) : null;
 			})}
 		</>

@@ -27,9 +27,9 @@ import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
-import DecryptDialog from './DecryptDialog';
+// import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
-import EncryptDialog from './EncryptDialog';
+// import EncryptDialog from './EncryptDialog';
 import EraseDialog from './EraseDialog';
 
 interface Props {
@@ -41,9 +41,9 @@ export default ({ data }: Props) => {
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
-	const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
-	const mountedKeys = useLibraryQuery(['keys.listMounted']);
-	const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
+	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
+	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
+	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
@@ -174,7 +174,7 @@ export default ({ data }: Props) => {
 			)}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					label="Encrypt"
 					icon={LockSimple}
 					keybind="⌘E"
@@ -199,9 +199,9 @@ export default ({ data }: Props) => {
 							});
 						}
 					}}
-				/>
+				/> */}
 				{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					label="Decrypt"
 					icon={LockSimpleOpen}
 					keybind="⌘D"
@@ -221,7 +221,7 @@ export default ({ data }: Props) => {
 							});
 						}
 					}}
-				/>
+				/> */}
 				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 					<ContextMenu.Item label="PNG" />

@@ -3,7 +3,7 @@ use crate::{
 	location::{indexer::rules, LocationManagerError},
 	node::Platform,
 	object::orphan_remover::OrphanRemoverActor,
-	prisma::{location, node, PrismaClient},
+	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
 		db,
@@ -11,11 +11,6 @@ use crate::{
 		migrator::{Migrate, MigratorError},
 	},
 	NodeContext,
-};
-
-use sd_crypto::{
-	keys::keymanager::{KeyManager, StoredKey},
-	types::{EncryptedKey, Nonce, Salt},
 };
 
 use std::{
@@ -46,20 +41,20 @@ pub struct LibraryManager {
 pub enum LibraryManagerError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
-	#[error("error serializing or deserializing the JSON in the config file")]
+	#[error("error serializing or deserializing the JSON in the config file: {0}")]
 	Json(#[from] serde_json::Error),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("library not found error")]
 	LibraryNotFound,
-	#[error("error migrating the config file")]
+	#[error("error migrating the config file: {0}")]
 	Migration(String),
-	#[error("failed to parse uuid")]
+	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
-	#[error("failed to run indexer rules seeder")]
+	#[error("failed to run indexer rules seeder: {0}")]
 	IndexerRulesSeeder(#[from] rules::SeederError),
-	#[error("failed to initialise the key manager")]
-	KeyManager(#[from] sd_crypto::Error),
+	// #[error("failed to initialise the key manager: {0}")]
+	// KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]
 	MigratorError(#[from] MigratorError),
 	#[error("error migrating the library: {0}")]
@@ -70,6 +65,8 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
+	#[error("no-path")]
+	NoPath(i32),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -80,58 +77,6 @@ impl From<LibraryManagerError> for rspc::Error {
 			error,
 		)
 	}
-}
-
-pub async fn seed_keymanager(
-	client: &PrismaClient,
-	km: &Arc<KeyManager>,
-) -> Result<(), LibraryManagerError> {
-	let mut default = None;
-
-	// collect and serialize the stored keys
-	let stored_keys: Vec<StoredKey> = client
-		.key()
-		.find_many(vec![])
-		.exec()
-		.await?
-		.iter()
-		.map(|key| {
-			let key = key.clone();
-			let uuid = uuid::Uuid::from_str(&key.uuid).expect("invalid key id in the DB");
-
-			if key.default {
-				default = Some(uuid);
-			}
-
-			Ok(StoredKey {
-				uuid,
-				version: serde_json::from_str(&key.version)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				key_type: serde_json::from_str(&key.key_type)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				algorithm: serde_json::from_str(&key.algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				content_salt: Salt::try_from(key.content_salt)?,
-				master_key: EncryptedKey::try_from(key.master_key)?,
-				master_key_nonce: Nonce::try_from(key.master_key_nonce)?,
-				key_nonce: Nonce::try_from(key.key_nonce)?,
-				key: key.key,
-				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
-					.map_err(|_| sd_crypto::Error::Serialization)?,
-				salt: Salt::try_from(key.salt)?,
-				memory_only: false,
-				automount: key.automount,
-			})
-		})
-		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()?;
-
-	// insert all keys from the DB into the keymanager's keystore
-	km.populate_keystore(stored_keys).await?;
-
-	// if any key had an associated default tag
-	default.map(|k| km.set_default(k));
-
-	Ok(())
 }
 
 impl LibraryManager {
@@ -409,8 +354,10 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		seed_keymanager(&db, &key_manager).await?;
+		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
+		// seed_keymanager(&db, &key_manager).await?;
+
+		rules::seeder(&db).await?;
 
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
 
@@ -430,7 +377,7 @@ impl LibraryManager {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager,
+			// key_manager,
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
@@ -441,7 +388,7 @@ impl LibraryManager {
 		for location in library
 			.db
 			.location()
-			.find_many(vec![location::node_id::equals(node_data.id)])
+			.find_many(vec![location::node_id::equals(Some(node_data.id))])
 			.exec()
 			.await?
 		{
