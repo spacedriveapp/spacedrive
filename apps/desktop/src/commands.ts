@@ -22,22 +22,22 @@ export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
 
-export function openFilePath(library: string, id: number) {
-    return invoke()<OpenFilePathResult>("open_file_path", { library,id })
+export function openFilePath(library: string, ids: number[]) {
+    return invoke()<OpenFilePathResult[]>("open_file_path", { library,ids })
 }
 
-export function getFilePathOpenWithApps(library: string, id: number) {
-    return invoke()<OpenWithApplication[]>("get_file_path_open_with_apps", { library,id })
+export function getFilePathOpenWithApps(library: string, ids: number[]) {
+    return invoke()<OpenWithApplication[]>("get_file_path_open_with_apps", { library,ids })
 }
 
-export function openFilePathWith(library: string, id: number, url: string) {
-    return invoke()<null>("open_file_path_with", { library,id,url })
+export function openFilePathWith(library: string, fileIdsAndUrls: ([number, string])[]) {
+    return invoke()<null>("open_file_path_with", { library,fileIdsAndUrls })
 }
 
 export function lockAppTheme(themeType: AppThemeType) {
     return invoke()<null>("lock_app_theme", { themeType })
 }
 
-export type OpenWithApplication = { name: string; url: string }
-export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile" } | { t: "OpenError"; c: string } | { t: "AllGood" }
+export type OpenWithApplication = { t: "File"; c: { id: number; name: string; url: string } } | { t: "Error"; c: [number, string] }
 export type AppThemeType = "Auto" | "Light" | "Dark"
+export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }

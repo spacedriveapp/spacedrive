@@ -54,7 +54,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 							};
 
 							if let Some(obj) = y.as_object_mut() {
-								if let Some(_) = obj.get("version").and_then(|v| v.as_str()) {
+								if obj.contains_key("version") {
 									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
 								} else {
 									return Err(err.into());
@@ -74,7 +74,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 				let is_latest = cfg.version == Self::CURRENT_VERSION;
 				for v in (cfg.version + 1)..=Self::CURRENT_VERSION {
 					cfg.version = v;
-					match Self::migrate(v, &mut cfg.other, &ctx).await {
+					match Self::migrate(v, &mut cfg.other, ctx).await {
 						Ok(()) => (),
 						Err(err) => {
 							file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
@@ -133,6 +133,7 @@ pub enum MigratorError {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod test {
 	use std::{fs, io::Read, path::PathBuf};
 

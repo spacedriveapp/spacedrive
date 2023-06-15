@@ -1,3 +1,8 @@
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	path::PathBuf,
+};
+
 use crate::{
 	invalidate_query,
 	job::{job_without_data, JobManager, JobReport, JobStatus},
@@ -7,17 +12,14 @@ use crate::{
 		preview::thumbnailer_job::ThumbnailerJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
-	prisma::{job, SortOrder},
+	prisma::{job, location, SortOrder},
 };
 
 use chrono::{DateTime, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{
-	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
-};
+
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
@@ -194,7 +196,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("generateThumbsForLocation", {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {
-				pub id: i32,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 
@@ -217,7 +219,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
-				pub id: i32,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 
@@ -240,7 +242,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("identifyUniqueFiles", {
 			#[derive(Type, Deserialize)]
 			pub struct IdentifyUniqueFilesArgs {
-				pub id: i32,
+				pub id: location::id::Type,
 				pub path: PathBuf,
 			}
 

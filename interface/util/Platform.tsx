@@ -23,9 +23,9 @@ export type Platform = {
 	openPath?(path: string): void;
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
-	openFilePath?(library: string, id: number): any;
-	getFilePathOpenWithApps?(library: string, id: number): Promise<{ name: string; url: string }[]>;
-	openFilePathWith?(library: string, id: number, appUrl: string): Promise<unknown>;
+	openFilePath?(library: string, ids: number[]): any;
+	getFilePathOpenWithApps?(library: string, ids: number[]): any;
+	openFilePathWith?(library: string, fileIdsAndAppUrls: ([number, string])[]): any;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 

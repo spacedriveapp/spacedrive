@@ -62,17 +62,17 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	};
 
 	return (
-		<div className="sticky top-0 z-10 flex mt-2 bg-app/90 backdrop-blur">
+		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
 			<div
 				onClick={() => handleArrowOnClick('right')}
 				className={clsx(
 					scroll > 0
 						? 'cursor-pointer bg-app/50 opacity-100 hover:opacity-95'
 						: 'pointer-events-none',
-					'sticky left-[43px] z-40 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[35px] z-40 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
-				<ArrowLeft weight="bold" className="w-4 h-4 text-ink" />
+				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
 			</div>
 			<div
 				ref={ref}
@@ -90,7 +90,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 							<motion.div
 								onViewportEnter={() => lastCategoryVisibleHandler(index)}
 								onViewportLeave={() => lastCategoryVisibleHandler(index)}
-								viewport={{ root: ref, margin: '0 -120px 0 0' }}
+								viewport={{ root: ref, margin: '0% -120px 0% 0%' }}
 								className="min-w-fit"
 								key={category}
 							>
@@ -114,7 +114,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					'sticky right-[45px] z-40 mt-4 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app/50 p-2 backdrop-blur-md transition-all duration-200'
 				)}
 			>
-				<ArrowRight weight="bold" className="w-4 h-4 text-ink" />
+				<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
 			</div>
 		</div>
 	);

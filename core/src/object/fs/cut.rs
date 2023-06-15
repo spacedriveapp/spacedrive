@@ -1,8 +1,11 @@
 use crate::{
-	invalidate_query,
+	extract_job_data, invalidate_query,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	library::Library,
+	object::fs::{construct_target_filename, error::FileSystemJobsError},
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
@@ -10,25 +13,24 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::fs;
+use tokio::{fs, io};
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_location_path_from_location_id, FsInfo};
+use super::{fetch_source_and_target_location_paths, get_many_files_datas, FileData};
 
 pub struct FileCutterJob {}
 
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileCutterJobInit {
-	pub source_location_id: i32,
-	pub source_path_id: i32,
-	pub target_location_id: i32,
-	pub target_path: PathBuf,
+	pub source_location_id: location::id::Type,
+	pub target_location_id: location::id::Type,
+	pub sources_file_path_ids: Vec<file_path::id::Type>,
+	pub target_location_relative_directory_path: PathBuf,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileCutterJobStep {
-	pub source_fs_info: FsInfo,
-	pub target_directory: PathBuf,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FileCutterJobState {
+	full_target_directory_path: PathBuf,
 }
 
 impl JobInitData for FileCutterJobInit {
@@ -38,8 +40,8 @@ impl JobInitData for FileCutterJobInit {
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJob {
 	type Init = FileCutterJobInit;
-	type Data = ();
-	type Step = FileCutterJobStep;
+	type Data = FileCutterJobState;
+	type Step = FileData;
 
 	const NAME: &'static str = "file_cutter";
 
@@ -52,22 +54,29 @@ impl StatefulJob for FileCutterJob {
 		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let source_fs_info = context_menu_fs_info(
-			&ctx.library.db,
-			state.init.source_location_id,
-			state.init.source_path_id,
-		)
-		.await?;
+		let Library { db, .. } = &ctx.library;
 
-		let mut full_target_path =
-			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
-				.await?;
-		full_target_path.push(&state.init.target_path);
+		let (sources_location_path, mut targets_location_path) =
+			fetch_source_and_target_location_paths(
+				db,
+				state.init.source_location_id,
+				state.init.target_location_id,
+			)
+			.await?;
 
-		state.steps.push_back(FileCutterJobStep {
-			source_fs_info,
-			target_directory: full_target_path,
+		targets_location_path.push(&state.init.target_location_relative_directory_path);
+
+		state.data = Some(FileCutterJobState {
+			full_target_directory_path: targets_location_path,
 		});
+
+		state.steps = get_many_files_datas(
+			db,
+			&sources_location_path,
+			&state.init.sources_file_path_ids,
+		)
+		.await?
+		.into();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -79,50 +88,52 @@ impl StatefulJob for FileCutterJob {
 		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
+		let data = extract_job_data!(state);
+
 		let step = &state.steps[0];
-		let source_info = &step.source_fs_info;
 
-		let full_output = step
-			.target_directory
-			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
+		let full_output = data
+			.full_target_directory_path
+			.join(construct_target_filename(step, &None));
 
-		let parent_source = source_info.fs_path.parent().ok_or(JobError::Path)?;
-
-		let parent_output = full_output.parent().ok_or(JobError::Path)?;
-
-		if fs::canonicalize(parent_source)
-			.await
-			.map_err(|e| FileIOError::from((parent_source, e)))?
-			== fs::canonicalize(parent_output)
-				.await
-				.map_err(|e| FileIOError::from((parent_output, e)))?
+		if step.full_path.parent().ok_or(JobError::Path)?
+			== full_output.parent().ok_or(JobError::Path)?
 		{
-			return Err(JobError::MatchingSrcDest(source_info.fs_path.clone()));
+			return Err(FileSystemJobsError::MatchingSrcDest(
+				step.full_path.clone().into_boxed_path(),
+			)
+			.into());
 		}
 
-		if fs::metadata(&full_output).await.is_ok() {
-			warn!(
-				"Skipping {} as it would be overwritten",
-				full_output.display()
-			);
+		match fs::metadata(&full_output).await {
+			Ok(_) => {
+				warn!(
+					"Skipping {} as it would be overwritten",
+					full_output.display()
+				);
 
-			return Err(JobError::WouldOverwrite(full_output));
+				Err(FileSystemJobsError::WouldOverwrite(full_output.into_boxed_path()).into())
+			}
+			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+				trace!(
+					"Cutting {} to {}",
+					step.full_path.display(),
+					full_output.display()
+				);
+
+				fs::rename(&step.full_path, &full_output)
+					.await
+					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+
+				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+					state.step_number + 1,
+				)]);
+
+				Ok(())
+			}
+
+			Err(e) => Err(FileIOError::from((&full_output, e)).into()),
 		}
-
-		trace!(
-			"Cutting {} to {}",
-			source_info.fs_path.display(),
-			full_output.display()
-		);
-
-		fs::rename(&source_info.fs_path, &full_output)
-			.await
-			.map_err(|e| FileIOError::from((&source_info.fs_path, e)))?;
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-			state.step_number + 1,
-		)]);
-		Ok(())
 	}
 
 	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {

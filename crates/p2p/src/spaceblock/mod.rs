@@ -30,7 +30,13 @@ impl BlockSize {
 		Self(131072) // 128 KiB
 	}
 
-	pub fn to_size(&self) -> u32 {
+	/// This is super dangerous as it doesn't enforce any assumptions of the protocol and is designed just for tests.
+	#[cfg(test)]
+	pub fn dangerously_new(size: u32) -> Self {
+		Self(size)
+	}
+
+	pub fn size(&self) -> u32 {
 		self.0
 	}
 }
@@ -130,17 +136,12 @@ impl<'a> Block<'a> {
 		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
 		let size = u64::from_le_bytes(size);
 
-		// TODO: Handle overflow of `data_buf`
-		// TODO: Prevent this being used as a DoS cause I think it can
-		let mut read_offset = 0u64;
-		loop {
-			let read = stream.read(data_buf).await.map_err(|_| ())?; // TODO: Error handling
-			read_offset += read as u64;
+		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
 
-			if read_offset == size {
-				break;
-			}
-		}
+		stream
+			.read_exact(&mut data_buf[..size as usize])
+			.await
+			.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
 			offset,
@@ -156,7 +157,7 @@ pub async fn send(
 	req: &SpacedropRequest,
 ) {
 	// We manually implement what is basically a `BufReader` so we have more control
-	let mut buf = vec![0u8; req.block_size.to_size() as usize];
+	let mut buf = vec![0u8; req.block_size.size() as usize];
 	let mut offset: u64 = 0;
 
 	loop {
@@ -190,9 +191,10 @@ pub async fn receive(
 	req: &SpacedropRequest,
 ) {
 	// We manually implement what is basically a `BufReader` so we have more control
-	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
+	let mut data_buf = vec![0u8; req.block_size.size() as usize];
 	let mut offset: u64 = 0;
 
+	// TODO: Prevent loop being a DOS vector
 	loop {
 		// TODO: Timeout if nothing is being received
 		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
@@ -237,7 +239,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_spaceblock() {
+	async fn test_spaceblock_single_block() {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
@@ -246,6 +248,40 @@ mod tests {
 			name: "Demo".to_string(),
 			size: data.len() as u64,
 			block_size: BlockSize::from_size(data.len() as u64),
+		};
+
+		let (tx, rx) = oneshot::channel();
+		tokio::spawn({
+			let req = req.clone();
+			let data = data.clone();
+			async move {
+				let file = BufReader::new(Cursor::new(data));
+				tx.send(()).unwrap();
+				send(&mut client, file, &req).await;
+			}
+		});
+
+		rx.await.unwrap();
+
+		let mut result = Vec::new();
+		receive(&mut server, &mut result, &req).await;
+		assert_eq!(result, data);
+	}
+
+	// https://github.com/spacedriveapp/spacedrive/pull/942
+	#[tokio::test]
+	async fn test_spaceblock_multiple_blocks() {
+		let (mut client, mut server) = tokio::io::duplex(64);
+
+		// This is sent out of band of Spaceblock
+		let block_size = 131072u32;
+		let data = vec![0u8; block_size as usize * 4]; // Let's pacman some RAM
+		let block_size = BlockSize::dangerously_new(block_size);
+
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: data.len() as u64,
+			block_size,
 		};
 
 		let (tx, rx) = oneshot::channel();

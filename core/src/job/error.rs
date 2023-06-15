@@ -1,11 +1,15 @@
 use crate::{
-	location::indexer::IndexerError,
-	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
+	location::{indexer::IndexerError, LocationError},
+	object::{
+		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
+		preview::ThumbnailerError,
+	},
 	util::error::FileIOError,
 };
 
-use std::{fmt::Debug, path::PathBuf};
+use std::fmt::Debug;
 
+use prisma_client_rust::QueryError;
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use thiserror::Error;
@@ -16,17 +20,17 @@ use super::JobRunErrors;
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
-	#[error("database error")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("database error: {0}")]
+	Database(#[from] QueryError),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
-	JoinTaskError(#[from] tokio::task::JoinError),
-	#[error("Job state encode error: {0}")]
+	JoinTask(#[from] tokio::task::JoinError),
+	#[error("job state encode error: {0}")]
 	StateEncode(#[from] EncodeError),
-	#[error("Job state decode error: {0}")]
+	#[error("job state decode error: {0}")]
 	StateDecode(#[from] DecodeError),
-	#[error("Job metadata serialization error: {0}")]
+	#[error("job metadata serialization error: {0}")]
 	MetadataSerialization(#[from] serde_json::Error),
-	#[error("Tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
+	#[error("tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
 	UnknownJobName(Uuid, String),
 	#[error(
 		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
@@ -40,36 +44,37 @@ pub enum JobError {
 	OsStr,
 	#[error("error converting/handling paths")]
 	Path,
-	#[error("invalid job status integer")]
+	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("Location error: {0}")]
+	Location(#[from] LocationError),
 	#[error("job failed to pause: {0}")]
 	PauseFailed(String),
 	#[error("failed to send command to worker")]
 	WorkerCommandSendFailed,
 
 	// Specific job errors
-	#[error("Indexer error: {0}")]
-	IndexerError(#[from] IndexerError),
-	#[error("Thumbnailer error: {0}")]
+	#[error(transparent)]
+	Indexer(#[from] IndexerError),
+	#[error(transparent)]
 	ThumbnailError(#[from] ThumbnailerError),
-	#[error("Identifier error: {0}")]
+	#[error(transparent)]
 	IdentifierError(#[from] FileIdentifierJobError),
-	#[error("Crypto error: {0}")]
+	#[error(transparent)]
+	FileSystemJobsError(#[from] FileSystemJobsError),
+	#[error(transparent)]
 	CryptoError(#[from] CryptoError),
-	#[error("source and destination path are the same: {}", .0.display())]
-	MatchingSrcDest(PathBuf),
-	#[error("action would overwrite another file: {}", .0.display())]
-	WouldOverwrite(PathBuf),
 	#[error("item of type '{0}' with id '{1}' is missing from the db")]
 	MissingFromDb(&'static str, String),
 	#[error("the cas id is not set on the path data")]
 	MissingCasId,
 	#[error("missing-location-path")]
 	MissingPath,
+
 	// Not errors
-	#[error("step completed with errors")]
+	#[error("step completed with errors: {0:?}")]
 	StepCompletedWithErrors(JobRunErrors),
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
@@ -77,7 +82,7 @@ pub enum JobError {
 	JobDataNotFound(String),
 	#[error("job paused")]
 	Paused(Vec<u8>),
-	#[error("job paused")]
+	#[error("job canceled")]
 	Canceled(Vec<u8>),
 }
 
@@ -91,9 +96,6 @@ pub enum JobManagerError {
 
 	#[error("job not found: {0}")]
 	NotFound(Uuid),
-
-	#[error("Job error: {0}")]
-	Job(#[from] JobError),
 }
 
 impl From<JobManagerError> for rspc::Error {
@@ -112,11 +114,6 @@ impl From<JobManagerError> for rspc::Error {
 			JobManagerError::NotFound(_) => Self::with_cause(
 				rspc::ErrorCode::NotFound,
 				"Job not found".to_string(),
-				value,
-			),
-			JobManagerError::Job(_) => Self::with_cause(
-				rspc::ErrorCode::InternalServerError,
-				"Job error".to_string(),
 				value,
 			),
 		}

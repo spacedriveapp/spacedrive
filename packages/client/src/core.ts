@@ -28,11 +28,10 @@ export type Procedures = {
     mutations: 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
-        { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
-        { key: "files.removeAccessTime", input: LibraryArgs<number>, result: null } | 
+        { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
@@ -94,13 +93,13 @@ export type EditLibraryArgs = { id: string; name: string | null; description: st
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths }
 
-export type FileCopierJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string; target_file_name_suffix: string | null }
+export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
-export type FileCutterJobInit = { source_location_id: number; source_path_id: number; target_location_id: number; target_path: string }
+export type FileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
-export type FileDeleterJobInit = { location_id: number; path_id: number }
+export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] }
 
-export type FileEraserJobInit = { location_id: number; path_id: number; passes: string }
+export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string }
 
@@ -111,6 +110,8 @@ export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchO
 export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean; cas_id: string | null; integrity_checksum: string | null; location_id: number; materialized_path: string; name: string; extension: string; size_in_bytes: string; inode: number[]; device: number[]; object_id: number | null; key_id: number | null; date_created: string; date_modified: string; date_indexed: string; object: Object | null }
+
+export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
@@ -231,7 +232,13 @@ export type RelationOperation = { relation_item: string; relation_group: string;
 
 export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
 
-export type RenameFileArgs = { location_id: number; file_name: string; new_file_name: string }
+export type RenameFileArgs = { location_id: number; kind: RenameKind }
+
+export type RenameKind = { One: RenameOne } | { Many: RenameMany }
+
+export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_file_path_ids: number[] }
+
+export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
@@ -255,9 +262,9 @@ export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
-export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; total_objects: number | null; redundancy_goal: number | null; date_created: string; date_modified: string }
+export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 
-export type TagAssignArgs = { object_id: number; tag_id: number; unassign: boolean }
+export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
 
 export type TagCreateArgs = { name: string; color: string }
 

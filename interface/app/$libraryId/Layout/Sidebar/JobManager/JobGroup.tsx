@@ -83,6 +83,40 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						</Tooltip>
 					</Button>
 				)}
+			>
+				<div className="flex">
+					<img
+						src={Folder}
+						className={clsx('relative left-[-2px] top-2 z-10 mr-3 h-6 w-6')}
+					/>
+					<div className="flex w-full flex-col">
+						<div className="flex items-center">
+							<div className="truncate">
+								<p className="truncate font-semibold">
+									{allJobsCompleted
+										? `Added location "${
+												data.metadata.init.location.name || ''
+										  }"`
+										: `Indexing "${data.metadata.init.location.name || ''}"`}
+								</p>
+								<p className="my-[2px] text-sidebar-inkFaint">
+									<b>{tasks.total} </b>
+									{tasks.total <= 1 ? 'task' : 'tasks'}
+									{' • '}
+									{date_started}
+									{!allJobsCompleted && totalGroupTime && ' • '}
+									{!allJobsCompleted && totalGroupTime}
+								</p>
+							</div>
+							<div className="grow" />
+						</div>
+						{!showChildJobs && !allJobsCompleted && (
+							<div className="mt-[6px] w-full">
+								<ProgressBar value={tasks.completed} total={tasks.total} />
+							</div>
+						)}
+					</div>
+				</div>
 			</div>
 			<JobContainer
 				onClick={() => setShowChildJobs((v) => !v)}

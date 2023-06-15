@@ -1,6 +1,6 @@
-/* eslint-disable tailwindcss/classnames-order */
 import { cva } from 'class-variance-authority';
 import clsx from 'clsx';
+import { forwardRef } from 'react';
 import { PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -21,12 +21,10 @@ const styles = cva(
 	}
 );
 
-export default ({
-	className,
-	onClick,
-	disabled,
-	...props
-}: PropsWithChildren<NavLinkProps & { disabled?: boolean }>) => {
+const Link = forwardRef<
+	HTMLAnchorElement,
+	PropsWithChildren<NavLinkProps & { disabled?: boolean }>
+>(({ className, onClick, disabled, ...props }, ref) => {
 	const os = useOperatingSystem();
 
 	return (
@@ -40,9 +38,12 @@ export default ({
 					className
 				)
 			}
+			ref={ref}
 			{...props}
 		>
 			{props.children}
 		</NavLink>
 	);
-};
+});
+
+export default Link;

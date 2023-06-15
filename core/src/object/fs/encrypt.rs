@@ -1,38 +1,48 @@
-// use crate::{invalidate_query, job::*, library::Library, util::error::FileIOError};
+// use crate::{
+// 	invalidate_query,
+// 	job::*,
+// 	library::Library,
+// 	location::{file_path_helper:: location::id::Type},
+// 	util::error::{FileIOError, NonUtf8PathError},
+// };
 
-// use std::path::PathBuf;
-
-// use chrono::FixedOffset;
 // use sd_crypto::{
 // 	crypto::Encryptor,
 // 	header::{file::FileHeader, keyslot::Keyslot},
 // 	primitives::{LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA, LATEST_PREVIEW_MEDIA},
 // 	types::{Algorithm, Key},
 // };
+
+// use chrono::FixedOffset;
 // use serde::{Deserialize, Serialize};
 // use specta::Type;
-// use tokio::{fs::File, io::AsyncReadExt};
+// use tokio::{
+// 	fs::{self, File},
+// 	io,
+// };
 // use tracing::{error, warn};
 // use uuid::Uuid;
 
-// use super::{context_menu_fs_info, FsInfo, BYTES_EXT};
+// use super::{
+// 	error::FileSystemJobsError, get_location_path_from_location_id, get_many_files_datas, FileData,
+// 	BYTES_EXT,
+// };
 
 // pub struct FileEncryptorJob;
 
 // #[derive(Serialize, Deserialize, Type, Hash)]
 // pub struct FileEncryptorJobInit {
-// 	pub location_id: i32,
-// 	pub path_id: i32,
+// 	pub location_id: location::id::Type,
+// 	pub file_path_ids: Vec<file_path::id::Type>,
 // 	pub key_uuid: Uuid,
 // 	pub algorithm: Algorithm,
 // 	pub metadata: bool,
 // 	pub preview_media: bool,
-// 	pub output_path: Option<PathBuf>,
 // }
 
 // #[derive(Serialize, Deserialize)]
 // pub struct Metadata {
-// 	pub path_id: i32,
+// 	pub file_path_id: file_path::id::Type,
 // 	pub name: String,
 // 	pub hidden: bool,
 // 	pub favorite: bool,
@@ -49,7 +59,7 @@
 // impl StatefulJob for FileEncryptorJob {
 // 	type Init = FileEncryptorJobInit;
 // 	type Data = ();
-// 	type Step = FsInfo;
+// 	type Step = FileData;
 
 // 	const NAME: &'static str = "file_encryptor";
 
@@ -58,13 +68,15 @@
 // 	}
 
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-// 		state.steps.push_back(
-// 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
-// 				.await
-// 				.map_err(|_| JobError::MissingData {
-// 					value: String::from("file_path that matches both location id and path id"),
-// 				})?,
-// 		);
+// 		let Library { db, .. } = &ctx.library;
+
+// 		state.steps = get_many_files_datas(
+// 			db,
+// 			get_location_path_from_location_id(db, state.init.location_id).await?,
+// 			&state.init.file_path_ids,
+// 		)
+// 		.await?
+// 		.into();
 
 // 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -76,11 +88,11 @@
 // 		ctx: WorkerContext,
 // 		state: &mut JobState<Self>,
 // 	) -> Result<(), JobError> {
-// 		let info = &state.steps[0];
+// 		let step = &state.steps[0];
 
 // 		let Library { key_manager, .. } = &ctx.library;
 
-// 		if !info.path_data.is_dir {
+// 		if !step.file_path.is_dir {
 // 			// handle overwriting checks, and making sure there's enough available space
 
 // 			let user_key = key_manager
@@ -90,30 +102,23 @@
 
 // 			let user_key_details = key_manager.access_keystore(state.init.key_uuid).await?;
 
-// 			let output_path = state.init.output_path.clone().map_or_else(
-// 				|| {
-// 					let mut path = info.fs_path.clone();
-// 					let extension = path.extension().map_or_else(
-// 						|| Ok("bytes".to_string()),
-// 						|extension| {
-// 							Ok::<String, JobError>(
-// 								extension
-// 									.to_str()
-// 									.ok_or(JobError::MissingData {
-// 										value: String::from(
-// 											"path contents when converted to string",
-// 										),
-// 									})?
-// 									.to_string() + BYTES_EXT,
-// 							)
-// 						},
-// 					)?;
+// 			let output_path = {
+// 				let mut path = step.full_path.clone();
+// 				let extension = path.extension().map_or_else(
+// 					|| Ok("bytes".to_string()),
+// 					|extension| {
+// 						Ok::<String, JobError>(format!(
+// 							"{}{BYTES_EXT}",
+// 							extension.to_str().ok_or(FileSystemJobsError::FilePath(
+// 								NonUtf8PathError(step.full_path.clone().into_boxed_path()).into()
+// 							))?
+// 						))
+// 					},
+// 				)?;
 
-// 					path.set_extension(extension);
-// 					Ok::<PathBuf, JobError>(path)
-// 				},
-// 				Ok,
-// 			)?;
+// 				path.set_extension(extension);
+// 				path
+// 			};
 
 // 			let _guard = ctx
 // 				.library
@@ -135,9 +140,9 @@
 // 					Some,
 // 				);
 
-// 			let mut reader = File::open(&info.fs_path)
+// 			let mut reader = File::open(&step.full_path)
 // 				.await
-// 				.map_err(|e| FileIOError::from((&info.fs_path, e)))?;
+// 				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 // 			let mut writer = File::create(&output_path)
 // 				.await
 // 				.map_err(|e| FileIOError::from((output_path, e)))?;
@@ -162,11 +167,11 @@
 
 // 			if state.init.metadata || state.init.preview_media {
 // 				// if any are requested, we can make the query as it'll be used at least once
-// 				if let Some(ref object) = info.path_data.object {
+// 				if let Some(ref object) = step.file_path.object {
 // 					if state.init.metadata {
 // 						let metadata = Metadata {
-// 							path_id: state.init.path_id,
-// 							name: info.path_data.materialized_path.clone(),
+// 							file_path_id: step.file_path.id,
+// 							name: step.file_path.materialized_path.clone(),
 // 							hidden: object.hidden,
 // 							favorite: object.favorite,
 // 							important: object.important,
@@ -188,38 +193,37 @@
 // 					// 	&& (object.has_thumbnail
 // 					// 		|| object.has_video_preview || object.has_thumbstrip)
 
-// 					// may not be the best - pvm isn't guaranteed to be webp
-// 					let pvm_path = ctx
+// 					// may not be the best - preview media (thumbnail) isn't guaranteed to be webp
+// 					let thumbnail_path = ctx
 // 						.library
 // 						.config()
 // 						.data_directory()
 // 						.join("thumbnails")
 // 						.join(
-// 							info.path_data
+// 							step.file_path
 // 								.cas_id
 // 								.as_ref()
 // 								.ok_or(JobError::MissingCasId)?,
 // 						)
 // 						.with_extension("wepb");
 
-// 					if tokio::fs::metadata(&pvm_path).await.is_ok() {
-// 						let mut pvm_bytes = Vec::new();
-// 						let mut pvm_file = File::open(&pvm_path)
-// 							.await
-// 							.map_err(|e| FileIOError::from((&pvm_path, e)))?;
-// 						pvm_file
-// 							.read_to_end(&mut pvm_bytes)
-// 							.await
-// 							.map_err(|e| FileIOError::from((pvm_path, e)))?;
-
-// 						header
-// 							.add_preview_media(
-// 								LATEST_PREVIEW_MEDIA,
-// 								state.init.algorithm,
-// 								master_key.clone(),
-// 								&pvm_bytes,
-// 							)
-// 							.await?;
+// 					match fs::read(&thumbnail_path).await {
+// 						Ok(thumbnail_bytes) => {
+// 							header
+// 								.add_preview_media(
+// 									LATEST_PREVIEW_MEDIA,
+// 									state.init.algorithm,
+// 									master_key.clone(),
+// 									&thumbnail_bytes,
+// 								)
+// 								.await?;
+// 						}
+// 						Err(e) if e.kind() == io::ErrorKind::NotFound => {
+// 							// If the file just doesn't exist, then we don't care
+// 						}
+// 						Err(e) => {
+// 							return Err(FileIOError::from((thumbnail_path, e)).into());
+// 						}
 // 					}
 // 				} else {
 // 					// should use container encryption if it's a directory
@@ -236,8 +240,8 @@
 // 				.await?;
 // 		} else {
 // 			warn!(
-// 				"encryption is skipping {} as it isn't a file",
-// 				info.path_data.materialized_path
+// 				"encryption is skipping {}/{} as it isn't a file",
+// 				step.file_path.materialized_path, step.file_path.name
 // 			)
 // 		}
 

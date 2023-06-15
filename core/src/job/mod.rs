@@ -424,3 +424,23 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		Ok(())
 	}
 }
+
+#[macro_export]
+macro_rules! extract_job_data {
+	($state:ident) => {{
+		$state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state")
+	}};
+}
+
+#[macro_export]
+macro_rules! extract_job_data_mut {
+	($state:ident) => {{
+		$state
+			.data
+			.as_mut()
+			.expect("critical error: missing data on job state")
+	}};
+}

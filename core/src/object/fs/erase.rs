@@ -1,62 +1,58 @@
 use crate::{
-	invalidate_query,
+	extract_job_data_mut, invalidate_query,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	library::Library,
+	location::file_path_helper::IsolatedFilePathData,
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
 use std::{hash::Hash, path::PathBuf};
 
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use tokio::{
+	fs::{self, OpenOptions},
+	io::AsyncWriteExt,
+};
 use tracing::trace;
 
-use super::{context_menu_fs_info, FsInfo};
+use super::{
+	error::FileSystemJobsError, get_file_data_from_isolated_file_path,
+	get_location_path_from_location_id, get_many_files_datas, FileData,
+};
 
 pub struct FileEraserJob {}
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
-	pub location_id: i32,
-	pub path_id: i32,
+	pub location_id: location::id::Type,
+	pub file_path_ids: Vec<file_path::id::Type>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub passes: usize,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum FileEraserJobStep {
-	Directory { path: PathBuf },
-	File { path: PathBuf },
-}
-
-impl From<FsInfo> for FileEraserJobStep {
-	fn from(value: FsInfo) -> Self {
-		if value.path_data.is_dir {
-			Self::Directory {
-				path: value.fs_path,
-			}
-		} else {
-			Self::File {
-				path: value.fs_path,
-			}
-		}
-	}
 }
 
 impl JobInitData for FileEraserJobInit {
 	type Job = FileEraserJob;
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct FileEraserJobData {
+	location_path: PathBuf,
+	diretories_to_remove: Vec<PathBuf>,
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
 	type Init = FileEraserJobInit;
-	type Data = FsInfo;
-	type Step = FileEraserJobStep;
+	type Data = FileEraserJobData;
+	type Step = FileData;
 
 	const NAME: &'static str = "file_eraser";
 
@@ -69,13 +65,18 @@ impl StatefulJob for FileEraserJob {
 		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let fs_info =
-			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
-				.await?;
+		let Library { db, .. } = &ctx.library;
 
-		state.data = Some(fs_info.clone());
+		let location_path = get_location_path_from_location_id(db, state.init.location_id).await?;
 
-		state.steps.push_back(fs_info.into());
+		state.steps = get_many_files_datas(db, &location_path, &state.init.file_path_ids)
+			.await?
+			.into();
+
+		state.data = Some(FileEraserJobData {
+			location_path,
+			diretories_to_remove: vec![],
+		});
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -90,84 +91,96 @@ impl StatefulJob for FileEraserJob {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be erased (and where?)
 
-		match &state.steps[0] {
-			FileEraserJobStep::File { path } => {
-				let mut file = OpenOptions::new()
-					.read(true)
-					.write(true)
-					.open(path)
-					.await
-					.map_err(|e| FileIOError::from((path, e)))?;
-				let file_len = file
-					.metadata()
-					.await
-					.map_err(|e| FileIOError::from((path, e)))?
-					.len();
+		let step = &state.steps[0];
 
-				sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes)
-					.await?;
+		// Had to use `state.steps[0]` all over the place to appease the borrow checker
+		if step.file_path.is_dir {
+			let data = extract_job_data_mut!(state);
 
-				file.set_len(0)
-					.await
-					.map_err(|e| FileIOError::from((path, e)))?;
-				file.flush()
-					.await
-					.map_err(|e| FileIOError::from((path, e)))?;
-				drop(file);
+			let mut dir = tokio::fs::read_dir(&step.full_path)
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 
-				trace!("Erasing file: {:?}", path);
+			// Can't use the `step` borrow from here ownwards, or you feel the wrath of the borrow checker
+			while let Some(children_entry) = dir
+				.next_entry()
+				.await
+				.map_err(|e| FileIOError::from((&state.steps[0].full_path, e)))?
+			{
+				let children_path = children_entry.path();
 
-				tokio::fs::remove_file(path)
-					.await
-					.map_err(|e| FileIOError::from((path, e)))?;
+				state.steps.push_back(
+					get_file_data_from_isolated_file_path(
+						&ctx.library.db,
+						&data.location_path,
+						&IsolatedFilePathData::new(
+							state.init.location_id,
+							&data.location_path,
+							&children_path,
+							children_entry
+								.metadata()
+								.await
+								.map_err(|e| FileIOError::from((&children_path, e)))?
+								.is_dir(),
+						)
+						.map_err(FileSystemJobsError::from)?,
+					)
+					.await?,
+				);
+
+				ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 			}
-			FileEraserJobStep::Directory { path } => {
-				let path = path.clone(); // To appease the borrowck
+			data.diretories_to_remove
+				.push(state.steps[0].full_path.clone());
+		} else {
+			let mut file = OpenOptions::new()
+				.read(true)
+				.write(true)
+				.open(&step.full_path)
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+			let file_len = file
+				.metadata()
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?
+				.len();
 
-				let mut dir = tokio::fs::read_dir(&path)
-					.await
-					.map_err(|e| FileIOError::from((&path, e)))?;
+			sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes).await?;
 
-				while let Some(entry) = dir
-					.next_entry()
-					.await
-					.map_err(|e| FileIOError::from((&path, e)))?
-				{
-					let entry_path = entry.path();
-					state.steps.push_back(
-						if entry
-							.metadata()
-							.await
-							.map_err(|e| FileIOError::from((&entry_path, e)))?
-							.is_dir()
-						{
-							FileEraserJobStep::Directory { path: entry_path }
-						} else {
-							FileEraserJobStep::File { path: entry_path }
-						},
-					);
+			file.set_len(0)
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+			file.flush()
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+			drop(file);
 
-					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
-				}
-			}
-		};
+			trace!("Erasing file: {}", step.full_path.display());
+
+			fs::remove_file(&step.full_path)
+				.await
+				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+		}
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
 		)]);
+
 		Ok(())
 	}
 
 	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
-		if data.path_data.is_dir {
-			tokio::fs::remove_dir_all(&data.fs_path)
-				.await
-				.map_err(|e| FileIOError::from((&data.fs_path, e)))?;
-		}
+		try_join_all(
+			extract_job_data_mut!(state)
+				.diretories_to_remove
+				.drain(..)
+				.map(|data| async {
+					fs::remove_dir_all(&data)
+						.await
+						.map_err(|e| FileIOError::from((data, e)))
+				}),
+		)
+		.await?;
 
 		invalidate_query!(ctx.library, "search.paths");
 

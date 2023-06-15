@@ -10,6 +10,7 @@ pub enum AppThemeType {
 
 #[tauri::command(async)]
 #[specta::specta]
+#[allow(unused_variables)]
 pub async fn lock_app_theme(theme_type: AppThemeType) {
 	#[cfg(target_os = "macos")]
 	unsafe {

@@ -9,10 +9,11 @@ use crate::{
 	util::AbortOnDrop,
 };
 
+use std::path::PathBuf;
+
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -67,7 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("get", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -78,7 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("getWithRules", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -106,12 +107,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					delete_location(&library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
-				})
+				},
+			)
 		})
 		.procedure("relink", {
 			R.with2(library())
@@ -132,8 +134,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("fullRescan", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					// rescan location
 					scan_location(
 						&library,
@@ -145,12 +147,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					)
 					.await
 					.map_err(Into::into)
-				})
+				},
+			)
 		})
 		.procedure("quickRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LightScanArgs {
-				pub location_id: i32,
+				pub location_id: location::id::Type,
 				pub sub_path: String,
 			}
 
@@ -275,7 +278,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					library
 						.db
 						.indexer_rule()

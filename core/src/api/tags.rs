@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
 	invalidate_query,
 	library::Library,
-	prisma::{object, tag, tag_on_object},
+	prisma::{tag, tag_on_object},
 	sync,
 };
 
@@ -17,10 +17,9 @@ use super::{utils::library, Ctx, R};
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.with2(library())
-				.query(|(ctx, library), _: ()| async move {
-					Ok(library.db.tag().find_many(vec![]).exec().await?)
-				})
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library.db.tag().find_many(vec![]).exec().await?)
+			})
 		})
 		.procedure("getForObject", {
 			R.with2(library())
@@ -46,19 +45,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-		// .library_mutation("create", |t| {
-		// 	#[derive(Type, Deserialize)]
-		// 	pub struct TagCreateArgs {
-		// 		pub name: String,
-		// 		pub color: String,
-		// 	}
-		// 	t(|_, args: TagCreateArgs, library| async move {
-		// 		let created_tag = Tag::new(args.name, args.color);
-		// 		created_tag.save(&library.db).await?;
-		// 		invalidate_query!(library, "tags.list");
-		// 		Ok(created_tag)
-		// 	})
-		// })
 		.procedure("create", {
 			#[derive(Type, Deserialize)]
 			pub struct TagCreateArgs {
@@ -102,7 +88,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("assign", {
 			#[derive(Debug, Type, Deserialize)]
 			pub struct TagAssignArgs {
-				pub object_id: i32,
+				pub object_ids: Vec<i32>,
 				pub tag_id: i32,
 				pub unassign: bool,
 			}
@@ -113,17 +99,29 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						library
 							.db
 							.tag_on_object()
-							.delete(tag_on_object::tag_id_object_id(args.tag_id, args.object_id))
+							.delete_many(
+								args.object_ids
+									.iter()
+									.map(|&object_id| {
+										tag_on_object::tag_id_object_id(args.tag_id, object_id)
+									})
+									.collect(),
+							)
 							.exec()
 							.await?;
 					} else {
 						library
 							.db
 							.tag_on_object()
-							.create(
-								tag::id::equals(args.tag_id),
-								object::id::equals(args.object_id),
-								vec![],
+							.create_many(
+								args.object_ids
+									.iter()
+									.map(|&object_id| tag_on_object::CreateUnchecked {
+										tag_id: args.tag_id,
+										object_id,
+										_params: vec![],
+									})
+									.collect(),
 							)
 							.exec()
 							.await?;
