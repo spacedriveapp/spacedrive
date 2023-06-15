@@ -12,7 +12,6 @@ ffbuild_dockerbuild() {
 
   cmake \
     -GNinja \
-    -DCMAKE_GNUtoMS=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX='/opt/dlls' \
     -DCMAKE_INSTALL_BINDIR='/opt/dlls/bin' \
