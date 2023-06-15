@@ -211,7 +211,7 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 	res
 }
 
-fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {
+fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: &mut WorkerContext) -> JobResult {
 	info!(
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
@@ -227,7 +227,7 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 
 async fn process_step(
 	state: &mut JobState<ThumbnailerJob>,
-	ctx: WorkerContext,
+	ctx: &mut WorkerContext,
 ) -> Result<(), JobError> {
 	let step = &state.steps[0];
 

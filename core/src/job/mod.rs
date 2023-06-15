@@ -54,17 +54,21 @@ pub trait StatefulJob: Send + Sync + Sized {
 	fn new() -> Self;
 
 	/// initialize the steps for the job
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError>;
 
 	/// is called for each step in the job. These steps are created in the `Self::init` method.
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
 	/// is called after all steps have been executed
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 #[async_trait::async_trait]
@@ -77,7 +81,7 @@ pub trait DynJob: Send + Sync {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -260,7 +264,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
 		let mut errors = vec![];
@@ -272,7 +276,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
-			if let Err(e) = self.stateful_job.init(ctx.clone(), &mut self.state).await {
+			if let Err(e) = self.stateful_job.init(ctx, &mut self.state).await {
 				match e {
 					JobError::EarlyFinish { .. } => {
 						info!("{e}");
@@ -284,7 +288,8 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
-		let mut command_rx = ctx.command_rx.lock().await;
+		let command_rx = ctx.command_rx.clone();
+		let mut command_rx = command_rx.lock().await;
 
 		// Run the job until it's done or we get a command
 		while job_should_run && !self.state.steps.is_empty() {
@@ -313,10 +318,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 
 			// process job step and handle errors if any
-			let step_result = self
-				.stateful_job
-				.execute_step(ctx.clone(), &mut self.state)
-				.await;
+			let step_result = self.stateful_job.execute_step(ctx, &mut self.state).await;
 			match step_result {
 				Err(JobError::EarlyFinish { .. }) => {
 					step_result
@@ -337,10 +339,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			self.state.step_number += 1;
 		}
 
-		let metadata = self
-			.stateful_job
-			.finalize(ctx.clone(), &mut self.state)
-			.await?;
+		let metadata = self.stateful_job.finalize(ctx, &mut self.state).await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 

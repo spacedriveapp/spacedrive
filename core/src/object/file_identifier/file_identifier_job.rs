@@ -68,7 +68,11 @@ impl StatefulJob for FileIdentifierJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
@@ -163,7 +167,7 @@ impl StatefulJob for FileIdentifierJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let FileIdentifierJobState {
@@ -222,7 +226,7 @@ impl StatefulJob for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let report = &state
 			.data
 			.as_ref()

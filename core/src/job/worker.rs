@@ -6,22 +6,18 @@ use chrono::{DateTime, Utc};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use tokio::sync::oneshot;
 use tokio::sync::{
 	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 	Mutex,
 };
 use tracing::{debug, error, info, warn};
 
-use super::{JobMetadata, JobReport, JobRunErrors};
+use super::JobReport;
 
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
-	// Completed(oneshot::Sender<()>, JobMetadata),
-	// CompletedWithErrors(oneshot::Sender<()>, JobMetadata, JobRunErrors),
-	// Failed(oneshot::Sender<()>),
 	Paused(Option<Vec<u8>>),
 }
 
@@ -32,7 +28,6 @@ pub enum WorkerCommand {
 	Shutdown,
 }
 
-#[derive(Clone)]
 pub struct WorkerContext {
 	pub library: Library,
 	events_tx: UnboundedSender<WorkerEvent>,
@@ -163,7 +158,7 @@ impl Worker {
 
 		// spawn task to handle running the job
 		tokio::spawn(async move {
-			let worker_ctx = WorkerContext {
+			let mut worker_ctx = WorkerContext {
 				library: library.clone(),
 				events_tx,
 				command_rx,
@@ -175,7 +170,7 @@ impl Worker {
 			// let (done_tx, done_rx) = oneshot::channel::<()>();
 
 			// Run the job and handle the result
-			match job.run(job_manager.clone(), worker_ctx.clone()).await {
+			match job.run(job_manager.clone(), &mut worker_ctx).await {
 				// -> Job completed successfully
 				Ok((metadata, errors)) if errors.is_empty() => {
 					// worker_ctx

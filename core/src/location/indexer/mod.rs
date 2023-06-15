@@ -211,7 +211,7 @@ async fn execute_indexer_save_step(
 fn finalize_indexer<SJob, Init, Step>(
 	location_path: impl AsRef<Path>,
 	state: &JobState<SJob>,
-	ctx: WorkerContext,
+	ctx: &mut WorkerContext,
 ) -> JobResult
 where
 	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = Step>,

@@ -58,7 +58,7 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
-		mut ctx: WorkerContext,
+		mut ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
@@ -177,7 +177,7 @@ impl StatefulJob for IndexerJob {
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		mut ctx: WorkerContext,
+		mut ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = state
@@ -282,7 +282,7 @@ impl StatefulJob for IndexerJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let location_path = state.init.location.path.as_ref();
 		let Some(location_path) = location_path.map(Path::new) else {
             return Err(JobError::MissingPath)

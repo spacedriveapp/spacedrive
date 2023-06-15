@@ -40,7 +40,11 @@ impl StatefulJob for FileDeleterJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let fs_info =
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
@@ -54,7 +58,7 @@ impl StatefulJob for FileDeleterJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let info = &state.steps[0];
@@ -75,7 +79,7 @@ impl StatefulJob for FileDeleterJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))

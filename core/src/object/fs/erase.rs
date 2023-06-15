@@ -64,7 +64,11 @@ impl StatefulJob for FileEraserJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let fs_info =
 			context_menu_fs_info(&ctx.library.db, state.init.location_id, state.init.path_id)
 				.await?;
@@ -80,7 +84,7 @@ impl StatefulJob for FileEraserJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
@@ -154,7 +158,7 @@ impl StatefulJob for FileEraserJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
