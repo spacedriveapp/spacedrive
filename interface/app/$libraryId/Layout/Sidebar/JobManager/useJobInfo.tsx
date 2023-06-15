@@ -16,12 +16,10 @@ export default function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEv
 ): Record<string, JobNiceData> {
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
-		indexedPath = job.metadata?.data?.indexed_path;
-
-	const
+		indexedPath = job.metadata?.data?.indexed_path,
 		taskCount = realtimeUpdate?.task_count ? comma(realtimeUpdate?.task_count || 0) : comma(job.task_count),
-		completedTaskCount = realtimeUpdate?.completed_task_count ? comma(realtimeUpdate?.completed_task_count || 0) : comma(job.completed_task_count),
 		meta = job.metadata;
+
 
 	return ({
 		indexer: {
@@ -34,7 +32,7 @@ export default function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEv
 		thumbnailer: {
 			name: `${isQueued ? "Generate" : isRunning ? "Generating" : "Generated"} thumbnails`,
 			icon: Image,
-			textItems: [[{ text: meta?.thumbnails_created === 0 ? "None generated" : `${completedTaskCount} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }, { text: meta?.thumbnails_skipped && `${meta?.thumbnails_skipped} already exist` }]]
+			textItems: [[{ text: meta?.thumbnails_created === 0 ? "None generated" : `${realtimeUpdate?.completed_task_count ? comma(realtimeUpdate?.completed_task_count || 0) : comma(meta?.thumbnails_created)} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }, { text: meta?.thumbnails_skipped && `${meta?.thumbnails_skipped} already exist` }]]
 		},
 		file_identifier: {
 			name: `${isQueued ? "Extract" : isRunning ? "Extracting" : "Extracted"} metadata`,
