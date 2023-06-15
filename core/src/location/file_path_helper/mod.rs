@@ -232,12 +232,12 @@ pub async fn create_file_path(
 
 #[cfg(feature = "location-watcher")]
 pub async fn check_existing_file_path(
-	materialized_path: &IsolatedFilePathData<'_>,
+	iso_file_path: &IsolatedFilePathData<'_>,
 	db: &PrismaClient,
 ) -> Result<bool, FilePathError> {
 	Ok(db
 		.file_path()
-		.count(filter_existing_file_path_params(materialized_path))
+		.count(filter_existing_file_path_params(iso_file_path))
 		.exec()
 		.await? > 0)
 }
@@ -280,20 +280,6 @@ pub fn loose_find_existing_file_path_params(
 		file_path::name::equals(Some(name.to_string())),
 		file_path::extension::equals(Some(extension.to_string())),
 	]
-}
-
-#[cfg(feature = "location-watcher")]
-pub async fn get_parent_dir(
-	materialized_path: &IsolatedFilePathData<'_>,
-	db: &PrismaClient,
-) -> Result<Option<file_path::Data>, FilePathError> {
-	db.file_path()
-		.find_first(filter_existing_file_path_params(
-			&materialized_path.parent(),
-		))
-		.exec()
-		.await
-		.map_err(Into::into)
 }
 
 pub async fn ensure_sub_path_is_in_location(

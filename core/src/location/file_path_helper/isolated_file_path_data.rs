@@ -24,12 +24,12 @@ static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
-	pub location_id: location::id::Type,
-	pub materialized_path: Cow<'a, str>,
-	pub is_dir: bool,
-	pub name: Cow<'a, str>,
-	pub extension: Cow<'a, str>,
-	pub relative_path: Cow<'a, str>,
+	location_id: location::id::Type,
+	materialized_path: Cow<'a, str>,
+	is_dir: bool,
+	name: Cow<'a, str>,
+	extension: Cow<'a, str>,
+	relative_path: Cow<'a, str>,
 }
 
 impl IsolatedFilePathData<'static> {
@@ -78,6 +78,25 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
+	pub fn location_id(&self) -> location::id::Type {
+		self.location_id
+	}
+
+	pub fn name(&'a self) -> &'a str {
+		&self.name
+	}
+
+	pub fn extension(&'a self) -> &'a str {
+		&self.extension
+	}
+
+	pub fn is_root(&self) -> bool {
+		self.is_dir
+			&& self.materialized_path == "/"
+			&& self.name.is_empty()
+			&& self.relative_path.is_empty()
+	}
+
 	pub fn parent(&'a self) -> Self {
 		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
 			("/", "", "")
