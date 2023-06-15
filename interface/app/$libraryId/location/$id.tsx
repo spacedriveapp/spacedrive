@@ -42,7 +42,7 @@ export const Component = () => {
 				sub_path: path ?? ''
 			}
 		],
-		{ onData() { } }
+		{ onData() {} }
 	);
 
 	const explorerStore = getExplorerStore();

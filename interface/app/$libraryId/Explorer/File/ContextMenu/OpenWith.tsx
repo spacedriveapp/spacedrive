@@ -47,7 +47,9 @@ const Items = ({
 					key={data.name}
 					onClick={async () => {
 						try {
-							await actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)]);
+							await actions.openFilePathWith(library.uuid, [
+								(filePath.id, data.c.url)
+							]);
 						} catch {
 							showAlertDialog({
 								title: 'Error',

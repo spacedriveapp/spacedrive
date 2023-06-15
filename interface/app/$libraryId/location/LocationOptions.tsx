@@ -58,7 +58,6 @@ export default function LocationOptions({ location, path }: { location: Location
 								autoFocus
 								className="mb-2"
 								value={currentPath ?? ''}
-								onChange={() => { }}
 								right={
 									<Tooltip label="Copy path to clipboard" className="flex">
 										<Button

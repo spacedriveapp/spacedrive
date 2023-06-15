@@ -1,4 +1,4 @@
-import { ProcedureDef, inferProcedureResult, inferSubscriptionResult } from '@rspc/client';
+import { ProcedureDef } from '@rspc/client';
 import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
 import { Context, createReactQueryHooks } from '@rspc/react/v2';
 import { QueryClient } from '@tanstack/react-query';
