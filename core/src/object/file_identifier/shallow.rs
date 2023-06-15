@@ -19,7 +19,7 @@ use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
 #[derive(Serialize, Deserialize)]
 pub struct ShallowFileIdentifierJobState {
-	cursor: i32,
+	cursor: file_path::id::Type,
 	sub_iso_file_path: IsolatedFilePathData<'static>,
 }
 
@@ -80,7 +80,7 @@ pub async fn shallow(
 		.select(file_path::select!({ id }))
 		.exec()
 		.await?
-		.unwrap(); // SAFETY: We already validated before that there are orphans `file_path`s
+		.expect("We already validated before that there are orphans `file_path`s");
 
 	// Initializing `state.data` here because we need a complete state in case of early finish
 	let mut data = ShallowFileIdentifierJobState {
@@ -103,7 +103,7 @@ pub async fn shallow(
 			&file_paths,
 			step_number,
 			cursor,
-			&library,
+			library,
 			orphan_count,
 		)
 		.await?;
@@ -115,8 +115,8 @@ pub async fn shallow(
 }
 
 fn orphan_path_filters(
-	location_id: i32,
-	file_path_id: Option<i32>,
+	location_id: location::id::Type,
+	file_path_id: Option<file_path::id::Type>,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
@@ -136,7 +136,7 @@ fn orphan_path_filters(
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
+	location_id: location::id::Type,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
@@ -148,8 +148,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
-	file_path_id_cursor: i32,
+	location_id: location::id::Type,
+	file_path_id_cursor: file_path::id::Type,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(

@@ -1,8 +1,11 @@
 use crate::{
-	invalidate_query,
+	extract_job_data, invalidate_query,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
+	library::Library,
+	location::file_path_helper::IsolatedFilePathData,
+	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
 };
 
@@ -10,49 +13,34 @@ use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::fs;
+use tokio::{fs, io};
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_location_path_from_location_id, osstr_to_string, FsInfo};
+use super::{
+	construct_target_filename, error::FileSystemJobsError, fetch_source_and_target_location_paths,
+	get_file_data_from_isolated_file_path, get_many_files_datas, FileData,
+};
 
 pub struct FileCopierJob {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobState {
-	pub target_path: PathBuf, // target dir prefix too
-	pub source_fs_info: FsInfo,
+	sources_location_path: PathBuf,
 }
 
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileCopierJobInit {
-	pub source_location_id: i32,
-	pub source_path_id: i32,
-	pub target_location_id: i32,
-	pub target_path: PathBuf,
+	pub source_location_id: location::id::Type,
+	pub target_location_id: location::id::Type,
+	pub sources_file_path_ids: Vec<file_path::id::Type>,
+	pub target_location_relative_directory_path: PathBuf,
 	pub target_file_name_suffix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum FileCopierJobStep {
-	Directory { path: PathBuf },
-	File { path: PathBuf },
-}
-
-impl TryFrom<FsInfo> for FileCopierJobStep {
-	type Error = JobError;
-
-	fn try_from(value: FsInfo) -> Result<Self, Self::Error> {
-		Ok(
-			match maybe_missing(value.path_data.is_dir, "file_path.is_dir")? {
-				true => Self::Directory {
-					path: value.fs_path,
-				},
-				false => Self::File {
-					path: value.fs_path,
-				},
-			},
-		)
-	}
+pub struct FileCopierJobStep {
+	pub source_file_data: FileData,
+	pub target_full_path: PathBuf,
 }
 
 impl JobInitData for FileCopierJobInit {
@@ -72,51 +60,42 @@ impl StatefulJob for FileCopierJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let source_fs_info = context_menu_fs_info(
-			&ctx.library.db,
-			state.init.source_location_id,
-			state.init.source_path_id,
+		let Library { db, .. } = &ctx.library;
+
+		let (sources_location_path, targets_location_path) =
+			fetch_source_and_target_location_paths(
+				db,
+				state.init.source_location_id,
+				state.init.target_location_id,
+			)
+			.await?;
+
+		state.steps = get_many_files_datas(
+			db,
+			&sources_location_path,
+			&state.init.sources_file_path_ids,
 		)
-		.await?;
+		.await?
+		.into_iter()
+		.map(|file_data| {
+			// add the currently viewed subdirectory to the location root
+			let mut full_target_path =
+				targets_location_path.join(&state.init.target_location_relative_directory_path);
 
-		let mut full_target_path =
-			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
-				.await?;
-
-		// add the currently viewed subdirectory to the location root
-		full_target_path.push(&state.init.target_path);
-
-		// extension wizardry for cloning and such
-		// if no suffix has been selected, just use the file name
-		// if a suffix is provided and it's a directory, use the directory name + suffix
-		// if a suffix is provided and it's a file, use the (file name + suffix).extension
-		let file_name = osstr_to_string(source_fs_info.fs_path.file_name())?;
-
-		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or_else(
-			|| Ok::<_, JobError>(file_name.clone()),
-			|suffix| {
-				Ok(
-					if maybe_missing(source_fs_info.path_data.is_dir, "file_path.is_dir")? {
-						format!("{file_name}{suffix}")
-					} else {
-						osstr_to_string(source_fs_info.fs_path.file_stem())?
-							+ suffix + &source_fs_info.fs_path.extension().map_or_else(
-							|| Ok(String::new()),
-							|ext| ext.to_str().map(|e| format!(".{e}")).ok_or(JobError::OsStr),
-						)?
-					},
-				)
-			},
-		)?;
-
-		full_target_path.push(target_file_name);
+			full_target_path.push(construct_target_filename(
+				&file_data,
+				&state.init.target_file_name_suffix,
+			));
+			FileCopierJobStep {
+				source_file_data: file_data,
+				target_full_path: full_target_path,
+			}
+		})
+		.collect();
 
 		state.data = Some(FileCopierJobState {
-			target_path: full_target_path,
-			source_fs_info: source_fs_info.clone(),
+			sources_location_path,
 		});
-
-		state.steps.push_back(source_fs_info.try_into()?);
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -128,111 +107,95 @@ impl StatefulJob for FileCopierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+		let FileCopierJobStep {
+			source_file_data,
+			target_full_path,
+		} = &state.steps[0];
 
-		match &state.steps[0] {
-			FileCopierJobStep::File { path } => {
-				let mut target_path = data.target_path.clone();
+		let data = extract_job_data!(state);
 
-				if maybe_missing(data.source_fs_info.path_data.is_dir, "file_path.is_dir")? {
-					// if root type is a dir, we need to preserve structure by making paths relative
-					target_path.push(
-						path.strip_prefix(&data.source_fs_info.fs_path)
-							.map_err(|_| JobError::Path)?,
-					);
-				}
+		if maybe_missing(data.source_fs_info.path_data.is_dir, "file_path.is_dir")? {
+			fs::create_dir_all(target_full_path)
+				.await
+				.map_err(|e| FileIOError::from((target_full_path, e)))?;
 
-				let parent_path = path.parent().ok_or(JobError::Path)?;
-				let parent_target_path = target_path.parent().ok_or(JobError::Path)?;
+			let mut read_dir = fs::read_dir(&source_file_data.full_path)
+				.await
+				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
 
-				if fs::canonicalize(parent_path)
-					.await
-					.map_err(|e| FileIOError::from((parent_path, e)))?
-					== fs::canonicalize(parent_target_path)
-						.await
-						.map_err(|e| FileIOError::from((parent_target_path, e)))?
-				{
-					return Err(JobError::MatchingSrcDest(path.clone()));
-				}
+			// Can't use the `steps` borrow from here ownwards, or you feel the wrath of the borrow checker
+			while let Some(children_entry) = read_dir
+				.next_entry()
+				.await
+				.map_err(|e| FileIOError::from((&state.steps[0].source_file_data.full_path, e)))?
+			{
+				let children_path = children_entry.path();
+				let target_children_full_path = state.steps[0].target_full_path.join(
+					children_path
+						.strip_prefix(&state.steps[0].source_file_data.full_path)
+						.map_err(|_| JobError::Path)?,
+				);
 
-				if fs::metadata(&target_path).await.is_ok() {
+				// Currently not supporting file_name suffixes children files in a directory being copied
+				state.steps.push_back(FileCopierJobStep {
+					target_full_path: target_children_full_path,
+					source_file_data: get_file_data_from_isolated_file_path(
+						&ctx.library.db,
+						&data.sources_location_path,
+						&IsolatedFilePathData::new(
+							state.init.source_location_id,
+							&data.sources_location_path,
+							&children_path,
+							children_entry
+								.metadata()
+								.await
+								.map_err(|e| FileIOError::from((&children_path, e)))?
+								.is_dir(),
+						)
+						.map_err(FileSystemJobsError::from)?,
+					)
+					.await?,
+				});
+
+				ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+			}
+		} else {
+			if source_file_data.full_path.parent().ok_or(JobError::Path)?
+				== target_full_path.parent().ok_or(JobError::Path)?
+			{
+				return Err(FileSystemJobsError::MatchingSrcDest(
+					source_file_data.full_path.clone().into_boxed_path(),
+				)
+				.into());
+			}
+
+			match fs::metadata(target_full_path).await {
+				Ok(_) => {
 					// only skip as it could be half way through a huge directory copy and run into an issue
 					warn!(
 						"Skipping {} as it would be overwritten",
-						target_path.display()
+						target_full_path.display()
 					);
-				// TODO(brxken128): could possibly return an error if the skipped file was the *only* file to be copied?
-				} else {
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
 					trace!(
 						"Copying from {} to {}",
-						path.display(),
-						target_path.display()
+						source_file_data.full_path.display(),
+						target_full_path.display()
 					);
 
-					fs::copy(&path, &target_path)
+					fs::copy(&source_file_data.full_path, &target_full_path)
 						.await
-						.map_err(|e| FileIOError::from((&target_path, e)))?;
+						.map_err(|e| FileIOError::from((target_full_path, e)))?;
 				}
+				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 			}
-			FileCopierJobStep::Directory { path } => {
-				// if this is the very first path, create the target dir
-				// fixes copying dirs with no child directories
-				if maybe_missing(data.source_fs_info.path_data.is_dir, "file_path.is_dir")?
-					&& &data.source_fs_info.fs_path == path
-				{
-					fs::create_dir_all(&data.target_path)
-						.await
-						.map_err(|e| FileIOError::from((&data.target_path, e)))?;
-				}
-
-				let path = path.clone(); // To appease the borrowck
-
-				let mut dir = fs::read_dir(&path)
-					.await
-					.map_err(|e| FileIOError::from((&path, e)))?;
-
-				while let Some(entry) = dir
-					.next_entry()
-					.await
-					.map_err(|e| FileIOError::from((&path, e)))?
-				{
-					let entry_path = entry.path();
-					if entry
-						.metadata()
-						.await
-						.map_err(|e| FileIOError::from((&entry_path, e)))?
-						.is_dir()
-					{
-						state
-							.steps
-							.push_back(FileCopierJobStep::Directory { path: entry.path() });
-
-						let full_path = data.target_path.join(
-							entry_path
-								.strip_prefix(&data.source_fs_info.fs_path)
-								.map_err(|_| JobError::Path)?,
-						);
-
-						fs::create_dir_all(&full_path)
-							.await
-							.map_err(|e| FileIOError::from((full_path, e)))?;
-					} else {
-						state
-							.steps
-							.push_back(FileCopierJobStep::File { path: entry.path() });
-					};
-
-					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
-				}
-			}
-		};
+		}
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
 		)]);
+
 		Ok(())
 	}
 

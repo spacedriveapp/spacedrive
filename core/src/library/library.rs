@@ -14,6 +14,7 @@ use crate::{
 };
 
 use std::{
+	collections::HashMap,
 	fmt::{Debug, Formatter},
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -100,24 +101,46 @@ impl Library {
 	}
 
 	/// Returns the full path of a file
-	pub async fn get_file_path(&self, id: i32) -> Result<Option<PathBuf>, LibraryManagerError> {
-		self.db
-			.file_path()
-			.find_first(vec![
-				file_path::location::is(vec![location::node_id::equals(Some(self.node_local_id))]),
-				file_path::id::equals(id),
-			])
-			.select(file_path_to_full_path::select())
-			.exec()
-			.await?
-			.map(|record| {
-				let location = maybe_missing(&record.location, "file_path.location")?;
+	pub async fn get_file_paths(
+		&self,
+		ids: Vec<file_path::id::Type>,
+	) -> Result<HashMap<file_path::id::Type, Option<PathBuf>>, LibraryManagerError> {
+		let mut out = ids
+			.iter()
+			.copied()
+			.map(|id| (id, None))
+			.collect::<HashMap<_, _>>();
 
-				Ok(
-					Path::new(maybe_missing(&location.path, "file_path.location.path")?)
-						.join(IsolatedFilePathData::try_from((location.id, &record))?),
-				)
-			})
-			.transpose()
+		out.extend(
+			self.db
+				.file_path()
+				.find_many(vec![
+					file_path::location::is(vec![location::node_id::equals(Some(
+						self.node_local_id,
+					))]),
+					file_path::id::in_vec(ids),
+				])
+				.select(file_path_to_full_path::select())
+				.exec()
+				.await?
+				.into_iter()
+				.map(|file_path| {
+					let location = maybe_missing(&record.location, "file_path.location")?;
+
+					(
+						file_path.id,
+						file_path.location.path.as_ref().map(|location_path| {
+							Path::new(maybe_missing(&location.path, "file_path.location.path")?)
+								.join(IsolatedFilePathData::from((
+									file_path.location.id,
+									&file_path,
+								)))
+						}),
+					)
+				})
+				.flatten(),
+		);
+
+		Ok(out)
 	}
 }

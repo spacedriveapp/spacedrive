@@ -1,21 +1,28 @@
 use crate::{
 	library::Library,
 	location::indexer::IndexerError,
+	location::{indexer::IndexerError, LocationError},
+	object::{
+		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
+		preview::ThumbnailerError,
+	},
 	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
+	util::error::FileIOError,
 	util::{db::MissingFieldError, error::FileIOError},
 };
+
+use sd_crypto::Error as CryptoError;
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	fmt::Debug,
 	hash::{Hash, Hasher},
 	mem,
-	path::PathBuf,
 	sync::Arc,
 };
 
+use prisma_client_rust::QueryError;
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
-use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
@@ -31,16 +38,16 @@ pub use worker::*;
 pub enum JobError {
 	// General errors
 	#[error("database error: {0}")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	Database(#[from] QueryError),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
-	JoinTaskError(#[from] tokio::task::JoinError),
-	#[error("Job state encode error: {0}")]
+	JoinTask(#[from] tokio::task::JoinError),
+	#[error("job state encode error: {0}")]
 	StateEncode(#[from] EncodeError),
-	#[error("Job state decode error: {0}")]
+	#[error("job state decode error: {0}")]
 	StateDecode(#[from] DecodeError),
-	#[error("Job metadata serialization error: {0}")]
+	#[error("job metadata serialization error: {0}")]
 	MetadataSerialization(#[from] serde_json::Error),
-	#[error("Tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
+	#[error("tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
 	UnknownJobName(Uuid, String),
 	#[error(
 		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
@@ -59,15 +66,19 @@ pub enum JobError {
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("Location error: {0}")]
+	Location(#[from] LocationError),
 
 	// Specific job errors
-	#[error("Indexer error: {0}")]
-	IndexerError(#[from] IndexerError),
-	#[error("Thumbnailer error: {0}")]
+	#[error(transparent)]
+	Indexer(#[from] IndexerError),
+	#[error(transparent)]
 	ThumbnailError(#[from] ThumbnailerError),
-	#[error("Identifier error: {0}")]
+	#[error(transparent)]
 	IdentifierError(#[from] FileIdentifierJobError),
-	#[error("Crypto error: {0}")]
+	#[error(transparent)]
+	FileSystemJobsError(#[from] FileSystemJobsError),
+	#[error(transparent)]
 	CryptoError(#[from] CryptoError),
 	#[error("source and destination path are the same: {}", .0.display())]
 	MatchingSrcDest(PathBuf),
@@ -75,6 +86,12 @@ pub enum JobError {
 	WouldOverwrite(PathBuf),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("item of type '{0}' with id '{1}' is missing from the db")]
+	MissingFromDb(&'static str, String),
+	#[error("the cas id is not set on the path data")]
+	MissingCasId,
+	#[error("missing-location-path")]
+	MissingPath,
 
 	// Not errors
 	#[error("step completed with errors: {0:?}")]
@@ -465,4 +482,24 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		Ok(())
 	}
+}
+
+#[macro_export]
+macro_rules! extract_job_data {
+	($state:ident) => {{
+		$state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state")
+	}};
+}
+
+#[macro_export]
+macro_rules! extract_job_data_mut {
+	($state:ident) => {{
+		$state
+			.data
+			.as_mut()
+			.expect("critical error: missing data on job state")
+	}};
 }

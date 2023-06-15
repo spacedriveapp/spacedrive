@@ -87,7 +87,7 @@ export default (props: { objectId: number }) => {
 										e.preventDefault();
 										assignTag.mutate({
 											tag_id: tag.id,
-											object_id: props.objectId,
+											object_ids: [props.objectId],
 											unassign: active
 										});
 									}}

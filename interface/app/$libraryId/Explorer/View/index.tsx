@@ -61,7 +61,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				updateAccessTime.mutate(data.item.object_id);
 			}
 
-			openFilePath(library.uuid, filePath.id);
+			openFilePath(library.uuid, [filePath.id]);
 		} else {
 			const { kind } = getExplorerItemData(data);
 

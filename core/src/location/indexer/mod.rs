@@ -1,8 +1,8 @@
 use crate::{
-	invalidate_query,
+	extract_job_data, invalidate_query,
 	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
-	prisma::{file_path, PrismaClient},
+	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::uuid_to_bytes, error::FileIOError},
 };
@@ -22,7 +22,7 @@ use tracing::info;
 
 use super::{
 	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
-	location_with_indexer_rules, LocationId,
+	location_with_indexer_rules,
 };
 
 pub mod indexer_job;
@@ -238,10 +238,7 @@ where
 	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
 	Step: Serialize + DeserializeOwned + Send + Sync,
 {
-	let data = state
-		.data
-		.as_ref()
-		.expect("critical error: missing data on job state");
+	let data = extract_job_data!(state);
 
 	info!(
 		"scan of {} completed in {:?}. {} new files found, \
@@ -273,7 +270,7 @@ fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(
 }
 
 fn iso_file_path_factory(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	location_path: &Path,
 ) -> impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError> + '_ {
 	move |path, is_dir| {

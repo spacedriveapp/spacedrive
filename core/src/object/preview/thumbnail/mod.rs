@@ -3,10 +3,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
 	library::Library,
-	location::{
-		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
-		LocationId,
-	},
+	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
 };
@@ -106,7 +103,7 @@ pub enum ThumbnailerError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobReport {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	path: PathBuf,
 	thumbnails_created: u32,
 }
@@ -245,7 +242,7 @@ async fn process_step(
 		.expect("critical error: missing data on job state");
 
 	let step_result = inner_process_step(
-		&step,
+		step,
 		&data.location_path,
 		&data.thumbnail_dir,
 		&state.init.location,
@@ -264,12 +261,14 @@ async fn process_step(
 
 pub async fn inner_process_step(
 	step: &ThumbnailerJobStep,
-	location_path: &PathBuf,
-	thumbnail_dir: &PathBuf,
+	location_path: impl AsRef<Path>,
+	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
 	library: &Library,
 ) -> Result<(), JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
+	let location_path = location_path.as_ref();
+	let thumbnail_dir = thumbnail_dir.as_ref();
 
 	// assemble the file path
 	let path = location_path.join(IsolatedFilePathData::try_from((location.id, file_path))?);

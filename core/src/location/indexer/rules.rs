@@ -7,6 +7,12 @@ use crate::{
 	},
 };
 
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	path::Path,
+};
+
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use globset::{Glob, GlobSet, GlobSetBuilder};
@@ -14,11 +20,6 @@ use rmp_serde::{self, decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{
-	collections::{HashMap, HashSet},
-	marker::PhantomData,
-	path::Path,
-};
 use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
@@ -778,7 +779,7 @@ mod seeder {
                 ]
                 .into_iter()
                 .flatten()
-            ).unwrap(),
+            ).expect("this is hardcoded and should always work"),
         ],
     }
 	}
@@ -787,7 +788,8 @@ mod seeder {
 		SystemIndexerRule {
 			name: "No Hidden",
 			default: true,
-			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"]).unwrap()],
+			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
+				.expect("this is hardcoded and should always work")],
 		}
 	}
 
@@ -808,7 +810,7 @@ mod seeder {
 			rules: vec![RulePerKind::new_accept_files_by_globs_str([
 				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
 			])
-			.unwrap()],
+			.expect("this is hardcoded and should always work")],
 		}
 	}
 }
@@ -816,10 +818,24 @@ mod seeder {
 pub use seeder::*;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
 	use tokio::fs;
+
+	impl IndexerRule {
+		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+			Self {
+				id: None,
+				name,
+				default,
+				rules,
+				date_created: Utc::now(),
+				date_modified: Utc::now(),
+			}
+		}
+	}
 
 	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
 		indexer_rule

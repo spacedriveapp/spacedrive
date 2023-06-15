@@ -1,5 +1,5 @@
 use crate::{
-	file_paths_db_fetcher_fn,
+	extract_job_data_mut, file_paths_db_fetcher_fn,
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -179,10 +179,7 @@ impl StatefulJob for IndexerJob {
 		mut ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let data = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data_mut!(state);
 
 		match &state.steps[0] {
 			IndexerJobStepInput::Save(step) => {
@@ -283,6 +280,6 @@ impl StatefulJob for IndexerJob {
 		let location_path =
 			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
-		finalize_indexer(&location_path, state, ctx)
+		finalize_indexer(location_path, state, ctx)
 	}
 }

@@ -14,11 +14,10 @@ pub struct SystemApps(pub HashMap<Mime, VecDeque<Handler>>);
 
 impl SystemApps {
 	pub fn get_handlers(&self, handler_type: HandlerType) -> VecDeque<Handler> {
-		let mime_db = SharedMimeInfo::new();
 		match handler_type {
 			HandlerType::Ext(ext) => {
 				let mut handlers: HashSet<Handler> = HashSet::new();
-				for mime in mime_db.get_mime_types_from_file_name(ext.as_str()) {
+				for mime in SharedMimeInfo::new().get_mime_types_from_file_name(ext.as_str()) {
 					if let Some(mime_handlers) = self.0.get(&mime) {
 						for handler in mime_handlers {
 							handlers.insert(handler.clone());
@@ -40,12 +39,7 @@ impl SystemApps {
 			.list_data_files_once("applications")
 			.into_iter()
 			.filter(|p| p.extension().and_then(|x| x.to_str()) == Some("desktop"))
-			.filter_map(|p| {
-				Some((
-					p.file_name()?.to_owned(),
-					DesktopEntry::try_from(p.clone()).ok()?,
-				))
-			}))
+			.filter_map(|p| Some((p.file_name()?.to_owned(), DesktopEntry::try_from(&p).ok()?))))
 	}
 
 	pub fn populate() -> Result<Self> {

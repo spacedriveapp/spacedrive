@@ -10,10 +10,10 @@ use tokio::{fs, io::ErrorKind, sync::oneshot, time::sleep};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{watcher::LocationWatcher, LocationId, LocationManagerError};
+use super::{watcher::LocationWatcher, LocationManagerError};
 
 type LibraryId = Uuid;
-type LocationAndLibraryKey = (LocationId, LibraryId);
+type LocationAndLibraryKey = (location::id::Type, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -48,9 +48,9 @@ pub(super) async fn check_online(
 }
 
 pub(super) async fn location_check_sleep(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
-) -> (LocationId, Library) {
+) -> (location::id::Type, Library) {
 	sleep(LOCATION_CHECK_INTERVAL).await;
 	(location_id, library)
 }
@@ -98,7 +98,7 @@ pub(super) fn unwatch_location(
 }
 
 pub(super) fn drop_location(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library_id: LibraryId,
 	message: &str,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -112,7 +112,10 @@ pub(super) fn drop_location(
 	}
 }
 
-pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<location::Data> {
+pub(super) async fn get_location(
+	location_id: location::id::Type,
+	library: &Library,
+) -> Option<location::Data> {
 	library
 		.db
 		.location()
@@ -126,7 +129,7 @@ pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<
 }
 
 pub(super) async fn handle_remove_location_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -166,7 +169,7 @@ pub(super) async fn handle_remove_location_request(
 }
 
 pub(super) async fn handle_stop_watcher_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -174,7 +177,7 @@ pub(super) async fn handle_stop_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	async fn inner(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -209,7 +212,7 @@ pub(super) async fn handle_stop_watcher_request(
 }
 
 pub(super) async fn handle_reinit_watcher_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -217,7 +220,7 @@ pub(super) async fn handle_reinit_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	async fn inner(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -252,7 +255,7 @@ pub(super) async fn handle_reinit_watcher_request(
 }
 
 pub(super) fn handle_ignore_path_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	path: PathBuf,
 	ignore: bool,
