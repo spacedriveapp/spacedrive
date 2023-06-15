@@ -90,6 +90,10 @@ FROM layer-45 AS layer-50-kvazaar
 
 RUN --mount=src=scripts.d/50-kvazaar.sh,dst=/stage.sh run_stage /stage.sh
 
+FROM layer-45 AS layer-50-libde265
+
+RUN --mount=src=scripts.d/50-libde265.sh,dst=/stage.sh run_stage /stage.sh
+
 FROM layer-45 AS layer-50-libjxl
 
 RUN --mount=src=scripts.d/50-libjxl.sh,dst=/stage.sh run_stage /stage.sh
@@ -172,6 +176,8 @@ COPY --from=layer-50-dav1d /opt/dlls /opt/dlls
 COPY --from=layer-50-ffnvcodec $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-kvazaar $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+
+COPY --from=layer-50-libde265 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-libjxl $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 

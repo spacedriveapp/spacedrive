@@ -8,17 +8,17 @@ ffbuild_dockerbuild() {
 
   cd libheif
 
-  sed -i '/set(CMAKE_CXX_VISIBILITY_PRESET default)/a set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)' CMakeLists.txt
-
   mkdir build && cd build
 
   cmake \
     -GNinja \
-    -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    -DCMAKE_GNUtoMS=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX='/opt/dlls' \
     -DCMAKE_INSTALL_BINDIR='/opt/dlls/bin' \
     -DCMAKE_INSTALL_LIBDIR='/opt/dlls/lib' \
+    -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON \
     -DBUILD_TESTING=OFF \
     -DBUILD_SHARED_LIBS=ON \
     -DWITH_X265=ON \
@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     -DWITH_FUZZERS=OFF \
     -DWITH_EXAMPLES=OFF \
     -DWITH_UNCOMPRESSED_CODEC=ON \
-    -DWITH_REDUCED_VISIBILITY=OFF \
+    -DWITH_REDUCED_VISIBILITY=ON \
     -DWITH_DEFLATE_HEADER_COMPRESSION=ON \
     -DENABLE_PLUGIN_LOADING=OFF \
     -DENABLE_MULTITHREADING_SUPPORT=ON \
@@ -41,4 +41,10 @@ ffbuild_dockerbuild() {
 
   ninja -j"$(nproc)"
   ninja install
+
+  cd /opt/dlls/bin
+
+  "${FFBUILD_CROSS_PREFIX}gendef" libheif.dll
+
+  "${FFBUILD_CROSS_PREFIX}dlltool" -m i386:x86-64 -d libheif.def -l libheif.lib -D libheif.dll
 }
