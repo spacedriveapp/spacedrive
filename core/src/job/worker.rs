@@ -19,9 +19,9 @@ use super::{JobMetadata, JobReport, JobRunErrors};
 #[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
-	Completed(oneshot::Sender<()>, JobMetadata),
-	CompletedWithErrors(oneshot::Sender<()>, JobMetadata, JobRunErrors),
-	Failed(oneshot::Sender<()>),
+	// Completed(oneshot::Sender<()>, JobMetadata),
+	// CompletedWithErrors(oneshot::Sender<()>, JobMetadata, JobRunErrors),
+	// Failed(oneshot::Sender<()>),
 	Paused(Option<Vec<u8>>),
 }
 
@@ -159,6 +159,8 @@ impl Worker {
 
 		let paused = Arc::clone(&worker_mutex.lock().await.paused);
 
+		let worker = Arc::clone(&worker_mutex);
+
 		// spawn task to handle running the job
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
@@ -170,24 +172,53 @@ impl Worker {
 
 			// This oneshot is used to signal job completion, whether successful, failed, or paused,
 			// back to the task that's monitoring job execution.
-			let (done_tx, done_rx) = oneshot::channel::<()>();
+			// let (done_tx, done_rx) = oneshot::channel::<()>();
 
 			// Run the job and handle the result
 			match job.run(job_manager.clone(), worker_ctx.clone()).await {
 				// -> Job completed successfully
 				Ok((metadata, errors)) if errors.is_empty() => {
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Completed(done_tx, metadata))
-						.expect("critical error: failed to send worker complete event");
+					// worker_ctx
+					// 	.events_tx
+					// 	.send(WorkerEvent::Completed(done_tx, metadata))
+					// 	.expect("critical error: failed to send worker complete event");
+
+					let mut worker = worker.lock().await;
+
+					worker.report.status = JobStatus::Completed;
+					worker.report.data = None;
+					worker.report.metadata = metadata;
+					worker.report.completed_at = Some(Utc::now());
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
+					invalidate_query!(library, "jobs.reports");
+
+					info!("{}", worker.report);
 				}
 				// -> Job completed with errors
 				Ok((metadata, errors)) => {
 					warn!("Job<id'{job_id}'> completed with errors");
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::CompletedWithErrors(done_tx, metadata, errors))
-						.expect("critical error: failed to send worker complete event");
+					// worker_ctx
+					// 	.events_tx
+					// 	.send(WorkerEvent::CompletedWithErrors(done_tx, metadata, errors))
+					// 	.expect("critical error: failed to send worker complete event");
+
+					let mut worker = worker.lock().await;
+
+					worker.report.status = JobStatus::CompletedWithErrors;
+					worker.report.errors_text = errors;
+					worker.report.data = None;
+					worker.report.metadata = metadata;
+					worker.report.completed_at = Some(Utc::now());
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
+					invalidate_query!(library, "jobs.reports");
+
+					info!("{}", worker.report);
 				}
 				// -> Job paused
 				Err(JobError::Paused(state)) => {
@@ -195,27 +226,42 @@ impl Worker {
 					// if let Err(e) = job.pause_children(&library).await {
 					// 	error!("Failed to pause children jobs: {e:#?}");
 					// }
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Paused(Some(state)))
-						.expect("critical error: failed to send worker pause event");
-				}
 
+					debug!("Setting worker status to paused");
+
+					let mut worker = worker.lock().await;
+
+					worker.report.status = JobStatus::Paused;
+					worker.report.data = Some(state);
+
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
+					info!("{}", worker.report);
+
+					invalidate_query!(library, "jobs.reports");
+				}
 				// -> Job failed
 				Err(e) => {
 					error!("Job<id='{job_id}'> failed with error: {e:#?};");
 					// if let Err(e) = job.cancel_children(&library).await {
 					// 	error!("Failed to cancel children jobs: {e:#?}");
 					// }
-					worker_ctx
-						.events_tx
-						.send(WorkerEvent::Failed(done_tx))
-						.expect("critical error: failed to send worker fail event");
-				}
-			}
 
-			if let Err(e) = done_rx.await {
-				error!("failed to wait for worker completion: {:#?}", e);
+					let mut worker = worker.lock().await;
+
+					worker.report.status = JobStatus::Failed;
+					worker.report.data = None;
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
+					invalidate_query!(library, "library.list");
+					invalidate_query!(library, "jobs.reports");
+
+					warn!("{}", worker.report);
+				}
 			}
 
 			println!("Worker completed job: {:?}", job_hash);
@@ -286,63 +332,63 @@ impl Worker {
 						library.emit(CoreEvent::JobReportUpdate(worker.report.clone()));
 					}
 				}
-				WorkerEvent::Completed(done_tx, metadata) => {
-					worker.report.status = JobStatus::Completed;
-					worker.report.data = None;
-					worker.report.metadata = metadata;
-					worker.report.completed_at = Some(Utc::now());
-					if let Err(e) = worker.report.update(&library).await {
-						error!("failed to update job report: {:#?}", e);
-					}
+				// WorkerEvent::Completed(done_tx, metadata) => {
+				// 	worker.report.status = JobStatus::Completed;
+				// 	worker.report.data = None;
+				// 	worker.report.metadata = metadata;
+				// 	worker.report.completed_at = Some(Utc::now());
+				// 	if let Err(e) = worker.report.update(&library).await {
+				// 		error!("failed to update job report: {:#?}", e);
+				// 	}
 
-					invalidate_query!(library, "jobs.reports");
+				// 	invalidate_query!(library, "jobs.reports");
 
-					info!("{}", worker.report);
+				// 	info!("{}", worker.report);
 
-					done_tx
-						.send(())
-						.expect("critical error: failed to send worker completion");
+				// 	done_tx
+				// 		.send(())
+				// 		.expect("critical error: failed to send worker completion");
 
-					break;
-				}
-				WorkerEvent::CompletedWithErrors(done_tx, metadata, errors) => {
-					worker.report.status = JobStatus::CompletedWithErrors;
-					worker.report.errors_text = errors;
-					worker.report.data = None;
-					worker.report.metadata = metadata;
-					worker.report.completed_at = Some(Utc::now());
-					if let Err(e) = worker.report.update(&library).await {
-						error!("failed to update job report: {:#?}", e);
-					}
+				// 	break;
+				// }
+				// WorkerEvent::CompletedWithErrors(done_tx, metadata, errors) => {
+				// 	worker.report.status = JobStatus::CompletedWithErrors;
+				// 	worker.report.errors_text = errors;
+				// 	worker.report.data = None;
+				// 	worker.report.metadata = metadata;
+				// 	worker.report.completed_at = Some(Utc::now());
+				// 	if let Err(e) = worker.report.update(&library).await {
+				// 		error!("failed to update job report: {:#?}", e);
+				// 	}
 
-					invalidate_query!(library, "jobs.reports");
+				// 	invalidate_query!(library, "jobs.reports");
 
-					info!("{}", worker.report);
+				// 	info!("{}", worker.report);
 
-					done_tx
-						.send(())
-						.expect("critical error: failed to send worker completion");
+				// 	done_tx
+				// 		.send(())
+				// 		.expect("critical error: failed to send worker completion");
 
-					break;
-				}
-				WorkerEvent::Failed(done_tx) => {
-					worker.report.status = JobStatus::Failed;
-					worker.report.data = None;
-					if let Err(e) = worker.report.update(&library).await {
-						error!("failed to update job report: {:#?}", e);
-					}
+				// 	break;
+				// }
+				// WorkerEvent::Failed(done_tx) => {
+				// 	worker.report.status = JobStatus::Failed;
+				// 	worker.report.data = None;
+				// 	if let Err(e) = worker.report.update(&library).await {
+				// 		error!("failed to update job report: {:#?}", e);
+				// 	}
 
-					invalidate_query!(library, "library.list");
-					invalidate_query!(library, "jobs.reports");
+				// 	invalidate_query!(library, "library.list");
+				// 	invalidate_query!(library, "jobs.reports");
 
-					warn!("{}", worker.report);
+				// 	warn!("{}", worker.report);
 
-					done_tx
-						.send(())
-						.expect("critical error: failed to send worker completion");
+				// 	done_tx
+				// 		.send(())
+				// 		.expect("critical error: failed to send worker completion");
 
-					break;
-				}
+				// 	break;
+				// }
 				WorkerEvent::Paused(state) => {
 					debug!("Setting worker status to paused");
 

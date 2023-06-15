@@ -31,18 +31,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - the client replaces its local copy of the JobReport using the index provided by the reports procedure
 			// - this should be used with the ephemeral sync engine
 			R.with2(library())
-				.subscription(|(ctx, _), _: ()| async move {
+				.subscription(|(ctx, _), job_uuid: Uuid| async move {
 					let mut event_bus_rx = ctx.event_bus.0.subscribe();
 					let mut tick = interval(Duration::from_secs_f64(1.0 / 10.0));
+
 					async_stream::stream! {
-						loop { // TODO: Oscar fix this
-							while let Ok(event) = event_bus_rx.recv().await {
-								match event {
-									CoreEvent::JobReportUpdate(report) => {
-										let _ = tick.tick().await;
-										yield report
+						loop {
+							let report = loop {
+								if let Ok(CoreEvent::JobReportUpdate(report)) = event_bus_rx.recv().await {
+									if report.id == job_uuid {
+										break report;
+									}
+								}
+							};
+
+							yield report;
+
+							loop {
+								tokio::select! { biased;
+									_ = tick.tick() => { break; },
+									_ = event_bus_rx.recv() => {
+										// event was killed by the void
 									},
-									_ => {}
 								}
 							}
 						}

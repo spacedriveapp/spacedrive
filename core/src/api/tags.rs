@@ -17,9 +17,10 @@ use super::{utils::library, Ctx, R};
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				Ok(library.db.tag().find_many(vec![]).exec().await?)
-			})
+			R.with2(library())
+				.query(|(ctx, library), _: ()| async move {
+					Ok(library.db.tag().find_many(vec![]).exec().await?)
+				})
 		})
 		.procedure("getForObject", {
 			R.with2(library())

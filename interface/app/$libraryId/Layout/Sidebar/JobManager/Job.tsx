@@ -39,7 +39,7 @@ function Job({ job: jobQuery, className, isChild }: JobProps) {
 		}
 	}, [job]);
 
-	useLibrarySubscription(['jobs.progress'], {
+	useLibrarySubscription(['jobs.progress', jobQuery.id], {
 		onData: handleJobUpdate,
 		enabled: useRealtime
 	});
