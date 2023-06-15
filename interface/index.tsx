@@ -12,10 +12,10 @@ import { P2PContextProvider, useDebugState } from '@sd/client';
 import ErrorFallback from './ErrorFallback';
 import { SpacedropUI } from './app/Spacedrop';
 
-export * from './util/keybind';
-export * from './util/Platform';
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
+export * from './util/Platform';
+export * from './util/keybind';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
