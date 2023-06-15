@@ -1,6 +1,6 @@
 import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';

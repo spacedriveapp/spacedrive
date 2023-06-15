@@ -25,7 +25,7 @@ export type Platform = {
 	// Opens a file path with a given ID
 	openFilePath?(library: string, ids: number[]): any;
 	getFilePathOpenWithApps?(library: string, ids: number[]): any;
-	openFilePathWith?(library: string, fileIdsAndAppUrls: ([number, string])[]): any;
+	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): any;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 
