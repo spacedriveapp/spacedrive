@@ -145,6 +145,7 @@ pub async fn get_file_path_open_with_apps(
 							})
 							.and_then(|path| {
 								DesktopEntry::try_from(&path)
+									// TODO: Ignore desktop entries that have commands that don't exist/aren't available in path
 									.map(|entry| OpenWithApplication::File {
 										id,
 										name: entry.name,
@@ -181,22 +182,30 @@ pub async fn get_file_path_open_with_apps(
 					};
 
 				list_apps_associated_with_ext(ext)
-					.iter()
-					.filter_map(|handler| {
-						let (Ok(name), Ok(url)) = (
-							unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-							unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-						) else {
-							None
-						};
-
-						Some(OpenWithApplication { id, name, url })
+					.map_err(|e| {
+						error!("{e:#?}");
 					})
-					.collect::<Vec<_>>()
+					.map(|handlers| {
+						handlers
+							.iter()
+							.filter_map(|handler| {
+								let (Ok(name), Ok(url)) = (
+								unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
+									.and_then(|name| unsafe { name.to_string() }
+									.map_err(|e| { error!("{e:#?}");})),
+								unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
+									.and_then(|name| unsafe { name.to_string() }
+									.map_err(|e| { error!("{e:#?}");})),
+							) else {
+								error!("Failed to get handler info");
+								return None
+							};
+
+								Some(OpenWithApplication::File { id, name, url })
+							})
+							.collect::<Vec<_>>()
+					})
+					.unwrap_or(vec![])
 			})
 			.collect());
 	}
@@ -232,7 +241,13 @@ pub async fn open_file_path_with(
 			paths
 				.iter()
 				.map(|(id, path)| {
-					let Some(path) = path.as_ref().and_then(|path| path.to_str())
+					let (Some(path), Some(url)) = (
+						#[cfg(windows)]
+						path.as_ref(),
+						#[cfg(not(windows))]
+						path.as_ref().and_then(|path| path.to_str()),
+						url_by_id.get(id)
+					)
 						else {
 							error!("File not found in database");
 							return Err(());
@@ -240,37 +255,27 @@ pub async fn open_file_path_with(
 
 					#[cfg(target_os = "macos")]
 					{
-						Ok(unsafe {
-							sd_desktop_macos::open_file_path_with(
-								&path.into(),
-								&url_by_id
-									.get(id)
-									.expect("we just created this hashmap")
-									.as_str()
-									.into(),
-							)
-						})
+						return Ok(unsafe {
+							sd_desktop_macos::open_file_path_with(&path.into(), &url.into())
+						});
 					}
 
 					#[cfg(target_os = "linux")]
 					{
-						sd_desktop_linux::Handler::assume_valid(
-							url_by_id
-								.get(id)
-								.expect("we just created this hashmap")
-								.as_str()
-								.into(),
-						)
-						.open(&[path])
-						.map_err(|e| {
-							error!("{e:#?}");
-						})
-					}
+						return sd_desktop_linux::Handler::assume_valid(url.into())
+							.open(&[path])
+							.map_err(|e| {
+								error!("{e:#?}");
+							});
+					};
 
 					#[cfg(windows)]
-					sd_desktop_windows::open_file_path_with(&path, url).map_err(|e| {
+					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {
 						error!("{e:#?}");
-					})
+					});
+
+					#[allow(unreachable_code)]
+					Err(())
 				})
 				.collect::<Result<Vec<_>, _>>()
 				.map(|_| ())

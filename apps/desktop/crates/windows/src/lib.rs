@@ -96,14 +96,14 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 	Ok(vec)
 }
 
-pub fn open_file_path_with(path: &Path, url: String) -> Result<()> {
+pub fn open_file_path_with(path: &Path, url: &String) -> Result<()> {
 	ensure_com_initialized();
 
 	for handler in list_apps_associated_with_ext(path.extension().ok_or(Error::OK)?)?.iter() {
 		let name = unsafe { handler.GetName() }
 			.and_then(|name| -> Result<_> { unsafe { name.to_string() }.map_err(|_| Error::OK) })?;
 
-		if name == url {
+		if &name == url {
 			let path = path.normalize_virtually().map_err(|_| Error::OK)?;
 			let wide_path = path
 				.as_os_str()

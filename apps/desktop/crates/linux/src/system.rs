@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet},
 	convert::TryFrom,
 	ffi::OsString,
 };
@@ -10,11 +10,11 @@ use xdg_mime::SharedMimeInfo;
 use crate::{DesktopEntry, Handler, HandlerType, Result};
 
 #[derive(Debug, Default, Clone)]
-pub struct SystemApps(pub HashMap<Mime, VecDeque<Handler>>);
+pub struct SystemApps(pub HashMap<Mime, Vec<Handler>>);
 
 impl SystemApps {
-	pub fn get_handlers(&self, handler_type: HandlerType) -> VecDeque<Handler> {
-		match handler_type {
+	pub fn get_handlers(&self, handler_type: HandlerType) -> Vec<Handler> {
+		let mut handlers = match handler_type {
 			HandlerType::Ext(ext) => {
 				let mut handlers: HashSet<Handler> = HashSet::new();
 				for mime in SharedMimeInfo::new().get_mime_types_from_file_name(ext.as_str()) {
@@ -26,8 +26,12 @@ impl SystemApps {
 				}
 				handlers.into_iter().collect()
 			}
-			HandlerType::Mime(mime) => self.0.get(&mime).unwrap_or(&VecDeque::new()).clone(),
-		}
+			HandlerType::Mime(mime) => self.0.get(&mime).unwrap_or(&Vec::new()).clone(),
+		};
+
+		handlers.sort();
+
+		handlers
 	}
 
 	pub fn get_handler(&self, handler_type: HandlerType) -> Option<Handler> {
@@ -43,14 +47,14 @@ impl SystemApps {
 	}
 
 	pub fn populate() -> Result<Self> {
-		let mut map = HashMap::<Mime, VecDeque<Handler>>::with_capacity(50);
+		let mut map = HashMap::<Mime, Vec<Handler>>::with_capacity(50);
 
 		Self::get_entries()?.for_each(|(_, entry)| {
 			let (file_name, mimes) = (entry.file_name, entry.mimes);
 			mimes.into_iter().for_each(|mime| {
 				map.entry(mime)
 					.or_default()
-					.push_back(Handler::assume_valid(file_name.clone()));
+					.push(Handler::assume_valid(file_name.clone()));
 			});
 		});
 
