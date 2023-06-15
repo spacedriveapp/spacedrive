@@ -207,7 +207,7 @@ pub async fn get_file_path_open_with_apps(
 
 type FileIdAndUrl = (i32, String);
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub async fn open_file_path_with(
 	library: uuid::Uuid,
@@ -239,15 +239,17 @@ pub async fn open_file_path_with(
 						};
 
 					#[cfg(target_os = "macos")]
-					unsafe {
-						sd_desktop_macos::open_file_path_with(
-							&path.into(),
-							&url_by_id
-								.get(id)
-								.expect("we just created this hashmap")
-								.as_str()
-								.into(),
-						)
+					{
+						Ok(unsafe {
+							sd_desktop_macos::open_file_path_with(
+								&path.into(),
+								&url_by_id
+									.get(id)
+									.expect("we just created this hashmap")
+									.as_str()
+									.into(),
+							)
+						})
 					}
 
 					#[cfg(target_os = "linux")]
