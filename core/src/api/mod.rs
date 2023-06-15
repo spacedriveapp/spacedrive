@@ -1,9 +1,8 @@
+use crate::{job::JobProgressEvent, node::SanitisedNodeConfig, Node};
 use rspc::{alpha::Rspc, Config};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
-
-use crate::{job::JobReport, node::SanitisedNodeConfig, Node};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -17,7 +16,7 @@ pub type Router = rspc::Router<Ctx>;
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
 	NewThumbnail { thumb_key: Vec<String> },
-	JobReportUpdate(JobReport),
+	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
 }
 

@@ -39,15 +39,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					async_stream::stream! {
 						loop {
-							let report = loop {
-								if let Ok(CoreEvent::JobReportUpdate(report)) = event_bus_rx.recv().await {
-									if report.id == job_uuid {
-										break report;
+							let progress_event = loop {
+								if let Ok(CoreEvent::JobProgress(progress_event)) = event_bus_rx.recv().await {
+									if progress_event.id == job_uuid {
+										break progress_event;
 									}
 								}
 							};
 
-							yield report;
+							yield progress_event;
 
 							loop {
 								tokio::select! { biased;

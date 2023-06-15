@@ -1,18 +1,28 @@
+use super::JobReport;
 use crate::api::CoreEvent;
 use crate::invalidate_query;
 use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::Library;
 use chrono::{DateTime, Utc};
+use serde::Serialize;
+use specta::Type;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
 use tokio::sync::{
 	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 	Mutex,
 };
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
-use super::JobReport;
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct JobProgressEvent {
+	pub id: Uuid,
+	pub task_count: i32,
+	pub completed_task_count: i32,
+	pub message: String,
+	pub estimated_completion: DateTime<Utc>,
+}
 
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
@@ -143,7 +153,7 @@ impl Worker {
 
 		job.register_children(&library).await?;
 
-		invalidate_query!(library, "jobs.reports");
+		invalidate_queries(&library);
 
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
@@ -188,8 +198,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "jobs.reports");
-
+					invalidate_queries(&library);
 					info!("{}", worker.report);
 				}
 				// -> Job completed with errors
@@ -211,8 +220,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "jobs.reports");
-
+					invalidate_queries(&library);
 					info!("{}", worker.report);
 				}
 				// -> Job paused
@@ -235,7 +243,7 @@ impl Worker {
 
 					info!("{}", worker.report);
 
-					invalidate_query!(library, "jobs.reports");
+					invalidate_queries(&library);
 				}
 				// -> Job failed
 				Err(e) => {
@@ -252,9 +260,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "library.list");
-					invalidate_query!(library, "jobs.reports");
-
+					invalidate_queries(&library);
 					warn!("{}", worker.report);
 				}
 			}
@@ -323,8 +329,15 @@ impl Worker {
 							.checked_add_signed(remaining_time)
 							.unwrap_or(Utc::now());
 
+						let report = worker.report.clone();
 						// emit a CoreEvent
-						library.emit(CoreEvent::JobReportUpdate(worker.report.clone()));
+						library.emit(CoreEvent::JobProgress(JobProgressEvent {
+							id: report.id,
+							task_count: report.task_count,
+							completed_task_count: report.completed_task_count,
+							estimated_completion: report.estimated_completion,
+							message: report.message,
+						}));
 					}
 				}
 				// WorkerEvent::Completed(done_tx, metadata) => {
@@ -403,4 +416,9 @@ impl Worker {
 			}
 		}
 	}
+}
+
+fn invalidate_queries(library: &Library) {
+	invalidate_query!(library, "jobs.isActive");
+	invalidate_query!(library, "jobs.reports");
 }

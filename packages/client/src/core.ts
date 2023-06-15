@@ -65,7 +65,7 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
-        { key: "jobs.progress", input: LibraryArgs<string>, result: JobReport } | 
+        { key: "jobs.progress", input: LibraryArgs<string>, result: JobProgressEvent } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -138,6 +138,8 @@ export type InvalidateOperationEvent = { key: string; arg: any; result: any | nu
 export type JobGroup = { id: string; action: string; status: JobStatus; created_at: string; jobs: JobReport[] }
 
 export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
+
+export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 

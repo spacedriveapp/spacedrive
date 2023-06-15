@@ -1,4 +1,4 @@
-import { JobReport } from '@sd/client';
+import { JobProgressEvent, JobReport } from '@sd/client';
 import {
 	Fingerprint,
 	Folder,
@@ -12,29 +12,29 @@ interface JobNiceData {
 	textItems: TextItems;
 }
 
-export default function useJobInfo(job: JobReport,
+export default function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | null
 ): Record<string, JobNiceData> {
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
-		indexedPath = job.metadata?.data?.indexed_path,
-		taskCount = comma(job.task_count),
-		completedTaskCount = comma(job.completed_task_count),
+		indexedPath = job.metadata?.data?.indexed_path;
+
+	const
+		taskCount = realtimeUpdate?.task_count ? comma(realtimeUpdate?.task_count || 0) : comma(job.task_count),
+		completedTaskCount = realtimeUpdate?.completed_task_count ? comma(realtimeUpdate?.completed_task_count || 0) : comma(job.completed_task_count),
 		meta = job.metadata;
 
 	return ({
 		indexer: {
-			name: `${isQueued ? "Index" : isRunning ? "Indexing" : "Indexed"} files  ${indexedPath ? `at ${indexedPath}` : ``}`
-			,
+			name: `${isQueued ? "Index" : isRunning ? "Indexing" : "Indexed"} files  ${indexedPath ? `at ${indexedPath}` : ``}`,
 			icon: Folder,
 			textItems: [[
-				{ text: isRunning && job.message ? job.message : `${comma(meta?.data?.total_paths)} ${plural(meta?.data?.total_paths, 'path')}` },
+				{ text: isRunning && realtimeUpdate?.message ? realtimeUpdate.message : `${comma(meta?.data?.total_paths)} ${plural(meta?.data?.total_paths, 'path')}` },
 			]]
 		},
 		thumbnailer: {
-			name: `${isQueued ? "Generate" : isRunning ? "Generating" : "Generated"} thumbnails`
-			,
+			name: `${isQueued ? "Generate" : isRunning ? "Generating" : "Generated"} thumbnails`,
 			icon: Image,
-			textItems: [[{ text: `${completedTaskCount} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }]]
+			textItems: [[{ text: meta?.thumbnails_created === 0 ? "None generated" : `${completedTaskCount} of ${taskCount} ${plural(job.task_count, 'thumbnail')} generated` }, { text: meta?.thumbnails_skipped && `${meta?.thumbnails_skipped} already exist` }]]
 		},
 		file_identifier: {
 			name: `${isQueued ? "Extract" : isRunning ? "Extracting" : "Extracted"} metadata`,
@@ -43,7 +43,7 @@ export default function useJobInfo(job: JobReport,
 				{ text: `${comma(meta?.total_orphan_paths)} ${plural(meta?.total_orphan_paths, 'file')}` },
 				{ text: `${comma(meta?.total_objects_created)} ${plural(meta?.total_objects_created, 'Object')} created` },
 				{ text: `${comma(meta?.total_objects_linked)} ${plural(meta?.total_objects_linked, 'Object')} linked` }
-			] : [{ text: job.message }]]
+			] : [{ text: realtimeUpdate?.message }]]
 		},
 		// Repeat the similar pattern for all subtext fields
 	})

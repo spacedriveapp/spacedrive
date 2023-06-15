@@ -17,39 +17,28 @@ interface JobProps {
 	isChild?: boolean;
 }
 
-function Job({ job: jobQuery, className, isChild }: JobProps) {
+function Job({ job, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
 
-	const [job, setJob] = useState<JobReport>(jobQuery);
-	const [useRealtime, setUseRealtime] = useState<boolean>(false);
+	const [realtimeUpdate, setRealtimeUpdate] = useState<JobReport | null>(null);
 
-	useEffect(() => {
-		if (jobQuery.status !== 'Running') {
-			setJob(jobQuery)
-			setUseRealtime(false);
-		} else {
-			setUseRealtime(true);
-		}
-	}, [jobQuery]);
-
-	const handleJobUpdate = useCallback((data: JobReport) => {
-		if (data.id === job.id && job.status === "Running") {
-			console.log('job updated', data);
-			setJob(data);
-		}
-	}, [job]);
-
-	useLibrarySubscription(['jobs.progress', jobQuery.id], {
-		onData: handleJobUpdate,
-		enabled: useRealtime
+	useLibrarySubscription(['jobs.progress', job.id], {
+		onData: setRealtimeUpdate,
 	});
 
-	const niceData = useJobInfo(job)[job.name] || {
+	const niceData = useJobInfo(job, realtimeUpdate)[job.name] || {
 		name: job.name,
 		icon: Question,
 		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
 	};
 	const isRunning = job.status === 'Running';
+
+	// clear stale realtime state when job is done
+	useEffect(() => {
+		if (job.status !== 'Running') {
+			setRealtimeUpdate(null);
+		}
+	}, [job.status]);
 
 	// dayjs from seconds to time
 	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
@@ -65,9 +54,6 @@ function Job({ job: jobQuery, className, isChild }: JobProps) {
 			queryClient.invalidateQueries(['jobs.reports']);
 		}
 	});
-
-
-
 
 	// const clearJobHandler = useCallback(
 	// 	(id: string) => {
@@ -112,7 +98,7 @@ function Job({ job: jobQuery, className, isChild }: JobProps) {
 		>
 			{isRunning && (
 				<div className="my-1 ml-1.5 w-[335px]">
-					<ProgressBar value={job.completed_task_count} total={job.task_count} />
+					<ProgressBar value={realtimeUpdate?.completed_task_count || 0} total={realtimeUpdate?.task_count || 0} />
 				</div>
 			)}
 		</JobContainer>

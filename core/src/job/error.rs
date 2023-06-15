@@ -72,6 +72,8 @@ pub enum JobError {
 	MissingCasId,
 	#[error("missing-location-path")]
 	MissingPath,
+	#[error("Thumbnail skipped")]
+	ThumbnailSkipped,
 
 	// Not errors
 	#[error("step completed with errors: {0:?}")]

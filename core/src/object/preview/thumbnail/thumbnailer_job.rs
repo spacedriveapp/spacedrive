@@ -150,6 +150,7 @@ impl StatefulJob for ThumbnailerJob {
 				location_id,
 				path,
 				thumbnails_created: 0,
+				thumbnails_skipped: 0,
 			},
 		});
 		state.steps.extend(all_files);
