@@ -31,7 +31,7 @@ impl BlockSize {
 	}
 
 	/// This is super dangerous as it doesn't enforce any assumptions of the protocol and is designed just for tests.
-	#[cfg(debug_assertions)]
+	#[cfg(test)]
 	pub fn dangerously_new(size: u32) -> Self {
 		Self(size)
 	}
