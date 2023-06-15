@@ -137,14 +137,11 @@ impl P2PManager {
 
 										spacedrop_pairing_reqs.lock().await.insert(id, tx);
 
-										if events
-											.send(P2PEvent::SpacedropRequest {
-												id,
-												peer_id: event.peer_id,
-												name: req.name.clone(),
-											})
-											.is_err()
-										{
+										if let Err(_) = events.send(P2PEvent::SpacedropRequest {
+											id,
+											peer_id: event.peer_id,
+											name: req.name.clone(),
+										}) {
 											// No frontend's are active
 
 											todo!("Outright reject Spacedrop");
@@ -153,6 +150,8 @@ impl P2PManager {
 										tokio::select! {
 											_ = sleep(SPACEDROP_TIMEOUT) => {
 												info!("spacedrop({id}): timeout, rejecting!");
+
+												return;
 											}
 											file_path = rx => {
 												match file_path {
@@ -169,9 +168,11 @@ impl P2PManager {
 													}
 													Ok(None) => {
 														info!("spacedrop({id}): rejected");
+														return;
 													}
 													Err(_) => {
 														info!("spacedrop({id}): error with Spacedrop pairing request receiver!");
+														return;
 													}
 												}
 											}
