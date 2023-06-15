@@ -23,6 +23,7 @@ use windows::{
 
 pub use windows::core::{Error, Result};
 
+// Based on: https://github.com/Byron/trash-rs/blob/841bc1388959ab3be4f05ad1a90b03aa6bcaea67/src/windows.rs#L212-L258
 struct CoInitializer {}
 impl CoInitializer {
 	fn new() -> CoInitializer {

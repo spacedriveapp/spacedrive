@@ -34,7 +34,7 @@ const Items = ({
 }) => {
 	const { library } = useLibraryContext();
 
-	const items = useQuery<any[]>(
+	const items = useQuery<unknown>(
 		['openWith', filePath.id],
 		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
 		{ suspense: true }
@@ -42,22 +42,25 @@ const Items = ({
 
 	return (
 		<>
-			{items.data && items.data.length > 0 ? (
-				items.data.map((data) => (
+			{Array.isArray(items.data) && items.data.length > 0 ? (
+				items.data.map((data, id) => (
 					<ContextMenu.Item
-						key={data.name}
+						key={id}
 						onClick={async () => {
 							try {
-								await actions.openFilePathWith(library.uuid, [(filePath.id, data.c.url)]);
-							} catch {
+								await actions.openFilePathWith(library.uuid, [
+									[filePath.id, data.c.url]
+								]);
+							} catch (e) {
+								console.error(e);
 								showAlertDialog({
 									title: 'Error',
-									value: `Failed to open file, with: ${data.url}`
+									value: `Failed to open file, with: ${data.c.url}`
 								});
 							}
 						}}
 					>
-						{data.name}
+						{data.c.name}
 					</ContextMenu.Item>
 				))
 			) : (
