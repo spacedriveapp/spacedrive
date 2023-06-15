@@ -345,7 +345,7 @@ while ($page -gt 0) {
 
         $_.workflow_runs | ForEach-Object {
             $artifactPath = (
-                    (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
+                (Invoke-RestMethodGithub -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
                 | Where-Object {
                     $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
                 } | ForEach-Object {
