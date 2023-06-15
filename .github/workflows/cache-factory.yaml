@@ -4,6 +4,7 @@
 name: Cache Factory
 
 on:
+  pull_request:
   push:
     paths:
       - 'Cargo.lock'
@@ -60,7 +61,7 @@ jobs:
           save-cache: 'true'
 
       - name: Compile (debug)
-        run: cargo test --workspace --all-features --no-run
+        run: cargo test --workspace --all-features --no-run --target ${{ matrix.settings.target }}
 
       - name: Compile (release)
-        run: cargo test --workspace --all-features --no-run --release
+        run: cargo test --workspace --all-features --no-run --release --target ${{ matrix.settings.target }}
