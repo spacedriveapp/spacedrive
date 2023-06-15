@@ -90,6 +90,13 @@ impl<'a> IsolatedFilePathData<'a> {
 		&self.extension
 	}
 
+	pub fn is_root(&self) -> bool {
+		self.is_dir
+			&& self.materialized_path == "/"
+			&& self.name.is_empty()
+			&& self.relative_path.is_empty()
+	}
+
 	pub fn parent(&'a self) -> Self {
 		let (parent_path_str, name, relative_path) = if self.materialized_path == "/" {
 			("/", "", "")

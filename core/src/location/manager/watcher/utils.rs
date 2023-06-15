@@ -5,7 +5,7 @@ use crate::{
 		delete_directory,
 		file_path_helper::{
 			check_existing_file_path, create_file_path, file_path_with_object,
-			filter_existing_file_path_params, get_parent_dir,
+			filter_existing_file_path_params,
 			isolated_file_path_data::extract_normalized_materialized_path_str,
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
@@ -85,7 +85,7 @@ pub(super) async fn create_dir(
 		path.display()
 	);
 
-	let materialized_path = IsolatedFilePathData::new(location.id, location_path, path, true)?;
+	let iso_file_path = IsolatedFilePathData::new(location.id, location_path, path, true)?;
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
@@ -101,18 +101,17 @@ pub(super) async fn create_dir(
 		}
 	};
 
-	let parent_directory = get_parent_dir(&materialized_path, &library.db).await?;
-
-	trace!("parent_directory: {:?}", parent_directory);
-
-	if parent_directory.is_none() {
+	let parent_iso_file_path = iso_file_path.parent();
+	if !parent_iso_file_path.is_root()
+		&& check_existing_file_path(&parent_iso_file_path, &library.db).await?
+	{
 		warn!("Watcher found a directory without parent");
 		return Ok(());
 	};
 
 	let created_path = create_file_path(
 		library,
-		materialized_path,
+		iso_file_path,
 		None,
 		FilePathMetadata {
 			inode,
@@ -167,7 +166,10 @@ pub(super) async fn create_file(
 		}
 	};
 
-	if get_parent_dir(&iso_file_path, db).await?.is_none() {
+	let parent_iso_file_path = iso_file_path.parent();
+	if !parent_iso_file_path.is_root()
+		&& check_existing_file_path(&parent_iso_file_path, &library.db).await?
+	{
 		warn!("Watcher found a file without parent");
 		return Ok(());
 	};
@@ -502,7 +504,7 @@ pub(super) async fn rename(
 	if let Some(file_path) = db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, old_path, true)?,
+			&IsolatedFilePathData::new(location_id, &location_path, old_path, false)?,
 		))
 		.exec()
 		.await?
@@ -563,7 +565,7 @@ pub(super) async fn remove(
 	let Some(file_path) = library.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, full_path, true)?,
+			&IsolatedFilePathData::new(location_id, &location_path, full_path, false)?,
 		))
 		.exec()
 		.await? else {
@@ -690,7 +692,7 @@ pub(super) async fn extract_inode_and_device_from_path(
 		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, location_path, path, true)?,
+			&IsolatedFilePathData::new(location_id, location_path, path, false)?,
 		))
 		.select(file_path::select!({ inode device }))
 		.exec()
