@@ -67,7 +67,7 @@ impl StatefulJob for FileDeleterJob {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
-		if maybe_missing(step.path_data.is_dir, "file_path.is_dir")? {
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			fs::remove_dir_all(&step.full_path).await
 		} else {
 			fs::remove_file(&step.full_path).await

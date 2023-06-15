@@ -124,21 +124,21 @@ impl Library {
 				.exec()
 				.await?
 				.into_iter()
-				.map(|file_path| {
-					let location = maybe_missing(&record.location, "file_path.location")?;
+				.flat_map(|file_path| {
+					let location = maybe_missing(&file_path.location, "file_path.location")?;
 
-					(
+					Ok::<_, LibraryManagerError>((
 						file_path.id,
-						file_path.location.path.as_ref().map(|location_path| {
-							Path::new(maybe_missing(&location.path, "file_path.location.path")?)
-								.join(IsolatedFilePathData::from((
-									file_path.location.id,
-									&file_path,
-								)))
-						}),
-					)
-				})
-				.flatten(),
+						location
+							.path
+							.as_ref()
+							.map(|location_path| {
+								IsolatedFilePathData::try_from((location.id, &file_path))
+									.map(|data| Path::new(&location_path).join(data))
+							})
+							.transpose()?,
+					))
+				}),
 		);
 
 		Ok(out)

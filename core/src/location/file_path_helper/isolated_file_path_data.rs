@@ -410,7 +410,7 @@ mod macros {
                         use $crate::util::db::maybe_missing;
                         use ::std::borrow::Cow;
 
-						Self::from_db_data(
+						Ok(Self::from_db_data(
 							location_id,
                             maybe_missing(path.is_dir, "file_path.is_dir")?,
 							Cow::Borrowed(maybe_missing(&path.materialized_path, "file_path.materialized_path")?),

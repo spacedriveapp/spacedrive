@@ -1,7 +1,7 @@
 use crate::{
 	location::{file_path_helper::FilePathError, LocationError},
 	prisma::file_path,
-	util::error::FileIOError,
+	util::{db::MissingFieldError, error::FileIOError},
 };
 
 use std::path::Path;
@@ -28,4 +28,6 @@ pub enum FileSystemJobsError {
 	MatchingSrcDest(Box<Path>),
 	#[error("action would overwrite another file: {}", .0.display())]
 	WouldOverwrite(Box<Path>),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }

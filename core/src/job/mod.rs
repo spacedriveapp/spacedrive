@@ -1,13 +1,10 @@
 use crate::{
 	library::Library,
-	location::indexer::IndexerError,
 	location::{indexer::IndexerError, LocationError},
 	object::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
 		preview::ThumbnailerError,
 	},
-	object::{file_identifier::FileIdentifierJobError, preview::ThumbnailerError},
-	util::error::FileIOError,
 	util::{db::MissingFieldError, error::FileIOError},
 };
 
@@ -18,6 +15,7 @@ use std::{
 	fmt::Debug,
 	hash::{Hash, Hasher},
 	mem,
+	path::PathBuf,
 	sync::Arc,
 };
 
@@ -88,10 +86,6 @@ pub enum JobError {
 	MissingField(#[from] MissingFieldError),
 	#[error("item of type '{0}' with id '{1}' is missing from the db")]
 	MissingFromDb(&'static str, String),
-	#[error("the cas id is not set on the path data")]
-	MissingCasId,
-	#[error("missing-location-path")]
-	MissingPath,
 
 	// Not errors
 	#[error("step completed with errors: {0:?}")]
