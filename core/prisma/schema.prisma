@@ -209,12 +209,13 @@ model Object {
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
-model FileConflict {
-    original_object_id   Int @unique
-    detactched_object_id Int @unique
+// @brendan: nah this probably won't fly
+// model FileConflict {
+//     original_object_id   Int @unique
+//     detactched_object_id Int @unique
 
-    @@map("file_conflict")
-}
+//     @@map("file_conflict")
+// }
 
 // keys allow us to know exactly which files can be decrypted with a given key
 // they can be "mounted" to a client, and then used to decrypt files automatically
@@ -281,24 +282,24 @@ model MediaData {
 
 /// @shared(id: pub_id)
 model Tag {
-    id              Int      @id @default(autoincrement())
-    pub_id          Bytes    @unique
-    name            String?
-    color           String?
-    total_objects   Int?     @default(0)
+    id     Int     @id @default(autoincrement())
+    pub_id Bytes   @unique
+    name   String?
+    color  String?
+
     // Enum: ??
-    redundancy_goal Int?     @default(1)
-    date_created    DateTime @default(now())
-    date_modified   DateTime @default(now())
+    redundancy_goal Int?
+
+    date_created  DateTime?
+    date_modified DateTime?
 
     tag_objects TagOnObject[]
 
     @@map("tag")
 }
 
+/// @relation(item: tag, group: object)
 model TagOnObject {
-    date_created DateTime @default(now())
-
     tag_id Int
     tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -339,12 +340,12 @@ model LabelOnObject {
 //// Space ////
 
 model Space {
-    id            Int      @id @default(autoincrement())
-    pub_id        Bytes    @unique
+    id            Int       @id @default(autoincrement())
+    pub_id        Bytes     @unique
     name          String?
     description   String?
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
+    date_created  DateTime?
+    date_modified DateTime?
 
     objects ObjectInSpace[]
 
@@ -352,8 +353,6 @@ model Space {
 }
 
 model ObjectInSpace {
-    date_created DateTime @default(now())
-
     space_id Int
     space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

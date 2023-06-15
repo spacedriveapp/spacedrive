@@ -2,8 +2,6 @@ import {
 	ArrowBendUpRight,
 	Copy,
 	FileX,
-	LockSimple,
-	LockSimpleOpen,
 	Package,
 	Plus,
 	Scissors,
@@ -12,15 +10,8 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import {
-	ExplorerItem,
-	isObject,
-	useLibraryContext,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, isObject, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { ExplorerItem, formatBytes } from '@sd/client';
 import GridList from '~/components/GridList';
 import { useExplorerStore } from '~/hooks/useExplorerStore';

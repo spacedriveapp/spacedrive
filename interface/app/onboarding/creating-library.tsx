@@ -38,8 +38,8 @@ export default function OnboardingCreatingLibrary() {
 			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
 		onError: () => {
-			resetOnboardingStore();
-			navigate('/onboarding/');
+			// resetOnboardingStore();
+			navigate('/onboarding/privacy');
 		}
 	});
 

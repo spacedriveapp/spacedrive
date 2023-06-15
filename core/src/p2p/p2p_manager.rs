@@ -136,15 +136,18 @@ impl P2PManager {
 										info!("spacedrop({id}): received from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
 
 										spacedrop_pairing_reqs.lock().await.insert(id, tx);
-										events
-											.send(P2PEvent::SpacedropRequest {
-												id,
-												peer_id: event.peer_id,
-												name: req.name.clone(),
-											})
-											.unwrap();
 
-										let file_path = tokio::select! {
+										if let Err(_) = events.send(P2PEvent::SpacedropRequest {
+											id,
+											peer_id: event.peer_id,
+											name: req.name.clone(),
+										}) {
+											// No frontend's are active
+
+											todo!("Outright reject Spacedrop");
+										}
+
+										tokio::select! {
 											_ = sleep(SPACEDROP_TIMEOUT) => {
 												info!("spacedrop({id}): timeout, rejecting!");
 
@@ -154,7 +157,14 @@ impl P2PManager {
 												match file_path {
 													Ok(Some(file_path)) => {
 														info!("spacedrop({id}): accepted saving to '{:?}'", file_path);
-														file_path
+
+														stream.write_all(&[1]).await.unwrap();
+
+														let f = File::create(file_path).await.unwrap();
+
+														spaceblock::receive(&mut stream, f, &req).await;
+
+														info!("spacedrop({id}): complete");
 													}
 													Ok(None) => {
 														info!("spacedrop({id}): rejected");
@@ -167,14 +177,6 @@ impl P2PManager {
 												}
 											}
 										};
-
-										stream.write_all(&[1]).await.unwrap();
-
-										let f = File::create(file_path).await.unwrap();
-
-										spaceblock::receive(&mut stream, f, &req).await;
-
-										info!("spacedrop({id}): complete");
 									}
 									Header::Sync(library_id, len) => {
 										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
