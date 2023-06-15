@@ -208,7 +208,7 @@ model Object {
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
-// @brendan: nah this won't fly
+// @brendan: nah this probably won't fly
 // model FileConflict {
 //     original_object_id   Int @unique
 //     detactched_object_id Int @unique
