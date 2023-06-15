@@ -17,20 +17,20 @@ interface JobProps {
 	isChild?: boolean;
 }
 
-function Job({ job: _job, className, isChild }: JobProps) {
+function Job({ job: jobQuery, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
 
-	const [job, setJob] = useState<JobReport>(_job);
+	const [job, setJob] = useState<JobReport>(jobQuery);
 	const [useRealtime, setUseRealtime] = useState<boolean>(false);
 
 	useEffect(() => {
-		if (_job.status !== 'Running') {
-			setJob(_job)
+		if (jobQuery.status !== 'Running') {
+			setJob(jobQuery)
 			setUseRealtime(false);
 		} else {
 			setUseRealtime(true);
 		}
-	}, [_job]);
+	}, [jobQuery]);
 
 	const handleJobUpdate = useCallback((data: JobReport) => {
 		if (data.id === job.id && job.status === "Running") {
@@ -106,7 +106,7 @@ function Job({ job: _job, className, isChild }: JobProps) {
 			className={className}
 			name={niceData.name}
 			circleIcon={niceData.icon}
-			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }], [{ text: job.id, }]] : niceData.textItems}
+			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={job.action !== null}
 		>
