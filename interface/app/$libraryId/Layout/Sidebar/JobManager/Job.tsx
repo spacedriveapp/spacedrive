@@ -6,97 +6,10 @@ import {
 	Info,
 	Question
 } from 'phosphor-react';
-import { memo } from 'react';
-import { JobReport } from '@sd/client';
-import { ProgressBar } from '@sd/ui';
-import './Job.scss';
-
-interface JobNiceData {
-	name: string;
-	icon: React.ForwardRefExoticComponent<any>;
-	subtext: string;
-}
-
-const getNiceData = (
-	job: JobReport,
-	isGroup: boolean | undefined
-): Record<string, JobNiceData> => ({
-	indexer: {
-		name: isGroup
-			? 'Indexing paths'
-			: job.metadata?.location_path
-			? `Indexed paths at ${job.metadata?.location_path} `
-			: `Processing added location...`,
-		icon: Folder,
-		subtext: `${numberWithCommas(job.metadata?.total_paths || 0)} ${appendPlural(job, 'path')}`
-	},
-	thumbnailer: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Generating thumbnails'
-				: 'Generated thumbnails'
-		}`,
-		icon: Camera,
-		subtext: `${numberWithCommas(job.completed_task_count)} of ${numberWithCommas(
-			job.task_count
-		)} ${appendPlural(job, 'thumbnail')}`
-	},
-	shallow_thumbnailer: {
-		name: `Generating thumbnails for current directory`,
-		icon: Camera,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'item')}`
-	},
-	file_identifier: {
-		name: `${
-			job.status === 'Running' || job.status === 'Queued'
-				? 'Extracting metadata'
-				: 'Extracted metadata'
-		}`,
-		icon: Eye,
-		subtext:
-			job.message ||
-			`${numberWithCommas(job.metadata?.total_orphan_paths)} ${appendPlural(
-				job,
-				'file',
-				'file_identifier'
-			)}`
-	},
-	object_validator: {
-		name: `Generated full object hashes`,
-		icon: Fingerprint,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'object')}`
-	},
-	file_encryptor: {
-		name: `Encrypted`,
-		icon: LockSimple,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
-	},
-	file_decryptor: {
-		name: `Decrypted`,
-		icon: LockSimpleOpen,
-		subtext: `${numberWithCommas(job.task_count)}${appendPlural(job, 'file')}`
-	},
-	file_eraser: {
-		name: `Securely erased`,
-		icon: TrashSimple,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
-	},
-	file_deleter: {
-		name: `Deleted`,
-		icon: Trash,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
-	},
-	file_copier: {
-		name: `Copied`,
-		icon: Copy,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
-	},
-	file_cutter: {
-		name: `Moved`,
-		icon: Scissors,
-		subtext: `${numberWithCommas(job.task_count)} ${appendPlural(job, 'file')}`
-	}
-});
+import { memo, useCallback, useEffect, useState } from 'react';
+import { showAlertDialog } from '~/components';
+import JobContainer from './JobContainer';
+import useJobInfo from './useJobInfo';
 
 interface JobProps {
 	job: JobReport;
