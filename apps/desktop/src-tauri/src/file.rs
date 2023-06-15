@@ -254,14 +254,15 @@ pub async fn open_file_path_with(
 						};
 
 					#[cfg(target_os = "macos")]
-					{
-						return Ok(unsafe {
+					return {
+						unsafe {
 							sd_desktop_macos::open_file_path_with(
 								&path.into(),
 								&url.as_str().into(),
 							)
-						});
-					}
+						};
+						Ok(())
+					};
 
 					#[cfg(target_os = "linux")]
 					{
