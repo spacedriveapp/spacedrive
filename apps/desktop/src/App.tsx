@@ -132,7 +132,7 @@ function AppInner() {
 	if (startupError) {
 		return (
 			<ErrorPage
-				message={JSON.parse(startupError)}
+				message={startupError}
 				submessage="Error occurred starting up the Spacedrive core"
 			/>
 		);
