@@ -65,9 +65,9 @@ model Node {
     name         String
     // Enum: sd_core::node::Platform
     platform     Int      @default(0)
-    version      String?
-    last_seen    DateTime @default(now())
-    timezone     String?
+    // version      String?
+    // last_seen    DateTime @default(now())
+    // timezone     String?
     date_created DateTime @default(now())
 
     jobs     Job[]
@@ -79,6 +79,7 @@ model Node {
     @@map("node")
 }
 
+/// @local
 model Volume {
     id                    Int      @id @default(autoincrement())
     node_id               Int
@@ -197,10 +198,10 @@ model Object {
 
     tags       TagOnObject[]
     labels     LabelOnObject[]
-    albums     ObjectInAlbum[]
+    // albums     ObjectInAlbum[]
     spaces     ObjectInSpace[]
     file_paths FilePath[]
-    comments   Comment[]
+    // comments   Comment[]
     media_data MediaData?
 
     // key Key? @relation(fields: [key_id], references: [id])
@@ -390,7 +391,7 @@ model Job {
     date_started   DateTime? @default(now()) // Started execution
     date_completed DateTime? // Finished execution
 
-    nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    node Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
     parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     children Job[] @relation("jobs_dependency")
@@ -401,46 +402,46 @@ model Job {
 //// Album ////
 
 /// @shared(id: pub_id)
-model Album {
-    id        Int     @id @default(autoincrement())
-    pub_id    Bytes   @unique
-    name      String
-    is_hidden Boolean @default(false)
+// model Album {
+//     id        Int     @id @default(autoincrement())
+//     pub_id    Bytes   @unique
+//     name      String
+//     is_hidden Boolean @default(false)
 
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
+//     date_created  DateTime @default(now())
+//     date_modified DateTime @default(now())
 
-    objects ObjectInAlbum[]
+//     objects ObjectInAlbum[]
 
-    @@map("album")
-}
+//     @@map("album")
+// }
 
-model ObjectInAlbum {
-    date_created DateTime @default(now())
+// model ObjectInAlbum {
+//     date_created DateTime @default(now())
 
-    album_id Int
-    album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+//     album_id Int
+//     album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    object_id Int
-    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+//     object_id Int
+//     object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@id([album_id, object_id])
-    @@map("object_in_album")
-}
+//     @@id([album_id, object_id])
+//     @@map("object_in_album")
+// }
 
 //// Comment ////
 
-model Comment {
-    id            Int      @id @default(autoincrement())
-    pub_id        Bytes    @unique
-    content       String
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    object_id     Int?
-    object        Object?  @relation(fields: [object_id], references: [id])
+// model Comment {
+//     id            Int      @id @default(autoincrement())
+//     pub_id        Bytes    @unique
+//     content       String
+//     date_created  DateTime @default(now())
+//     date_modified DateTime @default(now())
+//     object_id     Int?
+//     object        Object?  @relation(fields: [object_id], references: [id])
 
-    @@map("comment")
-}
+//     @@map("comment")
+// }
 
 //// Indexer Rules ////
 
