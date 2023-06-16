@@ -159,7 +159,7 @@ pub struct Transfer<'a, F> {
 
 impl<'a, F> Transfer<'a, F>
 where
-	F: Fn(u8),
+	F: Fn(u8) + 'a,
 {
 	pub fn new(req: &'a SpacedropRequest, on_progress: F) -> Self {
 		Self { req, on_progress }

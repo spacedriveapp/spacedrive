@@ -143,7 +143,10 @@ impl P2PManager {
 										spacedrop_pairing_reqs.lock().await.insert(id, tx);
 
 										let (process_tx, _) = broadcast::channel(100);
-										spacedrop_progress.lock().await.insert(id, process_tx);
+										spacedrop_progress
+											.lock()
+											.await
+											.insert(id, process_tx.clone());
 
 										if let Err(_) = events.send(P2PEvent::SpacedropRequest {
 											id,
