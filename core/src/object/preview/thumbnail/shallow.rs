@@ -133,13 +133,13 @@ async fn get_files_by_extensions(
 	Ok(db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(location_id),
+			file_path::location_id::equals(Some(location_id)),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::materialized_path::equals(
+			file_path::materialized_path::equals(Some(
 				parent_isolated_file_path_data
 					.materialized_path_for_children()
 					.expect("sub path iso_file_path must be a directory"),
-			),
+			)),
 		])
 		.select(file_path_for_thumbnailer::select())
 		.exec()

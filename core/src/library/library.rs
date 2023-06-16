@@ -9,7 +9,7 @@ use crate::{
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
 };
 
@@ -124,16 +124,20 @@ impl Library {
 				.exec()
 				.await?
 				.into_iter()
-				.map(|file_path| {
-					(
+				.flat_map(|file_path| {
+					let location = maybe_missing(&file_path.location, "file_path.location")?;
+
+					Ok::<_, LibraryManagerError>((
 						file_path.id,
-						file_path.location.path.as_ref().map(|location_path| {
-							Path::new(&location_path).join(IsolatedFilePathData::from((
-								file_path.location.id,
-								&file_path,
-							)))
-						}),
-					)
+						location
+							.path
+							.as_ref()
+							.map(|location_path| {
+								IsolatedFilePathData::try_from((location.id, &file_path))
+									.map(|data| Path::new(&location_path).join(data))
+							})
+							.transpose()?,
+					))
 				}),
 		);
 

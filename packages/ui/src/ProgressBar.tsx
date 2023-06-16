@@ -12,7 +12,7 @@ export const ProgressBar = memo((props: ProgressBarProps) => {
 	return (
 		<ProgressPrimitive.Root
 			value={percentage}
-			className="h-1 w-[94%] overflow-hidden rounded-full bg-app-darkBox"
+			className="h-1 w-[94%] overflow-hidden rounded-full bg-app-button"
 		>
 			<ProgressPrimitive.Indicator
 				style={{ width: `${percentage}%` }}

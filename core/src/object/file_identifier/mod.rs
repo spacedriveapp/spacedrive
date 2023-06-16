@@ -8,7 +8,10 @@ use crate::{
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
 	sync::SyncManager,
-	util::db::uuid_to_bytes,
+	util::{
+		db::{maybe_missing, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
@@ -23,7 +26,7 @@ use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::fs;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -59,10 +62,12 @@ impl FileMetadata {
 	pub async fn new(
 		location_path: impl AsRef<Path>,
 		iso_file_path: &IsolatedFilePathData<'_>, // TODO: use dedicated CreateUnchecked type
-	) -> Result<FileMetadata, io::Error> {
+	) -> Result<FileMetadata, FileIOError> {
 		let path = location_path.as_ref().join(iso_file_path);
 
-		let fs_metadata = fs::metadata(&path).await?;
+		let fs_metadata = fs::metadata(&path)
+			.await
+			.map_err(|e| FileIOError::from((&path, e)))?;
 
 		assert!(
 			!fs_metadata.is_dir(),
@@ -75,7 +80,9 @@ impl FileMetadata {
 			.map(Into::into)
 			.unwrap_or(ObjectKind::Unknown);
 
-		let cas_id = generate_cas_id(&path, fs_metadata.len()).await?;
+		let cas_id = generate_cas_id(&path, fs_metadata.len())
+			.await
+			.map_err(|e| FileIOError::from((&path, e)))?;
 
 		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
@@ -101,25 +108,21 @@ async fn identifier_job_step(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
-	let location_path = location.path.as_ref();
-	let Some(location_path) = location_path.map(Path::new) else {
-        return Err(JobError::MissingPath)
-    };
+	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
 		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
-		FileMetadata::new(
+		let meta = FileMetadata::new(
 			&location_path,
-			&IsolatedFilePathData::from((location.id, file_path)),
+			&IsolatedFilePathData::try_from((location.id, file_path))?,
 		)
-		.await
-		.map(|params| {
-			(
-				// SAFETY: This should never happen
-				Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
-				(params, file_path),
-			)
-		})
+		.await?;
+
+		Ok((
+			// SAFETY: This should never happen
+			Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
+			(meta, file_path),
+		)) as Result<_, JobError>
 	}))
 	.await
 	.into_iter()
@@ -130,7 +133,7 @@ async fn identifier_job_step(
 
 		data
 	})
-	.collect::<HashMap<_, _>>();
+	.collect::<HashMap<Uuid, (FileMetadata, &file_path_for_file_identifier::Data)>>();
 
 	let unique_cas_ids = file_path_metas
 		.values()
@@ -261,7 +264,7 @@ async fn identifier_job_step(
 							uuid_to_bytes(object_pub_id),
 							vec![
 								object::date_created::set(fp.date_created),
-								object::kind::set(kind),
+								object::kind::set(Some(kind)),
 							],
 						),
 					);

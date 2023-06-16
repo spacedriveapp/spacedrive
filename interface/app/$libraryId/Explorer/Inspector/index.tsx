@@ -3,7 +3,7 @@ import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { ComponentProps, HTMLAttributes, useEffect, useState } from 'react';
+import { HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
 	Location,
@@ -15,7 +15,6 @@ import {
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useExplorerStore, useIsDark } from '~/hooks';
-import { TOP_BAR_HEIGHT } from '../../TopBar';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
 import { getItemFilePath, getItemObject } from '../util';

@@ -6595,7 +6595,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?branch=specta-v2#2aec493e6f9259e67f04866e250e1690f073def9"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=adebce542049b982dd251466d4144f4d57e92177#adebce542049b982dd251466d4144f4d57e92177"
 dependencies = [
  "futures",
  "futures-channel",
@@ -7649,7 +7649,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "1.0.4"
-source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
+source = "git+https://github.com/oscartbeaumont/specta?rev=2fc97ec8178ba27da1c80c0faaf43cb0db95955f#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "chrono",
  "document-features",
@@ -7670,7 +7670,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "1.0.4"
-source = "git+https://github.com/oscartbeaumont/specta?branch=v2#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
+source = "git+https://github.com/oscartbeaumont/specta?rev=2fc97ec8178ba27da1c80c0faaf43cb0db95955f#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
  "Inflector",
  "itertools",
@@ -8274,7 +8274,7 @@ dependencies = [
 [[package]]
 name = "tauri-specta"
 version = "1.0.2"
-source = "git+https://github.com/oscartbeaumont/tauri-specta?branch=specta-v2#e381f3141d6e52b45caafb86c3f09ddcdba971b8"
+source = "git+https://github.com/oscartbeaumont/tauri-specta?rev=c964bef228a90a66effc18cefcba6859c45a8e08#c964bef228a90a66effc18cefcba6859c45a8e08"
 dependencies = [
  "heck 0.4.1",
  "indoc 2.0.1",

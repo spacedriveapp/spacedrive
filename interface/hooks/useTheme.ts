@@ -1,5 +1,5 @@
-import { useThemeStore, getThemeStore } from '@sd/client';
 import { useEffect } from 'react';
+import { getThemeStore, useThemeStore } from '@sd/client';
 import { usePlatform } from '..';
 
 export function useTheme() {
@@ -13,21 +13,33 @@ export function useTheme() {
 				lockAppTheme?.('Auto');
 				if (systemTheme.matches) {
 					document.documentElement.classList.remove('vanilla-theme');
-					document.documentElement.style.setProperty('--dark-hue', getThemeStore().hueValue.toString());
+					document.documentElement.style.setProperty(
+						'--dark-hue',
+						getThemeStore().hueValue.toString()
+					);
 					getThemeStore().theme = 'dark';
 				} else {
 					document.documentElement.classList.add('vanilla-theme');
-					document.documentElement.style.setProperty('--light-hue', getThemeStore().hueValue.toString());
+					document.documentElement.style.setProperty(
+						'--light-hue',
+						getThemeStore().hueValue.toString()
+					);
 					getThemeStore().theme = 'vanilla';
 				}
 			} else {
 				if (themeStore.theme === 'dark') {
 					document.documentElement.classList.remove('vanilla-theme');
-					document.documentElement.style.setProperty('--dark-hue', getThemeStore().hueValue.toString());
+					document.documentElement.style.setProperty(
+						'--dark-hue',
+						getThemeStore().hueValue.toString()
+					);
 					lockAppTheme?.('Dark');
 				} else if (themeStore.theme === 'vanilla') {
 					document.documentElement.classList.add('vanilla-theme');
-					document.documentElement.style.setProperty('--light-hue', getThemeStore().hueValue.toString());
+					document.documentElement.style.setProperty(
+						'--light-hue',
+						getThemeStore().hueValue.toString()
+					);
 					lockAppTheme?.('Light');
 				}
 			}

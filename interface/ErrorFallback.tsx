@@ -36,7 +36,8 @@ export default ({ error, resetErrorBoundary }: FallbackProps) => (
 const errorsThatRequireACoreReset = [
 	'failed to initialize config',
 	'failed to initialize library manager: failed to run library migrations',
-	'failed to initialize config: We detected a Spacedrive config from a super early version of the app!'
+	'failed to initialize config: We detected a Spacedrive config from a super early version of the app!',
+	'failed to initialize library manager: failed to run library migrations: YourAppIsOutdated - the config file is for a newer version of the app. Please update to the latest version to load it!'
 ];
 
 export function ErrorPage({

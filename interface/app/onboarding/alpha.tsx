@@ -43,7 +43,7 @@ export default function OnboardingAlpha() {
 						</Button>
 						<Button
 							onClick={() => {
-								navigate('/onboarding/start', { replace: true });
+								navigate('/onboarding/new-library', { replace: true });
 							}}
 							variant="accent"
 						>

@@ -6,7 +6,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
 	prisma::{file_path, location},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -60,7 +60,11 @@ impl StatefulJob for FileEraserJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		let location_path = get_location_path_from_location_id(db, state.init.location_id).await?;
@@ -81,7 +85,7 @@ impl StatefulJob for FileEraserJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
@@ -90,7 +94,7 @@ impl StatefulJob for FileEraserJob {
 		let step = &state.steps[0];
 
 		// Had to use `state.steps[0]` all over the place to appease the borrow checker
-		if step.file_path.is_dir {
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			let data = extract_job_data_mut!(state);
 
 			let mut dir = tokio::fs::read_dir(&step.full_path)
@@ -165,7 +169,7 @@ impl StatefulJob for FileEraserJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		try_join_all(
 			extract_job_data_mut!(state)
 				.diretories_to_remove

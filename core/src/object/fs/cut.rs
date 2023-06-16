@@ -49,7 +49,11 @@ impl StatefulJob for FileCutterJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		let (sources_location_path, mut targets_location_path) =
@@ -81,7 +85,7 @@ impl StatefulJob for FileCutterJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = extract_job_data!(state);
@@ -90,7 +94,7 @@ impl StatefulJob for FileCutterJob {
 
 		let full_output = data
 			.full_target_directory_path
-			.join(construct_target_filename(step, &None));
+			.join(construct_target_filename(step, &None)?);
 
 		if step.full_path.parent().ok_or(JobError::Path)?
 			== full_output.parent().ok_or(JobError::Path)?
@@ -132,7 +136,7 @@ impl StatefulJob for FileCutterJob {
 		}
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))

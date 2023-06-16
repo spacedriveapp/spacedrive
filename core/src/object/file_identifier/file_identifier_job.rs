@@ -9,7 +9,7 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::chain_optional_iter,
+	util::db::{chain_optional_iter, maybe_missing},
 };
 
 use std::{
@@ -26,11 +26,11 @@ use super::{
 
 pub struct FileIdentifierJob {}
 
-/// `FileIdentifierJobInit` takes file_paths without a file_id from an entire location
+/// `FileIdentifierJobInit` takes file_paths without an object_id from a location
 /// or starting from a `sub_path` (getting every descendent from this `sub_path`
 /// and uniquely identifies them:
 /// - first: generating the cas_id and extracting metadata
-/// - finally: creating unique file records, and linking them to their file_paths
+/// - finally: creating unique object records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,
@@ -69,17 +69,19 @@ impl StatefulJob for FileIdentifierJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location.id;
 
-		let location_path = state.init.location.path.as_ref();
-		let Some(location_path) = location_path.map(Path::new) else {
-            return Err(JobError::MissingPath)
-        };
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
@@ -161,7 +163,7 @@ impl StatefulJob for FileIdentifierJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let FileIdentifierJobState {
@@ -217,7 +219,7 @@ impl StatefulJob for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let report = &extract_job_data!(state).report;
 
 		info!("Finalizing identifier job: {report:?}");
@@ -234,8 +236,8 @@ fn orphan_path_filters(
 	chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
-			file_path::is_dir::equals(false),
-			file_path::location_id::equals(location_id),
+			file_path::is_dir::equals(Some(false)),
+			file_path::location_id::equals(Some(location_id)),
 		],
 		[
 			// this is a workaround for the cursor not working properly

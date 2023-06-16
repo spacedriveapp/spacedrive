@@ -123,28 +123,28 @@ model FilePath {
     id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
 
-    is_dir Boolean @default(false)
+    is_dir Boolean?
 
     // content addressable storage id - blake3 sampled checksum
     cas_id             String?
     // full byte contents digested into blake3 checksum
-    integrity_checksum String? @unique
+    integrity_checksum String?
 
     // location that owns this path
-    location_id Int
-    location    Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location_id Int?
+    location    Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
     // the path of the file relative to its location
-    materialized_path String
+    materialized_path String?
 
     // the name and extension
-    name      String
-    extension String // Extension MUST have 'COLLATE NOCASE' in migration
+    name      String?
+    extension String? // Extension MUST have 'COLLATE NOCASE' in migration
 
-    size_in_bytes String @default("0")
+    size_in_bytes String?
 
-    inode  Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
-    device Bytes // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
+    inode  Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
+    device Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
 
     // the unique Object for this file path
     object_id Int?
@@ -153,9 +153,9 @@ model FilePath {
     key_id Int? // replacement for encryption
     // permissions       String?
 
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    date_indexed  DateTime @default(now())
+    date_created  DateTime?
+    date_modified DateTime?
+    date_indexed  DateTime?
 
     // key Key? @relation(fields: [key_id], references: [id])
 
@@ -171,28 +171,29 @@ model Object {
     id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
     // Enum: sd_file_ext::kind::ObjectKind
-    kind   Int   @default(0)
+    kind   Int?
 
-    key_id            Int?
+    key_id        Int?
     // handy ways to mark an object
-    hidden            Boolean   @default(false)
-    favorite          Boolean   @default(false)
-    important         Boolean   @default(false)
+    hidden        Boolean?
+    favorite      Boolean?
+    important     Boolean?
     // if we have generated preview media for this object on at least one Node
-    has_thumbnail     Boolean   @default(false)
-    has_thumbstrip    Boolean   @default(false)
-    has_video_preview Boolean   @default(false)
+    // commented out for now by @brendonovich since they they're irrelevant to the sync system
+    // has_thumbnail     Boolean?
+    // has_thumbstrip    Boolean?
+    // has_video_preview Boolean?
     // TODO: change above to:
     // has_generated_thumbnail     Boolean  @default(false)
     // has_generated_thumbstrip    Boolean  @default(false)
     // has_generated_video_preview Boolean  @default(false)
     // integration with ipfs
-    ipfs_id           String?
+    // ipfs_id           String?
     // plain text note
-    note              String?
+    note          String?
     // the original known creation date of this object
-    date_created      DateTime  @default(now())
-    date_accessed     DateTime?
+    date_created  DateTime?
+    date_accessed DateTime?
 
     tags       TagOnObject[]
     labels     LabelOnObject[]
@@ -387,7 +388,7 @@ model Job {
 
     date_created   DateTime  @default(now())
     date_started   DateTime? @default(now()) // Started execution
-    date_completed DateTime? @default(now()) // Finished execution
+    date_completed DateTime? // Finished execution
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 

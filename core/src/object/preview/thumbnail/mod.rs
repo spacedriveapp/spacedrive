@@ -5,7 +5,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
-	util::{error::FileIOError, version_manager::VersionManagerError},
+	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
 };
 
 use std::{
@@ -106,6 +106,7 @@ pub struct ThumbnailerJobReport {
 	location_id: location::id::Type,
 	path: PathBuf,
 	thumbnails_created: u32,
+	thumbnails_skipped: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -208,7 +209,7 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 	res
 }
 
-fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {
+fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: &mut WorkerContext) -> JobResult {
 	info!(
 		"Finished thumbnail generation for location {} at {}",
 		data.report.location_id,
@@ -224,13 +225,16 @@ fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobRe
 
 async fn process_step(
 	state: &mut JobState<ThumbnailerJob>,
-	ctx: WorkerContext,
+	ctx: &mut WorkerContext,
 ) -> Result<(), JobError> {
 	let step = &state.steps[0];
 
 	ctx.progress(vec![JobReportUpdate::Message(format!(
 		"Processing {}",
-		step.file_path.materialized_path
+		maybe_missing(
+			&step.file_path.materialized_path,
+			"file_path.materialized_path"
+		)?
 	))]);
 
 	let data = state
@@ -247,13 +251,21 @@ async fn process_step(
 	)
 	.await;
 
-	data.report.thumbnails_created += 1;
-
 	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 		state.step_number + 1,
 	)]);
 
-	step_result
+	match step_result {
+		Ok(thumbnail_was_created) => {
+			if thumbnail_was_created {
+				data.report.thumbnails_created += 1;
+			} else {
+				data.report.thumbnails_skipped += 1;
+			}
+			Ok(())
+		}
+		Err(e) => Err(e.into()),
+	}
 }
 
 pub async fn inner_process_step(
@@ -262,23 +274,22 @@ pub async fn inner_process_step(
 	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
 	library: &Library,
-) -> Result<(), JobError> {
+) -> Result<bool, JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
 	let location_path = location_path.as_ref();
 	let thumbnail_dir = thumbnail_dir.as_ref();
 
 	// assemble the file path
-	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));
+	let path = location_path.join(IsolatedFilePathData::try_from((location.id, file_path))?);
 	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
 	let Some(cas_id) = &file_path.cas_id else {
 		warn!(
 			"skipping thumbnail generation for {}",
-			file_path.materialized_path
+			maybe_missing(&file_path.materialized_path, "file_path.materialized_path")?
 		);
-
-		return Ok(());
+		return Ok(false);
 	};
 
 	let thumb_dir = thumbnail_dir.join(get_shard_hex(cas_id));
@@ -297,6 +308,7 @@ pub async fn inner_process_step(
 				"Thumb already exists, skipping generation for {}",
 				output_path.display()
 			);
+			return Ok(false);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
 			info!("Writing {:?} to {:?}", path, output_path);
@@ -323,5 +335,5 @@ pub async fn inner_process_step(
 		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
 
-	Ok(())
+	Ok(true)
 }

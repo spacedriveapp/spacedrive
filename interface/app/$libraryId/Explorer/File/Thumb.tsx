@@ -139,7 +139,14 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId: itemLocationId, thumbnailKey } = itemData;
+		const {
+			casId,
+			kind,
+			isDir,
+			extension,
+			locationId: itemLocationId,
+			thumbnailKey
+		} = itemData;
 		const locationId = itemLocationId ?? explorerLocationId;
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -165,7 +172,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			default:
-				setSrc(getIcon(kind, isDark, extension, isDir));
+				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
 	}, [

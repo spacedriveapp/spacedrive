@@ -6,7 +6,7 @@ use crate::{
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db,
+		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
 	},
@@ -65,8 +65,8 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
-	#[error("no-path")]
-	NoPath(i32),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -406,7 +406,7 @@ impl LibraryManager {
 			.node_context
 			.jobs
 			.clone()
-			.resume_jobs(&library)
+			.cold_resume(&library)
 			.await
 		{
 			error!("Failed to resume jobs for library. {:#?}", e);

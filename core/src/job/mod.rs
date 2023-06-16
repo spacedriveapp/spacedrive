@@ -1,101 +1,31 @@
-use crate::{
-	library::Library,
-	location::{indexer::IndexerError, LocationError},
-	object::{
-		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
-		preview::ThumbnailerError,
-	},
-	util::error::FileIOError,
-};
-
-use sd_crypto::Error as CryptoError;
+use crate::library::Library;
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
-	fmt::Debug,
 	hash::{Hash, Hasher},
 	mem,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
+	time::Duration,
 };
 
-use prisma_client_rust::QueryError;
-use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use thiserror::Error;
+
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-mod job_manager;
+mod error;
+mod manager;
+mod report;
 mod worker;
 
-pub use job_manager::*;
+pub use error::*;
+pub use manager::*;
+pub use report::*;
 pub use worker::*;
-
-#[derive(Error, Debug)]
-pub enum JobError {
-	// General errors
-	#[error("database error: {0}")]
-	Database(#[from] QueryError),
-	#[error("Failed to join Tokio spawn blocking: {0}")]
-	JoinTask(#[from] tokio::task::JoinError),
-	#[error("job state encode error: {0}")]
-	StateEncode(#[from] EncodeError),
-	#[error("job state decode error: {0}")]
-	StateDecode(#[from] DecodeError),
-	#[error("job metadata serialization error: {0}")]
-	MetadataSerialization(#[from] serde_json::Error),
-	#[error("tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
-	UnknownJobName(Uuid, String),
-	#[error(
-		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
-	)]
-	MissingJobDataState(Uuid, String),
-	#[error("missing report field: job <uuid='{id}', name='{name}'>")]
-	MissingReport { id: Uuid, name: String },
-	#[error("missing some job data: '{value}'")]
-	MissingData { value: String },
-	#[error("error converting/handling paths")]
-	Path,
-	#[error("invalid job status integer: {0}")]
-	InvalidJobStatusInt(i32),
-	#[error(transparent)]
-	FileIO(#[from] FileIOError),
-	#[error("Location error: {0}")]
-	Location(#[from] LocationError),
-
-	// Specific job errors
-	#[error(transparent)]
-	Indexer(#[from] IndexerError),
-	#[error(transparent)]
-	ThumbnailError(#[from] ThumbnailerError),
-	#[error(transparent)]
-	IdentifierError(#[from] FileIdentifierJobError),
-	#[error(transparent)]
-	FileSystemJobsError(#[from] FileSystemJobsError),
-	#[error(transparent)]
-	CryptoError(#[from] CryptoError),
-	#[error("item of type '{0}' with id '{1}' is missing from the db")]
-	MissingFromDb(&'static str, String),
-	#[error("the cas id is not set on the path data")]
-	MissingCasId,
-	#[error("missing-location-path")]
-	MissingPath,
-
-	// Not errors
-	#[error("step completed with errors: {0:?}")]
-	StepCompletedWithErrors(JobRunErrors),
-	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
-	EarlyFinish { name: String, reason: String },
-	#[error("data needed for job execution not found: job <name='{0}'>")]
-	JobDataNotFound(String),
-	#[error("job paused")]
-	Paused(Vec<u8>),
-}
 
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 pub type JobRunErrors = Vec<String>;
-
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	type Job: StatefulJob;
@@ -123,17 +53,21 @@ pub trait StatefulJob: Send + Sync + Sized {
 	fn new() -> Self;
 
 	/// initialize the steps for the job
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError>;
 
 	/// is called for each step in the job. These steps are created in the `Self::init` method.
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
 	/// is called after all steps have been executed
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 #[async_trait::async_trait]
@@ -146,7 +80,7 @@ pub trait DynJob: Send + Sync {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -250,10 +184,11 @@ where
 		self
 	}
 
-	pub fn resume(
+	// this function returns an ingestible job instance from a job report
+	pub fn new_from_report(
 		mut report: JobReport,
-		stateful_job: SJob,
-		next_jobs: VecDeque<Box<dyn DynJob>>,
+		stateful_job: SJob, // whichever type of job this should be is passed here
+		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
 		Ok(Box::new(Self {
 			id: report.id,
@@ -265,7 +200,7 @@ where
 			)?,
 			report: Some(report),
 			stateful_job,
-			next_jobs,
+			next_jobs: next_jobs.unwrap_or_default(),
 		}))
 	}
 
@@ -328,15 +263,19 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
-
 		let mut errors = vec![];
+		info!(
+			"Starting job {id} ({name})",
+			id = self.id,
+			name = self.name()
+		);
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
-			if let Err(e) = self.stateful_job.init(ctx.clone(), &mut self.state).await {
+			if let Err(e) = self.stateful_job.init(ctx, &mut self.state).await {
 				match e {
 					JobError::EarlyFinish { .. } => {
 						info!("{e}");
@@ -348,45 +287,58 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
-		let mut shutdown_rx = ctx.shutdown_rx();
+		let command_rx = ctx.command_rx.clone();
+		let mut command_rx = command_rx.lock().await;
 
+		// Run the job until it's done or we get a command
 		while job_should_run && !self.state.steps.is_empty() {
-			tokio::select! {
-				step_result = self.stateful_job.execute_step(
-					ctx.clone(),
-					&mut self.state,
-				) => {
-					match step_result {
-						Err(JobError::EarlyFinish { .. }) => {
-							step_result.map_err(|err| {
-								warn!("{}", err);
-							}).ok();
-							break;
-						},
-						Err(JobError::StepCompletedWithErrors(errors_text)) => {
-							warn!("Job<id='{}'> had a step with errors", self.id);
-							errors.extend(errors_text);
-						},
-						maybe_err => maybe_err?
+			// Check for commands every iteration
+			if let Ok(command) = command_rx.try_recv() {
+				match command {
+					WorkerCommand::Shutdown => {
+						return Err(JobError::Paused(rmp_serde::to_vec_named(&self.state)?));
 					}
-
-					self.state.steps.pop_front();
-				}
-				_ = shutdown_rx.recv() => {
-					return Err(
-						JobError::Paused(
-							rmp_serde::to_vec_named(&self.state)?
-						)
-					);
+					WorkerCommand::Cancel => {
+						return Err(JobError::Canceled(rmp_serde::to_vec_named(&self.state)?));
+					}
 				}
 			}
+
+			let mut state_preserved = false;
+			// Every X milliseconds, check the AtomicBool if we should pause or stay paused
+			while ctx.paused.load(Ordering::Relaxed) {
+				if !state_preserved {
+					// Save the state of the job
+					println!("Saving state {:?}", &self.report);
+					// ctx.preserve_state(rmp_serde::to_vec_named(&self.state)?);
+				}
+				state_preserved = true;
+				tokio::time::sleep(Duration::from_millis(500)).await;
+			}
+
+			// process job step and handle errors if any
+			let step_result = self.stateful_job.execute_step(ctx, &mut self.state).await;
+			match step_result {
+				Err(JobError::EarlyFinish { .. }) => {
+					step_result
+						.map_err(|err| {
+							warn!("{}", err);
+						})
+						.ok();
+					break;
+				}
+				Err(JobError::StepCompletedWithErrors(errors_text)) => {
+					warn!("Job<id='{}'> had a step with errors", self.id);
+					errors.extend(errors_text);
+				}
+				maybe_err => maybe_err?,
+			}
+			// remove the step from the queue
+			self.state.steps.pop_front();
 			self.state.step_number += 1;
 		}
 
-		let metadata = self
-			.stateful_job
-			.finalize(ctx.clone(), &mut self.state)
-			.await?;
+		let metadata = self.stateful_job.finalize(ctx, &mut self.state).await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 

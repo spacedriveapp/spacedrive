@@ -5,7 +5,7 @@ use crate::{
 	},
 	library::Library,
 	prisma::{file_path, location},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::hash::Hash;
@@ -40,7 +40,11 @@ impl StatefulJob for FileDeleterJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		state.steps = get_many_files_datas(
@@ -59,12 +63,15 @@ impl StatefulJob for FileDeleterJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 
-		if step.file_path.is_dir {
+		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
+		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
+
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			fs::remove_dir_all(&step.full_path).await
 		} else {
 			fs::remove_file(&step.full_path).await
@@ -78,7 +85,7 @@ impl StatefulJob for FileDeleterJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&state.init)?))
