@@ -37,8 +37,9 @@ export default function OnboardingCreatingLibrary() {
 			resetOnboardingStore();
 			navigate(`/${library.uuid}/overview`, { replace: true });
 		},
-		onError: () => {
+		onError: (e) => {
 			// resetOnboardingStore();
+			alert(`Failed to create library. Error: ${e.message}`);
 			navigate('/onboarding/privacy');
 		}
 	});
