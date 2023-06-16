@@ -55,7 +55,7 @@ export type Procedures = {
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: NodeConfig } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
-        { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
+        { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -66,6 +66,7 @@ export type Procedures = {
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
+        { key: "p2p.spacedropProgress", input: string, result: number } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
 

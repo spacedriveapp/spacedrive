@@ -6939,6 +6939,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing 0.2.0",
  "tracing-appender",
  "tracing-subscriber 0.3.0",

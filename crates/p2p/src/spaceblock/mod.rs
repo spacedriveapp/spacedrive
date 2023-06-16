@@ -152,13 +152,17 @@ impl<'a> Block<'a> {
 }
 
 /// TODO
-pub struct Transfer<'a> {
+pub struct Transfer<'a, F> {
 	req: &'a SpacedropRequest,
+	on_progress: F,
 }
 
-impl<'a> Transfer<'a> {
-	pub fn new(req: &'a SpacedropRequest) -> Self {
-		Self { req }
+impl<'a, F> Transfer<'a, F>
+where
+	F: Fn(u8),
+{
+	pub fn new(req: &'a SpacedropRequest, on_progress: F) -> Self {
+		Self { req, on_progress }
 	}
 
 	pub async fn send(
@@ -173,6 +177,7 @@ impl<'a> Transfer<'a> {
 		loop {
 			let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
 			offset += read as u64;
+			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
 				if offset != self.req.size {
@@ -209,6 +214,7 @@ impl<'a> Transfer<'a> {
 			// TODO: Timeout if nothing is being received
 			let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
 			offset += block.size;
+			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
 
 			debug!(
 				"Received block at offset {} of size {}",
@@ -268,14 +274,16 @@ mod tests {
 			async move {
 				let file = BufReader::new(Cursor::new(data));
 				tx.send(()).unwrap();
-				send(&mut client, file, &req).await;
+				Transfer::new(&req, |_| {}).send(&mut client, file).await;
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		receive(&mut server, &mut result, &req).await;
+		Transfer::new(&req, |_| {})
+			.receive(&mut server, &mut result)
+			.await;
 		assert_eq!(result, data);
 	}
 
@@ -302,14 +310,16 @@ mod tests {
 			async move {
 				let file = BufReader::new(Cursor::new(data));
 				tx.send(()).unwrap();
-				send(&mut client, file, &req).await;
+				Transfer::new(&req, |_| {}).send(&mut client, file).await;
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		receive(&mut server, &mut result, &req).await;
+		Transfer::new(&req, |_| {})
+			.receive(&mut server, &mut result)
+			.await;
 		assert_eq!(result, data);
 	}
 }
