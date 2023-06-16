@@ -7635,6 +7635,7 @@ dependencies = [
  "sd-desktop-linux",
  "sd-desktop-macos",
  "serde",
+ "serde_json",
  "specta",
  "tauri",
  "tauri-build",
