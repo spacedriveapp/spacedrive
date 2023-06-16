@@ -65,9 +65,9 @@ model Node {
     name         String
     // Enum: sd_core::node::Platform
     platform     Int      @default(0)
-    version      String?
-    last_seen    DateTime @default(now())
-    timezone     String?
+    // version      String?
+    // last_seen    DateTime @default(now())
+    // timezone     String?
     date_created DateTime @default(now())
 
     jobs     Job[]

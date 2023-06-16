@@ -39,9 +39,6 @@ CREATE TABLE "node" (
     "pub_id" BLOB NOT NULL,
     "name" TEXT NOT NULL,
     "platform" INTEGER NOT NULL DEFAULT 0,
-    "version" TEXT,
-    "last_seen" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "timezone" TEXT,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
