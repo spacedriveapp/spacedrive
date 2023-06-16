@@ -1,12 +1,12 @@
-import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
+import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
-	? `${K}${'' extends P ? '' : '.'}${P}`
-	: never
+		? `${K}${'' extends P ? '' : '.'}${P}`
+		: never
 	: never;
 
 type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[keyof T] : '';
@@ -47,7 +47,6 @@ const state = {
 		active: false
 	},
 	quickViewObject: null as ExplorerItem | null,
-	isRenaming: false,
 	mediaColumns: 8,
 	mediaAspectSquare: true,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
@@ -64,13 +63,13 @@ const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
 	addNewThumbnail: (thumbKey: string[]) => {
-		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey))
+		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
 	// this should be done when the explorer query is refreshed
 	// prevents memory leak
 	resetNewThumbnails: () => {
 		explorerStore.newThumbnails.clear();
-	},
+	}
 });
 
 export function useExplorerStore() {

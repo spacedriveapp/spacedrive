@@ -32,7 +32,6 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 }
 
 export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
@@ -55,7 +54,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			openFilePath &&
 			filePath &&
 			explorerConfig.openOnDoubleClick &&
-			!explorerStore.isRenaming
+			!explorerView.isRenaming
 		) {
 			if (data.type === 'Path' && data.item.object_id) {
 				updateAccessTime.mutate(data.item.object_id);
@@ -88,7 +87,10 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 };
 
 export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
-	extends Omit<ExplorerViewContext<T>, 'multiSelect' | 'selectable'> {
+	extends Omit<
+		ExplorerViewContext<T>,
+		'multiSelect' | 'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen'
+	> {
 	layout: ExplorerLayoutMode;
 	className?: string;
 	emptyNotice?: JSX.Element | { icon?: Icon | ReactNode; message?: ReactNode } | null;
@@ -102,8 +104,11 @@ export default memo(
 		...contextProps
 	}: ExplorerViewProps<T>) => {
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+		const [isRenaming, setIsRenaming] = useState(false);
 
 		useKey('Space', (e) => {
+			if (isRenaming) return;
+
 			e.preventDefault();
 
 			if (!getExplorerStore().quickViewObject) {
@@ -165,7 +170,9 @@ export default memo(
 								...contextProps,
 								multiSelect: Array.isArray(contextProps.selected),
 								selectable: !isContextMenuOpen,
-								setIsContextMenuOpen: setIsContextMenuOpen
+								setIsContextMenuOpen,
+								isRenaming,
+								setIsRenaming
 							} as ExplorerViewContext
 						}
 					>

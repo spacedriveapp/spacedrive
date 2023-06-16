@@ -15,6 +15,8 @@ export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerV
 	multiSelect?: boolean;
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
+	isRenaming: boolean;
+	setIsRenaming: (isRenaming: boolean) => void;
 	selectable?: boolean;
 	padding?: number | { x?: number; y?: number };
 }

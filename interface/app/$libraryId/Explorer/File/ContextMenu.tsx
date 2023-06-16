@@ -25,6 +25,7 @@ import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks'
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { useExplorerViewContext } from '../ViewContext';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
@@ -38,6 +39,7 @@ interface Props {
 
 export default ({ data }: Props) => {
 	const store = useExplorerStore();
+	const explorerView = useExplorerViewContext();
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
@@ -75,7 +77,7 @@ export default ({ data }: Props) => {
 			<ContextMenu.Item
 				label="Rename"
 				keybind="Enter"
-				onClick={() => (getExplorerStore().isRenaming = true)}
+				onClick={() => explorerView.setIsRenaming(true)}
 			/>
 
 			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (

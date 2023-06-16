@@ -18,6 +18,7 @@ interface GridViewItemProps {
 const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProps) => {
 	const filePathData = data ? getItemFilePath(data) : null;
 	const explorerStore = useExplorerStore();
+	const explorerView = useExplorerViewContext();
 
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>
@@ -29,7 +30,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 				{filePathData && (
 					<RenameTextBox
 						filePathData={filePathData}
-						selected={selected}
+						disabled={!selected}
 						className={clsx(
 							'text-center font-medium text-ink',
 							selected && 'bg-accent text-white dark:text-ink'
@@ -41,7 +42,7 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 					/>
 				)}
 				{explorerStore.showBytesInGridView &&
-					(!explorerStore.isRenaming || (explorerStore.isRenaming && !selected)) && (
+					(!explorerView.isRenaming || (explorerView.isRenaming && !selected)) && (
 						<span
 							className={clsx(
 								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
@@ -76,7 +77,7 @@ export default () => {
 			onLoadMore={explorerView.onLoadMore}
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
-			preventSelection={explorerStore.isRenaming || !explorerView.selectable}
+			preventSelection={explorerView.isRenaming || !explorerView.selectable}
 			preventContextMenuSelection={!explorerView.contextMenu}
 		>
 			{({ index, item: Item }) => {

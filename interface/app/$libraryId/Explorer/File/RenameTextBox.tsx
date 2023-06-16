@@ -2,30 +2,24 @@ import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef, useState } from 'react';
 import { useKey } from 'rooks';
 import { FilePath, useLibraryMutation } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import useClickOutside from '~/hooks/useClickOutside';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useExplorerViewContext } from '../ViewContext';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	filePathData: FilePath;
-	selected: boolean;
 	activeClassName?: string;
 	disabled?: boolean;
 }
 
-export default ({
-	filePathData,
-	selected,
-	className,
-	activeClassName,
-	disabled,
-	...props
-}: Props) => {
-	const explorerStore = useExplorerStore();
+export default ({ filePathData, className, activeClassName, disabled, ...props }: Props) => {
+	const explorerView = useExplorerViewContext();
 	const os = useOperatingSystem();
 
 	const ref = useRef<HTMLDivElement>(null);
 
 	const [allowRename, setAllowRename] = useState(false);
+	const [renamable, setRenamable] = useState(false);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => reset()
@@ -114,31 +108,23 @@ export default ({
 	// Focus and highlight when renaming is allowed
 	useEffect(() => {
 		if (allowRename) {
-			getExplorerStore().isRenaming = true;
+			explorerView.setIsRenaming(true);
 			setTimeout(() => {
 				if (ref.current) {
 					ref.current.focus();
 					highlightFileName();
 				}
 			});
-		} else getExplorerStore().isRenaming = false;
+		}
 	}, [allowRename]);
 
 	// Handle renaming when triggered from outside
 	useEffect(() => {
-		if (selected) {
-			if (explorerStore.isRenaming && !allowRename) setAllowRename(true);
-			else if (!explorerStore.isRenaming && allowRename) setAllowRename(false);
+		if (!disabled) {
+			if (explorerView.isRenaming && !allowRename) setAllowRename(true);
+			else if (!explorerView.isRenaming && allowRename) setAllowRename(false);
 		}
-	}, [explorerStore.isRenaming]);
-
-	// Rename or blur on Enter key
-	useKey('Enter', (e) => {
-		if (allowRename) {
-			e.preventDefault();
-			blur();
-		} else if (selected && !disabled) setAllowRename(true);
-	});
+	}, [explorerView.isRenaming]);
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -147,11 +133,19 @@ export default ({
 			}
 		}
 
-		document.addEventListener('mousedown', handleClickOutside);
+		document.addEventListener('mousedown', handleClickOutside, true);
 		return () => {
-			document.removeEventListener('mousedown', handleClickOutside);
+			document.removeEventListener('mousedown', handleClickOutside, true);
 		};
 	}, [ref]);
+
+	// Rename or blur on Enter key
+	useKey('Enter', (e) => {
+		if (allowRename) {
+			e.preventDefault();
+			blur();
+		} else if (!disabled) setAllowRename(true);
+	});
 
 	return (
 		<div
@@ -167,13 +161,20 @@ export default ({
 				],
 				className
 			)}
-			onClick={(e) => {
-				if (selected || allowRename) e.stopPropagation();
-				if (selected && !disabled) setAllowRename(true);
+			onDoubleClick={(e) => e.stopPropagation()}
+			onMouseDown={(e) => e.button === 0 && setRenamable(!disabled)}
+			onMouseUp={(e) => {
+				if (e.button === 0) {
+					if (renamable) {
+						setAllowRename(true);
+					}
+					setRenamable(false);
+				}
 			}}
 			onBlur={() => {
 				rename();
 				setAllowRename(false);
+				explorerView.setIsRenaming(false);
 			}}
 			onKeyDown={handleKeyDown}
 			{...props}
