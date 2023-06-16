@@ -35,7 +35,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.subscription(|(ctx, _), job_uuid: Uuid| async move {
 					let mut event_bus_rx = ctx.event_bus.0.subscribe();
-					let mut tick = interval(Duration::from_secs_f64(1.0 / 10.0));
+					let mut tick = interval(Duration::from_secs_f64(1.0 / 30.0));
 
 					async_stream::stream! {
 						loop {

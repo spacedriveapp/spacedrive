@@ -1,4 +1,4 @@
-import { JobReport, useLibraryMutation, useLibrarySubscription } from '@sd/client';
+import { JobProgressEvent, JobReport, useLibraryMutation, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -20,7 +20,7 @@ interface JobProps {
 function Job({ job, className, isChild }: JobProps) {
 	const queryClient = useQueryClient();
 
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobReport | null>(null);
+	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
 	useLibrarySubscription(['jobs.progress', job.id], {
 		onData: setRealtimeUpdate,
