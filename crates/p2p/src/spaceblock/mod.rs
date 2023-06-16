@@ -151,66 +151,77 @@ impl<'a> Block<'a> {
 	}
 }
 
-pub async fn send(
-	stream: &mut (impl AsyncWrite + Unpin),
-	mut file: (impl AsyncBufRead + Unpin),
-	req: &SpacedropRequest,
-) {
-	// We manually implement what is basically a `BufReader` so we have more control
-	let mut buf = vec![0u8; req.block_size.size() as usize];
-	let mut offset: u64 = 0;
-
-	loop {
-		let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
-		offset += read as u64;
-
-		if read == 0 {
-			if offset != req.size {
-				panic!("U dun goofed"); // TODO: Error handling
-			}
-
-			break;
-		}
-
-		let block = Block {
-			offset,
-			size: read as u64,
-			data: &buf[..read],
-		};
-		debug!(
-			"Sending block at offset {} of size {}",
-			block.offset, block.size
-		);
-		stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
-	}
+/// TODO
+pub struct Transfer<'a> {
+	req: &'a SpacedropRequest,
 }
 
-pub async fn receive(
-	stream: &mut (impl AsyncReadExt + Unpin),
-	mut file: (impl AsyncWrite + Unpin),
-	req: &SpacedropRequest,
-) {
-	// We manually implement what is basically a `BufReader` so we have more control
-	let mut data_buf = vec![0u8; req.block_size.size() as usize];
-	let mut offset: u64 = 0;
+impl<'a> Transfer<'a> {
+	pub fn new(req: &'a SpacedropRequest) -> Self {
+		Self { req }
+	}
 
-	// TODO: Prevent loop being a DOS vector
-	loop {
-		// TODO: Timeout if nothing is being received
-		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
-		offset += block.size;
+	pub async fn send(
+		&self,
+		stream: &mut (impl AsyncWrite + Unpin),
+		mut file: (impl AsyncBufRead + Unpin),
+	) {
+		// We manually implement what is basically a `BufReader` so we have more control
+		let mut buf = vec![0u8; self.req.block_size.size() as usize];
+		let mut offset: u64 = 0;
 
-		debug!(
-			"Received block at offset {} of size {}",
-			block.offset, block.size
-		);
-		file.write_all(&data_buf[..block.size as usize])
-			.await
-			.unwrap(); // TODO: Error handling
+		loop {
+			let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
+			offset += read as u64;
 
-		// TODO: Should this be `read == 0`
-		if offset == req.size {
-			break;
+			if read == 0 {
+				if offset != self.req.size {
+					panic!("U dun goofed"); // TODO: Error handling
+				}
+
+				break;
+			}
+
+			let block = Block {
+				offset,
+				size: read as u64,
+				data: &buf[..read],
+			};
+			debug!(
+				"Sending block at offset {} of size {}",
+				block.offset, block.size
+			);
+			stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
+		}
+	}
+
+	pub async fn receive(
+		&self,
+		stream: &mut (impl AsyncReadExt + Unpin),
+		mut file: (impl AsyncWrite + Unpin),
+	) {
+		// We manually implement what is basically a `BufReader` so we have more control
+		let mut data_buf = vec![0u8; self.req.block_size.size() as usize];
+		let mut offset: u64 = 0;
+
+		// TODO: Prevent loop being a DOS vector
+		loop {
+			// TODO: Timeout if nothing is being received
+			let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
+			offset += block.size;
+
+			debug!(
+				"Received block at offset {} of size {}",
+				block.offset, block.size
+			);
+			file.write_all(&data_buf[..block.size as usize])
+				.await
+				.unwrap(); // TODO: Error handling
+
+			// TODO: Should this be `read == 0`
+			if offset == self.req.size {
+				break;
+			}
 		}
 	}
 }

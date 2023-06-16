@@ -9,7 +9,7 @@ use std::{
 };
 
 use sd_p2p::{
-	spaceblock::{self, BlockSize, SpacedropRequest},
+	spaceblock::{BlockSize, SpacedropRequest, Transfer},
 	spacetime::SpaceTimeStream,
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
@@ -162,7 +162,7 @@ impl P2PManager {
 
 														let f = File::create(file_path).await.unwrap();
 
-														spaceblock::receive(&mut stream, f, &req).await;
+														Transfer::new(&req).receive(&mut stream, f).await;
 
 														info!("spacedrop({id}): complete");
 													}
@@ -316,14 +316,11 @@ impl P2PManager {
 		let i = Instant::now();
 
 		let file = BufReader::new(file);
-		spaceblock::send(
-			&mut stream,
-			file,
-			&match header {
-				Header::Spacedrop(req) => req,
-				_ => unreachable!(),
-			},
-		)
+		Transfer::new(&match header {
+			Header::Spacedrop(req) => req,
+			_ => unreachable!(),
+		})
+		.send(&mut stream, file)
 		.await;
 
 		debug!(
