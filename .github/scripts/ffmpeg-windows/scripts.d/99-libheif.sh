@@ -45,5 +45,5 @@ ffbuild_dockerbuild() {
 
   "${FFBUILD_CROSS_PREFIX}gendef" libheif.dll
 
-  "${FFBUILD_CROSS_PREFIX}dlltool" -m i386:x86-64 -d libheif.def -l libheif.lib -D libheif.dll
+  "${FFBUILD_CROSS_PREFIX}dlltool" -m i386:x86-64 -d libheif.def -l heif.lib -D libheif.dll
 }
