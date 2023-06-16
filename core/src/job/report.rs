@@ -1,7 +1,10 @@
 use crate::{
 	library::Library,
 	prisma::{job, node},
-	util,
+	util::{
+		self,
+		db::{maybe_missing, MissingFieldError},
+	},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -59,12 +62,14 @@ impl Display for JobReport {
 }
 
 // convert database struct into a resource struct
-impl From<job::Data> for JobReport {
-	fn from(data: job::Data) -> Self {
-		Self {
+impl TryFrom<job::Data> for JobReport {
+	type Error = MissingFieldError;
+
+	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
+		Ok(Self {
 			id: Uuid::from_slice(&data.id).expect("corrupted database"),
 			is_background: false, // deprecated
-			name: data.name,
+			name: maybe_missing(data.name, "job.name")?,
 			action: data.action,
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
@@ -77,32 +82,38 @@ impl From<job::Data> for JobReport {
 				.errors_text
 				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
 				.unwrap_or_default(),
-			created_at: Some(data.date_created.into()),
+			created_at: data.date_created.map(DateTime::into),
 			started_at: data.date_started.map(DateTime::into),
 			completed_at: data.date_completed.map(DateTime::into),
 			parent_id: data
 				.parent_id
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
-			status: JobStatus::try_from(data.status).expect("corrupted database"),
-			task_count: data.task_count,
-			completed_task_count: data.completed_task_count,
+			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
+				.expect("corrupted database"),
+			task_count: maybe_missing(data.task_count, "job.task_count")?,
+			completed_task_count: maybe_missing(
+				data.completed_task_count,
+				"job.completed_task_count",
+			)?,
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
 				.map_or(Utc::now(), DateTime::into),
-		}
+		})
 	}
 }
 
 // I despise having to write this twice, but it seems to be the only way to
 // remove the data field from the struct
 // would love to get this DRY'd up
-impl From<job_without_data::Data> for JobReport {
-	fn from(data: job_without_data::Data) -> Self {
-		Self {
+impl TryFrom<job_without_data::Data> for JobReport {
+	type Error = MissingFieldError;
+
+	fn try_from(data: job_without_data::Data) -> Result<Self, Self::Error> {
+		Ok(Self {
 			id: Uuid::from_slice(&data.id).expect("corrupted database"),
 			is_background: false, // deprecated
-			name: data.name,
+			name: maybe_missing(data.name, "job.name")?,
 			action: data.action,
 			data: None,
 			metadata: data.metadata.and_then(|m| {
@@ -115,20 +126,24 @@ impl From<job_without_data::Data> for JobReport {
 				.errors_text
 				.map(|errors_str| errors_str.split("\n\n").map(str::to_string).collect())
 				.unwrap_or_default(),
-			created_at: Some(data.date_created.into()),
+			created_at: data.date_created.map(DateTime::into),
 			started_at: data.date_started.map(DateTime::into),
 			completed_at: data.date_completed.map(DateTime::into),
 			parent_id: data
 				.parent_id
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
-			status: JobStatus::try_from(data.status).expect("corrupted database"),
-			task_count: data.task_count,
-			completed_task_count: data.completed_task_count,
+			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
+				.expect("corrupted database"),
+			task_count: maybe_missing(data.task_count, "job.task_count")?,
+			completed_task_count: maybe_missing(
+				data.completed_task_count,
+				"job.completed_task_count",
+			)?,
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
 				.map_or(Utc::now(), DateTime::into),
-		}
+		})
 	}
 }
 
@@ -197,14 +212,14 @@ impl JobReport {
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
-				self.name.clone(),
-				node::id::equals(library.node_local_id),
 				util::db::chain_optional_iter(
 					[
+						job::node::connect(node::id::equals(library.node_local_id)),
+						job::name::set(Some(self.name.clone())),
 						job::action::set(self.action.clone()),
 						job::data::set(self.data.clone()),
-						job::date_created::set(now.into()),
-						job::status::set(self.status as i32),
+						job::date_created::set(Some(now.into())),
+						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(|d| d.into())),
 					],
 					[self
@@ -224,16 +239,16 @@ impl JobReport {
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),
 				vec![
-					job::status::set(self.status as i32),
+					job::status::set(Some(self.status as i32)),
 					job::errors_text::set(
 						(!self.errors_text.is_empty()).then(|| self.errors_text.join("\n\n")),
 					),
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
-					job::task_count::set(self.task_count),
-					job::completed_task_count::set(self.completed_task_count),
-					job::date_started::set(self.started_at.map(|v| v.into())),
-					job::date_completed::set(self.completed_at.map(|v| v.into())),
+					job::task_count::set(Some(self.task_count)),
+					job::completed_task_count::set(Some(self.completed_task_count)),
+					job::date_started::set(self.started_at.map(Into::into)),
+					job::date_completed::set(self.completed_at.map(Into::into)),
 				],
 			)
 			.exec()

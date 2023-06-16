@@ -229,9 +229,9 @@ impl JobManager {
 	pub async fn cold_resume(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
 		// Include the Queued status in the initial find condition
 		let find_condition = vec![or(vec![
-			job::status::equals(JobStatus::Paused as i32),
-			job::status::equals(JobStatus::Running as i32),
-			job::status::equals(JobStatus::Queued as i32),
+			job::status::equals(Some(JobStatus::Paused as i32)),
+			job::status::equals(Some(JobStatus::Running as i32)),
+			job::status::equals(Some(JobStatus::Queued as i32)),
 		])];
 
 		let all_jobs = library
@@ -241,9 +241,11 @@ impl JobManager {
 			.exec()
 			.await?
 			.into_iter()
-			.map(JobReport::from);
+			.map(JobReport::try_from);
 
 		for job in all_jobs {
+			let job = job?;
+
 			match initialize_resumable_job(job.clone(), None) {
 				Ok(resumable_job) => {
 					info!("Resuming job: {} with uuid {}", job.name, job.id);
@@ -260,7 +262,7 @@ impl JobManager {
 						.job()
 						.update(
 							job::id::equals(job.id.as_bytes().to_vec()),
-							vec![job::status::set(JobStatus::Canceled as i32)],
+							vec![job::status::set(Some(JobStatus::Canceled as i32))],
 						)
 						.exec()
 						.await?;
