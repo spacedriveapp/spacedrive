@@ -60,6 +60,9 @@ jobs:
           targets: ${{ matrix.settings.target }}
           save-cache: 'true'
 
+      - name: Clippy
+        run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}
+
       - name: Compile (debug)
         run: cargo test --workspace --all-features --no-run --target ${{ matrix.settings.target }}
 
