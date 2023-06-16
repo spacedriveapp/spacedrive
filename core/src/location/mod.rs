@@ -8,7 +8,10 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::{db::uuid_to_bytes, error::FileIOError},
+	util::{
+		db::{chain_optional_iter, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use std::{
@@ -672,14 +675,10 @@ pub async fn delete_directory(
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
-	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
-		vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::starts_with(parent_materialized_path),
-		]
-	} else {
-		vec![file_path::location_id::equals(location_id)]
-	};
+	let children_params = chain_optional_iter(
+		[file_path::location_id::equals(Some(location_id))],
+		[parent_materialized_path.map(file_path::materialized_path::starts_with)],
+	);
 
 	// Fetching all object_ids from all children file_paths
 	let object_ids = db

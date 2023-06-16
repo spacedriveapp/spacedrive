@@ -16,13 +16,12 @@ use crate::{
 	},
 	object::{
 		file_identifier::FileMetadata,
-		object_just_id_has_thumbnail,
 		preview::{can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path},
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
 	sync,
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 #[cfg(target_family = "unix")]
@@ -75,9 +74,7 @@ pub(super) async fn create_dir(
 
 	let path = path.as_ref();
 
-	let Some(location_path) = &location.path else {
-        return Err(LocationManagerError::MissingPath(location_id))
-    };
+	let location_path = maybe_missing(&location.path, "location.path")?;
 
 	trace!(
 		"Location: <root_path ='{}'> creating directory: {}",
@@ -109,7 +106,9 @@ pub(super) async fn create_dir(
 		return Ok(());
 	};
 
-	let created_path = create_file_path(
+	let materialized_path = iso_file_path.materialized_path().to_string();
+
+	create_file_path(
 		library,
 		iso_file_path,
 		None,
@@ -123,10 +122,10 @@ pub(super) async fn create_dir(
 	)
 	.await?;
 
-	info!("Created path: {}", created_path.materialized_path);
+	info!("Created path: {}", &materialized_path);
 
 	// scan the new directory
-	scan_location_sub_path(library, location, &created_path.materialized_path).await?;
+	scan_location_sub_path(library, location, &materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
 
@@ -151,6 +150,8 @@ pub(super) async fn create_file(
 	let db = &library.db;
 
 	let iso_file_path = IsolatedFilePathData::new(location_id, &location_path, path, false)?;
+	let materialized_path = iso_file_path.materialized_path().to_string();
+	let extension = iso_file_path.extension().to_string();
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
@@ -179,9 +180,7 @@ pub(super) async fn create_file(
 		cas_id,
 		kind,
 		fs_metadata,
-	} = FileMetadata::new(&location_path, &iso_file_path)
-		.await
-		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
+	} = FileMetadata::new(&location_path, &iso_file_path).await?;
 
 	let created_file = create_file_path(
 		library,
@@ -197,7 +196,9 @@ pub(super) async fn create_file(
 	)
 	.await?;
 
-	info!("Created path: {}", created_file.materialized_path);
+	info!("Created path: {}", &materialized_path);
+
+	object::select!(object_just_id { id });
 
 	let existing_object = db
 		.object()
@@ -205,7 +206,7 @@ pub(super) async fn create_file(
 			file_path::cas_id::equals(Some(cas_id.clone())),
 			file_path::pub_id::not(created_file.pub_id.clone()),
 		])])
-		.select(object_just_id_has_thumbnail::select())
+		.select(object_just_id::select())
 		.exec()
 		.await?;
 
@@ -216,13 +217,13 @@ pub(super) async fn create_file(
 			.create(
 				Uuid::new_v4().as_bytes().to_vec(),
 				vec![
-					object::date_created::set(
+					object::date_created::set(Some(
 						DateTime::<Local>::from(fs_metadata.created_or_now()).into(),
-					),
-					object::kind::set(kind as i32),
+					)),
+					object::kind::set(Some(kind as i32)),
 				],
 			)
-			.select(object_just_id_has_thumbnail::select())
+			.select(object_just_id::select())
 			.exec()
 			.await?
 	};
@@ -235,12 +236,13 @@ pub(super) async fn create_file(
 		.exec()
 		.await?;
 
-	if !object.has_thumbnail && !created_file.extension.is_empty() {
+	if !extension.is_empty() {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 		let path = path.to_path_buf();
 		let library = library.clone();
+
 		tokio::spawn(async move {
-			generate_thumbnail(&created_file.extension, &cas_id, path, &library).await;
+			generate_thumbnail(&extension, &cas_id, path, &library).await;
 		});
 	}
 
@@ -344,9 +346,7 @@ async fn inner_update_file(
 		.await?
 		.ok_or_else(|| LocationManagerError::MissingLocation(location_id))?;
 
-	let Some(location_path) = location.path.map(PathBuf::from) else {
-        return Err(LocationManagerError::MissingPath(location_id))
-    };
+	let location_path = maybe_missing(location.path.map(PathBuf::from), "location.path")?;
 
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
@@ -354,15 +354,13 @@ async fn inner_update_file(
 		full_path.display()
 	);
 
-	let iso_file_path = IsolatedFilePathData::from(file_path);
+	let iso_file_path = IsolatedFilePathData::try_from(file_path)?;
 
 	let FileMetadata {
 		cas_id,
 		fs_metadata,
 		kind,
-	} = FileMetadata::new(&location_path, &iso_file_path)
-		.await
-		.map_err(|e| FileIOError::from((location_path.join(&iso_file_path), e)))?;
+	} = FileMetadata::new(&location_path, &iso_file_path).await?;
 
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
@@ -376,12 +374,15 @@ async fn inner_update_file(
 					),
 					(
 						(size_in_bytes::NAME, json!(fs_metadata.len().to_string())),
-						size_in_bytes::set(fs_metadata.len().to_string()),
+						size_in_bytes::set(Some(fs_metadata.len().to_string())),
 					),
 					{
 						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
 
-						((date_modified::NAME, json!(date)), date_modified::set(date))
+						(
+							(date_modified::NAME, json!(date)),
+							date_modified::set(Some(date)),
+						)
 					},
 					{
 						// TODO: Should this be a skip rather than a null-set?
@@ -432,19 +433,21 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if library.thumbnail_exists(old_cas_id).await? && !file_path.extension.is_empty() {
-					generate_thumbnail(&file_path.extension, &cas_id, full_path, library).await;
+				if library.thumbnail_exists(old_cas_id).await? {
+					if let Some(ext) = &file_path.extension {
+						generate_thumbnail(ext, &cas_id, full_path, library).await;
 
-					// remove the old thumbnail as we're generating a new one
-					let thumb_path = get_thumbnail_path(library, old_cas_id);
-					fs::remove_file(&thumb_path)
-						.await
-						.map_err(|e| FileIOError::from((thumb_path, e)))?;
+						// remove the old thumbnail as we're generating a new one
+						let thumb_path = get_thumbnail_path(library, old_cas_id);
+						fs::remove_file(&thumb_path)
+							.await
+							.map_err(|e| FileIOError::from((thumb_path, e)))?;
+					}
 				}
 
 				let int_kind = kind as i32;
 
-				if object.kind != int_kind {
+				if object.kind.map(|k| k != int_kind).unwrap_or_default() {
 					sync.write_op(
 						db,
 						sync.shared_update(
@@ -456,7 +459,7 @@ async fn inner_update_file(
 						),
 						db.object().update(
 							object::id::equals(object.id),
-							vec![object::kind::set(int_kind)],
+							vec![object::kind::set(Some(int_kind))],
 						),
 					)
 					.await?;
@@ -509,13 +512,13 @@ pub(super) async fn rename(
 		.exec()
 		.await?
 	{
-		let new =
-			IsolatedFilePathData::new(location_id, &location_path, new_path, file_path.is_dir)?;
+		let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
+
+		let new = IsolatedFilePathData::new(location_id, &location_path, new_path, is_dir)?;
 
 		// If the renamed path is a directory, we have to update every successor
-		if file_path.is_dir {
-			let old =
-				IsolatedFilePathData::new(location_id, &location_path, old_path, file_path.is_dir)?;
+		if is_dir {
+			let old = IsolatedFilePathData::new(location_id, &location_path, old_path, is_dir)?;
 			// TODO: Fetch all file_paths that will be updated and dispatch sync events
 
 			let updated = library
@@ -524,8 +527,8 @@ pub(super) async fn rename(
 					"UPDATE file_path \
 						SET materialized_path = REPLACE(materialized_path, {}, {}) \
 						WHERE location_id = {}",
-					PrismaValue::String(format!("{}/{}/", old.materialized_path, old.name)),
-					PrismaValue::String(format!("{}/{}/", new.materialized_path, new.name)),
+					PrismaValue::String(format!("{}/{}/", old.materialized_path(), old.name())),
+					PrismaValue::String(format!("{}/{}/", new.materialized_path(), new.name())),
 					PrismaValue::Int(location_id as i64)
 				))
 				.exec()
@@ -539,9 +542,9 @@ pub(super) async fn rename(
 			.update(
 				file_path::pub_id::equals(file_path.pub_id),
 				vec![
-					file_path::materialized_path::set(new_path_materialized_str),
-					file_path::name::set(new.name.to_string()),
-					file_path::extension::set(new.extension.to_string()),
+					file_path::materialized_path::set(Some(new_path_materialized_str)),
+					file_path::name::set(Some(new.name().to_string())),
+					file_path::extension::set(Some(new.extension().to_string())),
 				],
 			)
 			.exec()
@@ -589,14 +592,16 @@ pub(super) async fn remove_by_file_path(
 		Err(e) if e.kind() == ErrorKind::NotFound => {
 			let db = &library.db;
 
+			let is_dir = maybe_missing(file_path.is_dir, "file_path.is_dir")?;
+
 			// if is doesn't, we can remove it safely from our db
-			if file_path.is_dir {
-				delete_directory(
-					library,
-					location_id,
-					Some(file_path.materialized_path.clone()),
-				)
-				.await?;
+			if is_dir {
+				let materialized_path = maybe_missing(
+					file_path.materialized_path.clone(),
+					"file_path.materialized_path",
+				)?;
+
+				delete_directory(library, location_id, Some(materialized_path)).await?;
 			} else {
 				db.file_path()
 					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))
@@ -684,9 +689,7 @@ pub(super) async fn extract_inode_and_device_from_path(
 		.await?
 		.ok_or(LocationManagerError::MissingLocation(location_id))?;
 
-	let Some(location_path) = &location.path else {
-        return Err(LocationManagerError::MissingPath(location_id))
-    };
+	let location_path = maybe_missing(&location.path, "location.path")?;
 
 	library
 		.db
@@ -702,12 +705,12 @@ pub(super) async fn extract_inode_and_device_from_path(
 			|file_path| {
 				Ok((
 					u64::from_le_bytes(
-						file_path.inode[0..8]
+						maybe_missing(file_path.inode, "file_path.inode")?[0..8]
 							.try_into()
 							.map_err(|_| LocationManagerError::InvalidInode)?,
 					),
 					u64::from_le_bytes(
-						file_path.device[0..8]
+						maybe_missing(file_path.device, "file_path.device")?[0..8]
 							.try_into()
 							.map_err(|_| LocationManagerError::InvalidDevice)?,
 					),
@@ -727,11 +730,6 @@ pub(super) async fn extract_location_path(
 		.map_or(
 			Err(LocationManagerError::MissingLocation(location_id)),
 			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
-			|location| {
-				location
-					.path
-					.map(PathBuf::from)
-					.ok_or(LocationManagerError::MissingPath(location_id))
-			},
+			|location| Ok(maybe_missing(location.path, "location.path")?.into()),
 		)
 }

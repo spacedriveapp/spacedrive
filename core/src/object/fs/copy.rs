@@ -6,7 +6,10 @@ use crate::{
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
 	prisma::{file_path, location},
-	util::error::FileIOError,
+	util::{
+		db::{maybe_missing, MissingFieldError},
+		error::FileIOError,
+	},
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -77,7 +80,7 @@ impl StatefulJob for FileCopierJob {
 		)
 		.await?
 		.into_iter()
-		.map(|file_data| {
+		.flat_map(|file_data| {
 			// add the currently viewed subdirectory to the location root
 			let mut full_target_path =
 				targets_location_path.join(&state.init.target_location_relative_directory_path);
@@ -85,11 +88,12 @@ impl StatefulJob for FileCopierJob {
 			full_target_path.push(construct_target_filename(
 				&file_data,
 				&state.init.target_file_name_suffix,
-			));
-			FileCopierJobStep {
+			)?);
+
+			Ok::<_, MissingFieldError>(FileCopierJobStep {
 				source_file_data: file_data,
 				target_full_path: full_target_path,
-			}
+			})
 		})
 		.collect();
 
@@ -114,7 +118,7 @@ impl StatefulJob for FileCopierJob {
 
 		let data = extract_job_data!(state);
 
-		if source_file_data.file_path.is_dir {
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
 			fs::create_dir_all(target_full_path)
 				.await
 				.map_err(|e| FileIOError::from((target_full_path, e)))?;

@@ -6,6 +6,7 @@ use crate::{
 		IsolatedFilePathData,
 	},
 	to_remove_db_fetcher_fn,
+	util::db::maybe_missing,
 };
 
 use std::{path::Path, sync::Arc};
@@ -62,10 +63,8 @@ impl StatefulJob for IndexerJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
-		let location_path = state.init.location.path.as_ref();
-		let Some(location_path) = location_path.map(Path::new) else {
-            return Err(JobError::MissingPath)
-        };
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		let db = Arc::clone(&ctx.library.db);
 
@@ -206,10 +205,8 @@ impl StatefulJob for IndexerJob {
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;
-				let location_path = state.init.location.path.as_ref();
-				let Some(location_path) = location_path.map(Path::new) else {
-                    return Err(JobError::MissingPath)
-                };
+				let location_path =
+					maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 				let db = Arc::clone(&ctx.library.db);
 
@@ -280,10 +277,8 @@ impl StatefulJob for IndexerJob {
 	}
 
 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let location_path = state.init.location.path.as_ref();
-		let Some(location_path) = location_path.map(Path::new) else {
-            return Err(JobError::MissingPath)
-        };
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		finalize_indexer(location_path, state, ctx)
 	}

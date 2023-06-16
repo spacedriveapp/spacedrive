@@ -5,7 +5,7 @@ use crate::{
 	},
 	library::Library,
 	prisma::{file_path, location},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::hash::Hash;
@@ -64,7 +64,10 @@ impl StatefulJob for FileDeleterJob {
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 
-		if step.file_path.is_dir {
+		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
+		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
+
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			fs::remove_dir_all(&step.full_path).await
 		} else {
 			fs::remove_file(&step.full_path).await
