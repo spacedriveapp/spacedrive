@@ -24,11 +24,11 @@ static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
-	location_id: location::id::Type,
-	materialized_path: Cow<'a, str>,
-	is_dir: bool,
-	name: Cow<'a, str>,
-	extension: Cow<'a, str>,
+	pub(in crate::location) location_id: location::id::Type,
+	pub(in crate::location) materialized_path: Cow<'a, str>,
+	pub(in crate::location) is_dir: bool,
+	pub(in crate::location) name: Cow<'a, str>,
+	pub(in crate::location) extension: Cow<'a, str>,
 	relative_path: Cow<'a, str>,
 }
 
@@ -88,6 +88,10 @@ impl<'a> IsolatedFilePathData<'a> {
 
 	pub fn extension(&'a self) -> &'a str {
 		&self.extension
+	}
+
+	pub fn materialized_path(&'a self) -> &'a str {
+		&self.materialized_path
 	}
 
 	pub fn is_root(&self) -> bool {

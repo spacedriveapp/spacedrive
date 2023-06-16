@@ -16,7 +16,6 @@ use crate::{
 	},
 	object::{
 		file_identifier::FileMetadata,
-		object_just_id_has_thumbnail,
 		preview::{can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path},
 		validation::hash::file_checksum,
 	},
@@ -107,7 +106,7 @@ pub(super) async fn create_dir(
 		return Ok(());
 	};
 
-	let materialized_path = iso_file_path.materialized_path.clone().into_owned();
+	let materialized_path = iso_file_path.materialized_path().to_string();
 
 	create_file_path(
 		library,
@@ -151,8 +150,8 @@ pub(super) async fn create_file(
 	let db = &library.db;
 
 	let iso_file_path = IsolatedFilePathData::new(location_id, &location_path, path, false)?;
-	let materialized_path = iso_file_path.materialized_path.clone().into_owned();
-	let extension = iso_file_path.extension.clone().into_owned();
+	let materialized_path = iso_file_path.materialized_path().to_string();
+	let extension = iso_file_path.extension().to_string();
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
@@ -199,13 +198,15 @@ pub(super) async fn create_file(
 
 	info!("Created path: {}", &materialized_path);
 
+	object::select!(object_just_id { id });
+
 	let existing_object = db
 		.object()
 		.find_first(vec![object::file_paths::some(vec![
 			file_path::cas_id::equals(Some(cas_id.clone())),
 			file_path::pub_id::not(created_file.pub_id.clone()),
 		])])
-		.select(object_just_id_has_thumbnail::select())
+		.select(object_just_id::select())
 		.exec()
 		.await?;
 
@@ -222,7 +223,7 @@ pub(super) async fn create_file(
 					object::kind::set(Some(kind as i32)),
 				],
 			)
-			.select(object_just_id_has_thumbnail::select())
+			.select(object_just_id::select())
 			.exec()
 			.await?
 	};
@@ -526,8 +527,8 @@ pub(super) async fn rename(
 					"UPDATE file_path \
 						SET materialized_path = REPLACE(materialized_path, {}, {}) \
 						WHERE location_id = {}",
-					PrismaValue::String(format!("{}/{}/", old.materialized_path, old.name)),
-					PrismaValue::String(format!("{}/{}/", new.materialized_path, new.name)),
+					PrismaValue::String(format!("{}/{}/", old.materialized_path(), old.name())),
+					PrismaValue::String(format!("{}/{}/", new.materialized_path(), new.name())),
 					PrismaValue::Int(location_id as i64)
 				))
 				.exec()
@@ -542,8 +543,8 @@ pub(super) async fn rename(
 				file_path::pub_id::equals(file_path.pub_id),
 				vec![
 					file_path::materialized_path::set(Some(new_path_materialized_str)),
-					file_path::name::set(Some(new.name.to_string())),
-					file_path::extension::set(Some(new.extension.to_string())),
+					file_path::name::set(Some(new.name().to_string())),
+					file_path::extension::set(Some(new.extension().to_string())),
 				],
 			)
 			.exec()

@@ -16,7 +16,6 @@ pub mod validation;
 // Objects are what can be added to Spaces
 
 // Object selectables!
-object::select!(object_just_id_has_thumbnail { id });
 object::select!(object_for_file_identifier {
 	pub_id
 	file_paths: select { pub_id cas_id }
