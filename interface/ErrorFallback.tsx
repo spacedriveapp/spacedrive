@@ -84,7 +84,9 @@ export function ErrorPage({
 						Send report
 					</Button>
 				)}
-				{errorsThatRequireACoreReset.includes(message) && (
+				{(errorsThatRequireACoreReset.includes(message) ||
+					message.startsWith('NodeError::FailedToInitializeConfig') ||
+					message.startsWith('failed to initialize library manager')) && (
 					<div className="flex flex-col items-center pt-12">
 						<p className="text-md max-w-[650px] text-center">
 							We detected you may have created your library with an older version of
