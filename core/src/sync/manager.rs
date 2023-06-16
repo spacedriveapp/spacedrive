@@ -294,7 +294,6 @@ impl SyncManager {
 						.await?;
 				}
 			},
-			_ => todo!(),
 		}
 
 		if let CRDTOperationType::Shared(shared_op) = op.typ {

@@ -101,7 +101,7 @@ impl<'a, T> OptionalField for &'a Option<T> {
 	}
 }
 
-pub fn maybe_missing<'a, T: OptionalField>(
+pub fn maybe_missing<T: OptionalField>(
 	data: T,
 	field: &'static str,
 ) -> Result<T::Out, MissingFieldError> {

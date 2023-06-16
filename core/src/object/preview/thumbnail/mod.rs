@@ -255,17 +255,13 @@ async fn process_step(
 		state.step_number + 1,
 	)]);
 
-	match step_result {
-		Ok(thumbnail_was_created) => {
-			if thumbnail_was_created {
-				data.report.thumbnails_created += 1;
-			} else {
-				data.report.thumbnails_skipped += 1;
-			}
-			Ok(())
+	step_result.map(|thumbnail_was_created| {
+		if thumbnail_was_created {
+			data.report.thumbnails_created += 1;
+		} else {
+			data.report.thumbnails_skipped += 1;
 		}
-		Err(e) => Err(e.into()),
-	}
+	})
 }
 
 pub async fn inner_process_step(

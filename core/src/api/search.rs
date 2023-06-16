@@ -158,7 +158,7 @@ impl ObjectSearchOrdering {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default)]
+#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 enum ObjectHiddenFilter {
 	#[default]
