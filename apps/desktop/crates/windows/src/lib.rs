@@ -4,6 +4,7 @@ use std::{
 	ffi::{OsStr, OsString},
 	os::windows::ffi::OsStrExt,
 	path::Path,
+	sync::Once,
 };
 
 use normpath::PathExt;
@@ -34,22 +35,24 @@ impl CoInitializer {
 		CoInitializer {}
 	}
 }
-impl Drop for CoInitializer {
-	fn drop(&mut self) {
-		// TODO: This does not get called because it's a global static.
-		// Is there an atexit in Win32?
-		unsafe {
-			CoUninitialize();
-		}
-	}
-}
+
+static CO_UNINITIALIZER: Once = Once::new();
 
 thread_local! {
 	static CO_INITIALIZER: CoInitializer = CoInitializer::new();
 }
 
+extern "C" fn atexit_handler() {
+	unsafe {
+		CoUninitialize();
+	}
+}
+
 fn ensure_com_initialized() {
 	CO_INITIALIZER.with(|_| {});
+	CO_UNINITIALIZER.call_once(|| unsafe {
+		libc::atexit(atexit_handler);
+	});
 }
 
 // Use SHAssocEnumHandlers to get the list of apps associated with a file extension.
