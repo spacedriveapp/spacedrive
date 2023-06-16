@@ -56,7 +56,9 @@ pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(
 			r#"window.__SD_ERROR__ = `{}`;"#,
-			serde_json::to_string(&format!("{err}")).unwrap()
+			serde_json::to_string(&format!("{err}"))
+				.unwrap()
+				.replace("`", "\"")
 		))
 		.build()
 }
