@@ -85,7 +85,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(args.id),
-							vec![object::favorite::set(args.favorite)],
+							vec![object::favorite::set(Some(args.favorite))],
 						)
 						.exec()
 						.await?;
@@ -214,7 +214,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					library: &Library,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
-					let iso_file_path = IsolatedFilePathData::from(
+					let iso_file_path = IsolatedFilePathData::try_from(
 						library
 							.db
 							.file_path()
@@ -225,7 +225,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
 								from_file_path_id,
 							)))?,
-					);
+					)
+					.map_err(LocationError::MissingField)?;
 
 					if iso_file_path.full_name() == to {
 						return Ok(());
@@ -275,8 +276,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.update(
 							file_path::id::equals(from_file_path_id),
 							vec![
-								file_path::name::set(new_file_name.to_string()),
-								file_path::extension::set(new_extension.to_string()),
+								file_path::name::set(Some(new_file_name.to_string())),
+								file_path::extension::set(Some(new_extension.to_string())),
 							],
 						)
 						.exec()
@@ -312,7 +313,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?
 							.into_iter()
-							.map(|file_path| (file_path.id, IsolatedFilePathData::from(file_path)))
+							.flat_map(|file_path| {
+								let id = file_path.id;
+
+								IsolatedFilePathData::try_from(file_path).map(|d| (id, d))
+							})
 							.map(|(file_path_id, iso_file_path)| {
 								let from = location_path.join(&iso_file_path);
 								let mut to = location_path.join(iso_file_path.parent());
@@ -377,8 +382,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									library.db.file_path().update(
 										file_path::id::equals(file_path_id),
 										vec![
-											file_path::name::set(new_name),
-											file_path::extension::set(new_extension),
+											file_path::name::set(Some(new_name)),
+											file_path::extension::set(Some(new_extension)),
 										],
 									)
 								})

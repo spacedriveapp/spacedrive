@@ -172,7 +172,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			default:
-				setSrc(getIcon(kind, isDark, extension, isDir));
+				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
 	}, [

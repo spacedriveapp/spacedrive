@@ -14,6 +14,7 @@ use std::{
 };
 
 use rspc::ErrorCode;
+use sd_prisma::prisma_sync;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
@@ -151,41 +152,63 @@ async fn execute_indexer_save_step(
 
 			use file_path::*;
 
+			let pub_id = uuid_to_bytes(entry.pub_id);
+
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+				(
+					(
+						location::NAME,
+						json!(prisma_sync::location::SyncId {
+							pub_id: pub_id.clone()
+						}),
+					),
+					location_id::set(Some(location.id)),
+				),
+				(
+					(materialized_path::NAME, json!(materialized_path)),
+					materialized_path::set(Some(materialized_path.to_string())),
+				),
+				((name::NAME, json!(name)), name::set(Some(name.to_string()))),
+				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
+				(
+					(extension::NAME, json!(extension)),
+					extension::set(Some(extension.to_string())),
+				),
+				(
+					(
+						size_in_bytes::NAME,
+						json!(entry.metadata.size_in_bytes.to_string()),
+					),
+					size_in_bytes::set(Some(entry.metadata.size_in_bytes.to_string())),
+				),
+				(
+					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
+					inode::set(Some(entry.metadata.inode.to_le_bytes().into())),
+				),
+				(
+					(device::NAME, json!(entry.metadata.device.to_le_bytes())),
+					device::set(Some(entry.metadata.device.to_le_bytes().into())),
+				),
+				(
+					(date_created::NAME, json!(entry.metadata.created_at)),
+					date_created::set(Some(entry.metadata.created_at.into())),
+				),
+				(
+					(date_modified::NAME, json!(entry.metadata.modified_at)),
+					date_modified::set(Some(entry.metadata.modified_at.into())),
+				),
+			]
+			.into_iter()
+			.unzip();
+
 			(
 				sync.unique_shared_create(
 					sync::file_path::SyncId {
 						pub_id: uuid_to_bytes(entry.pub_id),
 					},
-					[
-						(materialized_path::NAME, json!(materialized_path)),
-						(name::NAME, json!(name)),
-						(is_dir::NAME, json!(*is_dir)),
-						(extension::NAME, json!(extension)),
-						(
-							size_in_bytes::NAME,
-							json!(entry.metadata.size_in_bytes.to_string()),
-						),
-						(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-						(device::NAME, json!(entry.metadata.device.to_le_bytes())),
-						(date_created::NAME, json!(entry.metadata.created_at)),
-						(date_modified::NAME, json!(entry.metadata.modified_at)),
-					],
+					sync_params,
 				),
-				file_path::create_unchecked(
-					uuid_to_bytes(entry.pub_id),
-					location.id,
-					materialized_path.to_string(),
-					name.to_string(),
-					extension.to_string(),
-					entry.metadata.inode.to_le_bytes().into(),
-					entry.metadata.device.to_le_bytes().into(),
-					vec![
-						is_dir::set(*is_dir),
-						size_in_bytes::set(entry.metadata.size_in_bytes.to_string()),
-						date_created::set(entry.metadata.created_at.into()),
-						date_modified::set(entry.metadata.modified_at.into()),
-					],
-				),
+				file_path::create_unchecked(pub_id, db_params),
 			)
 		})
 		.unzip();
@@ -298,12 +321,12 @@ macro_rules! to_remove_db_fetcher_fn {
 				iso_file_path;
 			$db.file_path()
 				.find_many(vec![
-					$crate::prisma::file_path::location_id::equals($location_id),
-					$crate::prisma::file_path::materialized_path::equals(
+					$crate::prisma::file_path::location_id::equals(Some($location_id)),
+					$crate::prisma::file_path::materialized_path::equals(Some(
 						iso_file_path
 							.materialized_path_for_children()
 							.expect("the received isolated file path must be from a directory"),
-					),
+					)),
 					::prisma_client_rust::operator::not(
 						unique_location_id_materialized_path_name_extension_params,
 					),

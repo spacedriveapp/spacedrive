@@ -5,7 +5,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
-	util::{error::FileIOError, version_manager::VersionManagerError},
+	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
 };
 
 use std::{
@@ -230,7 +230,10 @@ async fn process_step(
 
 	ctx.progress(vec![JobReportUpdate::Message(format!(
 		"Processing {}",
-		step.file_path.materialized_path
+		maybe_missing(
+			&step.file_path.materialized_path,
+			"file_path.materialized_path"
+		)?
 	))]);
 
 	let data = state
@@ -268,14 +271,14 @@ pub async fn inner_process_step(
 	let thumbnail_dir = thumbnail_dir.as_ref();
 
 	// assemble the file path
-	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));
+	let path = location_path.join(IsolatedFilePathData::try_from((location.id, file_path))?);
 	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
 	let Some(cas_id) = &file_path.cas_id else {
 		warn!(
 			"skipping thumbnail generation for {}",
-			file_path.materialized_path
+			maybe_missing(&file_path.materialized_path, "file_path.materialized_path")?
 		);
 
 		return Ok(());
