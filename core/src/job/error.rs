@@ -4,7 +4,7 @@ use crate::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
 		preview::ThumbnailerError,
 	},
-	util::error::FileIOError,
+	util::{db::MissingFieldError, error::FileIOError},
 };
 
 use std::fmt::Debug;
@@ -66,12 +66,10 @@ pub enum JobError {
 	FileSystemJobsError(#[from] FileSystemJobsError),
 	#[error(transparent)]
 	CryptoError(#[from] CryptoError),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 	#[error("item of type '{0}' with id '{1}' is missing from the db")]
 	MissingFromDb(&'static str, String),
-	#[error("the cas id is not set on the path data")]
-	MissingCasId,
-	#[error("missing-location-path")]
-	MissingPath,
 	#[error("Thumbnail skipped")]
 	ThumbnailSkipped,
 
