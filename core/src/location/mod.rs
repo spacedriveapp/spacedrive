@@ -603,7 +603,7 @@ async fn create_location(
 		)
 		.await?;
 
-	debug!("created in db");
+	debug!("New location created in db");
 
 	if !indexer_rules_ids.is_empty() {
 		link_location_and_indexer_rules(library, location.id, indexer_rules_ids).await?;

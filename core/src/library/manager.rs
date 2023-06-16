@@ -406,7 +406,7 @@ impl LibraryManager {
 			.node_context
 			.jobs
 			.clone()
-			.resume_jobs(&library)
+			.cold_resume(&library)
 			.await
 		{
 			error!("Failed to resume jobs for library. {:#?}", e);

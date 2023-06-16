@@ -273,12 +273,12 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 
 									}
 								} else {
-									warn!("Shutting down invalidation manager thread due to the core event bus being droppped!");
+									warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
 									break;
 								}
 							},
-							// Given human reaction time of ~250 milli this should be a good ballance.
-							_ = tokio::time::sleep(Duration::from_millis(200)) => {
+							// THROTTLE: Given human reaction time of ~250 milli this should be a good ballance.
+							_ = tokio::time::sleep(Duration::from_millis(10)) => {
 								let events = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
 								if !events.is_empty() {
 									match tx.send(events) {
