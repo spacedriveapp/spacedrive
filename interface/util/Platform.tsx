@@ -1,4 +1,5 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
+import { useTheme } from '../hooks';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 

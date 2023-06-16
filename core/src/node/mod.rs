@@ -1,6 +1,5 @@
 use crate::{prisma::node, NodeError};
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -15,7 +14,6 @@ pub struct LibraryNode {
 	pub uuid: Uuid,
 	pub name: String,
 	pub platform: Platform,
-	pub last_seen: DateTime<Utc>,
 }
 
 impl TryFrom<node::Data> for LibraryNode {
@@ -26,7 +24,6 @@ impl TryFrom<node::Data> for LibraryNode {
 			uuid: Uuid::from_slice(&data.pub_id).map_err(|_| "Invalid node pub_id")?,
 			name: data.name,
 			platform: Platform::try_from(data.platform).map_err(|_| "Invalid platform_id")?,
-			last_seen: data.last_seen.into(),
 		})
 	}
 }
