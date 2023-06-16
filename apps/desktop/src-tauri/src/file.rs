@@ -163,52 +163,48 @@ pub async fn get_file_path_open_with_apps(
 	}
 
 	#[cfg(windows)]
-	{
-		use sd_desktop_windows::list_apps_associated_with_ext;
+	return Ok(paths
+		.into_iter()
+		.flat_map(|(id, path)| {
+			let Some(path) = path
+				else {
+					error!("File not found in database");
+					return vec![];
+				};
 
-		return Ok(paths
-			.into_iter()
-			.flat_map(|(id, path)| {
-				let Some(path) = path
-					else {
-						error!("File not found in database");
-						return vec![];
-					};
+			let Some(ext) = path.extension()
+				else {
+					error!("Failed to extract file extension");
+					return vec![];
+				};
 
-				let Some(ext) = path.extension()
-					else {
-						error!("Failed to extract file extension");
-						return vec![];
-					};
+			sd_desktop_windows::list_apps_associated_with_ext(ext)
+				.map_err(|e| {
+					error!("{e:#?}");
+				})
+				.map(|handlers| {
+					handlers
+						.iter()
+						.filter_map(|handler| {
+							let (Ok(name), Ok(url)) = (
+							unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
+								.and_then(|name| unsafe { name.to_string() }
+								.map_err(|e| { error!("{e:#?}");})),
+							unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
+								.and_then(|name| unsafe { name.to_string() }
+								.map_err(|e| { error!("{e:#?}");})),
+						) else {
+							error!("Failed to get handler info");
+							return None
+						};
 
-				list_apps_associated_with_ext(ext)
-					.map_err(|e| {
-						error!("{e:#?}");
-					})
-					.map(|handlers| {
-						handlers
-							.iter()
-							.filter_map(|handler| {
-								let (Ok(name), Ok(url)) = (
-								unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
-									.and_then(|name| unsafe { name.to_string() }
-									.map_err(|e| { error!("{e:#?}");})),
-								unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
-									.and_then(|name| unsafe { name.to_string() }
-									.map_err(|e| { error!("{e:#?}");})),
-							) else {
-								error!("Failed to get handler info");
-								return None
-							};
-
-								Some(OpenWithApplication::File { id, name, url })
-							})
-							.collect::<Vec<_>>()
-					})
-					.unwrap_or(vec![])
-			})
-			.collect());
-	}
+							Some(OpenWithApplication::File { id, name, url })
+						})
+						.collect::<Vec<_>>()
+				})
+				.unwrap_or(vec![])
+		})
+		.collect());
 
 	#[allow(unreachable_code)]
 	Ok(vec![])
@@ -265,13 +261,11 @@ pub async fn open_file_path_with(
 					};
 
 					#[cfg(target_os = "linux")]
-					{
-						return sd_desktop_linux::Handler::assume_valid(url.into())
-							.open(&[path])
-							.map_err(|e| {
-								error!("{e:#?}");
-							});
-					};
+					return sd_desktop_linux::Handler::assume_valid(url.into())
+						.open(&[path])
+						.map_err(|e| {
+							error!("{e:#?}");
+						});
 
 					#[cfg(windows)]
 					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {
