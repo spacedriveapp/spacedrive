@@ -23,16 +23,16 @@ prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
-] }
+], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
-] }
+], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2", features = [
 	"sqlite",
-] }
+], default-features = false }
 
 rspc = { version = "0.1.4" }
 specta = { version = "1.0.4" }
@@ -52,8 +52,8 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "782eb7b2
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
-specta = { git = "https://github.com/oscartbeaumont/specta", branch = "v2" }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "specta-v2" }
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", branch = "specta-v2" }
+specta = { git = "https://github.com/oscartbeaumont/specta", rev = "2fc97ec8178ba27da1c80c0faaf43cb0db95955f" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
+tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }

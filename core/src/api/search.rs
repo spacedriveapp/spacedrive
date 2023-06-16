@@ -166,10 +166,10 @@ enum ObjectHiddenFilter {
 	Include,
 }
 
-impl From<ObjectHiddenFilter> for Option<object::WhereParam> {
-	fn from(value: ObjectHiddenFilter) -> Self {
-		match value {
-			ObjectHiddenFilter::Exclude => Some(object::hidden::not(true)),
+impl ObjectHiddenFilter {
+	fn to_param(self) -> Option<object::WhereParam> {
+		match self {
+			ObjectHiddenFilter::Exclude => Some(object::hidden::not(Some(true))),
 			ObjectHiddenFilter::Include => None,
 		}
 	}
@@ -192,20 +192,21 @@ struct ObjectFilterArgs {
 
 impl ObjectFilterArgs {
 	fn into_params(self) -> Vec<object::WhereParam> {
+		use object::*;
+
 		chain_optional_iter(
 			[],
 			[
-				self.hidden.into(),
-				self.favorite.map(object::favorite::equals),
+				self.hidden.to_param(),
+				self.favorite.map(Some).map(favorite::equals),
 				self.date_accessed
-					.map(|date| date.into_prisma(object::date_accessed::equals)),
-				(!self.kind.is_empty())
-					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
+					.map(|date| date.into_prisma(date_accessed::equals)),
+				(!self.kind.is_empty()).then(|| kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
 					let tags = self.tags.into_iter().map(tag::id::equals).collect();
 					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
 
-					object::tags::some(vec![tags_on_object])
+					tags::some(vec![tags_on_object])
 				}),
 			],
 		)
@@ -268,29 +269,26 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						_ => None,
 					};
 
+					use file_path::*;
+
 					let params = chain_optional_iter(
 						filter
 							.search
 							.split(' ')
 							.map(str::to_string)
-							.map(file_path::name::contains),
+							.map(name::contains),
 						[
-							filter.location_id.map(file_path::location_id::equals),
-							filter.extension.map(file_path::extension::equals),
-							filter
-								.created_at
-								.from
-								.map(|v| file_path::date_created::gte(v.into())),
-							filter
-								.created_at
-								.to
-								.map(|v| file_path::date_created::lte(v.into())),
+							filter.location_id.map(Some).map(location_id::equals),
+							filter.extension.map(Some).map(extension::equals),
+							filter.created_at.from.map(|v| date_created::gte(v.into())),
+							filter.created_at.to.map(|v| date_created::lte(v.into())),
 							directory_materialized_path_str
-								.map(file_path::materialized_path::equals),
+								.map(Some)
+								.map(materialized_path::equals),
 							filter.object.and_then(|obj| {
 								let params = obj.into_params();
 
-								(!params.is_empty()).then(|| file_path::object::is(params))
+								(!params.is_empty()).then(|| object::is(params))
 							}),
 						],
 					);

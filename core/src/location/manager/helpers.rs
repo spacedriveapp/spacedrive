@@ -1,4 +1,4 @@
-use crate::{library::Library, prisma::location};
+use crate::{library::Library, prisma::location, util::db::maybe_missing};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -23,10 +23,7 @@ pub(super) async fn check_online(
 ) -> Result<bool, LocationManagerError> {
 	let pub_id = Uuid::from_slice(&location.pub_id)?;
 
-	let location_path = location.path.as_ref();
-	let Some(location_path) = location_path.map(Path::new) else {
-        return Err(LocationManagerError::MissingPath(location.id))
-    };
+	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	if location.node_id == Some(library.node_local_id) {
 		match fs::metadata(&location_path).await {

@@ -4,6 +4,7 @@ use crate::{
 		LocationError,
 	},
 	prisma::{file_path, location, PrismaClient},
+	util::db::{maybe_missing, MissingFieldError},
 };
 
 use std::path::{Path, PathBuf};
@@ -42,14 +43,16 @@ pub async fn get_location_path_from_location_id(
 	db: &PrismaClient,
 	location_id: file_path::id::Type,
 ) -> Result<PathBuf, FileSystemJobsError> {
-	db.location()
+	let location = db
+		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
 		.await?
-		.and_then(|location| location.path.map(PathBuf::from))
 		.ok_or(FileSystemJobsError::Location(LocationError::IdNotFound(
 			location_id,
-		)))
+		)))?;
+
+	Ok(maybe_missing(location.path, "location.path")?.into())
 }
 
 pub async fn get_many_files_datas(
@@ -77,9 +80,11 @@ pub async fn get_many_files_datas(
 	.map(|(maybe_file_path, file_path_id)| {
 		maybe_file_path
 			.ok_or(FileSystemJobsError::FilePathIdNotFound(*file_path_id))
-			.map(|path_data| FileData {
-				full_path: location_path.join(IsolatedFilePathData::from(&path_data)),
-				file_path: path_data,
+			.and_then(|path_data| {
+				Ok(FileData {
+					full_path: location_path.join(IsolatedFilePathData::try_from(&path_data)?),
+					file_path: path_data,
+				})
 			})
 	})
 	.collect::<Result<Vec<_>, _>>()
@@ -102,11 +107,13 @@ pub async fn get_file_data_from_isolated_file_path(
 					.into_boxed_path(),
 			)
 		})
-		.map(|path_data| FileData {
-			full_path: location_path
-				.as_ref()
-				.join(IsolatedFilePathData::from(&path_data)),
-			file_path: path_data,
+		.and_then(|path_data| {
+			Ok(FileData {
+				full_path: location_path
+					.as_ref()
+					.join(IsolatedFilePathData::try_from(&path_data)?),
+				file_path: path_data,
+			})
 		})
 }
 
@@ -125,52 +132,43 @@ pub async fn fetch_source_and_target_location_paths(
 		.await?
 	{
 		(Some(source_location), Some(target_location)) => Ok((
-			source_location
-				.path
-				.map(PathBuf::from)
-				.ok_or(FileSystemJobsError::Location(LocationError::MissingPath(
-					source_location_id,
-				)))?,
-			target_location
-				.path
-				.map(PathBuf::from)
-				.ok_or(FileSystemJobsError::Location(LocationError::MissingPath(
-					target_location_id,
-				)))?,
+			maybe_missing(source_location.path.map(PathBuf::from), "location.path")?,
+			maybe_missing(target_location.path.map(PathBuf::from), "location.path")?,
 		)),
-		(None, _) => Err(FileSystemJobsError::Location(LocationError::IdNotFound(
-			source_location_id,
-		))),
-		(_, None) => Err(FileSystemJobsError::Location(LocationError::IdNotFound(
-			target_location_id,
-		))),
+		(None, _) => Err(LocationError::IdNotFound(source_location_id))?,
+		(_, None) => Err(LocationError::IdNotFound(target_location_id))?,
 	}
 }
 
 fn construct_target_filename(
 	source_file_data: &FileData,
 	target_file_name_suffix: &Option<String>,
-) -> String {
+) -> Result<String, MissingFieldError> {
 	// extension wizardry for cloning and such
 	// if no suffix has been selected, just use the file name
 	// if a suffix is provided and it's a directory, use the directory name + suffix
 	// if a suffix is provided and it's a file, use the (file name + suffix).extension
 
-	if let Some(ref suffix) = target_file_name_suffix {
-		if source_file_data.file_path.is_dir {
-			format!("{}{suffix}", source_file_data.file_path.name)
+	Ok(if let Some(ref suffix) = target_file_name_suffix {
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+			format!(
+				"{}{suffix}",
+				maybe_missing(&source_file_data.file_path.name, "file_path.name")?
+			)
 		} else {
 			format!(
 				"{}{suffix}.{}",
-				source_file_data.file_path.name, source_file_data.file_path.extension,
+				maybe_missing(&source_file_data.file_path.name, "file_path.name")?,
+				maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?,
 			)
 		}
-	} else if source_file_data.file_path.is_dir {
-		source_file_data.file_path.name.clone()
+	} else if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")? {
+		maybe_missing(&source_file_data.file_path.name, "file_path.name")?.clone()
 	} else {
 		format!(
 			"{}.{}",
-			source_file_data.file_path.name, source_file_data.file_path.extension
+			maybe_missing(&source_file_data.file_path.name, "file_path.name")?,
+			maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?
 		)
-	}
+	})
 }

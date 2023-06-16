@@ -180,7 +180,7 @@ async fn get_files_by_extensions(
 	Ok(db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(iso_file_path.location_id()),
+			file_path::location_id::equals(Some(iso_file_path.location_id())),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
 			file_path::materialized_path::starts_with(
 				iso_file_path

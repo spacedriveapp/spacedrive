@@ -29,7 +29,7 @@ pub struct IsolatedFilePathData<'a> {
 	pub(in crate::location) is_dir: bool,
 	pub(in crate::location) name: Cow<'a, str>,
 	pub(in crate::location) extension: Cow<'a, str>,
-	pub(in crate::location) relative_path: Cow<'a, str>,
+	relative_path: Cow<'a, str>,
 }
 
 impl IsolatedFilePathData<'static> {
@@ -88,6 +88,17 @@ impl<'a> IsolatedFilePathData<'a> {
 
 	pub fn extension(&'a self) -> &'a str {
 		&self.extension
+	}
+
+	pub fn materialized_path(&'a self) -> &'a str {
+		&self.materialized_path
+	}
+
+	pub fn is_root(&self) -> bool {
+		self.is_dir
+			&& self.materialized_path == "/"
+			&& self.name.is_empty()
+			&& self.relative_path.is_empty()
 	}
 
 	pub fn parent(&'a self) -> Self {
@@ -254,25 +265,25 @@ impl<'a> IsolatedFilePathData<'a> {
 			.unwrap_or_default()
 	}
 
-	fn from_db_data(
+	pub fn from_db_data(
 		location_id: location::id::Type,
-		db_materialized_path: &'a str,
-		db_is_dir: bool,
-		db_name: &'a str,
-		db_extension: &'a str,
+		is_dir: bool,
+		materialized_path: Cow<'a, str>,
+		name: Cow<'a, str>,
+		extension: Cow<'a, str>,
 	) -> Self {
 		Self {
-			location_id,
-			materialized_path: Cow::Borrowed(db_materialized_path),
-			is_dir: db_is_dir,
-			name: Cow::Borrowed(db_name),
-			extension: Cow::Borrowed(db_extension),
 			relative_path: Cow::Owned(assemble_relative_path(
-				db_materialized_path,
-				db_name,
-				db_extension,
-				db_is_dir,
+				&materialized_path,
+				&name,
+				&extension,
+				is_dir,
 			)),
+			location_id,
+			materialized_path,
+			is_dir,
+			name,
+			extension,
 		}
 	}
 }
@@ -297,10 +308,10 @@ impl From<IsolatedFilePathData<'static>> for file_path::UniqueWhereParam {
 impl From<IsolatedFilePathData<'static>> for file_path::WhereParam {
 	fn from(path: IsolatedFilePathData<'static>) -> Self {
 		Self::And(vec![
-			file_path::location_id::equals(path.location_id),
-			file_path::materialized_path::equals(path.materialized_path.into_owned()),
-			file_path::name::equals(path.name.into_owned()),
-			file_path::extension::equals(path.extension.into_owned()),
+			file_path::location_id::equals(Some(path.location_id)),
+			file_path::materialized_path::equals(Some(path.materialized_path.into_owned())),
+			file_path::name::equals(Some(path.name.into_owned())),
+			file_path::extension::equals(Some(path.extension.into_owned())),
 		])
 	}
 }
@@ -319,10 +330,10 @@ impl From<&IsolatedFilePathData<'_>> for file_path::UniqueWhereParam {
 impl From<&IsolatedFilePathData<'_>> for file_path::WhereParam {
 	fn from(path: &IsolatedFilePathData<'_>) -> Self {
 		Self::And(vec![
-			file_path::location_id::equals(path.location_id),
-			file_path::materialized_path::equals(path.materialized_path.to_string()),
-			file_path::name::equals(path.name.to_string()),
-			file_path::extension::equals(path.extension.to_string()),
+			file_path::location_id::equals(Some(path.location_id)),
+			file_path::materialized_path::equals(Some(path.materialized_path.to_string())),
+			file_path::name::equals(Some(path.name.to_string())),
+			file_path::extension::equals(Some(path.extension.to_string())),
 		])
 	}
 }
@@ -338,49 +349,47 @@ mod macros {
 	macro_rules! impl_from_db {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::From<$file_path_kind::Data> for $crate::
+				impl ::std::convert::TryFrom<$file_path_kind::Data> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-					fn from(path: $file_path_kind::Data) -> Self {
-						Self {
-							location_id: path.location_id,
-							relative_path: ::std::borrow::Cow::Owned(
-								$crate::
-								location::
-								file_path_helper::
-								isolated_file_path_data::
-								assemble_relative_path(
-									&path.materialized_path,
-									&path.name,
-									&path.extension,
-									path.is_dir,
-								)
-							),
-							materialized_path: ::std::borrow::Cow::Owned(path.materialized_path),
-							is_dir: path.is_dir,
-							name: ::std::borrow::Cow::Owned(path.name),
-							extension: ::std::borrow::Cow::Owned(path.extension),
-						}
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from(path: $file_path_kind::Data) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+                        Ok(Self::from_db_data(
+                            maybe_missing(path.location_id, "file_path.location_id")?,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+                            Cow::Owned(maybe_missing(path.materialized_path, "file_path.materialized_path")?),
+                            Cow::Owned(maybe_missing(path.name, "file_path.name")?),
+                            Cow::Owned(maybe_missing(path.extension, "file_path.extension")?)
+                        ))
 					}
 				}
 
-				impl<'a> ::std::convert::From<&'a $file_path_kind::Data> for $crate::
+				impl<'a> ::std::convert::TryFrom<&'a $file_path_kind::Data> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-					fn from(path: &'a $file_path_kind::Data) -> Self {
-						Self::from_db_data(
-							path.location_id,
-							&path.materialized_path,
-							path.is_dir,
-							&path.name,
-							&path.extension
-						)
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from(path: &'a $file_path_kind::Data) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+						Ok(Self::from_db_data(
+							maybe_missing(path.location_id, "file_path.location_id")?,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+							Cow::Borrowed(maybe_missing(&path.materialized_path, "file_path.materialized_path")?),
+							Cow::Borrowed(maybe_missing(&path.name, "file_path.name")?),
+							Cow::Borrowed(maybe_missing(&path.extension, "file_path.extension")?)
+						))
 					}
 				}
 			)+
@@ -390,49 +399,47 @@ mod macros {
 	macro_rules! impl_from_db_without_location_id {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::From<($crate::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
+				impl ::std::convert::TryFrom<($crate::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-					fn from((location_id, path): ($crate::prisma::location::id::Type, $file_path_kind::Data)) -> Self {
-						Self {
-							location_id,
-							relative_path: Cow::Owned(
-								$crate::
-								location::
-								file_path_helper::
-								isolated_file_path_data::
-								assemble_relative_path(
-									&path.materialized_path,
-									&path.name,
-									&path.extension,
-									path.is_dir,
-								)
-							),
-							materialized_path: Cow::Owned(path.materialized_path),
-							is_dir: path.is_dir,
-							name: Cow::Owned(path.name),
-							extension: Cow::Owned(path.extension),
-						}
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from((location_id, path): ($crate::prisma::location::id::Type, $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+                        Ok(Self::from_db_data(
+                            location_id,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+                            Cow::Owned(maybe_missing(path.materialized_path, "file_path.materialized_path")?),
+                            Cow::Owned(maybe_missing(path.name, "file_path.name")?),
+                            Cow::Owned(maybe_missing(path.extension, "file_path.extension")?)
+                        ))
 					}
 				}
 
-				impl<'a> ::std::convert::From<($crate::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
+				impl<'a> ::std::convert::TryFrom<($crate::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-					fn from((location_id, path): ($crate::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Self {
-						Self::from_db_data(
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from((location_id, path): ($crate::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+						Ok(Self::from_db_data(
 							location_id,
-							&path.materialized_path,
-							path.is_dir,
-							&path.name,
-							&path.extension
-						)
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+							Cow::Borrowed(maybe_missing(&path.materialized_path, "file_path.materialized_path")?),
+							Cow::Borrowed(maybe_missing(&path.name, "file_path.name")?),
+							Cow::Borrowed(maybe_missing(&path.extension, "file_path.extension")?)
+						))
 					}
 				}
 			)+

@@ -1,4 +1,7 @@
-use crate::{prisma::location, util::error::FileIOError};
+use crate::{
+	prisma::location,
+	util::{db::MissingFieldError, error::FileIOError},
+};
 
 use std::path::PathBuf;
 
@@ -68,6 +71,8 @@ pub enum LocationError {
 	FileIO(#[from] FileIOError),
 	#[error("location missing path <id='{0}'>")]
 	MissingPath(location::id::Type),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<LocationError> for rspc::Error {

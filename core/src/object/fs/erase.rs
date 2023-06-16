@@ -6,7 +6,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
 	prisma::{file_path, location},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{hash::Hash, path::PathBuf};
@@ -94,7 +94,7 @@ impl StatefulJob for FileEraserJob {
 		let step = &state.steps[0];
 
 		// Had to use `state.steps[0]` all over the place to appease the borrow checker
-		if step.file_path.is_dir {
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			let data = extract_job_data_mut!(state);
 
 			let mut dir = tokio::fs::read_dir(&step.full_path)

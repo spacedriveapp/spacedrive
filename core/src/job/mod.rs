@@ -26,7 +26,6 @@ pub use worker::*;
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 pub type JobRunErrors = Vec<String>;
-
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	type Job: StatefulJob;

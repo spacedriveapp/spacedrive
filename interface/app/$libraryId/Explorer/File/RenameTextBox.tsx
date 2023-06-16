@@ -55,7 +55,7 @@ export default ({
 						? filePathData.name
 						: filePathData.name + '.' + filePathData.extension;
 
-				if (newName !== oldName) {
+				if (oldName !== null && filePathData.location_id !== null && newName !== oldName) {
 					renameFile.mutate({
 						location_id: filePathData.location_id,
 						kind: {
@@ -79,7 +79,7 @@ export default ({
 			if (!node) return;
 
 			range.setStart(node, 0);
-			range.setEnd(node, filePathData?.name.length || 0);
+			range.setEnd(node, filePathData?.name?.length || 0);
 
 			const sel = window.getSelection();
 			sel?.removeAllRanges();

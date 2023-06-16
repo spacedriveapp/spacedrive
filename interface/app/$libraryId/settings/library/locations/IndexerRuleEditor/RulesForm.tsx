@@ -1,14 +1,17 @@
 import clsx from 'clsx';
-import { Trash } from 'phosphor-react';
-import { Info } from 'phosphor-react';
-import { ChangeEvent, useEffect, useId } from 'react';
-import { useCallback } from 'react';
+import { Info, Trash } from 'phosphor-react';
+import { ChangeEvent, useCallback, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
-import { RuleKind, UnionToTuple, extractInfoRSPCError, useLibraryMutation } from '@sd/client';
-import { IndexerRuleCreateArgs } from '@sd/client';
-import { Button, Card, Divider, Input, Select, SelectOption, Switch, Tooltip } from '@sd/ui';
+import {
+	IndexerRuleCreateArgs,
+	RuleKind,
+	UnionToTuple,
+	extractInfoRSPCError,
+	useLibraryMutation
+} from '@sd/client';
+import { Button, Card, Divider, Input, Select, SelectOption, Tooltip } from '@sd/ui';
 import { ErrorMessage, Form, useZodForm } from '@sd/ui/src/forms';
 import { InputKinds, RuleInput, validateInput } from './RuleInput';
 

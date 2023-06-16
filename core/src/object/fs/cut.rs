@@ -94,7 +94,7 @@ impl StatefulJob for FileCutterJob {
 
 		let full_output = data
 			.full_target_directory_path
-			.join(construct_target_filename(step, &None));
+			.join(construct_target_filename(step, &None)?);
 
 		if step.full_path.parent().ok_or(JobError::Path)?
 			== full_output.parent().ok_or(JobError::Path)?
