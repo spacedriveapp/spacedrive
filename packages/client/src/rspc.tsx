@@ -20,12 +20,12 @@ type StripLibraryArgsFromInput<
 	NeverOverNull extends boolean
 > = T extends any
 	? T['input'] extends LibraryArgs<infer E>
-		? {
-				key: T['key'];
-				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
-				result: T['result'];
-		  }
-		: never
+	? {
+		key: T['key'];
+		input: NeverOverNull extends true ? (E extends null ? never : E) : E;
+		result: T['result'];
+	}
+	: never
 	: never;
 
 type NonLibraryProceduresDef = {

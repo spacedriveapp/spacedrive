@@ -5,8 +5,8 @@ import { CodeBlock } from '~/components/Codeblock';
 export const Component = () => {
 	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
-	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
-	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
+	// const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
+	// const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');
@@ -30,10 +30,10 @@ export const Component = () => {
 						Open data folder
 					</Button>
 				</div> */}
-			<h1 className="text-sm font-bold ">Running Jobs</h1>
+			{/* <h1 className="text-sm font-bold ">Running Jobs</h1>
 			<CodeBlock src={{ ...jobs }} />
 			<h1 className="text-sm font-bold ">Job History</h1>
-			<CodeBlock src={{ ...jobHistory }} />
+			<CodeBlock src={{ ...jobHistory }} /> */}
 			<h1 className="text-sm font-bold ">Node State</h1>
 			<CodeBlock src={{ ...nodeState }} />
 			<h1 className="text-sm font-bold ">Libraries</h1>

@@ -7,8 +7,8 @@ export type Procedures = {
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
-        { key: "jobs.getHistory", input: LibraryArgs<null>, result: JobReport[] } | 
-        { key: "jobs.getRunning", input: LibraryArgs<null>, result: JobReport[] } | 
+        { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
+        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroups } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -42,6 +42,8 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
+        { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
+        { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -63,6 +65,7 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
+        { key: "jobs.progress", input: LibraryArgs<string>, result: JobProgressEvent } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
@@ -131,6 +134,12 @@ export type IndexerRule = { id: number; pub_id: number[] | null; name: string; d
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+
+export type JobGroup = { id: string; action: string; status: JobStatus; created_at: string; jobs: JobReport[] }
+
+export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
+
+export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 

@@ -59,7 +59,7 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
-		mut ctx: WorkerContext,
+		mut ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
@@ -176,7 +176,7 @@ impl StatefulJob for IndexerJob {
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		mut ctx: WorkerContext,
+		mut ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = extract_job_data_mut!(state);
@@ -190,7 +190,7 @@ impl StatefulJob for IndexerJob {
 					vec![
 						ScanProgress::SavedChunks(step.chunk_idx),
 						ScanProgress::Message(format!(
-							"Writing {}/{} to db",
+							"Writing chunk {} of {} to database",
 							step.chunk_idx, data.total_save_steps
 						)),
 					],
@@ -236,8 +236,8 @@ impl StatefulJob for IndexerJob {
 				data.removed_count += remove_non_existing_file_paths(to_remove, &db).await?;
 				data.db_write_time += db_delete_time.elapsed();
 
-				let old_total = data.total_paths;
-				let old_steps_count = state.steps.len() as u64;
+				let _old_total = data.total_paths;
+				let _old_steps_count = state.steps.len() as u64;
 
 				state.steps.extend(
 					walked
@@ -256,14 +256,14 @@ impl StatefulJob for IndexerJob {
 						.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
 				);
 
-				IndexerJobData::on_scan_progress(
-					&mut ctx,
-					vec![ScanProgress::Message(format!(
-						"Scanned more {} files or directories; {} more directories to scan",
-						data.total_paths - old_total,
-						state.steps.len() as u64 - old_steps_count - data.total_paths
-					))],
-				);
+				// IndexerJobData::on_scan_progress(
+				// 	&mut ctx,
+				// 	vec![ScanProgress::Message(format!(
+				// 		"Scanned more {} files or directories; {} more directories to scan",
+				// 		data.total_paths - old_total,
+				// 		state.steps.len() as u64 - old_steps_count - data.total_paths
+				// 	))],
+				// );
 
 				if !errors.is_empty() {
 					return Err(JobError::StepCompletedWithErrors(
@@ -276,7 +276,7 @@ impl StatefulJob for IndexerJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let location_path =
 			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 

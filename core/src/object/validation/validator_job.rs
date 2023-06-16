@@ -54,7 +54,11 @@ impl StatefulJob for ObjectValidatorJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		state.steps.extend(
@@ -81,7 +85,7 @@ impl StatefulJob for ObjectValidatorJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let Library { db, sync, .. } = &ctx.library;
@@ -126,7 +130,11 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(
+		&mut self,
+		_ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> JobResult {
 		let data = extract_job_data!(state);
 		info!(
 			"finalizing validator job at {}: {} tasks",

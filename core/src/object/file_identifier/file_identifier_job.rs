@@ -26,11 +26,11 @@ use super::{
 
 pub struct FileIdentifierJob {}
 
-/// `FileIdentifierJobInit` takes file_paths without a file_id from an entire location
+/// `FileIdentifierJobInit` takes file_paths without an object_id from a location
 /// or starting from a `sub_path` (getting every descendent from this `sub_path`
 /// and uniquely identifies them:
 /// - first: generating the cas_id and extracting metadata
-/// - finally: creating unique file records, and linking them to their file_paths
+/// - finally: creating unique object records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,
@@ -69,7 +69,11 @@ impl StatefulJob for FileIdentifierJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
@@ -159,7 +163,7 @@ impl StatefulJob for FileIdentifierJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let FileIdentifierJobState {
@@ -215,7 +219,7 @@ impl StatefulJob for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&mut self, _: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let report = &extract_job_data!(state).report;
 
 		info!("Finalizing identifier job: {report:?}");

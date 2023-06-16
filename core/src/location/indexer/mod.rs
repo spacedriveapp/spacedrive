@@ -69,13 +69,16 @@ pub struct IndexerJobData {
 
 impl IndexerJobData {
 	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress_debounced(
+		ctx.progress(
 			progress
 				.iter()
 				.map(|p| match p.clone() {
 					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
 					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => JobReportUpdate::Message(m),
+					ScanProgress::Message(m) => {
+						// println!("MESSAGE: {:?}", m);
+						JobReportUpdate::Message(m)
+					}
 				})
 				.collect(),
 		)
@@ -105,7 +108,7 @@ pub enum IndexerError {
 	SubPathNotFound(Box<Path>),
 
 	// Internal Errors
-	#[error("database error: {0}")]
+	#[error("Database Error: {}", .0.to_string())]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
@@ -231,7 +234,7 @@ async fn execute_indexer_save_step(
 fn finalize_indexer<SJob, Init, Step>(
 	location_path: impl AsRef<Path>,
 	state: &JobState<SJob>,
-	ctx: WorkerContext,
+	ctx: &mut WorkerContext,
 ) -> JobResult
 where
 	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = Step>,
@@ -262,7 +265,10 @@ fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
-				ScanProgress::Message(format!("Scanning {}", path.display())),
+				ScanProgress::Message(format!(
+					"Scanning: {:?}",
+					path.file_name().unwrap_or(path.as_os_str())
+				)),
 				ScanProgress::ChunkCount(total_entries / batch_size),
 			],
 		);
