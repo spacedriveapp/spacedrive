@@ -184,7 +184,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; date_created: string }
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; version: string | null; last_seen: string; timezone: string | null; date_created: string }
 
 /**
  * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.

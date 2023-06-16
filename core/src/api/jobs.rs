@@ -95,7 +95,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 						.into_iter()
-						.map(JobReport::from)
+						.flat_map(JobReport::try_from)
 						.collect();
 
 					let active_reports = ctx.jobs.get_active_reports().await;

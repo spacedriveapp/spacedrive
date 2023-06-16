@@ -96,6 +96,9 @@ pub enum JobManagerError {
 
 	#[error("job not found: {0}")]
 	NotFound(Uuid),
+
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<JobManagerError> for rspc::Error {
@@ -114,6 +117,11 @@ impl From<JobManagerError> for rspc::Error {
 			JobManagerError::NotFound(_) => Self::with_cause(
 				rspc::ErrorCode::NotFound,
 				"Job not found".to_string(),
+				value,
+			),
+			JobManagerError::MissingField(_) => Self::with_cause(
+				rspc::ErrorCode::InternalServerError,
+				"Missing field".to_string(),
 				value,
 			),
 		}
