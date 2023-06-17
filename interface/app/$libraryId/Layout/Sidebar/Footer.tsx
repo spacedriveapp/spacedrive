@@ -44,15 +44,27 @@ export default () => {
 						</div>
 					</Popover>
 				</div>
-				<Button
-					variant="outline"
-					className="flex items-center gap-1"
-					onClick={() => {
-						dialogManager.create((dp) => <FeedbackDialog {...dp} />);
-					}}
-				>
-					<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
-				</Button>
+				{debugState.enabled ? (
+					<Button
+						variant="outline"
+						className="flex items-center gap-1"
+						onClick={() => {
+							dialogManager.create((dp) => <FeedbackDialog {...dp} />);
+						}}
+					>
+						<p className="text-[11px] font-normal text-sidebar-inkFaint">Developer</p>
+					</Button>
+				) : (
+					<Button
+						variant="outline"
+						className="flex items-center gap-1"
+						onClick={() => {
+							dialogManager.create((dp) => <FeedbackDialog {...dp} />);
+						}}
+					>
+						<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
+					</Button>
+				)}
 			</div>
 			{debugState.enabled && <DebugPopover />}
 		</div>

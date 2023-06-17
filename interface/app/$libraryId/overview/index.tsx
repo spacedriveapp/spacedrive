@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
@@ -13,6 +13,8 @@ import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
 import { useItems } from './data';
+import { dialogManager } from '@sd/ui';
+import AddRecommendedLocationsDialog from './AddRecommendedLocations';
 
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
@@ -34,6 +36,10 @@ export const Component = () => {
 		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
 		[selectedItemId, items]
 	);
+
+	useEffect(() => {
+		dialogManager.create((dp) => <AddRecommendedLocationsDialog {...dp} />)
+	}, []);
 
 	return (
 		<>

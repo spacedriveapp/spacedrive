@@ -1901,6 +1901,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6900,6 +6909,7 @@ dependencies = [
  "chrono",
  "ctor",
  "dashmap",
+ "dirs",
  "enumflags2 0.7.7",
  "futures",
  "globset",

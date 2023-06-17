@@ -9,7 +9,8 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tokio::fs;
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -189,6 +190,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}),
 		)
+		.procedure("getRecommendedForOs", {
+			R.with2(library())
+				.query(|(_, _library), _: ()| async move { get_default_user_folders().await })
+		})
+		.procedure("addMany", {
+			R.with2(library())
+				.mutation(|(_, library), locations: Vec<String>| async move { Ok(()) })
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
@@ -290,4 +299,39 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct UserFolder {
+	name: String,
+	path: PathBuf,
+}
+
+pub async fn get_default_user_folders() -> Vec<UserFolder> {
+	let folder_names = [
+		"Desktop",
+		"Downloads",
+		"Movies",
+		"Documents",
+		"Music",
+		"Pictures",
+	];
+	let mut folder_futures = Vec::new();
+
+	if let Some(home) = dirs::home_dir() {
+		for folder_name in &folder_names {
+			let potential_path = home.join(Path::new(folder_name));
+			folder_futures.push(does_folder_exist(potential_path, folder_name.to_string()));
+		}
+	}
+
+	let results: Vec<_> = futures::future::join_all(folder_futures).await;
+	results.into_iter().filter_map(Result::ok).collect()
+}
+
+async fn does_folder_exist(path: PathBuf, name: String) -> Result<UserFolder, ()> {
+	match fs::metadata(&path).await {
+		Ok(_) => Ok(UserFolder { name, path }),
+		Err(_) => Err(()),
+	}
 }
