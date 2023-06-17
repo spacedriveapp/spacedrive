@@ -90,7 +90,11 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 							<motion.div
 								onViewportEnter={() => lastCategoryVisibleHandler(index)}
 								onViewportLeave={() => lastCategoryVisibleHandler(index)}
-								viewport={{ root: ref, margin: '0% -120px 0% 0%' }}
+								viewport={{
+									root: ref,
+									// WARNING: Edge breaks if the values are not postfixed with px or %
+									margin: '0% -120px 0% 0%'
+								}}
 								className="min-w-fit"
 								key={category}
 							>
