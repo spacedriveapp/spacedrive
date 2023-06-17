@@ -33,6 +33,8 @@ function Job({ job, className, isChild }: JobProps) {
 	};
 	const isRunning = job.status === 'Running';
 
+	const task_count = realtimeUpdate?.task_count || job.task_count;
+
 	// clear stale realtime state when job is done
 	useEffect(() => {
 		if (job.status !== 'Running') {
@@ -98,7 +100,7 @@ function Job({ job, className, isChild }: JobProps) {
 		>
 			{isRunning && (
 				<div className="my-1 ml-1.5 w-[335px]">
-					<ProgressBar value={realtimeUpdate?.completed_task_count || 0} total={realtimeUpdate?.task_count || 0} />
+					<ProgressBar pending={task_count == 0} value={realtimeUpdate?.completed_task_count || 0} total={realtimeUpdate?.task_count || 0} />
 				</div>
 			)}
 		</JobContainer>

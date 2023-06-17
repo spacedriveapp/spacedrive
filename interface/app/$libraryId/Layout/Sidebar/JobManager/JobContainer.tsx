@@ -25,7 +25,7 @@ interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 const CIRCLE_ICON_CLASS = `relative flex-shrink-0 top-1 z-20 mx-1 h-7 w-7 rounded-full bg-app-button p-[5.5px]`;
 const IMG_ICON_CLASS = `relative left-[-2px] top-1 z-10 mr-2 h-8 w-8`;
 
-const MetaContainer = tw.div`flex w-full flex-col`;
+const MetaContainer = tw.div`flex w-full overflow-hidden flex-col`;
 const TextLine = tw.div`mt-[2px] gap-1 text-ink-faint truncate mr-8 pl-1.5`;
 const TextItem = tw.span`truncate`;
 
@@ -56,7 +56,9 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 			{CircleIcon && <CircleIcon weight="fill" className={CIRCLE_ICON_CLASS} />}
 			{iconImg && (<img src={iconImg} className={IMG_ICON_CLASS} />)}
 			<MetaContainer>
-				<span className="truncate font-semibold pl-1.5">{name}</span>
+				<Tooltip tooltipClassName='bg-black max-w-[400px]' position='top' label={name}>
+					<span className="truncate font-semibold pl-1.5">{name}</span>
+				</Tooltip>
 				{textItems?.map((textItems, lineIndex) => {
 					// filter out undefined text so we don't render empty TextItems
 					const filteredItems = textItems.filter(i => i?.text);
@@ -64,7 +66,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					const popoverText = filteredItems.map(i => i?.text).join(" • ");
 
 					return (
-						<Tooltip label={popoverText} key={lineIndex}>
+						<Tooltip label={popoverText} key={lineIndex} tooltipClassName='bg-black max-w-[400px]' >
 							<TextLine >
 								{filteredItems.map((textItem, index) => {
 									const Icon = textItem?.icon;

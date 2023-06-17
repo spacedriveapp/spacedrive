@@ -92,7 +92,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 				textItems={[[{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` }, { text: date_started }, { text: data.paused ? "Paused" : data.completed ? totalGroupTime || undefined : data.queued ? "Queued" : "" }]]}
 			>
 				{!showChildJobs && isJobsRunning && (
-					<div className="my-1 w-full">
+					<div className="my-1 ml-1.5 w-full">
 						<ProgressBar value={tasks.completed} total={tasks.total} />
 					</div>
 				)}
