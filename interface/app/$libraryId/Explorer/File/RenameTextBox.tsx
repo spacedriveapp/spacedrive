@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef, useState } from 'react';
 import { useKey } from 'rooks';
-import { FilePath, useLibraryMutation } from '@sd/client';
+import { FilePath, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { showAlertDialog } from '~/components';
 import useClickOutside from '~/hooks/useClickOutside';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerViewContext } from '../ViewContext';
@@ -37,30 +38,36 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 	}
 
 	// Handle renaming
-	function rename() {
-		if (ref.current) {
-			const innerText = ref.current.innerText.trim();
-			if (!innerText) return reset();
+	async function rename() {
+		if (!ref.current) return;
 
-			const newName = innerText;
-			if (filePathData) {
-				const oldName =
-					filePathData.is_dir || !filePathData.extension
-						? filePathData.name
-						: filePathData.name + '.' + filePathData.extension;
+		const newName = ref.current.innerText.trim();
+		if (!newName) return reset();
 
-				if (oldName !== null && filePathData.location_id !== null && newName !== oldName) {
-					renameFile.mutate({
-						location_id: filePathData.location_id,
-						kind: {
-							One: {
-								from_file_path_id: filePathData.id,
-								to: newName
-							}
-						}
-					});
+		if (!filePathData) return;
+
+		const oldName =
+			filePathData.is_dir || !filePathData.extension
+				? filePathData.name
+				: filePathData.name + '.' + filePathData.extension;
+
+		if (!oldName || !filePathData.location_id || newName === oldName) return;
+
+		try {
+			await renameFile.mutateAsync({
+				location_id: filePathData.location_id,
+				kind: {
+					One: {
+						from_file_path_id: filePathData.id,
+						to: newName
+					}
 				}
-			}
+			});
+		} catch (e) {
+			showAlertDialog({
+				title: 'Error',
+				value: String(e)
+			});
 		}
 	}
 
@@ -175,8 +182,8 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 					setRenamable(false);
 				}
 			}}
-			onBlur={() => {
-				rename();
+			onBlur={async () => {
+				await rename();
 				setAllowRename(false);
 				explorerView.setIsRenaming(false);
 			}}
