@@ -100,11 +100,8 @@ impl TryFrom<job::Data> for JobReport {
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
 			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: maybe_missing(data.task_count, "job.task_count")?,
-			completed_task_count: maybe_missing(
-				data.completed_task_count,
-				"job.completed_task_count",
-			)?,
+			task_count: data.task_count.unwrap_or(0),
+			completed_task_count: data.completed_task_count.unwrap_or(0),
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
@@ -144,11 +141,9 @@ impl TryFrom<job_without_data::Data> for JobReport {
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
 			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: maybe_missing(data.task_count, "job.task_count")?,
-			completed_task_count: maybe_missing(
-				data.completed_task_count,
-				"job.completed_task_count",
-			)?,
+			task_count: data.task_count.unwrap_or(0),
+			completed_task_count: data.completed_task_count.unwrap_or(0),
+
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion

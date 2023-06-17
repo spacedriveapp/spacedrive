@@ -1,8 +1,11 @@
 use crate::{api::CoreEvent, invalidate_query, library::Library};
 
-use std::sync::{
-	atomic::{AtomicBool, Ordering},
-	Arc,
+use std::{
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
 };
 
 use chrono::{DateTime, Utc};
@@ -12,6 +15,7 @@ use specta::Type;
 use tokio::{
 	select,
 	sync::{mpsc, oneshot, watch},
+	time::Instant,
 };
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
@@ -80,7 +84,6 @@ impl Worker {
 		job_manager: Arc<JobManager>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
-		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
 
 		let job_hash = job.hash();
 
@@ -102,6 +105,8 @@ impl Worker {
 		job.register_children(&library).await?;
 
 		invalidate_queries(&library);
+
+		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
 
 		// spawn task to handle running the job
 		tokio::spawn(Self::do_work(
@@ -159,6 +164,7 @@ impl Worker {
 
 	fn track_progress(
 		report: &mut JobReport,
+		last_report_watch_update: &mut Instant,
 		report_watch_tx: &watch::Sender<JobReport>,
 		start_time: DateTime<Utc>,
 		updates: Vec<JobReportUpdate>,
@@ -201,7 +207,15 @@ impl Worker {
 			.unwrap_or(Utc::now());
 
 		// updated the report watcher
-		report_watch_tx.send(report.clone()).ok();
+		if last_report_watch_update.elapsed() > Duration::from_millis(500) {
+			report_watch_tx.send_modify(|old| {
+				old.task_count = report.task_count;
+				old.completed_task_count = report.completed_task_count;
+				old.estimated_completion = report.estimated_completion;
+				old.message = report.message.clone();
+			});
+			*last_report_watch_update = Instant::now();
+		}
 
 		// emit a CoreEvent
 		library.emit(CoreEvent::JobProgress(JobProgressEvent {
@@ -236,6 +250,9 @@ impl Worker {
 			commands_rx,
 		);
 
+		let mut last_reporter_watch_update = Instant::now();
+		invalidate_query!(library, "jobs.reports");
+
 		let mut events_ended = false;
 		let job_result = 'job: loop {
 			select! {
@@ -247,6 +264,7 @@ impl Worker {
 								WorkerEvent::Progressed(updates) => {
 									Self::track_progress(
 										&mut report,
+										&mut last_reporter_watch_update,
 										&report_watch_tx,
 										start_time,
 										updates,
@@ -267,6 +285,7 @@ impl Worker {
 						WorkerEvent::Progressed(updates) => {
 							Self::track_progress(
 								&mut report,
+								&mut last_reporter_watch_update,
 								&report_watch_tx,
 								start_time,
 								updates,
@@ -283,6 +302,8 @@ impl Worker {
 		drop(job_future);
 
 		Self::process_job_output(job, job_result, &mut report, &library).await;
+
+		report_watch_tx.send(report.clone()).ok();
 
 		debug!(
 			"Worker completed Job<id='{}', name='{}'>",
