@@ -40,6 +40,7 @@ interface Props {
 export default ({ data }: Props) => {
 	const store = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+	const explorerStore = useExplorerStore();
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
@@ -74,11 +75,13 @@ export default ({ data }: Props) => {
 
 			<OpenInNativeExplorer />
 
-			<ContextMenu.Item
-				label="Rename"
-				keybind="Enter"
-				onClick={() => explorerView.setIsRenaming(true)}
-			/>
+			{explorerStore.layoutMode === 'media' || (
+				<ContextMenu.Item
+					label="Rename"
+					keybind="Enter"
+					onClick={() => explorerView.setIsRenaming(true)}
+				/>
+			)}
 
 			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
 				<ContextMenu.Item
