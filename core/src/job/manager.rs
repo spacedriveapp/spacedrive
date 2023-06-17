@@ -182,7 +182,7 @@ impl JobManager {
 	pub async fn pause(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Pausing job: {:#?}", worker.report().await);
+			debug!("Pausing job: {:#?}", worker.report());
 
 			// Set the pause signal in the worker.
 			worker.pause().await;
@@ -196,7 +196,7 @@ impl JobManager {
 	pub async fn resume(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Resuming job: {:?}", worker.report().await);
+			debug!("Resuming job: {:?}", worker.report());
 
 			// Set the pause signal in the worker.
 			worker.resume().await;
@@ -211,7 +211,7 @@ impl JobManager {
 	pub async fn cancel(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Canceling job: {:#?}", worker.report().await);
+			debug!("Canceling job: {:#?}", worker.report());
 
 			// Set the cancel signal in the worker.
 			worker.cancel().await;
@@ -274,27 +274,30 @@ impl JobManager {
 
 	// get all active jobs, including paused jobs organized by job id
 	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, JobReport> {
-		let workers = self.running_workers.read().await;
-		let mut reports = HashMap::with_capacity(workers.len());
-		for worker in workers.values() {
-			let report = worker.report().await;
-			reports.insert(report.id, report);
-		}
-
-		reports
+		self.running_workers
+			.read()
+			.await
+			.values()
+			.map(|worker| {
+				let report = worker.report();
+				(report.id, report)
+			})
+			.collect()
 	}
 
 	// get all running jobs, excluding paused jobs organized by action
 	pub async fn get_running_reports(&self) -> HashMap<String, JobReport> {
-		let workers = self.running_workers.read().await;
-		let mut reports = HashMap::with_capacity(workers.len());
-		for worker in workers.values() {
-			if !worker.is_paused() {
-				let report = worker.report().await;
-				reports.insert(report.get_meta().0, report);
-			}
-		}
-		reports
+		self.running_workers
+			.read()
+			.await
+			.values()
+			.filter_map(|worker| {
+				(!worker.is_paused()).then(|| {
+					let report = worker.report();
+					(report.get_meta().0, report)
+				})
+			})
+			.collect()
 	}
 
 	/// Check if the manager currently has some active workers.

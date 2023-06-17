@@ -11,7 +11,7 @@ use serde_json::Value;
 use specta::Type;
 use tokio::{
 	select,
-	sync::{mpsc, oneshot},
+	sync::{mpsc, oneshot, watch},
 };
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
@@ -68,7 +68,7 @@ impl WorkerContext {
 // once the job is complete the worker will exit
 pub struct Worker {
 	commands_tx: mpsc::Sender<WorkerCommand>,
-	request_report_tx: mpsc::Sender<oneshot::Sender<JobReport>>,
+	report_watch_rx: watch::Receiver<JobReport>,
 	paused: AtomicBool,
 }
 
@@ -80,7 +80,7 @@ impl Worker {
 		job_manager: Arc<JobManager>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
-		let (request_report_tx, request_report_rx) = mpsc::channel(8);
+		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
 
 		let job_hash = job.hash();
 
@@ -111,7 +111,7 @@ impl Worker {
 				hash: job_hash,
 				report,
 			},
-			request_report_rx,
+			report_watch_tx,
 			start_time,
 			commands_rx,
 			library,
@@ -119,7 +119,7 @@ impl Worker {
 
 		Ok(Self {
 			commands_tx,
-			request_report_tx,
+			report_watch_rx,
 			paused: AtomicBool::new(false),
 		})
 	}
@@ -149,16 +149,8 @@ impl Worker {
 		rx.await.ok();
 	}
 
-	pub async fn report(&self) -> JobReport {
-		let (tx, rx) = oneshot::channel();
-
-		self.request_report_tx
-			.send(tx)
-			.await
-			.expect("critical error: failed to send worker request for job report");
-
-		rx.await
-			.expect("critical error: failed to receive worker response for job report")
+	pub fn report(&self) -> JobReport {
+		self.report_watch_rx.borrow().clone()
 	}
 
 	pub fn is_paused(&self) -> bool {
@@ -167,6 +159,7 @@ impl Worker {
 
 	fn track_progress(
 		report: &mut JobReport,
+		report_watch_tx: &watch::Sender<JobReport>,
 		start_time: DateTime<Utc>,
 		updates: Vec<JobReportUpdate>,
 		library: &Library,
@@ -208,6 +201,9 @@ impl Worker {
 			.checked_add_signed(remaining_time)
 			.unwrap_or(Utc::now());
 
+		// updated the report watcher
+		report_watch_tx.send(report.clone()).ok();
+
 		// emit a CoreEvent
 		library.emit(CoreEvent::JobProgress(JobProgressEvent {
 			id: report.id,
@@ -225,7 +221,7 @@ impl Worker {
 			hash,
 			mut report,
 		}: JobWorkTable,
-		mut request_report_rx: mpsc::Receiver<oneshot::Sender<JobReport>>,
+		report_watch_tx: watch::Sender<JobReport>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
 		library: Library,
@@ -247,26 +243,19 @@ impl Worker {
 				job_result = &mut job_future => {
 					if !events_ended {
 						// There are still some progress events to be processed so we postpone the job result
-						loop {
-							select!{
-								Some(event) = events_rx.recv() => {
-									match event {
-										WorkerEvent::Progressed(updates) => {
-											Self::track_progress(
-												&mut report,
-												start_time,
-												updates,
-												&library
-											);
-										}
-										WorkerEvent::Stop => {
-											break 'job job_result;
-										},
-									}
-								},
-								// When someone requests a report, send a copy of the current report
-								Some(response_tx) = request_report_rx.recv() => {
-									response_tx.send(report.clone()).ok();
+						while let Some(event) = events_rx.recv().await {
+							match event {
+								WorkerEvent::Progressed(updates) => {
+									Self::track_progress(
+										&mut report,
+										&report_watch_tx,
+										start_time,
+										updates,
+										&library
+									);
+								}
+								WorkerEvent::Stop => {
+									break 'job job_result;
 								},
 							}
 						}
@@ -274,16 +263,16 @@ impl Worker {
 						break 'job job_result;
 					}
 				},
-
-				// When someone requests a report, send a copy of the current report
-				Some(response_tx) = request_report_rx.recv() => {
-					response_tx.send(report.clone()).ok();
-				},
-
 				Some(event) = events_rx.recv() => {
 					match event {
 						WorkerEvent::Progressed(updates) => {
-							Self::track_progress(&mut report, start_time, updates, &library)
+							Self::track_progress(
+								&mut report,
+								&report_watch_tx,
+								start_time,
+								updates,
+								&library
+							)
 						}
 						WorkerEvent::Stop => {events_ended = true;},
 					}
