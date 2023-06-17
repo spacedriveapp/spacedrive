@@ -729,6 +729,7 @@ mod seeder {
                     vec![
                         "/{System,Network,Library,Applications}",
                         "/Users/*/{Library,Applications}",
+						"**/*.photoslibrary/{database,external,private,resources,scope}",
                         // Files that might appear in the root of a volume
                         "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
                         // Directories potentially created on remote AFP share
