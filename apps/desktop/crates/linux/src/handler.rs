@@ -41,7 +41,7 @@ impl Handler {
 	}
 
 	pub fn get_entry(&self) -> Result<DesktopEntry> {
-		DesktopEntry::try_from(self.get_path()?)
+		DesktopEntry::try_from(&self.get_path()?)
 	}
 
 	pub fn launch(&self, args: &[&str]) -> Result<()> {

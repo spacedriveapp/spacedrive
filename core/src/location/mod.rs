@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobManagerError},
+	job::{Job, JobError, JobManagerError},
 	library::Library,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -8,7 +8,10 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::{db::uuid_to_bytes, error::FileIOError},
+	util::{
+		db::{chain_optional_iter, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use std::{
@@ -36,8 +39,6 @@ pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
-
-pub type LocationId = i32;
 
 // Location includes!
 location::include!(location_with_indexer_rules {
@@ -211,7 +212,7 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: i32,
+	pub id: location::id::Type,
 	pub name: Option<String>,
 	pub generate_preview_media: Option<bool>,
 	pub sync_preview_media: Option<bool>,
@@ -336,7 +337,10 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqueQuery {
+pub fn find_location(
+	library: &Library,
+	location_id: location::id::Type,
+) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
@@ -345,7 +349,7 @@ pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqu
 
 async fn link_location_and_indexer_rules(
 	library: &Library,
-	location_id: i32,
+	location_id: location::id::Type,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
 	library
@@ -432,7 +436,7 @@ pub async fn light_scan_location(
 	library: Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobManagerError> {
+) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	if location.node_id != Some(library.node_local_id) {
@@ -599,7 +603,7 @@ async fn create_location(
 		)
 		.await?;
 
-	debug!("created in db");
+	debug!("New location created in db");
 
 	if !indexer_rules_ids.is_empty() {
 		link_location_and_indexer_rules(library, location.id, indexer_rules_ids).await?;
@@ -620,7 +624,10 @@ async fn create_location(
 	}))
 }
 
-pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
+pub async fn delete_location(
+	library: &Library,
+	location_id: location::id::Type,
+) -> Result<(), LocationError> {
 	let Library { db, .. } = library;
 
 	library
@@ -663,19 +670,15 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
 	library: &Library,
-	location_id: i32,
+	location_id: location::id::Type,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
-	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
-		vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::starts_with(parent_materialized_path),
-		]
-	} else {
-		vec![file_path::location_id::equals(location_id)]
-	};
+	let children_params = chain_optional_iter(
+		[file_path::location_id::equals(Some(location_id))],
+		[parent_materialized_path.map(file_path::materialized_path::starts_with)],
+	);
 
 	// Fetching all object_ids from all children file_paths
 	let object_ids = db

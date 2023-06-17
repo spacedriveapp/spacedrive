@@ -51,13 +51,13 @@ const Thumbnail = memo(
 						videoBarsSize
 							? size && size.height >= size.width
 								? {
-									borderLeftWidth: videoBarsSize,
-									borderRightWidth: videoBarsSize
-								}
+										borderLeftWidth: videoBarsSize,
+										borderRightWidth: videoBarsSize
+								  }
 								: {
-									borderTopWidth: videoBarsSize,
-									borderBottomWidth: videoBarsSize
-								}
+										borderTopWidth: videoBarsSize,
+										borderBottomWidth: videoBarsSize
+								  }
 							: {}
 					}
 					onLoad={props.onLoad}
@@ -75,11 +75,11 @@ const Thumbnail = memo(
 							props.cover
 								? {}
 								: size
-									? {
+								? {
 										marginTop: Math.floor(size.height / 2) - 2,
 										marginLeft: Math.floor(size.width / 2) - 2
-									}
-									: { display: 'none' }
+								  }
+								: { display: 'none' }
 						}
 						className={clsx(
 							props.cover
@@ -139,7 +139,14 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId: itemLocationId, thumbnailKey } = itemData;
+		const {
+			casId,
+			kind,
+			isDir,
+			extension,
+			locationId: itemLocationId,
+			thumbnailKey
+		} = itemData;
 		const locationId = itemLocationId ?? explorerLocationId;
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -165,7 +172,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			default:
-				setSrc(getIcon(kind, isDark, extension, isDir));
+				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
 	}, [
@@ -200,9 +207,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				size &&
-				kind !== 'Video' &&
-				thumbType !== ThumbType.Icon &&
-				'border-2 border-transparent',
+					kind !== 'Video' &&
+					thumbType !== ThumbType.Icon &&
+					'border-2 border-transparent',
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
@@ -299,9 +306,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										'shadow shadow-black/30'
 									],
 									size &&
-									(kind === 'Video'
-										? 'border-x-0 border-black'
-										: size > 60 && 'border-2 border-app-line'),
+										(kind === 'Video'
+											? 'border-x-0 border-black'
+											: size > 60 && 'border-2 border-app-line'),
 									props.className
 								)}
 								crossOrigin={ThumbType.Original && 'anonymous'} // Here it is ok, because it is not a react attr

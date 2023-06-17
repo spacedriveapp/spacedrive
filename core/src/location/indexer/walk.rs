@@ -305,7 +305,7 @@ where
 	.map(move |file_paths| {
 		let isolated_paths_already_in_db = file_paths
 			.into_iter()
-			.map(IsolatedFilePathData::from)
+			.flat_map(IsolatedFilePathData::try_from)
 			.collect::<HashSet<_>>();
 
 		indexed_paths.into_iter().filter_map(move |entry| {
@@ -608,6 +608,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
 	use super::super::rules::RulePerKind;
 	use super::*;

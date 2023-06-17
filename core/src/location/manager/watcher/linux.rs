@@ -7,7 +7,7 @@
 //! a Create Dir event, this one is actually ok at least.
 
 use crate::{
-	invalidate_query, library::Library, location::manager::LocationManagerError,
+	invalidate_query, library::Library, location::manager::LocationManagerError, prisma::location,
 	util::error::FileIOError,
 };
 
@@ -26,12 +26,12 @@ use tracing::{error, trace};
 
 use super::{
 	utils::{create_dir, file_creation_or_update, remove, rename},
-	EventHandler, LocationId, HUNDRED_MILLIS,
+	EventHandler, HUNDRED_MILLIS,
 };
 
 #[derive(Debug)]
 pub(super) struct LinuxEventHandler<'lib> {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: &'lib Library,
 	last_check_rename: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
@@ -41,7 +41,7 @@ pub(super) struct LinuxEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
-	fn new(location_id: LocationId, library: &'lib Library) -> Self {
+	fn new(location_id: location::id::Type, library: &'lib Library) -> Self {
 		Self {
 			location_id,
 			library,

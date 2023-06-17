@@ -1,10 +1,8 @@
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { CheckCircle } from 'phosphor-react';
-import { useEffect, useRef } from 'react';
-import { useState } from 'react';
-import { getThemeStore, useThemeStore } from '@sd/client';
-import { Themes } from '@sd/client';
+import { useEffect, useRef, useState } from 'react';
+import { Themes, getThemeStore, useThemeStore } from '@sd/client';
 import { Button, Slider, forms } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';

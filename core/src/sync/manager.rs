@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use sd_sync::*;
 
-use serde_json::{from_value, json, to_vec, Value};
+use serde_json::{json, to_vec, Value};
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
@@ -200,33 +200,10 @@ impl SyncManager {
 
 		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(mut data)) => {
+				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
 					db.file_path()
 						.create(
 							id.pub_id,
-							{
-								let val: std::collections::HashMap<String, Value> =
-									from_value(data.remove(file_path::location::NAME).unwrap())
-										.unwrap();
-								let val = val.into_iter().next().unwrap();
-
-								location::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
-							},
-							serde_json::from_value(
-								data.remove(file_path::materialized_path::NAME).unwrap(),
-							)
-							.unwrap(),
-							serde_json::from_value(data.remove(file_path::name::NAME).unwrap())
-								.unwrap(),
-							serde_json::from_value(
-								data.remove(file_path::extension::NAME)
-									.unwrap_or_else(|| serde_json::Value::String("".to_string())),
-							)
-							.unwrap(),
-							serde_json::from_value(data.remove(file_path::inode::NAME).unwrap())
-								.unwrap(),
-							serde_json::from_value(data.remove(file_path::device::NAME).unwrap())
-								.unwrap(),
 							data.into_iter()
 								.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
 								.collect(),

@@ -12,8 +12,12 @@ import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKey } from 'rooks';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { useExplorerConfigStore } from '~/hooks';
-import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks';
+import {
+	ExplorerLayoutMode,
+	getExplorerStore,
+	useExplorerConfigStore,
+	useExplorerStore
+} from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import {
 	ExplorerViewContext,
@@ -60,7 +64,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				updateAccessTime.mutate(data.item.object_id);
 			}
 
-			openFilePath(library.uuid, filePath.id);
+			openFilePath(library.uuid, [filePath.id]);
 		} else {
 			const { kind } = getExplorerItemData(data);
 

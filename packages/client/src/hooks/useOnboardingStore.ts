@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from '../lib/valito';
+import { valtioPersist } from '../lib';
 
 export enum UseCase {
 	CameraRoll = 'cameraRoll',

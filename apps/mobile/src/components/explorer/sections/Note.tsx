@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
-import { useLibraryMutation } from '@sd/client';
-import { Object as SDObject } from '@sd/client';
+import { Object as SDObject, useLibraryMutation } from '@sd/client';
 
 type Props = {
 	data: SDObject;

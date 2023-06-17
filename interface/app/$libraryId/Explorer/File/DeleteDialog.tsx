@@ -18,7 +18,7 @@ export default (props: Propps) => {
 			onSubmit={form.handleSubmit(() =>
 				deleteFile.mutateAsync({
 					location_id: props.location_id,
-					path_id: props.path_id
+					file_path_ids: [props.path_id]
 				})
 			)}
 			dialog={useDialog(props)}

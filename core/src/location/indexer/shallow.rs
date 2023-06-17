@@ -2,9 +2,12 @@ use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::JobError,
 	library::Library,
-	location::file_path_helper::{
-		check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		IsolatedFilePathData,
+	location::{
+		file_path_helper::{
+			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			IsolatedFilePathData,
+		},
+		LocationError,
 	},
 	to_remove_db_fetcher_fn,
 };
@@ -30,7 +33,7 @@ pub async fn shallow(
 ) -> Result<(), JobError> {
 	let location_id = location.id;
 	let Some(location_path) = location.path.as_ref().map(PathBuf::from) else {
-        panic!();
+        return Err(JobError::Location(LocationError::MissingPath(location_id)));
     };
 
 	let db = library.db.clone();
@@ -100,10 +103,10 @@ pub async fn shallow(
 		.collect::<Vec<_>>();
 
 	for step in steps {
-		execute_indexer_save_step(&location, &step, &library).await?;
+		execute_indexer_save_step(location, &step, library).await?;
 	}
 
-	invalidate_query!(&library, "search.paths");
+	invalidate_query!(library, "search.paths");
 
 	library.orphan_remover.invoke().await;
 

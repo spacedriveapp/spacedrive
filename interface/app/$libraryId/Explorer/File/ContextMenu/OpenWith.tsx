@@ -34,31 +34,38 @@ const Items = ({
 }) => {
 	const { library } = useLibraryContext();
 
-	const items = useQuery(
+	const items = useQuery<unknown>(
 		['openWith', filePath.id],
-		() => actions.getFilePathOpenWithApps(library.uuid, filePath.id),
+		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
 		{ suspense: true }
 	);
 
 	return (
 		<>
-			{items.data?.map((d) => (
-				<ContextMenu.Item
-					key={d.name}
-					onClick={async () => {
-						try {
-							await actions.openFilePathWith(library.uuid, filePath.id, d.url);
-						} catch {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to open file, with: ${d.url}`
-							});
-						}
-					}}
-				>
-					{d.name}
-				</ContextMenu.Item>
-			)) ?? <p> No apps available </p>}
+			{Array.isArray(items.data) && items.data.length > 0 ? (
+				items.data.map((data, id) => (
+					<ContextMenu.Item
+						key={id}
+						onClick={async () => {
+							try {
+								await actions.openFilePathWith(library.uuid, [
+									[filePath.id, data.url]
+								]);
+							} catch (e) {
+								console.error(e);
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to open file, with: ${data.url}`
+								});
+							}
+						}}
+					>
+						{data.name}
+					</ContextMenu.Item>
+				))
+			) : (
+				<p className="w-full text-center text-sm text-gray-400"> No apps available </p>
+			)}
 		</>
 	);
 };

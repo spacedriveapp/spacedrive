@@ -1,27 +1,16 @@
+import { JobGroups, JobReport, useLibraryMutation, useLibraryQuery, useLibrarySubscription } from '@sd/client';
+import { Button, PopoverClose, Tooltip } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
-import { useCallback } from 'react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
-import Job from './Job';
 import JobGroup from './JobGroup';
-import { useFilteredJobs } from './useFilteredJobs';
-import { useGroupedJobs } from './useGroupedJobs';
-import { useOrphanJobs } from './useOrphanJobs';
+import { useCallback, useEffect, useState } from 'react';
 
 export function JobsManager() {
-	const { data: runningJobs } = useLibraryQuery(['jobs.getRunning']);
-	const { data: jobs } = useLibraryQuery(['jobs.getHistory']);
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
-	const { individualJobs, runningIndividualJobs, jobsWithActions, runningJobsWithActions } =
-		useFilteredJobs(jobs, runningJobs);
-
-	const groupedJobs = useGroupedJobs(jobsWithActions, runningJobsWithActions);
-
-	const orphanJobs = useOrphanJobs(jobsWithActions, runningJobsWithActions);
+	const { data: jobs } = useLibraryQuery(['jobs.reports']);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -31,18 +20,7 @@ export function JobsManager() {
 			});
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.getHistory']);
-		}
-	});
-	const clearJob = useLibraryMutation(['jobs.clear'], {
-		onError: () => {
-			showAlertDialog({
-				title: 'Error',
-				value: 'There was an error clearing the job. Please try again.'
-			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.getHistory']);
+			queryClient.invalidateQueries(['jobs.reports ']);
 		}
 	});
 
@@ -54,49 +32,40 @@ export function JobsManager() {
 			onSubmit: () => clearAllJobs.mutate(null)
 		});
 	};
-	const clearJobHandler = useCallback(
-		(id: string) => {
-			clearJob.mutate(id);
-		},
-		[clearJob]
-	);
 
 	return (
 		<div className="h-full overflow-hidden pb-10">
-			<div className="z-20 flex h-10 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/70 px-2">
-				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
-				<div className="grow" />
-				<Button onClick={() => clearAllJobsHandler()} size="icon">
-					<Tooltip label="Clear out finished jobs">
-						<Trash className="h-5 w-5" />
-					</Tooltip>
-				</Button>
-				<PopoverClose asChild>
-					<Button size="icon">
-						<Tooltip label="Close">
-							<X className="h-5 w-5" />
+
+			<PopoverClose asChild>
+				<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
+					<span className=" ml-1.5 font-medium">Recent Jobs</span>
+
+					<div className="grow" />
+					<Button className='opacity-70' onClick={() => clearAllJobsHandler()} size="icon">
+						<Tooltip label="Clear out finished jobs">
+							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
-				</PopoverClose>
-			</div>
-			<div className="no-scrollbar h-full overflow-x-hidden">
-				{runningIndividualJobs?.map((job) => (
-					<Job key={job.id} job={job} />
-				))}
-				{groupedJobs.map((data) => (
-					<JobGroup key={data.id} data={data} clearJob={clearJobHandler} />
-				))}
-				{orphanJobs?.map((job) => (
-					<Job key={job?.id} job={job} />
-				))}
-				{individualJobs?.map((job) => (
-					<Job clearJob={clearJobHandler} key={job.id} job={job} />
-				))}
-				{jobs?.length === 0 && runningJobs?.length === 0 && (
-					<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
-						No jobs.
-					</div>
-				)}
+					<Button className='opacity-70' size="icon">
+						<Tooltip label="Close">
+							<X className="h-4 w-4" />
+						</Tooltip>
+					</Button>
+				</div>
+			</PopoverClose>
+			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
+				<div className='h-full border-r border-app-line/50'>
+					{jobs?.groups?.map((group) => (
+						<JobGroup key={group.id} data={group} clearJob={function (arg: string): void {
+							throw new Error('Function not implemented.');
+						}} />
+					))}
+					{jobs?.groups?.length === 0 && (
+						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
+							No jobs.
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);

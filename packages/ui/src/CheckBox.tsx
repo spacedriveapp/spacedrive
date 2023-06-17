@@ -6,7 +6,7 @@ import { ComponentProps, forwardRef } from 'react';
 const styles = cva(
 	[
 		'form-check-input float-left mr-2 mt-1 h-4 w-4 appearance-none rounded-sm border border-gray-300 bg-white bg-contain bg-center bg-no-repeat align-top transition duration-200',
-		'checked:border-accent checked:bg-accent focus:outline-none checked:hover:bg-accent/80'
+		'checked:border-accent checked:bg-accent checked:hover:bg-accent/80 focus:outline-none'
 	],
 	{ variants: {} }
 );

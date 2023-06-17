@@ -1,4 +1,5 @@
 use crate::{
+	extract_job_data, extract_job_data_mut,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
@@ -8,7 +9,7 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::chain_optional_iter,
+	util::db::{chain_optional_iter, maybe_missing},
 };
 
 use std::{
@@ -25,11 +26,11 @@ use super::{
 
 pub struct FileIdentifierJob {}
 
-/// `FileIdentifierJobInit` takes file_paths without a file_id from an entire location
+/// `FileIdentifierJobInit` takes file_paths without an object_id from a location
 /// or starting from a `sub_path` (getting every descendent from this `sub_path`
 /// and uniquely identifies them:
 /// - first: generating the cas_id and extracting metadata
-/// - finally: creating unique file records, and linking them to their file_paths
+/// - finally: creating unique object records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,
@@ -47,7 +48,7 @@ impl Hash for FileIdentifierJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
-	cursor: i32,
+	cursor: file_path::id::Type,
 	report: FileIdentifierReport,
 	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
 }
@@ -68,17 +69,19 @@ impl StatefulJob for FileIdentifierJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location.id;
 
-		let location_path = state.init.location.path.as_ref();
-		let Some(location_path) = location_path.map(Path::new) else {
-            return Err(JobError::MissingPath)
-        };
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
 			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
@@ -119,10 +122,7 @@ impl StatefulJob for FileIdentifierJob {
 			maybe_sub_iso_file_path,
 		});
 
-		let data = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data_mut!(state);
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
@@ -163,17 +163,14 @@ impl StatefulJob for FileIdentifierJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let FileIdentifierJobState {
 			ref mut cursor,
 			ref mut report,
 			ref maybe_sub_iso_file_path,
-		} = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		} = extract_job_data_mut!(state);
 
 		let step_number = state.step_number;
 		let location = &state.init.location;
@@ -222,12 +219,8 @@ impl StatefulJob for FileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let report = &state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state")
-			.report;
+	async fn finalize(&mut self, _: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		let report = &extract_job_data!(state).report;
 
 		info!("Finalizing identifier job: {report:?}");
 
@@ -236,15 +229,15 @@ impl StatefulJob for FileIdentifierJob {
 }
 
 fn orphan_path_filters(
-	location_id: i32,
-	file_path_id: Option<i32>,
+	location_id: location::id::Type,
+	file_path_id: Option<file_path::id::Type>,
 	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
-			file_path::is_dir::equals(false),
-			file_path::location_id::equals(location_id),
+			file_path::is_dir::equals(Some(false)),
+			file_path::location_id::equals(Some(location_id)),
 		],
 		[
 			// this is a workaround for the cursor not working properly
@@ -262,7 +255,7 @@ fn orphan_path_filters(
 
 async fn count_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
+	location_id: location::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<usize, prisma_client_rust::QueryError> {
 	db.file_path()
@@ -278,8 +271,8 @@ async fn count_orphan_file_paths(
 
 async fn get_orphan_file_paths(
 	db: &PrismaClient,
-	location_id: i32,
-	file_path_id: i32,
+	location_id: location::id::Type,
+	file_path_id: file_path::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
 	info!(

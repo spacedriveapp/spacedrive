@@ -49,11 +49,15 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 						? filePathData.name
 						: filePathData.name + '.' + filePathData.extension;
 
-				if (newName !== oldName) {
+				if (oldName !== null && filePathData.location_id !== null && newName !== oldName) {
 					renameFile.mutate({
 						location_id: filePathData.location_id,
-						file_name: oldName,
-						new_file_name: newName
+						kind: {
+							One: {
+								from_file_path_id: filePathData.id,
+								to: newName
+							}
+						}
 					});
 				}
 			}
@@ -69,7 +73,7 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 			if (!node) return;
 
 			range.setStart(node, 0);
-			range.setEnd(node, filePathData?.name.length || 0);
+			range.setEnd(node, filePathData?.name?.length || 0);
 
 			const sel = window.getSelection();
 			sel?.removeAllRanges();
