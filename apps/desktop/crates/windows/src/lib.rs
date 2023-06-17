@@ -4,7 +4,6 @@ use std::{
 	ffi::{OsStr, OsString},
 	os::windows::ffi::OsStrExt,
 	path::Path,
-	sync::Once,
 };
 
 use normpath::PathExt;
@@ -36,10 +35,11 @@ impl CoInitializer {
 	}
 }
 
-static CO_UNINITIALIZER: Once = Once::new();
-
 thread_local! {
-	static CO_INITIALIZER: CoInitializer = CoInitializer::new();
+	static CO_INITIALIZER: CoInitializer = {
+		unsafe { libc::atexit(atexit_handler) };
+		CoInitializer::new()
+	};
 }
 
 extern "C" fn atexit_handler() {
@@ -50,9 +50,6 @@ extern "C" fn atexit_handler() {
 
 fn ensure_com_initialized() {
 	CO_INITIALIZER.with(|_| {});
-	CO_UNINITIALIZER.call_once(|| unsafe {
-		libc::atexit(atexit_handler);
-	});
 }
 
 // Use SHAssocEnumHandlers to get the list of apps associated with a file extension.
@@ -91,7 +88,7 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 			break;
 		}
 
-		if let Some(handler) = rgelt[0] {
+		if let Some(handler) = rgelt[0].take() {
 			vec.push(handler);
 		}
 	}
@@ -99,14 +96,13 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 	Ok(vec)
 }
 
-pub fn open_file_path_with(path: &Path, url: &String) -> Result<()> {
+pub fn open_file_path_with(path: &Path, url: &str) -> Result<()> {
 	ensure_com_initialized();
 
-	for handler in list_apps_associated_with_ext(path.extension().ok_or(Error::OK)?)?.iter() {
-		let name = unsafe { handler.GetName() }
-			.and_then(|name| -> Result<_> { unsafe { name.to_string() }.map_err(|_| Error::OK) })?;
-
-		if &name == url {
+	let ext = path.extension().ok_or(Error::OK)?;
+	for handler in list_apps_associated_with_ext(ext)?.iter() {
+		let name = unsafe { handler.GetName()?.to_string()? };
+		if name == url {
 			let path = path.normalize_virtually().map_err(|_| Error::OK)?;
 			let wide_path = path
 				.as_os_str()
