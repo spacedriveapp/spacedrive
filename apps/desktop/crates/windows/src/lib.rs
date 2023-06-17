@@ -91,7 +91,7 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 			break;
 		}
 
-		for handler in rgelt.into_iter().flatten() {
+		if let Some(handler) = rgelt[0] {
 			vec.push(handler);
 		}
 	}

@@ -1,7 +1,7 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap},
 	convert::TryFrom,
-	ffi::OsString,
+	ffi::OsStr,
 };
 
 use mime::Mime;
@@ -10,53 +10,53 @@ use xdg_mime::SharedMimeInfo;
 use crate::{DesktopEntry, Handler, HandlerType, Result};
 
 #[derive(Debug, Default, Clone)]
-pub struct SystemApps(pub HashMap<Mime, Vec<Handler>>);
+pub struct SystemApps(pub HashMap<Mime, BTreeSet<Handler>>);
 
 impl SystemApps {
-	pub fn get_handlers(&self, handler_type: HandlerType) -> Vec<Handler> {
-		let mut handlers = match handler_type {
+	pub fn get_handlers(&self, handler_type: HandlerType) -> impl Iterator<Item = &Handler> {
+		let mimes = match handler_type {
 			HandlerType::Ext(ext) => {
-				let mut handlers: HashSet<Handler> = HashSet::new();
-				for mime in SharedMimeInfo::new().get_mime_types_from_file_name(ext.as_str()) {
-					if let Some(mime_handlers) = self.0.get(&mime) {
-						for handler in mime_handlers {
-							handlers.insert(handler.clone());
-						}
-					}
-				}
-				handlers.into_iter().collect()
+				SharedMimeInfo::new().get_mime_types_from_file_name(ext.as_str())
 			}
-			HandlerType::Mime(mime) => self.0.get(&mime).unwrap_or(&Vec::new()).clone(),
+			HandlerType::Mime(mime) => vec![mime],
 		};
 
-		handlers.sort();
+		let mut handlers: BTreeSet<&Handler> = BTreeSet::new();
+		for mime in mimes {
+			if let Some(mime_handlers) = self.0.get(&mime) {
+				handlers.extend(mime_handlers.iter());
+			}
+		}
 
-		handlers
+		handlers.into_iter()
 	}
 
-	pub fn get_handler(&self, handler_type: HandlerType) -> Option<Handler> {
-		Some(self.get_handlers(handler_type).get(0)?.clone())
+	pub fn get_handler(&self, handler_type: HandlerType) -> Option<&Handler> {
+		self.get_handlers(handler_type).next()
 	}
 
-	pub fn get_entries() -> Result<impl Iterator<Item = (OsString, DesktopEntry)>> {
+	pub fn get_entries() -> Result<impl Iterator<Item = DesktopEntry>> {
 		Ok(xdg::BaseDirectories::new()?
 			.list_data_files_once("applications")
 			.into_iter()
-			.filter(|p| p.extension().and_then(|x| x.to_str()) == Some("desktop"))
-			.filter_map(|p| Some((p.file_name()?.to_owned(), DesktopEntry::try_from(&p).ok()?))))
+			.filter(|p| p.extension().map_or(false, |x| x == OsStr::new("desktop")))
+			.filter_map(|p| DesktopEntry::try_from(&p).ok()))
 	}
 
 	pub fn populate() -> Result<Self> {
-		let mut map = HashMap::<Mime, Vec<Handler>>::with_capacity(50);
+		let mut map = HashMap::<Mime, BTreeSet<Handler>>::with_capacity(50);
 
-		Self::get_entries()?.for_each(|(_, entry)| {
-			let (file_name, mimes) = (entry.file_name, entry.mimes);
-			mimes.into_iter().for_each(|mime| {
-				map.entry(mime)
-					.or_default()
-					.push(Handler::assume_valid(file_name.clone()));
-			});
-		});
+		Self::get_entries()?.for_each(
+			|DesktopEntry {
+			     mimes, file_name, ..
+			 }| {
+				mimes.into_iter().for_each(|mime| {
+					map.entry(mime)
+						.or_default()
+						.insert(Handler::assume_valid(file_name.clone()));
+				});
+			},
+		);
 
 		Ok(Self(map))
 	}

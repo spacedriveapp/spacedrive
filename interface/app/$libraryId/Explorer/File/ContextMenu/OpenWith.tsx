@@ -49,18 +49,18 @@ const Items = ({
 						onClick={async () => {
 							try {
 								await actions.openFilePathWith(library.uuid, [
-									[filePath.id, data.c.url]
+									[filePath.id, data.url]
 								]);
 							} catch (e) {
 								console.error(e);
 								showAlertDialog({
 									title: 'Error',
-									value: `Failed to open file, with: ${data.c.url}`
+									value: `Failed to open file, with: ${data.url}`
 								});
 							}
 						}}
 					>
-						{data.c.name}
+						{data.name}
 					</ContextMenu.Item>
 				))
 			) : (

@@ -50,23 +50,17 @@ pub async fn open_file_path(
 }
 
 #[derive(Serialize, Type)]
-#[serde(tag = "t", content = "c")]
-#[allow(dead_code)]
-pub enum OpenWithApplication {
-	File {
-		id: i32,
-		name: String,
-		#[cfg(target_os = "linux")]
-		url: std::path::PathBuf,
-		#[cfg(not(target_os = "linux"))]
-		url: String,
-	},
-	Error(i32, String),
+pub struct OpenWithApplication {
+	id: i32,
+	name: String,
+	#[cfg(target_os = "linux")]
+	url: std::path::PathBuf,
+	#[cfg(not(target_os = "linux"))]
+	url: String,
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-#[allow(unused_variables)]
 pub async fn get_file_path_open_with_apps(
 	library: uuid::Uuid,
 	ids: Vec<i32>,
@@ -97,7 +91,7 @@ pub async fn get_file_path_open_with_apps(
 			unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
 				.as_slice()
 				.iter()
-				.map(|app| OpenWithApplication::File {
+				.map(|app| OpenWithApplication {
 					id,
 					name: app.name.to_string(),
 					url: app.url.to_string(),
@@ -136,7 +130,6 @@ pub async fn get_file_path_open_with_apps(
 
 				system_apps
 					.get_handlers(HandlerType::Ext(name))
-					.iter()
 					.map(|handler| {
 						handler
 							.get_path()
@@ -146,7 +139,7 @@ pub async fn get_file_path_open_with_apps(
 							.and_then(|path| {
 								DesktopEntry::try_from(&path)
 									// TODO: Ignore desktop entries that have commands that don't exist/aren't available in path
-									.map(|entry| OpenWithApplication::File {
+									.map(|entry| OpenWithApplication {
 										id,
 										name: entry.name,
 										url: path,
@@ -198,7 +191,7 @@ pub async fn get_file_path_open_with_apps(
 							return None
 						};
 
-							Some(OpenWithApplication::File { id, name, url })
+							Some(OpenWithApplication { id, name, url })
 						})
 						.collect::<Vec<_>>()
 				})
