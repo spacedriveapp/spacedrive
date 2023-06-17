@@ -56,9 +56,9 @@ export const Component = () => {
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
-						<span>
+						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="text-sm font-medium">
+							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
 								{path ? getLastSectionOfPath(path) : location.data?.name}
 							</span>
 						</span>

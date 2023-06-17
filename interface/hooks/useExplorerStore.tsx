@@ -5,8 +5,8 @@ import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore 
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
-		? `${K}${'' extends P ? '' : '.'}${P}`
-		: never
+	? `${K}${'' extends P ? '' : '.'}${P}`
+	: never
 	: never;
 
 type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[keyof T] : '';
@@ -37,6 +37,7 @@ const state = {
 	showBytesInGridView: true,
 	tagAssignMode: false,
 	showInspector: false,
+	mediaPlayerVolume: 0.7,
 	multiSelectIndexes: [] as number[],
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: {
@@ -47,7 +48,6 @@ const state = {
 		active: false
 	},
 	quickViewObject: null as ExplorerItem | null,
-	isRenaming: false,
 	mediaColumns: 8,
 	mediaAspectSquare: true,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
