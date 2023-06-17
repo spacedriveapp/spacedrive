@@ -60,20 +60,17 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 	}
 
 	// SHAssocEnumHandlers requires the extension to be prefixed with a dot
-	let ext = ext
-		.to_str()
-		.and_then(|str| str.chars().next())
-		.and_then(|c| {
-			if c == '.' {
-				None
-			} else {
-				let mut prefixed_ext = OsString::new();
-				prefixed_ext.push(".");
-				prefixed_ext.push(ext);
-				Some(prefixed_ext)
-			}
-		})
-		.unwrap_or(ext.to_os_string());
+	let ext = {
+		// Get first charact from ext
+		let ext_bytes = ext.encode_wide().collect::<Vec<_>>();
+		if ext_bytes[0] != '.' as u16 {
+			let mut prefixed_ext = OsString::from(".");
+			prefixed_ext.push(ext);
+			prefixed_ext
+		} else {
+			ext.to_os_string()
+		}
+	};
 
 	let assoc_handlers =
 		unsafe { SHAssocEnumHandlers(&HSTRING::from(ext), ASSOC_FILTER_RECOMMENDED) }?;
@@ -88,7 +85,7 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 			break;
 		}
 
-		if let Some(handler) = rgelt[0].take() {
+		if let [Some(handler)] = rgelt {
 			vec.push(handler);
 		}
 	}
