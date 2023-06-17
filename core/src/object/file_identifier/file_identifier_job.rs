@@ -208,7 +208,7 @@ impl StatefulJob for FileIdentifierJob {
 		report.total_objects_linked += total_objects_linked;
 
 		ctx.progress(vec![
-			JobReportUpdate::CompletedTaskCount(step_number),
+			JobReportUpdate::CompletedTaskCount(step_number + 1),
 			JobReportUpdate::Message(format!(
 				"Processed {} of {} orphan Paths",
 				step_number * CHUNK_SIZE,

@@ -15,6 +15,7 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
+
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
 use tracing::{debug, error, info, warn};
@@ -39,7 +40,7 @@ pub(crate) mod volume;
 #[derive(Clone)]
 pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
-	pub jobs: Arc<JobManager>,
+	pub job_manager: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 	pub p2p: Arc<P2PManager>,
@@ -50,7 +51,7 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
 	location_manager: Arc<LocationManager>,
-	jobs: Arc<JobManager>,
+	job_manager: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
@@ -71,7 +72,7 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		let jobs = JobManager::new();
+		let job_manager = JobManager::new();
 		let location_manager = LocationManager::new();
 		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await?;
 
@@ -79,7 +80,7 @@ impl Node {
 			data_dir.join("libraries"),
 			NodeContext {
 				config: config.clone(),
-				jobs: jobs.clone(),
+				job_manager: job_manager.clone(),
 				location_manager: location_manager.clone(),
 				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
@@ -122,7 +123,7 @@ impl Node {
 			config,
 			library_manager,
 			location_manager,
-			jobs,
+			job_manager,
 			p2p,
 			event_bus,
 			// peer_request: tokio::sync::Mutex::new(None),
@@ -206,7 +207,7 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.jobs.clone().shutdown().await;
+		self.job_manager.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}

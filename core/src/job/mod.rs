@@ -4,12 +4,11 @@ use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	hash::{Hash, Hasher},
 	mem,
-	sync::{atomic::Ordering, Arc},
-	time::Duration,
+	sync::Arc,
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
+use tokio::{select, sync::mpsc};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -26,6 +25,7 @@ pub use worker::*;
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 pub type JobRunErrors = Vec<String>;
+
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
 	type Job: StatefulJob;
@@ -80,7 +80,8 @@ pub trait DynJob: Send + Sync {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: &mut WorkerContext,
+		mut ctx: WorkerContext,
+		mut commands_rx: mpsc::Receiver<WorkerCommand>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -263,7 +264,8 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	async fn run(
 		&mut self,
 		job_manager: Arc<JobManager>,
-		ctx: &mut WorkerContext,
+		mut ctx: WorkerContext,
+		mut commands_rx: mpsc::Receiver<WorkerCommand>,
 	) -> Result<(JobMetadata, JobRunErrors), JobError> {
 		let mut job_should_run = true;
 		let mut errors = vec![];
@@ -275,7 +277,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
-			if let Err(e) = self.stateful_job.init(ctx, &mut self.state).await {
+			if let Err(e) = self.stateful_job.init(&mut ctx, &mut self.state).await {
 				match e {
 					JobError::EarlyFinish { .. } => {
 						info!("{e}");
@@ -287,58 +289,90 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			}
 		}
 
-		let command_rx = ctx.command_rx.clone();
-		let mut command_rx = command_rx.lock().await;
-
 		// Run the job until it's done or we get a command
 		while job_should_run && !self.state.steps.is_empty() {
-			// Check for commands every iteration
-			if let Ok(command) = command_rx.try_recv() {
-				match command {
-					WorkerCommand::Shutdown => {
-						return Err(JobError::Paused(rmp_serde::to_vec_named(&self.state)?));
-					}
-					WorkerCommand::Cancel => {
-						return Err(JobError::Canceled(rmp_serde::to_vec_named(&self.state)?));
-					}
-				}
-			}
+			select! {
+				// Here we have a channel that we use to receive commands from the worker
+				Some(command) = commands_rx.recv() => {
+					match command {
+						WorkerCommand::Pause => {
+							// In case of a Pause command, we keep waiting for the next command
+							loop {
+								if let Some(command) = commands_rx.recv().await {
+									match command {
+										WorkerCommand::Resume => {
+											debug!(
+												"Resuming job {id} ({name})",
+												id = self.id,
+												name = self.name()
+											);
+											break;
+										}
+										// The job can also be shutdown or canceled while paused
+										WorkerCommand::Shutdown(signal_tx) => {
+											return Err(
+												JobError::Paused(
+													rmp_serde::to_vec_named(&self.state)?,
+													signal_tx
+												)
+											);
+										}
+										WorkerCommand::Cancel(signal_tx) => {
+											return Err(JobError::Canceled(signal_tx));
+										}
+										WorkerCommand::Pause => {
+											// We continue paused lol
+										}
+									}
+								}
+							}
+						}
+						WorkerCommand::Resume => {
+							// We're already running so we just ignore this command
+						}
 
-			let mut state_preserved = false;
-			// Every X milliseconds, check the AtomicBool if we should pause or stay paused
-			while ctx.paused.load(Ordering::Relaxed) {
-				if !state_preserved {
-					// Save the state of the job
-					println!("Saving state {:?}", &self.report);
-					// ctx.preserve_state(rmp_serde::to_vec_named(&self.state)?);
+						WorkerCommand::Shutdown(signal_tx) => {
+							return Err(
+								JobError::Paused(
+									rmp_serde::to_vec_named(&self.state)?,
+									signal_tx
+								)
+							);
+						}
+						WorkerCommand::Cancel(signal_tx) => {
+							return Err(JobError::Canceled(signal_tx));
+						}
+					}
 				}
-				state_preserved = true;
-				tokio::time::sleep(Duration::from_millis(500)).await;
-			}
 
-			// process job step and handle errors if any
-			let step_result = self.stateful_job.execute_step(ctx, &mut self.state).await;
-			match step_result {
-				Err(JobError::EarlyFinish { .. }) => {
-					step_result
-						.map_err(|err| {
-							warn!("{}", err);
-						})
-						.ok();
-					break;
+				// Here we actually run the job, step by step
+				step_result = self.stateful_job.execute_step(&mut ctx, &mut self.state) => {
+					match step_result {
+						Err(JobError::EarlyFinish { .. }) => {
+							step_result
+								.map_err(|err| {
+									warn!("{}", err);
+								})
+								.ok();
+							break;
+						}
+						Err(JobError::StepCompletedWithErrors(errors_text)) => {
+							warn!("Job<id='{}'> had a step with errors", self.id);
+							errors.extend(errors_text);
+						}
+						maybe_err => maybe_err?,
+					}
+					// remove the step from the queue
+					self.state.steps.pop_front();
+					self.state.step_number += 1;
 				}
-				Err(JobError::StepCompletedWithErrors(errors_text)) => {
-					warn!("Job<id='{}'> had a step with errors", self.id);
-					errors.extend(errors_text);
-				}
-				maybe_err => maybe_err?,
 			}
-			// remove the step from the queue
-			self.state.steps.pop_front();
-			self.state.step_number += 1;
 		}
 
-		let metadata = self.stateful_job.finalize(ctx, &mut self.state).await?;
+		let metadata = self
+			.stateful_job
+			.finalize(&mut ctx, &mut self.state)
+			.await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 

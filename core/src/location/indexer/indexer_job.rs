@@ -109,7 +109,7 @@ impl StatefulJob for IndexerJob {
 			walk(
 				&to_walk_path,
 				&indexer_rules,
-				update_notifier_fn(BATCH_SIZE, ctx),
+				update_notifier_fn(ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
@@ -147,10 +147,13 @@ impl StatefulJob for IndexerJob {
 
 		IndexerJobData::on_scan_progress(
 			ctx,
-			vec![ScanProgress::Message(format!(
-				"Starting saving {total_paths} files or directories, \
+			vec![
+				ScanProgress::ChunkCount(state.steps.len() - to_walk_count),
+				ScanProgress::Message(format!(
+					"Starting saving {total_paths} files or directories, \
 					there still {to_walk_count} directories to index",
-			))],
+				)),
+			],
 		);
 
 		state.data = Some(IndexerJobData {
@@ -188,7 +191,7 @@ impl StatefulJob for IndexerJob {
 				IndexerJobData::on_scan_progress(
 					ctx,
 					vec![
-						ScanProgress::SavedChunks(step.chunk_idx),
+						ScanProgress::SavedChunks(step.chunk_idx + 1),
 						ScanProgress::Message(format!(
 							"Writing chunk {} of {} to database",
 							step.chunk_idx, data.total_save_steps
@@ -221,7 +224,7 @@ impl StatefulJob for IndexerJob {
 					keep_walking(
 						to_walk_entry,
 						&data.indexer_rules,
-						update_notifier_fn(BATCH_SIZE, ctx),
+						update_notifier_fn(ctx),
 						file_paths_db_fetcher_fn!(&db),
 						to_remove_db_fetcher_fn!(location_id, location_path, &db),
 						iso_file_path_factory(location_id, location_path),
@@ -236,8 +239,9 @@ impl StatefulJob for IndexerJob {
 				data.removed_count += remove_non_existing_file_paths(to_remove, &db).await?;
 				data.db_write_time += db_delete_time.elapsed();
 
-				// let old_total = data.total_paths;
-				// let old_steps_count = state.steps.len() as u64;
+				let old_total = data.total_paths;
+				let old_steps_count = state.steps.len() as u64;
+				let to_walk_count = to_walk.len();
 
 				state.steps.extend(
 					walked
@@ -256,14 +260,17 @@ impl StatefulJob for IndexerJob {
 						.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
 				);
 
-				// IndexerJobData::on_scan_progress(
-				// 	&mut ctx,
-				// 	vec![ScanProgress::Message(format!(
-				// 		"Scanned more {} files or directories; {} more directories to scan",
-				// 		data.total_paths - old_total,
-				// 		state.steps.len() as u64 - old_steps_count - data.total_paths
-				// 	))],
-				// );
+				IndexerJobData::on_scan_progress(
+					ctx,
+					vec![
+						ScanProgress::ChunkCount(state.steps.len() - to_walk_count),
+						ScanProgress::Message(format!(
+							"Scanned more {} files or directories; {} more directories to scan",
+							data.total_paths - old_total,
+							state.steps.len() as u64 - old_steps_count - data.total_paths
+						)),
+					],
+				);
 
 				if !errors.is_empty() {
 					return Err(JobError::StepCompletedWithErrors(

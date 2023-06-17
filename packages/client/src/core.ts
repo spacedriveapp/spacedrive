@@ -37,6 +37,7 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
+        { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 

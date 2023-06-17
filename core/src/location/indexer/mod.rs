@@ -71,14 +71,11 @@ impl IndexerJobData {
 	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
 		ctx.progress(
 			progress
-				.iter()
-				.map(|p| match p.clone() {
+				.into_iter()
+				.map(|p| match p {
 					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
 					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => {
-						// println!("MESSAGE: {:?}", m);
-						JobReportUpdate::Message(m)
-					}
+					ScanProgress::Message(m) => JobReportUpdate::Message(m),
 				})
 				.collect(),
 		)
@@ -260,17 +257,14 @@ where
 	Ok(Some(serde_json::to_value(state)?))
 }
 
-fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(&Path, usize) + '_ {
+fn update_notifier_fn(ctx: &mut WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 	move |path, total_entries| {
 		IndexerJobData::on_scan_progress(
 			ctx,
-			vec![
-				ScanProgress::Message(format!(
-					"Scanning: {:?}",
-					path.file_name().unwrap_or(path.as_os_str())
-				)),
-				ScanProgress::ChunkCount(total_entries / batch_size),
-			],
+			vec![ScanProgress::Message(format!(
+				"Scanning: {:?}; Found: {total_entries} entries",
+				path.file_name().unwrap_or(path.as_os_str())
+			))],
 		);
 	}
 }

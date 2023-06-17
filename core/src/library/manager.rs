@@ -404,7 +404,7 @@ impl LibraryManager {
 
 		if let Err(e) = library
 			.node_context
-			.jobs
+			.job_manager
 			.clone()
 			.cold_resume(&library)
 			.await

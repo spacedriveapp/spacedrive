@@ -7,12 +7,11 @@ use crate::{
 	util::{db::MissingFieldError, error::FileIOError},
 };
 
-use std::fmt::Debug;
-
 use prisma_client_rust::QueryError;
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
 use thiserror::Error;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use super::JobRunErrors;
@@ -40,8 +39,6 @@ pub enum JobError {
 	MissingReport { id: Uuid, name: String },
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
-	#[error("error converting/handling OS strings")]
-	OsStr,
 	#[error("error converting/handling paths")]
 	Path,
 	#[error("invalid job status integer: {0}")]
@@ -50,10 +47,6 @@ pub enum JobError {
 	FileIO(#[from] FileIOError),
 	#[error("Location error: {0}")]
 	Location(#[from] LocationError),
-	#[error("job failed to pause: {0}")]
-	PauseFailed(String),
-	#[error("failed to send command to worker")]
-	WorkerCommandSendFailed,
 
 	// Specific job errors
 	#[error(transparent)]
@@ -81,9 +74,9 @@ pub enum JobError {
 	#[error("data needed for job execution not found: job <name='{0}'>")]
 	JobDataNotFound(String),
 	#[error("job paused")]
-	Paused(Vec<u8>),
+	Paused(Vec<u8>, oneshot::Sender<()>),
 	#[error("job canceled")]
-	Canceled(Vec<u8>),
+	Canceled(oneshot::Sender<()>),
 }
 
 #[derive(Error, Debug)]

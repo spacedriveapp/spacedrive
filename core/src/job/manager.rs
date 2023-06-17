@@ -12,28 +12,26 @@ use crate::{
 	},
 	prisma::job,
 };
-use prisma_client_rust::operator::or;
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
-use tokio::sync::{
-	mpsc::{self, UnboundedSender},
-	Mutex, RwLock,
-};
+use futures::future::join_all;
+use prisma_client_rust::operator::or;
+use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{JobManagerError, JobReport, JobStatus, WorkerCommand};
+use super::{JobManagerError, JobReport, JobStatus};
 
 // db is single threaded, nerd
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Library, Box<dyn DynJob>),
-	Shutdown,
+	Shutdown(oneshot::Sender<()>),
 }
 /// JobManager handles queueing and executing jobs using the `DynJob`
 /// Handling persisting JobReports to the database, pause/resuming, and
@@ -41,8 +39,8 @@ pub enum JobManagerEvent {
 pub struct JobManager {
 	current_jobs_hashes: RwLock<HashSet<u64>>,
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
-	running_workers: RwLock<HashMap<Uuid, Arc<Mutex<Worker>>>>,
-	internal_sender: UnboundedSender<JobManagerEvent>,
+	running_workers: RwLock<HashMap<Uuid, Worker>>,
+	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
 	// pub external_receiver: UnboundedReceiver<JobManagerUpdate>,
 	// external_sender: UnboundedSender<JobManagerUpdate>,
 }
@@ -74,16 +72,13 @@ impl JobManager {
 					}
 					// When the app shuts down, we need to gracefully shutdown all
 					// active workers and preserve their state
-					JobManagerEvent::Shutdown => {
+					JobManagerEvent::Shutdown(signal_tx) => {
 						info!("Shutting down job manager");
 						let mut running_workers = this2.running_workers.write().await;
-						for (_, worker) in running_workers.iter_mut() {
-							worker
-								.lock()
-								.await
-								.command(WorkerCommand::Shutdown)
-								.expect("Failed to send shutdown command to worker");
-						}
+						join_all(running_workers.values_mut().map(|worker| worker.shutdown()))
+							.await;
+
+						signal_tx.send(()).ok();
 					}
 				}
 			}
@@ -133,19 +128,16 @@ impl JobManager {
 
 			let job_id = job_report.id;
 
-			let worker = Worker::new(
-				job, job_report, // , self.external_sender.clone()
-			);
-
-			let wrapped_worker = Arc::new(Mutex::new(worker));
-
-			if let Err(e) =
-				Worker::spawn(self.clone(), Arc::clone(&wrapped_worker), library.clone()).await
-			{
-				error!("Error spawning worker: {:?}", e);
-			} else {
-				running_workers.insert(job_id, wrapped_worker);
-			}
+			Worker::new(job, job_report, library.clone(), self.clone())
+				.await
+				.map_or_else(
+					|e| {
+						error!("Error spawning worker: {:#?}", e);
+					},
+					|worker| {
+						running_workers.insert(job_id, worker);
+					},
+				);
 		} else {
 			debug!(
 				"Queueing job: <name='{}', hash='{}'>",
@@ -173,48 +165,56 @@ impl JobManager {
 	}
 
 	/// Shutdown the job manager, signaled by core on shutdown.
-	pub async fn shutdown(self: Arc<Self>) {
+	pub async fn shutdown(&self) {
+		let (tx, rx) = oneshot::channel();
 		self.internal_sender
-			.send(JobManagerEvent::Shutdown)
+			.send(JobManagerEvent::Shutdown(tx))
 			.unwrap_or_else(|_| {
 				error!("Failed to send shutdown event to job manager!");
 			});
+
+		rx.await.unwrap_or_else(|_| {
+			error!("Failed to receive shutdown event response from job manager!");
+		});
 	}
 
-	// Pause a specific job.
+	/// Pause a specific job.
 	pub async fn pause(&self, job_id: Uuid) -> Result<(), JobManagerError> {
-		// Get a read lock on the running workers.
-		let workers_guard = self.running_workers.read().await;
-
 		// Look up the worker for the given job ID.
-		if let Some(worker_mutex) = workers_guard.get(&job_id) {
-			// Lock the worker.
-			let worker = worker_mutex.lock().await;
-
-			info!("Pausing job: {:?}", worker.report());
+		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
+			debug!("Pausing job: {:#?}", worker.report().await);
 
 			// Set the pause signal in the worker.
-			worker.pause();
+			worker.pause().await;
 
 			Ok(())
 		} else {
 			Err(JobManagerError::NotFound(job_id))
 		}
 	}
-	// Resume a specific job.
+	/// Resume a specific job.
 	pub async fn resume(&self, job_id: Uuid) -> Result<(), JobManagerError> {
-		// Get a read lock on the running workers.
-		let workers_guard = self.running_workers.read().await;
-
 		// Look up the worker for the given job ID.
-		if let Some(worker_mutex) = workers_guard.get(&job_id) {
-			// Lock the worker.
-			let worker = worker_mutex.lock().await;
-
-			info!("Resuming job: {:?}", worker.report());
+		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
+			debug!("Resuming job: {:?}", worker.report().await);
 
 			// Set the pause signal in the worker.
-			worker.resume();
+			worker.resume().await;
+
+			Ok(())
+		} else {
+			Err(JobManagerError::NotFound(job_id))
+		}
+	}
+
+	/// Cancel a specific job.
+	pub async fn cancel(&self, job_id: Uuid) -> Result<(), JobManagerError> {
+		// Look up the worker for the given job ID.
+		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
+			debug!("Canceling job: {:#?}", worker.report().await);
+
+			// Set the cancel signal in the worker.
+			worker.cancel().await;
 
 			Ok(())
 		} else {
@@ -272,26 +272,40 @@ impl JobManager {
 		Ok(())
 	}
 
-	// get all active jobs, including paused jobs
-	pub async fn get_active_reports(&self) -> HashMap<String, JobReport> {
-		let mut active_reports = HashMap::new();
-		for worker in self.running_workers.read().await.values() {
-			let report = worker.lock().await.report();
-			active_reports.insert(report.get_meta().0, report);
+	// get all active jobs, including paused jobs organized by job id
+	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, JobReport> {
+		let workers = self.running_workers.read().await;
+		let mut reports = HashMap::with_capacity(workers.len());
+		for worker in workers.values() {
+			let report = worker.report().await;
+			reports.insert(report.id, report);
 		}
-		active_reports
+
+		reports
 	}
-	// get all running jobs, excluding paused jobs
+
+	// get all running jobs, excluding paused jobs organized by action
 	pub async fn get_running_reports(&self) -> HashMap<String, JobReport> {
-		let mut active_reports = HashMap::new();
-		for worker in self.running_workers.read().await.values() {
-			let worker = worker.lock().await;
+		let workers = self.running_workers.read().await;
+		let mut reports = HashMap::with_capacity(workers.len());
+		for worker in workers.values() {
 			if !worker.is_paused() {
-				let report = worker.report();
-				active_reports.insert(report.get_meta().0, report);
+				let report = worker.report().await;
+				reports.insert(report.get_meta().0, report);
 			}
 		}
-		active_reports
+		reports
+	}
+
+	/// Check if the manager currently has some active workers.
+	pub async fn has_active_workers(&self) -> bool {
+		for worker in self.running_workers.read().await.values() {
+			if !worker.is_paused() {
+				return true;
+			}
+		}
+
+		false
 	}
 }
 

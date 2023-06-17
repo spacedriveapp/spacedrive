@@ -70,7 +70,7 @@ impl Library {
 		Init: JobInitData + 'static,
 	{
 		self.node_context
-			.jobs
+			.job_manager
 			.clone()
 			.ingest(self, jobable.into_job())
 			.await

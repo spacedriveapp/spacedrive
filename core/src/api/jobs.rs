@@ -1,8 +1,3 @@
-use std::{
-	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
-};
-
 use crate::{
 	invalidate_query,
 	job::{job_without_data, JobManager, JobReport, JobStatus},
@@ -15,15 +10,19 @@ use crate::{
 	prisma::{job, location, SortOrder},
 };
 
+use std::{
+	collections::{hash_map::Entry, HashMap, VecDeque},
+	path::PathBuf,
+};
+
 use chrono::{DateTime, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
+use tokio::time::{interval, Duration};
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
-use tokio::time::{interval, Duration};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -74,7 +73,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				action: String,
 				status: JobStatus,
 				created_at: DateTime<Utc>,
-				jobs: Vec<JobReport>,
+				jobs: VecDeque<JobReport>,
 			}
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroups {
@@ -98,37 +97,31 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(JobReport::try_from)
 						.collect();
 
-					let active_reports = ctx.jobs.get_active_reports().await;
+					let active_reports_by_id = ctx.job_manager.get_active_reports_with_id().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_meta();
 
 						// if the job is running, use the in-memory report
-						let memory_job = active_reports.values().find(|j| j.id == job.id);
-						let report = match memory_job {
-							Some(j) => j,
-							None => &job,
-						};
+						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
+
 						// if we have a group key, handle grouping
 						if let Some(group_key) = group_key {
 							match groups.entry(group_key) {
 								// Create new job group with metadata
-								Entry::Vacant(e) => {
-									let id = job.parent_id.unwrap_or(job.id);
-									let group = JobGroup {
-										id: id.to_string(),
+								Entry::Vacant(entry) => {
+									entry.insert(JobGroup {
+										id: job.parent_id.unwrap_or(job.id).to_string(),
 										action: action_name.clone(),
 										status: job.status,
-										jobs: vec![report.clone()],
+										jobs: [report.clone()].into_iter().collect(),
 										created_at: job.created_at.unwrap_or(Utc::now()),
-									};
-									e.insert(group);
+									});
 								}
 								// Add to existing job group
-								Entry::Occupied(mut e) => {
-									let group = e.get_mut();
-									group.jobs.insert(0, report.clone()); // inserts at the beginning
+								Entry::Occupied(mut entry) => {
+									entry.get_mut().jobs.push_front(report.clone());
 								}
 							}
 						}
@@ -141,7 +134,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut index: HashMap<String, i32> = HashMap::new();
 					for (i, group) in groups_vec.iter().enumerate() {
 						for job in &group.jobs {
-							index.insert(job.id.clone().to_string(), i as i32);
+							index.insert(job.id.to_string(), i as i32);
 						}
 					}
 
@@ -153,7 +146,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("isActive", {
 			R.with2(library()).query(|(ctx, _), _: ()| async move {
-				Ok(!ctx.jobs.get_running_reports().await.is_empty())
+				Ok(ctx.job_manager.has_active_workers().await)
 			})
 		})
 		.procedure("clear", {
@@ -183,13 +176,25 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("pause", {
 			R.with2(library())
 				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::pause(&ctx.jobs, id).await.map_err(Into::into)
+					JobManager::pause(&ctx.job_manager, id)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
 				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::resume(&ctx.jobs, id).await.map_err(Into::into)
+					JobManager::resume(&ctx.job_manager, id)
+						.await
+						.map_err(Into::into)
+				})
+		})
+		.procedure("cancel", {
+			R.with2(library())
+				.mutation(|(ctx, _), id: Uuid| async move {
+					JobManager::cancel(&ctx.job_manager, id)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("generateThumbsForLocation", {
