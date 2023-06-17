@@ -69,7 +69,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					scroll > 0
 						? 'cursor-pointer bg-app/50 opacity-100 hover:opacity-95'
 						: 'pointer-events-none',
-					'sticky left-[35px] z-40 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[15px] z-40 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
@@ -78,9 +78,8 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				ref={ref}
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
-					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
-						scroll > 0 ? '10%' : '0%'
-					}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '90%'}, transparent 95%)`
+					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${scroll > 0 ? '10%' : '0%'
+						}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
 				}}
 			>
 				{categories.data &&
@@ -115,7 +114,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					lastCategoryVisible
 						? 'pointer-events-none opacity-0 hover:opacity-0'
 						: 'hover:opacity-95',
-					'sticky right-[45px] z-40 mt-4 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app/50 p-2 backdrop-blur-md transition-all duration-200'
+					'sticky right-[15px] z-40 mt-4 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app/50 p-2 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
