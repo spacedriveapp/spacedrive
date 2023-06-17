@@ -47,7 +47,6 @@ const state = {
 		active: false
 	},
 	quickViewObject: null as ExplorerItem | null,
-	isRenaming: false,
 	mediaColumns: 8,
 	mediaAspectSquare: true,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
