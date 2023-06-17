@@ -41,8 +41,6 @@ pub struct JobManager {
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
 	running_workers: RwLock<HashMap<Uuid, Worker>>,
 	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
-	// pub external_receiver: UnboundedReceiver<JobManagerUpdate>,
-	// external_sender: UnboundedSender<JobManagerUpdate>,
 }
 
 impl JobManager {
@@ -50,16 +48,12 @@ impl JobManager {
 	pub fn new() -> Arc<Self> {
 		// allow the job manager to control its workers
 		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
-		// // emit realtime events to the rest of the application
-		// let (external_sender, external_receiver) = mpsc::unbounded_channel();
 
 		let this = Arc::new(Self {
 			current_jobs_hashes: RwLock::new(HashSet::new()),
 			job_queue: RwLock::new(VecDeque::new()),
 			running_workers: RwLock::new(HashMap::new()),
 			internal_sender,
-			// external_receiver,
-			// external_sender,
 		});
 
 		let this2 = this.clone();

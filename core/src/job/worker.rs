@@ -186,7 +186,6 @@ impl Worker {
 		}
 
 		// Calculate elapsed time
-
 		let elapsed = Utc::now() - start_time;
 
 		// Calculate remaining time
