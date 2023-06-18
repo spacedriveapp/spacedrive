@@ -119,7 +119,7 @@ export type GetArgs = { id: number }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type IndexerRule = { id: number; pub_id: number[] | null; name: string; default: boolean; rules_per_kind: number[]; date_created: string; date_modified: string }
+export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
