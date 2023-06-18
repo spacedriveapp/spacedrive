@@ -91,6 +91,7 @@ strum_macros = "0.24"
 regex = "1.8.4"
 hex = "0.4.3"
 int-enum = "0.5.0"
+tokio-stream = "0.1.14"
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.5"
