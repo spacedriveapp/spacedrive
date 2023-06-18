@@ -200,7 +200,7 @@ impl SyncManager {
 
 		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+				SharedOperationData::Create(data) => {
 					let data: Vec<_> = data
 						.into_iter()
 						.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
@@ -230,7 +230,7 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Location(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+				SharedOperationData::Create(data) => {
 					let data: Vec<_> = data
 						.into_iter()
 						.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
@@ -260,7 +260,7 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Object(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+				SharedOperationData::Create(data) => {
 					let data: Vec<_> = data
 						.into_iter()
 						.flat_map(|(k, v)| object::SetParam::deserialize(&k, v))
@@ -290,7 +290,7 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Tag(id, shared_op) => match shared_op {
-				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+				SharedOperationData::Create(data) => {
 					let data: Vec<_> = data
 						.into_iter()
 						.flat_map(|(field, value)| tag::SetParam::deserialize(&field, value))
@@ -323,7 +323,6 @@ impl SyncManager {
 						.exec()
 						.await?;
 				}
-				_ => todo!(),
 			},
 			_ => todo!(),
 		}
@@ -438,19 +437,6 @@ impl SyncManager {
 		}))
 	}
 
-	pub fn shared_create<
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = SharedSyncType>,
-	>(
-		&self,
-		id: TSyncId,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Shared(SharedOperation {
-			model: TModel::MODEL.to_string(),
-			record_id: json!(id),
-			data: SharedOperationData::Create(SharedOperationCreateData::Atomic),
-		}))
-	}
 	pub fn unique_shared_create<
 		TSyncId: SyncId<ModelTypes = TModel>,
 		TModel: SyncType<Marker = SharedSyncType>,
@@ -462,12 +448,12 @@ impl SyncManager {
 		self.new_op(CRDTOperationType::Shared(SharedOperation {
 			model: TModel::MODEL.to_string(),
 			record_id: json!(id),
-			data: SharedOperationData::Create(SharedOperationCreateData::Unique(
+			data: SharedOperationData::Create(
 				values
 					.into_iter()
 					.map(|(name, value)| (name.to_string(), value))
 					.collect(),
-			)),
+			),
 		}))
 	}
 	pub fn shared_update<

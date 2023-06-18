@@ -22,17 +22,9 @@ pub struct RelationOperation {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum SharedOperationCreateData {
-	#[serde(rename = "u")]
-	Unique(Map<String, Value>),
-	#[serde(rename = "a")]
-	Atomic,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(untagged)]
 pub enum SharedOperationData {
-	Create(SharedOperationCreateData),
+	Create(Map<String, Value>),
 	Update { field: String, value: Value },
 	Delete,
 }

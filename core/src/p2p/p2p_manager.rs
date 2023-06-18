@@ -241,7 +241,6 @@ impl P2PManager {
 			async move {
 				loop {
 					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					println!("pinging!");
 					this.ping().await;
 				}
 			}

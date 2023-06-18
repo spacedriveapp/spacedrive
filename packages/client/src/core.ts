@@ -255,9 +255,7 @@ export type SetNoteArgs = { id: number; note: string | null }
 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
-export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
-
-export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
+export type SharedOperationData = { [key: string]: any } | { field: string; value: any } | null
 
 export type SortOrder = "Asc" | "Desc"
 

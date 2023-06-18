@@ -248,25 +248,22 @@ async fn identifier_job_step(
 
 					let kind = meta.kind as i32;
 
-					let object_creation_args = (
-						[sync.shared_create(sync_id())]
-							.into_iter()
-							.chain(
-								[
-									(object::date_created::NAME, json!(fp.date_created)),
-									(object::kind::NAME, json!(kind)),
-								]
-								.into_iter()
-								.map(|(f, v)| sync.shared_update(sync_id(), f, v)),
-							)
-							.collect::<Vec<_>>(),
-						object::create_unchecked(
-							uuid_to_bytes(object_pub_id),
-							vec![
-								object::date_created::set(fp.date_created),
-								object::kind::set(Some(kind)),
-							],
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+						(
+							(object::date_created::NAME, json!(fp.date_created)),
+							object::date_created::set(fp.date_created),
 						),
+						(
+							(object::kind::NAME, json!(kind)),
+							object::kind::set(Some(kind)),
+						),
+					]
+					.into_iter()
+					.unzip();
+
+					let object_creation_args = (
+						sync.unique_shared_create(sync_id(), sync_params),
+						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 					);
 
 					(object_creation_args, {
@@ -287,7 +284,7 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync.concat(), db.object().create_many(db_params))
+				(sync, db.object().create_many(db_params))
 			})
 			.await
 			.unwrap_or_else(|e| {
