@@ -16,18 +16,6 @@ generator sync {
 
 //// Sync ////
 
-model OwnedOperation {
-    id        Bytes  @id
-    timestamp BigInt
-    data      Bytes
-    model     String
-
-    node_id Int
-    node    Node @relation(fields: [node_id], references: [id])
-
-    @@map("owned_operation")
-}
-
 model SharedOperation {
     id        Bytes  @id
     timestamp BigInt
@@ -73,7 +61,6 @@ model Node {
     jobs     Job[]
     Location Location[]
 
-    OwnedOperation  OwnedOperation[]
     SharedOperation SharedOperation[]
 
     @@map("node")
