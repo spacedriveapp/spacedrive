@@ -53,7 +53,7 @@ pub enum P2PEvent {
 }
 
 pub struct P2PManager {
-	pub events: broadcast::Sender<P2PEvent>,
+	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
@@ -80,11 +80,13 @@ impl P2PManager {
 			manager.listen_addrs().await
 		);
 
-		let (tx, _) = broadcast::channel(100);
+		// need to keep 'rx' around so that the channel isn't dropped
+		let (tx, rx) = broadcast::channel(100);
 		let (tx2, rx2) = broadcast::channel(100);
 
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
+
 		tokio::spawn({
 			let events = tx.clone();
 			// let sync_events = tx2.clone();
@@ -226,7 +228,7 @@ impl P2PManager {
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 		let this = Arc::new(Self {
-			events: tx,
+			events: (tx, rx),
 			manager,
 			spacedrop_pairing_reqs,
 			metadata_manager,
@@ -239,6 +241,7 @@ impl P2PManager {
 			async move {
 				loop {
 					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+					println!("pinging!");
 					this.ping().await;
 				}
 			}
@@ -275,7 +278,7 @@ impl P2PManager {
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
-		self.events.subscribe()
+		self.events.0.subscribe()
 	}
 
 	#[allow(unused)] // TODO: Remove `allow(unused)` once integrated

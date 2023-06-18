@@ -201,22 +201,28 @@ impl SyncManager {
 		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
 			ModelSyncData::FilePath(id, shared_op) => match shared_op {
 				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+					let data: Vec<_> = data
+						.into_iter()
+						.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
+						.collect();
+
 					db.file_path()
-						.create(
-							id.pub_id,
-							data.into_iter()
-								.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
-								.collect(),
+						.upsert(
+							file_path::pub_id::equals(id.pub_id.clone()),
+							file_path::create(id.pub_id, data.clone()),
+							data,
 						)
 						.exec()
 						.await?;
 				}
 				SharedOperationData::Update { field, value } => {
-					self.db
-						.file_path()
-						.update(
-							file_path::pub_id::equals(id.pub_id),
-							vec![file_path::SetParam::deserialize(&field, value).unwrap()],
+					let data = vec![file_path::SetParam::deserialize(&field, value).unwrap()];
+
+					db.file_path()
+						.upsert(
+							file_path::pub_id::equals(id.pub_id.clone()),
+							file_path::create(id.pub_id, data.clone()),
+							data,
 						)
 						.exec()
 						.await?;
@@ -225,12 +231,28 @@ impl SyncManager {
 			},
 			ModelSyncData::Location(id, shared_op) => match shared_op {
 				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+					let data: Vec<_> = data
+						.into_iter()
+						.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
+						.collect();
+
 					db.location()
-						.create(
-							id.pub_id,
-							data.into_iter()
-								.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
-								.collect(),
+						.upsert(
+							location::pub_id::equals(id.pub_id.clone()),
+							location::create(id.pub_id, data.clone()),
+							data,
+						)
+						.exec()
+						.await?;
+				}
+				SharedOperationData::Update { field, value } => {
+					let data = vec![location::SetParam::deserialize(&field, value).unwrap()];
+
+					db.location()
+						.upsert(
+							location::pub_id::equals(id.pub_id.clone()),
+							location::create(id.pub_id, data.clone()),
+							data,
 						)
 						.exec()
 						.await?;
@@ -238,22 +260,29 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Object(id, shared_op) => match shared_op {
-				SharedOperationData::Create(_) => {
+				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+					let data: Vec<_> = data
+						.into_iter()
+						.flat_map(|(k, v)| object::SetParam::deserialize(&k, v))
+						.collect();
+
 					db.object()
 						.upsert(
 							object::pub_id::equals(id.pub_id.clone()),
 							object::create(id.pub_id, vec![]),
-							vec![],
+							data,
 						)
 						.exec()
-						.await
-						.ok();
+						.await?;
 				}
 				SharedOperationData::Update { field, value } => {
+					let data = vec![object::SetParam::deserialize(&field, value).unwrap()];
+
 					db.object()
-						.update(
-							object::pub_id::equals(id.pub_id),
-							vec![object::SetParam::deserialize(&field, value).unwrap()],
+						.upsert(
+							object::pub_id::equals(id.pub_id.clone()),
+							object::create(id.pub_id, data.clone()),
+							data,
 						)
 						.exec()
 						.await?;
@@ -261,28 +290,29 @@ impl SyncManager {
 				_ => todo!(),
 			},
 			ModelSyncData::Tag(id, shared_op) => match shared_op {
-				SharedOperationData::Create(create_data) => match create_data {
-					SharedOperationCreateData::Unique(create_data) => {
-						db.tag()
-							.create(
-								id.pub_id,
-								create_data
-									.into_iter()
-									.flat_map(|(field, value)| {
-										tag::SetParam::deserialize(&field, value)
-									})
-									.collect(),
-							)
-							.exec()
-							.await?;
-					}
-					_ => unreachable!(),
-				},
-				SharedOperationData::Update { field, value } => {
+				SharedOperationData::Create(SharedOperationCreateData::Unique(data)) => {
+					let data: Vec<_> = data
+						.into_iter()
+						.flat_map(|(field, value)| tag::SetParam::deserialize(&field, value))
+						.collect();
+
 					db.tag()
-						.update(
-							tag::pub_id::equals(id.pub_id),
-							vec![tag::SetParam::deserialize(&field, value).unwrap()],
+						.upsert(
+							tag::pub_id::equals(id.pub_id.clone()),
+							tag::create(id.pub_id, data.clone()),
+							data,
+						)
+						.exec()
+						.await?;
+				}
+				SharedOperationData::Update { field, value } => {
+					let data = vec![tag::SetParam::deserialize(&field, value).unwrap()];
+
+					db.tag()
+						.upsert(
+							tag::pub_id::equals(id.pub_id.clone()),
+							tag::create(id.pub_id, data.clone()),
+							data,
 						)
 						.exec()
 						.await?;
@@ -293,6 +323,7 @@ impl SyncManager {
 						.exec()
 						.await?;
 				}
+				_ => todo!(),
 			},
 			_ => todo!(),
 		}

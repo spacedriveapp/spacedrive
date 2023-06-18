@@ -101,7 +101,6 @@ model Location {
     id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
 
-    node_id                Int?
     name                   String?
     path                   String?
     total_capacity         Int?
@@ -112,7 +111,9 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
-    node          Node?                    @relation(fields: [node_id], references: [id])
+    node_id Int?
+    node    Node? @relation(fields: [node_id], references: [id])
+
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]
 
@@ -402,7 +403,6 @@ model Job {
 
 //// Album ////
 
-/// @shared(id: pub_id)
 // model Album {
 //     id        Int     @id @default(autoincrement())
 //     pub_id    Bytes   @unique
