@@ -8,8 +8,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
+use futures::Stream;
 use sd_p2p::{
-	spaceblock::{self, BlockSize, SpacedropRequest},
+	spaceblock::{BlockSize, SpacedropRequest, Transfer},
 	spacetime::SpaceTimeStream,
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
@@ -56,6 +57,7 @@ pub struct P2PManager {
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 }
 
 impl P2PManager {
@@ -82,10 +84,12 @@ impl P2PManager {
 		let (tx2, rx2) = broadcast::channel(100);
 
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
+		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 		tokio::spawn({
 			let events = tx.clone();
 			// let sync_events = tx2.clone();
 			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
+			let spacedrop_progress = spacedrop_progress.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -113,6 +117,7 @@ impl P2PManager {
 							let events = events.clone();
 							let sync_events = tx2.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
+							let spacedrop_progress = spacedrop_progress.clone();
 
 							tokio::spawn(async move {
 								let header = Header::from_stream(&mut event.stream).await.unwrap();
@@ -136,6 +141,12 @@ impl P2PManager {
 										info!("spacedrop({id}): received from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
 
 										spacedrop_pairing_reqs.lock().await.insert(id, tx);
+
+										let (process_tx, _) = broadcast::channel(100);
+										spacedrop_progress
+											.lock()
+											.await
+											.insert(id, process_tx.clone());
 
 										if let Err(_) = events.send(P2PEvent::SpacedropRequest {
 											id,
@@ -162,7 +173,9 @@ impl P2PManager {
 
 														let f = File::create(file_path).await.unwrap();
 
-														spaceblock::receive(&mut stream, f, &req).await;
+														Transfer::new(&req, |percent| {
+															process_tx.send(percent).ok();
+														}).receive(&mut stream, f).await;
 
 														info!("spacedrop({id}): complete");
 													}
@@ -217,6 +230,7 @@ impl P2PManager {
 			manager,
 			spacedrop_pairing_reqs,
 			metadata_manager,
+			spacedrop_progress,
 		});
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
@@ -286,7 +300,13 @@ impl P2PManager {
 	}
 
 	// TODO: Proper error handling
-	pub async fn big_bad_spacedrop(&self, peer_id: PeerId, path: PathBuf) -> Result<(), ()> {
+	pub async fn big_bad_spacedrop(
+		&self,
+		peer_id: PeerId,
+		path: PathBuf,
+	) -> Result<Option<Uuid>, ()> {
+		let id = Uuid::new_v4();
+		let (tx, _) = broadcast::channel(25);
 		let mut stream = self.manager.stream(peer_id).await.map_err(|_| ())?; // TODO: handle providing incorrect peer id
 
 		let file = File::open(&path).await.map_err(|_| ())?;
@@ -309,21 +329,24 @@ impl P2PManager {
 		stream.read_exact(&mut buf).await.map_err(|_| ())?;
 		if buf[0] != 1 {
 			debug!("Spacedrop was rejected from peer '{peer_id}'");
-			return Ok(());
+			return Ok(None);
 		}
 
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
 		let file = BufReader::new(file);
-		spaceblock::send(
-			&mut stream,
-			file,
+		self.spacedrop_progress.lock().await.insert(id, tx.clone());
+		Transfer::new(
 			&match header {
 				Header::Spacedrop(req) => req,
 				_ => unreachable!(),
 			},
+			|percent| {
+				tx.send(percent).ok();
+			},
 		)
+		.send(&mut stream, file)
 		.await;
 
 		debug!(
@@ -331,7 +354,18 @@ impl P2PManager {
 			i.elapsed()
 		);
 
-		Ok(())
+		Ok(Some(id))
+	}
+
+	pub async fn spacedrop_progress(&self, id: Uuid) -> Option<impl Stream<Item = u8>> {
+		self.spacedrop_progress.lock().await.get(&id).map(|v| {
+			let mut v = v.subscribe();
+			async_stream::stream! {
+				while let Ok(item) = v.recv().await {
+					yield item;
+				}
+			}
+		})
 	}
 
 	pub async fn shutdown(&self) {
