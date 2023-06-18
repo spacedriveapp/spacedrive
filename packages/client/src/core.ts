@@ -16,7 +16,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node: Node | null }[] } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; node: Node | null }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -77,7 +77,7 @@ export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
 
-export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
+export type CRDTOperationType = SharedOperation | RelationOperation
 
 /**
  * Meow
@@ -160,7 +160,7 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Location = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -179,7 +179,7 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type MaybeNot<T> = T | { not: T }
 
@@ -216,12 +216,6 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
-
-export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
-
-export type OwnedOperationItem = { id: any; data: OwnedOperationData }
-
 /**
  * TODO: P2P event for the frontend
  */
@@ -255,7 +249,7 @@ export type SetNoteArgs = { id: number; note: string | null }
 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
-export type SharedOperationData = { [key: string]: any } | { field: string; value: any } | null
+export type SharedOperationData = { c: { [key: string]: any } } | { u: { field: string; value: any } } | "d"
 
 export type SortOrder = "Asc" | "Desc"
 

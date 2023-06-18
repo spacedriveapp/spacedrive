@@ -50,21 +50,6 @@ impl SyncManager {
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		#[cfg(feature = "sync-messages")]
 		let res = {
-			let owned = _ops
-				.iter()
-				.filter_map(|op| match &op.typ {
-					CRDTOperationType::Owned(owned_op) => Some(tx.owned_operation().create(
-						op.id.as_bytes().to_vec(),
-						op.timestamp.0 as i64,
-						to_vec(&owned_op.items).unwrap(),
-						owned_op.model.clone(),
-						node::pub_id::equals(op.node.as_bytes().to_vec()),
-						vec![],
-					)),
-					_ => None,
-				})
-				.collect::<Vec<_>>();
-
 			let shared = _ops
 				.iter()
 				.filter_map(|op| match &op.typ {
@@ -90,7 +75,7 @@ impl SyncManager {
 				})
 				.collect::<Vec<_>>();
 
-			let (res, _) = tx._batch((queries, (owned, shared))).await?;
+			let (res, _) = tx._batch((queries, shared)).await?;
 
 			for op in _ops {
 				self.tx.send(SyncMessage::Created(op)).ok();
@@ -111,21 +96,6 @@ impl SyncManager {
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = match &op.typ {
-			CRDTOperationType::Owned(owned_op) => {
-				tx._batch((
-					tx.owned_operation().create(
-						op.id.as_bytes().to_vec(),
-						op.timestamp.0 as i64,
-						to_vec(&owned_op.items).unwrap(),
-						owned_op.model.clone(),
-						node::pub_id::equals(op.node.as_bytes().to_vec()),
-						vec![],
-					),
-					query,
-				))
-				.await?
-				.1
-			}
 			CRDTOperationType::Shared(shared_op) => {
 				let kind = match &shared_op.data {
 					SharedOperationData::Create(_) => "c",
@@ -363,78 +333,6 @@ impl SyncManager {
 			id: Uuid::new_v4(),
 			typ,
 		}
-	}
-
-	pub fn owned_create<
-		const SIZE: usize,
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = OwnedSyncType>,
-	>(
-		&self,
-		id: TSyncId,
-		values: [(&'static str, Value); SIZE],
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: TModel::MODEL.to_string(),
-			items: [(id, values)]
-				.into_iter()
-				.map(|(id, data)| OwnedOperationItem {
-					id: json!(id),
-					data: OwnedOperationData::Create(
-						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-					),
-				})
-				.collect(),
-		}))
-	}
-	pub fn owned_create_many<
-		const SIZE: usize,
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = OwnedSyncType>,
-	>(
-		&self,
-		data: impl IntoIterator<Item = (TSyncId, [(&'static str, Value); SIZE])>,
-		skip_duplicates: bool,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: TModel::MODEL.to_string(),
-			items: vec![OwnedOperationItem {
-				id: Value::Null,
-				data: OwnedOperationData::CreateMany {
-					values: data
-						.into_iter()
-						.map(|(id, data)| {
-							(
-								json!(id),
-								data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-							)
-						})
-						.collect(),
-					skip_duplicates,
-				},
-			}],
-		}))
-	}
-	pub fn owned_update<
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = OwnedSyncType>,
-	>(
-		&self,
-		id: TSyncId,
-		values: impl IntoIterator<Item = (&'static str, Value)>,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: TModel::MODEL.to_string(),
-			items: [(id, values)]
-				.into_iter()
-				.map(|(id, data)| OwnedOperationItem {
-					id: json!(id),
-					data: OwnedOperationData::Update(
-						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-					),
-				})
-				.collect(),
-		}))
 	}
 
 	pub fn unique_shared_create<
