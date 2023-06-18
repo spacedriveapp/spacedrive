@@ -215,7 +215,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 					{
-						if indexer_rule.default {
+						if indexer_rule.default.unwrap_or_default() {
 							return Err(rspc::Error::new(
 								ErrorCode::Forbidden,
 								format!("Indexer rule <id={indexer_rule_id}> can't be deleted"),

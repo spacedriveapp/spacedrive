@@ -447,13 +447,14 @@ model Job {
 //// Indexer Rules ////
 
 model IndexerRule {
-    id             Int      @id @default(autoincrement())
-    pub_id         Bytes?   @unique
-    name           String
-    default        Boolean  @default(false)
-    rules_per_kind Bytes
-    date_created   DateTime @default(now())
-    date_modified  DateTime @default(now())
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+
+    name           String?
+    default        Boolean?
+    rules_per_kind Bytes?
+    date_created   DateTime?
+    date_modified  DateTime?
 
     locations IndexerRulesInLocation[]
 
@@ -461,8 +462,6 @@ model IndexerRule {
 }
 
 model IndexerRulesInLocation {
-    date_created DateTime @default(now())
-
     location_id Int
     location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
