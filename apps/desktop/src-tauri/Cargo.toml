@@ -39,6 +39,9 @@ sd-desktop-linux = { path = "../crates/linux" }
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos = { path = "../crates/macos" }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+sd-desktop-windows = { path = "../crates/windows" }
+
 [build-dependencies]
 tauri-build = { version = "1.3.0", features = [] }
 

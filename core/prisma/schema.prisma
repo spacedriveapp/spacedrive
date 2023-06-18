@@ -367,13 +367,14 @@ model ObjectInSpace {
 //// Job ////
 
 model Job {
-    id      Bytes   @id
-    name    String
-    node_id Int
+    id Bytes @id
+
+    name    String?
+    node_id Int?
     action  String? // Will be composed of "{action_description}(-{children_order})*"
 
     // Enum: sd_core::job::job_manager:JobStatus
-    status Int @default(0) // 0 = Queued
+    status Int? // 0 = Queued
 
     // List of errors, separated by "\n\n" in case of failed jobs or completed with errors
     errors_text String?
@@ -383,15 +384,15 @@ model Job {
 
     parent_id Bytes?
 
-    task_count                Int       @default(1)
-    completed_task_count      Int       @default(0)
+    task_count                Int?
+    completed_task_count      Int?
     date_estimated_completion DateTime? // Estimated timestamp that the job will be complete at
 
-    date_created   DateTime  @default(now())
-    date_started   DateTime? @default(now()) // Started execution
+    date_created   DateTime?
+    date_started   DateTime? // Started execution
     date_completed DateTime? // Finished execution
 
-    node Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    node Node? @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
     parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     children Job[] @relation("jobs_dependency")

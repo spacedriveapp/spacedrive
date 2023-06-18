@@ -4,6 +4,7 @@ import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState }
 import { ExplorerItem, useLibraryContext } from '@sd/client';
 import { PDFViewer } from '~/components';
 import {
+	getExplorerStore,
 	useCallbackToWatchResize,
 	useExplorerItemData,
 	useExplorerStore,
@@ -51,13 +52,13 @@ const Thumbnail = memo(
 						videoBarsSize
 							? size && size.height >= size.width
 								? {
-										borderLeftWidth: videoBarsSize,
-										borderRightWidth: videoBarsSize
-								  }
+									borderLeftWidth: videoBarsSize,
+									borderRightWidth: videoBarsSize
+								}
 								: {
-										borderTopWidth: videoBarsSize,
-										borderBottomWidth: videoBarsSize
-								  }
+									borderTopWidth: videoBarsSize,
+									borderBottomWidth: videoBarsSize
+								}
 							: {}
 					}
 					onLoad={props.onLoad}
@@ -75,11 +76,11 @@ const Thumbnail = memo(
 							props.cover
 								? {}
 								: size
-								? {
+									? {
 										marginTop: Math.floor(size.height / 2) - 2,
 										marginLeft: Math.floor(size.width / 2) - 2
-								  }
-								: { display: 'none' }
+									}
+									: { display: 'none' }
 						}
 						className={clsx(
 							props.cover
@@ -207,9 +208,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				size &&
-					kind !== 'Video' &&
-					thumbType !== ThumbType.Icon &&
-					'border-2 border-transparent',
+				kind !== 'Video' &&
+				thumbType !== ThumbType.Icon &&
+				'border-2 border-transparent',
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
@@ -241,6 +242,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										src={src}
 										onError={onError}
 										autoPlay
+										onVolumeChange={(e) => {
+											const video = e.target as HTMLVideoElement;
+											getExplorerStore().mediaPlayerVolume = video.volume;
+										}}
 										controls={props.mediaControls}
 										onCanPlay={(e) => {
 											const video = e.target as HTMLVideoElement;
@@ -248,6 +253,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											// https://github.com/facebook/react/issues/10389
 											video.loop = !props.mediaControls;
 											video.muted = !props.mediaControls;
+											video.volume = getExplorerStore().mediaPlayerVolume;
 										}}
 										className={clsx(
 											childClassName,
@@ -306,9 +312,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										'shadow shadow-black/30'
 									],
 									size &&
-										(kind === 'Video'
-											? 'border-x-0 border-black'
-											: size > 60 && 'border-2 border-app-line'),
+									(kind === 'Video'
+										? 'border-x-0 border-black'
+										: size > 60 && 'border-2 border-app-line'),
 									props.className
 								)}
 								crossOrigin={ThumbType.Original && 'anonymous'} // Here it is ok, because it is not a react attr

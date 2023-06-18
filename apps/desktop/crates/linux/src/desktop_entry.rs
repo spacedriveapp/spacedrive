@@ -29,12 +29,14 @@ pub enum Mode {
 }
 
 fn terminal() -> Result<String> {
+	// TODO: Attemtp to read x-terminal-emulator bin (Debian/Ubuntu spec for setting default terminal)
 	SystemApps::get_entries()
 		.ok()
 		.and_then(|mut entries| {
-			entries.find(|(_handler, entry)| entry.categories.contains_key("TerminalEmulator"))
+			entries
+				.find(|DesktopEntry { categories, .. }| categories.contains_key("TerminalEmulator"))
 		})
-		.map(|e| e.1.exec)
+		.map(|e| e.exec)
 		.ok_or(Error::NoTerminal)
 }
 

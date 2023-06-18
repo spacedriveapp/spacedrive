@@ -408,10 +408,10 @@ PROTOC = "${_frameworks_dir}/bin/protoc"
 FFMPEG_DIR = "${_frameworks_dir}"
 
 [target.aarch64-apple-darwin]
-rustflags = ["-L ${_frameworks_dir}/lib"]
+rustflags = ["-L", "${_frameworks_dir}/lib"]
 
 [target.x86_64-apple-darwin]
-rustflags = ["-L ${_frameworks_dir}/lib"]
+rustflags = ["-L", "${_frameworks_dir}/lib"]
 
 $(cat "${_cargo_config}/config.toml")
 EOF
