@@ -77,7 +77,7 @@ export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
 
-export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
+export type CRDTOperationType = SharedOperation | RelationOperation
 
 /**
  * Meow
@@ -216,12 +216,6 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type OwnedOperation = { model: string; items: OwnedOperationItem[] }
-
-export type OwnedOperationData = { Create: { [key: string]: any } } | { CreateMany: { values: ([any, { [key: string]: any }])[]; skip_duplicates: boolean } } | { Update: { [key: string]: any } } | "Delete"
-
-export type OwnedOperationItem = { id: any; data: OwnedOperationData }
-
 /**
  * TODO: P2P event for the frontend
  */
@@ -255,9 +249,7 @@ export type SetNoteArgs = { id: number; note: string | null }
 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
-export type SharedOperationCreateData = { u: { [key: string]: any } } | "a"
-
-export type SharedOperationData = SharedOperationCreateData | { field: string; value: any } | null
+export type SharedOperationData = { c: { [key: string]: any } } | { u: { field: string; value: any } } | "d"
 
 export type SortOrder = "Asc" | "Desc"
 
