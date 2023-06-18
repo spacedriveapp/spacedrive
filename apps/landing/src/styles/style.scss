@@ -21,13 +21,6 @@ html {
 	background-clip: text;
 }
 
-.landing-img {
-	background-image: url('/app.png');
-	background-size: contain;
-	background-repeat: no-repeat;
-	background-position: center top;
-}
-
 .fade-in-app-embed {
 	animation: fadeInUp 3s;
 	-webkit-animation: fadeInUp 3s;
@@ -265,4 +258,8 @@ pre {
 	margin-left: -8px;
 	color: rgb(156, 163, 175); /* Line number color */
 	content: attr(line);
+}
+
+.shadow-top {
+	box-shadow: 0 0px 50px -8px rgb(59 130 246);
 }

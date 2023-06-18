@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import AppEmbed from '~/components/AppEmbed';
-import { Bubbles } from '~/components/Bubbles';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import { getWindow } from '~/utils/util';
+import Space from "~/components/Space";
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -152,7 +152,7 @@ export default function HomePage() {
 						</>
 					}
 				/>
-				<Bubbles />
+				<Space/>
 			</div>
 		</PageWrapper>
 	);

@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { getWindow } from '~/utils/util';
+import Logo from '../../public/app.png';
+import Image from 'next/image';
 
 const AppEmbed = () => {
 	const [showApp, setShowApp] = useState(false);
@@ -55,17 +57,10 @@ const AppEmbed = () => {
 
 	return (
 		<div className="w-screen">
-			{renderBloom && (
-				<div className="relative mx-auto max-w-full sm:w-full sm:max-w-[1400px]">
-					<div className="bloom burst bloom-one" />
-					<div className="bloom burst bloom-three" />
-					<div className="bloom burst bloom-two" />
-				</div>
-			)}
-			<div className="relative z-30 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+			<div className="relative z-30 mt-8 flex h-[255px] justify-center sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div
 					className={clsx(
-						'relative m-auto h-full max-w-7xl rounded-lg border border-gray-550 opacity-0 transition-opacity',
+						'relative h-full w-auto rounded-lg border border-gray-550 opacity-0 transition-opacity',
 						renderBloom && '!opacity-100',
 						renderImage && 'border-none bg-transparent'
 					)}
@@ -86,9 +81,15 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && (
-						<div className="fade-in-app-embed landing-img z-40 h-full w-auto" />
-					)}
+					<div className="shadow-top relative mx-12 mt-12 flex w-auto max-w-7xl justify-center rounded-3xl bg-[#121219] lg:h-[420px] xl:h-[680px]">
+						{renderImage && (
+							<>
+								<Image src={Logo} width={0} height={0} sizes={"100vw"} className={"fade-in-app-embed z-40 h-full w-auto"} alt="image"/>
+								<div className="burst absolute z-20 h-[50px] w-[50px] rounded-full bg-blue-500 opacity-40 blur-3xl lg:bottom-1/2 lg:h-[400px] xl:bottom-0 xl:h-[850px] xl:w-[850px]"></div>
+							</>
+						)}
+
+					</div>
 				</div>
 			</div>
 		</div>
