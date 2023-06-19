@@ -115,13 +115,13 @@ const Item = ({
 			{to ? (
 				<Link to={to} onClick={() => ref.current?.click()}>
 					<ContextMenuDivItem
-						className={clsx(selected && 'bg-accent')}
+						className={clsx(selected && 'bg-accent text-white')}
 						{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
 					/>
 				</Link>
 			) : (
 				<ContextMenuDivItem
-					className={clsx(selected && 'bg-accent')}
+					className={clsx(selected && 'bg-accent text-white')}
 					{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
 				/>
 			)}
