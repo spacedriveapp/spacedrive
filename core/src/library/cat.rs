@@ -43,6 +43,7 @@ pub enum Category {
 }
 
 impl Category {
+	// this should really be done without unimplemented! and on another type but ehh
 	fn to_object_kind(self) -> ObjectKind {
 		match self {
 			Category::Photos => ObjectKind::Image,
@@ -53,19 +54,25 @@ impl Category {
 			_ => unimplemented!("Category::to_object_kind() for {:?}", self),
 		}
 	}
+
+	pub fn to_where_param(self) -> object::WhereParam {
+		match self {
+			Category::Recents => not![object::date_accessed::equals(None)],
+			Category::Favorites => object::favorite::equals(Some(true)),
+			Category::Photos
+			| Category::Videos
+			| Category::Music
+			| Category::Encrypted
+			| Category::Books => object::kind::equals(Some(self.to_object_kind() as i32)),
+			_ => object::id::equals(-1),
+		}
+	}
 }
 
 pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	let param = match category {
-		Category::Recents => not![object::date_accessed::equals(None)],
-		Category::Favorites => object::favorite::equals(Some(true)),
-		Category::Photos
-		| Category::Videos
-		| Category::Music
-		| Category::Encrypted
-		| Category::Books => object::kind::equals(Some(category.to_object_kind() as i32)),
-		_ => return 0,
-	};
-
-	db.object().count(vec![param]).exec().await.unwrap_or(0) as i32
+	db.object()
+		.count(vec![category.to_where_param()])
+		.exec()
+		.await
+		.unwrap_or(0) as i32
 }
