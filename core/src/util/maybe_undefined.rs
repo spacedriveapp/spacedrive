@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 
 #[derive(Debug, Clone, Type)]
-
+#[specta(untagged)]
 pub enum MaybeUndefined<T> {
 	Undefined,
 	Null,

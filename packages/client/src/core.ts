@@ -184,7 +184,7 @@ export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: str
 
 export type MaybeNot<T> = T | { not: T }
 
-export type MaybeUndefined<T> = "Undefined" | "Null" | { Value: T }
+export type MaybeUndefined<T> = null | null | T
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
