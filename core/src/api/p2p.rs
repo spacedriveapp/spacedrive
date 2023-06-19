@@ -62,13 +62,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("acceptSpacedrop", {
 			R.mutation(|ctx, (id, path): (Uuid, Option<String>)| async move {
 				match path {
-					Some(path) => {
-						ctx.p2p.accept_spacedrop(id, path).await;
-					}
-					None => {
-						ctx.p2p.reject_spacedrop(id).await;
-					}
+					Some(path) => ctx.p2p.accept_spacedrop(id, path).await,
+					None => ctx.p2p.reject_spacedrop(id).await,
 				}
+			})
+		})
+		.procedure("spacedropProgress", {
+			R.subscription(|ctx, id: Uuid| async move {
+				ctx.p2p.spacedrop_progress(id).await.ok_or_else(|| {
+					rspc::Error::new(ErrorCode::BadRequest, "Spacedrop not found!".into())
+				})
 			})
 		})
 		.procedure("pair", {

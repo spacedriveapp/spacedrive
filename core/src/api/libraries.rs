@@ -99,7 +99,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let new_library = ctx
 					.library_manager
 					.create(
-						LibraryConfig::new(args.name.to_string()),
+						LibraryConfig::new(args.name.to_string(), ctx.config.get().await.id),
 						ctx.config.get().await,
 					)
 					.await?;

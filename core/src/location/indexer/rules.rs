@@ -2,9 +2,15 @@ use crate::{
 	library::Library,
 	prisma::indexer_rule,
 	util::{
-		db::uuid_to_bytes,
+		db::{maybe_missing, uuid_to_bytes, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 	},
+};
+
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	path::Path,
 };
 
 use chrono::{DateTime, Utc};
@@ -14,11 +20,6 @@ use rmp_serde::{self, decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{
-	collections::{HashMap, HashSet},
-	marker::PhantomData,
-	path::Path,
-};
 use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
@@ -45,6 +46,8 @@ pub enum IndexerRuleError {
 	RejectByItsChildrenFileIO(FileIOError),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<IndexerRuleError> for rspc::Error {
@@ -121,16 +124,18 @@ impl IndexerRuleCreateArgs {
 			return Ok(None);
 		}
 
+		use indexer_rule::*;
+
 		Ok(Some(
 			library
 				.db
 				.indexer_rule()
 				.create(
-					self.name,
-					rules_data,
-					vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
-						generate_pub_id(),
-					)))],
+					uuid_to_bytes(generate_pub_id()),
+					vec![
+						name::set(Some(self.name)),
+						rules_per_kind::set(Some(rules_data)),
+					],
 				)
 				.exec()
 				.await?,
@@ -453,17 +458,6 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
-		Self {
-			id: None,
-			name,
-			default,
-			rules,
-			date_created: Utc::now(),
-			date_modified: Utc::now(),
-		}
-	}
-
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path>,
@@ -495,11 +489,14 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: Some(data.id),
-			name: data.name.clone(),
-			default: data.default,
-			rules: rmp_serde::from_slice(&data.rules_per_kind)?,
-			date_created: data.date_created.into(),
-			date_modified: data.date_modified.into(),
+			name: maybe_missing(data.name.clone(), "indexer_rule.name")?,
+			default: maybe_missing(data.default, "indexer_rule.default")?,
+			rules: rmp_serde::from_slice(maybe_missing(
+				&data.rules_per_kind,
+				"indexer_rule.rules_per_kind",
+			)?)?,
+			date_created: maybe_missing(data.date_created, "indexer_rule.date_created")?.into(),
+			date_modified: maybe_missing(data.date_modified, "indexer_rule.date_modified")?.into(),
 		})
 	}
 }
@@ -653,24 +650,20 @@ mod seeder {
 			let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
 			let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
 
+			use indexer_rule::*;
+
+			let data = vec![
+				name::set(Some(rule.name.to_string())),
+				rules_per_kind::set(Some(rules.clone())),
+				default::set(Some(rule.default)),
+			];
+
 			client
 				.indexer_rule()
 				.upsert(
 					indexer_rule::pub_id::equals(pub_id.clone()),
-					indexer_rule::create(
-						rule.name.to_string(),
-						rules.clone(),
-						vec![
-							indexer_rule::pub_id::set(Some(pub_id.clone())),
-							indexer_rule::default::set(rule.default),
-						],
-					),
-					vec![
-						indexer_rule::name::set(rule.name.to_string()),
-						indexer_rule::rules_per_kind::set(rules),
-						indexer_rule::pub_id::set(Some(pub_id.clone())),
-						indexer_rule::default::set(rule.default),
-					],
+					indexer_rule::create(pub_id.clone(), data.clone()),
+					data,
 				)
 				.exec()
 				.await?;
@@ -739,6 +732,7 @@ mod seeder {
                     vec![
                         "/{System,Network,Library,Applications}",
                         "/Users/*/{Library,Applications}",
+						"**/*.photoslibrary/{database,external,private,resources,scope}",
                         // Files that might appear in the root of a volume
                         "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
                         // Directories potentially created on remote AFP share
@@ -777,7 +771,7 @@ mod seeder {
                 ]
                 .into_iter()
                 .flatten()
-            ).unwrap(),
+            ).expect("this is hardcoded and should always work"),
         ],
     }
 	}
@@ -786,7 +780,8 @@ mod seeder {
 		SystemIndexerRule {
 			name: "No Hidden",
 			default: true,
-			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"]).unwrap()],
+			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
+				.expect("this is hardcoded and should always work")],
 		}
 	}
 
@@ -807,7 +802,7 @@ mod seeder {
 			rules: vec![RulePerKind::new_accept_files_by_globs_str([
 				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
 			])
-			.unwrap()],
+			.expect("this is hardcoded and should always work")],
 		}
 	}
 }
@@ -815,10 +810,24 @@ mod seeder {
 pub use seeder::*;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
 	use tokio::fs;
+
+	impl IndexerRule {
+		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+			Self {
+				id: None,
+				name,
+				default,
+				rules,
+				date_created: Utc::now(),
+				date_modified: Utc::now(),
+			}
+		}
+	}
 
 	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
 		indexer_rule

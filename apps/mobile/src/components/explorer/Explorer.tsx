@@ -31,7 +31,7 @@ const Explorer = ({ items }: ExplorerProps) => {
 	const { modalRef, setData } = useActionsModalStore();
 
 	function handlePress(data: ExplorerItem) {
-		if (isPath(data) && data.item.is_dir) {
+		if (isPath(data) && data.item.is_dir && data.item.location_id !== null) {
 			navigation.push('Location', {
 				id: data.item.location_id,
 				path: `${data.item.materialized_path}${data.item.name}/`

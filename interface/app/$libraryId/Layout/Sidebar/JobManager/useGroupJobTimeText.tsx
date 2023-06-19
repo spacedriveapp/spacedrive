@@ -6,6 +6,7 @@ import { useForceUpdate } from '~/util';
 
 dayjs.extend(duration);
 
+// TODO: refactor this, its a mess.
 export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 	const forceUpdate = useForceUpdate();
 

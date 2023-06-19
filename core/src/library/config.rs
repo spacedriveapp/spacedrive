@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::node;
@@ -25,19 +25,19 @@ pub struct LibraryConfig {
 	/// P2P identity of this library.
 	pub identity: Vec<u8>,
 	/// Id of the current node
-	pub node_id: Vec<u8>,
+	pub node_id: Uuid,
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
 }
 
 impl LibraryConfig {
-	pub fn new(name: String) -> Self {
+	pub fn new(name: String, node_id: Uuid) -> Self {
 		Self {
 			name,
 			description: None,
 			identity: Identity::new().to_bytes().to_vec(),
-			node_id: Uuid::new_v4().as_bytes().to_vec(),
+			node_id,
 		}
 	}
 }
@@ -46,7 +46,7 @@ impl LibraryConfig {
 impl Migrate for LibraryConfig {
 	const CURRENT_VERSION: u32 = 3;
 
-	type Ctx = PrismaClient;
+	type Ctx = (Uuid, Arc<PrismaClient>);
 
 	fn default(path: PathBuf) -> Result<Self, MigratorError> {
 		Err(MigratorError::ConfigFileMissing(path))
@@ -55,7 +55,7 @@ impl Migrate for LibraryConfig {
 	async fn migrate(
 		to_version: u32,
 		config: &mut serde_json::Map<String, serde_json::Value>,
-		db: &Self::Ctx,
+		(node_id, db): &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match to_version {
 			0 => {}
@@ -73,9 +73,9 @@ impl Migrate for LibraryConfig {
 						.enumerate()
 						.map(|(i, name)| {
 							db.indexer_rule().update_many(
-								vec![indexer_rule::name::equals(name)],
-								vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
-									Uuid::from_u128(i as u128),
+								vec![indexer_rule::name::equals(Some(name))],
+								vec![indexer_rule::pub_id::set(uuid_to_bytes(Uuid::from_u128(
+									i as u128,
 								)))],
 							)
 						})
@@ -95,29 +95,20 @@ impl Migrate for LibraryConfig {
 					),
 				);
 			}
+			// The fact I have to migrate this hurts my soul
 			3 => {
-				// The fact I have to migrate this hurts my soul
-				if db.node().count(vec![]).exec().await.unwrap() != 0 {
+				if db.node().count(vec![]).exec().await.unwrap() != 1 {
 					panic!(
 						"Ummm, there are too many nodes in the database, this should not happen!"
 					);
 				}
 
-				let new_not_cringe_node_id = Uuid::new_v4();
 				db.node()
-					.update_many(
-						vec![],
-						vec![node::pub_id::set(
-							new_not_cringe_node_id.as_bytes().to_vec(),
-						)],
-					)
+					.update_many(vec![], vec![node::pub_id::set(node_id.as_bytes().to_vec())])
 					.exec()
 					.await?;
 
-				config.insert(
-					"node_id".into(),
-					Value::String(new_not_cringe_node_id.to_string()),
-				);
+				config.insert("node_id".into(), Value::String(node_id.to_string()));
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}

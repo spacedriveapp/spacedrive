@@ -6,7 +6,7 @@ use crate::{
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
-		db,
+		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
 		MaybeUndefined,
@@ -15,7 +15,6 @@ use crate::{
 };
 
 use std::{
-	env,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -68,12 +67,12 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
-	#[error("no-path")]
-	NoPath(i32),
 	#[error("failed to parse library p2p identity: {0}")]
 	Identity(#[from] IdentityErr),
 	#[error("current node with id '{0}' was not found in the database")]
 	CurrentNodeNotFound(String),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -194,19 +193,16 @@ impl LibraryManager {
 		.await?;
 
 		// Create node
-		library
-			.db
-			.node()
-			.create(
-				config.node_id.clone(),
-				node_cfg.name.clone(),
-				config.identity.clone(),
-				Platform::current() as i32,
-				Local::now().into(),
-				vec![],
-			)
-			.exec()
-			.await?;
+		node::Create {
+			pub_id: config.node_id.as_bytes().to_vec(),
+			name: node_cfg.name.clone(),
+			platform: Platform::current() as i32,
+			date_created: Local::now().into(),
+			_params: vec![node::identity::set(Some(config.identity.clone()))],
+		}
+		.to_query(&library.db)
+		.exec()
+		.await?;
 
 		debug!("Loaded library '{id:?}'");
 
@@ -351,21 +347,14 @@ impl LibraryManager {
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
-		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
-		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
-
 		let node_config = node_context.config.get().await;
-
-		let platform = match env::consts::OS {
-			"windows" => Platform::Windows,
-			"macos" => Platform::MacOS,
-			"linux" => Platform::Linux,
-			_ => Platform::Unknown,
-		};
+		let config =
+			LibraryConfig::load_and_migrate(&config_path, &(node_config.id, db.clone())).await?;
+		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
 
 		let node_data = db
 			.node()
-			.find_unique(node::pub_id::equals(id.as_bytes().to_vec()))
+			.find_unique(node::pub_id::equals(node_config.id.as_bytes().to_vec()))
 			.exec()
 			.await?
 			.ok_or_else(|| LibraryManagerError::CurrentNodeNotFound(id.to_string()))?;
@@ -464,7 +453,7 @@ impl LibraryManager {
 			.node_context
 			.jobs
 			.clone()
-			.resume_jobs(&library)
+			.cold_resume(&library)
 			.await
 		{
 			error!("Failed to resume jobs for library. {:#?}", e);

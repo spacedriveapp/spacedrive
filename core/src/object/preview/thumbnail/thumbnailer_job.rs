@@ -1,4 +1,5 @@
 use crate::{
+	extract_job_data,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
@@ -60,7 +61,11 @@ impl StatefulJob for ThumbnailerJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
@@ -145,6 +150,7 @@ impl StatefulJob for ThumbnailerJob {
 				location_id,
 				path,
 				thumbnails_created: 0,
+				thumbnails_skipped: 0,
 			},
 		});
 		state.steps.extend(all_files);
@@ -154,20 +160,14 @@ impl StatefulJob for ThumbnailerJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		process_step(state, ctx).await
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_thumbnailer(
-			state
-				.data
-				.as_ref()
-				.expect("critical error: missing data on job state"),
-			ctx,
-		)
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		finalize_thumbnailer(extract_job_data!(state), ctx)
 	}
 }
 
@@ -180,7 +180,7 @@ async fn get_files_by_extensions(
 	Ok(db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(iso_file_path.location_id()),
+			file_path::location_id::equals(Some(iso_file_path.location_id())),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
 			file_path::materialized_path::starts_with(
 				iso_file_path

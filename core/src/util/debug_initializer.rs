@@ -122,7 +122,7 @@ impl InitConfig {
 								name: lib.name,
 								description: lib.description,
 								identity: Identity::new().to_bytes(),
-								node_id: node_pub_id.as_bytes().to_vec(),
+								node_id: node_pub_id,
 							},
 							node_cfg.clone(),
 						)

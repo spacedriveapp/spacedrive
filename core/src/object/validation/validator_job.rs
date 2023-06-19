@@ -1,12 +1,13 @@
 use crate::{
+	extract_job_data,
 	job::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{file_path_for_object_validator, IsolatedFilePathData},
-	prisma::file_path,
+	prisma::{file_path, location},
 	sync,
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::path::PathBuf;
@@ -32,7 +33,7 @@ pub struct ObjectValidatorJobState {
 // The validator can
 #[derive(Serialize, Deserialize, Debug, Hash)]
 pub struct ObjectValidatorJobInit {
-	pub location_id: i32,
+	pub location_id: location::id::Type,
 	pub path: PathBuf,
 	pub background: bool,
 }
@@ -53,14 +54,18 @@ impl StatefulJob for ObjectValidatorJob {
 		Self {}
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		state.steps.extend(
 			db.file_path()
 				.find_many(vec![
-					file_path::location_id::equals(state.init.location_id),
-					file_path::is_dir::equals(false),
+					file_path::location_id::equals(Some(state.init.location_id)),
+					file_path::is_dir::equals(Some(false)),
 					file_path::integrity_checksum::equals(None),
 				])
 				.select(file_path_for_object_validator::select())
@@ -80,26 +85,23 @@ impl StatefulJob for ObjectValidatorJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let Library { db, sync, .. } = &ctx.library;
 
 		let file_path = &state.steps[0];
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data!(state);
 
 		// this is to skip files that already have checksums
 		// i'm unsure what the desired behaviour is in this case
 		// we can also compare old and new checksums here
 		// This if is just to make sure, we already queried objects where integrity_checksum is null
 		if file_path.integrity_checksum.is_none() {
-			let path = data.root_path.join(IsolatedFilePathData::from((
-				file_path.location.id,
+			let path = data.root_path.join(IsolatedFilePathData::try_from((
+				maybe_missing(&file_path.location, "file_path.location")?.id,
 				file_path,
-			)));
+			))?);
 			let checksum = file_checksum(&path)
 				.await
 				.map_err(|e| FileIOError::from((path, e)))?;
@@ -128,11 +130,12 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let data = state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state");
+	async fn finalize(
+		&mut self,
+		_ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> JobResult {
+		let data = extract_job_data!(state);
 		info!(
 			"finalizing validator job at {}: {} tasks",
 			data.root_path.display(),

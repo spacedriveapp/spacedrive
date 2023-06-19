@@ -2,8 +2,6 @@ import {
 	ArrowBendUpRight,
 	Copy,
 	FileX,
-	LockSimple,
-	LockSimpleOpen,
 	Package,
 	Plus,
 	Scissors,
@@ -12,19 +10,13 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import {
-	ExplorerItem,
-	isObject,
-	useLibraryContext,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { ExplorerItem, isObject, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { useExplorerViewContext } from '../ViewContext';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
@@ -38,6 +30,8 @@ interface Props {
 
 export default ({ data }: Props) => {
 	const store = useExplorerStore();
+	const explorerView = useExplorerViewContext();
+	const explorerStore = useExplorerStore();
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
@@ -72,17 +66,19 @@ export default ({ data }: Props) => {
 
 			<OpenInNativeExplorer />
 
-			<ContextMenu.Item
-				label="Rename"
-				keybind="Enter"
-				onClick={() => (getExplorerStore().isRenaming = true)}
-			/>
+			{explorerStore.layoutMode === 'media' || (
+				<ContextMenu.Item
+					label="Rename"
+					keybind="Enter"
+					onClick={() => explorerView.setIsRenaming(true)}
+				/>
+			)}
 
 			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
 				<ContextMenu.Item
 					label="Remove from recents"
 					onClick={() =>
-						data.item.object_id && removeFromRecents.mutate(data.item.object_id)
+						data.item.object_id && removeFromRecents.mutate([data.item.object_id])
 					}
 				/>
 			)}
@@ -129,9 +125,9 @@ export default ({ data }: Props) => {
 
 					copyFiles.mutate({
 						source_location_id: store.locationId!,
-						source_path_id: data.item.id,
+						sources_file_path_ids: [data.item.id],
 						target_location_id: store.locationId!,
-						target_path: params.path,
+						target_location_relative_directory_path: params.path,
 						target_file_name_suffix: ' copy'
 					});
 				}}
@@ -303,7 +299,9 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 									props.data.type === 'Path' &&
 										props.data.item.object_id &&
 										updateAccessTime.mutate(props.data.item.object_id);
-									openFilePath(library.uuid, filePath.id);
+
+									// FIXME: treat error properly
+									openFilePath(library.uuid, [filePath.id]);
 								}}
 							/>
 						)}

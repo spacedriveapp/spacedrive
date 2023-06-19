@@ -69,7 +69,7 @@
 // 			onSubmit={form.handleSubmit((data) =>
 // 				decryptFile.mutateAsync({
 // 					location_id: props.location_id,
-// 					path_id: props.path_id,
+// 					file_path_ids: [props.path_id],
 // 					output_path: data.outputPath !== '' ? data.outputPath : null,
 // 					mount_associated_key: data.mountAssociatedKey,
 // 					password: data.type === 'password' ? data.password : null,

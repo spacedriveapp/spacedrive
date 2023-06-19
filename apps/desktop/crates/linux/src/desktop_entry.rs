@@ -29,12 +29,14 @@ pub enum Mode {
 }
 
 fn terminal() -> Result<String> {
+	// TODO: Attemtp to read x-terminal-emulator bin (Debian/Ubuntu spec for setting default terminal)
 	SystemApps::get_entries()
 		.ok()
 		.and_then(|mut entries| {
-			entries.find(|(_handler, entry)| entry.categories.contains_key("TerminalEmulator"))
+			entries
+				.find(|DesktopEntry { categories, .. }| categories.contains_key("TerminalEmulator"))
 		})
-		.map(|e| e.1.exec)
+		.map(|e| e.exec)
 		.ok_or(Error::NoTerminal)
 }
 
@@ -157,10 +159,10 @@ fn parse_file(path: &Path) -> Option<DesktopEntry> {
 	}
 }
 
-impl TryFrom<PathBuf> for DesktopEntry {
+impl TryFrom<&PathBuf> for DesktopEntry {
 	type Error = Error;
-	fn try_from(path: PathBuf) -> Result<DesktopEntry> {
-		parse_file(&path).ok_or(Error::BadEntry(path))
+	fn try_from(path: &PathBuf) -> Result<DesktopEntry> {
+		parse_file(path).ok_or(Error::BadEntry(path.clone()))
 	}
 }
 

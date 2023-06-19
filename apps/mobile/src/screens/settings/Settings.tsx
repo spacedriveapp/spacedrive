@@ -5,7 +5,6 @@ import {
 	HardDrive,
 	Heart,
 	Icon,
-	Key,
 	PaintBrush,
 	PuzzlePiece,
 	ShareNetwork,

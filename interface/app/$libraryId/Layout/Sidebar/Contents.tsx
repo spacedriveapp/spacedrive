@@ -1,5 +1,6 @@
 import {
 	ArchiveBox,
+	ArrowsClockwise,
 	Broadcast,
 	CopySimple,
 	Crosshair,
@@ -40,6 +41,10 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink>
+				{/* <SidebarLink to="sync"> */}
+				{/* 	<Icon component={ArrowsClockwise} /> */}
+				{/* 	Sync */}
+				{/* </SidebarLink> */}
 			</div>
 			{library && <LibrarySection />}
 			<Section name="Tools" actionArea={<SubtleButton />}>

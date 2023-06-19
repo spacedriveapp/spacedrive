@@ -73,17 +73,9 @@ export const Component = () => {
 							</b>
 							<span className="select-text">{node.data?.data_path}</span>
 						</div>
-						<div
-							onClick={() => {
-								platform?.openLogsDir?.();
-							}}
-							className="text-sm font-medium text-ink-faint"
-						>
-							<b className="mr-2 inline truncate">
-								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
-							</b>
-							<span className="select-text">{node.data?.data_path + '/logs'}</span>
-						</div>
+
+						<Input value={node.data?.data_path + '/logs'} />
+
 					</div>
 				</div>
 			</Card>

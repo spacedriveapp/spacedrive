@@ -19,7 +19,7 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 			if (props.assignToObject !== undefined) {
 				assignTag.mutate({
 					tag_id: tag.id,
-					object_id: props.assignToObject,
+					object_ids: [props.assignToObject],
 					unassign: false
 				});
 			}

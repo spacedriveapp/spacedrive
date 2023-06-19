@@ -30,7 +30,13 @@ impl BlockSize {
 		Self(131072) // 128 KiB
 	}
 
-	pub fn to_size(&self) -> u32 {
+	/// This is super dangerous as it doesn't enforce any assumptions of the protocol and is designed just for tests.
+	#[cfg(test)]
+	pub fn dangerously_new(size: u32) -> Self {
+		Self(size)
+	}
+
+	pub fn size(&self) -> u32 {
 		self.0
 	}
 }
@@ -130,17 +136,12 @@ impl<'a> Block<'a> {
 		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
 		let size = u64::from_le_bytes(size);
 
-		// TODO: Handle overflow of `data_buf`
-		// TODO: Prevent this being used as a DoS cause I think it can
-		let mut read_offset = 0u64;
-		loop {
-			let read = stream.read(data_buf).await.map_err(|_| ())?; // TODO: Error handling
-			read_offset += read as u64;
+		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
 
-			if read_offset == size {
-				break;
-			}
-		}
+		stream
+			.read_exact(&mut data_buf[..size as usize])
+			.await
+			.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
 			offset,
@@ -150,65 +151,83 @@ impl<'a> Block<'a> {
 	}
 }
 
-pub async fn send(
-	stream: &mut (impl AsyncWrite + Unpin),
-	mut file: (impl AsyncBufRead + Unpin),
-	req: &SpacedropRequest,
-) {
-	// We manually implement what is basically a `BufReader` so we have more control
-	let mut buf = vec![0u8; req.block_size.to_size() as usize];
-	let mut offset: u64 = 0;
-
-	loop {
-		let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
-		offset += read as u64;
-
-		if read == 0 {
-			if offset != req.size {
-				panic!("U dun goofed"); // TODO: Error handling
-			}
-
-			break;
-		}
-
-		let block = Block {
-			offset,
-			size: read as u64,
-			data: &buf[..read],
-		};
-		debug!(
-			"Sending block at offset {} of size {}",
-			block.offset, block.size
-		);
-		stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
-	}
+/// TODO
+pub struct Transfer<'a, F> {
+	req: &'a SpacedropRequest,
+	on_progress: F,
 }
 
-pub async fn receive(
-	stream: &mut (impl AsyncReadExt + Unpin),
-	mut file: (impl AsyncWrite + Unpin),
-	req: &SpacedropRequest,
-) {
-	// We manually implement what is basically a `BufReader` so we have more control
-	let mut data_buf = vec![0u8; req.block_size.to_size() as usize];
-	let mut offset: u64 = 0;
+impl<'a, F> Transfer<'a, F>
+where
+	F: Fn(u8) + 'a,
+{
+	pub fn new(req: &'a SpacedropRequest, on_progress: F) -> Self {
+		Self { req, on_progress }
+	}
 
-	loop {
-		// TODO: Timeout if nothing is being received
-		let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
-		offset += block.size;
+	pub async fn send(
+		&self,
+		stream: &mut (impl AsyncWrite + Unpin),
+		mut file: (impl AsyncBufRead + Unpin),
+	) {
+		// We manually implement what is basically a `BufReader` so we have more control
+		let mut buf = vec![0u8; self.req.block_size.size() as usize];
+		let mut offset: u64 = 0;
 
-		debug!(
-			"Received block at offset {} of size {}",
-			block.offset, block.size
-		);
-		file.write_all(&data_buf[..block.size as usize])
-			.await
-			.unwrap(); // TODO: Error handling
+		loop {
+			let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
+			offset += read as u64;
+			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
 
-		// TODO: Should this be `read == 0`
-		if offset == req.size {
-			break;
+			if read == 0 {
+				if offset != self.req.size {
+					panic!("U dun goofed"); // TODO: Error handling
+				}
+
+				break;
+			}
+
+			let block = Block {
+				offset,
+				size: read as u64,
+				data: &buf[..read],
+			};
+			debug!(
+				"Sending block at offset {} of size {}",
+				block.offset, block.size
+			);
+			stream.write_all(&block.to_bytes()).await.unwrap(); // TODO: Error handling
+		}
+	}
+
+	pub async fn receive(
+		&self,
+		stream: &mut (impl AsyncReadExt + Unpin),
+		mut file: (impl AsyncWrite + Unpin),
+	) {
+		// We manually implement what is basically a `BufReader` so we have more control
+		let mut data_buf = vec![0u8; self.req.block_size.size() as usize];
+		let mut offset: u64 = 0;
+
+		// TODO: Prevent loop being a DOS vector
+		loop {
+			// TODO: Timeout if nothing is being received
+			let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
+			offset += block.size;
+			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
+
+			debug!(
+				"Received block at offset {} of size {}",
+				block.offset, block.size
+			);
+			file.write_all(&data_buf[..block.size as usize])
+				.await
+				.unwrap(); // TODO: Error handling
+
+			// TODO: Should this be `read == 0`
+			if offset == self.req.size {
+				break;
+			}
 		}
 	}
 }
@@ -237,7 +256,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_spaceblock() {
+	async fn test_spaceblock_single_block() {
 		let (mut client, mut server) = tokio::io::duplex(64);
 
 		// This is sent out of band of Spaceblock
@@ -255,14 +274,52 @@ mod tests {
 			async move {
 				let file = BufReader::new(Cursor::new(data));
 				tx.send(()).unwrap();
-				send(&mut client, file, &req).await;
+				Transfer::new(&req, |_| {}).send(&mut client, file).await;
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		receive(&mut server, &mut result, &req).await;
+		Transfer::new(&req, |_| {})
+			.receive(&mut server, &mut result)
+			.await;
+		assert_eq!(result, data);
+	}
+
+	// https://github.com/spacedriveapp/spacedrive/pull/942
+	#[tokio::test]
+	async fn test_spaceblock_multiple_blocks() {
+		let (mut client, mut server) = tokio::io::duplex(64);
+
+		// This is sent out of band of Spaceblock
+		let block_size = 131072u32;
+		let data = vec![0u8; block_size as usize * 4]; // Let's pacman some RAM
+		let block_size = BlockSize::dangerously_new(block_size);
+
+		let req = SpacedropRequest {
+			name: "Demo".to_string(),
+			size: data.len() as u64,
+			block_size,
+		};
+
+		let (tx, rx) = oneshot::channel();
+		tokio::spawn({
+			let req = req.clone();
+			let data = data.clone();
+			async move {
+				let file = BufReader::new(Cursor::new(data));
+				tx.send(()).unwrap();
+				Transfer::new(&req, |_| {}).send(&mut client, file).await;
+			}
+		});
+
+		rx.await.unwrap();
+
+		let mut result = Vec::new();
+		Transfer::new(&req, |_| {})
+			.receive(&mut server, &mut result)
+			.await;
 		assert_eq!(result, data);
 	}
 }
