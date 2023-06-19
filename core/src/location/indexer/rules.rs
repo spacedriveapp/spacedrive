@@ -124,6 +124,8 @@ impl IndexerRuleCreateArgs {
 			return Ok(None);
 		}
 
+		let date_created = Utc::now();
+
 		use indexer_rule::*;
 
 		Ok(Some(
@@ -135,6 +137,8 @@ impl IndexerRuleCreateArgs {
 					vec![
 						name::set(Some(self.name)),
 						rules_per_kind::set(Some(rules_data)),
+						date_created::set(Some(date_created.into())),
+						date_modified::set(Some(date_created.into())),
 					],
 				)
 				.exec()
@@ -618,6 +622,7 @@ mod seeder {
 		prisma::PrismaClient,
 		util::db::uuid_to_bytes,
 	};
+	use chrono::Utc;
 	use sd_prisma::prisma::indexer_rule;
 	use thiserror::Error;
 	use uuid::Uuid;
@@ -656,6 +661,8 @@ mod seeder {
 				name::set(Some(rule.name.to_string())),
 				rules_per_kind::set(Some(rules.clone())),
 				default::set(Some(rule.default)),
+				date_created::set(Some(Utc::now().into())),
+				date_modified::set(Some(Utc::now().into())),
 			];
 
 			client
