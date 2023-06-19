@@ -1,7 +1,7 @@
 import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { tw } from '.';
+import { tw } from './utils';
 
 interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
