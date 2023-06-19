@@ -25,15 +25,16 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
 
 // this is a gross function so it's in a separate hook :)
-export function useItems(selectedCategory: Category) {
+export function useItems(category: Category) {
 	const explorerStore = useExplorerStore();
 	const rspc = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
-	const kind: number[] = [];
-	if (explorerStore.layoutMode === 'media') [5, 7].forEach((v) => kind?.push(v));
+	const kind = explorerStore.layoutMode === 'media' ? [5, 7] : undefined;
 
-	const isObjectQuery = OBJECT_CATEGORIES.includes(selectedCategory);
+	const isObjectQuery = OBJECT_CATEGORIES.includes(category);
+
+	const objectFilter = { category, kind };
 
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
@@ -45,9 +46,7 @@ export function useItems(selectedCategory: Category) {
 				library_id: library.uuid,
 				arg: {
 					take: 50,
-					filter: {
-						object: { category: selectedCategory, kind }
-					}
+					filter: { object: objectFilter }
 				}
 			}
 		] as const,
@@ -76,10 +75,7 @@ export function useItems(selectedCategory: Category) {
 				library_id: library.uuid,
 				arg: {
 					take: 50,
-					filter: {
-						category: selectedCategory,
-						kind
-					}
+					filter: objectFilter
 				}
 			}
 		] as const,
