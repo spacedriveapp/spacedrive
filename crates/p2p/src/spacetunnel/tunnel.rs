@@ -35,6 +35,8 @@ impl AsyncRead for Tunnel {
 		cx: &mut Context<'_>,
 		buf: &mut ReadBuf<'_>,
 	) -> Poll<io::Result<()>> {
+		// TODO: Do decryption
+
 		Pin::new(&mut self.get_mut().stream).poll_read(cx, buf)
 	}
 }
@@ -45,6 +47,8 @@ impl AsyncWrite for Tunnel {
 		cx: &mut Context<'_>,
 		buf: &[u8],
 	) -> Poll<io::Result<usize>> {
+		// TODO: Do encryption
+
 		Pin::new(&mut self.get_mut().stream).poll_write(cx, buf)
 	}
 

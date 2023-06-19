@@ -29,13 +29,13 @@ use tokio::{
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{NodeInformation, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{NodeInformation, OperatingSystem, SyncRequestError, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
@@ -99,7 +99,6 @@ impl P2PManager {
 
 		tokio::spawn({
 			let events = tx.clone();
-			// let sync_events = tx2.clone();
 			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = spacedrop_progress.clone();
 			let library_manager = library_manager.clone();
@@ -267,46 +266,49 @@ impl P2PManager {
 										); // TODO: Use hash of identity cert here cause pub_id can be forged
 									}
 									Header::Sync(library_id) => {
-										let tunnel =
-											Tunnel::from_stream(event.stream).await.unwrap();
+										let mut stream = match event.stream {
+											SpaceTimeStream::Unicast(stream) => stream,
+											_ => {
+												// TODO: Return an error to the remote client
+												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
+												return;
+											}
+										};
 
-										todo!();
+										let mut stream = Tunnel::from_stream(stream).await.unwrap();
 
-										// debug!("going to ingest {} operations", operations.len());
+										let mut len = [0; 4];
+										stream
+											.read_exact(&mut len)
+											.await
+											.map_err(SyncRequestError::PayloadLenIoError)
+											.unwrap();
+										let len = u32::from_le_bytes(len);
 
-										// let Some(library) = library_manager.get_library(library_id).await else {
-										// 	warn!("no library found!");
-										// };
+										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
+										stream.read_exact(&mut buf).await.unwrap();
 
-										// for op in operations {
-										// 	library.sync.ingest_op(op).await.unwrap_or_else(
-										// 		|err| {
-										// 			error!(
-										// 				"error ingesting operation for library '{}': {err:?}",
-										// 				library.id
-										// 			);
-										// 		},
-										// 	);
-										// }
+										let mut buf: &[u8] = &buf;
+										let operations: Vec<CRDTOperation> =
+											rmp_serde::from_read(&mut buf).unwrap();
 
-										// TODO: BREAK
+										debug!("ingesting sync events for library '{library_id}': {operations:?}");
 
-										// let mut len = [0; 4];
-										// stream
-										// 	.read_exact(&mut len)
-										// 	.await
-										// 	.map_err(SyncRequestError::PayloadLenIoError)?;
-										// let len = u32::from_le_bytes(len);
+										let Some(library) = library_manager.get_library(library_id).await else {
+											warn!("error ingesting sync messages. no library by id '{library_id}' found!");
+											return;
+										};
 
-										// let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
-										// event.stream.read_exact(&mut buf).await.unwrap();
-
-										// let mut buf: &[u8] = &buf;
-										// let operations = rmp_serde::from_read(&mut buf).unwrap();
-
-										// println!("Received sync events for library '{library_id}': {operations:?}");
-
-										// sync_events.send((library_id, operations)).unwrap();
+										for op in operations {
+											library.sync.ingest_op(op).await.unwrap_or_else(
+												|err| {
+													error!(
+														"error ingesting operation for library '{}': {err:?}",
+														library.id
+													);
+												},
+											);
+										}
 									}
 								}
 							});
@@ -475,25 +477,37 @@ impl P2PManager {
 			}
 		};
 		let mut head_buf = Header::Sync(library_id).to_bytes(); // Max Sync payload is like 4GB
+		head_buf.extend_from_slice(&(buf.len() as u32).to_le_bytes());
 		head_buf.append(&mut buf);
 
 		// TODO: Determine which clients we share that library with
 
 		// TODO: Establish a connection to them
 
-		// TODO: Use `Tunnel` for encryption
+		let library = self.library_manager.get_library(library_id).await.unwrap();
+		// TODO: probs cache this query in memory cause this is gonna be stupid frequent
+		let target_nodes = library
+			.db
+			.node()
+			.find_many(vec![])
+			.exec()
+			.await
+			.unwrap()
+			.into_iter()
+			.map(|n| Uuid::from_slice(&n.pub_id).unwrap())
+			.collect::<Vec<_>>();
 
-		todo!();
+		info!(
+			"Sending sync messages for library '{}' to '{:?}'",
+			library_id, target_nodes
+		);
 
-		// buf.len() as u32
+		// TODO: Do in parallel
+		for target_node in target_nodes {
+			let mut stream = self.manager.stream(todo!()).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
-		// let len_buf = len.to_le_bytes();
-		// debug_assert_eq!(len_buf.len(), 4); // TODO: Is this bad because `len` is usize??
-		// bytes.extend_from_slice(&len_buf);
-
-		// debug!("broadcasting sync events. payload_len={}", buf.len());
-
-		// self.manager.broadcast(head_buf).await;
+			let tunnel = Tunnel::from_stream(stream);
+		}
 	}
 
 	pub async fn ping(&self) {
