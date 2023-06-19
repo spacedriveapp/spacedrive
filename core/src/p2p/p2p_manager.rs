@@ -19,7 +19,7 @@ use sd_p2p::{
 	spacetunnel::{Identity, RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
-use sd_prisma::prisma::node;
+use sd_prisma::prisma::{file_path::id, node};
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
@@ -252,10 +252,10 @@ impl P2PManager {
 										.unwrap();
 
 										let info = NodeInformation {
-											pub_id: todo!(),
-											name: todo!(),
-											public_key: todo!(),
-											platform: todo!(),
+											pub_id: library.config.node_id,
+											name: library.config.name,
+											public_key: library.identity.to_remote_identity(),
+											platform: Platform::current(),
 										};
 
 										debug!("Sending nodeinfo to the remote node");
