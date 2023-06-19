@@ -16,7 +16,7 @@ use crate::{
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::operator::or;
+use prisma_client_rust::{operator, or};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -110,8 +110,8 @@ impl<T> MaybeNot<T> {
 struct FilePathFilterArgs {
 	#[specta(optional)]
 	location_id: Option<location::id::Type>,
-	#[serde(default)]
-	search: String,
+	#[specta(optional)]
+	search: Option<String>,
 	#[specta(optional)]
 	extension: Option<String>,
 	#[serde(default)]
@@ -169,7 +169,10 @@ enum ObjectHiddenFilter {
 impl ObjectHiddenFilter {
 	fn to_param(&self) -> Option<object::WhereParam> {
 		match self {
-			ObjectHiddenFilter::Exclude => Some(object::hidden::not(Some(true))),
+			ObjectHiddenFilter::Exclude => Some(or![
+				object::hidden::equals(None),
+				object::hidden::not(Some(true))
+			]),
 			ObjectHiddenFilter::Include => None,
 		}
 	}
@@ -204,7 +207,7 @@ impl ObjectFilterArgs {
 				(!self.kind.is_empty()).then(|| kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
 					let tags = self.tags.into_iter().map(tag::id::equals).collect();
-					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
+					let tags_on_object = tag_on_object::tag::is(vec![operator::or(tags)]);
 
 					tags::some(vec![tags_on_object])
 				}),
@@ -274,6 +277,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let params = chain_optional_iter(
 						filter
 							.search
+							.unwrap_or_default()
 							.split(' ')
 							.map(str::to_string)
 							.map(name::contains),
