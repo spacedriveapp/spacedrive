@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
 import { Folder } from '~/components/Folder';
+import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
@@ -18,6 +19,8 @@ export default ({ location }: Props) => {
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const onlineLocations = useOnlineLocations();
 
+	const isDark = useIsDark();
+
 	if (hide) return <></>;
 
 	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
@@ -29,7 +32,7 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder className="mr-3 h-10 w-10 self-center" />
+			<Folder white={!isDark} className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
