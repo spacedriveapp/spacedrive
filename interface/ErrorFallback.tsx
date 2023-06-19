@@ -109,8 +109,8 @@ export function ErrorPage({
 						</Button>
 						{isDev && (
 							<p className="mt-2 font-bold">
-								This only works in the production environment and requires manual
-								reset of the app.
+								You need to manually reset the app after pressing this button in the
+								dev environment. This however works seamlessly in production.
 							</p>
 						)}
 					</div>
