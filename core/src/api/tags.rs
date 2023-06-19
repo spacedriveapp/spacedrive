@@ -78,7 +78,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								],
 							),
 						)
-						.await?;
+						.await
+						.map_err(|e| {
+							dbg!(&e);
+							e
+						})?;
 
 					invalidate_query!(library, "tags.list");
 

@@ -95,34 +95,41 @@ impl SyncManager {
 		op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		let ret = match &op.typ {
-			CRDTOperationType::Shared(shared_op) => {
-				let kind = match &shared_op.data {
-					SharedOperationData::Create(_) => "c",
-					SharedOperationData::Update { .. } => "u",
-					SharedOperationData::Delete => "d",
-				};
+		#[cfg(feature = "sync-messages")]
+		let ret = {
+			let ret = match &op.typ {
+				CRDTOperationType::Shared(shared_op) => {
+					let kind = match &shared_op.data {
+						SharedOperationData::Create(_) => "c",
+						SharedOperationData::Update { .. } => "u",
+						SharedOperationData::Delete => "d",
+					};
 
-				tx._batch((
-					tx.shared_operation().create(
-						op.id.as_bytes().to_vec(),
-						op.timestamp.0 as i64,
-						shared_op.model.to_string(),
-						to_vec(&shared_op.record_id).unwrap(),
-						kind.to_string(),
-						to_vec(&shared_op.data).unwrap(),
-						node::pub_id::equals(op.node.as_bytes().to_vec()),
-						vec![],
-					),
-					query,
-				))
-				.await?
-				.1
-			}
-			_ => todo!(),
+					tx._batch((
+						tx.shared_operation().create(
+							op.id.as_bytes().to_vec(),
+							op.timestamp.0 as i64,
+							shared_op.model.to_string(),
+							to_vec(&shared_op.record_id).unwrap(),
+							kind.to_string(),
+							to_vec(&shared_op.data).unwrap(),
+							node::pub_id::equals(op.node.as_bytes().to_vec()),
+							vec![],
+						),
+						query,
+					))
+					.await?
+					.1
+				}
+				_ => todo!(),
+			};
+
+			self.tx.send(SyncMessage::Created(op)).ok();
+
+			ret
 		};
-
-		self.tx.send(SyncMessage::Created(op)).ok();
+		#[cfg(not(feature = "sync-messages"))]
+		let ret = tx._batch(vec![query]).await?.remove(0);
 
 		Ok(ret)
 	}
