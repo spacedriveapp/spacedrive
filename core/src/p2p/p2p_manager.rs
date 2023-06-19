@@ -14,7 +14,7 @@ use std::{
 use sd_p2p::{
 	spaceblock::{self, BlockSize, SpacedropRequest},
 	spacetime::SpaceTimeStream,
-	spacetunnel::{Identity, Tunnel},
+	spacetunnel::{Identity, RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
@@ -188,7 +188,18 @@ impl P2PManager {
 											event.peer_id
 										);
 
-										// TODO
+										// TODO: Security stuff
+
+										let public_key = {
+											// TODO: Prevent DOS
+											let len = event.stream.read_u16_le().await.unwrap();
+											let mut buf = vec![0; len as usize];
+											let data =
+												event.stream.read_exact(&mut buf).await.unwrap();
+											RemoteIdentity::from_bytes(&buf).unwrap()
+										};
+
+										// TODO: Put remove node into the local DB
 									}
 									Header::Sync(library_id) => {
 										let tunnel =
@@ -304,9 +315,24 @@ impl P2PManager {
 			let header = Header::Pair(lib.id);
 			stream.write_all(&header.to_bytes()).await.unwrap();
 
-			// TODO: Dial connection to the peer sending the pairing request
+			// TODO: Apply some security here cause this is so open to MITM
+			// TODO: Signing and a SPAKE style pin prompt
 
-			// TODO: Show QRcode/password
+			let public_key = lib.identity.public_key();
+			let public_key = public_key.to_bytes();
+			stream
+				.write_all(&public_key.len().to_le_bytes())
+				.await
+				.unwrap();
+			stream.write_all(&public_key).await.unwrap();
+
+			// TODO: Send nodeinfo
+
+			// TODO: Recieve nodeinfo
+
+			// lib.db.node().create(pub_id, name, params);
+
+			// TODO: Add remote node into local DB
 		});
 
 		pairing_id

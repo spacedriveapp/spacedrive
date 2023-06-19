@@ -7,6 +7,8 @@ use sd_p2p::{
 	spacetime::SpaceTimeStream,
 };
 
+use crate::node::Platform;
+
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
@@ -100,6 +102,24 @@ impl Header {
 				bytes
 			}
 		}
+	}
+}
+
+/// is shared between nodes during pairing and contains the information to identify the node.
+pub struct NodeInformation {
+	pub name: String,
+	pub public_key: Vec<u8>,
+	pub platform: Platform,
+}
+
+impl NodeInformation {
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let buf = Vec::new();
+
+		// TODO
+		// buf.extend_from_slice((self.name.len() as u16).as_le_bytes());
+
+		buf
 	}
 }
 

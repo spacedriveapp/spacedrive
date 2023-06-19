@@ -64,6 +64,24 @@ impl Migrate for NodeConfig {
 
 	type Ctx = ();
 
+	fn default(_path: PathBuf) -> Result<Self, MigratorError> {
+		Ok(Self {
+			id: Uuid::new_v4(),
+			name: match hostname::get() {
+				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
+				Ok(hostname) => hostname.to_string_lossy().into_owned(),
+				Err(err) => {
+					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{err}'");
+					"my-spacedrive".into()
+				}
+			},
+			p2p_port: None,
+			keypair: Keypair::generate(),
+			p2p_email: None,
+			p2p_img_url: None,
+		})
+	}
+
 	async fn migrate(
 		from_version: u32,
 		_config: &mut Map<String, Value>,

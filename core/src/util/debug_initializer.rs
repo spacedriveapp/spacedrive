@@ -12,6 +12,7 @@ use crate::{
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
+	node::NodeConfig,
 	prisma::location,
 	util::AbortOnDrop,
 };
@@ -94,7 +95,11 @@ impl InitConfig {
 		Ok(None)
 	}
 
-	pub async fn apply(self, library_manager: &LibraryManager) -> Result<(), InitConfigError> {
+	pub async fn apply(
+		self,
+		library_manager: &LibraryManager,
+		node_cfg: NodeConfig,
+	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);
 
 		for lib in self.libraries {
@@ -109,14 +114,17 @@ impl InitConfig {
 			let library = match library_manager.get_library(lib.id).await {
 				Some(lib) => lib,
 				None => {
+					let node_pub_id = Uuid::new_v4();
 					let library = library_manager
 						.create_with_uuid(
 							lib.id,
 							LibraryConfig {
 								name: lib.name,
-								description: lib.description.unwrap_or("".to_string()),
+								description: lib.description,
 								identity: Identity::new().to_bytes(),
+								node_id: node_pub_id.as_bytes().to_vec(),
 							},
+							node_cfg.clone(),
 						)
 						.await?;
 

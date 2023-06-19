@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	location::{indexer::rules, LocationManagerError},
-	node::Platform,
+	node::{NodeConfig, Platform},
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
@@ -9,6 +9,7 @@ use crate::{
 		db,
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
+		MaybeUndefined,
 	},
 	NodeContext,
 };
@@ -20,10 +21,11 @@ use std::{
 	sync::Arc,
 };
 
+use chrono::Local;
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use thiserror::Error;
 use tokio::{fs, io, sync::RwLock, try_join};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
@@ -70,6 +72,8 @@ pub enum LibraryManagerError {
 	NoPath(i32),
 	#[error("failed to parse library p2p identity: {0}")]
 	Identity(#[from] IdentityErr),
+	#[error("current node with id '{0}' was not found in the database")]
+	CurrentNodeNotFound(String),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -154,14 +158,17 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
+		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), config).await
+		self.create_with_uuid(Uuid::new_v4(), config, node_cfg)
+			.await
 	}
 
 	pub(crate) async fn create_with_uuid(
 		&self,
 		id: Uuid,
 		config: LibraryConfig,
+		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		if config.name.is_empty() || config.name.chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -185,6 +192,21 @@ impl LibraryManager {
 			self.node_context.clone(),
 		)
 		.await?;
+
+		// Create node
+		library
+			.db
+			.node()
+			.create(
+				config.node_id.clone(),
+				node_cfg.name.clone(),
+				config.identity.clone(),
+				Platform::current() as i32,
+				Local::now().into(),
+				vec![],
+			)
+			.exec()
+			.await?;
 
 		debug!("Loaded library '{id:?}'");
 
@@ -214,15 +236,11 @@ impl LibraryManager {
 			.collect()
 	}
 
-	// pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
-	// 	self.libraries.read().await.clone()
-	// }
-
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
 		name: Option<String>,
-		description: Option<String>,
+		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let mut libraries = self.libraries.write().await;
@@ -235,8 +253,10 @@ impl LibraryManager {
 		if let Some(name) = name {
 			library.config.name = name;
 		}
-		if let Some(description) = description {
-			library.config.description = description;
+		match description {
+			MaybeUndefined::Undefined => {}
+			MaybeUndefined::Null => library.config.description = None,
+			MaybeUndefined::Value(description) => library.config.description = Some(description),
 		}
 
 		LibraryConfig::save(
@@ -332,7 +352,7 @@ impl LibraryManager {
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
 		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
-		let identity = Identity::from_bytes(&config.identity)?;
+		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
 
 		let node_config = node_context.config.get().await;
 
@@ -343,20 +363,50 @@ impl LibraryManager {
 			_ => Platform::Unknown,
 		};
 
-		let uuid_vec = id.as_bytes().to_vec();
 		let node_data = db
 			.node()
-			.upsert(
-				node::pub_id::equals(uuid_vec.clone()),
-				node::create(
-					uuid_vec,
-					node_config.name.clone(),
-					vec![node::platform::set(platform as i32)],
-				),
-				vec![node::name::set(node_config.name.clone())],
-			)
+			.find_unique(node::pub_id::equals(id.as_bytes().to_vec()))
 			.exec()
-			.await?;
+			.await?
+			.ok_or_else(|| LibraryManagerError::CurrentNodeNotFound(id.to_string()))?;
+
+		let curr_platform = Platform::current() as i32;
+		if node_data.platform != curr_platform {
+			info!(
+				"Detected change of platform for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
+				id,
+				node_data.platform,
+				curr_platform
+			);
+
+			db.node()
+				.update(
+					node::pub_id::equals(node_data.pub_id.clone()),
+					vec![
+						node::platform::set(curr_platform),
+						node::name::set(node_config.name.clone()),
+					],
+				)
+				.exec()
+				.await?;
+		}
+
+		if node_data.name != node_config.name {
+			info!(
+				"Detected change of node name for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
+				id,
+				node_data.name,
+				node_config.name,
+			);
+
+			db.node()
+				.update(
+					node::pub_id::equals(node_data.pub_id),
+					vec![node::name::set(node_config.name.clone())],
+				)
+				.exec()
+				.await?;
+		}
 
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
@@ -367,6 +417,7 @@ impl LibraryManager {
 
 		tokio::spawn({
 			let node_context = node_context.clone();
+			let identity = identity.clone();
 			async move {
 				while let Ok(op) = sync_rx.recv().await {
 					let SyncMessage::Created(op) = op else { continue; };
@@ -389,6 +440,7 @@ impl LibraryManager {
 			db,
 			node_local_id: node_data.id,
 			node_context,
+			identity,
 		};
 
 		for location in library

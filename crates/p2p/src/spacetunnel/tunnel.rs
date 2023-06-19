@@ -1,6 +1,6 @@
 use tokio::io::AsyncReadExt;
 
-use crate::{spacetime::SpaceTimeStream, Metadata};
+use crate::spacetime::SpaceTimeStream;
 
 pub struct Tunnel {
 	stream: SpaceTimeStream,

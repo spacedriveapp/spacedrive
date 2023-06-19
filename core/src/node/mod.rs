@@ -1,35 +1,10 @@
-use crate::{prisma::node, NodeError};
-
-use chrono::{DateTime, Utc};
+use crate::NodeError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 mod config;
-pub mod peer_request;
 
 pub use config::*;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct LibraryNode {
-	pub uuid: Uuid,
-	pub name: String,
-	pub platform: Platform,
-	pub last_seen: DateTime<Utc>,
-}
-
-impl TryFrom<node::Data> for LibraryNode {
-	type Error = String;
-
-	fn try_from(data: node::Data) -> Result<Self, Self::Error> {
-		Ok(Self {
-			uuid: Uuid::from_slice(&data.pub_id).map_err(|_| "Invalid node pub_id")?,
-			name: data.name,
-			platform: Platform::try_from(data.platform).map_err(|_| "Invalid platform_id")?,
-			last_seen: data.last_seen.into(),
-		})
-	}
-}
 
 #[allow(clippy::upper_case_acronyms)]
 #[repr(i32)]
@@ -41,6 +16,28 @@ pub enum Platform {
 	Linux = 3,
 	IOS = 4,
 	Android = 5,
+}
+
+impl Platform {
+	#[allow(unreachable_code)]
+	pub fn current() -> Self {
+		#[cfg(target_os = "windows")]
+		return Self::Windows;
+
+		#[cfg(target_os = "macos")]
+		return Self::MacOS;
+
+		#[cfg(target_os = "linux")]
+		return Self::Linux;
+
+		#[cfg(target_os = "ios")]
+		return Self::IOS;
+
+		#[cfg(target_os = "android")]
+		return Self::Android;
+
+		Self::Unknown
+	}
 }
 
 impl TryFrom<i32> for Platform {

@@ -89,7 +89,9 @@ impl Node {
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data.apply(&library_manager).await?;
+			init_data
+				.apply(&library_manager, config.get().await)
+				.await?;
 		}
 
 		tokio::spawn({

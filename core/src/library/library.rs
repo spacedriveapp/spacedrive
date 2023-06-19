@@ -19,6 +19,7 @@ use std::{
 	sync::Arc,
 };
 
+use sd_p2p::spacetunnel::Identity;
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
@@ -43,6 +44,8 @@ pub struct Library {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
+	/// p2p identity
+	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
 }
 
