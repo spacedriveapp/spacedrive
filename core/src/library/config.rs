@@ -134,6 +134,7 @@ impl Migrate for LibraryConfig {
 
 				config.insert("node_id".into(), Value::String(node_id.to_string()));
 			}
+			4 => {} // -_-
 			v => unreachable!("Missing migration for library version {}", v),
 		}
 
