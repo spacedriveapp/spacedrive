@@ -59,7 +59,7 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
-		mut ctx: &mut WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
@@ -109,7 +109,7 @@ impl StatefulJob for IndexerJob {
 			walk(
 				&to_walk_path,
 				&indexer_rules,
-				update_notifier_fn(BATCH_SIZE, &mut ctx),
+				update_notifier_fn(BATCH_SIZE, ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
@@ -146,7 +146,7 @@ impl StatefulJob for IndexerJob {
 		);
 
 		IndexerJobData::on_scan_progress(
-			&mut ctx,
+			ctx,
 			vec![ScanProgress::Message(format!(
 				"Starting saving {total_paths} files or directories, \
 					there still {to_walk_count} directories to index",
@@ -176,7 +176,7 @@ impl StatefulJob for IndexerJob {
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		mut ctx: &mut WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = extract_job_data_mut!(state);
@@ -186,7 +186,7 @@ impl StatefulJob for IndexerJob {
 				let start_time = Instant::now();
 
 				IndexerJobData::on_scan_progress(
-					&mut ctx,
+					ctx,
 					vec![
 						ScanProgress::SavedChunks(step.chunk_idx),
 						ScanProgress::Message(format!(
@@ -221,7 +221,7 @@ impl StatefulJob for IndexerJob {
 					keep_walking(
 						to_walk_entry,
 						&data.indexer_rules,
-						update_notifier_fn(BATCH_SIZE, &mut ctx),
+						update_notifier_fn(BATCH_SIZE, ctx),
 						file_paths_db_fetcher_fn!(&db),
 						to_remove_db_fetcher_fn!(location_id, location_path, &db),
 						iso_file_path_factory(location_id, location_path),

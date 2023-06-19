@@ -9,9 +9,15 @@ pub struct IdentityErr(#[from] ed25519_dalek::ed25519::Error);
 /// TODO
 pub struct Identity(ed25519_dalek::Keypair);
 
+impl Default for Identity {
+	fn default() -> Self {
+		Self(ed25519_dalek::Keypair::generate(&mut OsRng))
+	}
+}
+
 impl Identity {
 	pub fn new() -> Self {
-		Self(ed25519_dalek::Keypair::generate(&mut OsRng))
+		Self::default()
 	}
 
 	pub fn from_bytes(bytes: &[u8]) -> Result<Self, IdentityErr> {

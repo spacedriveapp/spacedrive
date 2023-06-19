@@ -217,7 +217,7 @@ impl NodeInformation {
 			panic!("Public key is too long!"); // TODO: Error handling
 		}
 		buf.extend_from_slice(&len_buf);
-		buf.extend(pk.clone());
+		buf.extend(pk);
 
 		// Platform
 		buf.push(self.platform as u8);

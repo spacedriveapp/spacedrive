@@ -130,6 +130,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
+	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
 	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
@@ -137,6 +138,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.await;
 		let mut stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
+
 			()
 		})?;
 		stream.write_discriminator().await.unwrap(); // TODO: Error handling

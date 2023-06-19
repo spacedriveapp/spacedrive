@@ -463,7 +463,7 @@ impl LibraryManager {
 
 		Self::emit(
 			subscribers,
-			SubscriberEvent::Load(id.clone(), identity.clone(), sync_rx),
+			SubscriberEvent::Load(id, identity.clone(), sync_rx),
 		)
 		.await;
 

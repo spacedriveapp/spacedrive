@@ -114,10 +114,11 @@ impl Migrate for LibraryConfig {
 			}
 			// The fact I have to migrate this hurts my soul
 			3 => {
-				if db.node().count(vec![]).exec().await.unwrap() != 1 {
-					panic!(
+				if db.node().count(vec![]).exec().await? != 1 {
+					return Err(MigratorError::Custom(
 						"Ummm, there are too many nodes in the database, this should not happen!"
-					);
+							.into(),
+					));
 				}
 
 				db.node()

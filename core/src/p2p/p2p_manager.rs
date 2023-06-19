@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)] // TODO: Remove once this is fully stablised
-
 use std::{
 	borrow::Cow,
 	collections::HashMap,
@@ -161,11 +159,14 @@ impl P2PManager {
 											.await
 											.insert(id, process_tx.clone());
 
-										if let Err(_) = events.send(P2PEvent::SpacedropRequest {
-											id,
-											peer_id: event.peer_id,
-											name: req.name.clone(),
-										}) {
+										if events
+											.send(P2PEvent::SpacedropRequest {
+												id,
+												peer_id: event.peer_id,
+												name: req.name.clone(),
+											})
+											.is_err()
+										{
 											// No frontend's are active
 
 											todo!("Outright reject Spacedrop");
@@ -174,8 +175,6 @@ impl P2PManager {
 										tokio::select! {
 											_ = sleep(SPACEDROP_TIMEOUT) => {
 												info!("spacedrop({id}): timeout, rejecting!");
-
-												return;
 											}
 											file_path = rx => {
 												match file_path {
@@ -194,11 +193,9 @@ impl P2PManager {
 													}
 													Ok(None) => {
 														info!("spacedrop({id}): rejected");
-														return;
 													}
 													Err(_) => {
 														info!("spacedrop({id}): error with Spacedrop pairing request receiver!");
-														return;
 													}
 												}
 											}
@@ -221,10 +218,8 @@ impl P2PManager {
 
 										// TODO: Authentication and security stuff
 
-										let library = library_manager
-											.get_library(library_id.clone())
-											.await
-											.unwrap();
+										let library =
+											library_manager.get_library(library_id).await.unwrap();
 
 										debug!("Waiting for nodeinfo from the remote node");
 										let remote_info = NodeInformation::from_stream(&mut stream)
@@ -392,6 +387,7 @@ impl P2PManager {
 		}
 	}
 
+	#[allow(unused)] // TODO: Should probs be using this
 	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
 		self.metadata_manager
 			.update(Self::config_to_metadata(&node_config_manager.get().await));
@@ -473,7 +469,7 @@ impl P2PManager {
 	pub async fn broadcast_sync_events(
 		&self,
 		library_id: Uuid,
-		identity: &Identity,
+		_identity: &Identity,
 		event: Vec<CRDTOperation>,
 	) {
 		let mut buf = match rmp_serde::to_vec_named(&event) {

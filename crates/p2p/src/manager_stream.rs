@@ -214,12 +214,7 @@ where
 				}
 			}
 			ManagerStreamAction::StartStream(peer_id, rx) => {
-				if self
-					.swarm
-					.connected_peers()
-					.find(|v| **v == peer_id.0)
-					.is_none()
-				{
+				if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
 					let addresses = self
 						.mdns
 						.state

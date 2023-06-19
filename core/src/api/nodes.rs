@@ -27,7 +27,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						ErrorCode::InternalServerError,
 						"error updating config".into(),
 					)
-				});
+				})
+				.map(|_| ())
 		})
 	})
 }
