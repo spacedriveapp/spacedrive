@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -22,18 +22,12 @@ pub struct RelationOperation {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum SharedOperationCreateData {
-	#[serde(rename = "u")]
-	Unique(Map<String, Value>),
-	#[serde(rename = "a")]
-	Atomic,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-#[serde(untagged)]
 pub enum SharedOperationData {
-	Create(SharedOperationCreateData),
+	#[serde(rename = "c")]
+	Create(Map<String, Value>),
+	#[serde(rename = "u")]
 	Update { field: String, value: Value },
+	#[serde(rename = "d")]
 	Delete,
 }
 
@@ -44,35 +38,35 @@ pub struct SharedOperation {
 	pub data: SharedOperationData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum OwnedOperationData {
-	Create(BTreeMap<String, Value>),
-	CreateMany {
-		values: Vec<(Value, BTreeMap<String, Value>)>,
-		skip_duplicates: bool,
-	},
-	Update(BTreeMap<String, Value>),
-	Delete,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+// pub enum OwnedOperationData {
+// 	Create(BTreeMap<String, Value>),
+// 	CreateMany {
+// 		values: Vec<(Value, BTreeMap<String, Value>)>,
+// 		skip_duplicates: bool,
+// 	},
+// 	Update(BTreeMap<String, Value>),
+// 	Delete,
+// }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct OwnedOperationItem {
-	pub id: Value,
-	pub data: OwnedOperationData,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+// pub struct OwnedOperationItem {
+// 	pub id: Value,
+// 	pub data: OwnedOperationData,
+// }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct OwnedOperation {
-	pub model: String,
-	pub items: Vec<OwnedOperationItem>,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+// pub struct OwnedOperation {
+// 	pub model: String,
+// 	pub items: Vec<OwnedOperationItem>,
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(untagged)]
 pub enum CRDTOperationType {
 	Shared(SharedOperation),
 	Relation(RelationOperation),
-	Owned(OwnedOperation),
+	// Owned(OwnedOperation),
 }
 
 #[derive(Serialize, Deserialize, Clone, Type)]

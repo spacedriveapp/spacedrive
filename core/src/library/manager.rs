@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	location::{indexer::rules, LocationManagerError},
-	node::Platform,
+	node::{NodeConfig, Platform},
 	object::orphan_remover::OrphanRemoverActor,
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
@@ -9,23 +9,46 @@ use crate::{
 		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 		migrator::{Migrate, MigratorError},
+		MaybeUndefined,
 	},
 	NodeContext,
 };
 
 use std::{
-	env,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
 
+use chrono::Local;
+use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use thiserror::Error;
-use tokio::{fs, io, sync::RwLock, try_join};
-use tracing::{debug, error, warn};
+use tokio::{
+	fs, io,
+	sync::{broadcast, RwLock},
+	try_join,
+};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
+
+pub enum SubscriberEvent {
+	Load(Uuid, Arc<Identity>, broadcast::Receiver<SyncMessage>),
+}
+
+impl Clone for SubscriberEvent {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Load(id, identity, receiver) => {
+				Self::Load(*id, identity.clone(), receiver.resubscribe())
+			}
+		}
+	}
+}
+
+pub trait SubscriberFn: Fn(SubscriberEvent) + Send + Sync + 'static {}
+impl<F: Fn(SubscriberEvent) + Send + Sync + 'static> SubscriberFn for F {}
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -35,6 +58,8 @@ pub struct LibraryManager {
 	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
 	node_context: NodeContext,
+	/// on load subscribers
+	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
 }
 
 #[derive(Error, Debug)]
@@ -65,6 +90,10 @@ pub enum LibraryManagerError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
+	#[error("failed to parse library p2p identity: {0}")]
+	Identity(#[from] IdentityErr),
+	#[error("current node with id '{0}' was not found in the database")]
+	CurrentNodeNotFound(String),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
 }
@@ -89,6 +118,7 @@ impl LibraryManager {
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
 		let mut libraries = Vec::new();
+		let subscribers = RwLock::new(Vec::new());
 		let mut read_dir = fs::read_dir(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
@@ -131,7 +161,15 @@ impl LibraryManager {
 				}
 
 				libraries.push(
-					Self::load(library_id, &db_path, config_path, node_context.clone()).await?,
+					Self::load(
+						library_id,
+						&db_path,
+						config_path,
+						node_context.clone(),
+						&subscribers,
+						None,
+					)
+					.await?,
 				);
 			}
 		}
@@ -140,6 +178,7 @@ impl LibraryManager {
 			libraries: RwLock::new(libraries),
 			libraries_dir,
 			node_context,
+			subscribers,
 		});
 
 		debug!("LibraryManager initialized");
@@ -147,18 +186,33 @@ impl LibraryManager {
 		Ok(this)
 	}
 
+	/// subscribe to library events
+	pub(crate) async fn subscribe<F: SubscriberFn>(&self, f: F) {
+		self.subscribers.write().await.push(Box::new(f));
+	}
+
+	async fn emit(subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>, event: SubscriberEvent) {
+		let subscribers = subscribers.read().await;
+		for subscriber in subscribers.iter() {
+			subscriber(event.clone());
+		}
+	}
+
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
+		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), config).await
+		self.create_with_uuid(Uuid::new_v4(), config, node_cfg)
+			.await
 	}
 
 	pub(crate) async fn create_with_uuid(
 		&self,
 		id: Uuid,
 		config: LibraryConfig,
+		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		if config.name.is_empty() || config.name.chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -180,6 +234,17 @@ impl LibraryManager {
 			self.libraries_dir.join(format!("{id}.db")),
 			config_path,
 			self.node_context.clone(),
+			&self.subscribers,
+			Some(node::Create {
+				pub_id: config.node_id.as_bytes().to_vec(),
+				name: node_cfg.name.clone(),
+				platform: Platform::current() as i32,
+				date_created: Local::now().into(),
+				_params: vec![
+					node::identity::set(Some(config.identity.clone())),
+					node::node_peer_id::set(Some(node_cfg.keypair.peer_id().to_string())),
+				],
+			}),
 		)
 		.await?;
 
@@ -196,7 +261,10 @@ impl LibraryManager {
 
 		debug!("Pushed library into manager '{id:?}'");
 
-		Ok(LibraryConfigWrapped { uuid: id, config })
+		Ok(LibraryConfigWrapped {
+			uuid: id,
+			config: config.into(),
+		})
 	}
 
 	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
@@ -205,21 +273,17 @@ impl LibraryManager {
 			.await
 			.iter()
 			.map(|lib| LibraryConfigWrapped {
-				config: lib.config.clone(),
+				config: lib.config.clone().into(),
 				uuid: lib.id,
 			})
 			.collect()
 	}
 
-	// pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
-	// 	self.libraries.read().await.clone()
-	// }
-
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
 		name: Option<String>,
-		description: Option<String>,
+		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
 		let mut libraries = self.libraries.write().await;
@@ -232,8 +296,10 @@ impl LibraryManager {
 		if let Some(name) = name {
 			library.config.name = name;
 		}
-		if let Some(description) = description {
-			library.config.description = description;
+		match description {
+			MaybeUndefined::Undefined => {}
+			MaybeUndefined::Null => library.config.description = None,
+			MaybeUndefined::Value(description) => library.config.description = Some(description),
 		}
 
 		LibraryConfig::save(
@@ -313,11 +379,13 @@ impl LibraryManager {
 	}
 
 	/// load the library from a given path
-	pub(crate) async fn load(
+	async fn load(
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: PathBuf,
 		node_context: NodeContext,
+		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
+		create: Option<node::Create>,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -328,50 +396,77 @@ impl LibraryManager {
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
-		let config = LibraryConfig::load_and_migrate(&config_path, &db).await?;
+		if let Some(create) = create {
+			create.to_query(&db).exec().await?;
+		}
 
 		let node_config = node_context.config.get().await;
+		let config = LibraryConfig::load_and_migrate(
+			&config_path,
+			&(node_config.id, node_config.keypair.peer_id(), db.clone()),
+		)
+		.await?;
+		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
 
-		let platform = match env::consts::OS {
-			"windows" => Platform::Windows,
-			"macos" => Platform::MacOS,
-			"linux" => Platform::Linux,
-			_ => Platform::Unknown,
-		};
-
-		let uuid_vec = id.as_bytes().to_vec();
 		let node_data = db
 			.node()
-			.upsert(
-				node::pub_id::equals(uuid_vec.clone()),
-				node::create(
-					uuid_vec,
-					node_config.name.clone(),
-					vec![node::platform::set(platform as i32)],
-				),
-				vec![node::name::set(node_config.name.clone())],
-			)
+			.find_unique(node::pub_id::equals(node_config.id.as_bytes().to_vec()))
 			.exec()
-			.await?;
+			.await?
+			.ok_or_else(|| LibraryManagerError::CurrentNodeNotFound(id.to_string()))?;
+
+		let curr_platform = Platform::current() as i32;
+		if node_data.platform != curr_platform {
+			info!(
+				"Detected change of platform for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
+				id,
+				node_data.platform,
+				curr_platform
+			);
+
+			db.node()
+				.update(
+					node::pub_id::equals(node_data.pub_id.clone()),
+					vec![
+						node::platform::set(curr_platform),
+						node::name::set(node_config.name.clone()),
+					],
+				)
+				.exec()
+				.await?;
+		}
+
+		if node_data.name != node_config.name {
+			info!(
+				"Detected change of node name for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
+				id,
+				node_data.name,
+				node_config.name,
+			);
+
+			db.node()
+				.update(
+					node::pub_id::equals(node_data.pub_id),
+					vec![node::name::set(node_config.name.clone())],
+				)
+				.exec()
+				.await?;
+		}
+
+		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
 		rules::seeder(&db).await?;
 
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
+		let (sync_manager, sync_rx) = SyncManager::new(&db, id);
 
-		tokio::spawn({
-			let node_context = node_context.clone();
-
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
-
-					node_context.p2p.broadcast_sync_events(id, vec![op]).await;
-				}
-			}
-		});
+		Self::emit(
+			subscribers,
+			SubscriberEvent::Load(id, identity.clone(), sync_rx),
+		)
+		.await;
 
 		let library = Library {
 			id,
@@ -383,6 +478,7 @@ impl LibraryManager {
 			db,
 			node_local_id: node_data.id,
 			node_context,
+			identity,
 		};
 
 		for location in library

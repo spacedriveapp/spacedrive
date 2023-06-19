@@ -167,7 +167,7 @@ enum ObjectHiddenFilter {
 }
 
 impl ObjectHiddenFilter {
-	fn to_param(self) -> Option<object::WhereParam> {
+	fn to_param(&self) -> Option<object::WhereParam> {
 		match self {
 			ObjectHiddenFilter::Exclude => Some(object::hidden::not(Some(true))),
 			ObjectHiddenFilter::Include => None,

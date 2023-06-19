@@ -16,18 +16,6 @@ generator sync {
 
 //// Sync ////
 
-model OwnedOperation {
-    id        Bytes  @id
-    timestamp BigInt
-    data      Bytes
-    model     String
-
-    node_id Int
-    node    Node @relation(fields: [node_id], references: [id])
-
-    @@map("owned_operation")
-}
-
 model SharedOperation {
     id        Bytes  @id
     timestamp BigInt
@@ -64,16 +52,14 @@ model Node {
     pub_id       Bytes    @unique
     name         String
     // Enum: sd_core::node::Platform
-    platform     Int      @default(0)
-    // version      String?
-    // last_seen    DateTime @default(now())
-    // timezone     String?
-    date_created DateTime @default(now())
+    platform     Int
+    date_created DateTime
+    identity     Bytes? // TODO: Change to required field in future
+    node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
     jobs     Job[]
     Location Location[]
 
-    OwnedOperation  OwnedOperation[]
     SharedOperation SharedOperation[]
 
     @@map("node")
@@ -101,7 +87,6 @@ model Location {
     id     Int   @id @default(autoincrement())
     pub_id Bytes @unique
 
-    node_id                Int?
     name                   String?
     path                   String?
     total_capacity         Int?
@@ -112,7 +97,9 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
-    node          Node?                    @relation(fields: [node_id], references: [id])
+    node_id Int?
+    node    Node? @relation(fields: [node_id], references: [id])
+
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]
 
@@ -402,7 +389,6 @@ model Job {
 
 //// Album ////
 
-/// @shared(id: pub_id)
 // model Album {
 //     id        Int     @id @default(autoincrement())
 //     pub_id    Bytes   @unique
@@ -447,13 +433,14 @@ model Job {
 //// Indexer Rules ////
 
 model IndexerRule {
-    id             Int      @id @default(autoincrement())
-    pub_id         Bytes?   @unique
-    name           String
-    default        Boolean  @default(false)
-    rules_per_kind Bytes
-    date_created   DateTime @default(now())
-    date_modified  DateTime @default(now())
+    id     Int   @id @default(autoincrement())
+    pub_id Bytes @unique
+
+    name           String?
+    default        Boolean?
+    rules_per_kind Bytes?
+    date_created   DateTime?
+    date_modified  DateTime?
 
     locations IndexerRulesInLocation[]
 
@@ -461,8 +448,6 @@ model IndexerRule {
 }
 
 model IndexerRulesInLocation {
-    date_created DateTime @default(now())
-
     location_id Int
     location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

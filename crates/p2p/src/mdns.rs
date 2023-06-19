@@ -39,7 +39,7 @@ where
 	service_name: String,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 	trigger_advertisement: mpsc::UnboundedReceiver<()>,
-	state: Arc<MdnsState<TMetadata>>,
+	pub(crate) state: Arc<MdnsState<TMetadata>>,
 }
 
 impl<TMetadata> Mdns<TMetadata>
