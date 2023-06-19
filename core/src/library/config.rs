@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use sd_p2p::spacetunnel::Identity;
+use sd_p2p::{spacetunnel::Identity, PeerId};
 use sd_prisma::prisma::node;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct LibraryConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: String,
@@ -29,6 +29,23 @@ pub struct LibraryConfig {
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct SanitisedLibraryConfig {
+	pub name: String,
+	pub description: Option<String>,
+	pub node_id: Uuid,
+}
+
+impl From<LibraryConfig> for SanitisedLibraryConfig {
+	fn from(config: LibraryConfig) -> Self {
+		Self {
+			name: config.name,
+			description: config.description,
+			node_id: config.node_id,
+		}
+	}
 }
 
 impl LibraryConfig {
@@ -44,9 +61,9 @@ impl LibraryConfig {
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 3;
+	const CURRENT_VERSION: u32 = 4;
 
-	type Ctx = (Uuid, Arc<PrismaClient>);
+	type Ctx = (Uuid, PeerId, Arc<PrismaClient>);
 
 	fn default(path: PathBuf) -> Result<Self, MigratorError> {
 		Err(MigratorError::ConfigFileMissing(path))
@@ -55,7 +72,7 @@ impl Migrate for LibraryConfig {
 	async fn migrate(
 		to_version: u32,
 		config: &mut serde_json::Map<String, serde_json::Value>,
-		(node_id, db): &Self::Ctx,
+		(node_id, peer_id, db): &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match to_version {
 			0 => {}
@@ -104,7 +121,13 @@ impl Migrate for LibraryConfig {
 				}
 
 				db.node()
-					.update_many(vec![], vec![node::pub_id::set(node_id.as_bytes().to_vec())])
+					.update_many(
+						vec![],
+						vec![
+							node::pub_id::set(node_id.as_bytes().to_vec()),
+							node::node_peer_id::set(Some(peer_id.to_string())),
+						],
+					)
 					.exec()
 					.await?;
 
@@ -121,5 +144,5 @@ impl Migrate for LibraryConfig {
 #[derive(Serialize, Deserialize, Debug, Type)]
 pub struct LibraryConfigWrapped {
 	pub uuid: Uuid,
-	pub config: LibraryConfig,
+	pub config: SanitisedLibraryConfig,
 }

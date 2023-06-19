@@ -55,7 +55,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: NodeConfig } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.pair", input: LibraryArgs<PeerId>, result: number } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
@@ -152,12 +152,7 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-/**
- * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
- */
-export type LibraryConfig = { name: string; description: string | null; identity: number[]; node_id: string }
-
-export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -188,12 +183,7 @@ export type MaybeUndefined<T> = null | null | T
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; date_created: string; identity: number[] | null }
-
-/**
- * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
- */
-export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; date_created: string; identity: number[] | null; node_peer_id: string | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -241,6 +231,8 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type SanitisedLibraryConfig = { name: string; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 

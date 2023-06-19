@@ -243,7 +243,10 @@ impl LibraryManager {
 			name: node_cfg.name.clone(),
 			platform: Platform::current() as i32,
 			date_created: Local::now().into(),
-			_params: vec![node::identity::set(Some(config.identity.clone()))],
+			_params: vec![
+				node::identity::set(Some(config.identity.clone())),
+				node::node_peer_id::set(Some(node_cfg.keypair.peer_id().to_string())),
+			],
 		}
 		.to_query(&library.db)
 		.exec()
@@ -262,7 +265,10 @@ impl LibraryManager {
 
 		debug!("Pushed library into manager '{id:?}'");
 
-		Ok(LibraryConfigWrapped { uuid: id, config })
+		Ok(LibraryConfigWrapped {
+			uuid: id,
+			config: config.into(),
+		})
 	}
 
 	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
@@ -271,7 +277,7 @@ impl LibraryManager {
 			.await
 			.iter()
 			.map(|lib| LibraryConfigWrapped {
-				config: lib.config.clone(),
+				config: lib.config.clone().into(),
 				uuid: lib.id,
 			})
 			.collect()
@@ -394,8 +400,11 @@ impl LibraryManager {
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
 		let node_config = node_context.config.get().await;
-		let config =
-			LibraryConfig::load_and_migrate(&config_path, &(node_config.id, db.clone())).await?;
+		let config = LibraryConfig::load_and_migrate(
+			&config_path,
+			&(node_config.id, node_config.keypair.peer_id(), db.clone()),
+		)
+		.await?;
 		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
 
 		let node_data = db
@@ -442,6 +451,8 @@ impl LibraryManager {
 				.exec()
 				.await?;
 		}
+
+		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;

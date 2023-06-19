@@ -6,7 +6,8 @@ CREATE TABLE "new_node" (
     "name" TEXT NOT NULL,
     "platform" INTEGER NOT NULL,
     "date_created" DATETIME NOT NULL,
-    "identity" BLOB
+    "identity" BLOB,
+    "node_peer_id" TEXT
 );
 INSERT INTO "new_node" ("date_created", "id", "name", "platform", "pub_id") SELECT "date_created", "id", "name", "platform", "pub_id" FROM "node";
 DROP TABLE "node";

@@ -4,6 +4,7 @@ use std::{
 	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
+	str::FromStr,
 	sync::{
 		atomic::{AtomicU16, Ordering},
 		Arc,
@@ -16,10 +17,10 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetime::SpaceTimeStream,
-	spacetunnel::{Identity, RemoteIdentity, Tunnel},
+	spacetunnel::{Identity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
-use sd_prisma::prisma::{file_path::id, node};
+use sd_prisma::prisma::node;
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
@@ -240,9 +241,14 @@ impl P2PManager {
 											name: remote_info.name,
 											platform: remote_info.platform as i32,
 											date_created: Utc::now().into(),
-											_params: vec![node::identity::set(Some(
-												remote_info.public_key.to_bytes().to_vec(),
-											))],
+											_params: vec![
+												node::identity::set(Some(
+													remote_info.public_key.to_bytes().to_vec(),
+												)),
+												node::node_peer_id::set(Some(
+													event.peer_id.to_string(),
+												)),
+											],
 										}
 										// TODO: Should this be in a transaction in case it fails?
 										.to_query(&library.db)
@@ -266,7 +272,7 @@ impl P2PManager {
 										); // TODO: Use hash of identity cert here cause pub_id can be forged
 									}
 									Header::Sync(library_id) => {
-										let mut stream = match event.stream {
+										let stream = match event.stream {
 											SpaceTimeStream::Unicast(stream) => stream,
 											_ => {
 												// TODO: Return an error to the remote client
@@ -444,9 +450,10 @@ impl P2PManager {
 				name: remote_info.name,
 				platform: remote_info.platform as i32,
 				date_created: Utc::now().into(),
-				_params: vec![node::identity::set(Some(
-					remote_info.public_key.to_bytes().to_vec(),
-				))],
+				_params: vec![
+					node::identity::set(Some(remote_info.public_key.to_bytes().to_vec())),
+					node::node_peer_id::set(Some(peer_id.to_string())),
+				],
 			}
 			// TODO: Should this be in a transaction in case it fails?
 			.to_query(&lib.db)
@@ -494,19 +501,24 @@ impl P2PManager {
 			.await
 			.unwrap()
 			.into_iter()
-			.map(|n| Uuid::from_slice(&n.pub_id).unwrap())
+			.map(|n| {
+				PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
+					.unwrap()
+			})
 			.collect::<Vec<_>>();
 
 		info!(
-			"Sending sync messages for library '{}' to '{:?}'",
+			"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
 			library_id, target_nodes
 		);
 
 		// TODO: Do in parallel
-		for target_node in target_nodes {
-			let mut stream = self.manager.stream(todo!()).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+		for peer_id in target_nodes {
+			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
-			let tunnel = Tunnel::from_stream(stream);
+			let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+
+			tunnel.write_all(&head_buf).await.unwrap();
 		}
 	}
 

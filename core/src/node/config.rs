@@ -15,7 +15,7 @@ use crate::util::migrator::{Migrate, MigratorError};
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
 	pub id: Uuid,
@@ -25,7 +25,6 @@ pub struct NodeConfig {
 	pub p2p_port: Option<u32>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
-	#[specta(skip)]
 	pub keypair: Keypair,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,

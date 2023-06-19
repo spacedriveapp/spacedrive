@@ -41,7 +41,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
-		let peer_id = PeerId(keypair.peer_id());
+		let peer_id = PeerId(keypair.raw_peer_id());
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
 
 		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
@@ -67,7 +67,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 			.boxed(),
 			SpaceTime::new(this.clone()),
-			keypair.peer_id(),
+			keypair.raw_peer_id(),
 		)
 		.build();
 		{

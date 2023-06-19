@@ -55,6 +55,7 @@ model Node {
     platform     Int
     date_created DateTime
     identity     Bytes? // TODO: Change to required field in future
+    node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
     jobs     Job[]
     Location Location[]
