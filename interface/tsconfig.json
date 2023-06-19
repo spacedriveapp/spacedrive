@@ -5,7 +5,7 @@
 		"paths": {
 			"~/*": ["./*"]
 		},
-		"types": ["vite-plugin-svgr/client", "vite/client"]
+		"types": ["vite-plugin-svgr/client", "vite/client", "node"],
 	},
 	"include": ["./**/*"],
 	"exclude": ["dist"],
