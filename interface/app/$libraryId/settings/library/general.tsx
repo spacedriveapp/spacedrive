@@ -1,4 +1,4 @@
-import { useBridgeMutation, useLibraryContext } from '@sd/client';
+import { MaybeUndefined, useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { useDebouncedFormWatch } from '~/hooks';
@@ -9,8 +9,13 @@ import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
 const schema = z.object({
 	id: z.string(),
 	name: z.string().min(1),
-	description: z.string()
+	description: z.string().nullable()
 });
+
+// TODO: With some extra upstream Specta work this should be able to be removed
+function toMaybeUndefined<T>(v: T | null | undefined): MaybeUndefined<T> {
+	return v as any;
+}
 
 export const Component = () => {
 	const { library } = useLibraryContext();
@@ -18,14 +23,17 @@ export const Component = () => {
 
 	const form = useZodForm({
 		schema,
-		defaultValues: { id: library!.uuid, ...library?.config }
+		defaultValues: {
+			id: library!.uuid,
+			...library?.config
+		}
 	});
 
 	useDebouncedFormWatch(form, (value) =>
 		editLibrary.mutate({
 			id: library.uuid,
 			name: value.name ?? null,
-			description: value.description ?? null
+			description: toMaybeUndefined(value.description)
 		})
 	);
 

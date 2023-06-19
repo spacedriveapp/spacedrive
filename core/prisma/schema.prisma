@@ -52,11 +52,10 @@ model Node {
     pub_id       Bytes    @unique
     name         String
     // Enum: sd_core::node::Platform
-    platform     Int      @default(0)
-    // version      String?
-    // last_seen    DateTime @default(now())
-    // timezone     String?
-    date_created DateTime @default(now())
+    platform     Int
+    date_created DateTime
+    identity     Bytes? // TODO: Change to required field in future
+    node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
 
     jobs     Job[]
     Location Location[]

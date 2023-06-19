@@ -9,7 +9,14 @@ impl Keypair {
 		Self(ed25519::Keypair::generate())
 	}
 
-	pub fn peer_id(&self) -> libp2p::PeerId {
+	pub fn peer_id(&self) -> crate::PeerId {
+		let pk: libp2p::identity::PublicKey = self.0.public().into();
+
+		crate::PeerId(libp2p::PeerId::from_public_key(&pk))
+	}
+
+	// TODO: Maybe try and remove
+	pub fn raw_peer_id(&self) -> libp2p::PeerId {
 		let pk: libp2p::identity::PublicKey = self.0.public().into();
 
 		libp2p::PeerId::from_public_key(&pk)

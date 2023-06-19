@@ -8,6 +8,7 @@ mod metadata_manager;
 mod peer;
 pub mod spaceblock;
 pub mod spacetime;
+pub mod spacetunnel;
 mod utils;
 
 pub use event::*;

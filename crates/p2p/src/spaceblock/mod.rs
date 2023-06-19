@@ -43,7 +43,7 @@ impl BlockSize {
 
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpacedropRequest {
+pub struct SpaceblockRequest {
 	pub name: String,
 	pub size: u64,
 	// TODO: Include file permissions
@@ -62,20 +62,24 @@ pub enum SpacedropRequestError {
 	SizeIoError(std::io::Error),
 }
 
-impl SpacedropRequest {
+impl SpaceblockRequest {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, SpacedropRequestError> {
-		let name_len = stream
-			.read_u16_le()
-			.await
-			.map_err(SpacedropRequestError::NameLenIoError)?;
-		let mut name = vec![0u8; name_len as usize];
-		stream
-			.read_exact(&mut name)
-			.await
-			.map_err(SpacedropRequestError::NameIoError)?;
-		let name = String::from_utf8(name).map_err(SpacedropRequestError::NameFormatError)?;
+		let name = {
+			let len = stream
+				.read_u16_le()
+				.await
+				.map_err(SpacedropRequestError::NameLenIoError)?;
+
+			let mut buf = vec![0u8; len as usize];
+			stream
+				.read_exact(&mut buf)
+				.await
+				.map_err(SpacedropRequestError::NameIoError)?;
+
+			String::from_utf8(buf).map_err(SpacedropRequestError::NameFormatError)?
+		};
 
 		let size = stream
 			.read_u64_le()
@@ -153,7 +157,7 @@ impl<'a> Block<'a> {
 
 /// TODO
 pub struct Transfer<'a, F> {
-	req: &'a SpacedropRequest,
+	req: &'a SpaceblockRequest,
 	on_progress: F,
 }
 
@@ -161,7 +165,7 @@ impl<'a, F> Transfer<'a, F>
 where
 	F: Fn(u8) + 'a,
 {
-	pub fn new(req: &'a SpacedropRequest, on_progress: F) -> Self {
+	pub fn new(req: &'a SpaceblockRequest, on_progress: F) -> Self {
 		Self { req, on_progress }
 	}
 
@@ -242,14 +246,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_spaceblock_request() {
-		let req = SpacedropRequest {
+		let req = SpaceblockRequest {
 			name: "Demo".to_string(),
 			size: 42069,
 			block_size: BlockSize::from_size(42069),
 		};
 
 		let bytes = req.to_bytes();
-		let req2 = SpacedropRequest::from_stream(&mut Cursor::new(bytes))
+		let req2 = SpaceblockRequest::from_stream(&mut Cursor::new(bytes))
 			.await
 			.unwrap();
 		assert_eq!(req, req2);
@@ -261,7 +265,7 @@ mod tests {
 
 		// This is sent out of band of Spaceblock
 		let data = b"Spacedrive".to_vec();
-		let req = SpacedropRequest {
+		let req = SpaceblockRequest {
 			name: "Demo".to_string(),
 			size: data.len() as u64,
 			block_size: BlockSize::from_size(data.len() as u64),
@@ -297,7 +301,7 @@ mod tests {
 		let data = vec![0u8; block_size as usize * 4]; // Let's pacman some RAM
 		let block_size = BlockSize::dangerously_new(block_size);
 
-		let req = SpacedropRequest {
+		let req = SpaceblockRequest {
 			name: "Demo".to_string(),
 			size: data.len() as u64,
 			block_size,

@@ -264,7 +264,7 @@ async fn process_step(
 			}
 			Ok(())
 		}
-		Err(e) => Err(e.into()),
+		Err(e) => Err(e),
 	}
 }
 

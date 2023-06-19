@@ -157,14 +157,15 @@ impl SyncManager {
 	pub async fn ingest_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		let db = &self.db;
 
-		db.node()
-			.upsert(
-				node::pub_id::equals(op.node.as_bytes().to_vec()),
-				node::create(op.node.as_bytes().to_vec(), "TEMP".to_string(), vec![]),
-				vec![],
-			)
+		if db
+			.node()
+			.find_unique(node::pub_id::equals(op.node.as_bytes().to_vec()))
 			.exec()
-			.await?;
+			.await?
+			.is_none()
+		{
+			panic!("Node is not paired!")
+		}
 
 		let msg = SyncMessage::Ingested(op.clone());
 
@@ -294,7 +295,6 @@ impl SyncManager {
 						.await?;
 				}
 			},
-			_ => todo!(),
 		}
 
 		if let CRDTOperationType::Shared(shared_op) = op.typ {
