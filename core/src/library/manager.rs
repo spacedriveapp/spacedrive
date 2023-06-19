@@ -167,6 +167,7 @@ impl LibraryManager {
 						config_path,
 						node_context.clone(),
 						&subscribers,
+						None,
 					)
 					.await?,
 				);
@@ -234,22 +235,17 @@ impl LibraryManager {
 			config_path,
 			self.node_context.clone(),
 			&self.subscribers,
+			Some(node::Create {
+				pub_id: config.node_id.as_bytes().to_vec(),
+				name: node_cfg.name.clone(),
+				platform: Platform::current() as i32,
+				date_created: Local::now().into(),
+				_params: vec![
+					node::identity::set(Some(config.identity.clone())),
+					node::node_peer_id::set(Some(node_cfg.keypair.peer_id().to_string())),
+				],
+			}),
 		)
-		.await?;
-
-		// Create node
-		node::Create {
-			pub_id: config.node_id.as_bytes().to_vec(),
-			name: node_cfg.name.clone(),
-			platform: Platform::current() as i32,
-			date_created: Local::now().into(),
-			_params: vec![
-				node::identity::set(Some(config.identity.clone())),
-				node::node_peer_id::set(Some(node_cfg.keypair.peer_id().to_string())),
-			],
-		}
-		.to_query(&library.db)
-		.exec()
 		.await?;
 
 		debug!("Loaded library '{id:?}'");
@@ -389,6 +385,7 @@ impl LibraryManager {
 		config_path: PathBuf,
 		node_context: NodeContext,
 		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
+		create: Option<node::Create>,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -398,6 +395,10 @@ impl LibraryManager {
 			})?
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
+
+		if let Some(create) = create {
+			create.to_query(&db).exec().await?;
+		}
 
 		let node_config = node_context.config.get().await;
 		let config = LibraryConfig::load_and_migrate(
