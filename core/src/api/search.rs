@@ -3,7 +3,7 @@ use crate::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
 		utils::library,
 	},
-	library::Library,
+	library::{Category, Library},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		find_location, LocationError,
@@ -191,6 +191,8 @@ struct ObjectFilterArgs {
 	kind: BTreeSet<i32>,
 	#[serde(default)]
 	tags: Vec<i32>,
+	#[specta(optional)]
+	category: Option<Category>,
 }
 
 impl ObjectFilterArgs {
@@ -211,6 +213,7 @@ impl ObjectFilterArgs {
 
 					tags::some(vec![tags_on_object])
 				}),
+				self.category.map(Category::to_where_param),
 			],
 		)
 	}

@@ -189,7 +189,7 @@ export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
-export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[] }
+export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
