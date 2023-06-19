@@ -18,6 +18,7 @@ use sd_p2p::{
 	spacetunnel::{Identity, RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
+use sd_prisma::prisma::node;
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
@@ -31,9 +32,10 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::Library,
+	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	sync::SyncMessage,
 };
 
 use super::{Header, PeerMetadata};
@@ -64,12 +66,14 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pairing_id: AtomicU16,
+	library_manager: Arc<LibraryManager>,
 }
 
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-	) -> Result<(Arc<Self>, broadcast::Receiver<(Uuid, Vec<CRDTOperation>)>), ManagerError> {
+		library_manager: Arc<LibraryManager>,
+	) -> Result<Arc<Self>, ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(Self::config_to_metadata(&config), config.keypair)
@@ -88,7 +92,6 @@ impl P2PManager {
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
-		let (tx2, rx2) = broadcast::channel(100);
 
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
@@ -98,6 +101,7 @@ impl P2PManager {
 			// let sync_events = tx2.clone();
 			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = spacedrop_progress.clone();
+			let library_manager = library_manager.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -123,9 +127,9 @@ impl P2PManager {
 						}
 						Event::PeerMessage(mut event) => {
 							let events = events.clone();
-							let sync_events = tx2.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
+							let library_manager = library_manager.clone();
 
 							tokio::spawn(async move {
 								let header = Header::from_stream(&mut event.stream).await.unwrap();
@@ -205,10 +209,10 @@ impl P2PManager {
 											event.peer_id
 										);
 
-										// TODO: Security stuff
+										// TODO: Authentication and security stuff
 
 										let public_key = {
-											// TODO: Prevent DOS
+											// TODO: Prevent DOS + timeout
 											let len = event.stream.read_u16_le().await.unwrap();
 											let mut buf = vec![0; len as usize];
 											let data =
@@ -216,13 +220,51 @@ impl P2PManager {
 											RemoteIdentity::from_bytes(&buf).unwrap()
 										};
 
-										// TODO: Put remove node into the local DB
+										let library = library_manager
+											.get_library(library_id.clone())
+											.await
+											.unwrap();
+
+										node::Create {
+											pub_id: todo!(),
+											name: todo!(),
+											platform: todo!(),
+											date_created: todo!(),
+											_params: vec![node::identity::set(Some(
+												public_key.to_bytes().to_vec(),
+											))],
+										}
+										.to_query(&library.db)
+										.exec()
+										.await
+										.unwrap();
+
+										// info!("Paired with '{}' for library '{library_id}'");
 									}
 									Header::Sync(library_id) => {
 										let tunnel =
 											Tunnel::from_stream(event.stream).await.unwrap();
 
 										todo!();
+
+										// debug!("going to ingest {} operations", operations.len());
+
+										// let Some(library) = library_manager.get_library(library_id).await else {
+										// 	warn!("no library found!");
+										// };
+
+										// for op in operations {
+										// 	library.sync.ingest_op(op).await.unwrap_or_else(
+										// 		|err| {
+										// 			error!(
+										// 				"error ingesting operation for library '{}': {err:?}",
+										// 				library.id
+										// 			);
+										// 		},
+										// 	);
+										// }
+
+										// TODO: BREAK
 
 										// let mut len = [0; 4];
 										// stream
@@ -271,7 +313,27 @@ impl P2PManager {
 			metadata_manager,
 			spacedrop_progress,
 			pairing_id: AtomicU16::new(0),
+			library_manager: library_manager.clone(),
 		});
+
+		library_manager
+			.subscribe({
+				let this = this.clone();
+				move |event| match event {
+					SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
+						let this = this.clone();
+						tokio::spawn(async move {
+							while let Ok(op) = sync_rx.recv().await {
+								let SyncMessage::Created(op) = op else { continue; };
+
+								this.broadcast_sync_events(library_id, &library_identity, vec![op])
+									.await;
+							}
+						});
+					}
+				}
+			})
+			.await;
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
@@ -284,7 +346,7 @@ impl P2PManager {
 			}
 		});
 
-		Ok((this, rx2))
+		Ok(this)
 	}
 
 	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {

@@ -23,11 +23,32 @@ use std::{
 use chrono::Local;
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use thiserror::Error;
-use tokio::{fs, io, sync::RwLock, try_join};
+use tokio::{
+	fs, io,
+	sync::{broadcast, RwLock},
+	try_join,
+};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped};
+
+pub enum SubscriberEvent {
+	Load(Uuid, Arc<Identity>, broadcast::Receiver<SyncMessage>),
+}
+
+impl Clone for SubscriberEvent {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Load(id, identity, receiver) => {
+				Self::Load(*id, identity.clone(), receiver.resubscribe())
+			}
+		}
+	}
+}
+
+pub trait SubscriberFn: Fn(SubscriberEvent) + Send + Sync + 'static {}
+impl<F: Fn(SubscriberEvent) + Send + Sync + 'static> SubscriberFn for F {}
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -37,6 +58,8 @@ pub struct LibraryManager {
 	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
 	node_context: NodeContext,
+	/// on load subscribers
+	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
 }
 
 #[derive(Error, Debug)]
@@ -95,6 +118,7 @@ impl LibraryManager {
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
 		let mut libraries = Vec::new();
+		let subscribers = RwLock::new(Vec::new());
 		let mut read_dir = fs::read_dir(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
@@ -137,7 +161,14 @@ impl LibraryManager {
 				}
 
 				libraries.push(
-					Self::load(library_id, &db_path, config_path, node_context.clone()).await?,
+					Self::load(
+						library_id,
+						&db_path,
+						config_path,
+						node_context.clone(),
+						&subscribers,
+					)
+					.await?,
 				);
 			}
 		}
@@ -146,11 +177,24 @@ impl LibraryManager {
 			libraries: RwLock::new(libraries),
 			libraries_dir,
 			node_context,
+			subscribers,
 		});
 
 		debug!("LibraryManager initialized");
 
 		Ok(this)
+	}
+
+	/// subscribe to library events
+	pub(crate) async fn subscribe<F: SubscriberFn>(&self, f: F) {
+		self.subscribers.write().await.push(Box::new(f));
+	}
+
+	async fn emit(subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>, event: SubscriberEvent) {
+		let subscribers = subscribers.read().await;
+		for subscriber in subscribers.iter() {
+			subscriber(event.clone());
+		}
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
@@ -189,6 +233,7 @@ impl LibraryManager {
 			self.libraries_dir.join(format!("{id}.db")),
 			config_path,
 			self.node_context.clone(),
+			&self.subscribers,
 		)
 		.await?;
 
@@ -332,11 +377,12 @@ impl LibraryManager {
 	}
 
 	/// load the library from a given path
-	pub(crate) async fn load(
+	async fn load(
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: PathBuf,
 		node_context: NodeContext,
+		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -402,22 +448,13 @@ impl LibraryManager {
 
 		rules::seeder(&db).await?;
 
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, id);
+		let (sync_manager, sync_rx) = SyncManager::new(&db, id);
 
-		tokio::spawn({
-			let node_context = node_context.clone();
-			let identity = identity.clone();
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
-
-					node_context
-						.p2p
-						.broadcast_sync_events(id, &identity, vec![op])
-						.await;
-				}
-			}
-		});
+		Self::emit(
+			subscribers,
+			SubscriberEvent::Load(id.clone(), identity.clone(), sync_rx),
+		)
+		.await;
 
 		let library = Library {
 			id,

@@ -34,6 +34,10 @@ impl RemoteIdentity {
 		Ok(Self(ed25519_dalek::PublicKey::from_bytes(bytes)?))
 	}
 
+	pub fn to_bytes(&self) -> [u8; 32] {
+		self.0.to_bytes()
+	}
+
 	pub fn public_key(&self) -> PublicKey {
 		self.0
 	}
