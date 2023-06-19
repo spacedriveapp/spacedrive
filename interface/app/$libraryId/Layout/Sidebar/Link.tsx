@@ -30,10 +30,9 @@ const Link = forwardRef<
 		<NavLink
 			onClick={(e) => {
 				// Prevent default action if Command (metaKey) or Control is pressed
-				if (e.metaKey || e.ctrlKey) {
+				if (e.metaKey || e.ctrlKey || disabled) {
 					e.preventDefault();
-				}
-				if (!disabled) {
+				} else {
 					onClick?.(e);
 				}
 			}}
