@@ -11,6 +11,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
+use chrono::Utc;
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
@@ -33,8 +34,8 @@ use uuid::Uuid;
 
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
-	node::{NodeConfig, NodeConfigManager},
-	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	node::{NodeConfig, NodeConfigManager, Platform},
+	p2p::{NodeInformation, OperatingSystem, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
@@ -204,6 +205,15 @@ impl P2PManager {
 										};
 									}
 									Header::Pair(library_id) => {
+										let mut stream = match event.stream {
+											SpaceTimeStream::Unicast(stream) => stream,
+											_ => {
+												// TODO: Return an error to the remote client
+												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
+												return;
+											}
+										};
+
 										info!(
 											"Starting pairing with '{}' for library '{library_id}'",
 											event.peer_id
@@ -211,35 +221,50 @@ impl P2PManager {
 
 										// TODO: Authentication and security stuff
 
-										let public_key = {
-											// TODO: Prevent DOS + timeout
-											let len = event.stream.read_u16_le().await.unwrap();
-											let mut buf = vec![0; len as usize];
-											let data =
-												event.stream.read_exact(&mut buf).await.unwrap();
-											RemoteIdentity::from_bytes(&buf).unwrap()
-										};
-
 										let library = library_manager
 											.get_library(library_id.clone())
 											.await
 											.unwrap();
 
+										debug!("Waiting for nodeinfo from the remote node");
+										let remote_info = NodeInformation::from_stream(&mut stream)
+											.await
+											.unwrap();
+										debug!(
+											"Received nodeinfo from the remote node: {:?}",
+											remote_info
+										);
+
+										debug!("Creating node in database");
 										node::Create {
-											pub_id: todo!(),
-											name: todo!(),
-											platform: todo!(),
-											date_created: todo!(),
+											pub_id: remote_info.pub_id.as_bytes().to_vec(),
+											name: remote_info.name,
+											platform: remote_info.platform as i32,
+											date_created: Utc::now().into(),
 											_params: vec![node::identity::set(Some(
-												public_key.to_bytes().to_vec(),
+												remote_info.public_key.to_bytes().to_vec(),
 											))],
 										}
+										// TODO: Should this be in a transaction in case it fails?
 										.to_query(&library.db)
 										.exec()
 										.await
 										.unwrap();
 
-										// info!("Paired with '{}' for library '{library_id}'");
+										let info = NodeInformation {
+											pub_id: todo!(),
+											name: todo!(),
+											public_key: todo!(),
+											platform: todo!(),
+										};
+
+										debug!("Sending nodeinfo to the remote node");
+										stream.write_all(&info.to_bytes()).await.unwrap();
+
+										info!(
+											"Paired with '{}' for library '{library_id}'",
+											remote_info.pub_id
+										); // TODO: Use hash of identity cert here cause pub_id can be forged
 									}
 									Header::Sync(library_id) => {
 										let tunnel =
@@ -398,21 +423,39 @@ impl P2PManager {
 			// TODO: Apply some security here cause this is so open to MITM
 			// TODO: Signing and a SPAKE style pin prompt
 
-			let public_key = lib.identity.public_key();
-			let public_key = public_key.to_bytes();
-			stream
-				.write_all(&public_key.len().to_le_bytes())
-				.await
-				.unwrap();
-			stream.write_all(&public_key).await.unwrap();
+			let info = NodeInformation {
+				pub_id: lib.config.node_id,
+				name: lib.config.name,
+				public_key: lib.identity.to_remote_identity(),
+				platform: Platform::current(),
+			};
 
-			// TODO: Send nodeinfo
+			debug!("Sending nodeinfo to remote node");
+			stream.write_all(&info.to_bytes()).await.unwrap();
 
-			// TODO: Recieve nodeinfo
+			debug!("Waiting for nodeinfo from the remote node");
+			let remote_info = NodeInformation::from_stream(&mut stream).await.unwrap();
+			debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
-			// lib.db.node().create(pub_id, name, params);
+			node::Create {
+				pub_id: remote_info.pub_id.as_bytes().to_vec(),
+				name: remote_info.name,
+				platform: remote_info.platform as i32,
+				date_created: Utc::now().into(),
+				_params: vec![node::identity::set(Some(
+					remote_info.public_key.to_bytes().to_vec(),
+				))],
+			}
+			// TODO: Should this be in a transaction in case it fails?
+			.to_query(&lib.db)
+			.exec()
+			.await
+			.unwrap();
 
-			// TODO: Add remote node into local DB
+			info!(
+				"Paired with '{}' for library '{}'",
+				remote_info.pub_id, lib.id
+			); // TODO: Use hash of identity cert here cause pub_id can be forged
 		});
 
 		pairing_id

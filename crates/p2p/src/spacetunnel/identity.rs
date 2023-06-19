@@ -25,8 +25,12 @@ impl Identity {
 	pub fn public_key(&self) -> PublicKey {
 		self.0.public
 	}
-}
 
+	pub fn to_remote_identity(&self) -> RemoteIdentity {
+		RemoteIdentity(self.0.public)
+	}
+}
+#[derive(Debug, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
 
 impl RemoteIdentity {

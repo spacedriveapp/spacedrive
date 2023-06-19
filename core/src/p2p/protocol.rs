@@ -7,6 +7,7 @@ use uuid::Uuid;
 use sd_p2p::{
 	spaceblock::{SpaceblockRequest, SpacedropRequestError},
 	spacetime::SpaceTimeStream,
+	spacetunnel::{IdentityErr, RemoteIdentity},
 };
 
 use crate::node::Platform;
@@ -109,16 +110,22 @@ impl Header {
 
 #[derive(Debug, Error)]
 pub enum NodeInformationError {
+	#[error("io error decoding node information library pub_id: {0}")]
+	ErrorDecodingUuid(std::io::Error),
+	#[error("error formatting node information library pub_id: {0}")]
+	UuidFormatError(uuid::Error),
 	#[error("io error reading node information library name length: {0}")]
 	NameLenIoError(std::io::Error),
 	#[error("io error decoding node information library name: {0}")]
 	ErrorDecodingName(std::io::Error),
-	#[error("io error formatting node information library name: {0}")]
+	#[error("error formatting node information library name: {0}")]
 	NameFormatError(FromUtf8Error),
 	#[error("io error reading node information public key length: {0}")]
 	PublicKeyLenIoError(std::io::Error),
 	#[error("io error decoding node information public key: {0}")]
 	ErrorDecodingPublicKey(std::io::Error),
+	#[error("error decoding public key: {0}")]
+	ErrorParsingPublicKey(#[from] IdentityErr),
 	#[error("io error reading node information platform id: {0}")]
 	PlatformIdError(std::io::Error),
 }
@@ -126,8 +133,9 @@ pub enum NodeInformationError {
 /// is shared between nodes during pairing and contains the information to identify the node.
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeInformation {
+	pub pub_id: Uuid,
 	pub name: String,
-	pub public_key: Vec<u8>,
+	pub public_key: RemoteIdentity,
 	pub platform: Platform,
 }
 
@@ -135,6 +143,16 @@ impl NodeInformation {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, NodeInformationError> {
+		let pub_id = {
+			let mut buf = vec![0u8; 16];
+			stream
+				.read_exact(&mut buf)
+				.await
+				.map_err(NodeInformationError::ErrorDecodingUuid)?;
+
+			Uuid::from_slice(&buf).map_err(NodeInformationError::UuidFormatError)?
+		};
+
 		let name = {
 			let len = stream
 				.read_u16_le()
@@ -161,7 +179,8 @@ impl NodeInformation {
 				.read_exact(&mut buf)
 				.await
 				.map_err(NodeInformationError::ErrorDecodingPublicKey)?;
-			buf
+
+			RemoteIdentity::from_bytes(&buf)?
 		};
 
 		let platform = stream
@@ -170,6 +189,7 @@ impl NodeInformation {
 			.map_err(NodeInformationError::PlatformIdError)?;
 
 		Ok(Self {
+			pub_id,
 			name,
 			public_key,
 			platform: Platform::try_from(platform).unwrap_or(Platform::Unknown),
@@ -178,6 +198,9 @@ impl NodeInformation {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
+
+		// Pub id
+		buf.extend(self.pub_id.as_bytes());
 
 		// Name
 		let len_buf = (self.name.len() as u16).to_le_bytes();
@@ -188,12 +211,13 @@ impl NodeInformation {
 		buf.extend(self.name.as_bytes());
 
 		// Public key // TODO: Can I use a fixed size array?
-		let len_buf = (self.public_key.len() as u16).to_le_bytes();
-		if self.public_key.len() > u16::MAX as usize {
+		let pk = self.public_key.to_bytes();
+		let len_buf = (pk.len() as u16).to_le_bytes();
+		if pk.len() > u16::MAX as usize {
 			panic!("Public key is too long!"); // TODO: Error handling
 		}
 		buf.extend_from_slice(&len_buf);
-		buf.extend(self.public_key.clone());
+		buf.extend(pk.clone());
 
 		// Platform
 		buf.push(self.platform as u8);
@@ -205,12 +229,14 @@ impl NodeInformation {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sd_p2p::spacetunnel::Identity;
 
 	#[tokio::test]
 	async fn test_node_information() {
 		let original = NodeInformation {
+			pub_id: Uuid::new_v4(),
 			name: "Name".into(),
-			public_key: vec![b'a', b'b', b'c'],
+			public_key: Identity::new().to_remote_identity(),
 			platform: Platform::current(),
 		};
 
