@@ -13,7 +13,7 @@ use std::{
 
 use futures::Stream;
 use sd_p2p::{
-	spaceblock::{BlockSize, SpacedropRequest, Transfer},
+	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetime::SpaceTimeStream,
 	spacetunnel::{Identity, RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
@@ -470,7 +470,7 @@ impl P2PManager {
 		let file = File::open(&path).await.map_err(|_| ())?;
 		let metadata = file.metadata().await.map_err(|_| ())?;
 
-		let header = Header::Spacedrop(SpacedropRequest {
+		let header = Header::Spacedrop(SpaceblockRequest {
 			name: path
 				.file_name()
 				.map(|v| v.to_string_lossy())

@@ -3,7 +3,7 @@ use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
 use sd_p2p::{
-	spaceblock::{SpacedropRequest, SpacedropRequestError},
+	spaceblock::{SpaceblockRequest, SpacedropRequestError},
 	spacetime::SpaceTimeStream,
 };
 
@@ -13,7 +13,7 @@ use crate::node::Platform;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
 	Ping,
-	Spacedrop(SpacedropRequest),
+	Spacedrop(SpaceblockRequest),
 	Pair(Uuid),
 	Sync(Uuid),
 }
@@ -52,7 +52,7 @@ impl Header {
 		match discriminator {
 			0 => match stream {
 				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
-					SpacedropRequest::from_stream(stream).await?,
+					SpaceblockRequest::from_stream(stream).await?,
 				)),
 				_ => Err(HeaderError::SpacedropOverMulticastIsForbidden),
 			},
